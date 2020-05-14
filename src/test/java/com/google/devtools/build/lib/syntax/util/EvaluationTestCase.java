@@ -92,7 +92,7 @@ public class EvaluationTestCase {
    */
   public final void setSemantics(String... options) throws OptionsParsingException {
     StarlarkSemantics semantics =
-        Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toSkylarkSemantics();
+        Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toStarlarkSemantics();
 
     // Re-initialize the thread with the new semantics.
     this.thread = newStarlarkThread(semantics);

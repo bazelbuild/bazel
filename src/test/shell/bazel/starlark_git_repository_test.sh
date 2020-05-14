@@ -628,4 +628,4 @@ EOF
   expect_log "shallow_since not allowed if a tag is specified; --depth=1 will be used for tags"
 }
 
-run_suite "skylark git_repository tests"
+run_suite "Starlark git_repository tests"

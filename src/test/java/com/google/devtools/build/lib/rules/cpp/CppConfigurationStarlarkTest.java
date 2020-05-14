@@ -25,7 +25,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for C++ fragments in Starlark. */
 @RunWith(JUnit4.class)
-public final class CppConfigurationSkylarkTest extends BuildViewTestCase {
+public final class CppConfigurationStarlarkTest extends BuildViewTestCase {
 
   @Test
   public void testMinimumOsVersion() throws Exception {

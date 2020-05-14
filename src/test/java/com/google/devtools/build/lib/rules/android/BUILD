@@ -32,8 +32,8 @@ java_test(
 )
 
 java_test(
-    name = "AndroidSkylarkTest",
-    srcs = ["AndroidSkylarkTest.java"],
+    name = "AndroidStarlarkTest",
+    srcs = ["AndroidStarlarkTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",

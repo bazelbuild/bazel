@@ -33,7 +33,7 @@ import org.junit.runners.JUnit4;
  * using a Starlark stub around the Starlark API.
  */
 @RunWith(JUnit4.class)
-public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
+public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
 
   static final RuleType RULE_TYPE = new RuleType("apple_binary_skylark") {
     @Override
@@ -44,7 +44,7 @@ public class AppleBinarySkylarkApiTest extends AppleBinaryTest {
     }
 
     @Override
-    public String skylarkLoadPrerequisites() {
+    public String starlarkLoadPrerequisites() {
        return "load('//test_skylark:apple_binary_skylark.bzl', 'apple_binary_skylark')";
     }
   };

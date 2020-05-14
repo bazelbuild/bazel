@@ -123,7 +123,7 @@ class WorkspaceFactoryTestHelper {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(options);
-    return parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
+    return parser.getOptions(StarlarkSemanticsOptions.class).toStarlarkSemantics();
   }
 
 }

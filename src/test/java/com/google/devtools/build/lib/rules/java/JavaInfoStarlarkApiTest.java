@@ -32,7 +32,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests JavaInfo API for Starlark. */
 @RunWith(JUnit4.class)
-public class JavaInfoSkylarkApiTest extends BuildViewTestCase {
+public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
 
   private static final String HOST_JAVA_RUNTIME_LABEL =
       TestConstants.TOOLS_REPOSITORY + "//tools/jdk:current_host_java_runtime";

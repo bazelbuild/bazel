@@ -25,7 +25,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for cc autoconfiguration. */
 @RunWith(JUnit4.class)
-public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
+public class StarlarkCcToolchainConfigureTest extends EvaluationTestCase {
 
   @Test
   public void testSplitEscaped() throws Exception {
@@ -50,8 +50,8 @@ public class SkylarkCcToolchainConfigureTest extends EvaluationTestCase {
         .testExpression("split_escaped('a%:', ':')", StarlarkList.of(mu, "a:"));
   }
 
-  private Scenario newTest(String... skylarkOptions) throws IOException {
-    return new Scenario(skylarkOptions)
+  private Scenario newTest(String... starlarkOptions) throws IOException {
+    return new Scenario(starlarkOptions)
         // A mock implementation of Label to be able to parse lib_cc_configure under default
         // Starlark environment (lib_cc_configure is meant to be used from the repository
         // environment).

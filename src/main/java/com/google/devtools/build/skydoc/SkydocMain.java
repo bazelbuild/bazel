@@ -223,7 +223,7 @@ public class SkydocMain {
     try {
       new SkydocMain(new FilesystemFileAccessor(), skydocOptions.workspaceName, depRoots)
           .eval(
-              semanticsOptions.toSkylarkSemantics(),
+              semanticsOptions.toStarlarkSemantics(),
               targetFileLabel,
               ruleInfoMap,
               providerInfoMap,

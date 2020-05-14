@@ -45,7 +45,7 @@ import org.junit.runners.JUnit4;
  * the imports of their respective definition SkylarkEnvironments.
  */
 @RunWith(JUnit4.class)
-public class SkylarkFileContentHashTests extends BuildViewTestCase {
+public class StarlarkFileContentHashTests extends BuildViewTestCase {
 
   @Before
   public final void createFiles() throws Exception  {

@@ -73,7 +73,7 @@ import org.junit.runners.JUnit4;
 
 /** Integration tests for Starlark. */
 @RunWith(JUnit4.class)
-public class SkylarkIntegrationTest extends BuildViewTestCase {
+public class StarlarkIntegrationTest extends BuildViewTestCase {
   protected boolean keepGoing() {
     return false;
   }
@@ -2973,7 +2973,7 @@ public class SkylarkIntegrationTest extends BuildViewTestCase {
 
   /** Starlark integration test that forces inlining. */
   @RunWith(JUnit4.class)
-  public static class SkylarkIntegrationTestsWithInlineCalls extends SkylarkIntegrationTest {
+  public static class StarlarkIntegrationTestsWithInlineCalls extends StarlarkIntegrationTest {
 
     @Before
     public final void initializeLookupFunctions() throws Exception {

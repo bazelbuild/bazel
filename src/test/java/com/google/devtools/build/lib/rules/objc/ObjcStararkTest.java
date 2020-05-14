@@ -42,7 +42,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Starlark interaction with the objc_* rules. */
 @RunWith(JUnit4.class)
-public class ObjcSkylarkTest extends ObjcRuleTestCase {
+public class ObjcStararkTest extends ObjcRuleTestCase {
   private void writeObjcSplitTransitionTestFiles() throws Exception {
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -93,7 +93,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkRuleCanDependOnNativeAppleRule() throws Exception {
+  public void testStarlarkRuleCanDependOnNativeAppleRule() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -123,14 +123,14 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    hdrs = ['b.h']",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
-    Depset skylarkLibraries = (Depset) myInfo.getValue("found_libs");
-    Depset skylarkHdrs = (Depset) myInfo.getValue("found_hdrs");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
+    Depset starlarkLibraries = (Depset) myInfo.getValue("found_libs");
+    Depset starlarkHdrs = (Depset) myInfo.getValue("found_hdrs");
 
-    assertThat(ActionsTestUtil.baseArtifactNames(skylarkLibraries.getSet(Artifact.class)))
+    assertThat(ActionsTestUtil.baseArtifactNames(starlarkLibraries.getSet(Artifact.class)))
         .contains("liblib.a");
-    assertThat(ActionsTestUtil.baseArtifactNames(skylarkHdrs.getSet(Artifact.class)))
+    assertThat(ActionsTestUtil.baseArtifactNames(starlarkHdrs.getSet(Artifact.class)))
         .contains("b.h");
   }
 
@@ -164,15 +164,15 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    name = 'dep',",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//test:test");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//test:test");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
     Depset defineSet = (Depset) myInfo.getValue("define");
 
     assertThat(defineSet.getSet(String.class).toList()).containsExactly("mock_define");
   }
 
   @Test
-  public void testSkylarkProviderRetrievalNoneIfNoProvider() throws Exception {
+  public void testStarlarkProviderRetrievalNoneIfNoProvider() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -217,7 +217,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkProviderCanCheckForExistanceOfObjcProvider() throws Exception {
+  public void testStarlarkProviderCanCheckForExistanceOfObjcProvider() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -248,8 +248,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    name = 'cc_lib',",
         "    srcs = ['a.cc'],",
         ")");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
     boolean ccResult = (boolean) myInfo.getValue("cc_has_provider");
     boolean objcResult = (boolean) myInfo.getValue("objc_has_provider");
     assertThat(ccResult).isFalse();
@@ -257,7 +257,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkExportsObjcProviderToNativeRulePreMigration() throws Exception {
+  public void testStarlarkExportsObjcProviderToNativeRulePreMigration() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -309,7 +309,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkExportsObjcProviderToNativeRulePostMigration() throws Exception {
+  public void testStarlarkExportsObjcProviderToNativeRulePostMigration() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -352,7 +352,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcRuleCanDependOnArbitrarySkylarkRuleThatProvidesObjcPreMigration()
+  public void testObjcRuleCanDependOnArbitraryStarlarkRuleThatProvidesObjcPreMigration()
       throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
@@ -389,7 +389,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcRuleCanDependOnArbitrarySkylarkRuleThatProvidesObjcPostMigration()
+  public void testObjcRuleCanDependOnArbitraryStarlarkRuleThatProvidesObjcPostMigration()
       throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
@@ -426,7 +426,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanAccessAppleConfiguration() throws Exception {
+  public void testStarlarkCanAccessAppleConfiguration() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -478,8 +478,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386", "--xcode_version=7.3");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
     Object iosCpu = myInfo.getValue("cpu");
     @SuppressWarnings("unchecked")
@@ -529,9 +529,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration();
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    assertThat(getMyInfoFromTarget(skylarkTarget).getValue("dead_code_report")).isEqualTo("None");
+    assertThat(getMyInfoFromTarget(starlarkTarget).getValue("dead_code_report")).isEqualTo("None");
   }
 
   @Test
@@ -571,13 +571,13 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "dead_code_report(name='dead_code_report')");
 
     useConfiguration("--j2objc_dead_code_report=//examples/apple_skylark:dead_code_report");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    assertThat(getMyInfoFromTarget(skylarkTarget).getValue("dead_code_report")).isEqualTo("bar");
+    assertThat(getMyInfoFromTarget(starlarkTarget).getValue("dead_code_report")).isEqualTo("bar");
   }
 
   @Test
-  public void testSkylarkCanAccessJ2objcTranslationFlags() throws Exception {
+  public void testStarlarkCanAccessJ2objcTranslationFlags() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -602,16 +602,17 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--j2objc_translation_flags=-DTestJ2ObjcFlag");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
     @SuppressWarnings("unchecked")
-    List<String> flags = (List<String>) getMyInfoFromTarget(skylarkTarget).getValue("j2objc_flags");
+    List<String> flags = (List<String>) getMyInfoFromTarget(starlarkTarget)
+        .getValue("j2objc_flags");
     assertThat(flags).contains("-DTestJ2ObjcFlag");
     assertThat(flags).doesNotContain("-unspecifiedFlag");
   }
 
   @Test
-  public void testSkylarkCanAccessApplePlatformNames() throws Exception {
+  public void testStarlarkCanAccessApplePlatformNames() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -635,14 +636,14 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--cpu=ios_i386");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    Object name = getMyInfoFromTarget(skylarkTarget).getValue("name");
+    Object name = getMyInfoFromTarget(starlarkTarget).getValue("name");
     assertThat(name).isEqualTo("iPhoneSimulator");
   }
 
   @Test
-  public void testSkylarkCanAccessAppleToolchain() throws Exception {
+  public void testStarlarkCanAccessAppleToolchain() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -671,8 +672,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--apple_platform_type=ios", "--cpu=ios_i386");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
     String platformDevFrameworksDir = (String) myInfo.getValue("platform_developer_framework_dir");
     String sdkDir = (String) myInfo.getValue("sdk_dir");
@@ -685,7 +686,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanAccessSdkAndMinimumOs() throws Exception {
+  public void testStarlarkCanAccessSdkAndMinimumOs() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -736,8 +737,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "--watchos_sdk_version=2.1", "--watchos_minimum_os=2.0",
         "--tvos_sdk_version=3.1", "--tvos_minimum_os=3.0",
         "--macos_sdk_version=4.1");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
     assertThat(myInfo.getValue("ios_sdk_version")).isEqualTo("1.1");
     assertThat(myInfo.getValue("ios_minimum_os")).isEqualTo("1.0");
@@ -751,8 +752,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "--watchos_sdk_version=2.1",
         "--tvos_sdk_version=3.1",
         "--macos_sdk_version=4.1");
-    skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    myInfo = getMyInfoFromTarget(skylarkTarget);
+    starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    myInfo = getMyInfoFromTarget(starlarkTarget);
 
     assertThat(myInfo.getValue("ios_sdk_version")).isEqualTo("1.1");
     assertThat(myInfo.getValue("ios_minimum_os")).isEqualTo("1.1");
@@ -764,7 +765,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanAccessObjcConfiguration() throws Exception {
+  public void testStarlarkCanAccessObjcConfiguration() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/objc_rules.bzl",
@@ -805,8 +806,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "--ios_simulator_version=8.4",
         "--ios_signing_cert_name='Apple Developer'",
         "--apple_generate_dsym");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
     @SuppressWarnings("unchecked")
     List<String> copts = (List<String>) myInfo.getValue("copts");
@@ -850,10 +851,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   name='my_target',",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
 
     Object signingCertificateName =
-        getMyInfoFromTarget(skylarkTarget).getValue("signing_certificate_name");
+        getMyInfoFromTarget(starlarkTarget).getValue("signing_certificate_name");
     assertThat(signingCertificateName).isEqualTo("None");
   }
 
@@ -883,10 +884,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--compilation_mode=dbg");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
 
     boolean usesDeviceDebugEntitlements =
-        (boolean) getMyInfoFromTarget(skylarkTarget).getValue("uses_device_debug_entitlements");
+        (boolean) getMyInfoFromTarget(starlarkTarget).getValue("uses_device_debug_entitlements");
     assertThat(usesDeviceDebugEntitlements).isTrue();
   }
 
@@ -918,10 +919,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     useConfiguration(
         "--compilation_mode=dbg",
         "--nodevice_debug_entitlements");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
 
     boolean usesDeviceDebugEntitlements =
-        (boolean) getMyInfoFromTarget(skylarkTarget).getValue("uses_device_debug_entitlements");
+        (boolean) getMyInfoFromTarget(starlarkTarget).getValue("uses_device_debug_entitlements");
     assertThat(usesDeviceDebugEntitlements).isFalse();
   }
 
@@ -951,14 +952,14 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--compilation_mode=opt");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/objc_skylark:my_target");
 
     boolean usesDeviceDebugEntitlements =
-        (boolean) getMyInfoFromTarget(skylarkTarget).getValue("uses_device_debug_entitlements");
+        (boolean) getMyInfoFromTarget(starlarkTarget).getValue("uses_device_debug_entitlements");
     assertThat(usesDeviceDebugEntitlements).isFalse();
   }
 
-  private ConfiguredTarget createObjcProviderSkylarkTarget(String... implLines) throws Exception {
+  private ConfiguredTarget createObjcProviderStarlarkTarget(String... implLines) throws Exception {
     String[] impl =
         ObjectArrays.concat(
             ObjectArrays.concat("def swift_binary_impl(ctx):", implLines),
@@ -992,9 +993,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderFromScratch() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderFromScratch() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   defines = depset(['define1', 'define2'])",
             "   linkopts = depset(['somelinkopt'])",
             "   created_provider = apple_common.new_objc_provider\\",
@@ -1002,11 +1003,11 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
             "   return [created_provider]");
 
     Iterable<String> foundLinkopts =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINKOPT).toList();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINKOPT).toList();
     Iterable<String> foundDefines =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).define().toList();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).define().toList();
     boolean usesSwift =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).is(ObjcProvider.Flag.USES_SWIFT);
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).is(ObjcProvider.Flag.USES_SWIFT);
 
     assertThat(foundLinkopts).containsExactly("somelinkopt");
     assertThat(foundDefines).containsExactly("define1", "define2");
@@ -1014,9 +1015,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanPassLinkInputsInObjcProvider() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanPassLinkInputsInObjcProvider() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   file = ctx.actions.declare_file('foo.ast')",
             "   ctx.actions.run_shell(outputs=[file], command='echo')",
             "   link_inputs = depset([file])",
@@ -1025,42 +1026,42 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
             "   return [created_provider]");
 
     NestedSet<Artifact> foundLinkInputs =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINK_INPUTS);
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).get(ObjcProvider.LINK_INPUTS);
     assertThat(ActionsTestUtil.baseArtifactNames(foundLinkInputs)).contains("foo.ast");
   }
 
   @Test
-  public void testSkylarkCanPassUsesSwiftFlag() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanPassUsesSwiftFlag() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   created_provider = apple_common.new_objc_provider(uses_swift=True)",
             "   return [created_provider]");
 
     boolean usesSwift =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).is(ObjcProvider.Flag.USES_SWIFT);
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).is(ObjcProvider.Flag.USES_SWIFT);
 
     assertThat(usesSwift).isTrue();
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithDefines() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderWithDefines() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   define = depset(['def1', 'def2', 'def3'])",
             "   created_provider = apple_common.new_objc_provider\\",
             "(define=define)",
             "   return [created_provider]");
 
     Iterable<String> foundDefines =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).define().toList();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).define().toList();
 
     assertThat(foundDefines).containsExactly("def1", "def2", "def3");
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithHeaders() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderWithHeaders() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   hdr1 = ctx.actions.declare_file('hdr1')",
             "   hdr2 = ctx.actions.declare_file('hdr2')",
             "   ctx.actions.run_shell(outputs=[hdr1, hdr2], command='echo')",
@@ -1070,22 +1071,22 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
             "   return [created_provider]");
 
     Iterable<Artifact> foundHeaders =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).header().toList();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).header().toList();
 
     assertThat(ActionsTestUtil.baseArtifactNames(foundHeaders)).containsExactly("hdr1", "hdr2");
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithIncludePathFragments() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderWithIncludePathFragments() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   includes = depset(['path1', 'path_dir/path2', 'path_dir1/path_dir2/path3'])",
             "   created_provider = apple_common.new_objc_provider\\",
             "(include=includes)",
             "   return [created_provider]");
 
     Iterable<PathFragment> foundIncludes =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).include();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).include();
 
     assertThat(foundIncludes)
         .containsExactly(
@@ -1095,32 +1096,32 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithFrameworkIncludes() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderWithFrameworkIncludes() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   includes = depset(['path1/foo.framework', 'path_dir/path2/bar.framework'])",
             "   created_provider = apple_common.new_objc_provider\\",
             "(framework_search_paths=includes)",
             "   return [created_provider]");
 
     Iterable<PathFragment> foundIncludes =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).frameworkInclude();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).frameworkInclude();
 
     assertThat(foundIncludes)
         .containsExactly(PathFragment.create("path1"), PathFragment.create("path_dir/path2"));
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithSystemIncludes() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderWithSystemIncludes() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   includes = depset(['path1', 'path_dir/path2', 'path_dir1/path_dir2/path3'])",
             "   created_provider = apple_common.new_objc_provider\\",
             "(include_system=includes)",
             "   return [created_provider]");
 
     Iterable<PathFragment> foundIncludes =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).systemInclude();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).systemInclude();
 
     assertThat(foundIncludes)
         .containsExactly(
@@ -1130,16 +1131,16 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithQuoteIncludes() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderWithQuoteIncludes() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   includes = depset(['path1', 'path_dir/path2', 'path_dir1/path_dir2/path3'])",
             "   created_provider = apple_common.new_objc_provider\\",
             "(iquote=includes)",
             "   return [created_provider]");
 
     Iterable<PathFragment> foundIncludes =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).quoteInclude();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).quoteInclude();
 
     assertThat(foundIncludes)
         .containsExactly(
@@ -1149,10 +1150,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithStrictDepsPreMigration() throws Exception {
+  public void testStarlarkCanCreateObjcProviderWithStrictDepsPreMigration() throws Exception {
     useConfiguration("--incompatible_objc_compile_info_migration=false");
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   strict_includes = depset(['path1'])",
             "   propagated_includes = depset(['path2'])",
             "   strict_provider = apple_common.new_objc_provider\\",
@@ -1161,10 +1162,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
             "(include=propagated_includes, direct_dep_providers=[strict_provider])",
             "   return [created_provider]");
 
-    ObjcProvider skylarkProvider = skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(skylarkProvider.include())
+    ObjcProvider starlarkProvider = starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    assertThat(starlarkProvider.include())
         .containsExactly(PathFragment.create("path1"), PathFragment.create("path2"));
-    assertThat(skylarkProvider.getStrictDependencyIncludes())
+    assertThat(starlarkProvider.getStrictDependencyIncludes())
         .containsExactly(PathFragment.create("path1"));
 
     scratch.file(
@@ -1178,24 +1179,24 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   deps = [':direct_dep']",
         ")");
 
-    ObjcProvider skylarkProviderDirectDepender =
+    ObjcProvider starlarkProviderDirectDepender =
         getConfiguredTarget("//examples/objc_skylark2:direct_dep")
             .get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(skylarkProviderDirectDepender.include())
+    assertThat(starlarkProviderDirectDepender.include())
         .containsExactly(PathFragment.create("path2"));
 
-    ObjcProvider skylarkProviderIndirectDepender =
+    ObjcProvider starlarkProviderIndirectDepender =
         getConfiguredTarget("//examples/objc_skylark2:indirect_dep")
             .get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(skylarkProviderIndirectDepender.include())
+    assertThat(starlarkProviderIndirectDepender.include())
         .containsExactly(PathFragment.create("path2"));
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithStrictDepsPostMigration() throws Exception {
+  public void testStarlarkCanCreateObjcProviderWithStrictDepsPostMigration() throws Exception {
     useConfiguration("--incompatible_objc_compile_info_migration=true");
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   strict_includes = depset(['path1'])",
             "   propagated_includes = depset(['path2'])",
             "   strict_provider = apple_common.new_objc_provider\\",
@@ -1204,10 +1205,10 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
             "(include=propagated_includes, direct_dep_providers=[strict_provider])",
             "   return [created_provider]");
 
-    ObjcProvider skylarkProvider = skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(skylarkProvider.include())
+    ObjcProvider starlarkProvider = starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    assertThat(starlarkProvider.include())
         .containsExactly(PathFragment.create("path1"), PathFragment.create("path2"));
-    assertThat(skylarkProvider.getStrictDependencyIncludes())
+    assertThat(starlarkProvider.getStrictDependencyIncludes())
         .containsExactly(PathFragment.create("path1"));
 
     scratch.file(
@@ -1217,23 +1218,23 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   deps = ['//examples/objc_skylark:my_target']",
         ")");
 
-    ObjcProvider skylarkProviderDirectDepender =
+    ObjcProvider starlarkProviderDirectDepender =
         getConfiguredTarget("//examples/objc_skylark2:direct_dep")
             .get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(skylarkProviderDirectDepender.include()).isEmpty();
+    assertThat(starlarkProviderDirectDepender.include()).isEmpty();
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderWithStrictDepsDirectly() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderWithStrictDepsDirectly() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   strict_includes = depset(['path'])",
             "   created_provider = apple_common.new_objc_provider\\",
             "(strict_include=strict_includes)",
             "   return [created_provider]");
 
-    ObjcProvider skylarkProvider = skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(skylarkProvider.getStrictDependencyIncludes())
+    ObjcProvider starlarkProvider = starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
+    assertThat(starlarkProvider.getStrictDependencyIncludes())
         .containsExactly(PathFragment.create("path"));
 
     scratch.file(
@@ -1243,19 +1244,19 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   deps = ['//examples/objc_skylark:my_target']",
         ")");
 
-    ObjcProvider skylarkProviderDirectDepender =
+    ObjcProvider starlarkProviderDirectDepender =
         getConfiguredTarget("//examples/objc_skylark2:direct_dep")
             .get(ObjcProvider.STARLARK_CONSTRUCTOR);
-    assertThat(skylarkProviderDirectDepender.getStrictDependencyIncludes()).isEmpty();
+    assertThat(starlarkProviderDirectDepender.getStrictDependencyIncludes()).isEmpty();
   }
 
   @Test
-  public void testSkylarkStrictDepsDoesNotSupportDefine() throws Exception {
+  public void testStarlarkStrictDepsDoesNotSupportDefine() throws Exception {
     AssertionError e =
         assertThrows(
             AssertionError.class,
             () ->
-                createObjcProviderSkylarkTarget(
+                createObjcProviderStarlarkTarget(
                     "   strict_defines = depset(['def1'])",
                     "   strict_provider = apple_common.new_objc_provider\\",
                     "(define=strict_defines)",
@@ -1268,12 +1269,12 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkStrictDepsDoesNotSupportLinkopt() throws Exception {
+  public void testStarlarkStrictDepsDoesNotSupportLinkopt() throws Exception {
     AssertionError e =
         assertThrows(
             AssertionError.class,
             () ->
-                createObjcProviderSkylarkTarget(
+                createObjcProviderStarlarkTarget(
                     "   strict_linkopts = depset(['opt1'])",
                     "   strict_provider = apple_common.new_objc_provider\\",
                     "(linkopt=strict_linkopts)",
@@ -1286,9 +1287,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkCanCreateObjcProviderFromObjcProvider() throws Exception {
-    ConfiguredTarget skylarkTarget =
-        createObjcProviderSkylarkTarget(
+  public void testStarlarkCanCreateObjcProviderFromObjcProvider() throws Exception {
+    ConfiguredTarget starlarkTarget =
+        createObjcProviderStarlarkTarget(
             "   dep = ctx.attr.deps[0]",
             "   define = depset(['define_from_impl'])",
             "   created_provider = apple_common.new_objc_provider\\",
@@ -1296,18 +1297,18 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
             "   return [created_provider]");
 
     Iterable<String> foundStrings =
-        skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).define().toList();
+        starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR).define().toList();
 
     assertThat(foundStrings).containsExactly("define_from_dep", "define_from_impl");
   }
 
   @Test
-  public void testSkylarkErrorOnBadObjcProviderInputKey() throws Exception {
+  public void testStarlarkErrorOnBadObjcProviderInputKey() throws Exception {
     AssertionError e =
         assertThrows(
             AssertionError.class,
             () ->
-                createObjcProviderSkylarkTarget(
+                createObjcProviderStarlarkTarget(
                     "   created_provider = apple_common.new_objc_provider(foo=depset(['bar']))",
                     "   return created_provider"));
     assertThat(e)
@@ -1316,24 +1317,24 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkErrorOnNonSetObjcProviderInputValue() throws Exception {
+  public void testStarlarkErrorOnNonSetObjcProviderInputValue() throws Exception {
     AssertionError e =
         assertThrows(
             AssertionError.class,
             () ->
-                createObjcProviderSkylarkTarget(
+                createObjcProviderStarlarkTarget(
                     "   created_provider = apple_common.new_objc_provider(library='bar')",
                     "   return created_provider"));
     assertThat(e).hasMessageThat().contains("for library, got string, want a depset of File");
   }
 
   @Test
-  public void testSkylarkErrorOnObjcProviderInputValueWrongSetType() throws Exception {
+  public void testStarlarkErrorOnObjcProviderInputValueWrongSetType() throws Exception {
     AssertionError e =
         assertThrows(
             AssertionError.class,
             () ->
-                createObjcProviderSkylarkTarget(
+                createObjcProviderStarlarkTarget(
                     "   created_provider = apple_common.new_objc_provider(library=depset(['bar']))",
                     "   return created_provider"));
     assertThat(e)
@@ -1342,12 +1343,12 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkErrorOnNonIterableObjcProviderProviderValue() throws Exception {
+  public void testStarlarkErrorOnNonIterableObjcProviderProviderValue() throws Exception {
     AssertionError e =
         assertThrows(
             AssertionError.class,
             () ->
-                createObjcProviderSkylarkTarget(
+                createObjcProviderStarlarkTarget(
                     "   created_provider = apple_common.new_objc_provider(providers='bar')",
                     "   return created_provider"));
     assertThat(e)
@@ -1356,12 +1357,12 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testSkylarkErrorOnBadIterableObjcProviderProviderValue() throws Exception {
+  public void testStarlarkErrorOnBadIterableObjcProviderProviderValue() throws Exception {
     AssertionError e =
         assertThrows(
             AssertionError.class,
             () ->
-                createObjcProviderSkylarkTarget(
+                createObjcProviderStarlarkTarget(
                     "   created_provider = apple_common.new_objc_provider(providers=['bar'])",
                     "   return created_provider"));
     assertThat(e)
@@ -1400,13 +1401,13 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "   name = 'lib',",
         "   srcs = ['a.m'],",
         ")");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    Depset emptyValue = (Depset) getMyInfoFromTarget(skylarkTarget).getValue("empty_value");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    Depset emptyValue = (Depset) getMyInfoFromTarget(starlarkTarget).getValue("empty_value");
     assertThat(emptyValue.toList()).isEmpty();
   }
 
   @Test
-  public void testSkylarkCanAccessSdkFrameworks() throws Exception {
+  public void testStarlarkCanAccessSdkFrameworks() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1436,14 +1437,14 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    deps = [':lib'],",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    Depset sdkFrameworks = (Depset) getMyInfoFromTarget(skylarkTarget).getValue("sdk_frameworks");
+    Depset sdkFrameworks = (Depset) getMyInfoFromTarget(starlarkTarget).getValue("sdk_frameworks");
     assertThat(sdkFrameworks.toList()).containsAtLeast("Accelerate", "GLKit");
   }
 
   @Test
-  public void testSkylarkCanAccessAndUseApplePlatformTypes() throws Exception {
+  public void testStarlarkCanAccessAndUseApplePlatformTypes() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1473,8 +1474,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "--ios_multi_cpus=arm64,armv7",
         "--watchos_cpus=armv7k",
         "--tvos_cpus=arm64");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
     Object iosPlatform = myInfo.getValue("ios_platform");
     Object watchosPlatform = myInfo.getValue("watchos_platform");
@@ -1510,9 +1511,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
 
     useConfiguration(
         "--ios_multi_cpus=arm64,armv7");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    Boolean isDevice = (Boolean) getMyInfoFromTarget(skylarkTarget).getValue("is_device");
+    Boolean isDevice = (Boolean) getMyInfoFromTarget(starlarkTarget).getValue("is_device");
     assertThat(isDevice).isTrue();
   }
 
@@ -1539,21 +1540,21 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    Boolean isDevice = (Boolean) getMyInfoFromTarget(skylarkTarget).getValue("is_device");
+    Boolean isDevice = (Boolean) getMyInfoFromTarget(starlarkTarget).getValue("is_device");
     assertThat(isDevice).isFalse();
   }
 
   @Test
-  public void testSkylarkWithRunMemleaksEnabled() throws Exception {
+  public void testStarlarkWithRunMemleaksEnabled() throws Exception {
     useConfiguration("--ios_memleaks");
-    checkSkylarkRunMemleaksWithExpectedValue(true);
+    checkStarlarkRunMemleaksWithExpectedValue(true);
   }
 
   @Test
-  public void testSkylarkWithRunMemleaksDisabled() throws Exception {
-    checkSkylarkRunMemleaksWithExpectedValue(false);
+  public void testStarlarkWithRunMemleaksDisabled() throws Exception {
+    checkStarlarkRunMemleaksWithExpectedValue(false);
   }
 
   @Test
@@ -1578,9 +1579,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    DottedVersion version = (DottedVersion) getMyInfoFromTarget(skylarkTarget).getValue("version");
+    DottedVersion version = (DottedVersion) getMyInfoFromTarget(starlarkTarget).getValue("version");
     assertThat(version).isEqualTo(DottedVersion.fromString("5.4"));
   }
 
@@ -1619,7 +1620,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
    * of retrieving ObjcProvider.
    */
   @Test
-  public void testObjcProviderSkylarkConstructor() throws Exception {
+  public void testObjcProviderStarlarkConstructor() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1646,8 +1647,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    hdrs = ['a.h']",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    assertThat(skylarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR)).isNotNull();
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    assertThat(starlarkTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR)).isNotNull();
   }
 
   @Test
@@ -1656,8 +1657,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     writeObjcSplitTransitionTestFiles();
 
     useConfiguration("--ios_multi_cpus=armv7,arm64");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
     ObjcProvider armv7Objc =
         ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
     ObjcProvider arm64Objc =
@@ -1676,8 +1677,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     writeObjcSplitTransitionTestFiles();
 
     useConfiguration("--ios_multi_cpus=armv7,arm64,armv7");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
     ObjcProvider armv7Objc =
         ((StarlarkInfo) myInfo.getValue("ios_armv7")).getValue("objc", ObjcProvider.class);
     ObjcProvider arm64Objc =
@@ -1696,8 +1697,8 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
     writeObjcSplitTransitionTestFiles();
 
     useConfiguration("--cpu=ios_arm64");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
-    StructImpl myInfo = getMyInfoFromTarget(skylarkTarget);
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
     ObjcProvider arm64Objc =
         ((StarlarkInfo) myInfo.getValue("ios_arm64")).getValue("objc", ObjcProvider.class);
     assertThat(arm64Objc).isNotNull();
@@ -1705,7 +1706,7 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         .contains("ios_arm64");
   }
 
-  private void checkSkylarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {
+  private void checkStarlarkRunMemleaksWithExpectedValue(boolean expectedValue) throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -1725,9 +1726,9 @@ public class ObjcSkylarkTest extends ObjcRuleTestCase {
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    boolean runMemleaks = (boolean) getMyInfoFromTarget(skylarkTarget).getValue("run_memleaks");
+    boolean runMemleaks = (boolean) getMyInfoFromTarget(starlarkTarget).getValue("run_memleaks");
     assertThat(runMemleaks).isEqualTo(expectedValue);
   }
 

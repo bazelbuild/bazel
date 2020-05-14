@@ -105,7 +105,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   private SequentialBuildDriver driver;
   private TestManagedDirectoriesKnowledge managedDirectoriesKnowledge;
   private RecordingDifferencer differencer;
-  private TestStarlarkRepositoryFunction testSkylarkRepositoryFunction;
+  private TestStarlarkRepositoryFunction testStarlarkRepositoryFunction;
   private Path rootPath;
 
   @Before
@@ -120,14 +120,14 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     managedDirectoriesKnowledge = new TestManagedDirectoriesKnowledge();
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-    testSkylarkRepositoryFunction =
+    testStarlarkRepositoryFunction =
         new TestStarlarkRepositoryFunction(rootPath, downloader, managedDirectoriesKnowledge);
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
     delegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
-            testSkylarkRepositoryFunction,
+            testStarlarkRepositoryFunction,
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
@@ -333,20 +333,20 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
     loadRepo("repo1");
 
-    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isTrue();
-    testSkylarkRepositoryFunction.reset();
+    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
+    testStarlarkRepositoryFunction.reset();
 
     loadRepo("repo1");
     // Nothing changed, fetch does not happen.
-    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isFalse();
-    testSkylarkRepositoryFunction.reset();
+    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isFalse();
+    testStarlarkRepositoryFunction.reset();
 
     // Delete managed directory, fetch should happen again.
     Path managedDirectory = rootPath.getRelative("dir1");
     managedDirectory.deleteTree();
     loadRepo("repo1");
-    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isTrue();
-    testSkylarkRepositoryFunction.reset();
+    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
+    testStarlarkRepositoryFunction.reset();
 
     // Change managed directories declaration, fetch should happen.
     // NB: we are making sure that managed directories exist to check only the declaration changes
@@ -362,14 +362,14 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             RepositoryName.create("@repo1")));
     loadRepo("repo1");
 
-    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isTrue();
-    testSkylarkRepositoryFunction.reset();
+    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
+    testStarlarkRepositoryFunction.reset();
 
     managedDirectoriesKnowledge.setManagedDirectories(ImmutableMap.of());
     loadRepo("repo1");
 
-    assertThat(testSkylarkRepositoryFunction.isFetchCalled()).isTrue();
-    testSkylarkRepositoryFunction.reset();
+    assertThat(testStarlarkRepositoryFunction.isFetchCalled()).isTrue();
+    testStarlarkRepositoryFunction.reset();
   }
 
   private void loadRepo(String strippedRepoName) throws InterruptedException {

@@ -33,7 +33,7 @@ import org.junit.runners.JUnit4;
  * don't have access to the full set of information that the java reflection API has.
  */
 @RunWith(JUnit4.class)
-public class SkylarkAnnotationContractTest {
+public class StarlarkAnnotationContractTest {
 
   // Common prefix of packages in bazel that may have classes that implement or extend a
   // Starlark type.
@@ -46,7 +46,7 @@ public class SkylarkAnnotationContractTest {
    * <p>If this test fails, it indicates the following error scenario:
    *
    * <p>Suppose class A is a subclass of both B and C, where B and C are annotated with {@link
-   * StarlarkBuiltin} annotations (and are thus considered "skylark types"). If B is not a subclass
+   * StarlarkBuiltin} annotations (and are thus considered "Starlark types"). If B is not a subclass
    * of C (nor visa versa), then it's impossible to resolve whether A is of type B or if A is of
    * type C. It's both! The way to resolve this is usually to have A be its own type (annotated with
    * {@link StarlarkBuiltin}), and thus have the explicit type of A be semantically "B and C".

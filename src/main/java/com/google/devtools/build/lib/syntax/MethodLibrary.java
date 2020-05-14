@@ -767,7 +767,7 @@ class MethodLibrary {
     // As part of the integration test "skylark_flag_test.sh", if the
     // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
     // the output.
-    if (thread.getSemantics().internalSkylarkFlagTestCanary()) {
+    if (thread.getSemantics().internalStarlarkFlagTestCanary()) {
       p.append("<== Starlark flag test ==>");
     }
 

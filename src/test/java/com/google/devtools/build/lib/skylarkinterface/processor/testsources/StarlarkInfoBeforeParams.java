@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a SkylarkCallable method which specifies StarlarkThread before other parameters.
+ * Test case for a StarlarkCallable method which specifies StarlarkThread before other parameters.
  */
-public class SkylarkInfoBeforeParams implements StarlarkValue {
+public class StarlarkInfoBeforeParams implements StarlarkValue {
 
   @SkylarkCallable(
       name = "skylark_info_wrong_order",

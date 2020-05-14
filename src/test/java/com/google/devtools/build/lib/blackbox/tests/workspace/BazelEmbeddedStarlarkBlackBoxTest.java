@@ -36,9 +36,9 @@ import org.junit.Test;
 
 /**
  * Test that the embedded Starlark code is compliant with --all_incompatible_changes. To replace
- * bazel_embedded_skylark_test.sh.
+ * bazel_embedded_starlark_test.sh.
  */
-public class BazelEmbeddedSkylarkBlackBoxTest extends AbstractBlackBoxTest {
+public class BazelEmbeddedStarlarkBlackBoxTest extends AbstractBlackBoxTest {
 
   private static final String HELLO_FROM_EXTERNAL_REPOSITORY = "Hello from external repository!";
   private static final String HELLO_FROM_MAIN_REPOSITORY = "Hello from main repository!";

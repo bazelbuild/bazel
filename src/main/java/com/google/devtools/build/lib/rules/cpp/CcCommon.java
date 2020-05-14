@@ -217,7 +217,7 @@ public final class CcCommon {
 
   public static void checkLocationWhitelisted(
       StarlarkSemantics semantics, Location location, String callPath) throws EvalException {
-    List<String> whitelistedPackagesList = semantics.experimentalCcSkylarkApiEnabledPackages();
+    List<String> whitelistedPackagesList = semantics.experimentalCcStarlarkApiEnabledPackages();
     if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {
       throwWhiteListError(location, callPath, whitelistedPackagesList);
     }

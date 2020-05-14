@@ -54,7 +54,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for the Starlark version of java_lite_proto_library rule. */
 @RunWith(JUnit4.class)
-public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
+public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   private static final String RULE_DIRECTORY = "tools/build_rules/java_lite_proto_library";
   private ActionsTestUtil actionsTestUtil;
 
@@ -87,7 +87,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   }
 
   @Before
-  public final void setupSkylarkRule() throws Exception {
+  public final void setupStarlarkRule() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
 
     File[] files = Runfiles.location(RULE_DIRECTORY).listFiles();
@@ -327,7 +327,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
    * generates.
    */
   @Test
-  public void testJavaProtosExposeSkylarkProviders() throws Exception {
+  public void testJavaProtosExposeStarlarkProviders() throws Exception {
     scratch.file(
         "proto/extensions.bzl",
         "def _impl(ctx):",
@@ -524,7 +524,7 @@ public class SkylarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   /** Tests that java_lite_proto_library's aspect exposes a Starlark provider named 'proto_java'. */
   @Test
   @Ignore
-  // TODO(elenairina): Enable this test when proto_java is returned from the aspect in Skylark
+  // TODO(elenairina): Enable this test when proto_java is returned from the aspect in Starlark
   // version of java_lite_proto_library.
   public void testJavaLiteProtoLibraryAspectProviders() throws Exception {
     scratch.file(

@@ -102,4 +102,4 @@ EOF
     diff side1.txt side2.txt || fail "found delayed side effects"
 }
 
-run_suite "sklark execute tests"
+run_suite "Starlark execute tests"

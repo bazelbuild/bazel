@@ -24,7 +24,7 @@ java_library(
             "CcBinaryThinLtoTest.java",
             "CcCompilationHelperTest.java",
             "CcImportBaseConfiguredTargetTest.java",
-            "CppConfigurationSkylarkTest.java",
+            "CppConfigurationStarlarkTest.java",
             "CppSysrootTest.java",
             "LinkCommandLineTest.java",
             "StarlarkCcCommonTestHelper.java",
@@ -140,8 +140,8 @@ java_test(
 )
 
 java_test(
-    name = "CppConfigurationSkylarkTest",
-    srcs = ["CppConfigurationSkylarkTest.java"],
+    name = "CppConfigurationStarlarkTest",
+    srcs = ["CppConfigurationStarlarkTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",

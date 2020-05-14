@@ -227,4 +227,4 @@ EOF
   bazel build @ext//:foo || fail "expected success"
 }
 
-run_suite "skylark repo prefetching tests"
+run_suite "Starlark repo prefetching tests"

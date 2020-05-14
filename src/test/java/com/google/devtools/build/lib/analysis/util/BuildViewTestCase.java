@@ -353,7 +353,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected StarlarkSemantics getStarlarkSemantics() {
-    return starlarkSemanticsOptions.toSkylarkSemantics();
+    return starlarkSemanticsOptions.toStarlarkSemantics();
   }
 
   protected PackageValidator getPackageValidator() {
@@ -2034,7 +2034,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     @Override
     public StarlarkSemantics getSkylarkSemantics() {
-      return starlarkSemanticsOptions.toSkylarkSemantics();
+      return starlarkSemanticsOptions.toStarlarkSemantics();
     }
 
     @Override

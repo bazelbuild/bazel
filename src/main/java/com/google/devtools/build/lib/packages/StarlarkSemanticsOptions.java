@@ -44,15 +44,15 @@ import java.util.List;
  *   <li>Add a new {@code @Option}-annotated field to this class. The field name and default value
  *       should be the same as in {@link StarlarkSemantics}, and the option name in the annotation
  *       should be that name written in snake_case. Add a line to set the new field in {@link
- *       #toSkylarkSemantics}.
+ *       #toStarlarkSemantics}.
  *   <li>Add a line to set the new field in both {@link
- *       SkylarkSemanticsConsistencyTest#buildRandomOptions} and {@link
- *       SkylarkSemanticsConsistencyTest#buildRandomSemantics}.
+ *       StarlarkSemanticsConsistencyTest#buildRandomOptions} and {@link
+ *       StarlarkSemanticsConsistencyTest#buildRandomSemantics}.
  *   <li>Update manual documentation in site/docs/skylark/backward-compatibility.md. Also remember
  *       to update this when flipping a flag's default value.
  *   <li>Boolean semantic flags can toggle Starlark methods on or off. To do this, add a new entry
  *       to {@link StarlarkSemantics#FlagIdentifier}. Then, specify the identifier in {@code
- *       SkylarkCallable.enableOnlyWithFlag} or {@code SkylarkCallable.disableWithFlag}.
+ *       StarlarkCallable.enableOnlyWithFlag} or {@code StarlarkCallable.disableWithFlag}.
  * </ul>
  *
  * For both readability and correctness, the relative order of the options in all of these locations
@@ -118,7 +118,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       help =
           "Passes list of packages that can use the C++ Starlark API. Don't enable this flag yet, "
               + "we will be making breaking changes.")
-  public List<String> experimentalCcSkylarkApiEnabledPackages;
+  public List<String> experimentalCcStarlarkApiEnabledPackages;
 
   @Option(
       name = "experimental_enable_android_migration_apis",
@@ -528,7 +528,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN})
-  public boolean internalSkylarkFlagTestCanary;
+  public boolean internalStarlarkFlagTestCanary;
 
   @Option(
       name = "incompatible_do_not_split_linking_cmdline",
@@ -629,7 +629,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   private static final Interner<StarlarkSemantics> INTERNER = BlazeInterners.newWeakInterner();
 
   /** Constructs a {@link StarlarkSemantics} object corresponding to this set of option values. */
-  public StarlarkSemantics toSkylarkSemantics() {
+  public StarlarkSemantics toStarlarkSemantics() {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
@@ -639,7 +639,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
                 experimentalAllowIncrementalRepositoryUpdates)
             .experimentalAllowTagsPropagation(experimentalAllowTagsPropagation)
             .experimentalBuildSettingApi(experimentalBuildSettingApi)
-            .experimentalCcSkylarkApiEnabledPackages(experimentalCcSkylarkApiEnabledPackages)
+            .experimentalCcStarlarkApiEnabledPackages(experimentalCcStarlarkApiEnabledPackages)
             .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
             .experimentalGoogleLegacyApi(experimentalGoogleLegacyApi)
             .experimentalNinjaActions(experimentalNinjaActions)
@@ -669,7 +669,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleStringReplaceCount(incompatibleStringReplaceCount)
             .incompatibleVisibilityPrivateAttributesAtDefinition(
                 incompatibleVisibilityPrivateAttributesAtDefinition)
-            .internalSkylarkFlagTestCanary(internalSkylarkFlagTestCanary)
+            .internalStarlarkFlagTestCanary(internalStarlarkFlagTestCanary)
             .incompatibleDoNotSplitLinkingCmdline(incompatibleDoNotSplitLinkingCmdline)
             .incompatibleUseCcConfigureFromRulesCc(incompatibleUseCcConfigureFromRulesCc)
             .incompatibleDepsetForLibrariesToLinkGetter(incompatibleDepsetForLibrariesToLinkGetter)

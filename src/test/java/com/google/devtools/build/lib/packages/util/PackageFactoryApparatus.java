@@ -113,7 +113,7 @@ public class PackageFactoryApparatus {
             ? ImmutableList.<String>of()
             : ImmutableList.<String>of(skylarkOption));
     StarlarkSemantics semantics =
-        parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
+        parser.getOptions(StarlarkSemanticsOptions.class).toStarlarkSemantics();
 
     try {
       Package externalPkg =

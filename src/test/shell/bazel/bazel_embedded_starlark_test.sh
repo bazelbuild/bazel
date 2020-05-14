@@ -216,4 +216,4 @@ EOF
   bazel run :foo | grep -q dragons || fail "wrong output"
 }
 
-run_suite "embedded skylark"
+run_suite "embedded Starlark"

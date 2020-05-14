@@ -139,7 +139,7 @@ public final class SkylarkCallableProcessorTest {
   @Test
   public void testSkylarkInfoBeforeParams() throws Exception {
     assertAbout(javaSource())
-        .that(getFile("SkylarkInfoBeforeParams.java"))
+        .that(getFile("StarlarkInfoBeforeParams.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(

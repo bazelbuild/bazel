@@ -46,7 +46,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests Starlark API for Java rules. */
 @RunWith(JUnit4.class)
-public class JavaSkylarkApiTest extends BuildViewTestCase {
+public class JavaStarlarkApiTest extends BuildViewTestCase {
   private static final String HOST_JAVA_RUNTIME_LABEL =
       TestConstants.TOOLS_REPOSITORY + "//tools/jdk:current_host_java_runtime";
 
@@ -465,7 +465,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
         "  fragments = ['java']",
         ")");
 
-    testAnnotationProcessingInfoIsSkylarkAccessible(
+    testAnnotationProcessingInfoIsStarlarkAccessible(
         /*toBeProcessedRuleName=*/ "java_custom_library",
         /*extraLoad=*/ "load(':custom_rule.bzl', 'java_custom_library')");
   }
@@ -993,7 +993,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
    */
   @Test
   public void testJavaPlugin() throws Exception {
-    testAnnotationProcessingInfoIsSkylarkAccessible(
+    testAnnotationProcessingInfoIsStarlarkAccessible(
         /*toBeProcessedRuleName=*/ "java_library", /*extraLoad=*/ "");
   }
 
@@ -1002,7 +1002,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
    * to use annotation processing itself and has a dep and an export that likewise use annotation
    * processing.
    */
-  private void testAnnotationProcessingInfoIsSkylarkAccessible(
+  private void testAnnotationProcessingInfoIsStarlarkAccessible(
       String toBeProcessedRuleName, String extraLoad) throws Exception {
     scratch.file(
         "java/test/extension.bzl",
@@ -1080,7 +1080,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testJavaProviderFieldsAreSkylarkAccessible() throws Exception {
+  public void testJavaProviderFieldsAreStarlarkAccessible() throws Exception {
     // The Starlark evaluation itself will test that compile_jars and
     // transitive_runtime_jars are returning a list readable by Starlark with
     // the expected number of entries.
@@ -1144,7 +1144,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkApiProviderReexported() throws Exception {
+  public void testStarlarkApiProviderReexported() throws Exception {
     scratch.file(
         "java/test/extension.bzl",
         "def impl(ctx):",
@@ -1226,7 +1226,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkJavaToJavaLibraryAttributes() throws Exception {
+  public void starlarkJavaToJavaLibraryAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1267,7 +1267,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkJavaToJavaBinaryAttributes() throws Exception {
+  public void starlarkJavaToJavaBinaryAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",
@@ -1297,7 +1297,7 @@ public class JavaSkylarkApiTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkJavaToJavaImportAttributes() throws Exception {
+  public void starlarkJavaToJavaImportAttributes() throws Exception {
     scratch.file(
         "foo/extension.bzl",
         "def _impl(ctx):",

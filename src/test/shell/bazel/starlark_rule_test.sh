@@ -89,4 +89,4 @@ EOF
   expect_log "error executing shell command"
 }
 
-run_suite "skylark rule definition tests"
+run_suite "Starlark rule definition tests"

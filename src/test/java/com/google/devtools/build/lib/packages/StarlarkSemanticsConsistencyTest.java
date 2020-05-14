@@ -44,11 +44,11 @@ import org.junit.runners.JUnit4;
  *       StarlarkSemanticsOptions}, or vice versa, then the programmer will either be unable to
  *       implement its behavior, or unable to test it from the command line and add user
  *       documentation. We hope that the programmer notices this on their own.
- *   <li>If {@link StarlarkSemanticsOptions#toSkylarkSemantics} is not updated to set all fields of
+ *   <li>If {@link StarlarkSemanticsOptions#toStarlarkSemantics} is not updated to set all fields of
  *       {@code StarlarkSemantics}, then it will fail immediately because all fields of {@link
  *       StarlarkSemantics.Builder} are mandatory.
  *   <li>To catch a copy/paste error where the wrong field's data is threaded through {@code
- *       toSkylarkSemantics()} or {@code deserialize(...)}, we repeatedly generate matching random
+ *       toStarlarkSemantics()} or {@code deserialize(...)}, we repeatedly generate matching random
  *       instances of the input and expected output objects.
  *   <li>The {@link #checkDefaultsMatch} test ensures that there is no divergence between the
  *       default values of the two classes.
@@ -57,7 +57,7 @@ import org.junit.runners.JUnit4;
  * </ul>
  */
 @RunWith(JUnit4.class)
-public class SkylarkSemanticsConsistencyTest {
+public class StarlarkSemanticsConsistencyTest {
 
   private static final int NUM_RANDOM_TRIALS = 10;
 
@@ -71,7 +71,7 @@ public class SkylarkSemanticsConsistencyTest {
       long seed = i;
       StarlarkSemanticsOptions options = buildRandomOptions(new Random(seed));
       StarlarkSemantics semantics = buildRandomSemantics(new Random(seed));
-      StarlarkSemantics semanticsFromOptions = options.toSkylarkSemantics();
+      StarlarkSemantics semanticsFromOptions = options.toStarlarkSemantics();
       assertThat(semanticsFromOptions).isEqualTo(semantics);
     }
   }
@@ -99,16 +99,16 @@ public class SkylarkSemanticsConsistencyTest {
   public void checkDefaultsMatch() {
     StarlarkSemanticsOptions defaultOptions = Options.getDefaults(StarlarkSemanticsOptions.class);
     StarlarkSemantics defaultSemantics = StarlarkSemantics.DEFAULT;
-    StarlarkSemantics semanticsFromOptions = defaultOptions.toSkylarkSemantics();
+    StarlarkSemantics semanticsFromOptions = defaultOptions.toStarlarkSemantics();
     assertThat(semanticsFromOptions).isEqualTo(defaultSemantics);
   }
 
   @Test
   public void canGetBuilderFromInstance() {
     StarlarkSemantics original = StarlarkSemantics.DEFAULT;
-    assertThat(original.internalSkylarkFlagTestCanary()).isFalse();
-    StarlarkSemantics modified = original.toBuilder().internalSkylarkFlagTestCanary(true).build();
-    assertThat(modified.internalSkylarkFlagTestCanary()).isTrue();
+    assertThat(original.internalStarlarkFlagTestCanary()).isFalse();
+    StarlarkSemantics modified = original.toBuilder().internalStarlarkFlagTestCanary(true).build();
+    assertThat(modified.internalStarlarkFlagTestCanary()).isTrue();
   }
 
   /**
@@ -179,7 +179,7 @@ public class SkylarkSemanticsConsistencyTest {
         .experimentalSiblingRepositoryLayout(rand.nextBoolean())
         .experimentalAllowIncrementalRepositoryUpdates(rand.nextBoolean())
         .experimentalBuildSettingApi(rand.nextBoolean())
-        .experimentalCcSkylarkApiEnabledPackages(
+        .experimentalCcStarlarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
         .experimentalGoogleLegacyApi(rand.nextBoolean())
@@ -213,7 +213,7 @@ public class SkylarkSemanticsConsistencyTest {
         .incompatibleRequireLinkerInputCcApi(rand.nextBoolean())
         .incompatibleRestrictStringEscapes(rand.nextBoolean())
         .incompatibleUseCcConfigureFromRulesCc(rand.nextBoolean())
-        .internalSkylarkFlagTestCanary(rand.nextBoolean())
+        .internalStarlarkFlagTestCanary(rand.nextBoolean())
         .maxComputationSteps(rand.nextLong())
         .recordRuleInstantiationCallstack(rand.nextBoolean())
         .build();
