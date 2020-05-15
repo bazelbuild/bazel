@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Object with information about C++ rules. Every C++-related target should provide this. */
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + " href=\"Target.html\">target</a>.")
 public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_headers",
       structField = true,
       doc =
@@ -41,7 +41,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends Starlar
               + "(possibly empty but never <code>None</code>).")
   public Depset /*<FileT>*/ getTransitiveHeadersForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "libs",
       structField = true,
       doc =
@@ -51,7 +51,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends Starlar
               + "(possibly empty but never <code>None</code>)")
   public Depset /*<FileT>*/ getLibrariesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "link_flags",
       structField = true,
       doc =
@@ -61,7 +61,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends Starlar
               + "(possibly empty but never <code>None</code>)")
   public ImmutableList<String> getLinkopts();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "defines",
       structField = true,
       doc =
@@ -69,7 +69,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends Starlar
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getDefines();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "system_include_directories",
       structField = true,
       doc =
@@ -77,7 +77,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends Starlar
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getSystemIncludeDirs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "include_directories",
       structField = true,
       doc =
@@ -85,7 +85,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends Starlar
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getIncludeDirs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "quote_include_directories",
       structField = true,
       doc =
@@ -93,7 +93,7 @@ public interface CcStarlarkApiProviderApi<FileT extends FileApi> extends Starlar
               + "(possibly empty but never <code>None</code>).")
   public ImmutableList<String> getQuoteIncludeDirs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compile_flags",
       structField = true,
       doc =

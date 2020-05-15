@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -36,10 +36,10 @@ import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /** The universal predeclared functions of core Starlark. */
-@SkylarkGlobalLibrary
+@StarlarkGlobalLibrary
 class MethodLibrary {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "min",
       doc =
           "Returns the smallest one of all given arguments. "
@@ -56,7 +56,7 @@ class MethodLibrary {
     }
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "max",
       doc =
           "Returns the largest one of all given arguments. "
@@ -86,7 +86,7 @@ class MethodLibrary {
     }
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "all",
       doc =
           "Returns true if all elements evaluate to True or if the collection is empty. "
@@ -104,7 +104,7 @@ class MethodLibrary {
     return !hasElementWithBooleanValue(collection, false);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "any",
       doc =
           "Returns true if at least one element evaluates to True. "
@@ -132,7 +132,7 @@ class MethodLibrary {
     return false;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "sorted",
       doc =
           "Sort a collection. Elements should all belong to the same orderable type, they are "
@@ -221,7 +221,7 @@ class MethodLibrary {
     }
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "reversed",
       doc =
           "Returns a list that contains the elements of the original sequence in reversed order."
@@ -240,7 +240,7 @@ class MethodLibrary {
     return StarlarkList.wrap(thread.mutability(), array);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "tuple",
       doc =
           "Returns a tuple with the same elements as the given iterable value."
@@ -255,7 +255,7 @@ class MethodLibrary {
     return Tuple.wrap(Starlark.toArray(x));
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "list",
       doc =
           "Returns a new list with the same elements as the given iterable value."
@@ -268,7 +268,7 @@ class MethodLibrary {
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "len",
       doc =
           "Returns the length of a string, sequence (such as a list or tuple), dict, or other"
@@ -283,18 +283,13 @@ class MethodLibrary {
     return len;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "str",
       doc =
           "Converts any object to string. This is useful for debugging."
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to convert.",
-            noneable = true)
-      })
+      parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
   public String str(Object x) throws EvalException {
     try {
       return Starlark.str(x);
@@ -312,22 +307,17 @@ class MethodLibrary {
     }
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "repr",
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to convert.",
-            noneable = true)
-      })
+      parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
   public String repr(Object x) {
     return Starlark.repr(x);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bool",
       doc =
           "Constructor for the bool type. "
@@ -349,7 +339,7 @@ class MethodLibrary {
   private final ImmutableMap<String, Integer> intPrefixes =
       ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "int",
       doc =
           "Returns x as an int value."
@@ -492,7 +482,7 @@ class MethodLibrary {
     return null;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dict",
       doc =
           "Creates a <a href=\"dict.html\">dictionary</a> from an optional positional "
@@ -520,7 +510,7 @@ class MethodLibrary {
     return Dict.plus(dict, kwargs, thread.mutability());
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "enumerate",
       doc =
           "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
@@ -547,7 +537,7 @@ class MethodLibrary {
     return StarlarkList.wrap(thread.mutability(), array);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "hash",
       doc =
           "Return a hash value for a string. This is computed deterministically using the same "
@@ -562,7 +552,7 @@ class MethodLibrary {
     return value.hashCode();
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "range",
       doc =
           "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
@@ -614,7 +604,7 @@ class MethodLibrary {
   }
 
   /** Returns true if the object has a field of the given name, otherwise false. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "hasattr",
       doc =
           "Returns True if the object <code>x</code> has an attribute or method of the given "
@@ -635,7 +625,7 @@ class MethodLibrary {
     return CallUtils.getMethodNames(thread.getSemantics(), obj.getClass()).contains(name);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "getattr",
       doc =
           "Returns the struct's field of the given name if it exists. If not, it either returns "
@@ -667,17 +657,12 @@ class MethodLibrary {
     return result;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dir",
       doc =
           "Returns a list of strings: the names of the attributes and "
               + "methods of the parameter object.",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to check.",
-            noneable = true)
-      },
+      parameters = {@Param(name = "x", doc = "The object to check.", noneable = true)},
       useStarlarkThread = true)
   public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
     // Order the fields alphabetically.
@@ -689,7 +674,7 @@ class MethodLibrary {
     return StarlarkList.copyOf(thread.mutability(), fields);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "fail",
       doc =
           "Raises an error that cannot be intercepted. It can be used anywhere, "
@@ -720,7 +705,7 @@ class MethodLibrary {
     throw Starlark.errorf("%s", str);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "print",
       doc =
           "Prints <code>args</code> as debug output. It will be prefixed with the string <code>"
@@ -775,7 +760,7 @@ class MethodLibrary {
     return Starlark.NONE;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "type",
       doc =
           "Returns the type name of its argument. This is useful for debugging and "
@@ -790,18 +775,13 @@ class MethodLibrary {
               + "<pre class=\"language-python\">"
               + "if type(x) == type([]):  # if x is a list"
               + "</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to check type of.",
-            noneable = true)
-      })
+      parameters = {@Param(name = "x", doc = "The object to check type of.", noneable = true)})
   public String type(Object object) {
     // There is no 'type' type in Starlark, so we return a string with the type name.
     return Starlark.type(object);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "zip",
       doc =
           "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "

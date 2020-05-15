@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.NoneType;
 
 /**
@@ -44,7 +44,7 @@ public interface AndroidDex2OatInfoApi<
   interface Provider<
           FileT extends FileApi, FilesToRunProviderT extends FilesToRunProviderApi<FileT>>
       extends ProviderApi {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidDex2OatInfo",
         doc = "The <code>AndroidDex2OatInfo</code> constructor.",
         documented = false,

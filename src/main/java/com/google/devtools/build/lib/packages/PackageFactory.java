@@ -262,10 +262,10 @@ public final class PackageFactory {
   }
 
   /** Returns a function-value implementing "package" in the specified package context. */
-  // TODO(cparsons): Migrate this function to be defined with @SkylarkCallable.
+  // TODO(cparsons): Migrate this function to be defined with @StarlarkMethod.
   // TODO(adonovan): don't call this function twice (once for BUILD files and
   // once for the native module) as it results in distinct objects. (Using
-  // @SkylarkCallable may accomplish that.)
+  // @StarlarkMethod may accomplish that.)
   private static StarlarkCallable newPackageFunction(
       final ImmutableMap<String, PackageArgument<?>> packageArguments) {
     return new StarlarkCallable() {

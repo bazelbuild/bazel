@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
 public interface StarlarkActionFactoryApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "declare_file",
       doc =
           "Declares that the rule or aspect creates a file with the given filename. "
@@ -75,7 +75,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   FileApi declareFile(String filename, Object sibling) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "declare_directory",
       doc =
           "Declares that the rule or aspect creates a directory with the given name, in the "
@@ -102,7 +102,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   FileApi declareDirectory(String filename, Object sibling) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "declare_symlink",
       doc =
           "<p><b>Experimental</b>. This parameter is experimental and may change at any "
@@ -131,7 +131,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   FileApi declareSymlink(String filename, Object sibling) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "do_nothing",
       doc =
           "Creates an empty action that neither executes a command nor produces any "
@@ -157,7 +157,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   void doNothing(String mnemonic, Object inputs) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "symlink",
       doc =
           "Creates an action that writes a symlink in the file system."
@@ -229,7 +229,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object progressMessage)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "write",
       doc =
           "Creates a file write action. When the action is executed, it will write the given "
@@ -259,7 +259,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   void write(FileApi output, Object content, Boolean isExecutable) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "run",
       doc =
           "Creates an action that runs an executable. "
@@ -425,7 +425,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object execGroupUnchecked)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "run_shell",
       doc =
           "Creates an action that runs a shell command. "
@@ -609,7 +609,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "expand_template",
       doc =
           "Creates a template expansion action. When the action is executed, it will "
@@ -653,7 +653,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "args",
       doc = "Returns an Args object that can be used to build memory-efficient command lines.",
       useStarlarkThread = true)

@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 
@@ -42,10 +42,10 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   /** The name of the provider for this info object. */
   String NAME = "AndroidAssetsInfo";
 
-  @SkylarkCallable(name = "label", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "label", structField = true, doc = "", documented = false)
   Label getLabel();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "validation_result",
       structField = true,
       allowReturnNones = true,
@@ -60,11 +60,11 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   @Nullable
   FileApi getValidationResult();
 
-  @SkylarkCallable(name = "direct_parsed_assets", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "direct_parsed_assets", structField = true, doc = "", documented = false)
   Depset /*<AssetsT>*/ getDirectParsedAssetsForStarlark();
 
   /** Returns the local assets for the target. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "local_assets",
       doc = "Returns the local assets for the target.",
       documented = false,
@@ -73,7 +73,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   ImmutableList<FileT> getLocalAssets();
 
   /** Returns the local asset dir for the target. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "local_asset_dir",
       doc = "Returns the local asset directory for the target.",
       documented = false,
@@ -81,20 +81,20 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
       structField = true)
   String getLocalAssetDir();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_parsed_assets",
       structField = true,
       doc = "",
       documented = false)
   Depset /*<AssetsT>*/ getTransitiveParsedAssetsForStarlark();
 
-  @SkylarkCallable(name = "assets", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "assets", structField = true, doc = "", documented = false)
   Depset /*<FileT>*/ getAssetsForStarlark();
 
-  @SkylarkCallable(name = "symbols", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "symbols", structField = true, doc = "", documented = false)
   Depset /*<FileT>*/ getSymbolsForStarlark();
 
-  @SkylarkCallable(name = "compiled_symbols", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "compiled_symbols", structField = true, doc = "", documented = false)
   Depset /*<FileT>*/ getCompiledSymbolsForStarlark();
 
   /** The provider implementing this can construct the AndroidAssetsInfo provider. */
@@ -107,7 +107,7 @@ public interface AndroidAssetsInfoApi<FileT extends FileApi, AssetsT extends Par
   interface Provider<FileT extends FileApi, AssetsT extends ParsedAndroidAssetsApi>
       extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidAssetsInfo</code> constructor.",
         documented = false,

@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -347,14 +347,13 @@ public final class Label
    * Returns the name of the package in which this rule was declared (e.g. {@code
    * //file/base:fileutils_test} returns {@code file/base}).
    */
-  @SkylarkCallable(
-    name = "package",
-    structField = true,
-    doc =
-        "The package part of this label. "
-            + "For instance:<br>"
-            + "<pre class=language-python>Label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>"
-  )
+  @StarlarkMethod(
+      name = "package",
+      structField = true,
+      doc =
+          "The package part of this label. "
+              + "For instance:<br>"
+              + "<pre class=language-python>Label(\"//pkg/foo:abc\").package == \"pkg/foo\"</pre>")
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
@@ -364,7 +363,7 @@ public final class Label
    * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
    * it will returns an empty string.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "workspace_root",
       structField = true,
       doc =
@@ -411,14 +410,13 @@ public final class Label
    * Returns the name by which this rule was declared (e.g. {@code //foo/bar:baz} returns {@code
    * baz}).
    */
-  @SkylarkCallable(
-    name = "name",
-    structField = true,
-    doc =
-        "The name of this label within the package. "
-            + "For instance:<br>"
-            + "<pre class=language-python>Label(\"//pkg/foo:abc\").name == \"abc\"</pre>"
-  )
+  @StarlarkMethod(
+      name = "name",
+      structField = true,
+      doc =
+          "The name of this label within the package. "
+              + "For instance:<br>"
+              + "<pre class=language-python>Label(\"//pkg/foo:abc\").name == \"abc\"</pre>")
   public String getName() {
     return name;
   }
@@ -451,7 +449,7 @@ public final class Label
   }
 
   /** Return the name of the repository label refers to without the leading `at` symbol. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "workspace_name",
       structField = true,
       doc =
@@ -509,7 +507,7 @@ public final class Label
    * @param relName the relative label name; must be non-empty.
    * @param thread the Starlark thread, which must provide a thread-local {@code HasRepoMapping}.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "relative",
       doc =
           "Resolves a label that is either absolute (starts with <code>//</code>) or relative to "

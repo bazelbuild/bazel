@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import javax.annotation.Nullable;
 
@@ -33,14 +33,14 @@ import javax.annotation.Nullable;
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface ConstraintSettingInfoApi extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label",
       doc = "The label of the target that created this constraint.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   Label label();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "default_constraint_value",
       doc = "The default constraint_value for this setting.",
       structField = true,
@@ -49,7 +49,7 @@ public interface ConstraintSettingInfoApi extends StructApi {
   @Nullable
   ConstraintValueInfoApi defaultConstraintValue();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "has_default_constraint_value",
       doc = "Whether there is a default constraint_value for this setting.",
       structField = true)

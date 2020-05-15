@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -40,7 +40,7 @@ public interface ToolchainInfoApi extends StructApi {
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "ToolchainInfo",
         doc = "The <code>ToolchainInfo</code> constructor.",
         documented = false,

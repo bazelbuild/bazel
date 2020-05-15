@@ -15,30 +15,25 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Test case for a class with multiple SkylarkCallable methods which have selfCall=true. */
+/** Test case for a class with multiple StarlarkMethod methods which have selfCall=true. */
 public class MultipleSelfCallMethods implements StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "selfCallMethod",
       selfCall = true,
       parameters = {
-          @Param(name = "one", type = String.class, named = true),
-          @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "one", type = String.class, named = true),
+        @Param(name = "two", type = Integer.class, named = true),
       },
-      documented = false
-  )
+      documented = false)
   public Integer selfCallMethod(String one, Integer two) {
     return 0;
   }
 
-  @SkylarkCallable(
-      name = "selfCallMethodTwo",
-      selfCall = true,
-      documented = false
-  )
+  @StarlarkMethod(name = "selfCallMethodTwo", selfCall = true, documented = false)
   public Integer selfCallMethodTwo() {
     return 0;
   }

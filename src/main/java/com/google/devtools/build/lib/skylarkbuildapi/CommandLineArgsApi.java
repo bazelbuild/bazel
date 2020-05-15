@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
@@ -111,7 +111,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + ")\n"
             + "</pre>")
 public interface CommandLineArgsApi extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "add",
       doc = "Appends an argument to this command line.",
       parameters = {
@@ -149,7 +149,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       Object argNameOrValue, Object value, Object format, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "add_all",
       doc =
           "Appends multiple arguments to this command line. For depsets, the items are "
@@ -308,7 +308,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "add_joined",
       doc =
           "Appends an argument to this command line by concatenating together multiple values "
@@ -424,7 +424,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_param_file",
       doc =
           "Spills the args to a params file, replacing them with a pointer to the param file. "
@@ -459,7 +459,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       })
   CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "set_param_file_format",
       doc = "Sets the format of the param file when written to disk",
       parameters = {

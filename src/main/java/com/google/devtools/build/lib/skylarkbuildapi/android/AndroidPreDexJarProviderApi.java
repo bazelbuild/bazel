@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A provider of the final Jar to be dexed for targets that build APKs. */
@@ -38,7 +38,7 @@ public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends Stru
   String NAME = "AndroidPreDexJarInfo";
 
   /** Returns the jar to be dexed. */
-  @SkylarkCallable(name = "pre_dex_jar", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "pre_dex_jar", structField = true, doc = "", documented = false)
   FileT getPreDexJar();
 
   /** The provider implementing this can construct the AndroidPreDexJarInfo provider. */
@@ -50,7 +50,7 @@ public interface AndroidPreDexJarProviderApi<FileT extends FileApi> extends Stru
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidPreDexJarInfo</code> constructor.",
         documented = false,

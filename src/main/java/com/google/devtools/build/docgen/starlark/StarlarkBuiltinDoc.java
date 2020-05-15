@@ -18,9 +18,9 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import java.text.Collator;
 import java.util.Collection;
 import java.util.Locale;
@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 
 /**
  * A class representing documentation for a Starlark built-in object with its {@link StarlarkModule}
- * annotation and with the {@link SkylarkCallable} methods it documents.
+ * annotation and with the {@link StarlarkMethod} methods it documents.
  */
 public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private final StarlarkBuiltin module;

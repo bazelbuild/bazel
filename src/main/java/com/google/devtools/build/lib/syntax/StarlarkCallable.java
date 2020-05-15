@@ -60,8 +60,8 @@ public interface StarlarkCallable extends StarlarkValue {
    *
    * <p>This method defines the low-level or "fast" calling convention. A more convenient interface
    * is provided by the {@link #call} method, which provides a signature analogous to {@code def
-   * f(*args, **kwargs)}, or possibly the "self-call" feature of the {@link
-   * SkylarkCallable#selfCall} annotation mechanism.
+   * f(*args, **kwargs)}, or possibly the "self-call" feature of the {@link StarlarkMethod#selfCall}
+   * annotation mechanism.
    *
    * <p>The default implementation forwards the call to {@code call}, after rejecting any duplicate
    * named arguments. Other implementations of this method should similarly reject duplicates.

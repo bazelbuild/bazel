@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -38,7 +38,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
   /** Name of this info object. */
   String NAME = "AndroidNativeLibsInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "native_libs",
       doc = "Returns the native libraries produced by the rule.",
       documented = false,
@@ -54,7 +54,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
       documented = false)
   interface AndroidNativeLibsInfoApiProvider extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidNativeLibsInfo",
         doc = "The <code>AndroidNativeLibsInfo</code> constructor.",
         documented = false,

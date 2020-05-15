@@ -41,7 +41,7 @@ public final class Starlark {
   public static final NoneType NONE = NoneType.NONE;
 
   /**
-   * A sentinel value passed to optional parameters of SkylarkCallable-annotated methods to indicate
+   * A sentinel value passed to optional parameters of StarlarkMethod-annotated methods to indicate
    * that no argument value was supplied.
    */
   public static final Object UNBOUND = new UnboundMarker();
@@ -109,7 +109,7 @@ public final class Starlark {
    * {@link #NONE}. Any other non-Starlark value causes the function to throw
    * IllegalArgumentException.
    *
-   * <p>This function is applied to the results of @SkylarkCallable-annotated Java methods.
+   * <p>This function is applied to the results of @StarlarkMethod-annotated Java methods.
    */
   public static Object fromJava(Object x, @Nullable Mutability mutability) {
     if (x == null) {
@@ -416,7 +416,7 @@ public final class Starlark {
     if (fn instanceof StarlarkCallable) {
       callable = (StarlarkCallable) fn;
     } else {
-      // @SkylarkCallable(selfCall)?
+      // @StarlarkMethod(selfCall)?
       MethodDescriptor desc =
           CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
       if (desc == null) {
@@ -452,15 +452,15 @@ public final class Starlark {
   /**
    * Adds to the environment {@code env} all {@code StarlarkCallable}-annotated fields and methods
    * of value {@code v}, filtered by the given semantics. The class of {@code v} must have or
-   * inherit a {@link StarlarkBuiltin} or {@code SkylarkGlobalLibrary} annotation.
+   * inherit a {@link StarlarkBuiltin} or {@code StarlarkGlobalLibrary} annotation.
    */
   public static void addMethods(
       ImmutableMap.Builder<String, Object> env, Object v, StarlarkSemantics semantics) {
     Class<?> cls = v.getClass();
-    if (!StarlarkInterfaceUtils.hasSkylarkGlobalLibrary(cls)
+    if (!StarlarkInterfaceUtils.hasStarlarkGlobalLibrary(cls)
         && StarlarkInterfaceUtils.getStarlarkBuiltin(cls) == null) {
       throw new IllegalArgumentException(
-          cls.getName() + " is annotated with neither @SkylarkGlobalLibrary nor @StarlarkBuiltin");
+          cls.getName() + " is annotated with neither @StarlarkGlobalLibrary nor @StarlarkBuiltin");
     }
     for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
       // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing

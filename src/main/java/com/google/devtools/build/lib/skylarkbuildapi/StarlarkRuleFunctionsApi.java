@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.BuildSett
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
  * Interface for a global Starlark library containing rule-related helper and registration
  * functions.
  */
-@SkylarkGlobalLibrary
+@StarlarkGlobalLibrary
 public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
 
   String EXEC_COMPATIBLE_WITH_PARAM = "exec_compatible_with";
@@ -52,7 +52,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
           + "<a href='globals.html#provider'><code>provider()</code></a>, except that a legacy "
           + "provider is represented by its string name instead.";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "provider",
       doc =
           "Creates a declared provider 'constructor'. The return value of this "
@@ -93,7 +93,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       useStarlarkThread = true)
   ProviderApi provider(String doc, Object fields, StarlarkThread thread) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "rule",
       doc =
           "Creates a new rule, which can be called from a BUILD file or a macro to create targets."
@@ -368,7 +368,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "aspect",
       doc =
           "Creates a new aspect. The result of this function must be stored in a global value. "
@@ -515,7 +515,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "Label",
       doc =
           "Creates a Label referring to a BUILD target. Use "
@@ -544,7 +544,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
   Label label(String labelString, Boolean relativeToCallerRepository, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exec_group",
       // TODO(juliexxia); uncomment or remove based on resolution of b/152637857
       // enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,

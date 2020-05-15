@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -32,19 +32,19 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface LinkerInputApi<
         LibraryToLinkT extends LibraryToLinkApi<FileT>, FileT extends FileApi>
     extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "owner",
       doc = "Returns the owner of this LinkerInput.",
       structField = true)
   Label getSkylarkOwner() throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
       structField = true)
   Sequence<String> getSkylarkUserLinkFlags();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "libraries",
       doc =
           "Returns the depset of <code>LibraryToLink</code>. May return a list but this is "
@@ -53,7 +53,7 @@ public interface LinkerInputApi<
       useStarlarkSemantics = true)
   Sequence<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkSemantics semantics);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       structField = true)

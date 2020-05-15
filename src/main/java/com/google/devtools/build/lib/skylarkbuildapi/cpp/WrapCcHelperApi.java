@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -47,7 +47,7 @@ public interface WrapCcHelperApi<
         WrapCcIncludeProviderT extends WrapCcIncludeProviderApi>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "feature_configuration",
       documented = false,
       doc = "",
@@ -63,7 +63,7 @@ public interface WrapCcHelperApi<
       SkylarkRuleContextT skylarkRuleContext, CcToolchainProviderT ccToolchain)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "collect_transitive_swig_includes",
       documented = false,
       parameters = {
@@ -71,7 +71,7 @@ public interface WrapCcHelperApi<
       })
   public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextT skylarkRuleContext);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_compile_actions",
       documented = false,
       parameters = {
@@ -105,7 +105,7 @@ public interface WrapCcHelperApi<
       Sequence<?> targetCopts /* <String> expected */)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "mangled_target_name",
       documented = false,
       doc = "",
@@ -115,7 +115,7 @@ public interface WrapCcHelperApi<
   public String skylarkGetMangledTargetName(SkylarkRuleContextT skylarkRuleContext)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "wrap_cc_include_provider",
       doc = "",
       documented = false,
@@ -128,7 +128,7 @@ public interface WrapCcHelperApi<
       SkylarkRuleContextT skylarkRuleContext, Depset swigIncludes)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "register_swig_action",
       documented = false,
       parameters = {

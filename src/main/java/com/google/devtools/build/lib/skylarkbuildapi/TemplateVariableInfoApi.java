@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -42,7 +42,7 @@ public interface TemplateVariableInfoApi extends StructApi {
   /** The global provider name. */
   String NAME = "TemplateVariableInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "variables",
       doc =
           "Returns the make variables defined by this target as a dictionary with string keys "
@@ -54,7 +54,7 @@ public interface TemplateVariableInfoApi extends StructApi {
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "TemplateVariableInfo",
         doc = "The <code>TemplateVariableInfo</code> constructor.",
         documented = false,

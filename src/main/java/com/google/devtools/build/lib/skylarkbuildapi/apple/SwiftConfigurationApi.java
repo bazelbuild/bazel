@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A configuration fragment for Swift tools. */
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public interface SwiftConfigurationApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "copts",
       doc =
           "A list of compiler options that should be passed to <code>swiftc</code> when compiling "

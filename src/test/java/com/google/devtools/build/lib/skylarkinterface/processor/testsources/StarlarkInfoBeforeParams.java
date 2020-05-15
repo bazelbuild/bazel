@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  */
 public class StarlarkInfoBeforeParams implements StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "skylark_info_wrong_order",
       documented = false,
       parameters = {

@@ -15,17 +15,17 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a SkylarkCallable method which has a parameter which may be disabled with semantic
+ * Test case for a StarlarkMethod method which has a parameter which may be disabled with semantic
  * flag but has no "disabled value".
  */
 public class ToggledParamNoDisabledValue implements StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "no_disabled_value_method",
       documented = false,
       parameters = {

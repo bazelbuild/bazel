@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -32,13 +32,13 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT extends JavaInfoApi<?>>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_device_broker_info",
       documented = false,
       parameters = {@Param(name = "type", type = String.class)})
   AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_source_directory",
       allowReturnNones = true,
       doc =
@@ -57,7 +57,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
       })
   String getSourceDirectoryRelativePathFromResource(FileT resource);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "multi_cpu_configuration",
       doc =
           "A configuration for rule attributes that compiles native code according to "
@@ -66,7 +66,7 @@ public interface AndroidStarlarkCommonApi<FileT extends FileApi, JavaInfoT exten
       structField = true)
   AndroidSplitTransititionApi getAndroidSplitTransition();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",
       doc = "Takes a JavaInfo and converts it to an implicit exportable JavaInfo.",
       documented = false,

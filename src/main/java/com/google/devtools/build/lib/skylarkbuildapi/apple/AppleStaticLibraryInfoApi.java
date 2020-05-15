@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -39,13 +39,13 @@ public interface AppleStaticLibraryInfoApi extends StructApi {
   /** Starlark name for this interface. */
   String STARLARK_NAME = "AppleStaticLibrary";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "archive",
       structField = true,
       doc = "The multi-arch archive (.a) output by apple_static_library.")
   FileApi getMultiArchArchive();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "objc",
       structField = true,
       doc =
@@ -58,7 +58,7 @@ public interface AppleStaticLibraryInfoApi extends StructApi {
           FileApiT extends FileApi, ObjcProviderApiT extends ObjcProviderApi<?>>
       extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = STARLARK_NAME,
         doc = "The <code>AppleStaticLibrary</code> constructor.",
         parameters = {

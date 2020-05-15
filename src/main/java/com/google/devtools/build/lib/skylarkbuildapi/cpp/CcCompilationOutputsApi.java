@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface CcCompilationOutputsApi<FileT extends FileApi> extends StarlarkValue {
 
   /** @deprecated use {@link #getSkylarkObjects} or {@link #getSkylarkPicObjects}. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "object_files",
       doc = "Do not use. Use eiher 'objects' or 'pic_objects'.",
       useStarlarkThread = true,
@@ -43,9 +43,9 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
   @Deprecated
   Sequence<FileT> getSkylarkObjectFiles(boolean usePic, StarlarkThread thread) throws EvalException;
 
-  @SkylarkCallable(name = "objects", documented = false, structField = true)
+  @StarlarkMethod(name = "objects", documented = false, structField = true)
   Sequence<FileT> getSkylarkObjects() throws EvalException;
 
-  @SkylarkCallable(name = "pic_objects", documented = false, structField = true)
+  @StarlarkMethod(name = "pic_objects", documented = false, structField = true)
   Sequence<FileT> getSkylarkPicObjects() throws EvalException;
 }

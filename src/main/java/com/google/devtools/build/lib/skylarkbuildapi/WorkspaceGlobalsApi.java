@@ -16,8 +16,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global Starlark build API functions that apply to WORKSPACE files. */
-@SkylarkGlobalLibrary
+@StarlarkGlobalLibrary
 public interface WorkspaceGlobalsApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "workspace",
       doc =
           "<p>This function can only be used in a <code>WORKSPACE</code> file and must be declared "
@@ -85,7 +85,7 @@ public interface WorkspaceGlobalsApi {
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "toplevel_output_directories",
       doc =
           "Exclude directories under workspace from symlinking into execroot.\n"
@@ -115,7 +115,7 @@ public interface WorkspaceGlobalsApi {
   NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "register_execution_platforms",
       doc =
           "Register an already-defined platform so that Bazel can use it as an "
@@ -132,7 +132,7 @@ public interface WorkspaceGlobalsApi {
   NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "register_toolchains",
       doc =
           "Register an already-defined toolchain so that Bazel can use it during "
@@ -151,7 +151,7 @@ public interface WorkspaceGlobalsApi {
   NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bind",
       doc =
           "<p>Warning: use of <code>bind()</code> is not recommended. See <a"

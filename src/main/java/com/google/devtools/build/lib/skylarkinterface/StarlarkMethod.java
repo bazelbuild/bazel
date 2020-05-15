@@ -22,22 +22,22 @@ import java.lang.annotation.Target;
  * Annotates a Java method that can be called from Starlark.
  *
  * <p>This annotation is only allowed to appear on methods of classes that are directly annotated
- * with {@link StarlarkBuiltin} or {@link SkylarkGlobalLibrary}. Since subtypes can't add new
+ * with {@link StarlarkBuiltin} or {@link StarlarkGlobalLibrary}. Since subtypes can't add new
  * Starlark-accessible methods unless they have their own {{@link StarlarkBuiltin} annotation, this
  * implies that you can always determine the complete set of Starlark entry points for a given
  * {@link StarlarkValue} type by looking at the ancestor class or interface from which it inherits
  * its {@link StarlarkBuiltin}.
  *
- * <p>If a method is annotated with {@code @SkylarkCallable}, it is not allowed to have any
+ * <p>If a method is annotated with {@code @StarlarkCallable}, it is not allowed to have any
  * overloads or hide any static or default methods. Overriding is allowed, but the
- * {@code @SkylarkCallable} annotation itself must not be repeated on the override. This ensures
- * that given a method, we can always determine its corresponding {@code @SkylarkCallable}
+ * {@code @StarlarkMethod} annotation itself must not be repeated on the override. This ensures
+ * that given a method, we can always determine its corresponding {@code @StarlarkMethod}
  * annotation, if it has one, by scanning all methods of the same name in its class hierarchy,
  * without worrying about complications like overloading or generics. The lookup functionality is
- * implemented by {@link StarlarkInterfaceUtils#getSkylarkCallable}.
+ * implemented by {@link StarlarkInterfaceUtils#getStarlarkMethod}.
  *
  * <p>Methods having this annotation must satisfy the following requirements, which are enforced at
- * compile time by {@link SkylarkCallableProcessor}:
+ * compile time by {@link StarlarkMethodProcessor}:
  *
  * <ul>
  *   <li>The method must be public and non-static, and its class must implement StarlarkValue.
@@ -86,7 +86,7 @@ import java.lang.annotation.Target;
 // TODO(adonovan): rename to StarlarkAttribute and factor Starlark{Method,Field} as subinterfaces.
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface SkylarkCallable {
+public @interface StarlarkMethod {
 
   /** Name of the method, as exposed to Starlark. */
   String name();

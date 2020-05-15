@@ -57,8 +57,8 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -85,7 +85,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Starlark functions relating to rule implementation. */
 @RunWith(JUnit4.class)
-@SkylarkGlobalLibrary // needed for CallUtils.getBuiltinCallable, sadly
+@StarlarkGlobalLibrary // needed for CallUtils.getBuiltinCallable, sadly
 public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
   private final EvaluationTestCase ev = new BazelEvaluationTestCase();
@@ -98,7 +98,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   // def mock(mandatory, optional=None, *, mandatory_key, optional_key='x')
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "mock",
       documented = false,
       parameters = {
@@ -1886,7 +1886,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     }
   }
 
-  @SkylarkCallable(name = "throw1", documented = false)
+  @StarlarkMethod(name = "throw1", documented = false)
   public Object throw1() throws Exception {
     class ThereIsNoMessageException extends EvalException {
       ThereIsNoMessageException() {
@@ -1908,7 +1908,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "There Is No Message: StarlarkRuleImplementationFunctionsTest", "throw1()");
   }
 
-  @SkylarkCallable(name = "throw2", documented = false)
+  @StarlarkMethod(name = "throw2", documented = false)
   public Object throw2() throws Exception {
     throw new InterruptedException();
   }

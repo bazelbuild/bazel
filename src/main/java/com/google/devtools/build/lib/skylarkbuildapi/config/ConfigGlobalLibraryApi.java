@@ -15,21 +15,19 @@
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
-/**
- * A collection of top-level Starlark functions pertaining to configuration.
- */
-@SkylarkGlobalLibrary
+/** A collection of top-level Starlark functions pertaining to configuration. */
+@StarlarkGlobalLibrary
 public interface ConfigGlobalLibraryApi {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transition",
       doc =
           "A transition that reads a set of input build settings and writes a set of output build "
@@ -105,7 +103,7 @@ public interface ConfigGlobalLibraryApi {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "analysis_test_transition",
       doc =
           "<p> Creates a configuration transition to be applied on "

@@ -14,20 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a class with a SkylarkCallable method which has selfCall=true and structField=true.
+ * Test case for a class with a StarlarkMethod method which has selfCall=true and structField=true.
  */
 public class SelfCallWithStructField implements StarlarkValue {
 
-  @SkylarkCallable(
-      name = "selfCallMethod",
-      selfCall = true,
-      structField = true,
-      documented = false
-  )
+  @StarlarkMethod(name = "selfCallMethod", selfCall = true, structField = true, documented = false)
   public Integer selfCallMethod() {
     return 0;
   }

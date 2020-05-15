@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -222,7 +222,7 @@ public final class DebuggerSerializationTest {
       printer.append("DummyType");
     }
 
-    @SkylarkCallable(name = "bool", doc = "Returns True", structField = true)
+    @StarlarkMethod(name = "bool", doc = "Returns True", structField = true)
     public boolean bool() {
       return true;
     }
@@ -247,12 +247,12 @@ public final class DebuggerSerializationTest {
       printer.append("DummyTypeWithException");
     }
 
-    @SkylarkCallable(name = "bool", doc = "Returns True", structField = true)
+    @StarlarkMethod(name = "bool", doc = "Returns True", structField = true)
     public boolean bool() {
       return true;
     }
 
-    @SkylarkCallable(name = "invalid", doc = "Throws exception!", structField = true)
+    @StarlarkMethod(name = "invalid", doc = "Throws exception!", structField = true)
     public boolean invalid() {
       throw new IllegalArgumentException();
     }

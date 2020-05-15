@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 
@@ -38,13 +38,13 @@ import com.google.devtools.build.lib.syntax.NoneType;
 public interface CcInfoApi<FileT extends FileApi> extends StructApi {
   String NAME = "CcInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compilation_context",
       doc = "Returns the <code>CompilationContext</code>",
       structField = true)
   CcCompilationContextApi<FileT> getCcCompilationContext();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "linking_context",
       doc = "Returns the <code>LinkingContext</code>",
       structField = true)
@@ -59,7 +59,7 @@ public interface CcInfoApi<FileT extends FileApi> extends StructApi {
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>CcInfo</code> constructor.",
         parameters = {

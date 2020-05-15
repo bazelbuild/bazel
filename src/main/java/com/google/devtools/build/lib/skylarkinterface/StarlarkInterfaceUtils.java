@@ -45,7 +45,7 @@ public class StarlarkInterfaceUtils {
       // If this exception occurs, it indicates the following error scenario:
       //
       // Suppose class A is a subclass of both B and C, where B and C are annotated with
-      // @StarlarkBuiltin annotations (and are thus considered "skylark types"). If B is not a
+      // @StarlarkBuiltin annotations (and are thus considered "Starlark types"). If B is not a
       // subclass of C (nor vice versa), then it's impossible to resolve whether A is of type
       // B or if A is of type C. It's both! The way to resolve this is usually to have A be its own
       // type (annotated with @StarlarkBuiltin), and thus have the explicit type of A be
@@ -107,17 +107,17 @@ public class StarlarkInterfaceUtils {
   }
 
   /**
-   * Searches {@code classObj}'s class hierarchy and for a superclass or interface that
-   * is annotated with {@link SkylarkGlobalLibrary} (including possibly {@code classObj} itself),
-   * and returns true if one is found.
+   * Searches {@code classObj}'s class hierarchy and for a superclass or interface that is annotated
+   * with {@link StarlarkGlobalLibrary} (including possibly {@code classObj} itself), and returns
+   * true if one is found.
    */
-  public static boolean hasSkylarkGlobalLibrary(Class<?> classObj) {
-    return findAnnotatedAncestor(classObj, SkylarkGlobalLibrary.class) != null;
+  public static boolean hasStarlarkGlobalLibrary(Class<?> classObj) {
+    return findAnnotatedAncestor(classObj, StarlarkGlobalLibrary.class) != null;
   }
 
   /**
-   * Returns the {@link SkylarkCallable} annotation for the given method, if it exists, and
-   * null otherwise.
+   * Returns the {@link StarlarkMethod} annotation for the given method, if it exists, and null
+   * otherwise.
    *
    * <p>Note that the annotation may be defined on a supermethod, rather than directly on the given
    * method.
@@ -125,19 +125,19 @@ public class StarlarkInterfaceUtils {
    * <p>{@code classObj} is the class on which the given method is defined.
    */
   @Nullable
-  public static SkylarkCallable getSkylarkCallable(Class<?> classObj, Method method) {
-    SkylarkCallable callable = getCallableOnClassMatchingSignature(classObj, method);
+  public static StarlarkMethod getStarlarkMethod(Class<?> classObj, Method method) {
+    StarlarkMethod callable = getCallableOnClassMatchingSignature(classObj, method);
     if (callable != null) {
       return callable;
     }
     if (classObj.getSuperclass() != null) {
-      SkylarkCallable annotation = getSkylarkCallable(classObj.getSuperclass(), method);
+      StarlarkMethod annotation = getStarlarkMethod(classObj.getSuperclass(), method);
       if (annotation != null) {
         return annotation;
       }
     }
     for (Class<?> interfaceObj : classObj.getInterfaces()) {
-      SkylarkCallable annotation = getSkylarkCallable(interfaceObj, method);
+      StarlarkMethod annotation = getStarlarkMethod(interfaceObj, method);
       if (annotation != null) {
         return annotation;
       }
@@ -146,37 +146,37 @@ public class StarlarkInterfaceUtils {
   }
 
   /**
-   * Convenience version of {@code getAnnotationsFromParentClass(Class, Method)} that uses
-   * the declaring class of the method.
+   * Convenience version of {@code getAnnotationsFromParentClass(Class, Method)} that uses the
+   * declaring class of the method.
    */
   @Nullable
-  public static SkylarkCallable getSkylarkCallable(Method method) {
-    return getSkylarkCallable(method.getDeclaringClass(), method);
+  public static StarlarkMethod getStarlarkMethod(Method method) {
+    return getStarlarkMethod(method.getDeclaringClass(), method);
   }
 
   /**
-   * Returns the {@code SkylarkCallable} annotation corresponding to the given method of the given
+   * Returns the {@code StarlarkMethod} annotation corresponding to the given method of the given
    * class, or null if there is no such annotation.
    *
-   * <p>This method checks assignability instead of exact matches for purposes of generics. If
-   * Clazz has parameters BarT (extends BarInterface) and BazT (extends BazInterface), then
-   * foo(BarT, BazT) should match if the given method signature is foo(BarImpl, BazImpl). The
-   * signatures are in inexact match, but an "assignable" match.
+   * <p>This method checks assignability instead of exact matches for purposes of generics. If Clazz
+   * has parameters BarT (extends BarInterface) and BazT (extends BazInterface), then foo(BarT,
+   * BazT) should match if the given method signature is foo(BarImpl, BazImpl). The signatures are
+   * in inexact match, but an "assignable" match.
    */
   @Nullable
-  private static SkylarkCallable getCallableOnClassMatchingSignature(
+  private static StarlarkMethod getCallableOnClassMatchingSignature(
       Class<?> classObj, Method signatureToMatch) {
-    // TODO(b/79877079): This method validates several invariants of @SkylarkCallable. These
+    // TODO(b/79877079): This method validates several invariants of @StarlarkMethod. These
     // invariants should be verified in annotation processor or in test, and left out of this
     // method.
     Method[] methods = classObj.getDeclaredMethods();
     Class<?>[] paramsToMatch = signatureToMatch.getParameterTypes();
 
-    SkylarkCallable callable = null;
+    StarlarkMethod callable = null;
 
     for (Method method : methods) {
       if (signatureToMatch.getName().equals(method.getName())
-          && method.isAnnotationPresent(SkylarkCallable.class)) {
+          && method.isAnnotationPresent(StarlarkMethod.class)) {
         Class<?>[] paramTypes = method.getParameterTypes();
 
         if (paramTypes.length == paramsToMatch.length) {
@@ -193,12 +193,12 @@ public class StarlarkInterfaceUtils {
           }
         }
         if (callable == null) {
-          callable = method.getAnnotation(SkylarkCallable.class);
+          callable = method.getAnnotation(StarlarkMethod.class);
         } else {
           throw new IllegalStateException(
               String.format(
                   "Class %s has multiple overloaded methods named '%s' annotated "
-                      + "with @SkylarkCallable",
+                      + "with @StarlarkMethod",
                   classObj, signatureToMatch.getName()));
         }
       }

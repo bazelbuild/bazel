@@ -224,7 +224,7 @@ public final class EvalUtils {
     StarlarkSemantics semantics = thread.getSemantics();
     Mutability mu = thread.mutability();
 
-    // @SkylarkCallable-annotated field or method?
+    // @StarlarkMethod-annotated field or method?
     MethodDescriptor method = CallUtils.getMethod(semantics, x.getClass(), name);
     if (method != null) {
       if (method.isStructField()) {

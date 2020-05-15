@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -52,7 +52,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
   String FLAG_ARG = "flag";
   String FLAG_ARG_DOC = "Whether or not this build setting is callable on the command line.";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "int",
       doc = "An integer-typed build setting",
       parameters = {
@@ -66,7 +66,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
       })
   BuildSettingApi intSetting(Boolean flag);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bool",
       doc = "A bool-typed build setting",
       parameters = {
@@ -80,7 +80,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
       })
   BuildSettingApi boolSetting(Boolean flag);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "string",
       doc = "A string-typed build setting",
       parameters = {
@@ -94,7 +94,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
       })
   BuildSettingApi stringSetting(Boolean flag);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "string_list",
       doc = "A string list-typed build setting",
       parameters = {
@@ -118,7 +118,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
               + "single entry in that map.")
   interface BuildSettingApi extends StarlarkValue {}
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exec",
       doc = "<i>experimental</i> Creates an execution transition.",
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,

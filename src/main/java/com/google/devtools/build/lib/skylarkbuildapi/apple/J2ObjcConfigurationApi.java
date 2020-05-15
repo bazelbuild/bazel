@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A configuration fragment for j2objc. */
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "A configuration fragment for j2Objc.")
 public interface J2ObjcConfigurationApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "translation_flags",
       structField = true,
       doc = "The list of flags to be used when the j2objc compiler is invoked. ")

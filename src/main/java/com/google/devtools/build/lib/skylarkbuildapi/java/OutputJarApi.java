@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -28,21 +28,21 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "Java classes jar, together with their associated source and interface archives.")
 public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "class_jar",
       doc = "A classes jar file.",
       allowReturnNones = true,
       structField = true)
   FileT getClassJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ijar",
       doc = "A interface jar file.",
       allowReturnNones = true,
       structField = true)
   FileT getIJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "manifest_proto",
       doc =
           "A manifest proto file. The protobuf file containing the manifest generated from "
@@ -51,7 +51,7 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
       structField = true)
   FileT getManifestProto();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "source_jar",
       doc =
           "A sources archive file. Deprecated. Kept for migration reasons. "
@@ -61,7 +61,7 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
   @Deprecated
   FileT getSrcJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "source_jars",
       doc = "A list of sources archive files.",
       allowReturnNones = true,

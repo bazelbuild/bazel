@@ -25,10 +25,10 @@ import com.google.devtools.build.lib.analysis.skylark.StarlarkModules;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -107,7 +107,7 @@ public class StarlarkDocumentationTest {
   /** MockClassA */
   @StarlarkBuiltin(name = "MockClassA", doc = "MockClassA")
   private static class MockClassA implements StarlarkValue {
-    @SkylarkCallable(name = "get", doc = "MockClassA#get")
+    @StarlarkMethod(name = "get", doc = "MockClassA#get")
     public Integer get() {
       return 0;
     }
@@ -116,16 +116,15 @@ public class StarlarkDocumentationTest {
   /** MockClassD */
   @StarlarkBuiltin(name = "MockClassD", doc = "MockClassD")
   private static class MockClassD implements StarlarkValue {
-    @SkylarkCallable(
-      name = "test",
-      doc = "MockClassD#test",
-      parameters = {
-        @Param(name = "a"),
-        @Param(name = "b"),
-        @Param(name = "c", named = true, positional = false),
-        @Param(name = "d", named = true, positional = false, defaultValue = "1"),
-      }
-    )
+    @StarlarkMethod(
+        name = "test",
+        doc = "MockClassD#test",
+        parameters = {
+          @Param(name = "a"),
+          @Param(name = "b"),
+          @Param(name = "c", named = true, positional = false),
+          @Param(name = "d", named = true, positional = false, defaultValue = "1"),
+        })
     public Integer test(int a, int b, int c, int d) {
       return 0;
     }
@@ -143,7 +142,7 @@ public class StarlarkDocumentationTest {
   /** MockClassF */
   @StarlarkBuiltin(name = "MockClassF", doc = "MockClassF")
   private static class MockClassF implements StarlarkValue {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "test",
         doc = "MockClassF#test",
         parameters = {
@@ -161,7 +160,7 @@ public class StarlarkDocumentationTest {
   /** MockClassG */
   @StarlarkBuiltin(name = "MockClassG", doc = "MockClassG")
   private static class MockClassG implements StarlarkValue {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "test",
         doc = "MockClassG#test",
         parameters = {
@@ -179,7 +178,7 @@ public class StarlarkDocumentationTest {
   /** MockClassH */
   @StarlarkBuiltin(name = "MockClassH", doc = "MockClassH")
   private static class MockClassH implements StarlarkValue {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "test",
         doc = "MockClassH#test",
         parameters = {
@@ -200,10 +199,10 @@ public class StarlarkDocumentationTest {
    * SkylarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
    * shows up.
    */
-  @SkylarkGlobalLibrary
+  @StarlarkGlobalLibrary
   @SuppressWarnings("unused")
   private static class MockGlobalLibrary {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "MockGlobalCallable",
         doc = "GlobalCallable documentation",
         parameters = {
@@ -225,27 +224,27 @@ public class StarlarkDocumentationTest {
       doc = "MockClassWithContainerReturnValues")
   private static class MockClassWithContainerReturnValues implements StarlarkValue {
 
-    @SkylarkCallable(name = "depset", doc = "depset")
+    @StarlarkMethod(name = "depset", doc = "depset")
     public Depset /*<Integer>*/ getNestedSet() {
       return null;
     }
 
-    @SkylarkCallable(name = "tuple", doc = "tuple")
+    @StarlarkMethod(name = "tuple", doc = "tuple")
     public Tuple<Integer> getTuple() {
       return null;
     }
 
-    @SkylarkCallable(name = "immutable", doc = "immutable")
+    @StarlarkMethod(name = "immutable", doc = "immutable")
     public ImmutableList<Integer> getImmutableList() {
       return null;
     }
 
-    @SkylarkCallable(name = "mutable", doc = "mutable")
+    @StarlarkMethod(name = "mutable", doc = "mutable")
     public StarlarkList<Integer> getMutableList() {
       return null;
     }
 
-    @SkylarkCallable(name = "skylark", doc = "skylark")
+    @StarlarkMethod(name = "skylark", doc = "skylark")
     public Sequence<Integer> getSkylarkList() {
       return null;
     }
@@ -255,7 +254,7 @@ public class StarlarkDocumentationTest {
   @StarlarkBuiltin(name = "MockClassCommonName", doc = "MockClassCommonName")
   private static class MockClassCommonNameOne implements StarlarkValue {
 
-    @SkylarkCallable(name = "one", doc = "one")
+    @StarlarkMethod(name = "one", doc = "one")
     public Integer one() {
       return 1;
     }
@@ -265,7 +264,7 @@ public class StarlarkDocumentationTest {
   @StarlarkBuiltin(name = "MockClassCommonName", doc = "MockClassCommonName")
   private static class SubclassOfMockClassCommonNameOne extends MockClassCommonNameOne {
 
-    @SkylarkCallable(name = "two", doc = "two")
+    @StarlarkMethod(name = "two", doc = "two")
     public Integer two() {
       return 1;
     }
@@ -276,12 +275,12 @@ public class StarlarkDocumentationTest {
       name = "PointsToCommonNameOneWithSubclass",
       doc = "PointsToCommonNameOneWithSubclass")
   private static class PointsToCommonNameOneWithSubclass implements StarlarkValue {
-    @SkylarkCallable(name = "one", doc = "one")
+    @StarlarkMethod(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;
     }
 
-    @SkylarkCallable(name = "one_subclass", doc = "one_subclass")
+    @StarlarkMethod(name = "one_subclass", doc = "one_subclass")
     public SubclassOfMockClassCommonNameOne getOneSubclass() {
       return null;
     }
@@ -291,7 +290,7 @@ public class StarlarkDocumentationTest {
   @StarlarkBuiltin(name = "MockClassCommonName", documented = false, doc = "")
   private static class MockClassCommonNameUndocumented implements StarlarkValue {
 
-    @SkylarkCallable(name = "two", doc = "two")
+    @StarlarkMethod(name = "two", doc = "two")
     public Integer two() {
       return 1;
     }
@@ -302,12 +301,12 @@ public class StarlarkDocumentationTest {
       name = "PointsToCommonNameAndUndocumentedModule",
       doc = "PointsToCommonNameAndUndocumentedModule")
   private static class PointsToCommonNameAndUndocumentedModule implements StarlarkValue {
-    @SkylarkCallable(name = "one", doc = "one")
+    @StarlarkMethod(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;
     }
 
-    @SkylarkCallable(name = "undocumented_module", doc = "undocumented_module")
+    @StarlarkMethod(name = "undocumented_module", doc = "undocumented_module")
     public MockClassCommonNameUndocumented getUndocumented() {
       return null;
     }
@@ -318,12 +317,12 @@ public class StarlarkDocumentationTest {
       name = "MockClassWithSelfCallConstructor",
       doc = "MockClassWithSelfCallConstructor")
   private static class MockClassWithSelfCallConstructor implements StarlarkValue {
-    @SkylarkCallable(name = "one", doc = "one")
+    @StarlarkMethod(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;
     }
 
-    @SkylarkCallable(name = "makeMockClassA", selfCall = true, doc = "makeMockClassA")
+    @StarlarkMethod(name = "makeMockClassA", selfCall = true, doc = "makeMockClassA")
     @StarlarkConstructor(objectType = MockClassA.class, receiverNameForDoc = "MockClassA")
     public MockClassA makeMockClassA() {
       return new MockClassA();
@@ -390,7 +389,7 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
-  public void testSkylarkGlobalLibraryCallable() throws Exception {
+  public void testStarlarkGlobalLibraryCallable() throws Exception {
     Map<String, StarlarkBuiltinDoc> modules =
         StarlarkDocumentationCollector.collectModules(
             Classpath.findClasses(StarlarkDocumentationProcessor.MODULES_PACKAGE_PREFIX));

@@ -17,9 +17,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Supplies a resource apk file (".ap_") and related info. */
@@ -35,7 +35,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
   String NAME = "AndroidApplicationResourceInfo";
 
   /** Returns the ap_ artifact to be merged into the final apk. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_apk",
       doc = "The resource apk file ('.ap_')",
       documented = false,
@@ -44,7 +44,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
   FileT getResourceApk();
 
   /** The jar containing the R java source files. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_java_src_jar",
       doc = "The jar containing the R java source files.",
       documented = false,
@@ -53,7 +53,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
   FileT getResourceJavaSrcJar();
 
   /** The jar containing the R java class files. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_java_class_jar",
       doc = "The jar containing the R java class files.",
       documented = false,
@@ -62,7 +62,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
   FileT getResourceJavaClassJar();
 
   /** The final proessed manifest. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "manifest",
       doc = "The final processed manifest.",
       documented = false,
@@ -70,7 +70,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
   FileT getManifest();
 
   /** The proguard config for Android resources. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_proguard_config",
       doc = "The resource proguard config file.",
       documented = false,
@@ -79,7 +79,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
   FileT getResourceProguardConfig();
 
   /** The main dex proguard config file. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "main_dex_proguard_config",
       doc = "The main dex proguard config file.",
       documented = false,
@@ -96,7 +96,7 @@ public interface AndroidApplicationResourceInfoApi<FileT extends FileApi> extend
       documented = false)
   interface AndroidApplicationResourceInfoApiProvider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidApplicationResourceInfo</code> constructor.",
         documented = false,

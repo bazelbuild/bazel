@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
@@ -49,7 +49,7 @@ public interface DefaultInfoApi extends StructApi {
           + "<a href='../rules.$DOC_EXT#runfiles-features-to-avoid'>"
           + "\"runfiles features to avoid\"</a>)</b></p> ";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "files",
       doc =
           "A <a href='depset.html'><code>depset</code></a> of "
@@ -60,16 +60,16 @@ public interface DefaultInfoApi extends StructApi {
       allowReturnNones = true)
   Depset getFiles();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "files_to_run",
-      doc =  "A <a href='FilesToRunProvider.html'><code>FilesToRunProvider</code></a> object "
-          + "containing information about the executable and runfiles of the target.",
+      doc =
+          "A <a href='FilesToRunProvider.html'><code>FilesToRunProvider</code></a> object "
+              + "containing information about the executable and runfiles of the target.",
       structField = true,
-      allowReturnNones = true
-  )
+      allowReturnNones = true)
   FilesToRunProviderApi<?> getFilesToRun();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "data_runfiles",
       doc =
           "runfiles descriptor describing the files that this target needs when run in the "
@@ -81,7 +81,7 @@ public interface DefaultInfoApi extends StructApi {
       allowReturnNones = true)
   RunfilesApi getDataRunfiles();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "default_runfiles",
       doc =
           "runfiles descriptor describing the files that this target needs when run "
@@ -95,7 +95,7 @@ public interface DefaultInfoApi extends StructApi {
   interface DefaultInfoApiProvider<RunfilesT extends RunfilesApi, FileT extends FileApi>
       extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "DefaultInfo",
         doc = "<p>The <code>DefaultInfo</code> constructor.",
         parameters = {

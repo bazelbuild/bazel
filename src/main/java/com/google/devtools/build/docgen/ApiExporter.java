@@ -24,9 +24,9 @@ import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkParamDoc;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -119,7 +119,7 @@ public class ApiExporter {
               CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT, obj.getClass());
           if (selfCallMethod != null) {
             // selfCallMethod may be from a subclass of the annotated method.
-            SkylarkCallable annotation = StarlarkInterfaceUtils.getSkylarkCallable(selfCallMethod);
+            StarlarkMethod annotation = StarlarkInterfaceUtils.getStarlarkMethod(selfCallMethod);
             value = valueFromAnnotation(annotation);
           } else {
             value.setName(entry.getKey());
@@ -174,7 +174,7 @@ public class ApiExporter {
     return signatureToValue(sig);
   }
 
-  private static Value.Builder valueFromAnnotation(SkylarkCallable annot) {
+  private static Value.Builder valueFromAnnotation(StarlarkMethod annot) {
     return signatureToValue(getSignature(annot));
   }
 
@@ -326,8 +326,8 @@ public class ApiExporter {
     }
   }
 
-  // Extracts signature and parameter default value expressions from a SkylarkCallable annotation.
-  private static Signature getSignature(SkylarkCallable annot) {
+  // Extracts signature and parameter default value expressions from a StarlarkMethod annotation.
+  private static Signature getSignature(StarlarkMethod annot) {
     // Build-time annotation processing ensures mandatory parameters do not follow optional ones.
     boolean hasStar = false;
     String star = null;

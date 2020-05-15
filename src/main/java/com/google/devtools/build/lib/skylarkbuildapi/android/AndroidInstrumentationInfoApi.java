@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -38,7 +38,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
   /** Name of this info object. */
   String NAME = "AndroidInstrumentationInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "target",
       doc = "Returns the target ApkInfo of the instrumentation test.",
       documented = false,
@@ -55,7 +55,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
       documented = false)
   interface AndroidInstrumentationInfoApiProvider<ApkT extends ApkInfoApi<?>> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidInstrumentationInfo",
         doc = "The <code>AndroidInstrumentationInfo</code> constructor.",
         documented = false,

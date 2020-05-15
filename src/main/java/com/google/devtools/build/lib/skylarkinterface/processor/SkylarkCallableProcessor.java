@@ -18,9 +18,9 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.errorprone.annotations.FormatMethod;
 import java.util.HashSet;
 import java.util.List;
@@ -46,13 +46,13 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 /**
- * Annotation processor for {@link SkylarkCallable}. See that class for requirements.
+ * Annotation processor for {@link StarlarkMethod}. See that class for requirements.
  *
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({
-  "com.google.devtools.build.lib.skylarkinterface.SkylarkCallable",
-  "com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary",
+  "com.google.devtools.build.lib.skylarkinterface.StarlarkMethod",
+  "com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary",
   "com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin"
 })
 public final class SkylarkCallableProcessor extends AbstractProcessor {
@@ -61,10 +61,10 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   private Elements elements;
   private Messager messager;
 
-  // A set containing a TypeElement for each class with a SkylarkCallable.selfCall annotation.
+  // A set containing a TypeElement for each class with a StarlarkMethod.selfCall annotation.
   private Set<Element> classesWithSelfcall;
   // A multimap where keys are class element, and values are the callable method names identified in
-  // that class (where "method name" is SkylarkCallable.name).
+  // that class (where "method name" is StarlarkMethod.name).
   private SetMultimap<Element, String> processedClassMethods;
 
   @Override
@@ -105,29 +105,29 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       }
     }
 
-    // TODO(adonovan): reject a SkylarkCallable-annotated method whose class doesn't have (or
+    // TODO(adonovan): reject a StarlarkMethod-annotated method whose class doesn't have (or
     // inherit) a StarlarkBuiltin documentation annotation.
 
-    // Only SkylarkGlobalLibrary-annotated classes, and those that implement StarlarkValue,
-    // are allowed SkylarkCallable-annotated methods.
+    // Only StarlarkGlobalLibrary-annotated classes, and those that implement StarlarkValue,
+    // are allowed StarlarkMethod-annotated methods.
     Set<Element> okClasses =
-        new HashSet<>(roundEnv.getElementsAnnotatedWith(SkylarkGlobalLibrary.class));
+        new HashSet<>(roundEnv.getElementsAnnotatedWith(StarlarkGlobalLibrary.class));
 
-    for (Element element : roundEnv.getElementsAnnotatedWith(SkylarkCallable.class)) {
-      // Only methods are annotated with SkylarkCallable.
+    for (Element element : roundEnv.getElementsAnnotatedWith(StarlarkMethod.class)) {
+      // Only methods are annotated with StarlarkMethod.
       // This is ensured by the @Target(ElementType.METHOD) annotation.
       ExecutableElement method = (ExecutableElement) element;
       if (!method.getModifiers().contains(Modifier.PUBLIC)) {
-        errorf(method, "SkylarkCallable-annotated methods must be public.");
+        errorf(method, "StarlarkMethod-annotated methods must be public.");
       }
       if (method.getModifiers().contains(Modifier.STATIC)) {
-        errorf(method, "SkylarkCallable-annotated methods cannot be static.");
+        errorf(method, "StarlarkMethod-annotated methods cannot be static.");
       }
 
       // Check the annotation itself.
-      SkylarkCallable annot = method.getAnnotation(SkylarkCallable.class);
+      StarlarkMethod annot = method.getAnnotation(StarlarkMethod.class);
       if (annot.name().isEmpty()) {
-        errorf(method, "SkylarkCallable.name must be non-empty.");
+        errorf(method, "StarlarkMethod.name must be non-empty.");
       }
       Element cls = method.getEnclosingElement();
       if (!processedClassMethods.put(cls, annot.name())) {
@@ -141,7 +141,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       } else if (annot.useStarlarkSemantics()) {
         errorf(
             method,
-            "a SkylarkCallable-annotated method with structField=false may not also specify"
+            "a StarlarkMethod-annotated method with structField=false may not also specify"
                 + " useStarlarkSemantics. (Instead, set useStarlarkThread and call"
                 + " getSemantics().)");
       }
@@ -151,7 +151,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
       if (!annot.enableOnlyWithFlag().isEmpty() && !annot.disableWithFlag().isEmpty()) {
         errorf(
             method,
-            "Only one of SkylarkCallable.enablingFlag and SkylarkCallable.disablingFlag may be"
+            "Only one of StarlarkMethod.enablingFlag and StarlarkMethod.disablingFlag may be"
                 + " specified.");
       }
 
@@ -171,20 +171,20 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
             && !types.isAssignable(obj, mapType)) {
           errorf(
               method,
-              "SkylarkCallable-annotated method %s returns %s, which has no legal Starlark values"
+              "StarlarkMethod-annotated method %s returns %s, which has no legal Starlark values"
                   + " (see Starlark.fromJava)",
               method.getSimpleName(),
               ret);
         }
       }
 
-      // Check that the method's class is SkylarkGlobalLibrary-annotated,
+      // Check that the method's class is StarlarkGlobalLibrary-annotated,
       // or implements StarlarkValue, or an error has already been reported.
       if (okClasses.add(cls) && !types.isAssignable(cls.asType(), skylarkValueType)) {
         errorf(
             cls,
-            "method %s has SkylarkCallable annotation but enclosing class %s does not implement"
-                + " StarlarkValue nor has SkylarkGlobalLibrary annotation",
+            "method %s has StarlarkMethod annotation but enclosing class %s does not implement"
+                + " StarlarkValue nor has StarlarkGlobalLibrary annotation",
             method.getSimpleName(),
             cls.getSimpleName());
       }
@@ -195,7 +195,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
   }
 
   // TODO(adonovan): obviate these checks by separating field/method interfaces.
-  private void checkStructFieldAnnotation(ExecutableElement method, SkylarkCallable annot) {
+  private void checkStructFieldAnnotation(ExecutableElement method, StarlarkMethod annot) {
     // useStructField is incompatible with special thread-related parameters,
     // because unlike a method, which is actively called within a thread,
     // a field is a passive part of a data structure that may be accessed
@@ -210,25 +210,25 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     if (annot.useStarlarkThread()) {
       errorf(
           method,
-          "a SkylarkCallable-annotated method with structField=true may not also specify"
+          "a StarlarkMethod-annotated method with structField=true may not also specify"
               + " useStarlarkThread");
     }
     if (!annot.extraPositionals().name().isEmpty()) {
       errorf(
           method,
-          "a SkylarkCallable-annotated method with structField=true may not also specify"
+          "a StarlarkMethod-annotated method with structField=true may not also specify"
               + " extraPositionals");
     }
     if (!annot.extraKeywords().name().isEmpty()) {
       errorf(
           method,
-          "a SkylarkCallable-annotated method with structField=true may not also specify"
+          "a StarlarkMethod-annotated method with structField=true may not also specify"
               + " extraKeywords");
     }
     if (annot.selfCall()) {
       errorf(
           method,
-          "a SkylarkCallable-annotated method with structField=true may not also specify"
+          "a StarlarkMethod-annotated method with structField=true may not also specify"
               + " selfCall=true");
     }
     int nparams = annot.parameters().length;
@@ -241,7 +241,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     }
   }
 
-  private void checkParameters(ExecutableElement method, SkylarkCallable annot) {
+  private void checkParameters(ExecutableElement method, StarlarkMethod annot) {
     List<? extends VariableElement> params = method.getParameters();
 
     TypeMirror objectType = getType("java.lang.Object");
@@ -380,7 +380,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
               param,
               "parameter '%s' has generic type %s, but only wildcard type parameters are"
                   + " allowed. Type inference in a Starlark-exposed method is unsafe. See"
-                  + " SkylarkCallable class documentation for details.",
+                  + " StarlarkMethod class documentation for details.",
               param.getSimpleName(),
               paramType);
         }
@@ -433,7 +433,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     }
   }
 
-  private void checkSpecialParams(ExecutableElement method, SkylarkCallable annot) {
+  private void checkSpecialParams(ExecutableElement method, StarlarkMethod annot) {
     if (!annot.extraPositionals().enableOnlyWithFlag().isEmpty()
         || !annot.extraPositionals().disableWithFlag().isEmpty()) {
       errorf(method, "The extraPositionals parameter may not be toggled by semantic flag");
@@ -532,7 +532,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     }
   }
 
-  private static int numExpectedSpecialParams(SkylarkCallable annot) {
+  private static int numExpectedSpecialParams(StarlarkMethod annot) {
     int n = 0;
     n += annot.extraPositionals().name().isEmpty() ? 0 : 1;
     n += annot.extraKeywords().name().isEmpty() ? 0 : 1;

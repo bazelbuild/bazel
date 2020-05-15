@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -155,7 +155,7 @@ public final class Dict<K, V>
     return contents.keySet().iterator();
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get",
       doc =
           "Returns the value for <code>key</code> if <code>key</code> is in the dictionary, "
@@ -173,7 +173,7 @@ public final class Dict<K, V>
       allowReturnNones = true,
       useStarlarkThread = true)
   // TODO(adonovan): This method is named get2 as a temporary workaround for a bug in
-  // SkylarkInterfaceUtils.getSkylarkCallable. The two 'get' methods cause it to get
+  // SkylarkInterfaceUtils.getStarlarkMethod. The two 'get' methods cause it to get
   // confused as to which one has the annotation. Fix it and remove "2" suffix.
   public Object get2(Object key, Object defaultValue, StarlarkThread thread) throws EvalException {
     Object v = this.get(key);
@@ -190,7 +190,7 @@ public final class Dict<K, V>
     return defaultValue;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "pop",
       doc =
           "Removes a <code>key</code> from the dict, and returns the associated value. "
@@ -220,7 +220,7 @@ public final class Dict<K, V>
     throw Starlark.errorf("KeyError: %s", Starlark.repr(key));
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "popitem",
       doc =
           "Remove and return an arbitrary <code>(key, value)</code> pair from the dictionary. "
@@ -239,7 +239,7 @@ public final class Dict<K, V>
     return Tuple.pair(key, value);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "setdefault",
       doc =
           "If <code>key</code> is in the dictionary, return its value. "
@@ -267,7 +267,7 @@ public final class Dict<K, V>
     return defaultValue;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "update",
       doc =
           "Update the dictionary with an optional positional argument <code>[pairs]</code> "
@@ -306,7 +306,7 @@ public final class Dict<K, V>
     return Starlark.NONE;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "values",
       doc =
           "Returns the list of values:"
@@ -317,7 +317,7 @@ public final class Dict<K, V>
     return StarlarkList.copyOf(thread.mutability(), values());
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "items",
       doc =
           "Returns the list of key-value tuples:"
@@ -334,7 +334,7 @@ public final class Dict<K, V>
     return StarlarkList.wrap(thread.mutability(), array);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "keys",
       doc =
           "Returns the list of keys:"
@@ -450,7 +450,7 @@ public final class Dict<K, V>
     return contents.remove(key);
   }
 
-  @SkylarkCallable(name = "clear", doc = "Remove all items from the dictionary.")
+  @StarlarkMethod(name = "clear", doc = "Remove all items from the dictionary.")
   public NoneType clearDict() throws EvalException {
     clear(null);
     return Starlark.NONE;
@@ -623,7 +623,7 @@ public final class Dict<K, V>
   // TODO(adonovan): make mutability exception a subclass of (unchecked)
   // UnsupportedOperationException, allowing the primary Dict operations
   // to satisfy the Map operations below in the usual way (like ImmutableMap does).
-  // Add "ForStarlark" suffix to disambiguate SkylarkCallable-annotated methods.
+  // Add "ForStarlark" suffix to disambiguate StarlarkMethod-annotated methods.
   // Same for StarlarkList.
 
   @Deprecated

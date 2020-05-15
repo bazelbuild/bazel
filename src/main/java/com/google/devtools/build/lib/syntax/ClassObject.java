@@ -55,7 +55,7 @@ public interface ClassObject extends StarlarkValue {
    * not enforced.
    *
    * <p>The Starlark expression {@code dir(x)} reports the union of {@code getFieldNames()} and any
-   * SkylarkCallable-annotated fields and methods of this value.
+   * StarlarkMethod-annotated fields and methods of this value.
    */
   ImmutableCollection<String> getFieldNames();
 

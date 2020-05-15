@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -67,7 +67,7 @@ public interface GoWrapCcHelperApi<
         CcCompilationContextT,
         WrapCcIncludeProviderT> {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_go_runfiles",
       doc = "",
       documented = false,
@@ -78,7 +78,7 @@ public interface GoWrapCcHelperApi<
   public RunfilesApi skylarkGetGoRunfiles(SkylarkRuleContextT skylarkRuleContext)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_arch_int_size",
       doc = "",
       documented = false,
@@ -88,7 +88,7 @@ public interface GoWrapCcHelperApi<
   // TODO(b/113797843): Not written in Starlark because of GoCompilationHelper.
   public int getArchIntSize(GoConfigurationT goConfig);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "collect_transitive_go_context_gopkg",
       doc = "",
       documented = false,
@@ -117,7 +117,7 @@ public interface GoWrapCcHelperApi<
       Object skylarkWrapContext,
       CcInfoT ccInfo);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "go_wrap_cc_info",
       doc = "",
       documented = false,
@@ -130,7 +130,7 @@ public interface GoWrapCcHelperApi<
       SkylarkRuleContextT skylarkRuleContext, CcInfoT ccInfo)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "go_cc_link_params_provider",
       doc = "",
       documented = false,
@@ -146,7 +146,7 @@ public interface GoWrapCcHelperApi<
       SkylarkRuleContextT ruleContext, CcLinkingContextT ccLinkingContext)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_go_compile_actions",
       doc = "",
       documented = false,
@@ -167,7 +167,7 @@ public interface GoWrapCcHelperApi<
       Sequence<?> deps /* <TransitiveInfoCollectionT> expected */)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_go_compile_actions_gopkg",
       doc = "",
       documented = false,
@@ -188,7 +188,7 @@ public interface GoWrapCcHelperApi<
       Sequence<?> deps /* <TransitiveInfoCollectionT> expected */)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_transitive_gopackage_info",
       doc = "",
       documented = false,
@@ -201,7 +201,7 @@ public interface GoWrapCcHelperApi<
   public GoPackageInfoApi createTransitiveGopackageInfo(
       SkylarkRuleContextT skylarkRuleContext, FileT skylarkGopkg, FileT export, FileT swigOutGo);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_gopackage_files",
       doc = "",
       documented = false,

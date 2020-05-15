@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Test;
@@ -33,7 +33,7 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
   @StarlarkBuiltin(name = "Mock", doc = "")
   public static class Mock implements StarlarkValue {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "positionals_only_method",
         documented = false,
         parameters = {
@@ -52,7 +52,7 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
       return "positionals_only_method(" + a + ", " + b + ", " + c + ")";
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "keywords_only_method",
         documented = false,
         parameters = {
@@ -71,7 +71,7 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
       return "keywords_only_method(" + a + ", " + b + ", " + c + ")";
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "mixed_params_method",
         documented = false,
         parameters = {
@@ -98,7 +98,7 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
       return "mixed_params_method(" + a + ", " + b + ", " + c + ", " + d + ")";
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "keywords_multiple_flags",
         documented = false,
         parameters = {

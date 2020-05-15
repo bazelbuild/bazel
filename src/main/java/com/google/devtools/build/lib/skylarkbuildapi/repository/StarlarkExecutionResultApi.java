@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + " output stream content, the standard error stream content and the execution return"
             + " code.")
 public interface StarlarkExecutionResultApi extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "return_code",
       structField = true,
       doc =
@@ -41,13 +41,13 @@ public interface StarlarkExecutionResultApi extends StarlarkValue {
               + " signal.")
   int getReturnCode();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "stdout",
       structField = true,
       doc = "The content of the standard output returned by the execution.")
   String getStdout();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "stderr",
       structField = true,
       doc = "The content of the standard error output returned by the execution.")

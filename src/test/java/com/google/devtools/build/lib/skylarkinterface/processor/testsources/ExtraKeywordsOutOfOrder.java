@@ -15,18 +15,18 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a SkylarkCallable method which specifies extraKeywords, but specifies the argument
+ * Test case for a StarlarkMethod method which specifies extraKeywords, but specifies the argument
  * out of order.
  */
 public class ExtraKeywordsOutOfOrder implements StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "extra_kwargs_out_of_order",
       documented = false,
       parameters = {@Param(name = "one")},

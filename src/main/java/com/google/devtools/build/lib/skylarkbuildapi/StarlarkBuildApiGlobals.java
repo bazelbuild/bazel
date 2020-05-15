@@ -15,16 +15,16 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /** A collection of global Starlark build API functions that belong in the global namespace. */
-@SkylarkGlobalLibrary
+@StarlarkGlobalLibrary
 public interface StarlarkBuildApiGlobals {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "configuration_field",
       // TODO(cparsons): Provide a link to documentation for available StarlarkConfigurationFields.
       doc =

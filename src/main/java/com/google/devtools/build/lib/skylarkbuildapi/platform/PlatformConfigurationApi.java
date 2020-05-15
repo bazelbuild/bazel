@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** The platform configuration. */
@@ -28,13 +28,13 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public interface PlatformConfigurationApi extends StarlarkValue {
 
-  @SkylarkCallable(name = "host_platform", structField = true, doc = "The current host platform")
+  @StarlarkMethod(name = "host_platform", structField = true, doc = "The current host platform")
   Label getHostPlatform();
 
-  @SkylarkCallable(name = "platform", structField = true, doc = "The current target platform")
+  @StarlarkMethod(name = "platform", structField = true, doc = "The current target platform")
   Label getTargetPlatform();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "platforms",
       structField = true,
       doc = "The current target platforms",

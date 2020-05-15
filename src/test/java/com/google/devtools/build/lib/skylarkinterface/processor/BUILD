@@ -13,8 +13,8 @@ filegroup(
 )
 
 java_test(
-    name = "SkylarkCallableProcessorTest",
-    srcs = ["SkylarkCallableProcessorTest.java"],
+    name = "StarlarkMethodProcessorTest",
+    srcs = ["StarlarkMethodProcessorTest.java"],
     resources = [":ProcessorTestFiles"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",

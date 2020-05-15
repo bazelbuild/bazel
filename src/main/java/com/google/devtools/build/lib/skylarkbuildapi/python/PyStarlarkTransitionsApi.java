@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.python;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     documented = false)
 public interface PyStarlarkTransitionsApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "cfg",
       doc =
           "DO NOT USE. This is intended for Python 2 to 3 migration purposes only. If you depend on"

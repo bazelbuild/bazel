@@ -28,11 +28,11 @@ import org.junit.runners.JUnit4;
  * Unit tests for SkylarkCallableProcessor.
  */
 @RunWith(JUnit4.class)
-public final class SkylarkCallableProcessorTest {
+public final class StarlarkMethodProcessorTest {
 
   private static JavaFileObject getFile(String pathToFile) {
     return JavaFileObjects.forResource(Resources.getResource(
-        SkylarkCallableProcessorTest.class, "testsources/" + pathToFile));
+        StarlarkMethodProcessorTest.class, "testsources/" + pathToFile));
   }
 
   @Test
@@ -49,7 +49,7 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("PrivateMethod.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining("SkylarkCallable-annotated methods must be public.");
+        .withErrorContaining("StarlarkMethod-annotated methods must be public.");
   }
 
   @Test
@@ -58,7 +58,7 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("StaticMethod.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining("SkylarkCallable-annotated methods cannot be static.");
+        .withErrorContaining("StarlarkMethod-annotated methods cannot be static.");
   }
 
 
@@ -80,7 +80,7 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "a SkylarkCallable-annotated method with structField=true may not also specify"
+            "a StarlarkMethod-annotated method with structField=true may not also specify"
                 + " useStarlarkThread");
   }
 
@@ -91,7 +91,7 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "a SkylarkCallable-annotated method with structField=true may not also specify"
+            "a StarlarkMethod-annotated method with structField=true may not also specify"
                 + " extraPositionals");
   }
 
@@ -102,7 +102,7 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "a SkylarkCallable-annotated method with structField=true may not also specify"
+            "a StarlarkMethod-annotated method with structField=true may not also specify"
                 + " extraKeywords");
   }
 
@@ -137,7 +137,7 @@ public final class SkylarkCallableProcessorTest {
   }
 
   @Test
-  public void testSkylarkInfoBeforeParams() throws Exception {
+  public void testStarlarkInfoBeforeParams() throws Exception {
     assertAbout(javaSource())
         .that(getFile("StarlarkInfoBeforeParams.java"))
         .processedWith(new SkylarkCallableProcessor())
@@ -253,7 +253,7 @@ public final class SkylarkCallableProcessorTest {
         .that(getFile("SelfCallWithNoName.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
-        .withErrorContaining("SkylarkCallable.name must be non-empty.");
+        .withErrorContaining("StarlarkMethod.name must be non-empty.");
   }
 
   @Test
@@ -263,7 +263,7 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "a SkylarkCallable-annotated method with structField=true may not also specify"
+            "a StarlarkMethod-annotated method with structField=true may not also specify"
                 + " selfCall=true");
   }
 
@@ -284,7 +284,7 @@ public final class SkylarkCallableProcessorTest {
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "Only one of SkylarkCallable.enablingFlag and SkylarkCallable.disablingFlag may be "
+            "Only one of StarlarkMethod.enablingFlag and StarlarkMethod.disablingFlag may be "
                 + "specified.");
   }
 
@@ -363,12 +363,12 @@ public final class SkylarkCallableProcessorTest {
   @Test
   public void testDoesntImplementStarlarkValue() throws Exception {
     assertAbout(javaSource())
-        .that(getFile("DoesntImplementSkylarkValue.java"))
+        .that(getFile("DoesntImplementStarlarkValue.java"))
         .processedWith(new SkylarkCallableProcessor())
         .failsToCompile()
         .withErrorContaining(
-            "method x has SkylarkCallable annotation but enclosing class"
-                + " DoesntImplementSkylarkValue does not implement StarlarkValue nor has"
-                + " SkylarkGlobalLibrary annotation");
+            "method x has StarlarkMethod annotation but enclosing class"
+                + " DoesntImplementStarlarkValue does not implement StarlarkValue nor has"
+                + " StarlarkGlobalLibrary annotation");
   }
 }

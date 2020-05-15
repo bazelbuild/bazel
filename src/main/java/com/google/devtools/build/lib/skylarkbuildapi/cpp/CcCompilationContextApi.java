@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
         "Immutable store of information needed for C++ compilation that is aggregated across "
             + "dependencies.")
 public interface CcCompilationContextApi<FileT extends FileApi> extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "defines",
       doc =
           "Returns the set of defines needed to compile this target. Each define is a string."
@@ -40,7 +40,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       structField = true)
   Depset getStarlarkDefines();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "local_defines",
       doc =
           "Returns the set of defines needed to compile this target. Each define is a string."
@@ -48,13 +48,13 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       structField = true)
   Depset getStarlarkNonTransitiveDefines();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "headers",
       doc = "Returns the set of headers needed to compile this target.",
       structField = true)
   Depset getStarlarkHeaders();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "system_includes",
       doc =
           "Returns the set of search paths (as strings) for header files referenced by angle"
@@ -63,7 +63,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       structField = true)
   Depset getStarlarkSystemIncludeDirs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "framework_includes",
       doc =
           "Returns the set of search paths (as strings) for framework header files. Usually passed"
@@ -71,7 +71,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       structField = true)
   Depset getStarlarkFrameworkIncludeDirs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "includes",
       doc =
           "Returns the set of search paths (as strings) for header files referenced both by angle"
@@ -79,7 +79,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       structField = true)
   Depset getStarlarkIncludeDirs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "quote_includes",
       doc =
           "Returns the set of search paths (as strings) for header files referenced by quotes,"
@@ -88,7 +88,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       structField = true)
   Depset getStarlarkQuoteIncludeDirs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "direct_headers",
       doc =
           "Returns the list of modular headers that are declared by this target. This includes both"
@@ -97,7 +97,7 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
       structField = true)
   StarlarkList<FileT> getStarlarkDirectModularHeaders();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "direct_textual_headers",
       doc = "Returns the list of textual headers that are declared by this target.",
       structField = true)

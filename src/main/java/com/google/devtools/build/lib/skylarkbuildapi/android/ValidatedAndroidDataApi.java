@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -40,7 +40,7 @@ public interface ValidatedAndroidDataApi<
                     ? extends AndroidManifestInfoApi<FileT>>>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "to_provider",
       structField = true,
       doc = "",
@@ -48,7 +48,7 @@ public interface ValidatedAndroidDataApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   AndroidResourcesInfoT toProvider();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "r_txt",
       structField = true,
       doc = "",
@@ -56,7 +56,7 @@ public interface ValidatedAndroidDataApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getRTxt();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_class_jar",
       structField = true,
       doc = "",
@@ -64,7 +64,7 @@ public interface ValidatedAndroidDataApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getJavaClassJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_source_jar",
       structField = true,
       doc = "",
@@ -72,7 +72,7 @@ public interface ValidatedAndroidDataApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getJavaSourceJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "apk",
       structField = true,
       doc = "",
@@ -80,7 +80,7 @@ public interface ValidatedAndroidDataApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS)
   FileT getApk();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "aapt2_r_txt",
       structField = true,
       doc = "",
@@ -90,7 +90,7 @@ public interface ValidatedAndroidDataApi<
   @Nullable
   FileT getAapt2RTxt();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "aapt2_java_source_jar",
       structField = true,
       doc = "",
@@ -100,7 +100,7 @@ public interface ValidatedAndroidDataApi<
   @Nullable
   FileT getAapt2SourceJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "static_library",
       structField = true,
       doc = "",
@@ -110,7 +110,7 @@ public interface ValidatedAndroidDataApi<
   @Nullable
   FileT getStaticLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resources",
       structField = true,
       doc = "",

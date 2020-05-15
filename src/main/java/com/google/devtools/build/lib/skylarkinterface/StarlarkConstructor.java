@@ -19,7 +19,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An annotation to mark {@link SkylarkCallable}-annotated methods as representing top-level
+ * An annotation to mark {@link StarlarkMethod}-annotated methods as representing top-level
  * constructors for other Starlark objects. This is used only for documentation purposes.
  *
  * <p>For example, a "Foo" type Starlark object might be constructable at the top level using a

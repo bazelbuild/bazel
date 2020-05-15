@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.proto;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Sequence;
 
 /** Provides information about flavors for all built protos. */
@@ -29,13 +29,13 @@ import com.google.devtools.build.lib.syntax.Sequence;
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface ProtoRegistryProviderApi<FileT extends FileApi> extends StructApi {
 
-  @SkylarkCallable(name = "jars", documented = false, doc = "", structField = true)
+  @StarlarkMethod(name = "jars", documented = false, doc = "", structField = true)
   Depset /*<FileT>*/ getJars();
 
-  @SkylarkCallable(name = "flavors", documented = false, doc = "", structField = true)
+  @StarlarkMethod(name = "flavors", documented = false, doc = "", structField = true)
   Sequence<String> getFlavors();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "errorMessage",
       documented = false,
       doc = "",

@@ -20,9 +20,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 
@@ -58,7 +58,7 @@ public interface PyWrapCcHelperApi<
         CcCompilationContextT,
         WrapCcIncludeProviderT> {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "py_extension_linkopts",
       doc = "",
       documented = false,
@@ -69,7 +69,7 @@ public interface PyWrapCcHelperApi<
   public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextT skylarkRuleContext)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_transitive_python_sources",
       doc = "",
       documented = false,
@@ -81,7 +81,7 @@ public interface PyWrapCcHelperApi<
   public Depset getTransitivePythonSources(SkylarkRuleContextT skylarkRuleContext, FileT pyFile)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_python_runfiles",
       doc = "",
       documented = false,
@@ -93,7 +93,7 @@ public interface PyWrapCcHelperApi<
   public RunfilesApi getPythonRunfiles(SkylarkRuleContextT skylarkRuleContext, Depset filesToBuild)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "py_wrap_cc_info",
       doc = "",
       documented = false,

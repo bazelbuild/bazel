@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exception>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "copts",
       structField = true,
       doc =
@@ -38,7 +38,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "<code>--copt</code></a> option.")
   ImmutableList<String> getCopts() throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "cxxopts",
       structField = true,
       doc =
@@ -46,7 +46,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "<code>--cxxopt</code></a> option.")
   ImmutableList<String> getCxxopts() throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "conlyopts",
       structField = true,
       doc =
@@ -54,7 +54,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "<code>--conlyopt</code></a> option.")
   ImmutableList<String> getConlyopts() throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "linkopts",
       structField = true,
       doc =
@@ -62,7 +62,7 @@ public interface CppConfigurationApi<InvalidConfigurationExceptionT extends Exce
               + "<code>--linkopt</code></a> option.")
   ImmutableList<String> getLinkopts() throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "custom_malloc",
       structField = true,
       doc =

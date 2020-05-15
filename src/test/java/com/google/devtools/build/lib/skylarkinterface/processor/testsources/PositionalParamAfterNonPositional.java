@@ -15,25 +15,21 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a SkylarkCallable method which has a positional parameter specified after a non
- * positional parameter.
+ * Test case for a StarlarkMethod which has a positional parameter specified after a non positional
+ * parameter.
  */
 public class PositionalParamAfterNonPositional implements StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "positional_after_non_positional",
       documented = false,
       parameters = {
-          @Param(name = "one",
-              named = true,
-              positional = false),
-          @Param(name = "two",
-              named = true,
-              positional = true)
+        @Param(name = "one", named = true, positional = false),
+        @Param(name = "two", named = true, positional = true)
       })
   public Integer positionalAfterNonPositional(Integer one, Integer two) {
     return 42;

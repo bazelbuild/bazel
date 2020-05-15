@@ -39,7 +39,7 @@ public abstract class NativeInfo extends StructImpl {
 
   @Override
   public Object getValue(String name) throws EvalException {
-    // @SkylarkCallable(structField=true) -- Java field
+    // @StarlarkMethod(structField=true) -- Java field
     if (getFieldNames().contains(name)) {
       try {
         return CallUtils.getField(SEMANTICS, this, name);

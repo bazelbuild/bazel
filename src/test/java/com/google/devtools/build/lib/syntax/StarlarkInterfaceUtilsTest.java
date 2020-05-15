@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import java.lang.reflect.Method;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -32,30 +32,35 @@ public class StarlarkInterfaceUtilsTest {
   /** MockClassA */
   @StarlarkBuiltin(name = "MockClassA", doc = "MockClassA")
   public static class MockClassA implements StarlarkValue {
-    @SkylarkCallable(name = "foo", doc = "MockClassA#foo")
+    @StarlarkMethod(name = "foo", doc = "MockClassA#foo")
     public void foo() {}
-    @SkylarkCallable(name = "bar", doc = "MockClassA#bar")
+
+    @StarlarkMethod(name = "bar", doc = "MockClassA#bar")
     public void bar() {}
+
     public void baz() {}
   }
 
   /** MockInterfaceB1 */
   @StarlarkBuiltin(name = "MockInterfaceB1", doc = "MockInterfaceB1")
   public static interface MockInterfaceB1 extends StarlarkValue {
-    @SkylarkCallable(name = "foo", doc = "MockInterfaceB1#foo")
+    @StarlarkMethod(name = "foo", doc = "MockInterfaceB1#foo")
     void foo();
-    @SkylarkCallable(name = "bar", doc = "MockInterfaceB1#bar")
+
+    @StarlarkMethod(name = "bar", doc = "MockInterfaceB1#bar")
     void bar();
-    @SkylarkCallable(name = "baz", doc = "MockInterfaceB1#baz")
+
+    @StarlarkMethod(name = "baz", doc = "MockInterfaceB1#baz")
     void baz();
   }
 
   /** MockInterfaceB2 */
   @StarlarkBuiltin(name = "MockInterfaceB2", doc = "MockInterfaceB2")
   public static interface MockInterfaceB2 extends StarlarkValue {
-    @SkylarkCallable(name = "baz", doc = "MockInterfaceB2#baz")
+    @StarlarkMethod(name = "baz", doc = "MockInterfaceB2#baz")
     void baz();
-    @SkylarkCallable(name = "qux", doc = "MockInterfaceB2#qux")
+
+    @StarlarkMethod(name = "qux", doc = "MockInterfaceB2#qux")
     void qux();
   }
 
@@ -63,8 +68,9 @@ public class StarlarkInterfaceUtilsTest {
   @StarlarkBuiltin(name = "MockClassC", doc = "MockClassC")
   public static class MockClassC extends MockClassA implements MockInterfaceB1, MockInterfaceB2 {
     @Override
-    @SkylarkCallable(name = "foo", doc = "MockClassC#foo")
+    @StarlarkMethod(name = "foo", doc = "MockClassC#foo")
     public void foo() {}
+
     @Override
     public void bar() {}
     @Override
@@ -76,7 +82,7 @@ public class StarlarkInterfaceUtilsTest {
   /** MockClassD */
   public static class MockClassD extends MockClassC {
     @Override
-    @SkylarkCallable(name = "foo", doc = "MockClassD#foo")
+    @StarlarkMethod(name = "foo", doc = "MockClassD#foo")
     public void foo() {}
   }
 
@@ -209,11 +215,11 @@ public class StarlarkInterfaceUtilsTest {
   public void testGetSkylarkCallableBasic() throws Exception {
     // Normal case. Ensure two-arg form is consistent with one-arg form.
     Method method = MockClassA.class.getMethod("foo");
-    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
+    StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassA#foo");
 
-    SkylarkCallable ann2 = StarlarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
+    StarlarkMethod ann2 = StarlarkInterfaceUtils.getStarlarkMethod(MockClassA.class, method);
     assertThat(ann2).isEqualTo(ann);
   }
 
@@ -221,7 +227,7 @@ public class StarlarkInterfaceUtilsTest {
   public void testGetSkylarkCallableSubclass() throws Exception {
     // Subclass's annotation is used.
     Method method = MockClassC.class.getMethod("foo");
-    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
+    StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassC#foo");
   }
@@ -230,7 +236,7 @@ public class StarlarkInterfaceUtilsTest {
   public void testGetSkylarkCallableSubclassNoSubannotation() throws Exception {
     // Falls back on superclass's annotation. Superclass takes precedence over interface.
     Method method = MockClassC.class.getMethod("bar");
-    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
+    StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassA#bar");
   }
@@ -239,7 +245,7 @@ public class StarlarkInterfaceUtilsTest {
   public void testGetSkylarkCallableTwoargForm() throws Exception {
     // Ensure that when passing superclass in directly, we bypass subclass's annotation.
     Method method = MockClassC.class.getMethod("foo");
-    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
+    StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(MockClassA.class, method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockClassA#foo");
   }
@@ -248,17 +254,17 @@ public class StarlarkInterfaceUtilsTest {
   public void testGetSkylarkCallableNotFound() throws Exception {
     // Null result when no annotation present...
     Method method = MockClassA.class.getMethod("baz");
-    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
+    StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
     assertThat(ann).isNull();
 
     // ... including when it's only present in a subclass that was bypassed...
     method = MockClassC.class.getMethod("baz");
-    ann = StarlarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
+    ann = StarlarkInterfaceUtils.getStarlarkMethod(MockClassA.class, method);
     assertThat(ann).isNull();
 
     // ... or when the method itself is only in the subclass that was bypassed.
     method = MockClassC.class.getMethod("qux");
-    ann = StarlarkInterfaceUtils.getSkylarkCallable(MockClassA.class, method);
+    ann = StarlarkInterfaceUtils.getStarlarkMethod(MockClassA.class, method);
     assertThat(ann).isNull();
   }
 
@@ -266,13 +272,13 @@ public class StarlarkInterfaceUtilsTest {
   public void testGetSkylarkCallableInterface() throws Exception {
     // Search through parent interfaces. First interface takes priority.
     Method method = MockClassC.class.getMethod("baz");
-    SkylarkCallable ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
+    StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockInterfaceB1#baz");
 
     // Make sure both are still traversed.
     method = MockClassC.class.getMethod("qux");
-    ann = StarlarkInterfaceUtils.getSkylarkCallable(method);
+    ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
     assertThat(ann).isNotNull();
     assertThat(ann.doc()).isEqualTo("MockInterfaceB2#qux");
   }

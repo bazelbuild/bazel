@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
@@ -32,14 +32,14 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
         "Immutable store of information needed for C++ linking that is aggregated across "
             + "dependencies.")
 public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true)
   Sequence<String> getSkylarkUserLinkFlags();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "libraries_to_link",
       doc =
           "Returns the depset of <code>LibraryToLink</code>. May return a list but this is"
@@ -49,14 +49,14 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       useStarlarkSemantics = true)
   Object getSkylarkLibrariesToLink(StarlarkSemantics semantics);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true)
   Depset getSkylarkNonCodeInputs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "linker_inputs",
       doc = "Returns the depset of linker inputs.",
       structField = true)

@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Test case which verifies a method annotated with SkylarkCallable cannot be static. */
+/** Test case which verifies a method annotated with StarlarkMethod cannot be static. */
 public class StaticMethod implements StarlarkValue {
 
-  @SkylarkCallable(name = "private_method", doc = "A private method")
+  @StarlarkMethod(name = "private_method", doc = "A private method")
   public static String staticMethod() {
     return "kitten";
   }

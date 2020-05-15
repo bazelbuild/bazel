@@ -15,17 +15,19 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Test case which verifies a struct field method cannot have arguments. */
 public class StructFieldWithArguments implements StarlarkValue {
 
-  @SkylarkCallable(name = "struct_field_method",
+  @StarlarkMethod(
+      name = "struct_field_method",
       parameters = {
-          @Param(name = "foo", type = String.class, named = true),
+        @Param(name = "foo", type = String.class, named = true),
       },
-      structField = true, doc = "A private method")
+      structField = true,
+      doc = "A private method")
   public String structFieldMethod(String foo) {
     return "puppy";
   }

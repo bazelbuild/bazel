@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Provides information about proguard specs for Android binaries. */
@@ -33,14 +33,14 @@ public interface ProguardSpecProviderApi<FileT extends FileApi> extends StructAp
 
   String NAME = "ProguardSpecProvider";
 
-  @SkylarkCallable(name = "specs", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "specs", structField = true, doc = "", documented = false)
   Depset /*<FileT>*/ getTransitiveProguardSpecsForStarlark();
 
   /** The provider implementing this can construct the ProguardSpecProvider. */
   @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>ProguardSpecProvider</code> constructor.",
         parameters = {

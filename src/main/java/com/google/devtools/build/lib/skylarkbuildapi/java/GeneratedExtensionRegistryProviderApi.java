@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Provides information about generated proto extensions. */
@@ -35,26 +35,26 @@ public interface GeneratedExtensionRegistryProviderApi<FileT extends FileApi> ex
   /** The name of the provider for this info object. */
   String NAME = "GeneratedExtensionRegistryProvider";
 
-  @SkylarkCallable(name = "rule_label", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "rule_label", structField = true, doc = "", documented = false)
   Label getGeneratingRuleLabel();
 
-  @SkylarkCallable(name = "lite", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "lite", structField = true, doc = "", documented = false)
   boolean isLite();
 
-  @SkylarkCallable(name = "class_jar", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "class_jar", structField = true, doc = "", documented = false)
   FileT getClassJar();
 
-  @SkylarkCallable(name = "src_jar", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "src_jar", structField = true, doc = "", documented = false)
   FileT getSrcJar();
 
-  @SkylarkCallable(name = "inputs", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "inputs", structField = true, doc = "", documented = false)
   Depset /*<FileT>*/ getInputsForStarlark();
 
   /** The provider implementing this can construct the GeneratedExtensionRegistryProvider. */
   @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>GeneratedExtensionRegistryProvider</code> constructor.",
         parameters = {

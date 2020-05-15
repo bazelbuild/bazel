@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 
 /** Info object representing data about a specific toolchain type. */
 @StarlarkBuiltin(
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCateg
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface ToolchainTypeInfoApi extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "type_label",
       doc = "The label uniquely identifying this toolchain type.",
       structField = true)

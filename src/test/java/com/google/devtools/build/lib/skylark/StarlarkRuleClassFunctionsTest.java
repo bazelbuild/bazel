@@ -743,7 +743,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     //
     // (This is a regression test for github.com/bazelbuild/bazel/issues/9463.
     // The loading-phase feature of "computed attribute defaults" is not exposed
-    // to Starlark; the bug was that the @SkylarkCallable
+    // to Starlark; the bug was that the @StarlarkMethod
     // annotation was more permissive than the method declaration.)
     ev.checkEvalErrorContains(
         "got value of type 'function', want 'string'", "attr.string(default=f)");

@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
     documented = false)
 public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "apk",
       structField = true,
       allowReturnNones = true,
@@ -50,7 +50,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   @Nullable
   FileT getApk();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_package",
       structField = true,
       allowReturnNones = true,
@@ -59,7 +59,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   @Nullable
   String getJavaPackage();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "manifest",
       structField = true,
       allowReturnNones = true,
@@ -68,7 +68,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   @Nullable
   FileT getManifest();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merged_manifest",
       structField = true,
       allowReturnNones = true,
@@ -77,7 +77,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   @Nullable
   FileT getMergedManifest();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "native_libs",
       structField = true,
       doc =
@@ -87,7 +87,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
       documented = false)
   ImmutableMap<String, Depset> getNativeLibs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_apk",
       structField = true,
       doc = "Returns the resources container for the target.",
@@ -96,7 +96,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   @Nullable
   FileT getResourceApk();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "apks_under_test",
       structField = true,
       allowReturnNones = true,
@@ -105,28 +105,28 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   @Nullable
   ImmutableCollection<FileT> getApksUnderTest();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "defines_resources",
       structField = true,
       doc = "Returns <code>True</code> if the target defines any Android resources directly.",
       documented = false)
   boolean definesAndroidResources();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "idl",
       structField = true,
       doc = "Returns information about IDL files associated with this target.",
       documented = false)
   IdlInfoApi<FileT> getIdlInfo();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resources",
       structField = true,
       doc = "Returns resources defined by this target.",
       documented = false)
   Depset /*<FileT>*/ getResources();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_jar",
       structField = true,
       allowReturnNones = true,
@@ -135,7 +135,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
   @Nullable
   OutputJarApi<FileT> getResourceJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "aar",
       structField = true,
       allowReturnNones = true,
@@ -154,7 +154,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
               + "Provides access to information about Android rules.",
       documented = false)
   interface IdlInfoApi<FileT extends FileApi> extends StarlarkValue {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "import_root",
         structField = true,
         allowReturnNones = true,
@@ -163,21 +163,21 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
     @Nullable
     String getImportRoot();
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "sources",
         structField = true,
         doc = "Returns a list of IDL files.",
         documented = false)
     ImmutableCollection<FileT> getSources();
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "generated_java_files",
         structField = true,
         doc = "Returns a list Java files generated from IDL sources.",
         documented = false)
     ImmutableCollection<FileT> getIdlGeneratedJavaFiles();
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "output",
         structField = true,
         allowReturnNones = true,

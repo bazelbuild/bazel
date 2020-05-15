@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Helper utility containing functions regarding configurations.ss */
@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "Functions for Starlark to interact with Blaze's configurability APIs.")
 public interface ConfigStarlarkCommonApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "FeatureFlagInfo",
       doc = "The key used to retrieve the provider containing config_feature_flag's value.",
       structField = true)

@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 
@@ -35,7 +35,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
   /** The name of the provider for this info object. */
   String NAME = "AndroidProguardInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "local_proguard_specs",
       structField = true,
       doc = "Returns the local proguard specs defined by this target.",
@@ -51,7 +51,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidProguardInfo</code> constructor.",
         documented = false,

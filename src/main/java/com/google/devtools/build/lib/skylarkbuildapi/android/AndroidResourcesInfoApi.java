@@ -19,10 +19,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A provider that supplies resource information from its transitive closure. */
@@ -44,18 +44,18 @@ public interface AndroidResourcesInfoApi<
   String NAME = "AndroidResourcesInfo";
 
   /** Returns the label that is associated with this piece of information. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label",
       doc = "Returns the label that is associated with this piece of information.",
       documented = false,
       structField = true)
   Label getLabel();
 
-  @SkylarkCallable(name = "manifest", doc = "", documented = false, structField = true)
+  @StarlarkMethod(name = "manifest", doc = "", documented = false, structField = true)
   AndroidManifestInfoT getManifest();
 
   /** Returns the compiletime r.txt file for the target. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compiletime_r_txt",
       doc =
           "A txt file containing compiled resource file information for this target. This is a"
@@ -66,7 +66,7 @@ public interface AndroidResourcesInfoApi<
   FileT getRTxt();
 
   /** Returns the transitive ResourceContainers for the label. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_android_resources",
       doc = "Returns the transitive ResourceContainers for the label.",
       documented = false,
@@ -74,48 +74,40 @@ public interface AndroidResourcesInfoApi<
   Depset /*<ValidatedAndroidDataT>*/ getTransitiveAndroidResourcesForStarlark();
 
   /** Returns the immediate ResourceContainers for the label. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "direct_android_resources",
       doc = "Returns the immediate ResourceContainers for the label.",
       documented = false,
       structField = true)
   Depset /*<ValidatedAndroidDataT>*/ getDirectAndroidResourcesForStarlark();
 
-  @SkylarkCallable(name = "transitive_resources", doc = "", documented = false, structField = true)
+  @StarlarkMethod(name = "transitive_resources", doc = "", documented = false, structField = true)
   Depset /*<FileT>*/ getTransitiveResourcesForStarlark();
 
-  @SkylarkCallable(name = "transitive_manifests", doc = "", documented = false, structField = true)
+  @StarlarkMethod(name = "transitive_manifests", doc = "", documented = false, structField = true)
   Depset /*<FileT>*/ getTransitiveManifestsForStarlark();
 
-  @SkylarkCallable(
-      name = "transitive_aapt2_r_txt",
-      doc = "",
-      documented = false,
-      structField = true)
+  @StarlarkMethod(name = "transitive_aapt2_r_txt", doc = "", documented = false, structField = true)
   Depset /*<FileT>*/ getTransitiveAapt2RTxtForStarlark();
 
   // TODO(b/132383435): remove this
-  @SkylarkCallable(name = "validation_artifacts", doc = "", documented = false, structField = true)
+  @StarlarkMethod(name = "validation_artifacts", doc = "", documented = false, structField = true)
   Depset /*<FileT>*/ getTransitiveAapt2ValidationArtifactsForStarlark();
 
-  @SkylarkCallable(
-      name = "transitive_symbols_bin",
-      doc = "",
-      documented = false,
-      structField = true)
+  @StarlarkMethod(name = "transitive_symbols_bin", doc = "", documented = false, structField = true)
   Depset /*<FileT>*/ getTransitiveSymbolsBinForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_compiled_symbols",
       doc = "",
       documented = false,
       structField = true)
   Depset /*<FileT>*/ getTransitiveCompiledSymbolsForStarlark();
 
-  @SkylarkCallable(name = "transitive_static_lib", doc = "", documented = false, structField = true)
+  @StarlarkMethod(name = "transitive_static_lib", doc = "", documented = false, structField = true)
   Depset /*<FileT>*/ getTransitiveStaticLibForStarlark();
 
-  @SkylarkCallable(name = "transitive_r_txt", doc = "", documented = false, structField = true)
+  @StarlarkMethod(name = "transitive_r_txt", doc = "", documented = false, structField = true)
   Depset /*<FileT>*/ getTransitiveRTxtForStarlark();
 
   /** Provider for {@link AndroidResourcesInfoApi}. */
@@ -131,7 +123,7 @@ public interface AndroidResourcesInfoApi<
           AndroidManifestInfoT extends AndroidManifestInfoApi<FileT>>
       extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidResourcesInfo",
         doc = "The <code>AndroidResourcesInfo</code> constructor.",
         documented = false,

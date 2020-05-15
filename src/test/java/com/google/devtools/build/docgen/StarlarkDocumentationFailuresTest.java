@@ -17,8 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,7 +36,7 @@ public final class StarlarkDocumentationFailuresTest {
   @StarlarkBuiltin(name = "MockClassCommonName", doc = "MockClassCommonName")
   private static class MockClassCommonNameOne implements StarlarkValue {
 
-    @SkylarkCallable(name = "one", doc = "one")
+    @StarlarkMethod(name = "one", doc = "one")
     public Integer one() {
       return 1;
     }
@@ -46,7 +46,7 @@ public final class StarlarkDocumentationFailuresTest {
   @StarlarkBuiltin(name = "MockClassCommonName", doc = "MockClassCommonName")
   private static class MockClassCommonNameTwo implements StarlarkValue {
 
-    @SkylarkCallable(name = "two", doc = "two")
+    @StarlarkMethod(name = "two", doc = "two")
     public Integer two() {
       return 1;
     }
@@ -55,12 +55,12 @@ public final class StarlarkDocumentationFailuresTest {
   /** PointsToCommonName */
   @StarlarkBuiltin(name = "PointsToCommonName", doc = "PointsToCommonName")
   private static class PointsToCommonName implements StarlarkValue {
-    @SkylarkCallable(name = "one", doc = "one")
+    @StarlarkMethod(name = "one", doc = "one")
     public MockClassCommonNameOne getOne() {
       return null;
     }
 
-    @SkylarkCallable(name = "two", doc = "two")
+    @StarlarkMethod(name = "two", doc = "two")
     public MockClassCommonNameTwo getTwo() {
       return null;
     }

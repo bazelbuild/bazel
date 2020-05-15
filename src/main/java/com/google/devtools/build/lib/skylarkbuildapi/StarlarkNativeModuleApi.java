@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "The following functions are also available:")
 public interface StarlarkNativeModuleApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "glob",
       doc =
           "Glob returns a list of every file in the current package that:<ul>\n"
@@ -91,7 +91,7 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "existing_rule",
       doc =
           "Returns a new mutable dict that describes the attributes of a rule instantiated in this "
@@ -116,17 +116,12 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
               + " order-dependent. Also, beware that it differs subtly from the two"
               + " other conversions of rule attribute values from internal form to Starlark: one"
               + " used by computed defaults, the other used by <code>ctx.attr.foo</code>.",
-      parameters = {
-        @Param(
-            name = "name",
-            type = String.class,
-            doc = "The name of the target.")
-      },
+      parameters = {@Param(name = "name", type = String.class, doc = "The name of the target.")},
       useStarlarkThread = true)
   Object existingRule(String name, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "existing_rules",
       doc =
           "Returns a new mutable dict describing the rules so far instantiated in this thread's"
@@ -138,7 +133,7 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
   Dict<String, Dict<String, Object>> existingRules(StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "package_group",
       doc =
           "This function defines a set of packages and assigns a label to the group. "
@@ -172,7 +167,7 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
       String name, Sequence<?> packages, Sequence<?> includes, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exports_files",
       doc =
           "Specifies a list of files belonging to this package that are exported to other "
@@ -208,7 +203,7 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
   NoneType exportsFiles(Sequence<?> srcs, Object visibility, Object licenses, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "package_name",
       doc =
           "The name of the package being evaluated. "
@@ -220,7 +215,7 @@ public interface StarlarkNativeModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   String packageName(StarlarkThread thread) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "repository_name",
       doc =
           "The name of the repository the rule or build extension is called from. "

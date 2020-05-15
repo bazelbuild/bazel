@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -63,7 +63,7 @@ public interface BazelCcModuleApi<
         CcToolchainConfigInfoT,
         CompilationOutputsT> {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compile",
       doc =
           "Should be used for C++ compilation. Returns tuple of "
@@ -238,7 +238,7 @@ public interface BazelCcModuleApi<
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "link",
       doc = "Should be used for C++ transitive linking.",
       useStarlarkThread = true,
@@ -361,7 +361,7 @@ public interface BazelCcModuleApi<
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
       parameters = {
@@ -385,7 +385,7 @@ public interface BazelCcModuleApi<
   CompilationOutputsT createCompilationOutputsFromSkylark(
       Object objectsObject, Object picObjectsObject) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge_compilation_outputs",
       doc = "Merge compilation outputs.",
       parameters = {

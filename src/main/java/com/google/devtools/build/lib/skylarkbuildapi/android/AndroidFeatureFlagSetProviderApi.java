@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 
@@ -39,7 +39,7 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
   /** The name of the provider for this info object. */
   String NAME = "AndroidFeatureFlagSet";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "flags",
       doc = "Returns the flags contained by the provider.",
       documented = false,
@@ -55,7 +55,7 @@ public interface AndroidFeatureFlagSetProviderApi extends StructApi {
       documented = false)
   interface Provider extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidFeatureFlagSetProvider</code> constructor.",
         documented = false,

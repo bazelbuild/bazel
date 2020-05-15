@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -33,7 +33,7 @@ public interface JavaProtoCommonApi<
         TransitiveInfoCollectionT extends TransitiveInfoCollectionApi>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_java_lite_proto_compile_action",
       // This function is experimental for now.
       documented = false,
@@ -71,7 +71,7 @@ public interface JavaProtoCommonApi<
       String flavour)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "has_proto_sources",
       doc =
           "Returns whether the given proto_library target contains proto sources. If there are no"
@@ -87,7 +87,7 @@ public interface JavaProtoCommonApi<
       })
   boolean hasProtoSources(TransitiveInfoCollectionT target);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "toolchain_deps",
       // This function is experimental for now.
       documented = false,

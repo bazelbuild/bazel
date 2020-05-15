@@ -16,9 +16,9 @@ package com.google.devtools.build.docgen.starlark;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -29,14 +29,14 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
   private final String moduleName;
   private final String name;
   private final Method method;
-  private final SkylarkCallable callable;
+  private final StarlarkMethod callable;
   private final ImmutableList<StarlarkParamDoc> params;
   // TODO(cparsons): Move to superclass when SkylarkBuiltinMethodDoc is removed.
   private final boolean deprecated;
 
   private boolean isOverloaded;
 
-  public StarlarkJavaMethodDoc(String moduleName, Method method, SkylarkCallable callable) {
+  public StarlarkJavaMethodDoc(String moduleName, Method method, StarlarkMethod callable) {
     this.moduleName = moduleName;
     this.name = callable.name();
     this.method = method;
@@ -145,6 +145,6 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
 
   @Override
   public Boolean isCallable() {
-    return !StarlarkInterfaceUtils.getSkylarkCallable(this.method).structField();
+    return !StarlarkInterfaceUtils.getStarlarkMethod(this.method).structField();
   }
 }

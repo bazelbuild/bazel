@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Interface for a structured representation of the linking outputs of a C++ rule. */
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     documented = true,
     doc = "Helper class containing CC compilation outputs.")
 public interface CcLinkingOutputsApi<FileT extends FileApi> extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "library_to_link",
       structField = true,
       allowReturnNones = true,
@@ -37,7 +37,7 @@ public interface CcLinkingOutputsApi<FileT extends FileApi> extends StarlarkValu
       documented = true)
   LibraryToLinkApi<FileT> getLibraryToLink();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "executable",
       structField = true,
       allowReturnNones = true,

@@ -14,8 +14,8 @@
 package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -27,13 +27,13 @@ import java.util.List;
 public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   private final String fullyQualifiedName;
   private final Method method;
-  private final SkylarkCallable callable;
+  private final StarlarkMethod callable;
   private final ImmutableList<StarlarkParamDoc> params;
   // TODO(cparsons): Move to superclass when SkylarkBuiltinMethodDoc is removed.
   private final boolean deprecated;
 
   public StarlarkConstructorMethodDoc(
-      String fullyQualifiedName, Method method, SkylarkCallable callable) {
+      String fullyQualifiedName, Method method, StarlarkMethod callable) {
     this.fullyQualifiedName = fullyQualifiedName;
     this.method = method;
     this.callable = callable;

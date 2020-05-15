@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 
@@ -43,7 +43,7 @@ public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi
    * Returns the metadata outputs from this rule's annotation processing that describe how it
    * applies data binding. See {@link DataBinding#getMetadataOutputs} for details.
    */
-  @SkylarkCallable(name = "metadata_outputs", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "metadata_outputs", structField = true, doc = "", documented = false)
   ImmutableList<T> getMetadataOutputs();
 
   /** The provider implementing this can construct the UsesDataBindingInfo provider. */
@@ -55,7 +55,7 @@ public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>UsesDataBindingInfo</code> constructor.",
         documented = false,

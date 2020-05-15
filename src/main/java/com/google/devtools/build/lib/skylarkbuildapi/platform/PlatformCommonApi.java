@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** Module containing functions to interact with the platform APIs. */
@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     name = "platform_common",
     doc = "Functions for Starlark to interact with the platform APIs.")
 public interface PlatformCommonApi extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "TemplateVariableInfo",
       doc =
           "The constructor/key for the <a href='TemplateVariableInfo.html'>"
@@ -32,13 +32,13 @@ public interface PlatformCommonApi extends StarlarkValue {
       structField = true)
   ProviderApi getMakeVariableProvider();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ToolchainInfo",
       doc = "The constructor/key for the <a href='ToolchainInfo.html'>ToolchainInfo</a> provider.",
       structField = true)
   ProviderApi getToolchainInfoConstructor();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "PlatformInfo",
       doc =
           "The constructor/key for the <a href='PlatformInfo.html'>PlatformInfo</a> provider."
@@ -46,7 +46,7 @@ public interface PlatformCommonApi extends StarlarkValue {
       structField = true)
   ProviderApi getPlatformInfoConstructor();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ConstraintSettingInfo",
       doc =
           "The constructor/key for the <a href='ConstraintSettingInfo.html'>"
@@ -55,7 +55,7 @@ public interface PlatformCommonApi extends StarlarkValue {
       structField = true)
   ProviderApi getConstraintSettingInfoConstructor();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ConstraintValueInfo",
       doc =
           "The constructor/key for the <a href='ConstraintValueInfo.html'>"

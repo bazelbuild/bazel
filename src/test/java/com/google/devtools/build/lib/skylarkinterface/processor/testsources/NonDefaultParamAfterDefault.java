@@ -15,26 +15,21 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a SkylarkCallable method which has a positional parameter with no default value
+ * Test case for a StarlarkMethod method which has a positional parameter with no default value
  * specified after a positional parameter with a default value.
  */
 public class NonDefaultParamAfterDefault implements StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "non_default_after_default",
       documented = false,
       parameters = {
-          @Param(name = "one",
-              named = true,
-              defaultValue = "1",
-              positional = true),
-          @Param(name = "two",
-              named = true,
-              positional = true)
+        @Param(name = "one", named = true, defaultValue = "1", positional = true),
+        @Param(name = "two", named = true, positional = true)
       })
   public Integer nonDefaultAfterDefault(Integer one, Integer two) {
     return 42;

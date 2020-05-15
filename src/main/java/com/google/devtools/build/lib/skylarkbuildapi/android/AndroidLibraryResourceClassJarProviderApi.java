@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Provides resource class jars from android_library rules. */
@@ -38,7 +38,7 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
   /** The name of the provider for this info object. */
   String NAME = "AndroidLibraryResourceClassJarProvider";
 
-  @SkylarkCallable(name = "jars", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "jars", structField = true, doc = "", documented = false)
   Depset /*<FileT>*/ getResourceClassJarsForStarlark();
 
   /** The provider implementing this can construct the AndroidLibraryResourceClassJarProvider. */
@@ -50,7 +50,7 @@ public interface AndroidLibraryResourceClassJarProviderApi<FileT extends FileApi
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidLibraryResourceClassJarProvider</code> constructor.",
         documented = false,

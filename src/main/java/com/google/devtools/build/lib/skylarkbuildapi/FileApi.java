@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + " its <code>path</code> field.")
 public interface FileApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dirname",
       structField = true,
       doc =
@@ -48,41 +48,41 @@ public interface FileApi extends StarlarkValue {
               + "<a href=\"#path\">path</a> and is always relative to the execution directory.")
   String getDirname();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "basename",
       structField = true,
       doc = "The base name of this file. This is the name of the file inside the directory.")
   String getFilename();
 
-  @SkylarkCallable(name = "extension", structField = true, doc = "The file extension of this file.")
+  @StarlarkMethod(name = "extension", structField = true, doc = "The file extension of this file.")
   String getExtension();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "owner",
       structField = true,
       allowReturnNones = true,
       doc = "A label of a target that produces this File.")
   Label getOwnerLabel();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "root",
       structField = true,
       doc = "The root beneath which this file resides.")
   FileRootApi getRoot();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "is_source",
       structField = true,
       doc = "Returns true if this is a source file, i.e. it is not generated.")
   boolean isSourceArtifact();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "is_directory",
       structField = true,
       doc = "Returns true if this is a directory.")
   boolean isDirectory();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "short_path",
       structField = true,
       doc =
@@ -91,7 +91,7 @@ public interface FileApi extends StarlarkValue {
               + "path under which the file is mapped if it's in the runfiles of a binary.")
   String getRunfilesPathString();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "path",
       structField = true,
       doc =
@@ -106,7 +106,7 @@ public interface FileApi extends StarlarkValue {
               + "the runfiles of a binary.")
   String getExecPathString();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "tree_relative_path",
       structField = true,
       doc =

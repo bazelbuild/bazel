@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -28,10 +28,10 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
  * The Starlark module containing the definition of {@code repository_rule} function to define a
  * Starlark remote repository.
  */
-@SkylarkGlobalLibrary
+@StarlarkGlobalLibrary
 public interface RepositoryModuleApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "repository_rule",
       doc =
           "Creates a new repository rule. Store it in a global value, so that it can be loaded and "
@@ -118,7 +118,7 @@ public interface RepositoryModuleApi {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc",
       doc =
           "When --incompatible_use_cc_configure_from_rules_cc is set to true, Bazel will "

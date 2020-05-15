@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
@@ -75,7 +75,7 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
       super(ConfigFeatureFlagProvider.class, STARLARK_NAME);
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "FeatureFlagInfo",
         documented = false,
         parameters = {@Param(name = "value", named = true, type = String.class)},

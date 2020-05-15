@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "interpreter_path",
       structField = true,
       allowReturnNones = true,
@@ -53,7 +53,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   @Nullable
   String getInterpreterPathString();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "interpreter",
       structField = true,
       allowReturnNones = true,
@@ -65,7 +65,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   @Nullable
   FileT getInterpreter();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "files",
       structField = true,
       allowReturnNones = true,
@@ -78,7 +78,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   @Nullable
   Depset getFilesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "python_version",
       structField = true,
       doc =
@@ -90,7 +90,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface PyRuntimeInfoProviderApi extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "PyRuntimeInfo",
         doc = "The <code>PyRuntimeInfo</code> constructor.",
         parameters = {

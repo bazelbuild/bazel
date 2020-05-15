@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
@@ -36,14 +36,14 @@ public interface ConstraintCollectionApi<
         ConstraintValueInfoT extends ConstraintValueInfoApi>
     extends StarlarkIndexable, StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "constraint_settings",
       doc = "The ConstraintSettingInfo values that this collection directly references.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   Sequence<ConstraintSettingInfoT> constraintSettings();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get",
       doc = "Returns the specific ConstraintValueInfo for a specific ConstraintSettingInfo.",
       allowReturnNones = true,
@@ -58,7 +58,7 @@ public interface ConstraintCollectionApi<
   @Nullable
   ConstraintValueInfoT get(ConstraintSettingInfoT constraint);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "has",
       doc = "Returns whether the specific ConstraintSettingInfo is set.",
       parameters = {
@@ -71,7 +71,7 @@ public interface ConstraintCollectionApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   boolean has(ConstraintSettingInfoT constraint);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "has_constraint_value",
       doc = "Returns whether the specific ConstraintValueInfo is set.",
       parameters = {

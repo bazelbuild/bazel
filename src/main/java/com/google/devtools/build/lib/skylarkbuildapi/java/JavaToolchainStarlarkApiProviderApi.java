@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Sequence;
 
 /**
@@ -36,34 +36,34 @@ public interface JavaToolchainStarlarkApiProviderApi extends ToolchainInfoApi {
 
   String LEGACY_NAME = "java_toolchain";
 
-  @SkylarkCallable(name = "source_version", doc = "The java source version.", structField = true)
+  @StarlarkMethod(name = "source_version", doc = "The java source version.", structField = true)
   String getSourceVersion();
 
-  @SkylarkCallable(name = "target_version", doc = "The java target version.", structField = true)
+  @StarlarkMethod(name = "target_version", doc = "The java target version.", structField = true)
   String getTargetVersion();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "javac_jar",
       doc = "The javac jar.",
       structField = true,
       allowReturnNones = true)
   FileApi getJavacJar();
 
-  @SkylarkCallable(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
+  @StarlarkMethod(name = "single_jar", doc = "The SingleJar deploy jar.", structField = true)
   FileApi getSingleJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bootclasspath",
       doc = "The Java target bootclasspath entries. Corresponds to javac's -bootclasspath flag.",
       structField = true)
   Depset getStarlarkBootclasspath();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "jvm_opt",
       doc = "The default options for the JVM running the java compiler and associated tools.",
       structField = true)
   Sequence<String> getStarlarkJvmOptions();
 
-  @SkylarkCallable(name = "tools", doc = "The compilation tools.", structField = true)
+  @StarlarkMethod(name = "tools", doc = "The compilation tools.", structField = true)
   Depset getStarlarkTools();
 }

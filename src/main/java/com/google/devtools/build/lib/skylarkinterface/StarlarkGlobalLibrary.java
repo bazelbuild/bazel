@@ -22,10 +22,10 @@ import java.lang.annotation.Target;
  * An annotation to mark a class whose methods are global (top-level) Starlark functions.
  *
  * <p>A class or interface annotated with this annotation indicates that all of its methods which
- * are annotated with {@link SkylarkCallable} should be treated as global top-level functions.
+ * are annotated with {@link StarlarkMethod} should be treated as global top-level functions.
  *
  * <p>Global libraries should be stateless, and must have a public zero-arg constructor.
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface SkylarkGlobalLibrary {}
+public @interface StarlarkGlobalLibrary {}

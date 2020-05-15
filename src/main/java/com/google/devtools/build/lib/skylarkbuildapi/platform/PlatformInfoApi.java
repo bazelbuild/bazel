@@ -18,10 +18,10 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkConstructor;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -47,14 +47,14 @@ public interface PlatformInfoApi<
       "<br/><i>Note: This API is experimental and may change at any time. It is disabled by"
           + " default, but may be enabled with <code>--experimental_platforms_api</code></i>";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label",
       doc = "The label of the target that created this platform.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   Label label();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "constraints",
       doc =
           "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
@@ -63,14 +63,14 @@ public interface PlatformInfoApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   ConstraintCollectionApi<ConstraintSettingInfoT, ConstraintValueInfoT> constraints();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "remoteExecutionProperties",
       doc = "Properties that are available for the use of remote execution.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   String remoteExecutionProperties();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exec_properties",
       doc = "Properties to configure a remote execution platform.",
       structField = true,
@@ -85,7 +85,7 @@ public interface PlatformInfoApi<
           PlatformInfoT extends PlatformInfoApi<ConstraintSettingInfoT, ConstraintValueInfoT>>
       extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "PlatformInfo",
         doc = "The <code>PlatformInfo</code> constructor.",
         documented = false,

@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -52,7 +52,7 @@ public final class MessageBundleInfo extends NativeInfo implements StarlarkValue
       super(SKYLARK_NAME, MessageBundleInfo.class);
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "MessageBundleInfo",
         doc = "The <code>MessageBundleInfo</code> constructor.",
         documented = false,

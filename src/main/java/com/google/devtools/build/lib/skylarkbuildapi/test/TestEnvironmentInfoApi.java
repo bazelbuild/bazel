@@ -15,15 +15,15 @@
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import java.util.Map;
 
 /** Provider containing any additional environment variables for use in the test action. */
 @StarlarkBuiltin(name = "TestEnvironmentInfo", doc = "", documented = false)
 public interface TestEnvironmentInfoApi extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "environment",
       doc = "A dict containing environment variables which should be set on the test action.",
       structField = true)

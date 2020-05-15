@@ -18,9 +18,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -39,13 +39,13 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT extends Throwable>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "name",
       structField = true,
       doc = "The name of the external repository created by this rule.")
   String getName();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "attr",
       structField = true,
       doc =
@@ -53,7 +53,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
               + "the user (if not, a default value is used).")
   StructApi getAttr();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "path",
       doc =
           "Returns a path from a string, label or path. If the path is relative, it will resolve "
@@ -74,7 +74,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       })
   RepositoryPathApi<?> path(Object path) throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "report_progress",
       doc = "Updates the progress status for the fetching of this repository",
       parameters = {
@@ -85,7 +85,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       })
   void reportProgress(String status);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "symlink",
       doc = "Creates a symlink on the filesystem.",
       useStarlarkThread = true,
@@ -110,7 +110,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
   void symlink(Object from, Object to, StarlarkThread thread)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "file",
       doc = "Generates a file in the repository directory with the provided content.",
       useStarlarkThread = true,
@@ -148,7 +148,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "template",
       doc =
           "Generates a new file using a <code>template</code>. Every occurrence in "
@@ -195,7 +195,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       StarlarkThread thread)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "read",
       doc = "Reads the content of a file on the filesystem.",
       useStarlarkThread = true,
@@ -212,13 +212,13 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
   String readFile(Object path, StarlarkThread thread)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "os",
       structField = true,
       doc = "A struct to access information from the system.")
   StarlarkOSApi getOS();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "execute",
       doc =
           "Executes the command given by the list of arguments. The execution time of the command"
@@ -270,7 +270,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       StarlarkThread thread)
       throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "delete",
       doc =
           "Deletes a file or a directory. Returns a bool, indicating whether the file or directory"
@@ -290,7 +290,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
   boolean delete(Object path, StarlarkThread thread)
       throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "patch",
       doc =
           "Apply a patch file to the root directory of external repository. "
@@ -321,7 +321,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
   void patch(Object patchFile, Integer strip, StarlarkThread thread)
       throws EvalException, RepositoryFunctionExceptionT, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "which",
       doc =
           "Returns the path of the corresponding program or None "
@@ -337,7 +337,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       })
   RepositoryPathApi<?> which(String program, StarlarkThread thread) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "download",
       doc =
           "Downloads a file to the output path for the provided url and returns a struct"
@@ -427,7 +427,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       StarlarkThread thread)
       throws RepositoryFunctionExceptionT, EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "extract",
       doc = "Extract an archive to the repository directory.",
       useStarlarkThread = true,
@@ -470,7 +470,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
   void extract(Object archive, Object output, String stripPrefix, StarlarkThread thread)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "download_and_extract",
       doc =
           "Downloads a file to the output path for the provided url, extracts it, and returns"
@@ -583,7 +583,7 @@ public interface StarlarkRepositoryContextApi<RepositoryFunctionExceptionT exten
       StarlarkThread thread)
       throws RepositoryFunctionExceptionT, InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "flag_enabled",
       doc =
           "This method is present temporarily for a migration. It can be used only by a few "

@@ -15,31 +15,31 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /**
- * Test case for a class which contains multiple SkylarkCallable methods with the same name. This
+ * Test case for a class which contains multiple StarlarkMethod methods with the same name. This
  * should cause a compile failure -- overrides are not allowed.
  */
 public class ConflictingMethodNames implements StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "conflicting_method",
       documented = false,
       parameters = {
-          @Param(name = "one", type = String.class, named = true),
+        @Param(name = "one", type = String.class, named = true),
       })
   public String conflictingMethod(String one) {
     return "foo";
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "conflicting_method",
       documented = false,
       parameters = {
-          @Param(name = "one", type = String.class, named = true),
-          @Param(name = "two", type = Integer.class, named = true),
+        @Param(name = "one", type = String.class, named = true),
+        @Param(name = "two", type = Integer.class, named = true),
       })
   public String conflictingMethodTwo(String one, Integer two) {
     return "foo";

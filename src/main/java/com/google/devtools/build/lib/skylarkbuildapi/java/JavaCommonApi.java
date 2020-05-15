@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkinterface.Param;
 import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
@@ -44,7 +44,7 @@ public interface JavaCommonApi<
         SkylarkActionFactoryT extends StarlarkActionFactoryApi>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "provider",
       structField = true,
       doc =
@@ -53,7 +53,7 @@ public interface JavaCommonApi<
               + "Prefer using <code>JavaInfo</code> in new code.")
   ProviderApi getJavaProvider();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compile",
       doc =
           "Compiles Java source files/jars from the implementation of a Starlark rule and returns "
@@ -237,7 +237,7 @@ public interface JavaCommonApi<
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "run_ijar",
       doc =
           "Runs ijar on a jar, stripping it of its method bodies. This helps reduce rebuilding "
@@ -280,7 +280,7 @@ public interface JavaCommonApi<
       SkylarkActionFactoryT actions, FileT jar, Object targetLabel, JavaToolchainT javaToolchain)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "stamp_jar",
       doc =
           "Stamps a jar with a target label for <code>add_dep</code> support. "
@@ -323,7 +323,7 @@ public interface JavaCommonApi<
       SkylarkActionFactoryT actions, FileT jar, Label targetLabel, JavaToolchainT javaToolchain)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "pack_sources",
       doc =
           "Packs sources and source jars into a single source jar file. "
@@ -383,7 +383,7 @@ public interface JavaCommonApi<
       JavaRuntimeT hostJavabase)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "default_javac_opts",
       // This function is experimental for now.
       documented = false,
@@ -402,7 +402,7 @@ public interface JavaCommonApi<
   // delete
   ImmutableList<String> getDefaultJavacOpts(JavaToolchainT javaToolchain) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge",
       doc = "Merges the given providers into a single JavaInfo.",
       parameters = {
@@ -417,7 +417,7 @@ public interface JavaCommonApi<
   JavaInfoT mergeJavaProviders(Sequence<?> providers /* <JavaInfoT> expected. */)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "make_non_strict",
       doc =
           "Returns a new Java provider whose direct-jars part is the union of both the direct and"
@@ -432,7 +432,7 @@ public interface JavaCommonApi<
       })
   JavaInfoT makeNonStrict(JavaInfoT javaInfo);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "JavaToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "
@@ -440,7 +440,7 @@ public interface JavaCommonApi<
       structField = true)
   ProviderApi getJavaToolchainProvider();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "JavaRuntimeInfo",
       doc =
           "The key used to retrieve the provider that contains information about the Java "
@@ -448,7 +448,7 @@ public interface JavaCommonApi<
       structField = true)
   ProviderApi getJavaRuntimeProvider();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "is_java_toolchain_resolution_enabled_do_not_use",
       documented = false,
       parameters = {
@@ -462,14 +462,14 @@ public interface JavaCommonApi<
       doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
   boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextT ruleContext) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "MessageBundleInfo",
       doc = "The provider used to supply message bundles for translation",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   ProviderApi getMessageBundleInfo();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "add_constraints",
       doc = "Returns a copy of the given JavaInfo with the given constraints added.",
       parameters = {
@@ -492,7 +492,7 @@ public interface JavaCommonApi<
   JavaInfoT addConstraints(JavaInfoT javaInfo, Sequence<?> constraints /* <String> expected. */)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "experimental_disable_annotation_processing",
       doc =
           "Returns a copy of the given JavaInfo with any provided annotation processors disabled."
@@ -510,7 +510,7 @@ public interface JavaCommonApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   JavaInfoT removeAnnotationProcessors(JavaInfoT javaInfo);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compile_time_jdeps",
       doc = "Returns a depset of the given JavaInfo's compile-time jdeps files.",
       parameters = {
@@ -524,7 +524,7 @@ public interface JavaCommonApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Depset /*<FileT>*/ getCompileTimeJavaDependencyArtifacts(JavaInfoT javaInfo);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "add_compile_time_jdeps",
       doc = "Returns a copy of the given JavaInfo with the given compile-time jdeps files added.",
       parameters = {
@@ -548,7 +548,7 @@ public interface JavaCommonApi<
       JavaInfoT javaInfo, Sequence<?> compileTimeJavaDependencyArtifacts /* <FileT> expected. */)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_toolchain_label",
       doc = "Returns the toolchain's label.",
       parameters = {
@@ -562,7 +562,7 @@ public interface JavaCommonApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "BootClassPathInfo",
       doc = "The provider used to supply bootclasspath information",
       structField = true,

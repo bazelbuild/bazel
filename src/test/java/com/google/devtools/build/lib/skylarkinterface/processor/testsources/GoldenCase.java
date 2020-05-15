@@ -15,32 +15,27 @@
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
 import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
-/** Test source file verifying various proper uses of SkylarkCallable. */
+/** Test source file verifying various proper uses of StarlarkMethod. */
 public class GoldenCase implements StarlarkValue {
 
-  @SkylarkCallable(
-    name = "struct_field_method",
-    documented = false,
-    structField = true)
+  @StarlarkMethod(name = "struct_field_method", documented = false, structField = true)
   public String structFieldMethod() {
     return "foo";
   }
 
-  @SkylarkCallable(
-    name = "zero_arg_method",
-    documented = false)
+  @StarlarkMethod(name = "zero_arg_method", documented = false)
   public Integer zeroArgMethod() {
     return 0;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "zero_arg_method_with_thread",
       documented = false,
       useStarlarkThread = true)
@@ -48,7 +43,7 @@ public class GoldenCase implements StarlarkValue {
     return 0;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "three_arg_method",
       documented = false,
       parameters = {
@@ -65,7 +60,7 @@ public class GoldenCase implements StarlarkValue {
     return "bar";
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "three_arg_method_with_params_and_thread",
       documented = false,
       parameters = {
@@ -79,7 +74,7 @@ public class GoldenCase implements StarlarkValue {
     return "baz";
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "many_arg_method_mixing_positional_and_named",
       documented = false,
       parameters = {
@@ -105,7 +100,7 @@ public class GoldenCase implements StarlarkValue {
     return "baz";
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "two_arg_method_with_params_and_thread_and_kwargs",
       documented = false,
       parameters = {
@@ -119,7 +114,7 @@ public class GoldenCase implements StarlarkValue {
     return "blep";
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "two_arg_method_with_env_and_args_and_kwargs",
       documented = false,
       parameters = {
@@ -134,20 +129,19 @@ public class GoldenCase implements StarlarkValue {
     return "yar";
   }
 
-  @SkylarkCallable(
-    name = "selfCallMethod",
-    selfCall = true,
-    parameters = {
+  @StarlarkMethod(
+      name = "selfCallMethod",
+      selfCall = true,
+      parameters = {
         @Param(name = "one", type = String.class, named = true),
         @Param(name = "two", type = Integer.class, named = true),
-    },
-    documented = false
-  )
+      },
+      documented = false)
   public Integer selfCallMethod(String one, Integer two) {
     return 0;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "struct_field_method_with_semantics",
       documented = false,
       structField = true,
@@ -156,7 +150,7 @@ public class GoldenCase implements StarlarkValue {
     return "dragon";
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "method_with_list_and_dict",
       documented = false,
       parameters = {

@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -43,22 +43,22 @@ import javax.annotation.Nullable;
             + "Fields that are inapplicable are set to <code>None</code>.")
 public interface ActionApi extends StarlarkValue {
 
-  @SkylarkCallable(name = "mnemonic", structField = true, doc = "The mnemonic for this action.")
+  @StarlarkMethod(name = "mnemonic", structField = true, doc = "The mnemonic for this action.")
   String getMnemonic();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "inputs",
       doc = "A set of the input files of this action.",
       structField = true)
   Depset getSkylarkInputs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "outputs",
       doc = "A set of the output files of this action.",
       structField = true)
   Depset getSkylarkOutputs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "argv",
       doc =
           "For actions created by <a href=\"actions.html#run\">ctx.actions.run()</a> "
@@ -70,7 +70,7 @@ public interface ActionApi extends StarlarkValue {
       allowReturnNones = true)
   Sequence<String> getSkylarkArgv() throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "args",
       doc =
           "A list of frozen <a href=\"Args.html\">Args</a> objects containing information about"
@@ -97,7 +97,7 @@ public interface ActionApi extends StarlarkValue {
    *     call to a {@code map_each} callback.
    * @throws IOException if there is a non-Starlark error in expanding an {@code Args} object.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "content",
       doc =
           "For actions created by <a href=\"actions.html#write\">ctx.actions.write()</a> or "
@@ -111,7 +111,7 @@ public interface ActionApi extends StarlarkValue {
   @Nullable
   String getSkylarkContent() throws IOException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "substitutions",
       doc =
           "For actions created by "
@@ -121,7 +121,7 @@ public interface ActionApi extends StarlarkValue {
       allowReturnNones = true)
   Dict<String, String> getSkylarkSubstitutions();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "env",
       structField = true,
       doc =
@@ -130,7 +130,7 @@ public interface ActionApi extends StarlarkValue {
               + " settings which are only pre-set in the execution environment.")
   Dict<String, String> getEnv();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "execution_info",
       structField = true,
       doc =

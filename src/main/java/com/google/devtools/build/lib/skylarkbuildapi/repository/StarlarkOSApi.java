@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 
 /** A Starlark structure to deliver information about the system we are running on. */
@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     category = StarlarkDocumentationCategory.BUILTIN,
     doc = "Various data about the current platform Bazel is running on.")
 public interface StarlarkOSApi extends StarlarkValue {
-  @SkylarkCallable(name = "environ", structField = true, doc = "The list of environment variables.")
+  @StarlarkMethod(name = "environ", structField = true, doc = "The list of environment variables.")
   ImmutableMap<String, String> getEnvironmentVariables();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "name",
       structField = true,
       doc = "A string identifying the current system Bazel is running on.")

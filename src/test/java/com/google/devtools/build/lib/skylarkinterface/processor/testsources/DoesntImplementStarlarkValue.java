@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.skylarkinterface.processor.testsources;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 
 /** A StarlarkCallable-annotated method whose class doesn't implement StarlarkValue. */
-class DoesntImplementSkylarkValue {
-  @SkylarkCallable(name = "x", documented = false)
+class DoesntImplementStarlarkValue {
+  @StarlarkMethod(name = "x", documented = false)
   public Object x() {
     return null;
   }

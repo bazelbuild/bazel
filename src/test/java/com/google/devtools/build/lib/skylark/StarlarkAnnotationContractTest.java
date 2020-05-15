@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.skylark;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
+import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.util.Classpath;
 import java.lang.reflect.Method;
 import org.junit.Test;
@@ -24,7 +24,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests that bazel usages of {@link SkylarkCallable} and {@link StarlarkBuiltin} abide by the
+ * Tests that bazel usages of {@link StarlarkMethod} and {@link StarlarkBuiltin} abide by the
  * contracts specified in their documentation.
  *
  * <p>Tests in this class use the java reflection API.
@@ -59,22 +59,22 @@ public class StarlarkAnnotationContractTest {
   }
 
   /**
-   * Verifies that no class or interface has a method annotated with {@link SkylarkCallable} unless
-   * that class or interface is annotated with either {@link SkylarkGlobalLibrary} or with {@link
+   * Verifies that no class or interface has a method annotated with {@link StarlarkMethod} unless
+   * that class or interface is annotated with either {@link StarlarkGlobalLibrary} or with {@link
    * StarlarkBuiltin}.
    */
   @Test
   public void testSkylarkCallableScope() throws Exception {
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
       if (StarlarkInterfaceUtils.getStarlarkBuiltin(candidateClass) == null
-          && !StarlarkInterfaceUtils.hasSkylarkGlobalLibrary(candidateClass)) {
+          && !StarlarkInterfaceUtils.hasStarlarkGlobalLibrary(candidateClass)) {
         for (Method method : candidateClass.getMethods()) {
-          SkylarkCallable callable = StarlarkInterfaceUtils.getSkylarkCallable(method);
+          StarlarkMethod callable = StarlarkInterfaceUtils.getStarlarkMethod(method);
           if (callable != null && method.getDeclaringClass() == candidateClass) {
             throw new AssertionError(
                 String.format(
-                    "Class %s has a SkylarkCallable method %s but is neither a @StarlarkBuiltin"
-                        + " nor a @SkylarkGlobalLibrary",
+                    "Class %s has a StarlarkMethod method %s but is neither a @StarlarkBuiltin"
+                        + " nor a @StarlarkGlobalLibrary",
                     candidateClass, method.getName()));
           }
         }
