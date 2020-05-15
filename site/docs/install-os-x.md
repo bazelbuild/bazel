@@ -103,11 +103,18 @@ https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 
 ### Step 2: Install the Bazel Homebrew package
 
-_Please note that if your system has the Bazel package from homebrew core
-installed you first need to uninstall it by typing `brew uninstall bazel`. We
-recommend using the `bazelbuild` tap, which is maintained by the Bazel team._
+Please note that there are two different Bazel packages ("formulae"):
 
-Install the Bazel package via Homebrew as follows:
+* `bazelbuild/tap/bazel` is maintained by the Bazel team, and installs the
+  official Bazel binary package (see above).
+* The default [homebrew/core formula](https://formulae.brew.sh/formula/bazel)
+  is maintained by the community, and compiles Bazel from source or installs a
+  binary pre-compiled by the Homebrew project.
+
+If you previously installed Bazel from homebrew/core, you can switch to the
+`bazelbuild` tap by uninstalling the existing package: `brew uninstall bazel`.
+
+Install the `bazelbuild/tap` Bazel package via Homebrew as follows:
 
 ```bash
 brew tap bazelbuild/tap
@@ -125,13 +132,3 @@ Once installed, you can upgrade to a newer version of Bazel using the following 
 ```bash
 brew upgrade bazelbuild/tap/bazel
 ```
-
-<h2 id="install-on-mac-os-x-bazelisk">Install using Bazelisk</h2>
-
-If you need to switch between different versions of Bazel, use
-[Bazelisk](https://github.com/bazelbuild/bazelisk) to automatically download and
-launch the right Bazel version.
-
-You can install Bazelisk in multiple ways: `npm`, Homebrew, or
-compiled from source using Go. For more details, see
-[the official README](https://github.com/bazelbuild/bazelisk/blob/master/README.md).
