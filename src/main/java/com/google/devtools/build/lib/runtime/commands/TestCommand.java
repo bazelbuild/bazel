@@ -39,6 +39,9 @@ import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSumm
 import com.google.devtools.build.lib.runtime.TestResultNotifier;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.runtime.UiOptions;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TestCommand.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
@@ -157,12 +160,17 @@ public class TestCommand implements BlazeCommand {
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests
     if (testTargets.isEmpty()) {
-      env.getReporter().handle(Event.error(
-          null, "No test targets were found, yet testing was requested"));
+      String message = "No test targets were found, yet testing was requested";
+      env.getReporter().handle(Event.error(null, message));
 
       DetailedExitCode detailedExitCode =
           buildResult.getSuccess()
-              ? DetailedExitCode.justExitCode(ExitCode.NO_TESTS_FOUND)
+              ? DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setTestCommand(
+                          FailureDetails.TestCommand.newBuilder().setCode(Code.NO_TEST_TARGETS))
+                      .build())
               : buildResult.getDetailedExitCode();
       env.getEventBus()
           .post(

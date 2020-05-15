@@ -565,13 +565,13 @@ public class CommandEnvironment {
   }
 
   /**
-   * Prevents any further interruption of this command by modules, and returns the final exit code
-   * from modules, or null if no modules requested an abrupt exit.
+   * Prevents any further interruption of this command by modules, and returns the final {@link
+   * DetailedExitCode} from modules, or null if no modules requested an abrupt exit.
    *
    * <p>Always returns the same value on subsequent calls.
    */
   @Nullable
-  private ExitCode finalizeExitCode() {
+  private DetailedExitCode finalizeDetailedExitCode() {
     // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
     // unwanted thread interrupts.
     if (pendingException.compareAndSet(null, Optional.empty())) {
@@ -584,29 +584,32 @@ public class CommandEnvironment {
       Thread.interrupted();
     }
     // Extract the exit code (it can be null if someone has already called finalizeExitCode()).
-    return getPendingExitCode();
+    return getPendingDetailedExitCode();
   }
 
   /**
-   * Hook method called by the BlazeCommandDispatcher right before the dispatch
-   * of each command ends (while its outcome can still be modified).
+   * Hook method called by the BlazeCommandDispatcher right before the dispatch of each command ends
+   * (while its outcome can still be modified).
    */
-  ExitCode precompleteCommand(ExitCode originalExit) {
-    eventBus.post(new CommandPrecompleteEvent(originalExit));
-    return finalizeExitCode();
+  DetailedExitCode precompleteCommand(DetailedExitCode originalExit) {
+    // TODO(b/138456686): this event is deprecated but is used in several places. Instead of lifting
+    //  the ExitCode to a DetailedExitCode, see if it can be deleted.
+    eventBus.post(new CommandPrecompleteEvent(originalExit.getExitCode()));
+    return finalizeDetailedExitCode();
   }
 
   /** Returns the current exit code requested by modules, or null if no exit has been requested. */
   @Nullable
-  private ExitCode getPendingExitCode() {
+  private DetailedExitCode getPendingDetailedExitCode() {
     AbruptExitException exception = getPendingException();
-    return exception == null ? null : exception.getExitCode();
+    return exception == null ? null : exception.getDetailedExitCode();
   }
 
   /**
    * Retrieves the exception currently queued by a Blaze module.
    *
-   * <p>Prefer getPendingExitCode or throwPendingException where appropriate.
+   * <p>Prefer {@link #getPendingDetailedExitCode} or {@link #throwPendingException} where
+   * appropriate.
    */
   @Nullable
   public AbruptExitException getPendingException() {

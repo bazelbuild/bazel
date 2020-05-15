@@ -586,10 +586,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // Run the command.
       result = command.exec(env, options);
 
-      ExitCode moduleExitCode = env.precompleteCommand(result.getExitCode());
+      DetailedExitCode moduleExitCode = env.precompleteCommand(result.getDetailedExitCode());
       // If Blaze did not suffer an infrastructure failure, check for errors in modules.
       if (!result.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
-        result = BlazeCommandResult.exitCode(moduleExitCode);
+        result = BlazeCommandResult.detailedExitCode(moduleExitCode);
       }
 
       // Finalize the Starlark CPU profile.
