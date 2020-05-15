@@ -568,6 +568,8 @@ message TestCommand {
   enum Code {
     TEST_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     NO_TEST_TARGETS = 1 [(metadata) = { exit_code: 4 }];
+    TEST_WITH_NOANALYZE = 2 [(metadata) = { exit_code: 1 }];
+    TESTS_FAILED = 3 [(metadata) = { exit_code: 3 }];
   }
 
   Code code = 1;
