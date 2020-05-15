@@ -74,7 +74,9 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
         "//src/main/java/com/google/devtools/build/lib/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules:srcs",
+        "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
+        "//src/main/java/com/google/devtools/build/lib/server:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi:srcs",
@@ -210,40 +212,19 @@ java_library(
 )
 
 java_library(
-    name = "server",
+    name = "runtime/blaze_command_result",
     srcs = [
-        "server/CommandManager.java",
-        "server/GrpcServerImpl.java",
-        "server/IdleServerTasks.java",
-        "server/ServerWatcherRunnable.java",
+        "runtime/BlazeCommandResult.java",
     ],
     deps = [
-        ":runtime",
-        "//src/main/java/com/google/devtools/build/lib/bugreport",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/com/google/devtools/common/options:invocation_policy",
-        "//src/main/protobuf:command_server_java_grpc",
         "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -257,32 +238,44 @@ java_library(
 )
 
 java_library(
+    name = "runtime/command_dispatcher",
+    srcs = [
+        "runtime/CommandDispatcher.java",
+    ],
+    deps = [
+        ":runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:invocation_policy_java_proto",
+    ],
+)
+
+java_library(
     name = "runtime",
     srcs = glob(
         [
             "runtime/*.java",
             "runtime/commands/*.java",
-            "runtime/mobileinstall/*.java",
             "buildtool/*.java",
             "buildtool/buildevent/*.java",
         ],
         exclude = [
             "buildtool/BuildRequestOptions.java",
+            "runtime/BlazeCommandResult.java",
+            "runtime/CommandDispatcher.java",
             "runtime/KeepGoingOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
         ],
-    ) + [
-        "server/RPCServer.java",
-        "server/signal/InterruptSignalHandler.java",
-    ],
+    ),
     resources = glob([
         "runtime/commands/*.txt",
-        "runtime/mobileinstall/*.txt",
     ]),
     deps = [
         ":build-request-options",
         ":keep-going-option",
         ":loading-phase-threads-option",
+        ":runtime/blaze_command_result",
+        ":runtime/command_dispatcher",
         ":shared-base-rules",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
@@ -360,6 +353,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
+        "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
+        "//src/main/java/com/google/devtools/build/lib/server/signal",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
         "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/aquery_output_handler",
@@ -422,6 +417,7 @@ java_library(
         "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:flogger",
         "//third_party:gson",
         "//third_party:guava",
