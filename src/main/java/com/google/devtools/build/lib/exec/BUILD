@@ -55,7 +55,8 @@ java_library(
     srcs = ["BlazeExecutor.java"],
     deps = [
         ":execution_options",
-        ":spawn_action_context_maps",
+        ":module_action_context_registry",
+        ":spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

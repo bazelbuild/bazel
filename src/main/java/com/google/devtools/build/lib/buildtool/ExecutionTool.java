@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
-import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
@@ -131,7 +130,8 @@ public class ExecutionTool {
   private BlazeExecutor executor;
   private final ActionInputPrefetcher prefetcher;
   private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
-  private final SpawnActionContextMaps spawnActionContextMaps;
+  private final SpawnStrategyRegistry spawnStrategyRegistry;
+  private final ModuleActionContextRegistry actionContextRegistry;
 
   ExecutionTool(CommandEnvironment env, BuildRequest request) throws AbruptExitException {
     this.env = env;
@@ -201,7 +201,8 @@ public class ExecutionTool {
         ModuleActionContextRegistry.class, moduleActionContextRegistry);
     executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
 
-    spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
+    this.actionContextRegistry = moduleActionContextRegistry;
+    this.spawnStrategyRegistry = spawnStrategyRegistry;
 
     if (options.availableResources != null && options.removeLocalResources) {
       throw new AbruptExitException(
@@ -236,7 +237,8 @@ public class ExecutionTool {
         getReporter(),
         runtime.getClock(),
         request,
-        spawnActionContextMaps);
+        actionContextRegistry,
+        spawnStrategyRegistry);
   }
 
   void init() throws AbruptExitException {
@@ -250,7 +252,7 @@ public class ExecutionTool {
   }
 
   TestActionContext getTestActionContext() {
-    return spawnActionContextMaps.getContext(TestActionContext.class);
+    return actionContextRegistry.getContext(TestActionContext.class);
   }
 
   /**
@@ -552,7 +554,7 @@ public class ExecutionTool {
 
   /**
    * Handles what action to perform on the convenience symlinks. If the the mode is {@link
-   * ConvenienceSymlinksMode.IGNORE}, then skip any creating or cleaning of convenience symlinks.
+   * ConvenienceSymlinksMode#IGNORE}, then skip any creating or cleaning of convenience symlinks.
    * Otherwise, manage the convenience symlinks and then post a {@link
    * ConvenienceSymlinksIdentifiedEvent} build event.
    */
