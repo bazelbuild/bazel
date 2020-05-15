@@ -649,47 +649,16 @@ public class Desugar {
       // checkState above implies that we want Java 7 .class files, so send through that visitor.
       // Don't need a ClassReaderFactory b/c static interface methods should've been moved.
       ClassVisitor visitor = writer;
-      if (coreLibrarySupport != null) {
-        visitor = new ImmutableLabelRemover(visitor);
-        visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
-        visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
-        visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
-        if (options.autoDesugarShadowedApiUse) {
-          visitor =
-              new ShadowedApiInvocationSite(
-                  visitor,
-                  callSiteTransCollector,
-                  bootClassPathDigest,
-                  classAttributeRecord,
-                  typeHierarchy);
-        }
-      }
-
-      if (!allowTryWithResources) {
-        CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
-        generated.getValue().accept(closeResourceMethodScanner);
-        visitor =
-            new TryWithResourcesRewriter(
-                visitor,
-                loader,
-                visitedExceptionTypes,
-                numOfTryWithResourcesInvoked,
-                closeResourceMethodScanner.hasCloseResourceMethod());
-      }
-      if (!allowCallsToObjectsNonNull) {
-        // Not sure whether there will be implicit null check emitted by javac, so we rerun
-        // the inliner again
-        visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
-      }
-      if (!allowCallsToLongUnsigned) {
-        visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
-      }
-      if (!allowCallsToLongCompare) {
-        visitor = new LongCompareMethodRewriter(visitor, rewriter);
-      }
-      if (!allowCallsToPrimitiveWrappers) {
-        visitor = new PrimitiveWrapperRewriter(visitor, numOfPrimitiveHashCodeInvoked);
-      }
+      visitor =
+          createTypeBasedClassVisitorsForClassesInInputs(
+              loader,
+              coreLibrarySupport,
+              visitor,
+              callSiteTransCollector,
+              bootClassPathDigest,
+              classAttributeRecord,
+              closeResourceMethodScanner ->
+                  generated.getValue().accept(closeResourceMethodScanner));
 
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
       if (options.generateBaseClassesForDefaultMethods) {
@@ -734,43 +703,17 @@ public class Desugar {
       ClassAttributeRecord classAttributeRecord) {
     ClassVisitor visitor = checkNotNull(writer);
 
-    if (coreLibrarySupport != null) {
-      visitor = new ImmutableLabelRemover(visitor);
-      visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
-      visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
-      visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
-      if (options.autoDesugarShadowedApiUse) {
-        visitor =
-            new ShadowedApiInvocationSite(
-                visitor, callSiteRecord, bootClassPathDigest, classAttributeRecord, typeHierarchy);
-      }
-    }
+    visitor =
+        createTypeBasedClassVisitorsForClassesInInputs(
+            loader,
+            coreLibrarySupport,
+            visitor,
+            callSiteRecord,
+            bootClassPathDigest,
+            classAttributeRecord,
+            closeResourceMethodScanner ->
+                input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG));
 
-    if (!allowTryWithResources) {
-      CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
-      input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG);
-      visitor =
-          new TryWithResourcesRewriter(
-              visitor,
-              loader,
-              visitedExceptionTypes,
-              numOfTryWithResourcesInvoked,
-              closeResourceMethodScanner.hasCloseResourceMethod());
-    }
-    if (!allowCallsToObjectsNonNull) {
-      // Not sure whether there will be implicit null check emitted by javac, so we rerun
-      // the inliner again
-      visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
-    }
-    if (!allowCallsToLongUnsigned) {
-      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
-    }
-    if (!allowCallsToLongCompare) {
-      visitor = new LongCompareMethodRewriter(visitor, rewriter);
-    }
-    if (!allowCallsToPrimitiveWrappers) {
-      visitor = new PrimitiveWrapperRewriter(visitor, numOfPrimitiveHashCodeInvoked);
-    }
     if (outputJava7) {
       // null ClassReaderFactory b/c we don't expect to need it for lambda classes
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
