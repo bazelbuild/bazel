@@ -116,6 +116,7 @@ message FailureDetail {
     Sandbox sandbox = 137;
     IncludeScanning include_scanning = 139;
     TestCommand test_command = 140;
+    ActionQuery action_query = 141;
   }
 
   reserved 102; // For internal use
@@ -566,6 +567,33 @@ message TestCommand {
   enum Code {
     TEST_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     NO_TEST_TARGETS = 1 [(metadata) = { exit_code: 4 }];
+  }
+
+  Code code = 1;
+}
+
+message ActionQuery {
+  // All numerical exit code associations correspond to pre-existing Bazel
+  // behavior. These associations are suspicious:
+  // - COMMAND_LINE_EXPANSION_FAILURE: this is associated with 2, the numerical
+  //     exit code for "bad Bazel command line", but is generated when an
+  //     action's command line fails to expand, which sounds similar but is
+  //     completely different.
+  // - OUTPUT_FAILURE: this is associated with 6, an undocumented exit code.
+  // - INVALID_AQUERY_EXPRESSION: this is associate with 1, which is not
+  //    documented for (a)query.
+  // TODO(b/138456686): Revise these after the (intentionally non-breaking)
+  //  initial rollout of FailureDetail-based encoding.
+  enum Code {
+    ACTION_QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+    OUTPUT_FAILURE = 2 [(metadata) = { exit_code: 6 }];
+    COMMAND_LINE_EXPRESSION_MISSING = 3 [(metadata) = { exit_code: 2 }];
+    EXPRESSION_PARSE_FAILURE = 4 [(metadata) = { exit_code: 2 }];
+    SKYFRAME_STATE_WITH_COMMAND_LINE_EXPRESSION = 5
+        [(metadata) = { exit_code: 2 }];
+    INVALID_AQUERY_EXPRESSION = 6 [(metadata) = { exit_code: 1 }];
+    SKYFRAME_STATE_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
