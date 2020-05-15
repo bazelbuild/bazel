@@ -25,7 +25,6 @@ java_library(
 proto_library(
     name = "desugar_class_attr_proto",
     srcs = [
-        "desugar_class_attr.proto",
         "desugar_method_attr.proto",
     ],
 )

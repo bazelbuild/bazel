@@ -54,7 +54,6 @@ import com.google.devtools.build.android.desugar.langmodel.ClassAttributeRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
-import com.google.devtools.build.android.desugar.langmodel.DesugarClassAttribute;
 import com.google.devtools.build.android.desugar.langmodel.DesugarMethodAttribute;
 import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;
@@ -104,9 +103,7 @@ public class Desugar {
       new ResourceBasedClassFiles();
   private static final String RUNTIME_LIB_PACKAGE =
       "com/google/devtools/build/android/desugar/runtime/";
-  private static final Attribute[] customAttributes = {
-    new DesugarClassAttribute(), new DesugarMethodAttribute()
-  };
+  private static final Attribute[] customAttributes = {new DesugarMethodAttribute()};
   private final DesugarOptions options;
   private final CoreLibraryRewriter rewriter;
   private final LambdaClassMaker lambdas;
