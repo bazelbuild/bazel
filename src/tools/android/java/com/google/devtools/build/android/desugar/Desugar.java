@@ -81,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -835,42 +836,17 @@ public class Desugar {
       ClassAttributeRecord classAttributeRecord) {
     ClassVisitor visitor = checkNotNull(writer);
 
+    visitor =
+        createTypeBasedClassVisitorsForClassesInInputs(
+            loader,
+            coreLibrarySupport,
+            visitor,
+            callSiteRecord,
+            bootClassPathDigest,
+            classAttributeRecord,
+            closeResourceMethodScanner ->
+                input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG));
 
-    if (coreLibrarySupport != null) {
-      visitor = new ImmutableLabelRemover(visitor);
-      visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
-      visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
-      visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
-      if (options.autoDesugarShadowedApiUse) {
-        visitor =
-            new ShadowedApiInvocationSite(
-                visitor, callSiteRecord, bootClassPathDigest, classAttributeRecord, typeHierarchy);
-      }
-    }
-
-    if (!allowTryWithResources) {
-      CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
-      input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG);
-      visitor =
-          new TryWithResourcesRewriter(
-              visitor,
-              loader,
-              visitedExceptionTypes,
-              numOfTryWithResourcesInvoked,
-              closeResourceMethodScanner.hasCloseResourceMethod());
-    }
-    if (!allowCallsToObjectsNonNull) {
-      visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
-    }
-    if (!allowCallsToLongUnsigned) {
-      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
-    }
-    if (!allowCallsToLongCompare) {
-      visitor = new LongCompareMethodRewriter(visitor, rewriter);
-    }
-    if (!allowCallsToPrimitiveWrappers) {
-      visitor = new PrimitiveWrapperRewriter(visitor, numOfPrimitiveHashCodeInvoked);
-    }
     if (!options.onlyDesugarJavac9ForLint) {
       if (outputJava7) {
         visitor = new Java7Compatibility(visitor, classpathReader, bootclasspathReader);
@@ -925,9 +901,62 @@ public class Desugar {
       visitor = new IndyStringConcatDesugaring(classMemberUseCounter, visitor);
     }
 
-    visitor = NioBufferRefConverter.create(visitor, rewriter.getPrefixer());
-
     visitor = new LocalTypeAnnotationUse(visitor);
+
+    return visitor;
+  }
+
+  /**
+   * Create a series of class visitors which support types in later JDK core libraries on early Java
+   * platforms.
+   */
+  private ClassVisitor createTypeBasedClassVisitorsForClassesInInputs(
+      ClassLoader loader,
+      @Nullable CoreLibrarySupport coreLibrarySupport,
+      ClassVisitor baseClassVisitor,
+      InvocationSiteTransformationRecordBuilder callSiteRecord,
+      BootClassPathDigest bootClassPathDigest,
+      ClassAttributeRecord classAttributeRecord,
+      Consumer<CloseResourceMethodScanner> closeResourceMethodScannerConsumer) {
+    ClassVisitor visitor = baseClassVisitor;
+
+    if (coreLibrarySupport != null) {
+      visitor = new ImmutableLabelRemover(visitor);
+      visitor = new EmulatedInterfaceRewriter(visitor, coreLibrarySupport);
+      visitor = new CorePackageRenamer(visitor, coreLibrarySupport);
+      visitor = new CoreLibraryInvocationRewriter(visitor, coreLibrarySupport);
+      if (options.autoDesugarShadowedApiUse) {
+        visitor =
+            new ShadowedApiInvocationSite(
+                visitor, callSiteRecord, bootClassPathDigest, classAttributeRecord, typeHierarchy);
+      }
+    }
+
+    if (!allowTryWithResources) {
+      CloseResourceMethodScanner closeResourceMethodScanner = new CloseResourceMethodScanner();
+      closeResourceMethodScannerConsumer.accept(closeResourceMethodScanner);
+      visitor =
+          new TryWithResourcesRewriter(
+              visitor,
+              loader,
+              visitedExceptionTypes,
+              numOfTryWithResourcesInvoked,
+              closeResourceMethodScanner.hasCloseResourceMethod());
+    }
+    if (!allowCallsToObjectsNonNull) {
+      visitor = new ObjectsRequireNonNullMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToLongUnsigned) {
+      visitor = new LongUnsignedMethodRewriter(visitor, rewriter, numOfUnsignedLongsInvoked);
+    }
+    if (!allowCallsToLongCompare) {
+      visitor = new LongCompareMethodRewriter(visitor, rewriter);
+    }
+    if (!allowCallsToPrimitiveWrappers) {
+      visitor = new PrimitiveWrapperRewriter(visitor, numOfPrimitiveHashCodeInvoked);
+    }
+
+    visitor = NioBufferRefConverter.create(visitor, rewriter.getPrefixer());
 
     return visitor;
   }
