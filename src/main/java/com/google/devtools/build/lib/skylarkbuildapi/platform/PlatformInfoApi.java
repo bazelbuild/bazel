@@ -33,7 +33,9 @@ import java.util.Map;
 @StarlarkBuiltin(
     name = "PlatformInfo",
     doc =
-        "Provides access to data about a specific platform. "
+        "Provides access to data about a specific platform. See "
+            + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
+            + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface PlatformInfoApi<
@@ -42,8 +44,8 @@ public interface PlatformInfoApi<
     extends StructApi {
 
   String EXPERIMENTAL_WARNING =
-      "<i>Note: This API is experimental and may change at any time. It is disabled by default, "
-          + "but may be enabled with <code>--experimental_platforms_api</code></i>";
+      "<br/><i>Note: This API is experimental and may change at any time. It is disabled by"
+          + " default, but may be enabled with <code>--experimental_platforms_api</code></i>";
 
   @SkylarkCallable(
       name = "label",
