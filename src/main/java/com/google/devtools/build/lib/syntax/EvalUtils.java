@@ -236,11 +236,7 @@ public final class EvalUtils {
 
     // user-defined field?
     if (x instanceof ClassObject) {
-      // TODO(adonovan): merge SkylarkClassObject and ClassObject, using a default implementation.
-      Object field =
-          x instanceof SkylarkClassObject
-              ? ((SkylarkClassObject) x).getValue(semantics, name)
-              : ((ClassObject) x).getValue(name);
+      Object field = ((ClassObject) x).getValue(semantics, name);
       if (field != null) {
         return Starlark.checkValid(field);
       }

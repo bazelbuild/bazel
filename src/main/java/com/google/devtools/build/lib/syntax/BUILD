@@ -109,7 +109,6 @@ java_library(
         "Printer.java",
         "RangeList.java",
         "Sequence.java",
-        "SkylarkClassObject.java",
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFunction.java",

@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.concurrent.atomic.AtomicReference;
@@ -48,7 +48,7 @@ import javax.annotation.Nullable;
  * default values.
  */
 public abstract class AbstractConfiguredTarget
-    implements ConfiguredTarget, VisibilityProvider, SkylarkClassObject {
+    implements ConfiguredTarget, VisibilityProvider, ClassObject {
   private final Label label;
   private final BuildConfigurationValue.Key configurationKey;
 
