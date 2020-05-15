@@ -174,6 +174,10 @@ public class MergedAndroidResources extends ParsedAndroidResources {
     return ValidatedAndroidResources.validateFrom(dataContext, this);
   }
 
+  public ValidatedAndroidResources validateNoLink(AndroidDataContext dataContext) {
+    return ValidatedAndroidResources.of(this, this.getAapt2RTxt(), null, null, null, null, null, dataContext.getAndroidConfig().useRTxtFromMergedResources());
+  }
+
   @Override
   public Optional<? extends MergedAndroidResources> maybeFilter(
       RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter, boolean isDependency)

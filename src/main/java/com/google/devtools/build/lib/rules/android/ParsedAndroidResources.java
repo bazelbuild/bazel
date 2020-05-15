@@ -29,6 +29,8 @@ import javax.annotation.Nullable;
 public class ParsedAndroidResources extends AndroidResources {
   @Nullable private final Artifact symbols;
   @Nullable private final Artifact compiledSymbols;
+  @Nullable private final Artifact classJarOut;
+  @Nullable private final Artifact rTxtOut;
   private final Label label;
   private final StampedAndroidManifest manifest;
   private final DataBindingContext dataBindingContext;
@@ -37,7 +39,8 @@ public class ParsedAndroidResources extends AndroidResources {
       AndroidDataContext dataContext,
       AndroidResources resources,
       StampedAndroidManifest manifest,
-      DataBindingContext dataBindingContext)
+      DataBindingContext dataBindingContext,
+      boolean generateNamespacedRFiles)
       throws InterruptedException {
     AndroidResourceParsingActionBuilder builder = new AndroidResourceParsingActionBuilder();
 
@@ -46,6 +49,14 @@ public class ParsedAndroidResources extends AndroidResources {
     // In databinding v2, this strips out the databinding and generates the layout info file.
     AndroidResources databindingProcessedResources =
         dataBindingContext.processResources(dataContext, resources, manifest.getPackage());
+
+    if (generateNamespacedRFiles) {
+      builder
+          .setClassJarOut(
+              dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR))
+          .setRTxtOut(dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT))
+          .setManifest(manifest.getManifest());
+    }
 
     return builder
         .setCompiledSymbolsOutput(
@@ -62,11 +73,13 @@ public class ParsedAndroidResources extends AndroidResources {
       AndroidResources resources,
       @Nullable Artifact symbols,
       @Nullable Artifact compiledSymbols,
+      @Nullable Artifact classJarOut,
+      @Nullable Artifact rTxtOut,
       Label label,
       StampedAndroidManifest manifest,
       DataBindingContext dataBindingContext) {
     return new ParsedAndroidResources(
-        resources, symbols, compiledSymbols, label, manifest, dataBindingContext);
+        resources, symbols, compiledSymbols, classJarOut, rTxtOut, label, manifest, dataBindingContext);
   }
 
   ParsedAndroidResources(ParsedAndroidResources other, StampedAndroidManifest manifest) {
@@ -74,6 +87,8 @@ public class ParsedAndroidResources extends AndroidResources {
         other,
         other.symbols,
         other.compiledSymbols,
+        /* classJarOut= */ null,
+        /* rTxtOut= */ null,
         other.label,
         manifest,
         other.dataBindingContext);
@@ -83,12 +98,16 @@ public class ParsedAndroidResources extends AndroidResources {
       AndroidResources resources,
       Artifact symbols,
       @Nullable Artifact compiledSymbols,
+      @Nullable Artifact classJarOut,
+      @Nullable Artifact rTxtOut,
       Label label,
       StampedAndroidManifest manifest,
       DataBindingContext dataBindingContext) {
     super(resources);
     this.symbols = symbols;
     this.compiledSymbols = compiledSymbols;
+    this.classJarOut = classJarOut;
+    this.rTxtOut = rTxtOut;
     this.label = label;
     this.manifest = manifest;
     this.dataBindingContext = dataBindingContext;
@@ -102,6 +121,16 @@ public class ParsedAndroidResources extends AndroidResources {
   @Nullable
   public Artifact getCompiledSymbols() {
     return compiledSymbols;
+  }
+
+  @Nullable
+  Artifact getAapt2RTxt() {
+    return rTxtOut;
+  }
+
+  @Nullable
+  public Artifact getClassJar() {
+    return classJarOut;
   }
 
   public Iterable<Artifact> getArtifacts() {
@@ -134,6 +163,13 @@ public class ParsedAndroidResources extends AndroidResources {
     return MergedAndroidResources.mergeFrom(dataContext, this, resourceDeps);
   }
 
+  /** Skips merging this target's resources instead using artifacts produced at compilation. */
+  public MergedAndroidResources noMerge(AndroidDataContext dataContext,
+      ResourceDependencies resourceDeps) {
+    return MergedAndroidResources.of(this, null, this.classJarOut, this.rTxtOut,
+        null, resourceDeps, this.manifest.withProcessedManifest(this.manifest.getManifest()));
+  }
+
   @Override
   public Optional<? extends ParsedAndroidResources> maybeFilter(
       RuleErrorConsumer errorConsumer, ResourceFilter resourceFilter, boolean isDependency)
@@ -142,7 +178,7 @@ public class ParsedAndroidResources extends AndroidResources {
         .map(
             resources ->
                 ParsedAndroidResources.of(
-                    resources, symbols, compiledSymbols, label, manifest, dataBindingContext));
+                    resources, symbols, compiledSymbols, null, null, label, manifest, dataBindingContext));
   }
 
   @Override
