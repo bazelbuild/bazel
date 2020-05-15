@@ -79,7 +79,7 @@ To use `ibazel`, simply replace `bazel` with `ibazel` in your Bazel commands.
 ### Step 3: Configuring the `bazel.rc` file
 
 Any Bazel build flag or option that can be placed on the command line can also
-be set in the project's [`bazel.rc` file](https://docs.bazel.build/guide.html#bazelrc)
+be set in the project's [`bazel.rc` file](guide.html#bazelrc)
 so that it is applied every time Bazel builds or tests the project.
 
 Based on how you want to share Bazel settings across your project and team(s),
