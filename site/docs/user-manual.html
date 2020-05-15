@@ -2744,19 +2744,13 @@ adb -s deadbeef install ...
 
 <h4 id='flag--output_user_root'><code class='flag'>--output_user_root=<var>dir</var></code></h4>
 <p>
-  By default, the <code>output_base</code> value is chosen to as to
-  avoid conflicts between multiple users building in the same workspace directory.
-  In some situations, though, it is desirable to build from a directory
-  shared between multiple users; release engineers often do this.  In
-  those cases it may be useful to deliberately override the default so
-  as to ensure "conflicts" (i.e., sharing) between multiple users.
-  Use the <code class='flag'>--output_user_root</code> option to achieve this: the
-  output base is placed in a subdirectory of the output user root,
-  with a unique name based on the workspace, so the result of using an
-  output user root that is not a function of <code>$USER</code> is
-  sharing.  Of course, it is important to ensure (via umask and group
-  membership) that all the cooperating users can read/write each
-  others files.
+  Points to the root directory where output bases are created unless
+  overriden with <code class='flag'>--output_base</code>. The directory
+  must either not exist or be owned by the calling user. In the past,
+  this was allowed to point to a directory shared among various users
+  but it's not allowed any longer. (We can reconsider allowing this once
+  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>
+  is addressed.)
 </p>
 <p>
   If the <code class='flag'>--output_base</code> option is specified, it overrides
