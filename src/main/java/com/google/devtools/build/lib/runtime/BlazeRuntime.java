@@ -556,9 +556,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .handle(Event.error("Error while creating memory profile file: " + e.getMessage()));
       }
     }
-
-    // Initialize exit code to dummy value for afterCommand.
-    storedExitCode.set(null);
   }
 
   @Override
@@ -650,6 +647,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     try {
       workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
     } catch (InterruptedException e) {
+      logger.atInfo().withCause(e).log("Interrupted in afterCommand");
       afterCommandResult =
           BlazeCommandResult.detailedExitCode(
               InterruptedFailureDetails.detailedExitCode(
@@ -686,6 +684,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     env.getReporter().clearEventBus();
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
+    storedExitCode.set(null);
     return finalCommandResult;
   }
 

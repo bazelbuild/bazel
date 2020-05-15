@@ -623,7 +623,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       return result;
     } finally {
       if (!afterCommandCalled) {
-        runtime.afterCommand(env, result);
+        BlazeCommandResult newResult = runtime.afterCommand(env, result);
+        if (!newResult.equals(result)) {
+          logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
+        }
       }
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());
