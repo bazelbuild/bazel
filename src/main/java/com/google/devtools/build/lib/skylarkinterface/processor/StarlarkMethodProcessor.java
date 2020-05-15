@@ -55,7 +55,7 @@ import javax.tools.Diagnostic;
   "com.google.devtools.build.lib.skylarkinterface.StarlarkGlobalLibrary",
   "com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin"
 })
-public final class SkylarkCallableProcessor extends AbstractProcessor {
+public final class StarlarkMethodProcessor extends AbstractProcessor {
 
   private Types types;
   private Elements elements;
@@ -93,11 +93,11 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
     TypeMirror booleanType = getType("java.lang.Boolean");
     TypeMirror listType = getType("java.util.List");
     TypeMirror mapType = getType("java.util.Map");
-    TypeMirror skylarkValueType = getType("com.google.devtools.build.lib.syntax.StarlarkValue");
+    TypeMirror starlarkValueType = getType("com.google.devtools.build.lib.syntax.StarlarkValue");
 
     // Ensure StarlarkBuiltin-annotated classes implement StarlarkValue.
     for (Element cls : roundEnv.getElementsAnnotatedWith(StarlarkBuiltin.class)) {
-      if (!types.isAssignable(cls.asType(), skylarkValueType)) {
+      if (!types.isAssignable(cls.asType(), starlarkValueType)) {
         errorf(
             cls,
             "class %s has StarlarkBuiltin annotation but does not implement StarlarkValue",
@@ -166,7 +166,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
             && !types.isSameType(ret, stringType)
             && !types.isSameType(ret, integerType)
             && !types.isSameType(ret, booleanType)
-            && !types.isAssignable(obj, skylarkValueType)
+            && !types.isAssignable(obj, starlarkValueType)
             && !types.isAssignable(obj, listType)
             && !types.isAssignable(obj, mapType)) {
           errorf(
@@ -180,7 +180,7 @@ public final class SkylarkCallableProcessor extends AbstractProcessor {
 
       // Check that the method's class is StarlarkGlobalLibrary-annotated,
       // or implements StarlarkValue, or an error has already been reported.
-      if (okClasses.add(cls) && !types.isAssignable(cls.asType(), skylarkValueType)) {
+      if (okClasses.add(cls) && !types.isAssignable(cls.asType(), starlarkValueType)) {
         errorf(
             cls,
             "method %s has StarlarkMethod annotation but enclosing class %s does not implement"
