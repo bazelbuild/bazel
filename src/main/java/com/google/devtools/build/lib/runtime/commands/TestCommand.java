@@ -123,7 +123,7 @@ public class TestCommand implements BlazeCommand {
       targets = TargetPatternsHelper.readFrom(env, options);
     } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
