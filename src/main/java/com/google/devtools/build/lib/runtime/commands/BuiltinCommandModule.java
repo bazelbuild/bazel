@@ -11,26 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.runtime;
 
-import com.google.devtools.build.lib.runtime.commands.AqueryCommand;
-import com.google.devtools.build.lib.runtime.commands.BuildCommand;
-import com.google.devtools.build.lib.runtime.commands.CanonicalizeCommand;
-import com.google.devtools.build.lib.runtime.commands.CleanCommand;
-import com.google.devtools.build.lib.runtime.commands.ConfigCommand;
-import com.google.devtools.build.lib.runtime.commands.CoverageCommand;
-import com.google.devtools.build.lib.runtime.commands.CqueryCommand;
-import com.google.devtools.build.lib.runtime.commands.DumpCommand;
-import com.google.devtools.build.lib.runtime.commands.HelpCommand;
-import com.google.devtools.build.lib.runtime.commands.InfoCommand;
-import com.google.devtools.build.lib.runtime.commands.LicenseCommand;
-import com.google.devtools.build.lib.runtime.commands.PrintActionCommand;
-import com.google.devtools.build.lib.runtime.commands.ProfileCommand;
-import com.google.devtools.build.lib.runtime.commands.QueryCommand;
-import com.google.devtools.build.lib.runtime.commands.RunCommand;
-import com.google.devtools.build.lib.runtime.commands.ShutdownCommand;
-import com.google.devtools.build.lib.runtime.commands.TestCommand;
-import com.google.devtools.build.lib.runtime.commands.VersionCommand;
+package com.google.devtools.build.lib.runtime.commands;
+
+import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.common.options.OptionsParsingResult;
 
 /**

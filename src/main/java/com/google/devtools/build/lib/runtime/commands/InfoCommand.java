@@ -27,6 +27,35 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.BlazeBinInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.BlazeGenfilesInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.BlazeTestlogsInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.BuildLanguageInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.CharacterEncodingInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.ClientEnv;
+import com.google.devtools.build.lib.runtime.commands.info.CommitedHeapSizeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.DefaultPackagePathInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.DefaultsPackageInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.ExecutionRootInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.GcCountInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.GcTimeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.InstallBaseInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.JavaHomeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.JavaRuntimeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.JavaVirtualMachineInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.MakeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.MaxHeapSizeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.OutputBaseInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.OutputPathInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.PackagePathInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.ReleaseInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.ServerLogInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.ServerPidInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.StarlarkSemanticsInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
+import com.google.devtools.build.lib.runtime.commands.info.WorkspaceInfoItem;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -164,7 +193,7 @@ public class InfoCommand implements BlazeCommand {
       if (infoOptions.showMakeEnvironment) {
         Map<String, String> makeEnv = configurationSupplier.get().getMakeEnvironment();
         for (Map.Entry<String, String> entry : makeEnv.entrySet()) {
-          InfoItem item = new InfoItem.MakeInfoItem(entry.getKey(), entry.getValue());
+          InfoItem item = new MakeInfoItem(entry.getKey(), entry.getValue());
           items.put(item.getName(), item);
         }
       }
@@ -245,33 +274,33 @@ public class InfoCommand implements BlazeCommand {
       OptionsParsingResult commandOptions, String productName) {
     List<InfoItem> hardwiredInfoItems =
         ImmutableList.<InfoItem>of(
-            new InfoItem.WorkspaceInfoItem(),
-            new InfoItem.InstallBaseInfoItem(),
-            new InfoItem.OutputBaseInfoItem(productName),
-            new InfoItem.ExecutionRootInfoItem(),
-            new InfoItem.OutputPathInfoItem(),
-            new InfoItem.ClientEnv(),
-            new InfoItem.BlazeBinInfoItem(productName),
-            new InfoItem.BlazeGenfilesInfoItem(productName),
-            new InfoItem.BlazeTestlogsInfoItem(productName),
-            new InfoItem.ReleaseInfoItem(productName),
-            new InfoItem.ServerPidInfoItem(productName),
-            new InfoItem.ServerLogInfoItem(productName),
-            new InfoItem.PackagePathInfoItem(commandOptions),
-            new InfoItem.UsedHeapSizeInfoItem(),
-            new InfoItem.UsedHeapSizeAfterGcInfoItem(),
-            new InfoItem.CommitedHeapSizeInfoItem(),
-            new InfoItem.MaxHeapSizeInfoItem(),
-            new InfoItem.GcTimeInfoItem(),
-            new InfoItem.GcCountInfoItem(),
-            new InfoItem.JavaRuntimeInfoItem(),
-            new InfoItem.JavaVirtualMachineInfoItem(),
-            new InfoItem.JavaHomeInfoItem(),
-            new InfoItem.CharacterEncodingInfoItem(),
-            new InfoItem.DefaultsPackageInfoItem(),
-            new InfoItem.BuildLanguageInfoItem(),
-            new InfoItem.DefaultPackagePathInfoItem(commandOptions),
-            new InfoItem.StarlarkSemanticsInfoItem(commandOptions));
+            new WorkspaceInfoItem(),
+            new InstallBaseInfoItem(),
+            new OutputBaseInfoItem(productName),
+            new ExecutionRootInfoItem(),
+            new OutputPathInfoItem(),
+            new ClientEnv(),
+            new BlazeBinInfoItem(productName),
+            new BlazeGenfilesInfoItem(productName),
+            new BlazeTestlogsInfoItem(productName),
+            new ReleaseInfoItem(productName),
+            new ServerPidInfoItem(productName),
+            new ServerLogInfoItem(productName),
+            new PackagePathInfoItem(commandOptions),
+            new UsedHeapSizeInfoItem(),
+            new UsedHeapSizeAfterGcInfoItem(),
+            new CommitedHeapSizeInfoItem(),
+            new MaxHeapSizeInfoItem(),
+            new GcTimeInfoItem(),
+            new GcCountInfoItem(),
+            new JavaRuntimeInfoItem(),
+            new JavaVirtualMachineInfoItem(),
+            new JavaHomeInfoItem(),
+            new CharacterEncodingInfoItem(),
+            new DefaultsPackageInfoItem(),
+            new BuildLanguageInfoItem(),
+            new DefaultPackagePathInfoItem(commandOptions),
+            new StarlarkSemanticsInfoItem(commandOptions));
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);
