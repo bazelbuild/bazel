@@ -83,4 +83,4 @@ the `@bazel_tools` built-in external repository.
   - [`http_archive`](repo/http.html#http_archive)
   - [`http_file`](repo/http.html#http_archive)
   - [`http_jar`](repo/http.html#http_jar)
-  - [Utility functions on patching](utils.md)
+  - [Utility functions on patching](repo/utils.md)
