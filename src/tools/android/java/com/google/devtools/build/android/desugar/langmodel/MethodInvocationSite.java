@@ -18,15 +18,25 @@ package com.google.devtools.build.android.desugar.langmodel;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite.MethodInvocationSiteBuilder;
 import org.objectweb.asm.MethodVisitor;
 
 /** A value object that represents an method invocation site. */
 @AutoValue
-public abstract class MethodInvocationSite implements TypeMappable<MethodInvocationSite> {
+public abstract class MethodInvocationSite
+    extends ClassMemberUse<MethodKey, MethodInvocationSiteBuilder, MethodInvocationSite> {
 
-  public abstract MemberUseKind invocationKind();
+  public final MemberUseKind invocationKind() {
+    return useKind();
+  }
 
-  public abstract MethodKey method();
+  public final MethodKey method() {
+    return member();
+  }
+
+  // TODO(deltazulu): remove once bazel has been updated to the most recent autovalue library.
+  @Override
+  public abstract MethodKey member();
 
   public abstract boolean isInterface();
 
@@ -78,23 +88,36 @@ public abstract class MethodInvocationSite implements TypeMappable<MethodInvocat
     return method().isConstructor();
   }
 
+  @Override
+  public final MethodInvocationSite acceptTypeMapper(TypeMapper typeMapper) {
+    return toBuilder()
+        .setMethod(method().acceptTypeMapper(typeMapper))
+        .setInvocationKind(invocationKind())
+        .setIsInterface(isInterface())
+        .build();
+  }
+
   public final MethodVisitor accept(MethodVisitor mv) {
     mv.visitMethodInsn(invokeOpcode(), owner().binaryName(), name(), descriptor(), isInterface());
     return mv;
   }
 
-  @Override
-  public MethodInvocationSite acceptTypeMapper(TypeMapper typeMapper) {
-    return toBuilder().setMethod(method().acceptTypeMapper(typeMapper)).build();
-  }
-
   /** The builder for {@link MethodInvocationSite}. */
   @AutoValue.Builder
-  public abstract static class MethodInvocationSiteBuilder {
+  public abstract static class MethodInvocationSiteBuilder
+      extends ClassMemberUseBuilder<MethodKey, MethodInvocationSiteBuilder, MethodInvocationSite> {
 
-    public abstract MethodInvocationSiteBuilder setInvocationKind(MemberUseKind value);
+    public final MethodInvocationSiteBuilder setInvocationKind(MemberUseKind value) {
+      return setUseKind(value);
+    }
 
-    public abstract MethodInvocationSiteBuilder setMethod(MethodKey value);
+    public final MethodInvocationSiteBuilder setMethod(MethodKey value) {
+      return setMember(value);
+    }
+
+    // TODO(deltazulu): remove once bazel has been updated to the most recent autovalue library.
+    @Override
+    abstract MethodInvocationSiteBuilder setMember(MethodKey value);
 
     public abstract MethodInvocationSiteBuilder setIsInterface(boolean value);
 

@@ -26,7 +26,8 @@ import java.util.Optional;
  * <p>https://docs.oracle.com/javase/specs/jvms/se11/html/jvms-4.html#jvms-4.7
  */
 @AutoValue
-public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
+public abstract class ClassAttributes
+    implements TypeMappable<ClassAttributes>, Comparable<ClassAttributes> {
 
   public abstract ClassName classBinaryName();
 
@@ -60,6 +61,11 @@ public abstract class ClassAttributes implements TypeMappable<ClassAttributes> {
         .forEach(mappedBuilder::addDesugarIgnoredMethods);
     mappedBuilder.setClassBinaryName(classBinaryName().acceptTypeMapper(typeMapper));
     return mappedBuilder.build();
+  }
+
+  @Override
+  public int compareTo(ClassAttributes other) {
+    return classBinaryName().compareTo(other.classBinaryName());
   }
 
   /** The builder of {@link ClassAttributes}. */
