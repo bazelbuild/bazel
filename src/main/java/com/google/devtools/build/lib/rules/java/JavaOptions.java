@@ -86,6 +86,8 @@ public class JavaOptions extends FragmentOptions {
   public Label javaBase;
 
   private static final String DEFAULT_JAVA_TOOLCHAIN = "@bazel_tools//tools/jdk:remote_toolchain";
+  private static final String DEFAULT_JAVA_TOOLCHAIN_BETA =
+      "@bazel_tools//tools/jdk:remote_toolchain_beta";
 
   @Option(
       name = "java_toolchain",
@@ -581,6 +583,18 @@ public class JavaOptions extends FragmentOptions {
   public boolean disallowResourceJars;
 
   @Option(
+      name = "incompatible_use_java_tools_beta_release",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "Activates java_tools beta release.")
+  public boolean useJavaToolsBetaRelease;
+
+  @Option(
       name = "incompatible_load_java_rules_from_bzl",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -627,6 +641,10 @@ public class JavaOptions extends FragmentOptions {
 
   Label defaultJavaToolchain() {
     return Label.parseAbsoluteUnchecked(DEFAULT_JAVA_TOOLCHAIN);
+  }
+
+  Label defaultJavaToolchainBeta() {
+    return Label.parseAbsoluteUnchecked(DEFAULT_JAVA_TOOLCHAIN_BETA);
   }
 
   @Override
@@ -679,5 +697,4 @@ public class JavaOptions extends FragmentOptions {
 
     return host;
   }
-
 }

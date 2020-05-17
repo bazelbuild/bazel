@@ -39,7 +39,6 @@ import javax.annotation.Nullable;
 /** A java compiler configuration containing the flags required for compilation. */
 @Immutable
 public final class JavaConfiguration extends Fragment implements JavaConfigurationApi {
-
   /** Values for the --java_classpath option */
   public enum JavaClasspathMode {
     /** Use full transitive classpaths, the default behavior. */
@@ -213,6 +212,11 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
                 javaOptions.hostJavaToolchain));
       }
     }
+    if (javaOptions.useJavaToolsBetaRelease) {
+      // TODO(davido): Add some checks, that mutual exclusive options are not allowed.
+      javaOptions.javaToolchain =
+          javaOptions.hostJavaToolchain = javaOptions.defaultJavaToolchainBeta();
+    }
   }
 
   @Override
@@ -370,7 +374,6 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   public boolean useLegacyBazelJavaTest() {
     return useLegacyBazelJavaTest;
   }
-
 
   /**
    * Make it mandatory for java_test targets to explicitly declare any JUnit or Hamcrest

@@ -152,10 +152,30 @@ maybe(
     ],
 )
 
+maybe(
+    http_archive,
+    name = "remote_java_tools_linux_beta",
+    sha256 = "74d30ccf161c58bb69db9b2171c954a0563b2d1ff6f5831debbe71ced105c388",
+    urls = [
+        "https://github.com/davido/java_tools/releases/download/javac11-v11.0/java_tools_javac11_linux-v11.0.zip",
+    ],
+)
+
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
     name = "remote_java_tools_windows",
+    sha256 = "444c391977e50af4e10549a28d021069d2ca7745a0e7b9b968a7b153fe3ea430",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v8.0/java_tools_javac11_windows-v8.0.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v8.0/java_tools_javac11_windows-v8.0.zip",
+    ],
+)
+
+# TODO(davido): Build java_tools beta release on "other" platform
+maybe(
+    http_archive,
+    name = "remote_java_tools_windows_beta",
     sha256 = "444c391977e50af4e10549a28d021069d2ca7745a0e7b9b968a7b153fe3ea430",
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v8.0/java_tools_javac11_windows-v8.0.zip",
@@ -171,6 +191,15 @@ maybe(
     urls = [
         "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v8.0/java_tools_javac11_darwin-v8.0.zip",
         "https://github.com/bazelbuild/java_tools/releases/download/javac11_v8.0/java_tools_javac11_darwin-v8.0.zip",
+    ],
+)
+
+maybe(
+    http_archive,
+    name = "remote_java_tools_darwin_beta",
+    sha256 = "252520f0cd5dd7e9b18062dc731f8ae248993650f12a9b613fcd9ebda591d242",
+    urls = [
+        "https://github.com/davido/java_tools/releases/download/javac11-v11.0/java_tools_javac11_darwin-v11.0.zip",
     ],
 )
 

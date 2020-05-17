@@ -387,6 +387,17 @@ alias(
     }),
 )
 
+alias(
+    name = "remote_toolchain_beta",
+    actual = select({
+        "//src/conditions:darwin": "@remote_java_tools_darwin_beta//:toolchain",
+        "//src/conditions:darwin_x86_64": "@remote_java_tools_darwin_beta//:toolchain",
+        "//src/conditions:windows": "@remote_java_tools_windows_beta//:toolchain",
+        "//src/conditions:linux_x86_64": "@remote_java_tools_linux_beta//:toolchain",
+        "//conditions:default": "@bazel_tools//tools/jdk:legacy_toolchain",
+    }),
+)
+
 # The 'vanilla' toolchain is an unsupported alternative to the default.
 #
 # It does not provider any of the following features:
