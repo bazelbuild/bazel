@@ -331,19 +331,26 @@ java_import(
 )
 
 java_import(
+    name = "threeten",
+    jars = [
+        "error_prone/threeten-extra-1.5.0.jar",
+    ],
+)
+
+java_import(
     name = "error_prone_annotations",
     jars = [
-        "error_prone/error_prone_annotations-2.3.4.jar",
-        "error_prone/error_prone_type_annotations-2.3.4.jar",
+        "error_prone/error_prone_annotations-2.3.5-SNAPSHOT.jar",
+        "error_prone/error_prone_type_annotations-2.3.5-SNAPSHOT.jar",
     ],
 )
 
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_annotation-2.3.4.jar",
-        "error_prone/error_prone_check_api-2.3.4.jar",
-        "error_prone/error_prone_core-2.3.4.jar",
+        "error_prone/error_prone_annotation-2.3.5-SNAPSHOT.jar",
+        "error_prone/error_prone_check_api-2.3.5-SNAPSHOT.jar",
+        "error_prone/error_prone_core-2.3.5-SNAPSHOT.jar",
     ],
     exports = [
         ":error_prone_annotations",
@@ -356,6 +363,7 @@ java_import(
         ":jcip_annotations",
         ":jsr305",
         ":pcollections",
+        ":threeten",
         "//third_party/checker_framework_dataflow",
         "//third_party/jformatstring",
     ],
@@ -397,8 +405,8 @@ java_import(
 filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
-        "error_prone/error_prone_annotations-2.3.4.jar",
-        "error_prone/error_prone_annotations-2.2.0.jar",
+        "error_prone/error_prone_annotations-2.3.5-SNAPSHOT.jar",
+        "error_prone/threeten-extra-1.5.0.jar",
         ":guava-jars",
         ":jcip_annotations-jars",
         ":jsr305-jars",

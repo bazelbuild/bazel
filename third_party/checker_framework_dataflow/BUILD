@@ -11,8 +11,8 @@ filegroup(
 
 java_import(
     name = "checker_framework_dataflow",
-    jars = ["dataflow-3.2.0.jar"],
-    srcjar = "dataflow-3.2.0-sources.jar",
+    jars = ["dataflow-shaded-3.1.2.jar"],
+    srcjar = "dataflow-shaded-3.1.2-sources.jar",
     deps = [
         "//third_party/checker_framework_javacutil",
     ],
@@ -20,5 +20,5 @@ java_import(
 
 filegroup(
     name = "bootstrap",
-    srcs = ["dataflow-3.2.0.jar"],
+    srcs = ["dataflow-shaded-3.1.2.jar"],
 )
