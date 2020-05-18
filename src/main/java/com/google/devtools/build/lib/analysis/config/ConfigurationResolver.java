@@ -106,7 +106,7 @@ public final class ConfigurationResolver {
    *
    * @param env Skyframe evaluation environment
    * @param ctgValue the label and configuration of the source target
-   * @param originalDeps the transition requests for each dep and each dependency kind
+   * @param dependencyKeys the transition requests for each dep and each dependency kind
    * @param hostConfiguration the host configuration
    * @param defaultBuildOptions default build options to diff options against for optimization
    * @param configConditions {@link ConfigMatchingProvider} map for the rule
@@ -118,7 +118,7 @@ public final class ConfigurationResolver {
   public static OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurations(
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
-      OrderedSetMultimap<DependencyKind, DependencyKey> originalDeps,
+      OrderedSetMultimap<DependencyKind, DependencyKey> dependencyKeys,
       BuildConfiguration hostConfiguration,
       BuildOptions defaultBuildOptions,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions)
@@ -142,13 +142,13 @@ public final class ConfigurationResolver {
     BuildConfiguration currentConfiguration = ctgValue.getConfiguration();
 
     // Stores the configuration-resolved versions of each dependency. This method must preserve the
-    // original label ordering of each attribute. For example, if originalDeps.get("data") is
+    // original label ordering of each attribute. For example, if dependencyKeys.get("data") is
     // [":a", ":b"], the resolved variant must also be [":a", ":b"] in the same order. Because we
     // may not actualize the results in order (some results need Skyframe-evaluated configurations
     // while others can be computed trivially), we dump them all into this map, then as a final step
     // iterate through the original list and pluck out values from here for the final value.
     //
-    // For split transitions, originaldeps.get("data") = [":a", ":b"] can produce the output
+    // For split transitions, dependencyKeys.get("data") = [":a", ":b"] can produce the output
     // [":a"<config1>, ":a"<config2>, ..., ":b"<config1>, ":b"<config2>, ...]. All instances of ":a"
     // still appear before all instances of ":b". But the [":a"<config1>, ":a"<config2>"] subset may
     // be in any (deterministic) order. In particular, this may not be the same order as
@@ -159,13 +159,13 @@ public final class ConfigurationResolver {
     // This map is used heavily by all builds. Inserts and gets should be as fast as possible.
     Multimap<DependencyEdge, Dependency> resolvedDeps = LinkedHashMultimap.create();
 
-    // Performance optimization: This method iterates over originalDeps twice. By storing
+    // Performance optimization: This method iterates over dependencyKeys twice. By storing
     // DependencyEdge instances in this list, we avoid having to recreate them the second time
     // (particularly avoid recomputing their hash codes). Profiling shows this shaves 25% off this
     // method's execution time (at the time of this comment).
-    ArrayList<DependencyEdge> attributesAndLabels = new ArrayList<>(originalDeps.size());
+    ArrayList<DependencyEdge> attributesAndLabels = new ArrayList<>(dependencyKeys.size());
 
-    for (Map.Entry<DependencyKind, DependencyKey> depsEntry : originalDeps.entries()) {
+    for (Map.Entry<DependencyKind, DependencyKey> depsEntry : dependencyKeys.entries()) {
       DependencyKey dep = depsEntry.getValue();
       DependencyKind depKind = depsEntry.getKey();
       DependencyEdge dependencyEdge = new DependencyEdge(depKind, dep.getLabel());
@@ -425,7 +425,7 @@ public final class ConfigurationResolver {
       throw new DependencyEvaluationException(e);
     }
 
-    return sortResolvedDeps(originalDeps, resolvedDeps, attributesAndLabels);
+    return sortResolvedDeps(dependencyKeys, resolvedDeps, attributesAndLabels);
   }
 
   /**
@@ -668,19 +668,19 @@ public final class ConfigurationResolver {
   /**
    * Returns a copy of the output deps using the same key and value ordering as the input deps.
    *
-   * @param originalDeps the input deps with the ordering to preserve
+   * @param dependencyKeys the input deps with the ordering to preserve
    * @param resolvedDeps the unordered output deps
    * @param attributesAndLabels collection of <attribute, depLabel> pairs guaranteed to match the
-   *     ordering of originalDeps.entries(). This is a performance optimization: see {@link
+   *     ordering of dependencyKeys.entries(). This is a performance optimization: see {@link
    *     #resolveConfigurations#attributesAndLabels} for details.
    */
   private static OrderedSetMultimap<DependencyKind, Dependency> sortResolvedDeps(
-      OrderedSetMultimap<DependencyKind, DependencyKey> originalDeps,
+      OrderedSetMultimap<DependencyKind, DependencyKey> dependencyKeys,
       Multimap<DependencyEdge, Dependency> resolvedDeps,
       ArrayList<DependencyEdge> attributesAndLabels) {
     Iterator<DependencyEdge> iterator = attributesAndLabels.iterator();
     OrderedSetMultimap<DependencyKind, Dependency> result = OrderedSetMultimap.create();
-    for (Map.Entry<DependencyKind, DependencyKey> depsEntry : originalDeps.entries()) {
+    for (Map.Entry<DependencyKind, DependencyKey> depsEntry : dependencyKeys.entries()) {
       DependencyEdge edge = iterator.next();
         Collection<Dependency> resolvedDepWithSplit = resolvedDeps.get(edge);
         Verify.verify(!resolvedDepWithSplit.isEmpty());
