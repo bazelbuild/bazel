@@ -135,9 +135,15 @@ public class MacOSXFsEventsDiffAwarenessTest {
       assumeFalse("Lost events; diff unknown", diff.equals(ModifiedFileSet.EVERYTHING_MODIFIED));
 
       ImmutableSet<PathFragment> modifiedSourceFiles = diff.modifiedSourceFiles();
+      Set<PathFragment> unexpected = new HashSet<>(modifiedSourceFiles);
+      unexpected.removeAll(pathsYetToBeSeen);
       pathsYetToBeSeen.removeAll(modifiedSourceFiles);
       if (pathsYetToBeSeen.isEmpty()) {
-        // Found all paths that we wanted to see as modified.
+        // Found all paths that we wanted to see as modified so now check that we didn't get any
+        // extra paths we did not expect.
+        if (!unexpected.isEmpty()) {
+          throw new AssertionError("Paths " + unexpected + " unexpectedly reported as modified");
+        }
         return view2;
       }
 

@@ -179,7 +179,11 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         throw new BrokenDiffAwarenessException(
             String.format("%s is not under %s", modifiedPath, watchRootPath));
       }
-      resultBuilder.modify(PathFragment.create(watchRootPath.relativize(modifiedPath).toString()));
+      PathFragment relativePath =
+          PathFragment.create(watchRootPath.relativize(modifiedPath).toString());
+      if (!relativePath.isEmpty()) {
+        resultBuilder.modify(relativePath);
+      }
     }
     return resultBuilder.build();
   }
