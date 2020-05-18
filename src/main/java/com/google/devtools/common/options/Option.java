@@ -36,7 +36,10 @@ public @interface Option {
   /** The single-character abbreviation of the option ("-a"). */
   char abbrev() default '\0';
 
-  /** A help string for the usage information. */
+  /**
+   * A help string for the usage information. Note that this should be in plain text (no HTML tags,
+   * for example).
+   */
   String help() default "";
 
   /**
