@@ -200,9 +200,7 @@ public final class AnalysisUtils {
     }
 
     // We'll get the configs from ConfigurationsCollector#getConfigurations, which gets
-    // configurations
-    // for deps including transitions. So to satisfy its API we resolve transitions and repackage
-    // each target as a Dependency (with a NONE transition if necessary).
+    // configurations for deps including transitions.
     Multimap<BuildConfiguration, DependencyKey> asDeps = targetsToDeps(nodes, ruleClassProvider);
 
     return ConfigurationResolver.getConfigurationsFromExecutor(
