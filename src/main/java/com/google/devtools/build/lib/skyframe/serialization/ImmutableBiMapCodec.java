@@ -27,8 +27,7 @@ import java.io.IOException;
  * com/google/devtools/build/lib/skyframe/serialization/ImmutableBiMapCodec.java used only in
  * javadoc: com.google.common.collect.ImmutableMap} and calling the proper conversion method ({@link
  * ImmutableBiMap#copyOf}) when deserializing. This is valid because every {@link ImmutableBiMap} is
- * also an {@link com/google/devtools/build/lib/skyframe/serialization/ImmutableBiMapCodec.java used
- * only in javadoc: com.google.common.collect.ImmutableMap}.
+ * also an {@link com.google.common.collect.ImmutableMap}.
  *
  * <p>Any {@link SerializationException} or {@link IOException} that arises while serializing or
  * deserializing a map entry's value (not its key) will be wrapped in a new {@link

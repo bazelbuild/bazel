@@ -192,10 +192,7 @@ public class PrecomputedValue implements SkyValue {
     }
   }
 
-  /**
-   * {@link com/google/devtools/build/lib/skyframe/PrecomputedValue.java used only in javadoc:
-   * com.google.devtools.build.skyframe.SkyKey} for {@code PrecomputedValue}.
-   */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@code PrecomputedValue}. */
   @AutoCodec
   public static class Key extends AbstractSkyKey<String> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();

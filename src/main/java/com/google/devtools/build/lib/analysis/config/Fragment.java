@@ -22,8 +22,7 @@ import javax.annotation.Nullable;
  * An interface for language-specific configurations.
  *
  * <p>All implementations must be immutable and communicate this as clearly as possible (e.g.
- * declare {@link com/google/devtools/build/lib/analysis/config/BuildConfiguration.java used only in
- * javadoc: com.google.common.collect.ImmutableList} signatures on their interfaces vs. {@link
+ * declare {@link com.google.common.collect.ImmutableList} signatures on their interfaces vs. {@link
  * List}). This is because fragment instances may be shared across configurations.
  *
  * <p>Fragments are Starlark values, as returned by {@code ctx.fragments.android}, for example.

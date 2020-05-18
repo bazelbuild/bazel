@@ -51,10 +51,7 @@ public class TargetCompletionValue implements SkyValue {
                 targetsToTest.contains(ct)));
   }
 
-  /**
-   * {@link com/google/devtools/build/lib/skyframe/TargetCompletionValue.java used only in javadoc:
-   * com.google.devtools.build.skyframe.SkyKey} for {@link TargetCompletionValue}.
-   */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link TargetCompletionValue}. */
   @AutoCodec
   @AutoValue
   public abstract static class TargetCompletionKey
