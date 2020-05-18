@@ -28,11 +28,11 @@ import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
-import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
@@ -591,7 +591,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws DependencyEvaluationException, ConfiguredTargetFunctionException,
           AspectCreationException, InterruptedException {
     // Create the map from attributes to set of (target, transition) pairs.
-    OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> initialDependencies;
+    OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
     BuildConfiguration configuration = ctgValue.getConfiguration();
     Label label = ctgValue.getLabel();
     try {

@@ -546,19 +546,19 @@ public class BuildViewTest extends BuildViewTestBase {
         "filegroup(name='top', srcs=[':inner', 'file'])",
         "sh_binary(name='inner', srcs=['script.sh'])");
     ConfiguredTarget top = Iterables.getOnlyElement(update("//package:top").getTargetsToBuild());
-    Iterable<ConfigurationTransitionDependency> targets =
+    Iterable<DependencyKey> targets =
         getView()
             .getDirectPrerequisiteDependenciesForTesting(
                 reporter, top, getBuildConfigurationCollection(), /*toolchainContext=*/ null)
             .values();
 
-    ConfigurationTransitionDependency innerDependency =
-        ConfigurationTransitionDependency.builder()
+    DependencyKey innerDependency =
+        DependencyKey.builder()
             .setLabel(Label.parseAbsolute("//package:inner", ImmutableMap.of()))
             .setTransition(NoTransition.INSTANCE)
             .build();
-    ConfigurationTransitionDependency fileDependency =
-        ConfigurationTransitionDependency.builder()
+    DependencyKey fileDependency =
+        DependencyKey.builder()
             .setLabel(Label.parseAbsolute("//package:file", ImmutableMap.of()))
             .setTransition(NullTransition.INSTANCE)
             .build();

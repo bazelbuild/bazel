@@ -311,7 +311,6 @@ java_library(
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
         ":config/transitions/transition_factory",
-        ":configuration_transition_dependency",
         ":configurations_collector",
         ":configured_object_value",
         ":configured_target",
@@ -321,6 +320,7 @@ java_library(
         ":constraints/supported_environments",
         ":constraints/supported_environments_provider",
         ":dependency",
+        ":dependency_key",
         ":dependency_kind",
         ":duplicate_exception",
         ":extra/extra_action_info_file_write_action",
@@ -653,21 +653,6 @@ java_library(
 )
 
 java_library(
-    name = "configuration_transition_dependency",
-    srcs = ["ConfigurationTransitionDependency.java"],
-    deps = [
-        ":aspect_collection",
-        ":config/build_configuration",
-        ":config/transitions/configuration_transition",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "configurations_collector",
     srcs = [
         "ConfigurationsCollector.java",
@@ -677,7 +662,7 @@ java_library(
         ":config/build_configuration",
         ":config/build_options",
         ":config/invalid_configuration_exception",
-        ":configuration_transition_dependency",
+        ":dependency_key",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
     ],
@@ -718,6 +703,21 @@ java_library(
         ":config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "dependency_key",
+    srcs = ["DependencyKey.java"],
+    deps = [
+        ":aspect_collection",
+        ":config/build_configuration",
+        ":config/transitions/configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

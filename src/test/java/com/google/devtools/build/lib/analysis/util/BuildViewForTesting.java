@@ -31,10 +31,10 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
+import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -276,7 +276,7 @@ public class BuildViewForTesting {
   }
 
   @VisibleForTesting
-  public OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency>
+  public OrderedSetMultimap<DependencyKind, DependencyKey>
       getDirectPrerequisiteDependenciesForTesting(
           final ExtendedEventHandler eventHandler,
           final ConfiguredTarget ct,
@@ -371,18 +371,17 @@ public class BuildViewForTesting {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
-    OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> depNodeNames =
+    OrderedSetMultimap<DependencyKind, DependencyKey> depNodeNames =
         getDirectPrerequisiteDependenciesForTesting(
             eventHandler, target, configurations, toolchainContexts);
 
-    ImmutableMultimap<ConfigurationTransitionDependency, ConfiguredTargetAndData> cts =
+    ImmutableMultimap<DependencyKey, ConfiguredTargetAndData> cts =
         skyframeExecutor.getConfiguredTargetMapForTesting(
             eventHandler, target.getConfigurationKey(), ImmutableSet.copyOf(depNodeNames.values()));
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
         OrderedSetMultimap.create();
-    for (Map.Entry<DependencyKind, ConfigurationTransitionDependency> entry :
-        depNodeNames.entries()) {
+    for (Map.Entry<DependencyKind, DependencyKey> entry : depNodeNames.entries()) {
       result.putAll(entry.getKey(), cts.get(entry.getValue()));
     }
     return result;

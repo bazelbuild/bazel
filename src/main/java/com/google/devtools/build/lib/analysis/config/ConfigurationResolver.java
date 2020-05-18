@@ -25,10 +25,10 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
 import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -118,7 +118,7 @@ public final class ConfigurationResolver {
   public static OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurations(
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
-      OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> originalDeps,
+      OrderedSetMultimap<DependencyKind, DependencyKey> originalDeps,
       BuildConfiguration hostConfiguration,
       BuildOptions defaultBuildOptions,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions)
@@ -128,8 +128,8 @@ public final class ConfigurationResolver {
     // configuration paired with a transition key corresponding to the BuildConfiguration. For cases
     // where Skyframe isn't needed to get the configuration (e.g. when we just re-used the original
     // rule's configuration), we should skip this outright.
-    Multimap<SkyKey, Pair<Map.Entry<DependencyKind, ConfigurationTransitionDependency>, String>>
-        keysToEntries = LinkedListMultimap.create();
+    Multimap<SkyKey, Pair<Map.Entry<DependencyKind, DependencyKey>, String>> keysToEntries =
+        LinkedListMultimap.create();
 
     // Stores the result of applying a transition to the current configuration using a
     // particular subset of fragments. By caching this, we save from redundantly computing the
@@ -165,9 +165,8 @@ public final class ConfigurationResolver {
     // method's execution time (at the time of this comment).
     ArrayList<DependencyEdge> attributesAndLabels = new ArrayList<>(originalDeps.size());
 
-    for (Map.Entry<DependencyKind, ConfigurationTransitionDependency> depsEntry :
-        originalDeps.entries()) {
-      ConfigurationTransitionDependency dep = depsEntry.getValue();
+    for (Map.Entry<DependencyKind, DependencyKey> depsEntry : originalDeps.entries()) {
+      DependencyKey dep = depsEntry.getValue();
       DependencyKind depKind = depsEntry.getKey();
       DependencyEdge dependencyEdge = new DependencyEdge(depKind, dep.getLabel());
       attributesAndLabels.add(dependencyEdge);
@@ -398,9 +397,8 @@ public final class ConfigurationResolver {
         }
         BuildConfiguration trimmedConfig =
             ((BuildConfigurationValue) valueOrException.get()).getConfiguration();
-        for (Pair<Map.Entry<DependencyKind, ConfigurationTransitionDependency>, String> info :
-            keysToEntries.get(key)) {
-          ConfigurationTransitionDependency originalDep = info.first.getValue();
+        for (Pair<Map.Entry<DependencyKind, DependencyKey>, String> info : keysToEntries.get(key)) {
+          DependencyKey originalDep = info.first.getValue();
           if (trimmedConfig.trimConfigurationsRetroactively()
               && !originalDep.getAspects().isEmpty()) {
             String message =
@@ -629,7 +627,7 @@ public final class ConfigurationResolver {
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
       Attribute attribute,
-      ConfigurationTransitionDependency dep,
+      DependencyKey dep,
       Set<Class<? extends Fragment>> expectedDepFragments)
       throws DependencyEvaluationException {
     Set<String> ctgFragmentNames = new HashSet<>();
@@ -677,13 +675,12 @@ public final class ConfigurationResolver {
    *     #resolveConfigurations#attributesAndLabels} for details.
    */
   private static OrderedSetMultimap<DependencyKind, Dependency> sortResolvedDeps(
-      OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> originalDeps,
+      OrderedSetMultimap<DependencyKind, DependencyKey> originalDeps,
       Multimap<DependencyEdge, Dependency> resolvedDeps,
       ArrayList<DependencyEdge> attributesAndLabels) {
     Iterator<DependencyEdge> iterator = attributesAndLabels.iterator();
     OrderedSetMultimap<DependencyKind, Dependency> result = OrderedSetMultimap.create();
-    for (Map.Entry<DependencyKind, ConfigurationTransitionDependency> depsEntry :
-        originalDeps.entries()) {
+    for (Map.Entry<DependencyKind, DependencyKey> depsEntry : originalDeps.entries()) {
       DependencyEdge edge = iterator.next();
         Collection<Dependency> resolvedDepWithSplit = resolvedDeps.get(edge);
         Verify.verify(!resolvedDepWithSplit.isEmpty());
@@ -740,7 +737,7 @@ public final class ConfigurationResolver {
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#resolveConfigurations}.
   public static TopLevelTargetsAndConfigsResult getConfigurationsFromExecutor(
       Iterable<TargetAndConfiguration> defaultContext,
-      Multimap<BuildConfiguration, ConfigurationTransitionDependency> targetsToEvaluate,
+      Multimap<BuildConfiguration, DependencyKey> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
       ConfigurationsCollector configurationsCollector)
       throws InvalidConfigurationException {
@@ -761,7 +758,7 @@ public final class ConfigurationResolver {
             configurationsCollector.getConfigurations(
                 eventHandler, fromConfig.getOptions(), targetsToEvaluate.get(fromConfig));
         hasError |= configurationsResult.hasError();
-        for (Map.Entry<ConfigurationTransitionDependency, BuildConfiguration> evaluatedTarget :
+        for (Map.Entry<DependencyKey, BuildConfiguration> evaluatedTarget :
             configurationsResult.getConfigurationMap().entries()) {
           Target target = labelsToTargets.get(evaluatedTarget.getKey().getLabel());
           successfullyEvaluatedTargets.put(

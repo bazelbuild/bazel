@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.query2.cquery;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.ConfigurationTransitionDependency;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -112,7 +112,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       if (!(configuredTarget instanceof RuleConfiguredTarget)) {
         continue;
       }
-      OrderedSetMultimap<DependencyKind, ConfigurationTransitionDependency> deps;
+      OrderedSetMultimap<DependencyKind, DependencyKey> deps;
       ImmutableMap<Label, ConfigMatchingProvider> configConditions =
           ((RuleConfiguredTarget) configuredTarget).getConfigConditions();
 
@@ -135,13 +135,12 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       } catch (EvalException | InconsistentAspectOrderException e) {
         throw new InterruptedException(e.getMessage());
       }
-      for (Map.Entry<DependencyKind, ConfigurationTransitionDependency> attributeAndDep :
-          deps.entries()) {
+      for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
         if (attributeAndDep.getValue().getTransition() == NoTransition.INSTANCE
             || attributeAndDep.getValue().getTransition() == NullTransition.INSTANCE) {
           continue;
         }
-        ConfigurationTransitionDependency dep = attributeAndDep.getValue();
+        DependencyKey dep = attributeAndDep.getValue();
         BuildOptions fromOptions = config.getOptions();
         // TODO(bazel-team): support transitions on Starlark-defined build flags. These require
         // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition

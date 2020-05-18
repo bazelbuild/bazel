@@ -17,11 +17,14 @@ import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 
-/** Implementation of a dependency with a given configuration transition. */
+/**
+ * Information about a dependency, including the label and configuration transition. This will be
+ * used to create the actual {@link Dependency}.
+ */
 @AutoValue
-public abstract class ConfigurationTransitionDependency {
+public abstract class DependencyKey {
 
-  /** Builder to help construct instances of {@link ConfigurationTransitionDependency}. */
+  /** Builder to help construct instances of {@link DependencyKey}. */
   @AutoValue.Builder
   public interface Builder {
     /** Sets the label of the target this dependency points to. */
@@ -34,16 +37,12 @@ public abstract class ConfigurationTransitionDependency {
     Builder setAspects(AspectCollection aspectCollection);
 
     /** Returns the new instance. */
-    ConfigurationTransitionDependency build();
+    DependencyKey build();
   }
 
-  /**
-   * Returns a new {@link Builder} to construct instances of {@link
-   * ConfigurationTransitionDependency}.
-   */
+  /** Returns a new {@link Builder} to construct instances of {@link DependencyKey}. */
   public static Builder builder() {
-    return new AutoValue_ConfigurationTransitionDependency.Builder()
-        .setAspects(AspectCollection.EMPTY);
+    return new AutoValue_DependencyKey.Builder().setAspects(AspectCollection.EMPTY);
   }
 
   /** Returns the label of the target this dependency points to. */
