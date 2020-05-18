@@ -84,20 +84,19 @@ public abstract class Type<T> {
   protected Type() {}
 
   /**
-   * Converts untyped Object x resulting from the evaluation of an expression in the build language,
-   * into a typed object of type T.
+   * Converts a legal Starlark value x into an Java value of type T.
    *
-   * <p>x must be *directly* convertible to this type. This therefore disqualifies "selector
+   * <p>x must be directly convertible to this type. This therefore disqualifies "selector
    * expressions" of the form "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"
-   * (which support configurable attributes). To handle those expressions, see
-   * {@link com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
+   * (which support configurable attributes). To handle those expressions, see {@link
+   * com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
    *
-   * @param x the build-interpreter value to convert.
-   * @param what an object having a toString describing what x is for; should be included in
-   *    any exception thrown.  Grammatically, must produce a string describe a syntactic
-   *    construct, e.g. "attribute 'srcs' of rule foo".
+   * @param x The Starlark value to convert.
+   * @param what An object whose toString method returns a description of the purpose of x.
+   *     Typically it is the name of a function parameter or struct field. The method is called only
+   *     in case of error.
    * @param context the label of the current BUILD rule; must be non-null if resolution of
-   *    package-relative label strings is required
+   *     package-relative label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
    */
   public abstract T convert(Object x, Object what, @Nullable Object context)
