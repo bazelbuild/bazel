@@ -16,7 +16,7 @@ java_plugin(
     processor_class = "com.google.devtools.build.lib.analysis.skylark.annotations.processor.StarlarkConfigurationFieldProcessor",
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:annotations_internal",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/net/starlark/java/annot",
         "//third_party:guava",
     ],
 )

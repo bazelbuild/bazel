@@ -15,12 +15,12 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** An abstract class containing documentation for a Starlark method. */
 public abstract class StarlarkMethodDoc extends StarlarkDoc {

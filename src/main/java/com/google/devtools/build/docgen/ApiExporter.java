@@ -24,9 +24,6 @@ import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkParamDoc;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -44,6 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** The main class for the Starlark documentation generator. */
 public class ApiExporter {
@@ -335,7 +335,7 @@ public class ApiExporter {
     ArrayList<String> params = new ArrayList<>();
     ArrayList<String> defaults = new ArrayList<>();
 
-    for (com.google.devtools.build.lib.skylarkinterface.Param param : annot.parameters()) {
+    for (net.starlark.java.annot.Param param : annot.parameters()) {
       // Implicit * or *args parameter separates transition from positional to named.
       // f (..., *, ... )  or  f(..., *args, ...)
       // TODO(adonovan): this logic looks fishy. Clean it up.

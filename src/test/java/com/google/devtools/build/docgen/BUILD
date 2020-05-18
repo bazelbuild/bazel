@@ -50,7 +50,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/net/starlark/java/annot",
         "//src/test/java/com/google/devtools/build/lib/skylark/util",
         "//src/test/java/com/google/devtools/build/lib/syntax/util",
         "//third_party:guava",
@@ -79,8 +79,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/util:classpath",
+        "//src/main/java/net/starlark/java/annot",
         "//src/test/java/com/google/devtools/build/lib/skylark/util",
         "//src/test/java/com/google/devtools/build/lib/syntax/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",

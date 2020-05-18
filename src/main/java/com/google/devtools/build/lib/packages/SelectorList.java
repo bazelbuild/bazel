@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.HasBinary;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /**
  * An attribute value consisting of a concatenation of native types and selects, e.g:

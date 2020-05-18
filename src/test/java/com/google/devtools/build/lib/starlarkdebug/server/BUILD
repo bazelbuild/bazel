@@ -58,9 +58,9 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:starlark_debugging_java_proto",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
+        "//src/main/java/net/starlark/java/annot",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

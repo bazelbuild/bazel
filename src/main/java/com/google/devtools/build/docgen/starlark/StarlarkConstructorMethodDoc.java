@@ -14,11 +14,11 @@
 package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.lang.reflect.Method;
 import java.util.List;
+import net.starlark.java.annot.StarlarkDeprecated;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A class representing a Java method callable from Starlark which constructs a type of Starlark

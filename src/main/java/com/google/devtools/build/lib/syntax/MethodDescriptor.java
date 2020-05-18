@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A value class to store Methods with their corresponding {@link StarlarkMethod} annotation
