@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
@@ -78,11 +79,16 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         Maps.newHashMapWithExpectedSize(childFileValues.size());
     boolean remote = true;
     for (Map.Entry<TreeFileArtifact, ? extends FileArtifactValue> e : childFileValues.entrySet()) {
+      TreeFileArtifact child = e.getKey();
       FileArtifactValue value = e.getValue();
+      Preconditions.checkState(
+          !FileArtifactValue.OMITTED_FILE_MARKER.equals(value),
+          "Cannot construct TreeArtifactValue because child %s was omitted",
+          child);
       // TODO(buchgr): Enforce that all children in a tree artifact are either remote or local
       // once b/70354083 is fixed.
       remote = remote && value.isRemote();
-      digestBuilder.put(e.getKey().getParentRelativePath().getPathString(), value);
+      digestBuilder.put(child.getParentRelativePath().getPathString(), value);
     }
     return new TreeArtifactValue(
         DigestUtils.fromMetadata(digestBuilder),

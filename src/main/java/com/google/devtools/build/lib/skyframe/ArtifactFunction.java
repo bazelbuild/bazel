@@ -161,7 +161,7 @@ class ArtifactFunction implements SkyFunction {
     }
   }
 
-  private static TreeArtifactValue createTreeArtifactValueFromActionKey(
+  private static SkyValue createTreeArtifactValueFromActionKey(
       ArtifactDependencies artifactDependencies, Environment env) throws InterruptedException {
     // Request the list of expanded actions from the ActionTemplate.
     ActionTemplateExpansion actionTemplateExpansion =
@@ -183,6 +183,7 @@ class ArtifactFunction implements SkyFunction {
     // Aggregate the ArtifactValues for individual TreeFileArtifacts into a TreeArtifactValue for
     // the parent TreeArtifact.
     ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> map = ImmutableMap.builder();
+    boolean omitted = false;
     for (ActionLookupData actionKey : expandedActionExecutionKeys) {
       ActionExecutionValue actionExecutionValue =
           (ActionExecutionValue)
@@ -217,12 +218,24 @@ class ArtifactFunction implements SkyFunction {
         FileArtifactValue value =
             ActionExecutionValue.createSimpleFileArtifactValue(
                 treeFileArtifact, actionExecutionValue);
-        map.put(treeFileArtifact, value);
+        if (FileArtifactValue.OMITTED_FILE_MARKER.equals(value)) {
+          omitted = true;
+        } else {
+          map.put(treeFileArtifact, value);
+        }
       }
     }
 
-    // Return the aggregated TreeArtifactValue.
-    return TreeArtifactValue.create(map.build());
+    ImmutableMap<TreeFileArtifact, FileArtifactValue> children = map.build();
+
+    if (omitted) {
+      Preconditions.checkState(
+          children.isEmpty(),
+          "Action template expansion has some but not all outputs omitted, present outputs: %s",
+          children);
+      return FileArtifactValue.OMITTED_FILE_MARKER;
+    }
+    return TreeArtifactValue.create(children);
   }
 
   private static SkyValue createSourceValue(Artifact artifact, Environment env)
