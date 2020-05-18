@@ -18,9 +18,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -136,7 +133,7 @@ public final class StarlarkThread {
     // The locals of this frame, if fn is a StarlarkFunction, otherwise empty.
     Map<String, Object> locals;
 
-    @Nullable private SilentCloseable profileSpan; // current span of walltime profiler
+    @Nullable private Object profileSpan; // current span of walltime call profiler
 
     private Frame(StarlarkThread thread, StarlarkCallable fn) {
       this.thread = thread;
@@ -209,23 +206,20 @@ public final class StarlarkThread {
       Debug.threadHook.onPushFirst(this);
     }
 
-    ProfilerTask taskKind;
     if (fn instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) fn;
       fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getParameterNames().size());
-      taskKind = ProfilerTask.STARLARK_USER_FN;
     } else {
       // built-in function
       fr.locals = ImmutableMap.of();
-      taskKind = ProfilerTask.STARLARK_BUILTIN_FN;
     }
 
     fr.loc = fn.getLocation();
 
-    // start wall-time profile span
-    // TODO(adonovan): throw this away when we build a CPU profiler.
-    if (Profiler.instance().isActive()) {
-      fr.profileSpan = Profiler.instance().profile(taskKind, fn.getName());
+    // Start wall-time call profile span.
+    CallProfiler callProfiler = StarlarkThread.callProfiler;
+    if (callProfiler != null) {
+      fr.profileSpan = callProfiler.start(fn);
     }
 
     // Poll for newly installed CPU profiler.
@@ -263,9 +257,10 @@ public final class StarlarkThread {
 
     callstack.remove(last); // pop
 
-    // end profile span
-    if (fr.profileSpan != null) {
-      fr.profileSpan.close();
+    // End wall-time profile span.
+    CallProfiler callProfiler = StarlarkThread.callProfiler;
+    if (callProfiler != null && fr.profileSpan != null) {
+      callProfiler.end(fr.profileSpan);
     }
 
     // Notify debug tools of the thread's last pop.
@@ -600,4 +595,18 @@ public final class StarlarkThread {
   public String toString() {
     return String.format("<StarlarkThread%s>", mutability());
   }
+
+  /** CallProfiler records the start and end wall times of function calls. */
+  public interface CallProfiler {
+    Object start(StarlarkCallable fn);
+
+    void end(Object span);
+  }
+
+  /** Installs a global hook that will be notified of function calls. */
+  public static void setCallProfiler(@Nullable CallProfiler p) {
+    callProfiler = p;
+  }
+
+  @Nullable private static CallProfiler callProfiler = null;
 }

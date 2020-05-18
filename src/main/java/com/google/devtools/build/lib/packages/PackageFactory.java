@@ -35,6 +35,9 @@ import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.CallExpression;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -60,6 +63,7 @@ import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StringLiteral;
@@ -991,5 +995,41 @@ public final class PackageFactory {
         };
     checker.visit(file);
     return success[0];
+  }
+
+  // Install profiler hooks into lib.syntax.
+  static {
+    // parser profiler
+    StarlarkFile.setParseProfiler(
+        new StarlarkFile.ParseProfiler() {
+          @Override
+          public Object start(String filename) {
+            return Profiler.instance().profile(ProfilerTask.STARLARK_PARSER, filename);
+          }
+
+          @Override
+          public void end(Object span) {
+            ((SilentCloseable) span).close();
+          }
+        });
+
+    // call profiler
+    StarlarkThread.setCallProfiler(
+        new StarlarkThread.CallProfiler() {
+          @Override
+          public Object start(StarlarkCallable fn) {
+            return Profiler.instance()
+                .profile(
+                    fn instanceof StarlarkFunction
+                        ? ProfilerTask.STARLARK_USER_FN
+                        : ProfilerTask.STARLARK_BUILTIN_FN,
+                    fn.getName());
+          }
+
+          @Override
+          public void end(Object span) {
+            ((SilentCloseable) span).close();
+          }
+        });
   }
 }
