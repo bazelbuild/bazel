@@ -27,17 +27,10 @@ import javax.annotation.Nullable;
 /**
  * A dependency of a configured target through a label.
  *
- * <p>The dep's configuration can be specified in one of two ways:
- *
- * <p>Explicit configurations: includes the target and the configuration of the dependency
- * configured target and any aspects that may be required, as well as the configurations for these
- * aspects and transition keys. {@link Dependency#getTransitionKeys} provides some more context on
- * transition keys.
- *
- * <p>Configuration transitions: includes the target and the desired configuration transitions that
- * should be applied to produce the dependency's configuration. It's the caller's responsibility to
- * construct an actual configuration out of that. A set of aspects is also included; the caller must
- * also construct configurations for each of these.
+ * <p>All instances have an explicit configuration, which includes the target and the configuration
+ * of the dependency configured target and any aspects that may be required, as well as the
+ * configurations for these aspects and transition keys. {@link Dependency#getTransitionKeys}
+ * provides some more context on transition keys.
  *
  * <p>Note that the presence of an aspect here does not necessarily mean that it will be created.
  * They will be filtered based on the {@link TransitiveInfoProvider} instances their associated
