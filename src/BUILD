@@ -226,6 +226,9 @@ filegroup(
         "//src/conditions:linux_aarch64": [
             "@openjdk_linux_aarch64_vanilla//file",
         ],
+        "//src/conditions:linux_ppc64le": [
+            "@openjdk_linux_ppc64le_vanilla//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
         ],

@@ -320,6 +320,15 @@ http_file(
 )
 
 http_file(
+    name = "openjdk_linux_ppc64le_vanilla",
+    downloaded_file_path="adoptopenjdk-ppc64le-vanilla.tar.gz",
+    urls = [
+        "https://mirror.bazel.build/openjdk/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7%2B10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
+        "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7%2B10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
+    ],
+)
+
+http_file(
     name = "openjdk_macos",
     downloaded_file_path = "zulu-macos.tar.gz",
     sha256 = "8e283cfd23c7555be8e17295ed76eb8f00324c88ab904b8de37bbe08f90e569b",
