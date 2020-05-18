@@ -31,6 +31,7 @@ public abstract class BazelModuleContext {
    * itself and all files it transitively loads.
    */
   @SuppressWarnings("AutoValueImmutableFields")
+  @AutoValue.CopyAnnotations
   public abstract byte[] bzlTransitiveDigest();
 
   /**
