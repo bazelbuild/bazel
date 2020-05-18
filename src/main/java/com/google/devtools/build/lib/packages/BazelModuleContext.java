@@ -30,7 +30,7 @@ public abstract class BazelModuleContext {
    * Transitive digest of the .bzl file of the {@link com.google.devtools.build.lib.syntax.Module}
    * itself and all files it transitively loads.
    */
-  @SuppressWarnings("AutoValueImmutableFields")
+  @SuppressWarnings({"AutoValueImmutableFields", "mutable"})
   @AutoValue.CopyAnnotations
   public abstract byte[] bzlTransitiveDigest();
 
