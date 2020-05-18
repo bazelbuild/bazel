@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static org.junit.Assume.assumeFalse;
 
+import com.google.common.base.Charsets;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -98,9 +99,13 @@ public class MacOSXFsEventsDiffAwarenessTest {
     p.toFile().mkdirs();
   }
 
-  private void scratchFile(String path) throws IOException {
+  private void scratchFile(String path, String contents) throws IOException {
     Path p = watchedPath.resolve(path);
-    com.google.common.io.Files.write(new byte[] {}, p.toFile());
+    com.google.common.io.Files.write(contents.getBytes(Charsets.UTF_8), p.toFile());
+  }
+
+  private void scratchFile(String path) throws IOException {
+    scratchFile(path, "");
   }
 
   /**
@@ -113,10 +118,11 @@ public class MacOSXFsEventsDiffAwarenessTest {
    */
   private View assertDiff(View view1, Iterable<String> rawPaths)
       throws IncompatibleViewException, BrokenDiffAwarenessException, InterruptedException {
-    Set<PathFragment> pathsYetToBeSeen = new HashSet<>();
+    Set<PathFragment> allPaths = new HashSet<>();
     for (String path : rawPaths) {
-      pathsYetToBeSeen.add(PathFragment.create(path));
+      allPaths.add(PathFragment.create(path));
     }
+    Set<PathFragment> pathsYetToBeSeen = new HashSet<>(allPaths);
 
     // fsevents may be delayed (especially under machine load), which means that we may not notice
     // all file system changes in one go. Try enough times (multiple seconds) for the events to be
@@ -135,14 +141,13 @@ public class MacOSXFsEventsDiffAwarenessTest {
       assumeFalse("Lost events; diff unknown", diff.equals(ModifiedFileSet.EVERYTHING_MODIFIED));
 
       ImmutableSet<PathFragment> modifiedSourceFiles = diff.modifiedSourceFiles();
-      Set<PathFragment> unexpected = new HashSet<>(modifiedSourceFiles);
-      unexpected.removeAll(pathsYetToBeSeen);
+      allPaths.removeAll(modifiedSourceFiles);
       pathsYetToBeSeen.removeAll(modifiedSourceFiles);
       if (pathsYetToBeSeen.isEmpty()) {
         // Found all paths that we wanted to see as modified so now check that we didn't get any
         // extra paths we did not expect.
-        if (!unexpected.isEmpty()) {
-          throw new AssertionError("Paths " + unexpected + " unexpectedly reported as modified");
+        if (!allPaths.isEmpty()) {
+          throw new AssertionError("Paths " + allPaths + " unexpectedly reported as modified");
         }
         return view2;
       }
@@ -171,6 +176,21 @@ public class MacOSXFsEventsDiffAwarenessTest {
     rmdirs(watchedPath.resolve("a"));
     rmdirs(watchedPath.resolve("b"));
     assertDiff(view2, Arrays.asList("a", "a/b", "a/b/c", "b", "b/c", "b/c/d"));
+  }
+
+  @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
+  public void testRenameDirectory() throws Exception {
+    scratchDir("dir1");
+    scratchFile("dir1/file.c", "first");
+    scratchDir("dir2");
+    scratchFile("dir2/file.c", "second");
+    View view1 = underTest.getCurrentView(watchFsEnabledProvider);
+
+    Files.move(watchedPath.resolve("dir1"), watchedPath.resolve("dir3"));
+    Files.move(watchedPath.resolve("dir2"), watchedPath.resolve("dir1"));
+    assertDiff(
+        view1, Arrays.asList("dir1", "dir1/file.c", "dir2", "dir2/file.c", "dir3", "dir3/file.c"));
   }
 
   @Test
