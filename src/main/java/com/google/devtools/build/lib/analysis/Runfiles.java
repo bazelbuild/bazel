@@ -314,6 +314,11 @@ public final class Runfiles implements RunfilesApi {
     this.legacyExternalRunfiles = legacyExternalRunfiles;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * Returns the runfiles' suffix.
    */

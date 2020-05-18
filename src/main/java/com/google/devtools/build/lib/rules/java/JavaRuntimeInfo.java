@@ -56,6 +56,11 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
         javaBinaryRunfilesPath);
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   // Helper methods to access an instance of JavaRuntimeInfo.
 
   public static JavaRuntimeInfo forHost(RuleContext ruleContext) {

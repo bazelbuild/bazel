@@ -62,6 +62,11 @@ public final class JavaRuleOutputJarsProvider
       this.srcJars = ImmutableList.copyOf(srcJars);
     }
 
+    @Override
+    public boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
+    }
+
     @Nullable
     @Override
     public Artifact getClassJar() {
@@ -121,6 +126,11 @@ public final class JavaRuleOutputJarsProvider
       return EMPTY;
     }
     return new JavaRuleOutputJarsProvider(outputJars, jdeps, nativeHeaders);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Override

@@ -59,7 +59,7 @@ import javax.annotation.Nullable;
  * works, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 @AutoCodec(checkClassExplicitlyAllowed = true)
-@Immutable // (and Starlark-hashable)
+@Immutable
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
   /** A set of this target's implicitDeps. */

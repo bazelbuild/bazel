@@ -141,6 +141,11 @@ public final class OutputGroupInfo extends StructImpl
     this.outputGroups = outputGroups;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   @Nullable
   public static OutputGroupInfo get(ProviderCollection collection) {
     return collection.get(SKYLARK_CONSTRUCTOR);

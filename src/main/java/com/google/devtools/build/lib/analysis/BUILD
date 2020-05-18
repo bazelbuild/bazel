@@ -1571,6 +1571,7 @@ java_library(
     srcs = ["config/Fragment.java"],
     deps = [
         ":config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//third_party:jsr305",

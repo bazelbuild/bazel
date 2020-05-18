@@ -187,6 +187,11 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
+    public boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
+    }
+
+    @Override
     public Label getSkylarkOwner() throws EvalException {
       if (owner == null) {
         throw Starlark.errorf(

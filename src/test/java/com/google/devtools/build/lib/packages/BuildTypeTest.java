@@ -715,7 +715,7 @@ public class BuildTypeTest {
   @Test
   public void testFilesetTypeDefinition() throws Exception {
     assertThat(Starlark.type(makeFilesetEntry())).isEqualTo("FilesetEntry");
-    assertThat(EvalUtils.isImmutable(makeFilesetEntry())).isFalse();
+    assertThat(EvalUtils.isImmutable(makeFilesetEntry())).isTrue();
   }
 
   private static ImmutableList<Label> collectLabels(Type<?> type, Object value) {

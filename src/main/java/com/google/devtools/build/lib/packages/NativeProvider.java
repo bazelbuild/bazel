@@ -72,6 +72,11 @@ public abstract class NativeProvider<V extends Info> implements StarlarkValue, P
     return StarlarkProviderIdentifier.forKey(getKey());
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * equals() implements singleton class semantics.
    *

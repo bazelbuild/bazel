@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
  * A ConfiguredTarget for a source FileTarget. (Generated files use a subclass,
  * OutputFileConfiguredTarget.)
  */
-@Immutable // (and Starlark-hashable)
+@Immutable
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     implements FileType.HasFileType, LicensesProvider {
 

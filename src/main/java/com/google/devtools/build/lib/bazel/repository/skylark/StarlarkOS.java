@@ -30,6 +30,11 @@ final class StarlarkOS implements StarlarkOSApi {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public ImmutableMap<String, String> getEnvironmentVariables() {
     return environ;
   }

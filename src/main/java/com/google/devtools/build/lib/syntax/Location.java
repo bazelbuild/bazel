@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.io.Serializable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * A Location denotes a position within a Starlark file.

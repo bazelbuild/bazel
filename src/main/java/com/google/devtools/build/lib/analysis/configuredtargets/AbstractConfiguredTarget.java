@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -47,8 +46,7 @@ import javax.annotation.Nullable;
  * An abstract implementation of ConfiguredTarget in which all properties are assigned trivial
  * default values.
  */
-public abstract class AbstractConfiguredTarget
-    implements ConfiguredTarget, VisibilityProvider, ClassObject {
+public abstract class AbstractConfiguredTarget implements ConfiguredTarget, VisibilityProvider {
   private final Label label;
   private final BuildConfigurationValue.Key configurationKey;
 
@@ -92,6 +90,11 @@ public abstract class AbstractConfiguredTarget
     this.label = label;
     this.configurationKey = configurationKey;
     this.visibility = visibility;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // all Targets are immutable and Starlark-hashable
   }
 
   @Override

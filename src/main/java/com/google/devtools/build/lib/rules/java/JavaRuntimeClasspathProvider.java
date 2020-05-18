@@ -38,6 +38,11 @@ public final class JavaRuntimeClasspathProvider
     this.runtimeClasspath = runtimeClasspath;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /** Returns the artifacts included on the runtime classpath of this binary. */
   @Override
   public Depset /*<Artifact>*/ getRuntimeClasspath() {

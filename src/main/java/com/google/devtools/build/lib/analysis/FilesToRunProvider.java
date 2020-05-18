@@ -57,6 +57,11 @@ public final class FilesToRunProvider
         NestedSetBuilder.create(Order.STABLE_ORDER, artifact), null, artifact);
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /** Returns artifacts needed to run the executable for this target. */
   public NestedSet<Artifact> getFilesToRun() {
     return filesToRun;

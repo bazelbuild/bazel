@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
 @AutoCodec
-@Immutable // (and Starlark-hashable)
+@Immutable
 public class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final Artifact artifact;

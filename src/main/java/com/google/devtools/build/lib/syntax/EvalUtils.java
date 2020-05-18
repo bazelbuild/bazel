@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.IllegalFormatException;
 
@@ -112,54 +111,47 @@ public final class EvalUtils {
   }
 
   /**
-   * Is this object known or assumed to be recursively hashable by Starlark?
-   *
-   * @param o an Object
-   * @return true if the object is known to be a hashable value.
+   * Reports whether a legal Starlark value is considered hashable to Starlark, and thus suitable as
+   * a key in a dict.
    */
-  // TODO(adonovan): obviate isHashable query by "try hash, catch StarlarkUnhashable",
-  // an unchecked exception. It is inefficient and potentially inconsistent to ask before doing.
   static boolean isHashable(Object o) {
+    // Bazel makes widespread assumptions that all Starlark values can be hashed
+    // by Java code, so we cannot implement isHashable by having
+    // StarlarkValue.hashCode throw an unchecked exception, which would be more
+    // efficient. Instead, before inserting a value in a dict, we must first ask
+    // it whether it isHashable, and then call its hashCode method only if so.
+    // For structs and tuples, this unfortunately visits the object graph twice.
+    //
+    // One subtlety: the struct.isHashable recursively asks whether its
+    // elements are immutable, not hashable. Consequently, even though a list
+    // may not be used as a dict key (even if frozen), a struct containing
+    // a list is hashable. TODO(adonovan): fix this inconsistency.
+    // Requires an incompatible change flag.
     if (o instanceof StarlarkValue) {
       return ((StarlarkValue) o).isHashable();
     }
-    return isImmutable(o.getClass());
+    return isImmutable(o);
   }
 
-  /**
-   * Is this object known or assumed to be recursively immutable by Starlark?
-   *
-   * @param o an Object
-   * @return true if the object is known to be an immutable value.
-   */
+  /** Reports whether a Starlark value is assumed to be deeply immutable. */
   // TODO(adonovan): eliminate the concept of querying for immutability. It is currently used for
   // only one purpose, the precondition for adding an element to a Depset, but Depsets should check
   // hashability, like Dicts. (Similarly, querying for hashability should go: just attempt to hash a
   // value, and be prepared for it to fail.) In practice, a value may be immutable, either
   // inherently (e.g. string) or because it has become frozen, but we don't need to query for it.
-  // Just attempt a mutation and be preared for it to fail.
+  // Just attempt a mutation and be prepared for it to fail.
   // It is inefficient and potentially inconsistent to ask before doing.
-  public static boolean isImmutable(Object o) {
-    if (o instanceof StarlarkValue) {
-      return ((StarlarkValue) o).isImmutable();
-    }
-    return isImmutable(o.getClass());
-  }
+  public static boolean isImmutable(Object x) {
+    // NB: This is used as the basis for accepting objects in Depsets,
+    // as well as for accepting objects as keys for Starlark dicts.
 
-  /**
-   * Is this class known to be *recursively* immutable by Starlark? For instance, class Tuple is not
-   * it, because it can contain mutable values.
-   *
-   * @param c a Class
-   * @return true if the class is known to represent only recursively immutable values.
-   */
-  // NB: This is used as the basis for accepting objects in Depset-s,
-  // as well as for accepting objects as keys for Starlark dict-s.
-  private static boolean isImmutable(Class<?> c) {
-    return c.isAnnotationPresent(Immutable.class) // TODO(bazel-team): beware of containers!
-        || c.equals(String.class)
-        || c.equals(Integer.class)
-        || c.equals(Boolean.class);
+    if (x instanceof String || x instanceof Integer || x instanceof Boolean) {
+      return true;
+    } else if (x instanceof StarlarkValue) {
+      return ((StarlarkValue) x).isImmutable();
+    } else {
+      throw new IllegalArgumentException("invalid Starlark value: " + x.getClass());
+    }
   }
 
   static void addIterator(Object x) {

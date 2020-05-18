@@ -421,6 +421,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     @Override
+    public boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
+    }
+
+    @Override
     public String toString() {
       return mode;
     }

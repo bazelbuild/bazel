@@ -79,6 +79,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, ClassObjec
     this.configConditions = configConditions;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   public ImmutableMap<Label, ConfigMatchingProvider> getConfigConditions() {
     return configConditions;
   }

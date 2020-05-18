@@ -14,7 +14,6 @@ package com.google.devtools.build.lib.rules.cpp;
 // limitations under the License.
 
 import com.google.auto.value.AutoValue;
-import com.google.auto.value.AutoValue.CopyAnnotations;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -41,8 +40,12 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 @Immutable
-@CopyAnnotations
 public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
 
   public static final Depset.ElementType TYPE = Depset.ElementType.of(LibraryToLink.class);
 

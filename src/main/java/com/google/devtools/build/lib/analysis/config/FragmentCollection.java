@@ -35,6 +35,11 @@ public class FragmentCollection implements FragmentCollectionApi {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   @Nullable
   public Object getValue(String name) throws EvalException {
     return ruleContext.getSkylarkFragment(name, transition);

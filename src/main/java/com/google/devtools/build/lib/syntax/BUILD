@@ -70,7 +70,6 @@ java_library(
         "UnaryOperatorExpression.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/starlark/spelling",
@@ -125,7 +124,6 @@ java_library(
     data = [":libcpu_profiler.so"],  # will be loaded dynamically
     deps = [
         ":frontend",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",

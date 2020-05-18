@@ -141,6 +141,12 @@ public abstract class Args implements CommandLineArgsApi {
     }
 
     @Override
+    public boolean isImmutable() {
+      return true; // immutable but not directly hashable (though may be hashed as an element of,
+      // say, a struct).
+    }
+
+    @Override
     public ImmutableSet<Artifact> getDirectoryArtifacts() {
       return directoryInputs;
     }

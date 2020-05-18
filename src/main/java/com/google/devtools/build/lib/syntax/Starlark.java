@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -27,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * The Starlark class defines the most important entry points, constants, and functions needed by
@@ -76,7 +76,7 @@ public final class Starlark {
     env //
         .put("False", false)
         .put("True", true)
-        .put("None", Starlark.NONE);
+        .put("None", NONE);
     addMethods(env, new MethodLibrary());
     return env.build();
   }
@@ -114,7 +114,7 @@ public final class Starlark {
   public static Object fromJava(Object x, @Nullable Mutability mutability) {
     if (x == null) {
       return NONE;
-    } else if (Starlark.valid(x)) {
+    } else if (valid(x)) {
       return x;
     } else if (x instanceof List) {
       return StarlarkList.copyOf(mutability, (List<?>) x);
@@ -152,11 +152,10 @@ public final class Starlark {
    */
   public static void checkMutable(Mutability.Freezable x) throws EvalException {
     if (x.mutability().isFrozen()) {
-      throw Starlark.errorf("trying to mutate a frozen %s value", Starlark.type(x));
+      throw errorf("trying to mutate a frozen %s value", type(x));
     }
     if (x.updateIteratorCount(0)) {
-      throw Starlark.errorf(
-          "%s value is temporarily immutable due to active for-loop iteration", Starlark.type(x));
+      throw errorf("%s value is temporarily immutable due to active for-loop iteration", type(x));
     }
   }
 
@@ -492,7 +491,7 @@ public final class Starlark {
   // tiny steps are headed. It doesn't work yet, but it helps to remember our direction.
   //
   // The API assumes that the "universe" portion (None, len, str) of the "predeclared" lexical block
-  // is always available, so clients needn't mention it in the API. Starlark.UNIVERSE will expose it
+  // is always available, so clients needn't mention it in the API. UNIVERSE will expose it
   // as a public constant.
   //
   // Q. is there any value to returning the Module as opposed to just its global bindings as a Map?

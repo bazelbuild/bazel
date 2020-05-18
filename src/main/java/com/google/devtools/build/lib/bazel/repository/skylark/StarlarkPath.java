@@ -40,6 +40,11 @@ final class StarlarkPath implements RepositoryPathApi<StarlarkPath> {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public boolean equals(Object obj) {
     return (obj instanceof StarlarkPath) &&  path.equals(((StarlarkPath) obj).path);
   }

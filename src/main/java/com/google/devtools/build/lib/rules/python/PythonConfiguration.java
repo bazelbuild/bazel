@@ -75,6 +75,11 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.defaultToExplicitInitPy = defaultToExplicitInitPy;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * Returns the Python version to use.
    *

@@ -677,6 +677,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public BuiltinProvider<ObjcProvider> getProvider() {
     return STARLARK_CONSTRUCTOR;
   }

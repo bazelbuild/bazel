@@ -49,7 +49,6 @@ import javax.annotation.Nullable;
  *
  * <p>Every call to {@code depset} returns a distinct instance equal to no other.
  */
-// TODO(adonovan): move to lib.packages, as this is a Bazelism.
 @StarlarkBuiltin(
     name = "depset",
     category = StarlarkDocumentationCategory.BUILTIN,

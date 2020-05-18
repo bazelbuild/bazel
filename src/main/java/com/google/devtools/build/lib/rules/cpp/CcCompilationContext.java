@@ -139,6 +139,11 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public Depset getStarlarkDefines() {
     return Depset.of(Depset.ElementType.STRING, getDefines());
   }

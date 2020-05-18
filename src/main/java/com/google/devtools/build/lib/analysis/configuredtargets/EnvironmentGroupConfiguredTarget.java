@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
  * groups are not really first-class Targets.
  */
 @AutoCodec
-@Immutable // (and Starlark-hashable)
+@Immutable
 public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTarget {
   @AutoCodec.Instantiator
   @AutoCodec.VisibleForSerialization

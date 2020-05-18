@@ -54,6 +54,11 @@ final class StarlarkExecutionResult implements StarlarkExecutionResultApi {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public int getReturnCode() {
     return returnCode;
   }

@@ -43,7 +43,7 @@ import java.util.function.Consumer;
  * <p>This is an ephemeral object created only for the analysis of a single configured target. After
  * that configured target is analyzed, this is thrown away.
  */
-@Immutable // (and Starlark-hashable)
+@Immutable
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   private final ConfiguredTarget base;
   private final ImmutableList<ConfiguredAspect> aspects;

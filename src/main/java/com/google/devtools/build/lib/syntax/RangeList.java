@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.UnmodifiableIterator;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * A sequence returned by the {@code range} function invocation.

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.config;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
@@ -27,7 +28,14 @@ import javax.annotation.Nullable;
  *
  * <p>Fragments are Starlark values, as returned by {@code ctx.fragments.android}, for example.
  */
+@Immutable
 public abstract class Fragment implements StarlarkValue {
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * Validates the options for this Fragment. Issues warnings for the use of deprecated options, and
    * warnings or errors for any option settings that conflict.

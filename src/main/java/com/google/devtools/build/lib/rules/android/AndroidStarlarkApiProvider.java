@@ -48,6 +48,11 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public Artifact getApk() {
     return getIdeInfoProvider().getSignedApk();
   }

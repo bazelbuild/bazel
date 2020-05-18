@@ -54,6 +54,12 @@ import javax.annotation.concurrent.GuardedBy;
 @Immutable
 @ThreadSafe
 public abstract class AbstractAction extends ActionKeyCacher implements Action, ActionApi {
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * An arbitrary default resource set. We assume that a typical subprocess is single-threaded
    * (i.e., uses one CPU core) and CPU-bound, and uses a small-ish amount of memory. In the past,

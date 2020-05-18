@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableCollection;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
@@ -21,8 +22,10 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 
 /**
  * Abstract base class for implementations of {@link StructImpl} that expose
- * StarlarkCallable-annotated fields (not just methods) to Starlark code.
+ * StarlarkCallable-annotated fields (not just methods) to Starlark code. Subclasses must be
+ * immutable.
  */
+@Immutable
 public abstract class NativeInfo extends StructImpl {
 
   protected NativeInfo(Provider provider) {
@@ -31,6 +34,11 @@ public abstract class NativeInfo extends StructImpl {
 
   protected NativeInfo(Provider provider, Location loc) {
     super(provider, loc);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   // TODO(adonovan): logically this should be a parameter of getValue

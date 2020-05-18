@@ -75,6 +75,11 @@ public enum ApplePlatform implements ApplePlatformApi {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public PlatformType getType() {
     return platformType;
   }
@@ -219,6 +224,11 @@ public enum ApplePlatform implements ApplePlatformApi {
 
     PlatformType(String starlarkKey) {
       this.starlarkKey = starlarkKey;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
     }
 
     @Override

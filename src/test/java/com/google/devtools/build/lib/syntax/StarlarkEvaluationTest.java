@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.StructProvider;
@@ -48,7 +47,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
-  @Immutable
   static class Bad {
     Bad () {
     }

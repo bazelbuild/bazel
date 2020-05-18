@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import javax.annotation.concurrent.Immutable;
 
 /** The type of the Starlark None value. */
 @StarlarkBuiltin(
