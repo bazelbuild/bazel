@@ -22,7 +22,6 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -901,11 +900,9 @@ public class CustomCommandLineTest {
             .build();
 
     TreeFileArtifact treeFileArtifactOne =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifactOne, "children/child1");
+        TreeFileArtifact.createTreeOutput(treeArtifactOne, "children/child1");
     TreeFileArtifact treeFileArtifactTwo =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifactTwo, "children/child2");
+        TreeFileArtifact.createTreeOutput(treeArtifactTwo, "children/child2");
 
     CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
         ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
@@ -924,11 +921,9 @@ public class CustomCommandLineTest {
     SpecialArtifact treeArtifact = createTreeArtifact("myArtifact/treeArtifact");
 
     TreeFileArtifact treeFileArtifactOne =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifact, "children/child1");
+        TreeFileArtifact.createTreeOutput(treeArtifact, "children/child1");
     TreeFileArtifact treeFileArtifactTwo =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifact, "children/child2");
+        TreeFileArtifact.createTreeOutput(treeArtifact, "children/child2");
 
     CommandLineItem.MapFn<Artifact> expandParentRelativePath =
         (src, args) -> {
@@ -1004,12 +999,8 @@ public class CustomCommandLineTest {
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
-    PathFragment relpath = PathFragment.create(rootRelativePath);
-    return new SpecialArtifact(
-        rootDir,
-        rootDir.getExecPath().getRelative(relpath),
-        ActionsTestUtil.NULL_ACTION_LOOKUP_DATA.getActionLookupKey(),
-        SpecialArtifactType.TREE);
+    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        rootDir, rootDir.getExecPath().getRelative(rootRelativePath));
   }
 
   private static <T> ImmutableList<T> list(T... objects) {

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyCacher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
@@ -33,6 +32,7 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
@@ -98,15 +98,16 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public Iterable<SpawnAction> generateActionForInputArtifacts(
-      Iterable<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
-    ImmutableList.Builder<SpawnAction> expandedActions = new ImmutableList.Builder<>();
+  public ImmutableList<SpawnAction> generateActionsForInputArtifacts(
+      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts, ActionLookupKey artifactOwner) {
+    ImmutableList.Builder<SpawnAction> expandedActions =
+        ImmutableList.builderWithExpectedSize(inputTreeFileArtifacts.size());
     for (TreeFileArtifact inputTreeFileArtifact : inputTreeFileArtifacts) {
       PathFragment parentRelativeOutputPath =
           outputPathMapper.parentRelativeOutputPath(inputTreeFileArtifact);
 
       TreeFileArtifact outputTreeFileArtifact =
-          ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+          TreeFileArtifact.createTemplateExpansionOutput(
               outputTreeArtifact, parentRelativeOutputPath, artifactOwner);
 
       expandedActions.add(createAction(inputTreeFileArtifact, outputTreeFileArtifact));
@@ -119,12 +120,13 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException {
     TreeFileArtifact inputTreeFileArtifact =
-        ActionInputHelper.treeFileArtifact(inputTreeArtifact, "dummy_for_key");
+        TreeFileArtifact.createTreeOutput(inputTreeArtifact, "dummy_for_key");
     TreeFileArtifact outputTreeFileArtifact =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
+        TreeFileArtifact.createTemplateExpansionOutput(
             outputTreeArtifact,
             outputPathMapper.parentRelativeOutputPath(inputTreeFileArtifact),
-            outputTreeArtifact.getArtifactOwner());
+            ActionTemplateExpansionValue.key(
+                outputTreeArtifact.getArtifactOwner(), /*actionIndex=*/ 0));
     SpawnAction dummyAction = createAction(inputTreeFileArtifact, outputTreeFileArtifact);
     dummyAction.computeKey(actionKeyContext, fp);
   }
@@ -154,16 +156,15 @@ public final class SpawnActionTemplate extends ActionKeyCacher
    *
    * <p>This method is called by Skyframe to expand the input TreeArtifact into child
    * TreeFileArtifacts. Skyframe then expands this SpawnActionTemplate with the TreeFileArtifacts
-   * through {@link #generateActionForInputArtifacts}.
+   * through {@link #generateActionsForInputArtifacts}.
    */
   @Override
-  public Artifact getInputTreeArtifact() {
+  public SpecialArtifact getInputTreeArtifact() {
     return inputTreeArtifact;
   }
 
-  /** Returns the output TreeArtifact. */
   @Override
-  public Artifact getOutputTreeArtifact() {
+  public SpecialArtifact getOutputTreeArtifact() {
     return outputTreeArtifact;
   }
 
@@ -193,11 +194,6 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  public ImmutableSet<Artifact> getOutputs() {
-    return ImmutableSet.of(outputTreeArtifact);
-  }
-
-  @Override
   public NestedSet<Artifact> getMandatoryInputs() {
     return getInputs();
   }
@@ -211,16 +207,6 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   @Override
   public ImmutableSet<Artifact> getMandatoryOutputs() {
     return ImmutableSet.of();
-  }
-
-  @Override
-  public Artifact getPrimaryInput() {
-    return inputTreeArtifact;
-  }
-
-  @Override
-  public Artifact getPrimaryOutput() {
-    return outputTreeArtifact;
   }
 
   @Override
@@ -240,8 +226,12 @@ public final class SpawnActionTemplate extends ActionKeyCacher
 
   @Override
   public String prettyPrint() {
-    return String.format("action template with output TreeArtifact %s",
-        outputTreeArtifact.prettyPrint());
+    return "SpawnActionTemplate with output TreeArtifact " + outputTreeArtifact.prettyPrint();
+  }
+
+  @Override
+  public String toString() {
+    return prettyPrint();
   }
 
   /** Builder class to construct {@link SpawnActionTemplate} instances. */

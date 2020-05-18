@@ -21,13 +21,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
@@ -1174,16 +1175,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   }
 
   /** Returns the actions created by the action template corresponding to given artifact. */
-  protected Iterable<CommandAction> getActionsForInputsOfGeneratingActionTemplate(
+  protected ImmutableList<CppCompileAction> getActionsForInputsOfGeneratingActionTemplate(
       Artifact artifact, TreeFileArtifact treeFileArtifact)
       throws ActionTemplateExpansionException {
     CppCompileActionTemplate template =
         (CppCompileActionTemplate) getActionGraph().getGeneratingAction(artifact);
-    return ImmutableList.<CommandAction>builder()
-        .addAll(
-            template.generateActionForInputArtifacts(
-                ImmutableList.of(treeFileArtifact), ActionsTestUtil.NULL_ARTIFACT_OWNER))
-        .build();
+    return template.generateActionsForInputArtifacts(
+        ImmutableSet.of(treeFileArtifact), ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
   }
 
   @Test
@@ -1214,10 +1212,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     // Therefore we need to fake some files inside them to test the action template in this
     // analysis-time test.
     TreeFileArtifact oneSourceFileFromGenJar =
-        ActionInputHelper.treeFileArtifact((SpecialArtifact) sourceFilesFromGenJar, "children1.m");
+        TreeFileArtifact.createTreeOutput((SpecialArtifact) sourceFilesFromGenJar, "children1.m");
     TreeFileArtifact oneObjFileFromGenJar =
-        ActionInputHelper.treeFileArtifact((SpecialArtifact) objectFilesFromGenJar, "children1.o");
-    Iterable<CommandAction> compileActions =
+        TreeFileArtifact.createTreeOutput((SpecialArtifact) objectFilesFromGenJar, "children1.o");
+    Iterable<CppCompileAction> compileActions =
         getActionsForInputsOfGeneratingActionTemplate(
             objectFilesFromGenJar, oneSourceFileFromGenJar);
     CommandAction compileAction = Iterables.getOnlyElement(compileActions);

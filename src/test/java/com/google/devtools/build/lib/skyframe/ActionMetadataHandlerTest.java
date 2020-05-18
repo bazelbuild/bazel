@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -219,9 +218,8 @@ public class ActionMetadataHandlerTest {
   public void withUnknownOutputArtifactMissingAllowedTreeArtifact() throws Exception {
     PathFragment path = PathFragment.create("bin/foo/bar");
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ActionsTestUtil.NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
-    Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, path);
+    Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
@@ -241,9 +239,8 @@ public class ActionMetadataHandlerTest {
     scratch.file("/output/bin/foo/bar/baz", "not empty");
     PathFragment path = PathFragment.create("bin/foo/bar");
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ActionsTestUtil.NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
-    Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, path);
+    Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     assertThat(artifact.getPath().exists()).isTrue();
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler =
@@ -260,12 +257,11 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
-  public void withUnknownOutputArtifactMissingDisallowedTreeArtifact() throws Exception {
+  public void withUnknownOutputArtifactMissingDisallowedTreeArtifact() {
     PathFragment path = PathFragment.create("bin/foo/bar");
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ActionsTestUtil.NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
-    Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, path);
+    Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
@@ -372,9 +368,7 @@ public class ActionMetadataHandlerTest {
   public void injectRemoteTreeArtifactMetadata() throws Exception {
     PathFragment path = PathFragment.create("bin/dir");
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ActionsTestUtil.NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
-    treeArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, path);
     OutputStore store = new OutputStore();
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
@@ -394,8 +388,8 @@ public class ActionMetadataHandlerTest {
         new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1, "bar");
     Map<TreeFileArtifact, RemoteFileArtifactValue> children =
         ImmutableMap.of(
-            ActionInputHelper.treeFileArtifact(treeArtifact, "foo"), fooValue,
-            ActionInputHelper.treeFileArtifact(treeArtifact, "bar"), barValue);
+            TreeFileArtifact.createTreeOutput(treeArtifact, "foo"), fooValue,
+            TreeFileArtifact.createTreeOutput(treeArtifact, "bar"), barValue);
 
     handler.injectRemoteDirectory(treeArtifact, children);
 

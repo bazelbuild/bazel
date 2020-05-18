@@ -23,7 +23,6 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -374,7 +373,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
         setTreeReadOnlyAndExecutable(artifact, PathFragment.EMPTY_FRAGMENT);
       } else {
         setPathReadOnlyAndExecutable(
-            ActionInputHelper.treeFileArtifact(artifact, PathFragment.EMPTY_FRAGMENT));
+            TreeFileArtifact.createTreeOutput(artifact, PathFragment.EMPTY_FRAGMENT));
       }
     }
 
@@ -383,12 +382,22 @@ public final class ActionMetadataHandler implements MetadataHandler {
     return value;
   }
 
-  private TreeArtifactValue constructTreeArtifactValue(Collection<TreeFileArtifact> contents)
+  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact parent)
       throws IOException {
-    Map<TreeFileArtifact, FileArtifactValue> values =
-        Maps.newHashMapWithExpectedSize(contents.size());
+    Preconditions.checkState(parent.isTreeArtifact(), parent);
 
-    for (TreeFileArtifact treeFileArtifact : contents) {
+    // Make sure the tree artifact root is a regular directory. Note that this is how the Action
+    // is initialized, so this should hold unless the Action itself has deleted the root.
+    if (!artifactPathResolver.toPath(parent).isDirectory(Symlinks.NOFOLLOW)) {
+      return TreeArtifactValue.MISSING_TREE_ARTIFACT;
+    }
+
+    Set<PathFragment> paths =
+        TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(parent));
+
+    Map<TreeFileArtifact, FileArtifactValue> values = Maps.newHashMapWithExpectedSize(paths.size());
+    for (PathFragment path : paths) {
+      TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(parent, path);
       FileArtifactValue fileMetadata = store.getArtifactData(treeFileArtifact);
       // This is similar to what's present in getRealMetadataForArtifact, except
       // we get back the ArtifactFileMetadata, not the metadata.
@@ -418,21 +427,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
     }
 
     return TreeArtifactValue.create(values);
-  }
-
-  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact artifact)
-      throws IOException {
-    Preconditions.checkState(artifact.isTreeArtifact(), artifact);
-
-    // Make sure the tree artifact root is a regular directory. Note that this is how the Action
-    // is initialized, so this should hold unless the Action itself has deleted the root.
-    if (!artifactPathResolver.toPath(artifact).isDirectory(Symlinks.NOFOLLOW)) {
-      return TreeArtifactValue.MISSING_TREE_ARTIFACT;
-    }
-
-    Set<PathFragment> paths =
-        TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(artifact));
-    return constructTreeArtifactValue(ActionInputHelper.asTreeFileArtifacts(artifact, paths));
   }
 
   @Override
@@ -696,7 +690,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
         setTreeReadOnlyAndExecutable(parent, subpath.getChild(dirent.getName()));
       } else {
         setPathReadOnlyAndExecutable(
-            ActionInputHelper.treeFileArtifact(parent, subpath.getChild(dirent.getName())));
+            TreeFileArtifact.createTreeOutput(parent, subpath.getChild(dirent.getName())));
       }
     }
   }

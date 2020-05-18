@@ -2222,7 +2222,6 @@ java_library(
     name = "sky_functions",
     srcs = ["SkyFunctions.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
     ],

@@ -39,7 +39,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -619,7 +618,7 @@ public class RemoteCache implements AutoCloseable {
           ImmutableMap.builderWithExpectedSize(directory.files.size());
       for (FileMetadata file : directory.files()) {
         TreeFileArtifact child =
-            ActionInputHelper.treeFileArtifact(parent, file.path().relativeTo(parent.getPath()));
+            TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
         RemoteFileArtifactValue value =
             new RemoteFileArtifactValue(
                 DigestUtil.toBinaryDigest(file.digest()),

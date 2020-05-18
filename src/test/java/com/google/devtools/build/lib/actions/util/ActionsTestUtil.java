@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
@@ -73,6 +74,8 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -245,10 +248,12 @@ public final class ActionsTestUtil {
         : new Artifact.DerivedArtifact(root, execPath, NULL_ARTIFACT_OWNER);
   }
 
-  public static TreeFileArtifact createTreeFileArtifactWithNoGeneratingAction(
-      SpecialArtifact parent, String relativePath) {
-    return ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-        parent, PathFragment.create(relativePath), parent.getArtifactOwner());
+  public static SpecialArtifact createTreeArtifactWithGeneratingAction(
+      ArtifactRoot root, PathFragment execPath) {
+    SpecialArtifact treeArtifact =
+        new SpecialArtifact(root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
+    treeArtifact.setGeneratingActionKey(NULL_ACTION_LOOKUP_DATA);
+    return treeArtifact;
   }
 
   public static void assertNoArtifactEndingWith(RuleConfiguredTarget target, String path) {
@@ -353,6 +358,9 @@ public final class ActionsTestUtil {
           return NULL_LABEL;
         }
       };
+
+  public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
+      ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /*actionIndex=*/ 0);
 
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact.SourceArtifact(

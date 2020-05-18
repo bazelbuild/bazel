@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -784,78 +785,128 @@ public abstract class Artifact
 
   /**
    * A special kind of artifact that represents a concrete file created at execution time under its
-   * associated TreeArtifact.
+   * associated parent TreeArtifact.
    *
    * <p>TreeFileArtifacts should be only created during execution time inside some special actions
    * to support action inputs and outputs that are unpredictable at analysis time. TreeFileArtifacts
    * should not be created directly by any rules at analysis time.
    *
-   * <p>We subclass {@link DerivedArtifact} instead of storing the extra fields directly inside in
-   * order to save memory. The proportion of TreeFileArtifacts is very small, and by not having to
-   * keep around the extra fields for the rest we save some memory.
+   * <p>There are two types of TreeFileArtifacts:
+   *
+   * <ol>
+   *   <li>Outputs under a directory created by an action using {@code declare_directory}. In this
+   *       case, a single action creates both the parent and all of the children. Instances should
+   *       be created by calling {@link #createTreeOutput}.
+   *   <li>Outputs of an action template expansion. In this case, the parent directory is not
+   *       actually produced by any action, but rather serves as a placeholder for dependant actions
+   *       to declare a dep on during analysis, before the children are known. The children are
+   *       created by various actions (from the template expansion). Instances should be created by
+   *       calling {@link #createTemplateExpansionOutput}.
+   * </ol>
    */
   @Immutable
   @AutoCodec
   public static final class TreeFileArtifact extends DerivedArtifact {
-    private final SpecialArtifact parentTreeArtifact;
+    private final SpecialArtifact parent;
     private final PathFragment parentRelativePath;
 
     /**
-     * Constructs a TreeFileArtifact with the given parent-relative path under the given parent
-     * TreeArtifact. The {@link ArtifactOwner} of the TreeFileArtifact is the {@link ArtifactOwner}
-     * of the parent TreeArtifact.
+     * Creates a {@link TreeFileArtifact} representing a child of the given parent tree artifact.
+     *
+     * <p>The child should already have been created by the parent's generating action. For this
+     * reason, {@link DerivedArtifact#hasGeneratingActionKey} on the parent must be {@code true}
+     * when this is called. The child is set with the same generating action.
      */
-    @VisibleForTesting
-    public TreeFileArtifact(SpecialArtifact parent, PathFragment parentRelativePath) {
-      this(parent, parentRelativePath, parent.getArtifactOwner());
+    public static TreeFileArtifact createTreeOutput(
+        SpecialArtifact parent, PathFragment parentRelativePath) {
+      Preconditions.checkArgument(
+          parent.hasGeneratingActionKey(),
+          "%s has no generating action key (parent owner: %s, parent relative path: %s)",
+          parent,
+          parent.getArtifactOwner(),
+          parentRelativePath);
+      ActionLookupData generatingActionKey = parent.getGeneratingActionKey();
+      Preconditions.checkArgument(
+          !isActionTemplateExpansionKey(generatingActionKey.getActionLookupKey()),
+          "%s owned by action template expansion %s (parent relative path: %s)",
+          parent,
+          generatingActionKey.getActionLookupKey(),
+          parentRelativePath);
+      return createInternal(parent, parentRelativePath, generatingActionKey);
     }
 
     /**
-     * Constructs a TreeFileArtifact with the given parent-relative path under the given parent
-     * TreeArtifact, owned by the given {@code artifactOwner}.
+     * Convenience method for {@link #createTreeOutput(SpecialArtifact, PathFragment)} with a string
+     * relative path.
      */
-    TreeFileArtifact(
-        SpecialArtifact parentTreeArtifact,
-        PathFragment parentRelativePath,
-        ActionLookupKey owner) {
+    public static TreeFileArtifact createTreeOutput(
+        SpecialArtifact parent, String parentRelativePath) {
+      return createTreeOutput(parent, PathFragment.create(parentRelativePath));
+    }
+
+    /**
+     * Creates a {@link TreeFileArtifact} representing the output of an action generated dynamically
+     * by an {@link ActionTemplate} during the execution phase.
+     *
+     * <p>The returned artifact does not yet have a generating action set.
+     */
+    public static TreeFileArtifact createTemplateExpansionOutput(
+        SpecialArtifact parent, PathFragment parentRelativePath, ActionLookupKey owner) {
+      Preconditions.checkArgument(
+          isActionTemplateExpansionKey(owner),
+          "Template expansion outputs must be owned by an action template expansion key, but %s is"
+              + " owned by %s (parent relative path: %s)",
+          parent,
+          owner,
+          parentRelativePath);
+      return new TreeFileArtifact(parent, parentRelativePath, owner);
+    }
+
+    /**
+     * Convenience method for {@link #createTemplateExpansionOutput(SpecialArtifact, PathFragment,
+     * ActionLookupKey)} with a string relative path.
+     */
+    public static TreeFileArtifact createTemplateExpansionOutput(
+        SpecialArtifact parent, String parentRelativePath, ActionLookupKey owner) {
+      return createTemplateExpansionOutput(parent, PathFragment.create(parentRelativePath), owner);
+    }
+
+    private TreeFileArtifact(
+        SpecialArtifact parent, PathFragment parentRelativePath, ActionLookupKey owner) {
       super(
-          parentTreeArtifact.getRoot(),
-          parentTreeArtifact.getExecPath().getRelative(parentRelativePath),
+          parent.getRoot(),
+          parent.getExecPath().getRelative(parentRelativePath),
           owner,
           /*contentBasedPath=*/ false);
       Preconditions.checkArgument(
-          parentTreeArtifact.isTreeArtifact(),
+          parent.isTreeArtifact(),
           "The parent of TreeFileArtifact (parent-relative path: %s) is not a TreeArtifact: %s",
           parentRelativePath,
-          parentTreeArtifact);
+          parent);
       Preconditions.checkArgument(
           !parentRelativePath.containsUplevelReferences() && !parentRelativePath.isAbsolute(),
           "%s is not a proper normalized relative path",
           parentRelativePath);
-      Preconditions.checkState(
-          parentTreeArtifact.isTreeArtifact(),
-          "Given parent %s must be a TreeArtifact",
-          parentTreeArtifact);
-      this.parentTreeArtifact = parentTreeArtifact;
+      this.parent = parent;
       this.parentRelativePath = parentRelativePath;
     }
 
     @AutoCodec.VisibleForSerialization
     @AutoCodec.Instantiator
-    static TreeFileArtifact createForSerialization(
-        SpecialArtifact parentTreeArtifact,
+    static TreeFileArtifact createInternal(
+        SpecialArtifact parent,
         PathFragment parentRelativePath,
         ActionLookupData generatingActionKey) {
       TreeFileArtifact result =
           new TreeFileArtifact(
-              parentTreeArtifact, parentRelativePath, generatingActionKey.getActionLookupKey());
+              parent, parentRelativePath, generatingActionKey.getActionLookupKey());
       result.setGeneratingActionKey(generatingActionKey);
       return result;
     }
 
     @Override
     public SpecialArtifact getParent() {
-      return parentTreeArtifact;
+      return parent;
     }
 
     @Override
@@ -866,6 +917,10 @@ public abstract class Artifact
     @Override
     public String getTreeRelativePathString() {
       return parentRelativePath.getPathString();
+    }
+
+    private static boolean isActionTemplateExpansionKey(ActionLookupKey key) {
+      return SkyFunctions.ACTION_TEMPLATE_EXPANSION.equals(key.functionName());
     }
   }
 
