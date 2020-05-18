@@ -2555,7 +2555,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     ObjcProtoProvider objcProtoProvider =
-        (ObjcProtoProvider) configuredAspect.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR.getKey());
+        (ObjcProtoProvider) configuredAspect.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR.getKey());
     assertThat(objcProtoProvider).isNotNull();
   }
 

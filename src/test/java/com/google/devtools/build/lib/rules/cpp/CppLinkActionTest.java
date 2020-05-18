@@ -87,7 +87,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
-          public StarlarkSemantics getSkylarkSemantics() {
+          public StarlarkSemantics getStarlarkSemantics() {
             return StarlarkSemantics.DEFAULT;
           }
 

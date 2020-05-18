@@ -156,7 +156,7 @@ final class DebuggerSerialization {
             Value.newBuilder()
                 .setLabel("order")
                 .setType("Traversal order")
-                .setDescription(nestedSet.getOrder().getSkylarkName())
+                .setDescription(nestedSet.getOrder().getStarlarkName())
                 .build())
         .addAll(getChildren(objectMap, new NestedSetView<>(nestedSet.getSet())))
         .build();

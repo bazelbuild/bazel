@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface AppleCommonApi<
         FileApiT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         ObjcProviderApiT extends ObjcProviderApi<?>,
         XcodeConfigInfoApiT extends XcodeConfigInfoApi<?, ?>,
         ApplePlatformApiT extends ApplePlatformApi>
@@ -103,7 +103,7 @@ public interface AppleCommonApi<
   ProviderApi getXcodeVersionConfigConstructor();
 
   @StarlarkMethod(
-      // TODO(b/63899207): This currently does not match ObjcProvider.SKYLARK_NAME as it requires
+      // TODO(b/63899207): This currently does not match ObjcProvider.STARLARK_NAME as it requires
       // a migration of existing Starlark rules.
       name = "Objc",
       doc =
@@ -364,7 +364,7 @@ public interface AppleCommonApi<
       useStarlarkThread = true)
   // TODO(b/70937317): Iterate on, improve, and solidify this API.
   StructApi linkMultiArchBinary(
-      SkylarkRuleContextT skylarkRuleContext,
+      StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> extraLinkopts, // <String> expected.
       Sequence<?> extraLinkInputs, // <? extends FileApi> expected.
       StarlarkThread thread)

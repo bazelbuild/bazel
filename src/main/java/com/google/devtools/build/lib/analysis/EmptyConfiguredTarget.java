@@ -33,12 +33,12 @@ public class EmptyConfiguredTarget extends AbstractConfiguredTarget {
 
   @Nullable
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return null;
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }
 

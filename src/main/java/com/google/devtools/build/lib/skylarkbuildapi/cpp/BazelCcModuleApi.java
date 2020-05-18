@@ -382,7 +382,7 @@ public interface BazelCcModuleApi<
             defaultValue = "None",
             allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
       })
-  CompilationOutputsT createCompilationOutputsFromSkylark(
+  CompilationOutputsT createCompilationOutputsFromStarlark(
       Object objectsObject, Object picObjectsObject) throws EvalException;
 
   @StarlarkMethod(

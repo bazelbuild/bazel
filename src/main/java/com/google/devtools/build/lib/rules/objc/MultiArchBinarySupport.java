@@ -215,7 +215,7 @@ public class MultiArchBinarySupport {
       throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
     Iterable<ObjcProtoProvider> dylibProtoProviders =
-        getTypedProviders(dylibProviders, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+        getTypedProviders(dylibProviders, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(dylibProtoProviders);
     ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
 
@@ -223,7 +223,7 @@ public class MultiArchBinarySupport {
       String childCpu = childToolchainConfig.getCpu();
       Iterable<TransitiveInfoCollection> infoCollections = cpuToDepsCollectionMap.get(childCpu);
       ImmutableList<ObjcProtoProvider> depProtoProviders =
-          getTypedProviders(infoCollections, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+          getTypedProviders(infoCollections, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
         ProtobufSupport protoSupport =

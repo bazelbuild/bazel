@@ -59,7 +59,7 @@ public abstract class AbstractPackageLoaderTest {
   protected abstract AbstractPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir);
 
   private AbstractPackageLoader.Builder newPackageLoaderBuilder() {
-    return newPackageLoaderBuilder(root).useDefaultSkylarkSemantics().setReporter(reporter);
+    return newPackageLoaderBuilder(root).useDefaultStarlarkSemantics().setReporter(reporter);
   }
 
   protected PackageLoader newPackageLoader() {

@@ -121,7 +121,7 @@ public class FakeAppleCommon
 
   @Override
   public StructApi linkMultiArchBinary(
-      StarlarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
       StarlarkThread thread) {

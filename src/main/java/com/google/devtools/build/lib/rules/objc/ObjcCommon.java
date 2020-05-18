@@ -136,7 +136,7 @@ public final class ObjcCommon {
         throws InterruptedException {
       this.purpose = purpose;
       this.context = Preconditions.checkNotNull(context);
-      this.semantics = context.getAnalysisEnvironment().getSkylarkSemantics();
+      this.semantics = context.getAnalysisEnvironment().getStarlarkSemantics();
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
 
       ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);

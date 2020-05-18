@@ -2033,7 +2033,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public StarlarkSemantics getSkylarkSemantics() {
+    public StarlarkSemantics getStarlarkSemantics() {
       return starlarkSemanticsOptions.toStarlarkSemantics();
     }
 

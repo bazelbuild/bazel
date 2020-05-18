@@ -182,12 +182,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    public Builder setSkylarkSemantics(StarlarkSemantics semantics) {
+    public Builder setStarlarkSemantics(StarlarkSemantics semantics) {
       this.starlarkSemantics = semantics;
       return this;
     }
 
-    public Builder useDefaultSkylarkSemantics() {
+    public Builder useDefaultStarlarkSemantics() {
       this.starlarkSemantics = StarlarkSemantics.DEFAULT;
       return this;
     }
@@ -232,7 +232,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected void validate() {
       if (starlarkSemantics == null) {
         throw new IllegalArgumentException(
-            "must call either setSkylarkSemantics or useDefaultSkylarkSemantics");
+            "must call either setStarlarkSemantics or useDefaultStarlarkSemantics");
       }
     }
 

@@ -37,7 +37,7 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       doc = "Returns the list of user link flags passed as strings.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true)
-  Sequence<String> getSkylarkUserLinkFlags();
+  Sequence<String> getStarlarkUserLinkFlags();
 
   @StarlarkMethod(
       name = "libraries_to_link",
@@ -47,18 +47,18 @@ public interface CcLinkingContextApi<FileT extends FileApi> extends StarlarkValu
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true,
       useStarlarkSemantics = true)
-  Object getSkylarkLibrariesToLink(StarlarkSemantics semantics);
+  Object getStarlarkLibrariesToLink(StarlarkSemantics semantics);
 
   @StarlarkMethod(
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
       structField = true)
-  Depset getSkylarkNonCodeInputs();
+  Depset getStarlarkNonCodeInputs();
 
   @StarlarkMethod(
       name = "linker_inputs",
       doc = "Returns the depset of linker inputs.",
       structField = true)
-  Depset getSkylarkLinkerInputs();
+  Depset getStarlarkLinkerInputs();
 }

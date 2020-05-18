@@ -429,17 +429,17 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   @Override
-  public Depset getSkylarkLinkerInputs() {
+  public Depset getStarlarkLinkerInputs() {
     return Depset.of(LinkerInput.TYPE, linkerInputs);
   }
 
   @Override
-  public Sequence<String> getSkylarkUserLinkFlags() {
+  public Sequence<String> getStarlarkUserLinkFlags() {
     return StarlarkList.immutableCopyOf(getFlattenedUserLinkFlags());
   }
 
   @Override
-  public Object getSkylarkLibrariesToLink(StarlarkSemantics semantics) {
+  public Object getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
     // TODO(plf): Flag can be removed already.
     if (semantics.incompatibleDepsetForLibrariesToLinkGetter()) {
       return Depset.of(LibraryToLink.TYPE, getLibraries());
@@ -449,7 +449,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   }
 
   @Override
-  public Depset getSkylarkNonCodeInputs() {
+  public Depset getStarlarkNonCodeInputs() {
     return Depset.of(Artifact.TYPE, getNonCodeInputs());
   }
 

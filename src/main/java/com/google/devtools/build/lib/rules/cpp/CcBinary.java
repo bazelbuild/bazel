@@ -294,7 +294,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("dynamic_deps")) {
       if (!ruleContext
           .getAnalysisEnvironment()
-          .getSkylarkSemantics()
+          .getStarlarkSemantics()
           .experimentalCcSharedLibrary()) {
         ruleContext.ruleError(
             "The attribute 'dynamic_deps' can only be used with the flag"

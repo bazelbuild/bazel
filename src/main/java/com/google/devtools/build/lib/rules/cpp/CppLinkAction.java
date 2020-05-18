@@ -576,7 +576,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   }
 
   @Override
-  public Sequence<String> getSkylarkArgv() throws EvalException {
+  public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException exception) {

@@ -59,7 +59,7 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
                 Root.fromPath(directories.getWorkspace()),
                 directories.getInstallBase(),
                 directories.getOutputBase())
-            .setSkylarkSemantics(starlarkSemantics)
+            .setStarlarkSemantics(starlarkSemantics)
             .setRuleClassProvider(ruleClassProvider)
             .build();
     Package newlyLoadedPkg;

@@ -958,7 +958,7 @@ public class CppLinkActionBuilder {
 
     linkCommandLineBuilder.setBuildVariables(buildVariables);
     if (CppHelper.doNotSplitLinkingCmdLine(
-        actionConstructionContext.getAnalysisEnvironment().getSkylarkSemantics(), toolchain)) {
+        actionConstructionContext.getAnalysisEnvironment().getStarlarkSemantics(), toolchain)) {
       linkCommandLineBuilder.doNotSplitLinkingCmdLine();
     }
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();

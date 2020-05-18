@@ -50,13 +50,13 @@ public interface ActionApi extends StarlarkValue {
       name = "inputs",
       doc = "A set of the input files of this action.",
       structField = true)
-  Depset getSkylarkInputs();
+  Depset getStarlarkInputs();
 
   @StarlarkMethod(
       name = "outputs",
       doc = "A set of the output files of this action.",
       structField = true)
-  Depset getSkylarkOutputs();
+  Depset getStarlarkOutputs();
 
   @StarlarkMethod(
       name = "argv",
@@ -68,7 +68,7 @@ public interface ActionApi extends StarlarkValue {
               + "and <code>\"-c\"</code>.",
       structField = true,
       allowReturnNones = true)
-  Sequence<String> getSkylarkArgv() throws EvalException;
+  Sequence<String> getStarlarkArgv() throws EvalException;
 
   @StarlarkMethod(
       name = "args",
@@ -109,7 +109,7 @@ public interface ActionApi extends StarlarkValue {
       structField = true,
       allowReturnNones = true)
   @Nullable
-  String getSkylarkContent() throws IOException, EvalException;
+  String getStarlarkContent() throws IOException, EvalException;
 
   @StarlarkMethod(
       name = "substitutions",
@@ -119,7 +119,7 @@ public interface ActionApi extends StarlarkValue {
               + " an immutable dict holding the substitution mapping.",
       structField = true,
       allowReturnNones = true)
-  Dict<String, String> getSkylarkSubstitutions();
+  Dict<String, String> getStarlarkSubstitutions();
 
   @StarlarkMethod(
       name = "env",

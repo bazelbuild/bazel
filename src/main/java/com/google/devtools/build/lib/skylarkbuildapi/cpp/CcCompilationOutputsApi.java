@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "Helper class containing CC compilation outputs.")
 public interface CcCompilationOutputsApi<FileT extends FileApi> extends StarlarkValue {
 
-  /** @deprecated use {@link #getSkylarkObjects} or {@link #getSkylarkPicObjects}. */
+  /** @deprecated use {@link #getStarlarkObjects} or {@link #getStarlarkPicObjects}. */
   @StarlarkMethod(
       name = "object_files",
       doc = "Do not use. Use eiher 'objects' or 'pic_objects'.",
@@ -41,11 +41,12 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
         @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
       })
   @Deprecated
-  Sequence<FileT> getSkylarkObjectFiles(boolean usePic, StarlarkThread thread) throws EvalException;
+  Sequence<FileT> getStarlarkObjectFiles(boolean usePic, StarlarkThread thread)
+      throws EvalException;
 
   @StarlarkMethod(name = "objects", documented = false, structField = true)
-  Sequence<FileT> getSkylarkObjects() throws EvalException;
+  Sequence<FileT> getStarlarkObjects() throws EvalException;
 
   @StarlarkMethod(name = "pic_objects", documented = false, structField = true)
-  Sequence<FileT> getSkylarkPicObjects() throws EvalException;
+  Sequence<FileT> getStarlarkPicObjects() throws EvalException;
 }

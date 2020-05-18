@@ -950,7 +950,7 @@ public final class CcCompilationHelper {
     boolean siblingRepositoryLayout =
         actionConstructionContext
             .getAnalysisEnvironment()
-            .getSkylarkSemantics()
+            .getStarlarkSemantics()
             .experimentalSiblingRepositoryLayout();
     PathFragment repositoryPath =
         label.getPackageIdentifier().getRepository().getExecPath(siblingRepositoryLayout);

@@ -195,12 +195,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return providers.get(providerKey);
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     if (providerKey.equals(ACTIONS_FIELD_NAME)) {
       // Only expose actions which are legitimate Starlark values, otherwise they will later
       // cause a Bazel crash.

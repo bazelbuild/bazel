@@ -92,7 +92,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     Info provider = nonBaseProviders.get(providerKey);
     if (provider == null) {
       provider = base.get(providerKey);
@@ -101,7 +101,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     if (providerKey.equals(AbstractConfiguredTarget.ACTIONS_FIELD_NAME)) {
       ImmutableList.Builder<ActionAnalysisMetadata> actions = ImmutableList.builder();
       // Only expose actions which are SkylarkValues.

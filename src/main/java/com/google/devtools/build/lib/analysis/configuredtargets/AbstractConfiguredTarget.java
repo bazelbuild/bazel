@@ -227,12 +227,12 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
     if (providerKey.equals(DefaultInfo.PROVIDER.getKey())) {
       return getDefaultProvider();
     }
-    return rawGetSkylarkProvider(providerKey);
+    return rawGetStarlarkProvider(providerKey);
   }
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
   @Nullable
-  protected abstract Info rawGetSkylarkProvider(Provider.Key providerKey);
+  protected abstract Info rawGetStarlarkProvider(Provider.Key providerKey);
 
   public String getRuleClassString() {
     return "";
@@ -253,12 +253,12 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
       case OutputGroupInfo.SKYLARK_NAME:
         return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
       default:
-        return rawGetSkylarkProvider(providerKey);
+        return rawGetStarlarkProvider(providerKey);
     }
   }
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
-  protected abstract Object rawGetSkylarkProvider(String providerKey);
+  protected abstract Object rawGetStarlarkProvider(String providerKey);
 
   // All main target classes must override this method to provide more descriptive strings.
   // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.

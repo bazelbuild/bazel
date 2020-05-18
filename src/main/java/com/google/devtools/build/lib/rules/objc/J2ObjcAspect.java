@@ -795,7 +795,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .getExecPath(
                     ruleContext
                         .getAnalysisEnvironment()
-                        .getSkylarkSemantics()
+                        .getStarlarkSemantics()
                         .experimentalSiblingRepositoryLayout()));
   }
 

@@ -104,7 +104,7 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   @Override
-  public Sequence<Artifact> getSkylarkObjectFiles(boolean usePic, StarlarkThread thread)
+  public Sequence<Artifact> getStarlarkObjectFiles(boolean usePic, StarlarkThread thread)
       throws EvalException {
     CcCommon.checkLocationWhitelisted(
         thread.getSemantics(),
@@ -117,12 +117,12 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   @Override
-  public Sequence<Artifact> getSkylarkObjects() throws EvalException {
+  public Sequence<Artifact> getStarlarkObjects() throws EvalException {
     return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ false));
   }
 
   @Override
-  public Sequence<Artifact> getSkylarkPicObjects() throws EvalException {
+  public Sequence<Artifact> getStarlarkPicObjects() throws EvalException {
     return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ true));
   }
 

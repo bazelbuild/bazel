@@ -209,7 +209,7 @@ public final class CcCommon {
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
     if (label != null) {
       checkLocationWhitelisted(
-          context.getAnalysisEnvironment().getSkylarkSemantics(),
+          context.getAnalysisEnvironment().getStarlarkSemantics(),
           rule.getLocation(),
           label.getPackageFragment().toString());
     }
@@ -605,7 +605,7 @@ public final class CcCommon {
             .getExecPath(
                 ruleContext
                     .getAnalysisEnvironment()
-                    .getSkylarkSemantics()
+                    .getStarlarkSemantics()
                     .experimentalSiblingRepositoryLayout());
     result.add(rulePackage);
 
@@ -622,7 +622,7 @@ public final class CcCommon {
               .getExecPath(
                   ruleContext
                       .getAnalysisEnvironment()
-                      .getSkylarkSemantics()
+                      .getStarlarkSemantics()
                       .experimentalSiblingRepositoryLayout());
       // For now, anything with an 'includes' needs a blanket declaration
       result.add(packageFragment.getRelative("**"));
@@ -634,7 +634,7 @@ public final class CcCommon {
     boolean siblingRepositoryLayout =
         ruleContext
             .getAnalysisEnvironment()
-            .getSkylarkSemantics()
+            .getStarlarkSemantics()
             .experimentalSiblingRepositoryLayout();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();

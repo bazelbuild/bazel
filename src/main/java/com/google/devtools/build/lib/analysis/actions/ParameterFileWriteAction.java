@@ -122,7 +122,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public String getSkylarkContent() throws IOException, EvalException {
+  public String getStarlarkContent() throws IOException, EvalException {
     if (hasInputArtifactToExpand) {
       // Tree artifact information isn't available at analysis time.
       return null;

@@ -124,7 +124,7 @@ public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
 
   public boolean isAllowTagsPropagation() throws InterruptedException {
-    return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
+    return this.getAnalysisEnvironment().getStarlarkSemantics().experimentalAllowTagsPropagation();
   }
 
   /** Custom dependency validation logic. */
@@ -2030,7 +2030,7 @@ public final class RuleContext extends TargetContext
      * build)
      */
     public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
-      return env.getSkylarkSemantics();
+      return env.getStarlarkSemantics();
     }
 
     /**

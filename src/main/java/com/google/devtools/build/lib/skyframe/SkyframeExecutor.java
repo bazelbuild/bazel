@@ -1142,7 +1142,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  private void setSkylarkSemantics(StarlarkSemantics starlarkSemantics) {
+  private void setStarlarkSemantics(StarlarkSemantics starlarkSemantics) {
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable(), starlarkSemantics);
   }
 
@@ -1401,7 +1401,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     setDefaultVisibility(packageOptions.defaultVisibility);
 
     StarlarkSemantics starlarkSemantics = getEffectiveStarlarkSemantics(starlarkSemanticsOptions);
-    setSkylarkSemantics(starlarkSemantics);
+    setStarlarkSemantics(starlarkSemantics);
     setSiblingDirectoryLayout(starlarkSemantics.experimentalSiblingRepositoryLayout());
     setPackageLocator(pkgLocator);
 
@@ -2797,7 +2797,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new ConfiguredTargetCycleReporter(packageManager),
         new TestExpansionCycleReporter(packageManager),
         new RegisteredToolchainsCycleReporter(),
-        // TODO(ulfjack): The SkylarkModuleCycleReporter swallows previously reported cycles
+        // TODO(ulfjack): The StarlarkModuleCycleReporter swallows previously reported cycles
         // unconditionally! Is that intentional?
         new StarlarkModuleCycleReporter());
   }

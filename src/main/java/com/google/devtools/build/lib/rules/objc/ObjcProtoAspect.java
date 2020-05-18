@@ -63,7 +63,7 @@ public class ObjcProtoAspect extends StarlarkNativeAspect implements ConfiguredA
     if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
       Iterable<ObjcProtoProvider> depObjcProtoProviders =
           ruleContext.getPrerequisites(
-              "deps", TransitionMode.TARGET, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+              "deps", TransitionMode.TARGET, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
       aspectObjcProtoProvider.addTransitive(depObjcProtoProviders);
     }
 

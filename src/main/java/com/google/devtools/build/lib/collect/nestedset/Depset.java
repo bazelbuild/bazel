@@ -325,7 +325,7 @@ public final class Depset implements StarlarkValue {
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
       printer.append(", order = ");
-      printer.repr(order.getSkylarkName());
+      printer.repr(order.getStarlarkName());
     }
     printer.append(")");
   }
@@ -389,7 +389,7 @@ public final class Depset implements StarlarkValue {
         if (!order.isCompatible(x.getOrder())) {
           throw Starlark.errorf(
               "Order '%s' is incompatible with order '%s'",
-              order.getSkylarkName(), x.getOrder().getSkylarkName());
+              order.getStarlarkName(), x.getOrder().getStarlarkName());
         }
         builder.addTransitive(x.getSet());
       }

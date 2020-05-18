@@ -222,7 +222,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public String getSkylarkContent() {
+  public String getStarlarkContent() {
     return getFileContents();
   }
 

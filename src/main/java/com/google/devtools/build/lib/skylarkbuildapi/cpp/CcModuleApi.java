@@ -964,7 +964,7 @@ public interface CcModuleApi<
             named = true,
             doc = "Internal purpose only, do not use."),
       })
-  CcToolchainConfigInfoT ccToolchainConfigInfoFromSkylark(
+  CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
       SkylarkRuleContextT skylarkRuleContext,
       Sequence<?> features, // <StructApi> expected
       Sequence<?> actionConfigs, // <StructApi> expected

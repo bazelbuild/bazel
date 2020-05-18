@@ -288,7 +288,7 @@ public class FakeCcModule
   }
 
   @Override
-  public CcToolchainConfigInfoApi ccToolchainConfigInfoFromSkylark(
+  public CcToolchainConfigInfoApi ccToolchainConfigInfoFromStarlark(
       StarlarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
       Sequence<?> features,
       Sequence<?> actionConfigs,
@@ -311,7 +311,7 @@ public class FakeCcModule
   }
 
   @Override
-  public CcCompilationOutputsApi<FileApi> createCompilationOutputsFromSkylark(
+  public CcCompilationOutputsApi<FileApi> createCompilationOutputsFromStarlark(
       Object objectsObject, Object picObjectsObject) {
     return null;
   }

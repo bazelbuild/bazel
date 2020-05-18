@@ -148,9 +148,9 @@ public class BazelCcModule extends CcModule
   }
 
   @Override
-  public CcCompilationOutputs createCompilationOutputsFromSkylark(
+  public CcCompilationOutputs createCompilationOutputsFromStarlark(
       Object objectsObject, Object picObjectsObject) throws EvalException {
-    return super.createCompilationOutputsFromSkylark(objectsObject, picObjectsObject);
+    return super.createCompilationOutputsFromStarlark(objectsObject, picObjectsObject);
   }
 
   @Override

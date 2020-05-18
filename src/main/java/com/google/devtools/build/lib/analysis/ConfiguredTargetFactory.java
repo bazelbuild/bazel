@@ -237,7 +237,7 @@ public final class ConfiguredTargetFactory {
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
               inputFile.getExecPath(
-                  analysisEnvironment.getSkylarkSemantics().experimentalSiblingRepositoryLayout()),
+                  analysisEnvironment.getStarlarkSemantics().experimentalSiblingRepositoryLayout()),
               inputFile.getPackage().getSourceRoot().get(),
               ConfiguredTargetKey.of(target.getLabel(), config));
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
@@ -470,7 +470,7 @@ public final class ConfiguredTargetFactory {
                 rule.getRuleClassObject().getAdvertisedProviders(),
                 rule.getRuleClassObject().getConfiguredTargetFunction(),
                 rule.getLocation(),
-                env.getSkylarkSemantics(),
+                env.getStarlarkSemantics(),
                 ruleClassProvider.getToolsRepository());
 
         return target != null ? target : erroredConfiguredTarget(ruleContext);

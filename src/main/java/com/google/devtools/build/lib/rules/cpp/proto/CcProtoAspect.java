@@ -357,7 +357,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               .getExecPath(
                   ruleContext
                       .getAnalysisEnvironment()
-                      .getSkylarkSemantics()
+                      .getStarlarkSemantics()
                       .experimentalSiblingRepositoryLayout());
       if (protoRootFragment.startsWith(repositoryPath)) {
         protoRootFragment = protoRootFragment.relativeTo(repositoryPath);

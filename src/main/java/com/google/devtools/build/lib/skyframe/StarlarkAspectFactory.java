@@ -65,14 +65,14 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
       try {
         starlarkRuleContext =
             new StarlarkRuleContext(
-                ruleContext, aspectDescriptor, analysisEnv.getSkylarkSemantics());
+                ruleContext, aspectDescriptor, analysisEnv.getStarlarkSemantics());
       } catch (EvalException | RuleErrorException e) {
         ruleContext.ruleError(e.getMessage());
         return null;
       }
       StarlarkThread thread =
           StarlarkThread.builder(mutability)
-              .setSemantics(analysisEnv.getSkylarkSemantics())
+              .setSemantics(analysisEnv.getStarlarkSemantics())
               .build();
       thread.setPrintHandler(Event.makeDebugPrintHandler(analysisEnv.getEventHandler()));
 
