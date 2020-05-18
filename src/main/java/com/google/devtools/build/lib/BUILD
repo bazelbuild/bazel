@@ -256,6 +256,7 @@ java_library(
         [
             "runtime/*.java",
             "runtime/commands/*.java",
+            "runtime/commands/info/*.java",
             "buildtool/*.java",
             "buildtool/buildevent/*.java",
         ],
