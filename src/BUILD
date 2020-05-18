@@ -110,6 +110,8 @@ JAVA_TOOLS = [
                "BUILD.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
+               "//third_party/grpc:embedded_tools_srcs",
+               "//third_party/grpc/bazel:embedded_tools_srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
