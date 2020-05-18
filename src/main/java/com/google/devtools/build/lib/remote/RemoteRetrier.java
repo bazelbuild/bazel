@@ -57,7 +57,6 @@ public class RemoteRetrier extends Retrier {
           case ABORTED:
           case INTERNAL:
           case UNAVAILABLE:
-          case UNAUTHENTICATED:
           case RESOURCE_EXHAUSTED:
             return true;
           default:
