@@ -410,18 +410,22 @@ public class RunCommand implements BlazeCommand  {
       ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
       Path tmpDirRoot = TestStrategy.getTmpRoot(
           env.getWorkspace(), env.getExecRoot(), executionOptions);
-      PathFragment relativeTmpDir = tmpDirRoot.relativeTo(env.getExecRoot());
+      PathFragment maybeRelativeTmpDir =
+          tmpDirRoot.startsWith(env.getExecRoot())
+              ? tmpDirRoot.relativeTo(env.getExecRoot())
+              : tmpDirRoot.asFragment();
       Duration timeout =
           configuration
               .getFragment(TestConfiguration.class)
               .getTestTimeout()
               .get(testAction.getTestProperties().getTimeout());
-      runEnvironment.putAll(testPolicy.computeTestEnvironment(
-          testAction,
-          env.getClientEnv(),
-          timeout,
-          settings.getRunfilesDir().relativeTo(env.getExecRoot()),
-          relativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
+      runEnvironment.putAll(
+          testPolicy.computeTestEnvironment(
+              testAction,
+              env.getClientEnv(),
+              timeout,
+              settings.getRunfilesDir().relativeTo(env.getExecRoot()),
+              maybeRelativeTmpDir.getRelative(TestStrategy.getTmpDirName(testAction))));
       workingDir = env.getExecRoot();
 
       if (!prepareTestEnvironment(env, testAction)) {
