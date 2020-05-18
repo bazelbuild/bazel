@@ -463,6 +463,7 @@ filegroup(
         "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
+        "//src/test/tools:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/workspacelog:srcs",
