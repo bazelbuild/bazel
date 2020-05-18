@@ -713,6 +713,7 @@ java_library(
     deps = [
         ":aspect_collection",
         ":config/transitions/configuration_transition",
+        ":dependency",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//third_party:auto_value",
     ],

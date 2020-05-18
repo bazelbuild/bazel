@@ -53,4 +53,8 @@ public abstract class DependencyKey {
 
   /** Returns the aspects that are propagating to the target this dependency points to. */
   public abstract AspectCollection getAspects();
+
+  public Dependency.Builder getDependencyBuilder() {
+    return Dependency.builder().setLabel(getLabel());
+  }
 }

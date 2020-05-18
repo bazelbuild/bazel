@@ -178,7 +178,7 @@ public final class ConfigurationResolver {
       DependencyKind dependencyKind, DependencyKey dependencyKey)
       throws DependencyEvaluationException, ValueMissingException, InterruptedException {
 
-    Dependency.Builder dependencyBuilder = Dependency.builder().setLabel(dependencyKey.getLabel());
+    Dependency.Builder dependencyBuilder = dependencyKey.getDependencyBuilder();
 
     ConfigurationTransition transition = dependencyKey.getTransition();
     if (transition == NullTransition.INSTANCE) {
