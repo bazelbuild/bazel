@@ -117,7 +117,8 @@ public abstract class ActionOwner {
   abstract String getAdditionalProgressInfo();
 
   /** Returns a String to String map containing the execution properties of this action. */
-  abstract ImmutableMap<String, String> getExecProperties();
+  @VisibleForTesting
+  public abstract ImmutableMap<String, String> getExecProperties();
 
   /**
    * Returns the {@link PlatformInfo} platform this action should be executed on. If the execution

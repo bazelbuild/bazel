@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -644,6 +645,8 @@ public final class AspectFunction implements SkyFunction {
         return null;
       } catch (ActionConflictException e) {
         throw new AspectFunctionException(e);
+      } catch (InvalidExecGroupException e) {
+        throw new AspectFunctionException(e);
       } finally {
         CurrentRuleTracker.endConfiguredAspect();
       }
@@ -691,6 +694,10 @@ public final class AspectFunction implements SkyFunction {
     }
 
     public AspectFunctionException(AspectCreationException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    public AspectFunctionException(InvalidExecGroupException e) {
       super(e, Transience.PERSISTENT);
     }
 

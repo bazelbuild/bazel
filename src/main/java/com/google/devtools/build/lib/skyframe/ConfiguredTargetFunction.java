@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
@@ -950,6 +951,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     } catch (ActionConflictException e) {
       throw new ConfiguredTargetFunctionException(e);
+    } catch (InvalidExecGroupException e) {
+      throw new ConfiguredTargetFunctionException(e);
     }
 
     events.replayOn(env.getListener());
@@ -1022,6 +1025,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     private ConfiguredTargetFunctionException(ActionConflictException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    private ConfiguredTargetFunctionException(InvalidExecGroupException e) {
       super(e, Transience.PERSISTENT);
     }
   }

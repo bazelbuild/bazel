@@ -188,37 +188,8 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
   @Test
   public void testExecGroupActionHasExecGroupPlatform() throws Exception {
     createToolchainsAndPlatforms();
+    writeRuleWithActionsAndWatermelonExecGroup();
 
-    scratch.file(
-        "test/defs.bzl",
-        "MyInfo = provider()",
-        "def _impl(ctx):",
-        "  watermelon_out_file = ctx.outputs.watermelon_output",
-        "  ctx.actions.run_shell(",
-        "    inputs = [],",
-        "    outputs = [watermelon_out_file],",
-        "    arguments = [watermelon_out_file.path],",
-        "    command = 'echo hello > \"$1\"',",
-        "    exec_group = 'watermelon',",
-        "  )",
-        "  out_file = ctx.outputs.output",
-        "  ctx.actions.run_shell(",
-        "    inputs = [],",
-        "    outputs = [out_file],",
-        "    arguments = [out_file.path],",
-        "    command = 'echo hello > \"$1\"',",
-        "  )",
-        "with_actions = rule(",
-        "  implementation = _impl,",
-        "  attrs = {",
-        "    'watermelon_output': attr.output(),",
-        "    'output': attr.output(),",
-        "  },",
-        "  exec_groups = {",
-        "    'watermelon': exec_group(toolchains = ['//rule:toolchain_type_2']),",
-        "  },",
-        "  toolchains = ['//rule:toolchain_type_1'],",
-        ")");
     scratch.file(
         "test/BUILD",
         "load('//test:defs.bzl', 'with_actions')",
@@ -304,5 +275,91 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
     assertContainsEvent("Exec group name '" + DEFAULT_EXEC_GROUP_NAME + "' is not a valid name");
+  }
+
+  private void writeRuleWithActionsAndWatermelonExecGroup() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  watermelon_out_file = ctx.outputs.watermelon_output",
+        "  ctx.actions.run_shell(",
+        "    inputs = [],",
+        "    outputs = [watermelon_out_file],",
+        "    arguments = [watermelon_out_file.path],",
+        "    command = 'echo hello > \"$1\"',",
+        "    exec_group = 'watermelon',",
+        "  )",
+        "  out_file = ctx.outputs.output",
+        "  ctx.actions.run_shell(",
+        "    inputs = [],",
+        "    outputs = [out_file],",
+        "    arguments = [out_file.path],",
+        "    command = 'echo hello > \"$1\"',",
+        "  )",
+        "with_actions = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'watermelon_output': attr.output(),",
+        "    'output': attr.output(),",
+        "  },",
+        "  exec_groups = {",
+        "    'watermelon': exec_group(toolchains = ['//rule:toolchain_type_2']),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_1'],",
+        ")");
+  }
+
+  @Test
+  public void testSetExecGroupExecProperty() throws Exception {
+    createToolchainsAndPlatforms();
+    writeRuleWithActionsAndWatermelonExecGroup();
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_actions')",
+        "with_actions(",
+        "  name = 'papaya',",
+        "  output = 'out.txt',",
+        "  watermelon_output = 'watermelon_out.txt',",
+        "  exec_properties = {",
+        "    'color': 'orange',",
+        "    'ripeness': 'ripe',",
+        "    'watermelon.color': 'pink',",
+        "    'watermelon.season': 'summer',",
+        "  },",
+        ")");
+
+    ConfiguredTarget target = getConfiguredTarget("//test:papaya");
+
+    assertThat(
+            getGeneratingAction(target, "test/watermelon_out.txt").getOwner().getExecProperties())
+        .containsExactly("color", "pink", "season", "summer", "ripeness", "ripe");
+    assertThat(getGeneratingAction(target, "test/out.txt").getOwner().getExecProperties())
+        .containsExactly("color", "orange", "ripeness", "ripe");
+  }
+
+  @Test
+  public void testSetUnknownExecGroup() throws Exception {
+    createToolchainsAndPlatforms();
+    writeRuleWithActionsAndWatermelonExecGroup();
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'with_actions')",
+        "with_actions(",
+        "  name = 'papaya',",
+        "  output = 'out.txt',",
+        "  watermelon_output = 'watermelon_out.txt',",
+        "  exec_properties = {",
+        "    'color': 'orange',",
+        "    'watermelon.color': 'pink',",
+        "    'blueberry.season': 'summer',", // non-existent exec group
+        "  },",
+        ")");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:papaya");
+    assertContainsEvent("errors encountered while analyzing target '//test:papaya'");
   }
 }

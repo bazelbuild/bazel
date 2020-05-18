@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -203,6 +204,7 @@ public final class RuleContext extends TargetContext
   private final ConstraintSemantics<RuleContext> constraintSemantics;
   private final ImmutableSet<String> requiredConfigFragments;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
+  private final ImmutableMap<String, ImmutableMap<String, String>> execProperties;
 
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
@@ -224,7 +226,8 @@ public final class RuleContext extends TargetContext
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      ImmutableSet<String> requiredConfigFragments) {
+      ImmutableSet<String> requiredConfigFragments)
+      throws InvalidExecGroupException {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
@@ -255,6 +258,7 @@ public final class RuleContext extends TargetContext
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
     this.toolchainContexts = toolchainContexts;
+    this.execProperties = parseExecProperties();
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
   }
@@ -444,7 +448,7 @@ public final class RuleContext extends TargetContext
             rule,
             aspectDescriptors,
             getConfiguration(),
-            getTargetExecProperties(),
+            getExecProperties(execGroup, execProperties),
             getExecutionPlatform(execGroup));
     actionOwners.put(execGroup, actionOwner);
     return actionOwner;
@@ -1280,31 +1284,92 @@ public final class RuleContext extends TargetContext
     return ans.build();
   }
 
-  public Map<String, String> getTargetExecProperties() {
-    if (isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
-      return attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT);
+  private ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties()
+      throws InvalidExecGroupException {
+    if (!isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+      return ImmutableMap.of(DEFAULT_EXEC_GROUP_NAME, ImmutableMap.of());
     } else {
-      return ImmutableMap.of();
+      return parseExecProperties(
+          attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT),
+          toolchainContexts == null ? ImmutableSet.of() : toolchainContexts.getExecGroups());
     }
   }
 
-  @Override
-  @Nullable
-  public PlatformInfo getExecutionPlatform() {
-    if (getToolchainContext() == null) {
-      return null;
+  /**
+   * Parse raw exec properties attribute value into a map of exec group names to their properties.
+   * The raw map can have keys of two forms: (1) 'property' and (2) 'exec_group_name.property'. The
+   * former get parsed into the target's default exec group, the latter get parsed into their
+   * relevant exec groups.
+   */
+  private static ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
+      Map<String, String> rawExecProperties, Set<String> execGroups)
+      throws InvalidExecGroupException {
+    Map<String, Map<String, String>> consolidatedProperties = new HashMap<>();
+    consolidatedProperties.put(DEFAULT_EXEC_GROUP_NAME, new HashMap<>());
+    for (Map.Entry<String, String> execProperty : rawExecProperties.entrySet()) {
+      String rawProperty = execProperty.getKey();
+      int delimiterIndex = rawProperty.indexOf('.');
+      if (delimiterIndex == -1) {
+        consolidatedProperties
+            .get(DEFAULT_EXEC_GROUP_NAME)
+            .put(rawProperty, execProperty.getValue());
+      } else {
+        String execGroup = rawProperty.substring(0, delimiterIndex);
+        String property = rawProperty.substring(delimiterIndex + 1);
+        if (!execGroups.contains(execGroup)) {
+          throw new InvalidExecGroupException(
+              String.format(
+                  "Tried to set exec property '%s' for non-existent exec group '%s'.",
+                  property, execGroup));
+        }
+        consolidatedProperties.putIfAbsent(execGroup, new HashMap<>());
+        consolidatedProperties.get(execGroup).put(property, execProperty.getValue());
+      }
     }
-    return getToolchainContext().executionPlatform();
+
+    // Copy everything to immutable maps.
+    ImmutableMap.Builder<String, ImmutableMap<String, String>> execProperties =
+        new ImmutableMap.Builder<>();
+    for (Map.Entry<String, Map<String, String>> execGroupMap : consolidatedProperties.entrySet()) {
+      execProperties.put(execGroupMap.getKey(), ImmutableMap.copyOf(execGroupMap.getValue()));
+    }
+
+    return execProperties.build();
   }
 
-  @Override
-  @Nullable
-  public PlatformInfo getExecutionPlatform(String execGroup) {
-    if (getToolchainContexts() == null) {
-      return null;
+  /**
+   * Gets the combined exec properties of the given exec group and the target's exec properties. If
+   * a property is set in both, the exec group properties take precedence. If a non-existent exec
+   * group is passed in, just returns the target's exec properties.
+   *
+   * @param execGroup group whose properties to retrieve
+   * @param execProperties Map of exec group name to map of properties and values
+   */
+  private static ImmutableMap<String, String> getExecProperties(
+      String execGroup, Map<String, ImmutableMap<String, String>> execProperties) {
+    if (!execProperties.containsKey(execGroup) || execGroup.equals(DEFAULT_EXEC_GROUP_NAME)) {
+      return execProperties.get(DEFAULT_EXEC_GROUP_NAME);
     }
-    ResolvedToolchainContext toolchainContext = getToolchainContext(execGroup);
-    return toolchainContext == null ? null : toolchainContext.executionPlatform();
+
+    // Use a HashMap to build here because we expect duplicate keys to happen
+    // (and rewrite previous entries).
+    Map<String, String> targetAndGroupProperties =
+        new HashMap<>(execProperties.get(DEFAULT_EXEC_GROUP_NAME));
+    targetAndGroupProperties.putAll(execProperties.get(execGroup));
+    return ImmutableMap.copyOf(targetAndGroupProperties);
+  }
+
+  /** An error for when the user tries to access an non-existent exec group */
+  public static final class InvalidExecGroupException extends Exception
+      implements SaneAnalysisException {
+    InvalidExecGroupException(String message) {
+      super(message);
+    }
+  }
+
+  @VisibleForTesting
+  public ImmutableMap<String, ImmutableMap<String, String>> getExecPropertiesForTesting() {
+    return execProperties;
   }
 
   private void checkAttribute(String attributeName, TransitionMode mode) {
@@ -1342,6 +1407,25 @@ public final class RuleContext extends TargetContext
             + " is not configured for a split transition");
       }
     }
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    if (getToolchainContext() == null) {
+      return null;
+    }
+    return getToolchainContext().executionPlatform();
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform(String execGroup) {
+    if (getToolchainContexts() == null) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext = getToolchainContext(execGroup);
+    return toolchainContext == null ? null : toolchainContext.executionPlatform();
   }
 
   /**
@@ -1690,7 +1774,7 @@ public final class RuleContext extends TargetContext
     }
 
     @VisibleForTesting
-    public RuleContext build() {
+    public RuleContext build() throws InvalidExecGroupException {
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
