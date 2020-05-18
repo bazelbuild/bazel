@@ -139,7 +139,7 @@ public interface WorkspaceGlobalsApi {
               + "<a href=\"../../toolchains.html\">toolchain resolution</a>. See examples of "
               + "<a href=\"../../toolchains.html#defining-toolchains\">defining</a> and "
               + "<a href=\"../../toolchains.html#registering-and-building-with-toolchains\">"
-              + "registering toolchains.",
+              + "registering toolchains</a>.",
       allowReturnNones = true,
       extraPositionals =
           @Param(
