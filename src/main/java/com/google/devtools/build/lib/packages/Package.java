@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import com.google.devtools.starlark.spelling.SpellChecker;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -66,6 +65,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * A package, which is a container of {@link Rule}s, each of which contains a dictionary of named

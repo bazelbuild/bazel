@@ -17,12 +17,12 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkinterface.StarlarkMethod;
-import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * A BuiltinCallable is a callable Starlark value that reflectively invokes a

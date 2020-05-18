@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.spelling.SpellChecker;
 
 /** A syntax-tree-walking evaluator for StarlarkFunction bodies. */
 final class Eval {

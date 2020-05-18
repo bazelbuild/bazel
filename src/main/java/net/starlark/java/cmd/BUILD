@@ -17,7 +17,6 @@ java_binary(
         # ... but only on JDK >= 9
         "-XX:+IgnoreUnrecognizedVMOptions",
     ],
-    main_class = "com.google.devtools.starlark.cmd.Starlark",
     visibility = ["//visibility:public"],
     deps = ["//src/main/java/com/google/devtools/build/lib:syntax"],
 )

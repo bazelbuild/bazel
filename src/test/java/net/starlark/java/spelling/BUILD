@@ -16,7 +16,7 @@ java_test(
     name = "SpellCheckerTest",
     srcs = ["SpellCheckerTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/starlark/spelling",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",

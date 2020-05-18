@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.starlark.spelling;
+package net.starlark.java.spelling;
 
 import javax.annotation.Nullable;
 

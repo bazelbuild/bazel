@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
-import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.IllegalFormatException;
+import net.starlark.java.spelling.SpellChecker;
 
 /** Utilities used by the evaluator. */
 // TODO(adonovan): move all fundamental values and operators of the language to Starlark

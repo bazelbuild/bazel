@@ -71,7 +71,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/starlark/spelling",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -125,7 +125,7 @@ java_library(
         ":frontend",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/main/java/com/google/devtools/starlark/spelling",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
