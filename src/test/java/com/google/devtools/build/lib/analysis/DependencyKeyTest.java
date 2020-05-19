@@ -18,8 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
-import com.google.common.testing.NullPointerTester;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
@@ -64,16 +62,6 @@ public class DependencyKeyTest extends AnalysisTestCase {
             .build();
     // Here we're also checking that this doesn't throw an exception. No boom? OK. Good.
     assertThat(dep.getAspects().getAllAspects()).isEmpty();
-  }
-
-  @Test
-  public void factoriesPassNullableTester() throws Exception {
-    update();
-
-    new NullPointerTester()
-        .setDefault(Label.class, Label.parseAbsolute("//a", ImmutableMap.of()))
-        .setDefault(BuildConfiguration.class, getTargetConfiguration())
-        .testAllPublicStaticMethods(Dependency.class);
   }
 
   @Test
