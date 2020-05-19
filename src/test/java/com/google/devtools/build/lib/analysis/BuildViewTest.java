@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.skyframe.ActionLookupConflictFindingFunction;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -64,6 +65,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.junit.Test;
@@ -528,6 +530,35 @@ public class BuildViewTest extends BuildViewTestBase {
         .containsExactly(
             Label.parseAbsolute("//package:inner", ImmutableMap.of()),
             Label.parseAbsolute("//package:file", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testGetDirectPrerequisites_hostTransition() throws Exception {
+    scratch.file("package/rule.bzl",
+        "def _my_rule_impl(ctx):",
+        "    pass",
+        "my_rule = rule(",
+        "    implementation = _my_rule_impl,",
+        "    attrs = {",
+        "        'host_dep': attr.label(cfg = 'host'),",
+        "    },",
+        ")");
+    scratch.file(
+        "package/BUILD",
+        "load(':rule.bzl', 'my_rule')",
+        "my_rule(name='top', host_dep=':inner')",
+        "sh_binary(name='inner', srcs=['script.sh'])");
+    AnalysisResult result = update("//package:top");
+    ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
+
+    Optional<ConfiguredTarget> toolDep = getView()
+        .getDirectPrerequisitesForTesting(reporter, top,
+            getBuildConfigurationCollection()).stream()
+        .filter(ct -> ct.getLabel().toString().equals("//package:inner"))
+        .findFirst();
+    assertThat(toolDep.isPresent()).isTrue();
+    BuildConfigurationValue.Key hostConfigKey = BuildConfigurationValue.key(result.getConfigurationCollection().getHostConfiguration());
+    assertThat(toolDep.get().getConfigurationKey()).isEqualTo(hostConfigKey);
   }
 
   @Test
