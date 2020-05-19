@@ -116,7 +116,15 @@ def _cxx_inc_convert(path):
         path = path[:-_OSX_FRAMEWORK_SUFFIX_LEN].strip()
     return path
 
-def get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags = []):
+def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_flags = []):
+    return [escape_string(s) for s in _get_cxx_include_directories(
+        repository_ctx,
+        cc,
+        lang_flag,
+        additional_flags,
+    )]
+
+def _get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags = []):
     """Compute the list of C++ include directories."""
     result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
     index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
@@ -279,7 +287,7 @@ def _coverage_flags(repository_ctx, darwin):
     return compile_flags, link_flags
 
 def _is_clang(repository_ctx, cc):
-  return "clang" in repository_ctx.execute([cc, "-v"]).stderr
+    return "clang" in repository_ctx.execute([cc, "-v"]).stderr
 
 def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False, silent = False):
     """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
@@ -407,15 +415,15 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
 
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
     builtin_include_directories = _uniq(
-        get_cxx_include_directories(repository_ctx, cc, "-xc") +
-        get_cxx_include_directories(repository_ctx, cc, "-xc++", cxx_opts) +
-        get_cxx_include_directories(
+        _get_cxx_include_directories(repository_ctx, cc, "-xc") +
+        _get_cxx_include_directories(repository_ctx, cc, "-xc++", cxx_opts) +
+        _get_cxx_include_directories(
             repository_ctx,
             cc,
             "-xc",
             _get_no_canonical_prefixes_opt(repository_ctx, cc),
         ) +
-        get_cxx_include_directories(
+        _get_cxx_include_directories(
             repository_ctx,
             cc,
             "-xc++",

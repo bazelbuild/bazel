@@ -25,7 +25,7 @@ load(
     "@bazel_tools//tools/cpp:unix_cc_configure.bzl",
     "configure_unix_toolchain",
     "get_env",
-    "get_cxx_include_directories",
+    "get_escaped_cxx_inc_directories",
 )
 
 def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains):
@@ -41,7 +41,7 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
 
     # TODO(cparsons): Falling back to the default C++ compiler builtin include
     # paths shouldn't be unnecessary once all actions are using xcrun.
-    include_dirs = get_cxx_include_directories(repository_ctx, cc, "-xc++")
+    include_dirs = get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++")
     for toolchain in xcode_toolchains:
         include_dirs.append(escape_string(toolchain.developer_dir))
 
