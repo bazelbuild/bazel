@@ -16,20 +16,13 @@
 package com.google.devtools.build.android.desugar.retarget;
 
 import static com.google.devtools.build.android.desugar.langmodel.ClassName.IN_PROCESS_LABEL_STRIPPER;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.io.Resources;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
-import com.google.protobuf.ExtensionRegistry;
-import com.google.protobuf.TextFormat;
-import java.io.IOError;
-import java.io.IOException;
-import java.net.URL;
+import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -39,16 +32,8 @@ public class ClassMemberRetargetRewriter extends ClassVisitor {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /** The configuration file that defines class member retargeting. */
-  private final URL invocationReplacementConfigUrl =
-      getClass().getResource("retarget_config.textproto");
-
-  /**
-   * The enabled configuration flags for invocation replacements. A replacement takes effect if and
-   * only if the set intersection of this flag and the {@code range} field of {@code
-   * MethodInvocations#replacements} is non-empty.
-   */
-  private final ImmutableSet<ReplacementRange> enabledInvocationReplacementRanges;
+  /** The configuration for invocation retargeting. */
+  private final ClassMemberRetargetConfig classMemberRetargetConfig;
 
   /**
    * A collector that gathers runtime library classes referenced by the user and generate code. The
@@ -56,59 +41,13 @@ public class ClassMemberRetargetRewriter extends ClassVisitor {
    */
   private final ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes;
 
-  /**
-   * The parsed invocation replacement configuration from {@link #invocationReplacementConfigUrl}.
-   */
-  private ImmutableMap<MethodInvocationSite, MethodInvocationSite> invocationReplacements;
-
-  /**
-   * The parsed effective range flags from {@link #invocationReplacementConfigUrl} for each
-   * invocation source.
-   */
-  private ImmutableSetMultimap<MethodInvocationSite, ReplacementRange>
-      invocationReplacementRangeConfigs;
-
   public ClassMemberRetargetRewriter(
       ClassVisitor cv,
-      ImmutableSet<ReplacementRange> enabledInvocationReplacementRanges,
+      ClassMemberRetargetConfig classMemberRetargetConfig,
       ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes) {
     super(Opcodes.ASM8, cv);
-    this.enabledInvocationReplacementRanges = enabledInvocationReplacementRanges;
+    this.classMemberRetargetConfig = classMemberRetargetConfig;
     this.requiredRuntimeSupportTypes = requiredRuntimeSupportTypes;
-  }
-
-  @Override
-  public void visit(
-      int version,
-      int access,
-      String name,
-      String signature,
-      String superName,
-      String[] interfaces) {
-    try {
-      parseMethodInvocationReplacements();
-    } catch (IOException e) {
-      throw new IOError(e);
-    }
-    super.visit(version, access, name, signature, superName, interfaces);
-  }
-
-  private void parseMethodInvocationReplacements() throws IOException {
-    String protoText = Resources.toString(invocationReplacementConfigUrl, UTF_8);
-    MethodInvocations parsedInvocations =
-        TextFormat.parse(protoText, ExtensionRegistry.getEmptyRegistry(), MethodInvocations.class);
-    ImmutableMap.Builder<MethodInvocationSite, MethodInvocationSite> replacementsBuilder =
-        ImmutableMap.builder();
-    ImmutableSetMultimap.Builder<MethodInvocationSite, ReplacementRange> replacementsRangeBuilder =
-        ImmutableSetMultimap.builder();
-    for (MethodInvocationReplacement replacement : parsedInvocations.getReplacementsList()) {
-      MethodInvocationSite invocationSite = MethodInvocationSite.fromProto(replacement.getSource());
-      replacementsBuilder.put(
-          invocationSite, MethodInvocationSite.fromProto(replacement.getDestination()));
-      replacementsRangeBuilder.putAll(invocationSite, replacement.getRangeList());
-    }
-    invocationReplacements = replacementsBuilder.build();
-    invocationReplacementRangeConfigs = replacementsRangeBuilder.build();
   }
 
   @Override
@@ -130,23 +69,69 @@ public class ClassMemberRetargetRewriter extends ClassVisitor {
       MethodInvocationSite verbatimInvocationSite =
           MethodInvocationSite.create(opcode, owner, name, desc, isInterface)
               .acceptTypeMapper(IN_PROCESS_LABEL_STRIPPER);
-
-      ImmutableSet<ReplacementRange> replacementRangeConfig =
-          invocationReplacementRangeConfigs.get(verbatimInvocationSite);
-      if (replacementRangeConfig.contains(ReplacementRange.ALL)
-          || replacementRangeConfig.stream()
-              .anyMatch(enabledInvocationReplacementRanges::contains)) {
-        MethodInvocationSite replacementSite = invocationReplacements.get(verbatimInvocationSite);
-        logger.atInfo().log("replacementSite: %s", replacementSite);
-        if (replacementSite.name().equals("identityAsHashCode")) {
-          return; // skip: use original primitive value as its hash (b/147139686)
-        }
-        requiredRuntimeSupportTypes.add(replacementSite.owner());
-        replacementSite.accept(this); // (b/147139686)
+      if (replaceExactMatchedInvocationSites(verbatimInvocationSite)) {
         return;
       }
-
+      if (replacePatternMatchedInvocationSites(verbatimInvocationSite)) {
+        return;
+      }
       super.visitMethodInsn(opcode, owner, name, desc, isInterface);
+    }
+
+    private boolean replaceExactMatchedInvocationSites(
+        MethodInvocationSite verbatimInvocationSite) {
+      MethodInvocationSite replacementSite =
+          classMemberRetargetConfig.findReplacementSite(verbatimInvocationSite);
+      if (replacementSite != null) {
+        if (replacementSite.name().equals("identityAsHashCode")) {
+          return true;
+        }
+        ClassName successor = replacementSite.owner();
+        if (successor.isInDesugarRuntimeLibrary()) {
+          requiredRuntimeSupportTypes.add(successor);
+        }
+        replacementSite.accept(mv); // (b/147139686)
+        return true;
+      }
+      return false;
+    }
+
+    private boolean replacePatternMatchedInvocationSites(
+        MethodInvocationSite verbatimInvocationSite) {
+      MethodInvocationSite invocationSiteOwnerAndNameRepresentative =
+          MethodInvocationSite.builder()
+              .setInvocationKind(MemberUseKind.UNKNOWN)
+              .setMethod(
+                  MethodKey.create(
+                      verbatimInvocationSite.owner(), verbatimInvocationSite.name(), ""))
+              .setIsInterface(false)
+              .build();
+      MethodInvocationSite replacementSiteOwnerAndNameRepresentative =
+          classMemberRetargetConfig.findReplacementSite(invocationSiteOwnerAndNameRepresentative);
+      if (replacementSiteOwnerAndNameRepresentative != null) {
+        // The invocation site successor under pattern-matching mode is a static invocation.
+        MethodInvocationSite replacementSite =
+            MethodInvocationSite.builder()
+                .setInvocationKind(MemberUseKind.INVOKESTATIC)
+                .setMethod(
+                    MethodKey.create(
+                        replacementSiteOwnerAndNameRepresentative.owner(),
+                        replacementSiteOwnerAndNameRepresentative.name(),
+                        verbatimInvocationSite.isStaticInvocation()
+                            ? verbatimInvocationSite.descriptor()
+                            : verbatimInvocationSite.method().instanceMethodToStaticDescriptor()))
+                .setIsInterface(false)
+                .build();
+
+        ClassName successor = replacementSiteOwnerAndNameRepresentative.owner();
+        logger.atInfo().log("--> Representative-based replacementSite: %s", replacementSite);
+        if (successor.isInDesugarRuntimeLibrary()) {
+          requiredRuntimeSupportTypes.add(successor);
+        }
+        replacementSite.acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER).accept(mv);
+        return true;
+      }
+      return false;
     }
   }
 }

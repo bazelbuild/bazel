@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY;
+import static com.google.devtools.build.android.desugar.retarget.ReplacementRange.DESUGAR_JAVA8_LIBS;
 import static com.google.devtools.build.android.desugar.retarget.ReplacementRange.REPLACE_CALLS_TO_LONG_UNSIGNED;
 import static com.google.devtools.build.android.desugar.retarget.ReplacementRange.REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS;
 import static com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesugaring.INVOKE_JDK11_STRING_CONCAT;
@@ -61,6 +62,7 @@ import com.google.devtools.build.android.desugar.nest.NestAnalyzer;
 import com.google.devtools.build.android.desugar.nest.NestDesugaring;
 import com.google.devtools.build.android.desugar.nest.NestDigest;
 import com.google.devtools.build.android.desugar.preanalysis.InputPreAnalyzer;
+import com.google.devtools.build.android.desugar.retarget.ClassMemberRetargetConfig;
 import com.google.devtools.build.android.desugar.retarget.ClassMemberRetargetRewriter;
 import com.google.devtools.build.android.desugar.retarget.ReplacementRange;
 import com.google.devtools.build.android.desugar.strconcat.IndyStringConcatDesugaring;
@@ -157,6 +159,10 @@ public class Desugar {
       invocationReplacementRangesBuilder.add(REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS);
     }
 
+    if (options.autoDesugarShadowedApiUse) {
+      invocationReplacementRangesBuilder.add(DESUGAR_JAVA8_LIBS);
+    }
+
     enabledInvocationReplacementRanges = invocationReplacementRangesBuilder.build();
     this.used = false;
   }
@@ -211,6 +217,12 @@ public class Desugar {
       }
     }
 
+    ClassMemberRetargetConfig classMemberRetargetConfig =
+        ClassMemberRetargetConfig.builder()
+            .setInvocationReplacementConfigUrl(ClassMemberRetargetConfig.DEFAULT_PROTO_URL)
+            .setEnabledInvocationReplacementRanges(enabledInvocationReplacementRanges)
+            .build();
+
     try (Closer closer = Closer.create()) {
       IndexedInputs indexedBootclasspath =
           new IndexedInputs(toRegisteredInputFileProvider(closer, options.bootclasspath));
@@ -229,7 +241,8 @@ public class Desugar {
             indexedClasspath,
             bootclassloader,
             new ClassReaderFactory(indexedBootclasspath, rewriter),
-            bootClassPathDigest);
+            bootClassPathDigest,
+            classMemberRetargetConfig);
       }
     }
   }
@@ -239,7 +252,8 @@ public class Desugar {
       IndexedInputs indexedClasspath,
       ClassLoader bootclassloader,
       ClassReaderFactory bootclasspathReader,
-      BootClassPathDigest bootClassPathDigest)
+      BootClassPathDigest bootClassPathDigest,
+      ClassMemberRetargetConfig classMemberRetargetConfig)
       throws Exception {
     Path inputPath = inputOutputPair.getInput(); // the jar
     Path outputPath = inputOutputPair.getOutput();
@@ -316,7 +330,8 @@ public class Desugar {
           bootClassPathDigest,
           classAttributeRecord,
           nestDigest,
-          requiredRuntimeSupportTypes);
+          requiredRuntimeSupportTypes,
+          classMemberRetargetConfig);
 
       desugarAndWriteDumpedLambdaClassesToOutput(
           outputFileProvider,
@@ -331,7 +346,8 @@ public class Desugar {
           callSiteTransCollector,
           bootClassPathDigest,
           classAttributeRecord,
-          requiredRuntimeSupportTypes);
+          requiredRuntimeSupportTypes,
+          classMemberRetargetConfig);
 
       desugarAndWriteGeneratedClasses(
           outputFileProvider,
@@ -343,7 +359,8 @@ public class Desugar {
           callSiteTransCollector,
           bootClassPathDigest,
           classAttributeRecord,
-          requiredRuntimeSupportTypes);
+          requiredRuntimeSupportTypes,
+          classMemberRetargetConfig);
 
       copyRuntimeClasses(
           outputFileProvider, coreLibrarySupport, requiredRuntimeSupportTypes.build());
@@ -474,7 +491,8 @@ public class Desugar {
       BootClassPathDigest bootClassPathDigest,
       ClassAttributeRecord classAttributeRecord,
       NestDigest nestDigest,
-      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes)
+      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes,
+      ClassMemberRetargetConfig classMemberRetargetConfig)
       throws IOException {
 
     for (FileContentProvider<? extends InputStream> inputFileProvider :
@@ -516,7 +534,8 @@ public class Desugar {
                   callSiteRecord,
                   bootClassPathDigest,
                   classAttributeRecord,
-                  requiredRuntimeSupportTypes);
+                  requiredRuntimeSupportTypes,
+                  classMemberRetargetConfig);
           if (writer == visitor) {
             // Just copy the input if there are no rewritings
             outputFileProvider.write(inputFilename, reader.b);
@@ -571,7 +590,8 @@ public class Desugar {
       InvocationSiteTransformationRecordBuilder callSiteTransCollector,
       BootClassPathDigest bootClassPathDigest,
       ClassAttributeRecord classAttributeRecord,
-      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes)
+      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes,
+      ClassMemberRetargetConfig classMemberRetargetConfig)
       throws IOException {
     checkState(
         !allowDefaultMethods || interfaceLambdaMethods.isEmpty(),
@@ -613,7 +633,8 @@ public class Desugar {
                 callSiteTransCollector,
                 bootClassPathDigest,
                 classAttributeRecord,
-                requiredRuntimeSupportTypes);
+                requiredRuntimeSupportTypes,
+                classMemberRetargetConfig);
         reader.accept(visitor, customAttributes, ClassReader.EXPAND_FRAMES);
         checkState(
             (options.coreLibrary && coreLibrarySupport != null)
@@ -635,7 +656,8 @@ public class Desugar {
       InvocationSiteTransformationRecordBuilder callSiteTransCollector,
       BootClassPathDigest bootClassPathDigest,
       ClassAttributeRecord classAttributeRecord,
-      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes)
+      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes,
+      ClassMemberRetargetConfig classMemberRetargetConfig)
       throws IOException {
     // Write out any classes we generated along the way
     if (coreLibrarySupport != null) {
@@ -660,7 +682,8 @@ public class Desugar {
               bootClassPathDigest,
               classAttributeRecord,
               closeResourceMethodScanner -> generated.getValue().accept(closeResourceMethodScanner),
-              requiredRuntimeSupportTypes);
+              requiredRuntimeSupportTypes,
+              classMemberRetargetConfig);
 
       visitor = new Java7Compatibility(visitor, (ClassReaderFactory) null, bootclasspathReader);
       if (options.generateBaseClassesForDefaultMethods) {
@@ -703,7 +726,8 @@ public class Desugar {
       InvocationSiteTransformationRecordBuilder callSiteRecord,
       BootClassPathDigest bootClassPathDigest,
       ClassAttributeRecord classAttributeRecord,
-      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes) {
+      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes,
+      ClassMemberRetargetConfig classMemberRetargetConfig) {
     ClassVisitor visitor = checkNotNull(writer);
 
     visitor =
@@ -716,7 +740,8 @@ public class Desugar {
             classAttributeRecord,
             closeResourceMethodScanner ->
                 input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG),
-            requiredRuntimeSupportTypes);
+            requiredRuntimeSupportTypes,
+            classMemberRetargetConfig);
 
     if (outputJava7) {
       // null ClassReaderFactory b/c we don't expect to need it for lambda classes
@@ -781,7 +806,8 @@ public class Desugar {
       InvocationSiteTransformationRecordBuilder callSiteRecord,
       BootClassPathDigest bootClassPathDigest,
       ClassAttributeRecord classAttributeRecord,
-      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes) {
+      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes,
+      ClassMemberRetargetConfig classMemberRetargetConfig) {
     ClassVisitor visitor = checkNotNull(writer);
 
     visitor =
@@ -794,7 +820,8 @@ public class Desugar {
             classAttributeRecord,
             closeResourceMethodScanner ->
                 input.accept(closeResourceMethodScanner, customAttributes, ClassReader.SKIP_DEBUG),
-            requiredRuntimeSupportTypes);
+            requiredRuntimeSupportTypes,
+            classMemberRetargetConfig);
 
     if (!options.onlyDesugarJavac9ForLint) {
       if (outputJava7) {
@@ -867,7 +894,8 @@ public class Desugar {
       BootClassPathDigest bootClassPathDigest,
       ClassAttributeRecord classAttributeRecord,
       Consumer<CloseResourceMethodScanner> closeResourceMethodScannerConsumer,
-      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes) {
+      ImmutableSet.Builder<ClassName> requiredRuntimeSupportTypes,
+      ClassMemberRetargetConfig classMemberRetargetConfig) {
     ClassVisitor visitor = baseClassVisitor;
 
     if (coreLibrarySupport != null) {
@@ -904,7 +932,7 @@ public class Desugar {
 
     visitor =
         new ClassMemberRetargetRewriter(
-            visitor, enabledInvocationReplacementRanges, requiredRuntimeSupportTypes);
+            visitor, classMemberRetargetConfig, requiredRuntimeSupportTypes);
 
     visitor = NioBufferRefConverter.create(visitor, rewriter.getPrefixer());
 

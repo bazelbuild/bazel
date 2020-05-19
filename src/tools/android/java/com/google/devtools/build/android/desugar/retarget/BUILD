@@ -23,7 +23,7 @@ filegroup(
 
 java_library(
     name = "retarget",
-    srcs = ["ClassMemberRetargetRewriter.java"],
+    srcs = glob(["*.java"]),
     resources = [
         ":retarget_config_textproto",
     ],

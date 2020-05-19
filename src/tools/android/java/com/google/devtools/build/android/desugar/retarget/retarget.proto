@@ -31,11 +31,12 @@ message MethodInvocationReplacement {
   MethodInvocation source = 1;
   MethodInvocation destination = 2;
   repeated ReplacementRange range = 3;
-  bool ignore_method_desc = 4;
+  bool auto_deduce_opcode_and_desc = 4;
 }
 
 enum ReplacementRange {
   ALL = 0;
   REPLACE_CALLS_TO_LONG_UNSIGNED = 1;
   REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS = 2;
+  DESUGAR_JAVA8_LIBS = 3;
 }

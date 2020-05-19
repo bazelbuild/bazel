@@ -221,3 +221,583 @@ replacements {
   range: REPLACE_CALLS_TO_LONG_UNSIGNED
 }
 
+# ==== DESUGAR_JAVA8_LIBS ====
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Double"
+      name: "max"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Double8"
+      name: "max"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Double"
+      name: "min"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Double8"
+      name: "min"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Double"
+      name: "sum"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Double8"
+      name: "sum"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Integer"
+      name: "max"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Integer8"
+      name: "max"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Integer"
+      name: "min"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Integer8"
+      name: "min"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Integer"
+      name: "sum"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Integer8"
+      name: "sum"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Long"
+      name: "max"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Long8"
+      name: "max"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Long"
+      name: "min"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Long8"
+      name: "min"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Long"
+      name: "sum"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Long8"
+      name: "sum"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/lang/Math"
+      name: "toIntExact"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/lang/Math8"
+      name: "toIntExact"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/io/BufferedReader"
+      name: "lines"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/io/DesugarBufferedReader"
+      name: "lines"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/Arrays"
+      name: "stream"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarArrays"
+      name: "stream"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/Arrays"
+      name: "spliterator"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarArrays"
+      name: "spliterator"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/Calendar"
+      name: "toInstant"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarCalendar"
+      name: "toInstant"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/Date"
+      name: "from"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarDate"
+      name: "from"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/Date"
+      name: "toInstant"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarDate"
+      name: "toInstant"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/GregorianCalendar"
+      name: "from"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarGregorianCalendar"
+      name: "from"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/GregorianCalendar"
+      name: "toZonedDateTime"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarGregorianCalendar"
+      name: "toZonedDateTime"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/LinkedHashSet"
+      name: "spliterator"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/DesugarLinkedHashSet"
+      name: "spliterator"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+#replacements {
+#  source {
+#    method_id {
+#      owner: "java/util/TimeZone"
+#      name: "getTimeZone"
+#    }
+#  }
+#  destination {
+#    method_id {
+#      owner: "java/util/DesugarTimeZone"
+#      name: "getTimeZone"
+#    }
+#  }
+#  range: DESUGAR_JAVA8_LIBS
+#  auto_deduce_opcode_and_desc: true
+#}
+#
+#replacements {
+#  source {
+#    method_id {
+#      owner: "java/util/Collections"
+#      name: "synchronizedMap"
+#    }
+#  }
+#  destination {
+#    method_id {
+#      owner: "java/util/DesugarCollections"
+#      name: "synchronizedMap"
+#    }
+#  }
+#  range: DESUGAR_JAVA8_LIBS
+#  auto_deduce_opcode_and_desc: true
+#}
+#
+#replacements {
+#  source {
+#    method_id {
+#      owner: "java/util/Collections"
+#      name: "synchronizedSortedMap"
+#    }
+#  }
+#  destination {
+#    method_id {
+#      owner: "java/util/DesugarCollections"
+#      name: "synchronizedSortedMap"
+#    }
+#  }
+#  range: DESUGAR_JAVA8_LIBS
+#  auto_deduce_opcode_and_desc: true
+#}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicInteger"
+      name: "getAndUpdate"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicInteger"
+      name: "getAndUpdate"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicInteger"
+      name: "updateAndGet"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicInteger"
+      name: "updateAndGet"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicInteger"
+      name: "getAndAccumulate"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicInteger"
+      name: "getAndAccumulate"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicInteger"
+      name: "accumulateAndGet"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicInteger"
+      name: "accumulateAndGet"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicLong"
+      name: "getAndUpdate"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicLong"
+      name: "getAndUpdate"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicLong"
+      name: "updateAndGet"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicLong"
+      name: "updateAndGet"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicLong"
+      name: "getAndAccumulate"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicLong"
+      name: "getAndAccumulate"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicLong"
+      name: "accumulateAndGet"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicLong"
+      name: "accumulateAndGet"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicReference"
+      name: "getAndUpdate"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicReference"
+      name: "getAndUpdate"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicReference"
+      name: "updateAndGet"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicReference"
+      name: "updateAndGet"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicReference"
+      name: "getAndAccumulate"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicReference"
+      name: "getAndAccumulate"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+
+replacements {
+  source {
+    method_id {
+      owner: "java/util/concurrent/atomic/AtomicReference"
+      name: "accumulateAndGet"
+    }
+  }
+  destination {
+    method_id {
+      owner: "java/util/concurrent/atomic/DesugarAtomicReference"
+      name: "accumulateAndGet"
+    }
+  }
+  range: DESUGAR_JAVA8_LIBS
+  auto_deduce_opcode_and_desc: true
+}
+

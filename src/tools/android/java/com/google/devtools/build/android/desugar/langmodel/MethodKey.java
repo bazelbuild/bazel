@@ -149,7 +149,7 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
   }
 
   /** The descriptor of the static version of a given instance method. */
-  private String instanceMethodToStaticDescriptor() {
+  public final String instanceMethodToStaticDescriptor() {
     checkState(!isConstructor(), "Expect a Non-constructor method: %s", this);
     ImmutableList<Type> argumentTypes = getArgumentTypes();
     ImmutableList<Type> bridgeMethodArgTypes =
