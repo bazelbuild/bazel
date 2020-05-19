@@ -544,7 +544,8 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
       return Deps.Dependencies.parseFrom(input);
     } catch (IOException e) {
       throw toActionExecutionException(
-          new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+          new EnvironmentalExecException(e),
+          actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
     }
   }
 
@@ -610,9 +611,11 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             actionExecutionContext, results, fallbackContinuation);
       } catch (IOException e) {
         throw toActionExecutionException(
-            new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+            new EnvironmentalExecException(e),
+            actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+        throw toActionExecutionException(
+            e, actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
       }
     }
   }
@@ -656,7 +659,8 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             ActionResult.create(
                 ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults))));
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+        throw toActionExecutionException(
+            e, actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
       }
     }
   }

@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -434,9 +435,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         throw new IllegalStateException(e.getCause());
       }
     } catch (ExecException e) {
+      Label label = getOwner().getLabel();
       throw e.toActionExecutionException(
-          "Include scanning of rule '" + getOwner().getLabel() + "'",
-          actionExecutionContext.getVerboseFailures(),
+          "Include scanning of rule '" + label + "'",
+          actionExecutionContext.showVerboseFailures(label),
           this);
     }
   }
@@ -1811,9 +1813,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         dotDContents = getDotDContents(spawnResults.get(0));
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
+        Label label = getOwner().getLabel();
         throw e.toActionExecutionException(
-            "C++ compilation of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
+            "C++ compilation of rule '" + label + "'",
+            actionExecutionContext.showVerboseFailures(label),
             CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
@@ -1904,7 +1907,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           throw new EnvironmentalExecException(e)
               .toActionExecutionException(
                   getRawProgressMessage(),
-                  actionExecutionContext.getVerboseFailures(),
+                  actionExecutionContext.showVerboseFailures(getOwner().getLabel()),
                   CppCompileAction.this);
         }
       }

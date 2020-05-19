@@ -17,11 +17,13 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcommands;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -34,8 +36,7 @@ import javax.annotation.Nullable;
  */
 @ThreadSafe
 public final class BlazeExecutor implements Executor {
-
-  private final boolean verboseFailures;
+  private final Predicate<Label> verboseFailures;
   private final ShowSubcommands showSubcommands;
   private final FileSystem fileSystem;
   private final Path execRoot;
@@ -63,7 +64,7 @@ public final class BlazeExecutor implements Executor {
       ModuleActionContextRegistry actionContextRegistry,
       SpawnStrategyRegistry spawnStrategyRegistry) {
     ExecutionOptions executionOptions = options.getOptions(ExecutionOptions.class);
-    this.verboseFailures = executionOptions.verboseFailures;
+    this.verboseFailures = executionOptions.getVerboseFailuresPredicate();
     this.showSubcommands = executionOptions.showSubcommands;
     this.fileSystem = fileSystem;
     this.execRoot = execRoot;
@@ -106,9 +107,8 @@ public final class BlazeExecutor implements Executor {
     return actionContextRegistry.getContext(type);
   }
 
-  /** Returns true iff the --verbose_failures option was enabled. */
   @Override
-  public boolean getVerboseFailures() {
+  public Predicate<Label> getVerboseFailuresPredicate() {
     return verboseFailures;
   }
 
