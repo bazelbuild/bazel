@@ -69,7 +69,7 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how spawn actions are executed by default. Accepts a comma-separated list of"
               + " strategies from highest to lowest priority. For each action Bazel picks the"
               + " strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\".See"
+              + " value is \"remote,worker,sandboxed,local\". See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<String> spawnStrategy;
 
@@ -96,7 +96,7 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how to distribute compilation of other spawn actions. Accepts a comma-separated"
               + " list of strategies from highest to lowest priority. For each action Bazel picks"
               + " the strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\".See"
+              + " value is \"remote,worker,sandboxed,local\". See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<Map.Entry<String, List<String>>> strategy;
 
