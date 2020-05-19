@@ -118,6 +118,7 @@ message FailureDetail {
     TestCommand test_command = 140;
     ActionQuery action_query = 141;
     TargetPatterns target_patterns = 142;
+    CleanCommand clean_command = 144;
   }
 
   reserved 102; // For internal use
@@ -145,6 +146,7 @@ message Interrupted {
     AFTER_QUERY = 10 [(metadata) = { exit_code: 8 }];
     FETCH_COMMAND = 17 [(metadata) = { exit_code: 8 }];
     SYNC_COMMAND = 18 [(metadata) = { exit_code: 8 }];
+    CLEAN_COMMAND = 20 [(metadata) = { exit_code: 8 }];
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
     reserved 19; // For internal use
@@ -612,6 +614,23 @@ message TargetPatterns {
     TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN = 1
         [(metadata) = { exit_code: 2 }];
     TARGET_PATTERN_FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message CleanCommand {
+  enum Code {
+    CLEAN_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OUTPUT_SERVICE_CLEAN_FAILURE = 1 [(metadata) = { exit_code: 6 }];
+    ACTION_CACHE_CLEAN_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+    OUT_ERR_CLOSE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
+    OUTPUT_BASE_DELETE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    OUTPUT_BASE_TEMP_MOVE_FAILURE = 5 [(metadata) = { exit_code: 36 }];
+    ASYNC_OUTPUT_BASE_DELETE_FAILURE = 6 [(metadata) = { exit_code: 6 }];
+    EXECROOT_DELETE_FAILURE = 7 [(metadata) = { exit_code: 36 }];
+    EXECROOT_TEMP_MOVE_FAILURE = 8 [(metadata) = { exit_code: 36 }];
+    ASYNC_EXECROOT_DELETE_FAILURE = 9 [(metadata) = { exit_code: 6 }];
   }
 
   Code code = 1;

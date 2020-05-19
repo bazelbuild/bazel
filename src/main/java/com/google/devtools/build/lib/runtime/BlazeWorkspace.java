@@ -221,9 +221,7 @@ public final class BlazeWorkspace {
     skyframeExecutor.resetEvaluator();
   }
 
-  /**
-   * Removes in-memory caches.
-   */
+  /** Removes in-memory and on-disk action caches. */
   public void clearCaches() throws IOException {
     if (actionCache != null) {
       actionCache.clear();
