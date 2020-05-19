@@ -122,7 +122,7 @@ maybe(
     http_archive,
     name = "remotejdk11_linux_ppc64le",
     build_file = "@local_jdk//:BUILD.bazel",
-    sha256 = "a417db0295b1f4b538ecbaf7c774f3a177fab9657a665940170936c0eca4e71a"
+    sha256 = "a417db0295b1f4b538ecbaf7c774f3a177fab9657a665940170936c0eca4e71a",
     strip_prefix = "jdk-11.0.7+10",
     urls = [
         "https://mirror.bazel.com/openjdk/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7%2B10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
