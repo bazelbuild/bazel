@@ -125,7 +125,7 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
             WatchKey key =
                 watchRootPath.register(
                     watchService,
-                    new WatchEvent.Kind[] { 
+                    new Kind<?>[] { 
                         StandardWatchEventKinds.ENTRY_CREATE,
                         StandardWatchEventKinds.ENTRY_MODIFY,
                         StandardWatchEventKinds.ENTRY_DELETE,
