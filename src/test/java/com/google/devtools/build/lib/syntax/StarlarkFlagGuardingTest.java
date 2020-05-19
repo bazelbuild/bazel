@@ -46,7 +46,7 @@ public final class StarlarkFlagGuardingTest {
               positional = true,
               named = false,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = true, named = false, type = Integer.class),
         },
@@ -65,7 +65,7 @@ public final class StarlarkFlagGuardingTest {
               positional = false,
               named = true,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
               valueWhenDisabled = "False"),
           @Param(name = "c", positional = false, named = true, type = Integer.class),
         },
@@ -84,14 +84,14 @@ public final class StarlarkFlagGuardingTest {
               positional = true,
               named = false,
               type = Boolean.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
               valueWhenDisabled = "False"),
           @Param(
               name = "c",
               positional = false,
               named = true,
               type = Integer.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
               valueWhenDisabled = "3"),
           @Param(name = "d", positional = false, named = true, type = Boolean.class),
         },
@@ -118,7 +118,7 @@ public final class StarlarkFlagGuardingTest {
               positional = false,
               named = true,
               type = Integer.class,
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT,
               valueWhenDisabled = "3"),
         },
         useStarlarkThread = true)
@@ -129,23 +129,23 @@ public final class StarlarkFlagGuardingTest {
 
   @Test
   public void testPositionalsOnlyGuardedMethod() throws Exception {
-    ev.new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_sibling_repository_layout=true")
         .update("mock", new Mock())
         .testEval(
             "mock.positionals_only_method(1, True, 3)", "'positionals_only_method(1, true, 3)'");
 
-    ev.new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_sibling_repository_layout=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "in call to positionals_only_method(), parameter 'b' got value of type 'int', want"
                 + " 'bool'",
             "mock.positionals_only_method(1, 3)");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .update("mock", new Mock())
         .testEval("mock.positionals_only_method(1, 3)", "'positionals_only_method(1, false, 3)'");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "in call to positionals_only_method(), parameter 'c' got value of type 'bool', want"
@@ -155,40 +155,40 @@ public final class StarlarkFlagGuardingTest {
 
   @Test
   public void testKeywordOnlyGuardedMethod() throws Exception {
-    ev.new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_sibling_repository_layout=true")
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_only_method(a=1, b=True, c=3)", "'keywords_only_method(1, true, 3)'");
 
-    ev.new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_sibling_repository_layout=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "keywords_only_method() missing 1 required named argument: b",
             "mock.keywords_only_method(a=1, c=3)");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .update("mock", new Mock())
         .testEval("mock.keywords_only_method(a=1, c=3)", "'keywords_only_method(1, false, 3)'");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' is experimental and thus unavailable with the current "
                 + "flags. It may be enabled by setting "
-                + "--experimental_build_setting_api",
+                + "--experimental_sibling_repository_layout",
             "mock.keywords_only_method(a=1, b=True, c=3)");
   }
 
   @Test
   public void testMixedParamsMethod() throws Exception {
     // def mixed_params_method(a, b, c = ?, d = ?)
-    ev.new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_sibling_repository_layout=true")
         .update("mock", new Mock())
         .testEval(
             "mock.mixed_params_method(1, True, c=3, d=True)",
             "'mixed_params_method(1, true, 3, true)'");
 
-    ev.new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_sibling_repository_layout=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             // Missing named arguments (d) are not reported
@@ -197,18 +197,18 @@ public final class StarlarkFlagGuardingTest {
             "mock.mixed_params_method(1, c=3)");
 
     // def mixed_params_method(a, b disabled = False, c disabled = 3, d = ?)
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .update("mock", new Mock())
         .testEval(
             "mock.mixed_params_method(1, d=True)", "'mixed_params_method(1, false, 3, true)'");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "mixed_params_method() accepts no more than 1 positional argument but got 2",
             "mock.mixed_params_method(1, True, d=True)");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "mixed_params_method() accepts no more than 1 positional argument but got 2",
@@ -217,23 +217,31 @@ public final class StarlarkFlagGuardingTest {
 
   @Test
   public void testKeywordsMultipleFlags() throws Exception {
-    ev.new Scenario("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
+    ev
+        .new Scenario(
+            "--experimental_sibling_repository_layout=true", "--incompatible_no_attr_license=false")
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_multiple_flags(a=42, b=True, c=0)",
             "'keywords_multiple_flags(42, true, 0)'");
 
-    ev.new Scenario("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
+    ev
+        .new Scenario(
+            "--experimental_sibling_repository_layout=true", "--incompatible_no_attr_license=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "keywords_multiple_flags() missing 2 required named arguments: b, c",
             "mock.keywords_multiple_flags(a=42)");
 
-    ev.new Scenario("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")
+    ev
+        .new Scenario(
+            "--experimental_sibling_repository_layout=false", "--incompatible_no_attr_license=true")
         .update("mock", new Mock())
         .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'");
 
-    ev.new Scenario("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")
+    ev
+        .new Scenario(
+            "--experimental_sibling_repository_layout=false", "--incompatible_no_attr_license=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' is deprecated and will be removed soon. It may be "
@@ -255,26 +263,26 @@ public final class StarlarkFlagGuardingTest {
             predeclared.put(
                 "GlobalSymbol",
                 FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-                    FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API, "foo"));
+                    FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, "foo"));
             return null; // no client data
           }
         };
 
     String errorMessage =
         "GlobalSymbol is experimental and thus unavailable with the current "
-            + "flags. It may be enabled by setting --experimental_build_setting_api";
+            + "flags. It may be enabled by setting --experimental_sibling_repository_layout";
 
-    ev.new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_sibling_repository_layout=true")
         .setUp("var = GlobalSymbol")
         .testLookup("var", "foo");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .testIfErrorContains(errorMessage, "var = GlobalSymbol");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
 
-    ev.new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_sibling_repository_layout=false")
         .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
         .testLookup("var", "other");
   }
