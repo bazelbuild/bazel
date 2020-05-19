@@ -54,6 +54,14 @@ public abstract class MethodInvocationSite
         .build();
   }
 
+  public static MethodInvocationSite fromProto(MethodInvocation methodInvocationProto) {
+    return builder()
+        .setInvocationKind(MemberUseKind.fromValue(methodInvocationProto.getOpcode()))
+        .setMethod(MethodKey.fromProto(methodInvocationProto.getMethodId()))
+        .setIsInterface(methodInvocationProto.getIsInterface())
+        .build();
+  }
+
   public abstract MethodInvocationSiteBuilder toBuilder();
 
   public final int invokeOpcode() {

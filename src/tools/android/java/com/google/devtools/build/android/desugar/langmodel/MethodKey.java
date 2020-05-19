@@ -54,6 +54,18 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
     return MethodKey.create(ClassName.create(payloads.get(0)), payloads.get(1), payloads.get(2));
   }
 
+  public static MethodKey fromProto(MethodId methodId) {
+    return create(ClassName.create(methodId.getOwner()), methodId.getName(), methodId.getDesc());
+  }
+
+  public MethodId toMethodIdProto() {
+    return MethodId.newBuilder()
+        .setOwner(ownerName())
+        .setName(name())
+        .setDesc(descriptor())
+        .build();
+  }
+
   /** The return type of a method. */
   public Type getReturnType() {
     return Type.getReturnType(descriptor());

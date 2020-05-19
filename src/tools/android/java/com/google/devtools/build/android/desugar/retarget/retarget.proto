@@ -18,30 +18,24 @@ syntax = "proto3";
 
 package android.desugar;
 
-option java_package = "com.google.devtools.build.android.desugar.langmodel";
+import "src/tools/android/java/com/google/devtools/build/android/desugar/langmodel/desugar_method_attr.proto";
+
+option java_package = "com.google.devtools.build.android.desugar.retarget";
 option java_multiple_files = true;
 
-message DesugarMethodInfo {
-  enum SyntheticReason {
-    UNKNOWN = 0;
-    NEST_BRIDGE = 1;
-    SHADOWED_API_ADAPTER = 2;
-    OVERRIDING_BRIDGE = 3;
-  }
-
-  SyntheticReason synthetic_reason = 1;
-
-  bool desugar_tool_ignore = 2;
+message MethodInvocations {
+  repeated MethodInvocationReplacement replacements = 1;
 }
 
-message MethodId {
-  string owner = 1;
-  string name = 2;
-  string desc = 3;
+message MethodInvocationReplacement {
+  MethodInvocation source = 1;
+  MethodInvocation destination = 2;
+  repeated ReplacementRange range = 3;
+  bool ignore_method_desc = 4;
 }
 
-message MethodInvocation {
-  int32 opcode = 1;
-  MethodId method_id = 2;
-  bool is_interface = 3;
+enum ReplacementRange {
+  ALL = 0;
+  REPLACE_CALLS_TO_LONG_UNSIGNED = 1;
+  REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS = 2;
 }

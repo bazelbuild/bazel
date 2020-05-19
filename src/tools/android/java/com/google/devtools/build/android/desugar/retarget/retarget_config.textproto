@@ -1,0 +1,223 @@
+# proto-file: third_party/bazel/src/tools/android/java/com/google/devtools/build/android/desugar/retarget/retarget.proto
+# proto-message: MethodInvocations
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Integer"
+      name: "hashCode"
+      desc: "(I)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode"
+      name: "identityAsHashCode"
+      desc: "(I)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Short"
+      name: "hashCode"
+      desc: "(S)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode"
+      name: "identityAsHashCode"
+      desc: "(S)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Byte"
+      name: "hashCode"
+      desc: "(B)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode"
+      name: "identityAsHashCode"
+      desc: "(B)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Character"
+      name: "hashCode"
+      desc: "(C)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode"
+      name: "identityAsHashCode"
+      desc: "(C)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Float"
+      name: "hashCode"
+      desc: "(F)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode"
+      name: "hashCode"
+      desc: "(F)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Boolean"
+      name: "hashCode"
+      desc: "(Z)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode"
+      name: "hashCode"
+      desc: "(Z)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "hashCode"
+      desc: "(J)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode"
+      name: "hashCode"
+      desc: "(J)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Double"
+      name: "hashCode"
+      desc: "(D)I"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/PrimitiveHashcode"
+      name: "hashCode"
+      desc: "(D)I"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "divideUnsigned"
+      desc: "(JJ)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/UnsignedLongs"
+      name: "divideUnsigned"
+      desc: "(JJ)J"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_LONG_UNSIGNED
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Long"
+      name: "remainderUnsigned"
+      desc: "(JJ)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "com/google/devtools/build/android/desugar/runtime/UnsignedLongs"
+      name: "remainderUnsigned"
+      desc: "(JJ)J"
+    }
+    is_interface: false
+  }
+  range: REPLACE_CALLS_TO_LONG_UNSIGNED
+}
+
