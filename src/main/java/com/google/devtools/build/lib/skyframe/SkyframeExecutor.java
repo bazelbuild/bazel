@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
-import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
@@ -74,6 +73,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -1697,7 +1697,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfiguration originalConfig,
-      Iterable<Dependency> keys)
+      Iterable<DependencyKey> keys)
       throws TransitionException, InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
@@ -1714,7 +1714,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   public ImmutableList<ConfiguredTargetAndData> getConfiguredTargetsForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
-      Iterable<Dependency> keys)
+      Iterable<DependencyKey> keys)
       throws InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(eventHandler, originalConfig, keys).values().asList();
   }
@@ -1729,10 +1729,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * returned list.
    */
   @ThreadSafety.ThreadSafe
-  public ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
+  public ImmutableMultimap<DependencyKey, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
       ExtendedEventHandler eventHandler,
       BuildConfigurationValue.Key originalConfig,
-      Iterable<Dependency> keys)
+      Iterable<DependencyKey> keys)
       throws InvalidConfigurationException, InterruptedException {
     return getConfiguredTargetMapForTesting(
         eventHandler, getConfiguration(eventHandler, originalConfig), keys);
@@ -1748,26 +1748,27 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * returned list except...
    */
   @ThreadSafety.ThreadSafe
-  private ImmutableMultimap<Dependency, ConfiguredTargetAndData> getConfiguredTargetMapForTesting(
-      ExtendedEventHandler eventHandler,
-      BuildConfiguration originalConfig,
-      Iterable<Dependency> keys)
-      throws InvalidConfigurationException, InterruptedException {
+  private ImmutableMultimap<DependencyKey, ConfiguredTargetAndData>
+      getConfiguredTargetMapForTesting(
+          ExtendedEventHandler eventHandler,
+          BuildConfiguration originalConfig,
+          Iterable<DependencyKey> keys)
+          throws InvalidConfigurationException, InterruptedException {
     checkActive();
 
-    Multimap<Dependency, BuildConfiguration> configs;
+    Multimap<DependencyKey, BuildConfiguration> configs;
     if (originalConfig != null) {
       configs =
           getConfigurations(eventHandler, originalConfig.getOptions(), keys).getConfigurationMap();
     } else {
-      configs = ArrayListMultimap.<Dependency, BuildConfiguration>create();
-      for (Dependency key : keys) {
+      configs = ArrayListMultimap.create();
+      for (DependencyKey key : keys) {
         configs.put(key, null);
       }
     }
 
     final List<SkyKey> skyKeys = new ArrayList<>();
-    for (Dependency key : keys) {
+    for (DependencyKey key : keys) {
       if (!configs.containsKey(key)) {
         // If we couldn't compute a configuration for this target, the target was in error (e.g.
         // it couldn't be loaded). Exclude it from the results.
@@ -1786,17 +1787,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     EvaluationResult<SkyValue> result = evaluateSkyKeys(eventHandler, skyKeys);
 
-    ImmutableMultimap.Builder<Dependency, ConfiguredTargetAndData> cts =
+    ImmutableMultimap.Builder<DependencyKey, ConfiguredTargetAndData> cts =
         ImmutableMultimap.builder();
 
     // Logic copied from ConfiguredTargetFunction#computeDependencies.
     Set<SkyKey> aliasPackagesToFetch = new HashSet<>();
-    List<Dependency> aliasKeysToRedo = new ArrayList<>();
+    List<DependencyKey> aliasKeysToRedo = new ArrayList<>();
     EvaluationResult<SkyValue> aliasPackageValues = null;
-    Iterable<Dependency> keysToProcess = keys;
+    Iterable<DependencyKey> keysToProcess = keys;
     for (int i = 0; i < 2; i++) {
       DependentNodeLoop:
-      for (Dependency key : keysToProcess) {
+      for (DependencyKey key : keysToProcess) {
         if (!configs.containsKey(key)) {
           // If we couldn't compute a configuration for this target, the target was in error (e.g.
           // it couldn't be loaded). Exclude it from the results.
@@ -1996,8 +1997,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   /**
    * Retrieves the configurations needed for the given deps. If {@link
-   * CoreOptions#trimConfigurations()} is true, trims their fragments to only those needed by their
-   * transitive closures. Else unconditionally includes all fragments.
+   * BuildConfiguration#trimConfigurations()} is true, trims their fragments to only those needed by
+   * their transitive closures. Else unconditionally includes all fragments.
    *
    * <p>Skips targets with loading phase errors.
    */
@@ -2005,10 +2006,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // TODO(ulfjack): Remove this legacy method after switching to the Skyframe-based implementation.
   @Override
   public ConfigurationsResult getConfigurations(
-      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<Dependency> keys)
+      ExtendedEventHandler eventHandler, BuildOptions fromOptions, Iterable<DependencyKey> keys)
       throws InvalidConfigurationException {
     ConfigurationsResult.Builder builder = ConfigurationsResult.newBuilder();
-    Set<Dependency> depsToEvaluate = new HashSet<>();
+    Set<DependencyKey> depsToEvaluate = new HashSet<>();
 
     ImmutableSortedSet<Class<? extends Fragment>> allFragments = null;
     if (useUntrimmedConfigs(fromOptions)) {
@@ -2019,10 +2020,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     final List<SkyKey> transitiveFragmentSkyKeys = new ArrayList<>();
     Map<Label, ImmutableSortedSet<Class<? extends Fragment>>> fragmentsMap = new HashMap<>();
     Set<Label> labelsWithErrors = new HashSet<>();
-    for (Dependency key : keys) {
-      if (key.hasExplicitConfiguration()) {
-        builder.put(key, key.getConfiguration());
-      } else if (useUntrimmedConfigs(fromOptions)) {
+    for (DependencyKey key : keys) {
+      if (useUntrimmedConfigs(fromOptions)) {
         fragmentsMap.put(key.getLabel(), allFragments);
       } else {
         depsToEvaluate.add(key);
@@ -2034,7 +2033,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     for (Map.Entry<SkyKey, ErrorInfo> entry : fragmentsResult.errorMap().entrySet()) {
       reportCycles(eventHandler, entry.getValue().getCycleInfo(), entry.getKey());
     }
-    for (Dependency key : keys) {
+    for (DependencyKey key : keys) {
       if (!depsToEvaluate.contains(key)) {
         // No fragments to compute here.
       } else if (fragmentsResult.getError(TransitiveTargetKey.of(key.getLabel())) != null) {
@@ -2055,8 +2054,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
     // Now get the configurations.
     final List<SkyKey> configSkyKeys = new ArrayList<>();
-    for (Dependency key : keys) {
-      if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
+    for (DependencyKey key : keys) {
+      if (labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
       ImmutableSortedSet<Class<? extends Fragment>> depFragments = fragmentsMap.get(key.getLabel());
@@ -2085,8 +2084,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
     EvaluationResult<SkyValue> configsResult =
         evaluateSkyKeys(eventHandler, configSkyKeys, /*keepGoing=*/ true);
-    for (Dependency key : keys) {
-      if (labelsWithErrors.contains(key.getLabel()) || key.hasExplicitConfiguration()) {
+    for (DependencyKey key : keys) {
+      if (labelsWithErrors.contains(key.getLabel())) {
         continue;
       }
       ImmutableSortedSet<Class<? extends Fragment>> depFragments = fragmentsMap.get(key.getLabel());
@@ -2310,15 +2309,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       BuildConfiguration configuration,
       ConfigurationTransition transition)
       throws TransitionException, InvalidConfigurationException, InterruptedException {
+
+    ConfigurationTransition transition1 =
+        configuration == null ? NullTransition.INSTANCE : transition;
+    DependencyKey dependencyKey =
+        DependencyKey.builder().setLabel(label).setTransition(transition1).build();
     return Iterables.getFirst(
         getConfiguredTargetsForTesting(
-            eventHandler,
-            configuration,
-            ImmutableList.of(
-                configuration == null
-                    ? Dependency.withNullConfiguration(label)
-                    : Dependency.withTransitionAndAspects(
-                        label, transition, AspectCollection.EMPTY))),
+            eventHandler, configuration, ImmutableList.of(dependencyKey)),
         null);
   }
 

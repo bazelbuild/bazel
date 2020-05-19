@@ -546,22 +546,22 @@ public class BuildViewTest extends BuildViewTestBase {
         "filegroup(name='top', srcs=[':inner', 'file'])",
         "sh_binary(name='inner', srcs=['script.sh'])");
     ConfiguredTarget top = Iterables.getOnlyElement(update("//package:top").getTargetsToBuild());
-    Iterable<Dependency> targets =
+    Iterable<DependencyKey> targets =
         getView()
             .getDirectPrerequisiteDependenciesForTesting(
                 reporter, top, getBuildConfigurationCollection(), /*toolchainContext=*/ null)
             .values();
 
-    Dependency innerDependency =
-        Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//package:inner", ImmutableMap.of()),
-            NoTransition.INSTANCE,
-            AspectCollection.EMPTY);
-    Dependency fileDependency =
-        Dependency.withTransitionAndAspects(
-            Label.parseAbsolute("//package:file", ImmutableMap.of()),
-            NullTransition.INSTANCE,
-            AspectCollection.EMPTY);
+    DependencyKey innerDependency =
+        DependencyKey.builder()
+            .setLabel(Label.parseAbsolute("//package:inner", ImmutableMap.of()))
+            .setTransition(NoTransition.INSTANCE)
+            .build();
+    DependencyKey fileDependency =
+        DependencyKey.builder()
+            .setLabel(Label.parseAbsolute("//package:file", ImmutableMap.of()))
+            .setTransition(NullTransition.INSTANCE)
+            .build();
 
     assertThat(targets).containsExactly(innerDependency, fileDependency);
   }

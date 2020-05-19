@@ -320,6 +320,7 @@ java_library(
         ":constraints/supported_environments",
         ":constraints/supported_environments_provider",
         ":dependency",
+        ":dependency_key",
         ":dependency_kind",
         ":duplicate_exception",
         ":extra/extra_action_info_file_write_action",
@@ -662,7 +663,7 @@ java_library(
         ":config/build_configuration",
         ":config/build_options",
         ":config/invalid_configuration_exception",
-        ":dependency",
+        ":dependency_key",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
     ],
@@ -705,6 +706,17 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "dependency_key",
+    srcs = ["DependencyKey.java"],
+    deps = [
+        ":aspect_collection",
+        ":config/transitions/configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:auto_value",
     ],
 )
 

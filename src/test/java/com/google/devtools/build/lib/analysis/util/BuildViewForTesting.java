@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetFactory;
-import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -199,12 +199,11 @@ public class BuildViewForTesting {
       Target target, BuildConfiguration config, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException {
     List<TargetAndConfiguration> node =
-        ImmutableList.<TargetAndConfiguration>of(new TargetAndConfiguration(target, config));
+        ImmutableList.of(new TargetAndConfiguration(target, config));
     Collection<TargetAndConfiguration> configs =
         ConfigurationResolver.getConfigurationsFromExecutor(
                 node,
-                AnalysisUtils.targetsToDeps(
-                    new LinkedHashSet<TargetAndConfiguration>(node), ruleClassProvider),
+                AnalysisUtils.targetsToDeps(new LinkedHashSet<>(node), ruleClassProvider),
                 eventHandler,
                 skyframeExecutor)
             .getTargetsAndConfigs();
@@ -277,13 +276,14 @@ public class BuildViewForTesting {
   }
 
   @VisibleForTesting
-  public OrderedSetMultimap<DependencyKind, Dependency> getDirectPrerequisiteDependenciesForTesting(
-      final ExtendedEventHandler eventHandler,
-      final ConfiguredTarget ct,
-      BuildConfigurationCollection configurations,
-      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
-      throws EvalException, InterruptedException, InconsistentAspectOrderException,
-          StarlarkTransition.TransitionException, InvalidConfigurationException {
+  public OrderedSetMultimap<DependencyKind, DependencyKey>
+      getDirectPrerequisiteDependenciesForTesting(
+          final ExtendedEventHandler eventHandler,
+          final ConfiguredTarget ct,
+          BuildConfigurationCollection configurations,
+          @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
+          throws EvalException, InterruptedException, InconsistentAspectOrderException,
+              StarlarkTransition.TransitionException, InvalidConfigurationException {
 
     Target target = null;
     try {
@@ -371,17 +371,17 @@ public class BuildViewForTesting {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
       throws EvalException, InvalidConfigurationException, InterruptedException,
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
-    OrderedSetMultimap<DependencyKind, Dependency> depNodeNames =
+    OrderedSetMultimap<DependencyKind, DependencyKey> depNodeNames =
         getDirectPrerequisiteDependenciesForTesting(
             eventHandler, target, configurations, toolchainContexts);
 
-    ImmutableMultimap<Dependency, ConfiguredTargetAndData> cts =
+    ImmutableMultimap<DependencyKey, ConfiguredTargetAndData> cts =
         skyframeExecutor.getConfiguredTargetMapForTesting(
             eventHandler, target.getConfigurationKey(), ImmutableSet.copyOf(depNodeNames.values()));
 
     OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> result =
         OrderedSetMultimap.create();
-    for (Map.Entry<DependencyKind, Dependency> entry : depNodeNames.entries()) {
+    for (Map.Entry<DependencyKind, DependencyKey> entry : depNodeNames.entries()) {
       result.putAll(entry.getKey(), cts.get(entry.getValue()));
     }
     return result;
