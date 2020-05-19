@@ -226,7 +226,7 @@ public final class RuleConfiguredTargetBuilder {
       // If the target is an analysis test that returned AnalysisTestResultInfo, register a
       // test pass/fail action on behalf of the target.
       AnalysisTestResultInfo testResultInfo =
-          providers.get(AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR);
+          providers.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR);
 
       if (testResultInfo == null) {
         ruleContext.ruleError(
@@ -319,7 +319,7 @@ public final class RuleConfiguredTargetBuilder {
 
         for (OutputGroupInfo outputGroup :
             ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
 
           NestedSet<Artifact> validationArtifacts =
               outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);
@@ -485,7 +485,7 @@ public final class RuleConfiguredTargetBuilder {
       throw new EvalException(constructor.getLocation(),
           "All providers must be top level values");
     }
-    if (OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
+    if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
       OutputGroupInfo outputGroupInfo = (OutputGroupInfo) provider;
       for (String outputGroup : outputGroupInfo) {
         addOutputGroup(outputGroup, outputGroupInfo.getOutputGroup(outputGroup));

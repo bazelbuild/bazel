@@ -278,8 +278,8 @@ public final class AspectDefinition {
      * Asserts that this aspect can only be evaluated for rules that supply all of the specified
      * Starlark providers.
      */
-    public Builder requireSkylarkProviders(StarlarkProviderIdentifier... skylarkProviders) {
-      requiredProviders.addStarlarkSet(ImmutableSet.copyOf(skylarkProviders));
+    public Builder requireStarlarkProviders(StarlarkProviderIdentifier... starlarkProviders) {
+      requiredProviders.addStarlarkSet(ImmutableSet.copyOf(starlarkProviders));
       return this;
     }
 

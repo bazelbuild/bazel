@@ -236,7 +236,7 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
         ruleContext.getPrerequisites(
             "fixtures",
             TransitionMode.TARGET,
-            AndroidDeviceScriptFixtureInfoProvider.SKYLARK_CONSTRUCTOR)) {
+            AndroidDeviceScriptFixtureInfoProvider.STARLARK_CONSTRUCTOR)) {
       allSupportApks.addTransitive(fixture.getSupportApks());
     }
     for (AndroidHostServiceFixtureInfoProvider fixture :
@@ -299,7 +299,7 @@ public class AndroidInstrumentationTestBase implements RuleConfiguredTargetFacto
     return ruleContext.getPrerequisites(
         "fixtures",
         TransitionMode.TARGET,
-        AndroidDeviceScriptFixtureInfoProvider.SKYLARK_CONSTRUCTOR);
+        AndroidDeviceScriptFixtureInfoProvider.STARLARK_CONSTRUCTOR);
   }
 
   private static String getDeviceBrokerType(RuleContext ruleContext) {

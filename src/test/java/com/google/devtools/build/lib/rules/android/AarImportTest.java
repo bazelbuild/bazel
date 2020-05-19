@@ -299,7 +299,7 @@ public class AarImportTest extends BuildViewTestCase {
   public void testDepsCheckerActionExistsForLevelError() throws Exception {
     useConfiguration("--experimental_import_deps_checking=ERROR");
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:last");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
         outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     assertThat(outputGroup.toList()).hasSize(2);
@@ -344,7 +344,7 @@ public class AarImportTest extends BuildViewTestCase {
   public void testDepsCheckerActionDoesNotExistsForLevelOff() throws Exception {
     useConfiguration("--experimental_import_deps_checking=off");
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
         outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     assertThat(outputGroup.toList()).hasSize(1);
@@ -355,7 +355,7 @@ public class AarImportTest extends BuildViewTestCase {
       ImportDepsCheckingLevel level, String expectedCheckingMode) throws Exception {
     useConfiguration("--experimental_import_deps_checking=" + level.name());
     ConfiguredTarget aarImportTarget = getConfiguredTarget("//a:bar");
-    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+    OutputGroupInfo outputGroupInfo = aarImportTarget.get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> outputGroup =
         outputGroupInfo.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL);
     assertThat(outputGroup.toList()).hasSize(2);

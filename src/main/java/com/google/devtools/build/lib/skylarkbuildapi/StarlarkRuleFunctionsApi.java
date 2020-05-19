@@ -356,7 +356,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Boolean outputToGenfiles,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
-      Boolean skylarkTestable,
+      Boolean starlarkTestable,
       Sequence<?> toolchains,
       String doc,
       Sequence<?> providesArg,

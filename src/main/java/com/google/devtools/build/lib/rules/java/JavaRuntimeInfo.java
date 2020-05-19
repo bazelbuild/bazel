@@ -165,7 +165,7 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
   }
 
   @Override
-  public Depset skylarkJavaBaseInputs() {
+  public Depset starlarkJavaBaseInputs() {
     return Depset.of(Artifact.TYPE, javaBaseInputs());
   }
 

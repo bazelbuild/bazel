@@ -37,7 +37,7 @@ public final class StarlarkModules {
           new StarlarkNativeModule(),
           new StarlarkRuleClassFunctions(),
           StructProvider.STRUCT,
-          OutputGroupInfo.SKYLARK_CONSTRUCTOR,
+          OutputGroupInfo.STARLARK_CONSTRUCTOR,
           ActionsProvider.INSTANCE,
           DefaultInfo.PROVIDER);
 

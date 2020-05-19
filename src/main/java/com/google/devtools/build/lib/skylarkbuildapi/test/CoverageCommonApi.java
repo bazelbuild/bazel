@@ -76,7 +76,7 @@ public interface CoverageCommonApi<
             type = Sequence.class),
       })
   InstrumentedFilesInfoApi instrumentedFilesInfo(
-      RuleContextT skylarkRuleContext,
+      RuleContextT starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String> expected
       Sequence<?> dependencyAttributes, // <String> expected
       Object extensions)

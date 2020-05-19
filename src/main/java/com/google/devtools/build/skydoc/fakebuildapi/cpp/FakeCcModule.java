@@ -225,8 +225,8 @@ public class FakeCcModule
   @Override
   public Tuple<Object> compile(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
-      FeatureConfigurationApi skylarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
+      FeatureConfigurationApi starlarkFeatureConfiguration,
+      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
       Sequence<?> sources,
       Sequence<?> publicHeaders,
       Sequence<?> privateHeaders,
@@ -250,8 +250,8 @@ public class FakeCcModule
   @Override
   public Tuple<Object> createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
-      FeatureConfigurationApi skylarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
+      FeatureConfigurationApi starlarkFeatureConfiguration,
+      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
       CcCompilationOutputsApi<FileApi> compilationOutputs,
       Sequence<?> userLinkFlags,
       Sequence<?> ccLinkingContextApis,
@@ -270,8 +270,8 @@ public class FakeCcModule
   @Override
   public CcLinkingOutputsApi<FileApi> link(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
-      FeatureConfigurationApi skylarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
+      FeatureConfigurationApi starlarkFeatureConfiguration,
+      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
       Object compilationOutputs,
       Sequence<?> userLinkFlags,
       Sequence<?> linkingContexts,
@@ -289,7 +289,7 @@ public class FakeCcModule
 
   @Override
   public CcToolchainConfigInfoApi ccToolchainConfigInfoFromStarlark(
-      StarlarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       Sequence<?> features,
       Sequence<?> actionConfigs,
       Sequence<?> artifactNamePatterns,
@@ -317,7 +317,7 @@ public class FakeCcModule
   }
 
   @Override
-  public CcCompilationOutputsApi<FileApi> mergeCcCompilationOutputsFromSkylark(
+  public CcCompilationOutputsApi<FileApi> mergeCcCompilationOutputsFromStarlark(
       Sequence<?> compilationOutputs) {
     return null;
   }

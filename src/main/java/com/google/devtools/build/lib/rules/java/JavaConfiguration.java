@@ -216,7 +216,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   @Override
-  // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
+  // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
   // probably.
   public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;

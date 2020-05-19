@@ -50,7 +50,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object min(Sequence<?> args) throws EvalException {
     try {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse());
+      return findExtreme(args, EvalUtils.STARLARK_COMPARATOR.reverse());
     } catch (ComparisonException e) {
       throw new EvalException(null, e);
     }
@@ -67,7 +67,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object max(Sequence<?> args) throws EvalException {
     try {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR);
+      return findExtreme(args, EvalUtils.STARLARK_COMPARATOR);
     } catch (ComparisonException e) {
       throw new EvalException(null, e);
     }
@@ -163,7 +163,7 @@ class MethodLibrary {
     Object[] array = Starlark.toArray(iterable);
     if (key == Starlark.NONE) {
       try {
-        Arrays.sort(array, EvalUtils.SKYLARK_COMPARATOR);
+        Arrays.sort(array, EvalUtils.STARLARK_COMPARATOR);
       } catch (EvalUtils.ComparisonException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
@@ -176,7 +176,7 @@ class MethodLibrary {
         @Override
         public int compare(Object x, Object y) {
           try {
-            return EvalUtils.SKYLARK_COMPARATOR.compare(callKeyFunc(x), callKeyFunc(y));
+            return EvalUtils.STARLARK_COMPARATOR.compare(callKeyFunc(x), callKeyFunc(y));
           } catch (InterruptedException | EvalException e) {
             if (this.e == null) {
               this.e = e;

@@ -1653,7 +1653,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(archiveAction).isInstanceOf(CppLinkAction.class);
   }
 
-  protected void scratchFrameworkSkylarkStub(String bzlPath) throws Exception {
+  protected void scratchFrameworkStarlarkStub(String bzlPath) throws Exception {
     PathFragment pathFragment = PathFragment.create(bzlPath);
     scratch.file(pathFragment.getParentDirectory() + "/BUILD");
     scratch.file(
@@ -1695,7 +1695,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "deps", "['//package:objcLib']",
         "dylibs", "['//package:avoidLib']");
-    scratchFrameworkSkylarkStub("frameworkstub/framework_stub.bzl");
+    scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
     scratch.file(
         "package/BUILD",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
@@ -1746,7 +1746,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "deps", "['//package:ObjcLib']",
         "dylibs", "['//package:dylib1']");
-    scratchFrameworkSkylarkStub("frameworkstub/framework_stub.bzl");
+    scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
     scratch.file("package/BUILD",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
         "objc_library(name = 'ObjcLib', srcs = [ 'ObjcLib.m' ],",
@@ -1800,7 +1800,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "deps", "['//package:objcLib']",
         "dylibs", "['//package:avoidLib']");
-    scratchFrameworkSkylarkStub("frameworkstub/framework_stub.bzl");
+    scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
     scratch.file("package/BUILD",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
         "framework_stub_rule(name = 'avoidLib', binary = ':avoidLibBinary')",

@@ -863,7 +863,7 @@ public class AndroidCommon {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo provider :
         getTransitivePrerequisites(
-            ruleContext, TransitionMode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+            ruleContext, TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       builder.addTransitive(provider.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }
     return builder.build();

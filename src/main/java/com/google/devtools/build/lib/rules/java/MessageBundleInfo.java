@@ -40,7 +40,7 @@ import net.starlark.java.annot.StarlarkMethod;
 @Immutable
 public final class MessageBundleInfo extends NativeInfo implements StarlarkValue {
 
-  public static final String SKYLARK_NAME = "MessageBundleInfo";
+  public static final String STARLARK_NAME = "MessageBundleInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<MessageBundleInfo> PROVIDER = new Provider();
@@ -49,7 +49,7 @@ public final class MessageBundleInfo extends NativeInfo implements StarlarkValue
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   public static class Provider extends BuiltinProvider<MessageBundleInfo> implements ProviderApi {
     private Provider() {
-      super(SKYLARK_NAME, MessageBundleInfo.class);
+      super(STARLARK_NAME, MessageBundleInfo.class);
     }
 
     @StarlarkMethod(

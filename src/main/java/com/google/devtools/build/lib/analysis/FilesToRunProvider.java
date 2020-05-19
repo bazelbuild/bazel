@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 public final class FilesToRunProvider
     implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */
-  public static final String SKYLARK_NAME = "files_to_run";
+  public static final String STARLARK_NAME = "files_to_run";
 
   public static final FilesToRunProvider EMPTY =
       new FilesToRunProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), null, null);

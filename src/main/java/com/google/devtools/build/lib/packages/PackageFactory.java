@@ -414,7 +414,7 @@ public final class PackageFactory {
       RootedPath buildFile,
       StarlarkFile file,
       Map<String, Module> loadedModules,
-      ImmutableList<Label> skylarkFileDependencies,
+      ImmutableList<Label> starlarkFileDependencies,
       RuleVisibility defaultVisibility,
       StarlarkSemantics starlarkSemantics,
       Globber globber)
@@ -431,7 +431,7 @@ public final class PackageFactory {
           defaultVisibility,
           starlarkSemantics,
           loadedModules,
-          skylarkFileDependencies,
+          starlarkFileDependencies,
           repositoryMapping);
     } catch (InterruptedException e) {
       globber.onInterrupt();
@@ -526,7 +526,7 @@ public final class PackageFactory {
                 buildFile,
                 file,
                 /*loadedModules=*/ ImmutableMap.<String, Module>of(),
-                /*skylarkFileDependencies=*/ ImmutableList.<Label>of(),
+                /*starlarkFileDependencies=*/ ImmutableList.<Label>of(),
                 /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
                 semantics,
                 globber)
@@ -702,7 +702,7 @@ public final class PackageFactory {
       RuleVisibility defaultVisibility,
       StarlarkSemantics semantics,
       Map<String, Module> loadedModules,
-      ImmutableList<Label> skylarkFileDependencies,
+      ImmutableList<Label> starlarkFileDependencies,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
     Package.Builder pkgBuilder =
@@ -718,7 +718,7 @@ public final class PackageFactory {
             // Let's give the BUILD file a chance to set default_visibility once,
             // by resetting the PackageBuilder.defaultVisibilitySet flag.
             .setDefaultVisibilitySet(false)
-            .setStarlarkFileDependencies(skylarkFileDependencies)
+            .setStarlarkFileDependencies(starlarkFileDependencies)
             .setWorkspaceName(workspaceName)
             .setThirdPartyLicenceExistencePolicy(
                 ruleClassProvider.getThirdPartyLicenseExistencePolicy());
@@ -823,7 +823,7 @@ public final class PackageFactory {
               /*analysisRuleLabel=*/ null)
           .storeInThread(thread);
 
-      // TODO(adonovan): save this as a field in BazelSkylarkContext.
+      // TODO(adonovan): save this as a field in BazelStarlarkContext.
       // It needn't be a second thread-local.
       thread.setThreadLocal(PackageContext.class, pkgContext);
 

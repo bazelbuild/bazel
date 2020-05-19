@@ -494,7 +494,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
     for (OutputGroupInfo dep :
         ruleContext.getPrerequisites(
-            "deps", TransitionMode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+            "deps", TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       artifactsToForceBuilder.addTransitive(
           dep.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }

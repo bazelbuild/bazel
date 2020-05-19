@@ -66,7 +66,7 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   // TODO(adonovan): clearly demarcate which fields are defined in which kinds of threads (loading,
   // analysis, workspace, implicit outputs, computed defaults, etc), perhaps by splitting these into
   // separate structs, exactly one of which is populated (plus the common fields). And eliminate
-  // SkylarkUtils.Phase.
+  // StarlarkUtils.Phase.
   // TODO(adonovan): move PackageFactory.PackageContext in here, for loading-phase threads.
   // TODO(adonovan): add a PackageIdentifier here, for use by the Starlark Label function.
   // TODO(adonovan): is there any reason not to put the entire RuleContext in this thread, for

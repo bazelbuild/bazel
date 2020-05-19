@@ -61,9 +61,9 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class OutputGroupInfo extends StructImpl
     implements StarlarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
-  public static final String SKYLARK_NAME = "output_groups";
+  public static final String STARLARK_NAME = "output_groups";
 
-  public static final OutputGroupInfoProvider SKYLARK_CONSTRUCTOR = new OutputGroupInfoProvider();
+  public static final OutputGroupInfoProvider STARLARK_CONSTRUCTOR = new OutputGroupInfoProvider();
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
@@ -137,7 +137,7 @@ public final class OutputGroupInfo extends StructImpl
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
+    super(STARLARK_CONSTRUCTOR, Location.BUILTIN);
     this.outputGroups = outputGroups;
   }
 
@@ -148,7 +148,7 @@ public final class OutputGroupInfo extends StructImpl
 
   @Nullable
   public static OutputGroupInfo get(ProviderCollection collection) {
-    return collection.get(SKYLARK_CONSTRUCTOR);
+    return collection.get(STARLARK_CONSTRUCTOR);
   }
 
   /** Return the artifacts in a particular output group.

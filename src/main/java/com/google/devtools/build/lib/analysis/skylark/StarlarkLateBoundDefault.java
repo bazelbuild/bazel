@@ -41,7 +41,7 @@ import net.starlark.java.annot.StarlarkInterfaceUtils;
  * 'label') specifically by Starlark configuration fragment name and field name, as registered by
  * {@link StarlarkConfigurationField}.
  *
- * <p>For example, a SkylarkLateBoundDefault on "java" and "toolchain" would require a valid
+ * <p>For example, a StarlarkLateBoundDefault on "java" and "toolchain" would require a valid
  * configuration fragment named "java" with a method annotated with {@link
  * StarlarkConfigurationField} of name "toolchain". This {@link LateBoundDefault} would provide a
  * late-bound dependency (defined by the label returned by that configuration field) in the current

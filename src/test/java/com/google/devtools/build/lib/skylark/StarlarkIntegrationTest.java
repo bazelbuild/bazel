@@ -2097,7 +2097,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisTestResultInfo info =
-        (AnalysisTestResultInfo) target.get(AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR.getKey());
+        (AnalysisTestResultInfo) target.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR.getKey());
     assertThat(info.getSuccess()).isTrue();
     assertThat(info.getMessage()).isEqualTo("message contents");
   }
@@ -2135,7 +2135,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:r");
     AnalysisTestResultInfo info =
-        (AnalysisTestResultInfo) target.get(AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR.getKey());
+        (AnalysisTestResultInfo) target.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR.getKey());
     assertThat(info.getSuccess()).isTrue();
     assertThat(info.getMessage()).isEqualTo("message contents");
 

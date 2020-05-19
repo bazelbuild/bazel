@@ -98,8 +98,8 @@ public final class ConfiguredAspect implements ProviderCollection {
 
   @Override
   public Object get(String legacyKey) {
-    if (OutputGroupInfo.SKYLARK_NAME.equals(legacyKey)) {
-      return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey());
+    if (OutputGroupInfo.STARLARK_NAME.equals(legacyKey)) {
+      return get(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey());
     }
     return providers.get(legacyKey);
   }
@@ -226,7 +226,7 @@ public final class ConfiguredAspect implements ProviderCollection {
           outputGroups.put(entry.getKey(), entry.getValue().build());
         }
 
-        if (providers.contains(OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey())) {
+        if (providers.contains(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey())) {
           throw new IllegalStateException(
               "OutputGroupInfo was provided explicitly; do not use addOutputGroup");
         }

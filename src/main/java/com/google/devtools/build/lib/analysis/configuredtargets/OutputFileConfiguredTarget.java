@@ -74,7 +74,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
         artifact,
         instrumentedFilesInfo(generatingRule),
         generatingRule.getProvider(RequiredConfigFragmentsProvider.class),
-        Preconditions.checkNotNull(generatingRule).get(OutputGroupInfo.SKYLARK_CONSTRUCTOR));
+        Preconditions.checkNotNull(generatingRule).get(OutputGroupInfo.STARLARK_CONSTRUCTOR));
 
     this.artifact = artifact;
     this.generatingRule = Preconditions.checkNotNull(generatingRule);

@@ -89,10 +89,10 @@ public class PackageFactoryApparatus {
     return createPackage(PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler);
   }
 
-  public Package createPackage(String packageName, RootedPath buildFile, String skylarkOption)
+  public Package createPackage(String packageName, RootedPath buildFile, String starlarkOption)
       throws Exception {
     return createPackage(
-        PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler, skylarkOption);
+        PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler, starlarkOption);
   }
 
   /**
@@ -103,15 +103,15 @@ public class PackageFactoryApparatus {
       PackageIdentifier packageIdentifier,
       RootedPath buildFile,
       ExtendedEventHandler reporter,
-      String skylarkOption)
+      String starlarkOption)
       throws Exception {
 
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(
-        skylarkOption == null
+        starlarkOption == null
             ? ImmutableList.<String>of()
-            : ImmutableList.<String>of(skylarkOption));
+            : ImmutableList.<String>of(starlarkOption));
     StarlarkSemantics semantics =
         parser.getOptions(StarlarkSemanticsOptions.class).toStarlarkSemantics();
 

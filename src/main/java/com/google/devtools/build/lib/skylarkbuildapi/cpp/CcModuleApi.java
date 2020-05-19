@@ -39,7 +39,7 @@ import net.starlark.java.annot.StarlarkMethod;
     name = "cc_common",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
-        SkylarkActionFactoryT extends StarlarkActionFactoryApi,
+        StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
         CcToolchainProviderT extends CcToolchainProviderApi<?>,
         FeatureConfigurationT extends FeatureConfigurationApi,
@@ -49,7 +49,7 @@ public interface CcModuleApi<
         LibraryToLinkT extends LibraryToLinkApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>>
     extends StarlarkValue {
@@ -820,7 +820,7 @@ public interface CcModuleApi<
             doc = "The rule context."),
       },
       doc = "Returns true if the --incompatible_enable_cc_toolchain_resolution flag is enabled.")
-  boolean isCcToolchainResolutionEnabled(SkylarkRuleContextT ruleContext);
+  boolean isCcToolchainResolutionEnabled(StarlarkRuleContextT ruleContext);
 
   @StarlarkMethod(
       name = "create_cc_toolchain_config_info",
@@ -965,7 +965,7 @@ public interface CcModuleApi<
             doc = "Internal purpose only, do not use."),
       })
   CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
-      SkylarkRuleContextT skylarkRuleContext,
+      StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> features, // <StructApi> expected
       Sequence<?> actionConfigs, // <StructApi> expected
       Sequence<?> artifactNamePatterns, // <StructApi> expected
@@ -1085,9 +1085,9 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
       })
   Tuple<Object> createLinkingContextFromCompilationOutputs(
-      SkylarkActionFactoryT skylarkActionFactoryApi,
-      FeatureConfigurationT skylarkFeatureConfiguration,
-      CcToolchainProviderT skylarkCcToolchainProvider,
+      StarlarkActionFactoryT starlarkActionFactoryApi,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      CcToolchainProviderT starlarkCcToolchainProvider,
       CompilationOutputsT compilationOutputs,
       Sequence<?> userLinkFlags, // <String> expected
       Sequence<?> linkingContexts, // <LinkingContextT> expected

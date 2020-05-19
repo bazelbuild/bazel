@@ -42,7 +42,7 @@ final class FakeJavaRuntimeInfoApi implements JavaRuntimeInfoApi {
   }
 
   @Override
-  public Depset skylarkJavaBaseInputs() {
+  public Depset starlarkJavaBaseInputs() {
     return null;
   }
 

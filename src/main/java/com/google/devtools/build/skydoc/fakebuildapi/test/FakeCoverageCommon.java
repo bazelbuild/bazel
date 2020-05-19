@@ -28,7 +28,7 @@ public class FakeCoverageCommon
 
   @Override
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
-      StarlarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       Sequence<?> sourceAttributes,
       Sequence<?> dependencyAttributes,
       Object extensions) {

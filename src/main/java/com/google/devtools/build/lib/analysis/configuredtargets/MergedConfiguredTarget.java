@@ -78,9 +78,9 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected void addExtraSkylarkKeys(Consumer<String> result) {
+  protected void addExtraStarlarkKeys(Consumer<String> result) {
     if (base instanceof AbstractConfiguredTarget) {
-      ((AbstractConfiguredTarget) base).addExtraSkylarkKeys(result);
+      ((AbstractConfiguredTarget) base).addExtraStarlarkKeys(result);
     }
     for (int i = 0; i < nonBaseProviders.getProviderCount(); i++) {
       Object classAt = nonBaseProviders.getProviderKeyAt(i);
@@ -159,7 +159,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       TransitiveInfoProviderMap providers = aspect.getProviders();
       for (int i = 0; i < providers.getProviderCount(); ++i) {
         Object providerKey = providers.getProviderKeyAt(i);
-        if (OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey().equals(providerKey)
+        if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
             || ExtraActionArtifactsProvider.class.equals(providerKey)
             || RequiredConfigFragmentsProvider.class.equals(providerKey)) {
           continue;

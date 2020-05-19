@@ -144,8 +144,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .propagateAlongAttribute("deps")
         .propagateAlongAttribute("exports")
         .propagateAlongAttribute("runtime_deps")
-        .requireSkylarkProviders(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
+        .requireStarlarkProviders(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
         .advertiseProvider(ImmutableList.of(ObjcProvider.STARLARK_CONSTRUCTOR.id()))
         .requiresConfigurationFragments(
             AppleConfiguration.class,

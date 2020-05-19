@@ -32,7 +32,7 @@ public interface JavaConfigurationApi extends StarlarkValue {
       name = "default_javac_flags",
       structField = true,
       doc = "The default flags for the Java compiler.")
-  // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
+  // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
   // probably.
   ImmutableList<String> getDefaultJavacFlags();
 

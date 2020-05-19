@@ -155,7 +155,7 @@ import java.util.stream.Collectors;
  * <p>Usage:
  *
  * <pre>
- *   skydoc {target_skylark_file_label} {output_file} [symbol_name]...
+ *   skydoc {target_starlark_file_label} {output_file} [symbol_name]...
  * </pre>
  *
  * <p>Generates documentation for all exported symbols of the target Starlark file that are
@@ -411,7 +411,7 @@ public class SkydocMain {
   }
 
   /**
-   * Recursively evaluates/interprets the Starlark file at a given path and its transitive skylark
+   * Recursively evaluates/interprets the Starlark file at a given path and its transitive Starlark
    * dependencies using a fake build API and collects information about all rule definitions made in
    * those files.
    *
@@ -470,7 +470,7 @@ public class SkydocMain {
     }
 
     Module module =
-        evalSkylarkBody(semantics, file, imports, ruleInfoList, providerInfoList, aspectInfoList);
+        evalStarlarkBody(semantics, file, imports, ruleInfoList, providerInfoList, aspectInfoList);
 
     pending.remove(path);
     loaded.put(path, module);
@@ -499,7 +499,7 @@ public class SkydocMain {
   }
 
   /** Evaluates the AST from a single Starlark file, given the already-resolved imports. */
-  private static Module evalSkylarkBody(
+  private static Module evalStarlarkBody(
       StarlarkSemantics semantics,
       StarlarkFile file,
       Map<String, Module> imports,

@@ -47,7 +47,7 @@ public class FakeJavaCommon
 
   @Override
   public FakeJavaInfo createJavaCompileAction(
-      StarlarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       Sequence<?> sourceJars,
       Sequence<?> sourceFiles,
       FileApi outputJar,

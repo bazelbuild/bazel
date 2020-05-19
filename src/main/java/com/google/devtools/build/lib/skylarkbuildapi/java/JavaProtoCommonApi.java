@@ -29,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
 public interface JavaProtoCommonApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         TransitiveInfoCollectionT extends TransitiveInfoCollectionApi>
     extends StarlarkValue {
 
@@ -64,7 +64,7 @@ public interface JavaProtoCommonApi<
             defaultValue = "'java'")
       })
   void createProtoCompileAction(
-      SkylarkRuleContextT skylarkRuleContext,
+      StarlarkRuleContextT starlarkRuleContext,
       TransitiveInfoCollectionT target,
       FileT sourceJar,
       String protoToolchainAttr,
@@ -101,5 +101,5 @@ public interface JavaProtoCommonApi<
         @Param(name = "proto_toolchain_attr", positional = false, named = true, type = String.class)
       })
   JavaInfoApi<FileT> getRuntimeToolchainProvider(
-      SkylarkRuleContextT skylarkRuleContext, String protoToolchainAttr) throws EvalException;
+      StarlarkRuleContextT starlarkRuleContext, String protoToolchainAttr) throws EvalException;
 }

@@ -382,18 +382,18 @@ public abstract class Args implements CommandLineArgsApi {
         throws EvalException {
       StarlarkCustomCommandLine.VectorArg.Builder vectorArg;
       if (value instanceof Depset) {
-        Depset skylarkNestedSet = (Depset) value;
-        NestedSet<?> nestedSet = skylarkNestedSet.getSet();
+        Depset starlarkNestedSet = (Depset) value;
+        NestedSet<?> nestedSet = starlarkNestedSet.getSet();
         if (expandDirectories) {
           potentialDirectoryArtifacts.add(nestedSet);
         }
         vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(nestedSet);
       } else {
-        Sequence<?> skylarkList = (Sequence) value;
+        Sequence<?> starlarkList = (Sequence) value;
         if (expandDirectories) {
-          scanForDirectories(skylarkList);
+          scanForDirectories(starlarkList);
         }
-        vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(skylarkList);
+        vectorArg = new StarlarkCustomCommandLine.VectorArg.Builder(starlarkList);
       }
       validateFormatString("format_each", formatEach);
       validateFormatString("format_joined", formatJoined);

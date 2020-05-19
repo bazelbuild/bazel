@@ -75,7 +75,7 @@ public interface GoWrapCcHelperApi<
         @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
       })
   // TODO(b/113797843): Not written in Starlark because of GoRunfilesProvider.
-  public RunfilesApi skylarkGetGoRunfiles(SkylarkRuleContextT skylarkRuleContext)
+  public RunfilesApi starlarkGetGoRunfiles(SkylarkRuleContextT skylarkRuleContext)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -109,7 +109,7 @@ public interface GoWrapCcHelperApi<
             }),
         @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
       })
-  public GoContextInfoT skylarkCollectTransitiveGoContextGopkg(
+  public GoContextInfoT starlarkCollectTransitiveGoContextGopkg(
       SkylarkRuleContextT skylarkRuleContext,
       FileT export,
       FileT pkg,

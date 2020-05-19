@@ -59,7 +59,7 @@ public interface WrapCcHelperApi<
             named = true,
             type = CcToolchainProviderApi.class),
       })
-  public FeatureConfigurationT skylarkGetFeatureConfiguration(
+  public FeatureConfigurationT starlarkGetFeatureConfiguration(
       SkylarkRuleContextT skylarkRuleContext, CcToolchainProviderT ccToolchain)
       throws EvalException, InterruptedException;
 
@@ -69,7 +69,7 @@ public interface WrapCcHelperApi<
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
       })
-  public Depset skylarkCollectTransitiveSwigIncludes(SkylarkRuleContextT skylarkRuleContext);
+  public Depset starlarkCollectTransitiveSwigIncludes(SkylarkRuleContextT skylarkRuleContext);
 
   @StarlarkMethod(
       name = "create_compile_actions",
@@ -95,7 +95,7 @@ public interface WrapCcHelperApi<
             type = Sequence.class),
         @Param(name = "target_copts", positional = false, named = true, type = Sequence.class),
       })
-  public CompilationInfoT skylarkCreateCompileActions(
+  public CompilationInfoT starlarkCreateCompileActions(
       SkylarkRuleContextT skylarkRuleContext,
       FeatureConfigurationT featureConfiguration,
       CcToolchainProviderT ccToolchain,
@@ -112,7 +112,7 @@ public interface WrapCcHelperApi<
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
       })
-  public String skylarkGetMangledTargetName(SkylarkRuleContextT skylarkRuleContext)
+  public String starlarkGetMangledTargetName(SkylarkRuleContextT skylarkRuleContext)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(

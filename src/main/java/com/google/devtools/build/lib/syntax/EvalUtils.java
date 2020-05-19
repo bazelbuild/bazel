@@ -28,7 +28,7 @@ public final class EvalUtils {
   private EvalUtils() {}
 
   /**
-   * The exception that SKYLARK_COMPARATOR might throw. This is an unchecked exception because
+   * The exception that STARLARK_COMPARATOR might throw. This is an unchecked exception because
    * Comparator doesn't let us declare exceptions. It should normally be caught and wrapped in an
    * EvalException.
    */
@@ -46,7 +46,7 @@ public final class EvalUtils {
    */
   // TODO(adonovan): consider what API to expose around comparison and ordering. Java's three-valued
   // comparator cannot properly handle weakly or partially ordered values such as IEEE754 floats.
-  static final Ordering<Object> SKYLARK_COMPARATOR =
+  static final Ordering<Object> STARLARK_COMPARATOR =
       new Ordering<Object>() {
         private int compareLists(Sequence<?> o1, Sequence<?> o2) {
           if (o1 instanceof RangeList || o2 instanceof RangeList) {
@@ -517,7 +517,7 @@ public final class EvalUtils {
   /** Implements comparison operators. */
   private static int compare(Object x, Object y) throws EvalException {
     try {
-      return SKYLARK_COMPARATOR.compare(x, y);
+      return STARLARK_COMPARATOR.compare(x, y);
     } catch (ComparisonException e) {
       throw new EvalException(null, e.getMessage());
     }
@@ -571,7 +571,7 @@ public final class EvalUtils {
     if (object instanceof StarlarkIndexable) {
       Object result = ((StarlarkIndexable) object).getIndex(semantics, key);
       // TODO(bazel-team): We shouldn't have this fromJava call here. If it's needed at all,
-      // it should go in the implementations of SkylarkIndexable#getIndex that produce non-Starlark
+      // it should go in the implementations of StarlarkIndexable#getIndex that produce non-Starlark
       // values.
       return result == null ? null : Starlark.fromJava(result, mu);
     } else if (object instanceof String) {

@@ -243,7 +243,7 @@ public final class Starlark {
 
     } else if (StarlarkCallable.class.isAssignableFrom(c)) {
       // All callable values have historically been lumped together as "function".
-      // TODO(adonovan): built-in types that don't use SkylarkModule should report
+      // TODO(adonovan): built-in types that don't use StarlarkModule should report
       // their own type string, but this is a breaking change as users often
       // use type(x)=="function" for Starlark and built-in functions.
       return "function";

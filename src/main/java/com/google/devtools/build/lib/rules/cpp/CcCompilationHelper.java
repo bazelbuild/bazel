@@ -1075,7 +1075,7 @@ public final class CcCompilationHelper {
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo dep :
         ruleContext.getPrerequisites(
-            "deps", TransitionMode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+            "deps", TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
     }
     if (cppConfiguration.processHeadersInDependencies()) {

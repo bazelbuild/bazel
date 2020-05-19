@@ -110,7 +110,8 @@ public final class EvalUtilsTest extends EvaluationTestCase {
           Object first = objects[i];
           Object second = objects[j];
           assertThrows(
-              ComparisonException.class, () -> EvalUtils.SKYLARK_COMPARATOR.compare(first, second));
+              ComparisonException.class,
+              () -> EvalUtils.STARLARK_COMPARATOR.compare(first, second));
         }
       }
     }
@@ -120,7 +121,7 @@ public final class EvalUtilsTest extends EvaluationTestCase {
   public void testComparatorWithNones() throws Exception {
     assertThrows(
         ComparisonException.class,
-        () -> EvalUtils.SKYLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
+        () -> EvalUtils.STARLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
   }
 
   @Test

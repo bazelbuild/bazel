@@ -93,10 +93,10 @@ public final class AnalysisUtils {
    */
   public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final NativeProvider<T> skylarkKey) {
+      final NativeProvider<T> starlarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
-      T prerequisiteProvider = prerequisite.get(skylarkKey);
+      T prerequisiteProvider = prerequisite.get(starlarkKey);
       if (prerequisiteProvider != null) {
         result.add(prerequisiteProvider);
       }
@@ -110,10 +110,10 @@ public final class AnalysisUtils {
    */
   public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final BuiltinProvider<T> skylarkKey) {
+      final BuiltinProvider<T> starlarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
-      T prerequisiteProvider = prerequisite.get(skylarkKey);
+      T prerequisiteProvider = prerequisite.get(starlarkKey);
       if (prerequisiteProvider != null) {
         result.add(prerequisiteProvider);
       }

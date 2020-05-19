@@ -37,7 +37,7 @@ public final class TestingSupportRules implements RuleSet {
             new StarlarkTestingModule(),
             new CoverageCommon(),
             AnalysisFailureInfo.SKYLARK_CONSTRUCTOR,
-            AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR));
+            AnalysisTestResultInfo.STARLARK_CONSTRUCTOR));
   }
 
   @Override

@@ -67,5 +67,5 @@ public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
       name = "files",
       doc = "Returns the files in the Java runtime.",
       structField = true)
-  Depset skylarkJavaBaseInputs();
+  Depset starlarkJavaBaseInputs();
 }

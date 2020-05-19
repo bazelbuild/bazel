@@ -126,7 +126,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Boolean outputToGenfiles,
       Sequence<?> fragments,
       Sequence<?> hostFragments,
-      Boolean skylarkTestable,
+      Boolean starlarkTestable,
       Sequence<?> toolchains,
       String doc,
       Sequence<?> providesArg,

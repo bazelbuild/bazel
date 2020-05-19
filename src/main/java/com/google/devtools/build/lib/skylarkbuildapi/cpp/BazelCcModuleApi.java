@@ -34,10 +34,10 @@ import net.starlark.java.annot.StarlarkMethod;
     name = "cc_common",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface BazelCcModuleApi<
-        SkylarkActionFactoryT extends StarlarkActionFactoryApi,
+        StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CompilationContextT extends CcCompilationContextApi<FileT>,
@@ -49,7 +49,7 @@ public interface BazelCcModuleApi<
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi>
     extends CcModuleApi<
-        SkylarkActionFactoryT,
+        StarlarkActionFactoryT,
         FileT,
         CcToolchainProviderT,
         FeatureConfigurationT,
@@ -59,7 +59,7 @@ public interface BazelCcModuleApi<
         LibraryToLinkT,
         CcToolchainVariablesT,
         ConstraintValueT,
-        SkylarkRuleContextT,
+        StarlarkRuleContextT,
         CcToolchainConfigInfoT,
         CompilationOutputsT> {
 
@@ -217,9 +217,9 @@ public interface BazelCcModuleApi<
             type = Sequence.class),
       })
   Tuple<Object> compile(
-      SkylarkActionFactoryT skylarkActionFactoryApi,
-      FeatureConfigurationT skylarkFeatureConfiguration,
-      CcToolchainProviderT skylarkCcToolchainProvider,
+      StarlarkActionFactoryT starlarkActionFactoryApi,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      CcToolchainProviderT starlarkCcToolchainProvider,
       Sequence<?> sources, // <FileT> expected
       Sequence<?> publicHeaders, // <FileT> expected
       Sequence<?> privateHeaders, // <FileT> expected
@@ -345,9 +345,9 @@ public interface BazelCcModuleApi<
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
       })
   LinkingOutputsT link(
-      SkylarkActionFactoryT skylarkActionFactoryApi,
-      FeatureConfigurationT skylarkFeatureConfiguration,
-      CcToolchainProviderT skylarkCcToolchainProvider,
+      StarlarkActionFactoryT starlarkActionFactoryApi,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      CcToolchainProviderT starlarkCcToolchainProvider,
       Object compilationOutputs,
       Sequence<?> userLinkFlags, // <String> expected
       Sequence<?> linkingContexts, // <LinkingContextT> expected
@@ -396,7 +396,7 @@ public interface BazelCcModuleApi<
             defaultValue = "[]",
             type = Sequence.class),
       })
-  CompilationOutputsT mergeCcCompilationOutputsFromSkylark(
+  CompilationOutputsT mergeCcCompilationOutputsFromStarlark(
       Sequence<?> compilationOutputs) // <CompilationOutputsT> expected
       throws EvalException;
 }

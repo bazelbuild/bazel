@@ -109,7 +109,7 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
             .propagateAlongAttribute("exports")
             .requiresConfigurationFragments(
                 JavaConfiguration.class, ProtoConfiguration.class, PlatformConfiguration.class)
-            .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
+            .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(
                 ImmutableList.of(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))

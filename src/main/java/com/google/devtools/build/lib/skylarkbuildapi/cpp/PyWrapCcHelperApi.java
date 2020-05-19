@@ -41,7 +41,7 @@ import net.starlark.java.annot.StarlarkMethod;
 public interface PyWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
@@ -51,7 +51,7 @@ public interface PyWrapCcHelperApi<
     extends WrapCcHelperApi<
         FeatureConfigurationT,
         ConstraintValueT,
-        SkylarkRuleContextT,
+        StarlarkRuleContextT,
         CcToolchainProviderT,
         CompilationInfoT,
         FileT,
@@ -66,7 +66,7 @@ public interface PyWrapCcHelperApi<
         @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
       })
   // TODO(plf): PyExtension is not in Starlark.
-  public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextT skylarkRuleContext)
+  public Sequence<String> getPyExtensionLinkopts(StarlarkRuleContextT starlarkRuleContext)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -78,7 +78,7 @@ public interface PyWrapCcHelperApi<
         @Param(name = "py_file", positional = false, named = true, type = FileApi.class),
       })
   // TODO(plf): Not written in Starlark because of PyCommon.
-  public Depset getTransitivePythonSources(SkylarkRuleContextT skylarkRuleContext, FileT pyFile)
+  public Depset getTransitivePythonSources(StarlarkRuleContextT starlarkRuleContext, FileT pyFile)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -90,7 +90,8 @@ public interface PyWrapCcHelperApi<
         @Param(name = "files_to_build", positional = false, named = true, type = Depset.class),
       })
   // TODO(plf): Not written in Starlark because of PythonRunfilesProvider.
-  public RunfilesApi getPythonRunfiles(SkylarkRuleContextT skylarkRuleContext, Depset filesToBuild)
+  public RunfilesApi getPythonRunfiles(
+      StarlarkRuleContextT starlarkRuleContext, Depset filesToBuild)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -103,6 +104,6 @@ public interface PyWrapCcHelperApi<
       })
   // TODO(plf): PyWrapCcInfo is not written in Starlark because several native rules use it.
   public PyWrapCcInfoApi<FileT> getPyWrapCcInfo(
-      SkylarkRuleContextT skylarkRuleContext, CcInfoT ccInfo)
+      StarlarkRuleContextT starlarkRuleContext, CcInfoT ccInfo)
       throws EvalException, InterruptedException;
 }
