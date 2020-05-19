@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -602,7 +603,8 @@ public final class ConfigurationResolver {
 
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
-    Map<String, BuildOptions> result = transition.apply(fromOptions, handlerWithErrorStatus);
+    Map<String, BuildOptions> result =
+        transition.apply(TransitionUtil.restrict(transition, fromOptions), handlerWithErrorStatus);
 
     if (doesStarlarkTransition) {
       // We use a temporary StoredEventHandler instead of the caller's event handler because

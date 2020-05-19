@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.Collections;
 import java.util.Map;
@@ -25,13 +26,12 @@ import java.util.Map;
  * <p>Also see {@link SplitTransition}, which maps a single input {@link BuildOptions} to possibly
  * multiple {@link BuildOptions}.
  *
- * <p>The concept is simple: given the input configuration's build options, the
- * transition does whatever it wants to them and returns the modified result.
+ * <p>The concept is simple: given the input configuration's build options, the transition does
+ * whatever it wants to them and returns the modified result.
  *
- * <p>Implementations must be stateless: the output must exclusively depend on the
- * input build options and any immutable member fields. Implementations must also override
- * {@link Object#equals} and {@link Object#hashCode} unless exclusively accessed as
- * singletons. For example:
+ * <p>Implementations must be stateless: the output must exclusively depend on the input build
+ * options and any immutable member fields. Implementations must also override {@link Object#equals}
+ * and {@link Object#hashCode} unless exclusively accessed as singletons. For example:
  *
  * <pre>
  * public class MyTransition implements PatchTransition {
@@ -40,7 +40,7 @@ import java.util.Map;
  *   private MyTransition() {}
  *
  *   {@literal @}Override
- *   public BuildOptions patch(BuildOptions options) {
+ *   public BuildOptions patch(RestrictedBuildOptions options) {
  *     BuildOptions toOptions = options.clone();
  *     // Change some setting on toOptions
  *     return toOptions;
@@ -49,26 +49,48 @@ import java.util.Map;
  * </pre>
  *
  * <p>For performance reasons, the input options are passed as a <i>reference</i>, not a
- * <i>copy</i>. Implementations should <i>always</i> treat these as immutable, and call
- * {@link com.google.devtools.build.lib.analysis.config.BuildOptions#clone}
- * before making changes. Unfortunately,
- * {@link com.google.devtools.build.lib.analysis.config.BuildOptions} doesn't currently
- * enforce immutability. So care must be taken not to modify the wrong instance.
+ * <i>copy</i>. Implementations should <i>always</i> treat these as immutable, and call {@link
+ * com.google.devtools.build.lib.analysis.config.BuildOptions#clone} before making changes.
+ * Unfortunately, {@link com.google.devtools.build.lib.analysis.config.BuildOptions} doesn't
+ * currently enforce immutability. So care must be taken not to modify the wrong instance.
  */
-@FunctionalInterface
 public interface PatchTransition extends ConfigurationTransition {
   /**
    * Applies the transition.
+   *
+   * <p>This method is being deprecated (https://github.com/bazelbuild/bazel/issues/11258). Please
+   * use {@link #patch(BuildOptionsView, EventHandler)} for new uses.
    *
    * @param options the options representing the input configuration to this transition. <b>DO NOT
    *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST!</b>
    * @param eventHandler
    * @return the options representing the desired post-transition configuration
    */
-  BuildOptions patch(BuildOptions options, EventHandler eventHandler);
+  default BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+    throw new UnsupportedOperationException(
+        "Either this or patch(RestrictedBuildOptions) must be overriden");
+  }
+
+  /**
+   * Applies the transition.
+   *
+   * <p>Blaze throws an {@link IllegalArgumentException} if this method reads any options fragment
+   * not declard in {@link ConfigurationTransition#requiresOptionFragments}.
+   *
+   * @param options the options representing the input configuration to this transition. <b>DO NOT
+   *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST!</b>
+   * @param eventHandler
+   * @return the options representing the desired post-transition configuration
+   */
+  default BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+    // Escape hatch for implementers of the BuildOptions method: provide uninhibited access. When
+    // all implementers use this variation we'll remove this default implementation.
+    return patch(options.underlying(), eventHandler);
+  }
 
   @Override
-  default Map<String, BuildOptions> apply(BuildOptions buildOptions, EventHandler eventHandler) {
+  default Map<String, BuildOptions> apply(
+      BuildOptionsView buildOptions, EventHandler eventHandler) {
     return Collections.singletonMap(PATCH_TRANSITION_KEY, patch(buildOptions, eventHandler));
   }
 

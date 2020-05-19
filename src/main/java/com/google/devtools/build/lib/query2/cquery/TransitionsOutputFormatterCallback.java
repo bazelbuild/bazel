@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -146,7 +147,9 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         // Skyframe loading to get flag default values. See ConfigurationResolver.applyTransition
         // for an example of the required logic.
         Collection<BuildOptions> toOptions =
-            dep.getTransition().apply(fromOptions, eventHandler).values();
+            dep.getTransition()
+                .apply(TransitionUtil.restrict(dep.getTransition(), fromOptions), eventHandler)
+                .values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
         if (attributeAndDep.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {

@@ -1468,7 +1468,10 @@ java_library(
 
 java_library(
     name = "config/build_options",
-    srcs = ["config/BuildOptions.java"],
+    srcs = [
+        "config/BuildOptions.java",
+        "config/BuildOptionsView.java",
+    ],
     deps = [
         ":config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1625,11 +1628,13 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/core_options",
+        ":config/fragment_options",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
@@ -1720,6 +1725,7 @@ java_library(
     srcs = ["config/transitions/ComposingTransition.java"],
     deps = [
         ":config/build_options",
+        ":config/fragment_options",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
         ":config/transitions/null_transition",
@@ -1745,10 +1751,15 @@ java_library(
 
 java_library(
     name = "config/transitions/configuration_transition",
-    srcs = ["config/transitions/ConfigurationTransition.java"],
+    srcs = [
+        "config/transitions/ConfigurationTransition.java",
+        "config/transitions/TransitionUtil.java",
+    ],
     deps = [
         ":config/build_options",
+        ":config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:guava",
     ],
 )
 
@@ -2190,6 +2201,7 @@ java_library(
     srcs = ["test/TestTrimmingTransitionFactory.java"],
     deps = [
         ":config/build_options",
+        ":config/fragment_options",
         ":config/transitions/no_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",

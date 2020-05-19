@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -48,10 +49,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ConfigurationsForLateBoundTargetsTest extends AnalysisTestCase {
   private static final PatchTransition CHANGE_FOO_FLAG_TRANSITION =
-      (options, eventHandler) -> {
-        BuildOptions toOptions = options.clone();
-        toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
-        return toOptions;
+      new PatchTransition() {
+        @Override
+        public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+          BuildOptions toOptions = options.clone();
+          toOptions.get(LateBoundSplitUtil.TestOptions.class).fooFlag = "PATCHED!";
+          return toOptions;
+        }
       };
 
   /** Rule definition with a latebound dependency. */

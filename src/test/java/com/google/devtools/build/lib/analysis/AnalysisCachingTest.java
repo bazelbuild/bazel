@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -544,11 +545,14 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public static final OptionDefinition ALSO_IRRELEVANT_OPTION =
         OptionsParser.getOptionDefinitionByName(DiffResetOptions.class, "also_irrelevant");
     public static final PatchTransition CLEAR_IRRELEVANT =
-        (options, eventHandler) -> {
-          BuildOptions cloned = options.clone();
-          cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
-          cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
-          return cloned;
+        new PatchTransition() {
+          @Override
+          public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+            BuildOptions cloned = options.clone();
+            cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
+            cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
+            return cloned;
+          }
         };
 
     @Option(

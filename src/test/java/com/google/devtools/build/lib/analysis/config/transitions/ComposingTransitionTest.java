@@ -18,13 +18,19 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.java.JavaOptions;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +58,8 @@ public class ComposingTransitionTest {
 
     assertThat(composed).isNotNull();
     Map<String, BuildOptions> results =
-        composed.apply(BuildOptions.builder().build(), eventHandler);
+        composed.apply(
+            TransitionUtil.restrict(composed, BuildOptions.builder().build()), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(1);
     BuildOptions result = Iterables.getOnlyElement(results.values());
@@ -69,7 +76,8 @@ public class ComposingTransitionTest {
 
     assertThat(composed).isNotNull();
     Map<String, BuildOptions> results =
-        composed.apply(BuildOptions.builder().build(), eventHandler);
+        composed.apply(
+            TransitionUtil.restrict(composed, BuildOptions.builder().build()), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
@@ -93,7 +101,8 @@ public class ComposingTransitionTest {
 
     assertThat(composed).isNotNull();
     Map<String, BuildOptions> results =
-        composed.apply(BuildOptions.builder().build(), eventHandler);
+        composed.apply(
+            TransitionUtil.restrict(composed, BuildOptions.builder().build()), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
@@ -119,7 +128,9 @@ public class ComposingTransitionTest {
     assertThat(composed).isNotNull();
     assertThrows(
         IllegalStateException.class,
-        () -> composed.apply(BuildOptions.builder().build(), eventHandler));
+        () ->
+            composed.apply(
+                TransitionUtil.restrict(composed, BuildOptions.builder().build()), eventHandler));
   }
 
   @Test
@@ -196,5 +207,33 @@ public class ComposingTransitionTest {
                   i -> "stub_split" + i,
                   i -> updateOptions(options, flagLabel, flagValues.get(i))));
     }
+  }
+
+  private static final class TransitionWithCustomFragments implements PatchTransition {
+    private final Set<Class<? extends FragmentOptions>> fragments;
+
+    TransitionWithCustomFragments(Set<Class<? extends FragmentOptions>> fragments) {
+      this.fragments = fragments;
+    }
+
+    @Override
+    public Set<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return fragments;
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+      return options.underlying();
+    }
+  }
+
+  @Test
+  public void composed_required_fragments() throws Exception {
+    ConfigurationTransition composed =
+        ComposingTransition.of(
+            new TransitionWithCustomFragments(ImmutableSet.of(CppOptions.class)),
+            new TransitionWithCustomFragments(ImmutableSet.of(JavaOptions.class)));
+    assertThat(composed.requiresOptionFragments())
+        .containsExactly(CppOptions.class, JavaOptions.class);
   }
 }
