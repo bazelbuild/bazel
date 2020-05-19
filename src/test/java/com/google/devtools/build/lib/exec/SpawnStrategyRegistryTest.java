@@ -505,7 +505,7 @@ public class SpawnStrategyRegistryTest {
 
   private Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
     return new SimpleSpawn(
-        new FakeOwner(mnemonic, description),
+        new FakeOwner(mnemonic, description, "//dummy:label"),
         ImmutableList.of(),
         ImmutableMap.of(),
         ImmutableMap.of(),

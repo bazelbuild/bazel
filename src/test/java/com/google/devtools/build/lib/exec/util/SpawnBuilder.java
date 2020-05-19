@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -42,7 +44,7 @@ import javax.annotation.Nullable;
 public final class SpawnBuilder {
   private String mnemonic = "Mnemonic";
   private String progressMessage = "progress message";
-  @Nullable private String ownerLabel;
+  private String ownerLabel = "//dummy:label";
   @Nullable private PlatformInfo platform;
   private final List<String> args;
   private final Map<String, String> environment = new HashMap<>();
@@ -81,7 +83,7 @@ public final class SpawnBuilder {
   }
 
   public SpawnBuilder withMnemonic(String mnemonic) {
-    this.mnemonic = Preconditions.checkNotNull(mnemonic);
+    this.mnemonic = checkNotNull(mnemonic);
     return this;
   }
 
@@ -91,7 +93,7 @@ public final class SpawnBuilder {
   }
 
   public SpawnBuilder withOwnerLabel(String ownerLabel) {
-    this.ownerLabel = ownerLabel;
+    this.ownerLabel = checkNotNull(ownerLabel);
     return this;
   }
 

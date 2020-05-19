@@ -844,7 +844,7 @@ public class RemoteSpawnRunnerTest {
             PathFragment.create("out/param_file"), args, ParameterFileType.UNQUOTED, ISO_8859_1);
     Spawn spawn =
         new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
+            new FakeOwner("foo", "bar", "//dummy:label"),
             /*arguments=*/ ImmutableList.of(),
             /*environment=*/ ImmutableMap.of(),
             /*executionInfo=*/ ImmutableMap.of(),
@@ -1028,7 +1028,7 @@ public class RemoteSpawnRunnerTest {
   private static SimpleSpawn simpleSpawnWithExecutionInfo(
       ImmutableMap<String, String> executionInfo, Artifact... outputs) {
     return new SimpleSpawn(
-        new FakeOwner("foo", "bar"),
+        new FakeOwner("foo", "bar", "//dummy:label"),
         /*arguments=*/ ImmutableList.of(),
         /*environment=*/ ImmutableMap.of(),
         /*executionInfo=*/ executionInfo,

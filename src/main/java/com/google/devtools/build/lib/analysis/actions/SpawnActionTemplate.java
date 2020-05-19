@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -396,16 +398,16 @@ public final class SpawnActionTemplate extends ActionKeyCacher
      * @param actionOwner the action owner of the SpawnActionTemplate to be built.
      */
     public SpawnActionTemplate build(ActionOwner actionOwner) {
-      Preconditions.checkNotNull(executable);
+      checkNotNull(executable);
 
       return new SpawnActionTemplate(
-          actionOwner,
-          Preconditions.checkNotNull(inputTreeArtifact),
-          Preconditions.checkNotNull(outputTreeArtifact),
+          checkNotNull(actionOwner),
+          checkNotNull(inputTreeArtifact),
+          checkNotNull(outputTreeArtifact),
           inputsBuilder.build(),
           toolsBuilder.build(),
-          Preconditions.checkNotNull(outputPathMapper),
-          Preconditions.checkNotNull(commandLineTemplate),
+          checkNotNull(outputPathMapper),
+          checkNotNull(commandLineTemplate),
           actionTemplateMnemonic,
           spawnActionBuilder);
     }

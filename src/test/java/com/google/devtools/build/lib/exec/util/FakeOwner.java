@@ -13,74 +13,70 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.util;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.syntax.Location;
 import javax.annotation.Nullable;
 
-/**
- * Fake implementation of {@link ActionExecutionMetadata} for testing.
- */
-public final class FakeOwner implements ActionExecutionMetadata {
+/** Fake implementation of {@link ActionExecutionMetadata} for testing. */
+public class FakeOwner implements ActionExecutionMetadata {
   private final String mnemonic;
   private final String progressMessage;
   @Nullable private final String ownerLabel;
   @Nullable private final PlatformInfo platform;
-  ImmutableMap<String, String> execProperties;
+  private final ImmutableMap<String, String> execProperties;
 
-  public FakeOwner(
+  FakeOwner(
       String mnemonic,
       String progressMessage,
-      @Nullable String ownerLabel,
+      String ownerLabel,
       @Nullable PlatformInfo platform,
       ImmutableMap<String, String> execProperties) {
     this.mnemonic = mnemonic;
     this.progressMessage = progressMessage;
-    this.ownerLabel = ownerLabel;
+    this.ownerLabel = checkNotNull(ownerLabel);
     this.platform = platform;
     this.execProperties = execProperties;
   }
 
-  public FakeOwner(
-      String mnemonic,
-      String progressMessage,
-      @Nullable String ownerLabel,
-      @Nullable PlatformInfo platform) {
+  private FakeOwner(
+      String mnemonic, String progressMessage, String ownerLabel, @Nullable PlatformInfo platform) {
     this(mnemonic, progressMessage, ownerLabel, platform, ImmutableMap.of());
   }
 
-  public FakeOwner(String mnemonic, String progressMessage, @Nullable String ownerLabel) {
-    this(mnemonic, progressMessage, ownerLabel, null);
-  }
-
-  public FakeOwner(String mnemonic, String progressMessage) {
-    this(mnemonic, progressMessage, null);
+  public FakeOwner(String mnemonic, String progressMessage, String ownerLabel) {
+    this(mnemonic, progressMessage, checkNotNull(ownerLabel), null);
   }
 
   @Override
   public ActionOwner getOwner() {
     return ActionOwner.create(
-        ownerLabel == null ? null : Label.parseAbsoluteUnchecked(ownerLabel),
-        /*aspectDescriptors=*/ ImmutableList.<AspectDescriptor>of(),
-        /*location=*/ null,
+        Label.parseAbsoluteUnchecked(ownerLabel),
+        /*aspectDescriptors=*/ ImmutableList.of(),
+        new Location("dummy-file", 0, 0),
         mnemonic,
-        /*targetKind=*/ null,
+        "dummy-target-kind",
         "configurationChecksum",
-        /* configuration=*/ null,
+        new BuildConfigurationEvent(
+            BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+            BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
         "additionalProgressInfo",
         /* execProperties=*/ ImmutableMap.of(),
         null);

@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -63,6 +64,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -73,10 +75,10 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -112,10 +114,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/**
- * A bunch of utilities that are useful for test concerning actions, artifacts,
- * etc.
- */
+/** A bunch of utilities that are useful for tests concerning actions, artifacts, etc. */
 public final class ActionsTestUtil {
 
   private final ActionGraph actionGraph;
@@ -336,16 +335,7 @@ public final class ActionsTestUtil {
     }
   }
 
-  static class NullArtifactOwner implements ArtifactOwner {
-    private NullArtifactOwner() {}
-
-    @Override
-    public Label getLabel() {
-      return NULL_LABEL;
-    }
-  }
-
-  @AutoCodec
+  @SerializationConstant
   public static final ActionLookupKey NULL_ARTIFACT_OWNER =
       new ActionLookupValue.ActionLookupKey() {
         @Override
@@ -371,17 +361,19 @@ public final class ActionsTestUtil {
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(
           NULL_LABEL,
-          ImmutableList.<AspectDescriptor>of(),
-          null,
+          ImmutableList.of(),
+          new Location("dummy-file", 0, 0),
           "dummy-configuration-mnemonic",
-          null,
+          "dummy-kind",
           "dummy-configuration",
+          new BuildConfigurationEvent(
+              BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+              BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
           null,
-          null,
-          ImmutableMap.<String, String>of(),
+          ImmutableMap.of(),
           null);
 
-  @AutoCodec
+  @SerializationConstant
   public static final ActionLookupData NULL_ACTION_LOOKUP_DATA =
       ActionLookupData.create(NULL_ARTIFACT_OWNER, 0);
 

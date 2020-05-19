@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -79,7 +81,7 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
     this.dotdTreeArtifact = dotdTreeArtifact;
     this.toolchain = toolchain;
     this.categories = categories;
-    this.actionOwner = actionOwner;
+    this.actionOwner = checkNotNull(actionOwner, outputTreeArtifact);
     this.mandatoryInputs = cppCompileActionBuilder.buildMandatoryInputs();
     this.allInputs =
         NestedSetBuilder.fromNestedSet(mandatoryInputs)

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
@@ -42,12 +43,7 @@ import java.util.concurrent.Executors;
  */
 public class TestAction extends AbstractAction {
 
-  @AutoCodec
-  public static final Runnable NO_EFFECT =
-      new Runnable() {
-        @Override
-        public void run() {}
-      };
+  @SerializationConstant public static final Runnable NO_EFFECT = () -> {};
 
   private static boolean isOptional(Artifact artifact) {
     return artifact.getExecPath().getBaseName().endsWith(".optional");

@@ -219,7 +219,7 @@ public class RemoteSpawnCacheTest {
   private static SimpleSpawn simpleSpawnWithExecutionInfo(
       ImmutableMap<String, String> executionInfo) {
     return new SimpleSpawn(
-        new FakeOwner("Mnemonic", "Progress Message"),
+        new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"),
         ImmutableList.of("/bin/echo", "Hi!"),
         ImmutableMap.of("VARIABLE", "value"),
         executionInfo,

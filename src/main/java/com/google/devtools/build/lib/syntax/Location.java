@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.io.Serializable;
 import javax.annotation.concurrent.Immutable;
 
@@ -28,7 +28,6 @@ import javax.annotation.concurrent.Immutable;
  * If the line number is also zero, it too is not displayed; in this case, the location denotes the
  * file as a whole.
  */
-@AutoCodec
 @Immutable
 public final class Location implements Serializable, Comparable<Location> {
 
@@ -114,5 +113,5 @@ public final class Location implements Serializable, Comparable<Location> {
   }
 
   /** A location for built-in functions. */
-  @AutoCodec public static final Location BUILTIN = fromFile("<builtin>");
+  @SerializationConstant public static final Location BUILTIN = fromFile("<builtin>");
 }

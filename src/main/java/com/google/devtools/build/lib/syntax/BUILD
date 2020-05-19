@@ -70,7 +70,9 @@ java_library(
         "UnaryOperatorExpression.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:guava",
