@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -92,8 +91,6 @@ import javax.annotation.Nullable;
  * Typically only one is needed per client application.
  */
 public final class PackageFactory {
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** An extension to the global namespace of the BUILD language. */
   // TODO(bazel-team): this should probably be renamed PackageFactory.RuntimeExtension
@@ -642,7 +639,6 @@ public final class PackageFactory {
   }
 
   private void populateEnvironment(ImmutableMap.Builder<String, Object> env) {
-    env.putAll(Starlark.UNIVERSE);
     env.putAll(StarlarkLibrary.BUILD); // e.g. rule, select, depset
     env.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     env.put("package", newPackageFunction(packageArguments));
@@ -768,61 +764,55 @@ public final class PackageFactory {
     }
 
     // Construct environment.
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    populateEnvironment(env);
+    ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
+    populateEnvironment(predeclared);
+    Module module = Module.withPredeclared(semantics, predeclared.build());
 
-    // TODO(adonovan): defer creation of Mutability + Thread till after validation,
-    // once the validate API is rationalized.
-    try (Mutability mutability = Mutability.create("package", packageId)) {
-      StarlarkThread thread =
-          StarlarkThread.builder(mutability)
-              .setGlobals(Module.createForBuiltins(env.build()))
-              .setSemantics(semantics)
-              .build();
+    // Validate.
+    Resolver.resolveFile(file, module);
+    if (!file.ok()) {
+      Event.replayEventsOn(pkgContext.eventHandler, file.errors());
+      return false;
+    }
+
+    // Check syntax. Make a pass over the syntax tree to:
+    // - reject forbidden BUILD syntax
+    // - extract literal glob patterns for prefetching
+    // - record the generator_name of each top-level macro call
+    Set<String> globs = new HashSet<>();
+    Set<String> globsWithDirs = new HashSet<>();
+    if (!checkBuildSyntax(
+        file,
+        globs,
+        globsWithDirs,
+        pkgBuilder.getGeneratorNameByLocation(),
+        pkgContext.eventHandler)) {
+      return false;
+    }
+
+    // Prefetch glob patterns asynchronously.
+    if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
+      try {
+        pkgContext.globber.runAsync(
+            ImmutableList.copyOf(globs),
+            ImmutableList.of(),
+            /*excludeDirs=*/ true,
+            /*allowEmpty=*/ true);
+        pkgContext.globber.runAsync(
+            ImmutableList.copyOf(globsWithDirs),
+            ImmutableList.of(),
+            /*excludeDirs=*/ false,
+            /*allowEmpty=*/ true);
+      } catch (BadGlobException ex) {
+        // Ignore exceptions.
+        // Errors will be properly reported when the actual globbing is done.
+      }
+    }
+
+    try (Mutability mu = Mutability.create("package", packageId)) {
+      StarlarkThread thread = new StarlarkThread(mu, semantics);
       thread.setLoader(loadedModules::get);
       thread.setPrintHandler(Event.makeDebugPrintHandler(pkgContext.eventHandler));
-      Module module = thread.getGlobals();
-
-      // Validate.
-      Resolver.resolveFile(file, module);
-      if (!file.ok()) {
-        Event.replayEventsOn(pkgContext.eventHandler, file.errors());
-        return false;
-      }
-
-      // Check syntax. Make a pass over the syntax tree to:
-      // - reject forbidden BUILD syntax
-      // - extract literal glob patterns for prefetching
-      // - record the generator_name of each top-level macro call
-      Set<String> globs = new HashSet<>();
-      Set<String> globsWithDirs = new HashSet<>();
-      if (!checkBuildSyntax(
-          file,
-          globs,
-          globsWithDirs,
-          pkgBuilder.getGeneratorNameByLocation(),
-          pkgContext.eventHandler)) {
-        return false;
-      }
-
-      // Prefetch glob patterns asynchronously.
-      if (maxDirectoriesToEagerlyVisitInGlobbing == -2) {
-        try {
-          pkgContext.globber.runAsync(
-              ImmutableList.copyOf(globs),
-              ImmutableList.of(),
-              /*excludeDirs=*/ true,
-              /*allowEmpty=*/ true);
-          pkgContext.globber.runAsync(
-              ImmutableList.copyOf(globsWithDirs),
-              ImmutableList.of(),
-              /*excludeDirs=*/ false,
-              /*allowEmpty=*/ true);
-        } catch (BadGlobException ex) {
-          // Ignore exceptions.
-          // Errors will be properly reported when the actual globbing is done.
-        }
-      }
 
       new BazelStarlarkContext(
               BazelStarlarkContext.Phase.LOADING,

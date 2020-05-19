@@ -23,6 +23,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -132,16 +133,17 @@ public final class StarlarkProviderTest {
 
   /** Instantiates a {@link StarlarkInfo} with fields a=1, b=2, c=3 (and nothing else). */
   private static StarlarkInfo instantiateWithA1B2C3(StarlarkProvider provider) throws Exception {
-    StarlarkThread thread =
-        StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
-    Object result =
-        Starlark.call(
-            thread,
-            provider,
-            /*args=*/ ImmutableList.of(),
-            /*kwargs=*/ ImmutableMap.of("a", 1, "b", 2, "c", 3));
-    assertThat(result).isInstanceOf(StarlarkInfo.class);
-    return (StarlarkInfo) result;
+    try (Mutability mu = Mutability.create()) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      Object result =
+          Starlark.call(
+              thread,
+              provider,
+              /*args=*/ ImmutableList.of(),
+              /*kwargs=*/ ImmutableMap.of("a", 1, "b", 2, "c", 3));
+      assertThat(result).isInstanceOf(StarlarkInfo.class);
+      return (StarlarkInfo) result;
+    }
   }
 
   /** Asserts that a {@link StarlarkInfo} has fields a=1, b=2, c=3 (and nothing else). */

@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
@@ -772,13 +771,13 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   private static void evalAndExport(EvaluationTestCase ev, String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    StarlarkThread thread = ev.getStarlarkThread();
-    Module module = thread.getGlobals();
+    Module module = ev.getModule();
     StarlarkFile file = EvalUtils.parseAndValidate(input, FileOptions.DEFAULT, module);
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
-    StarlarkImportLookupFunction.execAndExport(file, FAKE_LABEL, ev.getEventHandler(), thread);
+    StarlarkImportLookupFunction.execAndExport(
+        file, FAKE_LABEL, ev.getEventHandler(), module, ev.getStarlarkThread());
   }
 
   @Test
@@ -1385,7 +1384,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     assertThat(EvalUtils.isImmutable(makeStruct("a", makeList(null)))).isTrue();
     assertThat(EvalUtils.isImmutable(makeBigStruct(null))).isTrue();
 
-    Mutability mu = ev.getStarlarkThread().mutability();
+    Mutability mu = Mutability.create("test");
     assertThat(EvalUtils.isImmutable(Tuple.<Object>of(makeList(mu)))).isFalse();
     assertThat(EvalUtils.isImmutable(makeStruct("a", makeList(mu)))).isFalse();
     assertThat(EvalUtils.isImmutable(makeBigStruct(mu))).isFalse();

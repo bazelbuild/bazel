@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import net.starlark.java.annot.Param;
@@ -27,7 +28,9 @@ import org.junit.runners.JUnit4;
  * parameters with semantic flags.
  */
 @RunWith(JUnit4.class)
-public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
+public final class StarlarkFlagGuardingTest {
+
+  private EvaluationTestCase ev = new EvaluationTestCase();
 
   /** Mock containing exposed methods for flag-guarding tests. */
   @StarlarkBuiltin(name = "Mock", doc = "")
@@ -126,23 +129,23 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   @Test
   public void testPositionalsOnlyGuardedMethod() throws Exception {
-    new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testEval(
             "mock.positionals_only_method(1, True, 3)", "'positionals_only_method(1, true, 3)'");
 
-    new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "in call to positionals_only_method(), parameter 'b' got value of type 'int', want"
                 + " 'bool'",
             "mock.positionals_only_method(1, 3)");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testEval("mock.positionals_only_method(1, 3)", "'positionals_only_method(1, false, 3)'");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "in call to positionals_only_method(), parameter 'c' got value of type 'bool', want"
@@ -152,22 +155,22 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordOnlyGuardedMethod() throws Exception {
-    new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_only_method(a=1, b=True, c=3)", "'keywords_only_method(1, true, 3)'");
 
-    new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "keywords_only_method() missing 1 required named argument: b",
             "mock.keywords_only_method(a=1, c=3)");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testEval("mock.keywords_only_method(a=1, c=3)", "'keywords_only_method(1, false, 3)'");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' is experimental and thus unavailable with the current "
@@ -179,13 +182,13 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
   @Test
   public void testMixedParamsMethod() throws Exception {
     // def mixed_params_method(a, b, c = ?, d = ?)
-    new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testEval(
             "mock.mixed_params_method(1, True, c=3, d=True)",
             "'mixed_params_method(1, true, 3, true)'");
 
-    new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_build_setting_api=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             // Missing named arguments (d) are not reported
@@ -194,18 +197,18 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
             "mock.mixed_params_method(1, c=3)");
 
     // def mixed_params_method(a, b disabled = False, c disabled = 3, d = ?)
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testEval(
             "mock.mixed_params_method(1, d=True)", "'mixed_params_method(1, false, 3, true)'");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "mixed_params_method() accepts no more than 1 positional argument but got 2",
             "mock.mixed_params_method(1, True, d=True)");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "mixed_params_method() accepts no more than 1 positional argument but got 2",
@@ -214,23 +217,23 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
 
   @Test
   public void testKeywordsMultipleFlags() throws Exception {
-    new Scenario("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
+    ev.new Scenario("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
         .update("mock", new Mock())
         .testEval(
             "mock.keywords_multiple_flags(a=42, b=True, c=0)",
             "'keywords_multiple_flags(42, true, 0)'");
 
-    new Scenario("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
+    ev.new Scenario("--experimental_build_setting_api=true", "--incompatible_no_attr_license=false")
         .update("mock", new Mock())
         .testIfErrorContains(
             "keywords_multiple_flags() missing 2 required named arguments: b, c",
             "mock.keywords_multiple_flags(a=42)");
 
-    new Scenario("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")
+    ev.new Scenario("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")
         .update("mock", new Mock())
         .testEval("mock.keywords_multiple_flags(a=42)", "'keywords_multiple_flags(42, false, 3)'");
 
-    new Scenario("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")
+    ev.new Scenario("--experimental_build_setting_api=false", "--incompatible_no_attr_license=true")
         .update("mock", new Mock())
         .testIfErrorContains(
             "parameter 'b' is deprecated and will be removed soon. It may be "
@@ -243,26 +246,35 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
     // This test uses an arbitrary experimental flag to verify this functionality. If this
     // experimental flag were to go away, this test may be updated to use any experimental flag.
     // The flag itself is unimportant to the test.
-    predeclare(
-        "GlobalSymbol",
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API, "foo"));
+
+    // clumsy way to predeclare
+    ev =
+        new EvaluationTestCase() {
+          @Override
+          protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
+            predeclared.put(
+                "GlobalSymbol",
+                FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+                    FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API, "foo"));
+            return null; // no client data
+          }
+        };
 
     String errorMessage =
         "GlobalSymbol is experimental and thus unavailable with the current "
             + "flags. It may be enabled by setting --experimental_build_setting_api";
 
-    new Scenario("--experimental_build_setting_api=true")
+    ev.new Scenario("--experimental_build_setting_api=true")
         .setUp("var = GlobalSymbol")
         .testLookup("var", "foo");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .testIfErrorContains(errorMessage, "var = GlobalSymbol");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
 
-    new Scenario("--experimental_build_setting_api=false")
+    ev.new Scenario("--experimental_build_setting_api=false")
         .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
         .testLookup("var", "other");
   }
@@ -272,26 +284,34 @@ public final class StarlarkFlagGuardingTest extends EvaluationTestCase {
     // This test uses an arbitrary incompatible flag to verify this functionality. If this
     // incompatible flag were to go away, this test may be updated to use any incompatible flag.
     // The flag itself is unimportant to the test.
-    predeclare(
-        "GlobalSymbol",
-        FlagGuardedValue.onlyWhenIncompatibleFlagIsFalse(
-            FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, "foo"));
+
+    ev =
+        new EvaluationTestCase() {
+          @Override
+          protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
+            predeclared.put(
+                "GlobalSymbol",
+                FlagGuardedValue.onlyWhenIncompatibleFlagIsFalse(
+                    FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS, "foo"));
+            return null; // no client data
+          }
+        };
 
     String errorMessage =
         "GlobalSymbol is deprecated and will be removed soon. It may be "
             + "temporarily re-enabled by setting --incompatible_linkopts_to_linklibs=false";
 
-    new Scenario("--incompatible_linkopts_to_linklibs=false")
+    ev.new Scenario("--incompatible_linkopts_to_linklibs=false")
         .setUp("var = GlobalSymbol")
         .testLookup("var", "foo");
 
-    new Scenario("--incompatible_linkopts_to_linklibs=true")
+    ev.new Scenario("--incompatible_linkopts_to_linklibs=true")
         .testIfErrorContains(errorMessage, "var = GlobalSymbol");
 
-    new Scenario("--incompatible_linkopts_to_linklibs=true")
+    ev.new Scenario("--incompatible_linkopts_to_linklibs=true")
         .testIfErrorContains(errorMessage, "def my_function():", "  var = GlobalSymbol");
 
-    new Scenario("--incompatible_linkopts_to_linklibs=true")
+    ev.new Scenario("--incompatible_linkopts_to_linklibs=true")
         .setUp("GlobalSymbol = 'other'", "var = GlobalSymbol")
         .testLookup("var", "other");
   }

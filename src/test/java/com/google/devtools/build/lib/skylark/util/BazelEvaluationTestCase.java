@@ -18,15 +18,11 @@ package com.google.devtools.build.lib.skylark.util;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.rules.platform.PlatformCommon;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -39,28 +35,26 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 // Once the production code API has disentangled Thread and Module, make this rational.
 public final class BazelEvaluationTestCase extends EvaluationTestCase {
 
-  // Caution: called by the base class constructor.
   @Override
-  protected StarlarkThread newStarlarkThread(StarlarkSemantics semantics) {
-    ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    StarlarkModules.addStarlarkGlobalsToBuilder(env);
-    Starlark.addModule(env, new PlatformCommon());
+  protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
+    StarlarkModules.addStarlarkGlobalsToBuilder(predeclared);
+    Starlark.addModule(predeclared, new PlatformCommon());
 
-    StarlarkThread thread =
-        StarlarkThread.builder(Mutability.create("test"))
-            .setSemantics(semantics)
-            .setGlobals(
-                Module.createForBuiltins(env.build())
-                    .withClientData(
-                        BazelModuleContext.create(
-                            Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false),
-                            /*bzlTransitiveDigest=*/ new byte[0]))) // dummy value for tests
-            .build();
-    thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
+    // Return the module's client data. (This one uses dummy values for tests.)
+    return BazelModuleContext.create(
+        Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false),
+        /*bzlTransitiveDigest=*/ new byte[0]);
+  }
 
+  @Override
+  protected void newThreadHook(StarlarkThread thread) {
     // This StarlarkThread has no PackageContext, so attempts to create a rule will fail.
     // Rule creation is tested by StarlarkIntegrationTest.
 
+    // This is a poor approximation to the thread that Blaze would create
+    // for testing rule implementation functions. It has phase LOADING, for example.
+    // TODO(adonovan): stop creating threads in tests. This is the responsibility of the
+    // production code. Tests should provide only files and commands.
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.LOADING,
             TestConstants.TOOLS_REPOSITORY,
@@ -69,7 +63,5 @@ public final class BazelEvaluationTestCase extends EvaluationTestCase {
             new SymbolGenerator<>(new Object()),
             /*analysisRuleLabel=*/ null) // dummy value for tests
         .storeInThread(thread);
-
-    return thread;
   }
 }

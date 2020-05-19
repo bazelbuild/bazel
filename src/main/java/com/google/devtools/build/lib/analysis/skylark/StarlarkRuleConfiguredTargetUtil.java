@@ -96,12 +96,9 @@ public final class StarlarkRuleConfiguredTargetUtil {
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String expectFailure = ruleContext.attributes().get("expect_failure", Type.STRING);
     StarlarkRuleContext starlarkRuleContext = null;
-    try (Mutability mutability = Mutability.create("configured target")) {
+    try (Mutability mu = Mutability.create("configured target")) {
       starlarkRuleContext = new StarlarkRuleContext(ruleContext, null, starlarkSemantics);
-      StarlarkThread thread =
-          StarlarkThread.builder(mutability)
-              .setSemantics(starlarkSemantics)
-              .build();
+      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(
           Event.makeDebugPrintHandler(ruleContext.getAnalysisEnvironment().getEventHandler()));
 

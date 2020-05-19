@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.StarlarkThread.ReadyToPause;
 import com.google.devtools.build.lib.syntax.StarlarkThread.Stepping;
 import org.junit.Test;
@@ -30,22 +31,21 @@ public class StarlarkThreadDebuggingTest {
 
   // TODO(adonovan): rewrite these tests at a higher level.
 
-  private static StarlarkThread newStarlarkThread() {
-    Mutability mutability = Mutability.create("test");
-    return StarlarkThread.builder(mutability).useDefaultSemantics().build();
+  private static StarlarkThread newThread() {
+    return new StarlarkThread(Mutability.create("test"), StarlarkSemantics.DEFAULT);
   }
 
-  // Executes the definition of a trivial function f in the specified thread,
-  // and returns the function value.
-  private static StarlarkFunction defineFunc(StarlarkThread thread) throws Exception {
-    Module module = thread.getGlobals();
-    EvalUtils.exec(ParserInput.fromLines("def f(): pass"), FileOptions.DEFAULT, module, thread);
-    return (StarlarkFunction) thread.getGlobals().lookup("f");
+  // Executes the definition of a trivial function f and returns the function value.
+  private static StarlarkFunction defineFunc() throws Exception {
+    Module module = Module.create();
+    EvalUtils.exec(
+        ParserInput.fromLines("def f(): pass"), FileOptions.DEFAULT, module, newThread());
+    return (StarlarkFunction) module.getGlobal("f");
   }
 
   @Test
   public void testListFramesEmptyStack() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
+    StarlarkThread thread = newThread();
     assertThat(Debug.getCallStack(thread)).isEmpty();
     assertThat(thread.getCallStack()).isEmpty();
   }
@@ -80,11 +80,8 @@ public class StarlarkThreadDebuggingTest {
         };
 
     // Set up global environment.
-    StarlarkThread thread = newStarlarkThread();
-    Module module = thread.getGlobals();
-    module.put("a", 1);
-    module.put("b", 2);
-    module.put("f", f);
+    Module module =
+        Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("a", 1, "b", 2, "f", f));
 
     // Execute a small file that calls f.
     ParserInput input =
@@ -93,7 +90,7 @@ public class StarlarkThreadDebuggingTest {
                 + "  f()\n"
                 + "g(4, 5, 6)",
             "main.star");
-    EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+    EvalUtils.exec(input, FileOptions.DEFAULT, module, newThread());
 
     @SuppressWarnings("unchecked")
     ImmutableList<Debug.Frame> stack = (ImmutableList<Debug.Frame>) result[0];
@@ -127,10 +124,10 @@ public class StarlarkThreadDebuggingTest {
 
   @Test
   public void testStepIntoFunction() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
+    StarlarkThread thread = newThread();
 
     ReadyToPause predicate = thread.stepControl(Stepping.INTO);
-    thread.push(defineFunc(thread));
+    thread.push(defineFunc());
 
     assertThat(predicate.test(thread)).isTrue();
   }
@@ -139,7 +136,7 @@ public class StarlarkThreadDebuggingTest {
   public void testStepIntoFallsBackToStepOver() {
     // test that when stepping into, we'll fall back to stopping at the next statement in the
     // current frame
-    StarlarkThread thread = newStarlarkThread();
+    StarlarkThread thread = newThread();
 
     ReadyToPause predicate = thread.stepControl(Stepping.INTO);
 
@@ -149,8 +146,8 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testStepIntoFallsBackToStepOut() throws Exception {
     // test that when stepping into, we'll fall back to stopping when exiting the current frame
-    StarlarkThread thread = newStarlarkThread();
-    thread.push(defineFunc(thread));
+    StarlarkThread thread = newThread();
+    thread.push(defineFunc());
 
     ReadyToPause predicate = thread.stepControl(Stepping.INTO);
     thread.pop();
@@ -160,10 +157,10 @@ public class StarlarkThreadDebuggingTest {
 
   @Test
   public void testStepOverFunction() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
+    StarlarkThread thread = newThread();
 
     ReadyToPause predicate = thread.stepControl(Stepping.OVER);
-    thread.push(defineFunc(thread));
+    thread.push(defineFunc());
 
     assertThat(predicate.test(thread)).isFalse();
     thread.pop();
@@ -173,8 +170,8 @@ public class StarlarkThreadDebuggingTest {
   @Test
   public void testStepOverFallsBackToStepOut() throws Exception {
     // test that when stepping over, we'll fall back to stopping when exiting the current frame
-    StarlarkThread thread = newStarlarkThread();
-    thread.push(defineFunc(thread));
+    StarlarkThread thread = newThread();
+    thread.push(defineFunc());
 
     ReadyToPause predicate = thread.stepControl(Stepping.OVER);
     thread.pop();
@@ -184,8 +181,8 @@ public class StarlarkThreadDebuggingTest {
 
   @Test
   public void testStepOutOfInnerFrame() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
-    thread.push(defineFunc(thread));
+    StarlarkThread thread = newThread();
+    thread.push(defineFunc());
 
     ReadyToPause predicate = thread.stepControl(Stepping.OUT);
 
@@ -196,47 +193,47 @@ public class StarlarkThreadDebuggingTest {
 
   @Test
   public void testStepOutOfOutermostFrame() {
-    StarlarkThread thread = newStarlarkThread();
+    StarlarkThread thread = newThread();
 
     assertThat(thread.stepControl(Stepping.OUT)).isNull();
   }
 
   @Test
   public void testStepControlWithNoSteppingReturnsNull() {
-    StarlarkThread thread = newStarlarkThread();
+    StarlarkThread thread = newThread();
 
     assertThat(thread.stepControl(Stepping.NONE)).isNull();
   }
 
   @Test
   public void testEvaluateVariableInScope() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
-    Module module = thread.getGlobals();
-    module.put("a", 1);
+    Module module = Module.withPredeclared(StarlarkSemantics.DEFAULT, ImmutableMap.of("a", 1));
 
+    StarlarkThread thread = newThread();
     Object a = EvalUtils.exec(ParserInput.fromLines("a"), FileOptions.DEFAULT, module, thread);
     assertThat(a).isEqualTo(1);
   }
 
   @Test
   public void testEvaluateVariableNotInScopeFails() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
-    Module module = thread.getGlobals();
-    module.put("a", 1);
+    Module module = Module.create();
 
     SyntaxError.Exception e =
         assertThrows(
             SyntaxError.Exception.class,
-            () -> EvalUtils.exec(ParserInput.fromLines("b"), FileOptions.DEFAULT, module, thread));
+            () ->
+                EvalUtils.exec(
+                    ParserInput.fromLines("b"), FileOptions.DEFAULT, module, newThread()));
 
     assertThat(e).hasMessageThat().isEqualTo("name 'b' is not defined");
   }
 
   @Test
   public void testEvaluateExpressionOnVariableInScope() throws Exception {
-    StarlarkThread thread = newStarlarkThread();
-    Module module = thread.getGlobals();
-    module.put("a", "string");
+    StarlarkThread thread = newThread();
+    Module module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT, /*predeclared=*/ ImmutableMap.of("a", "string"));
 
     assertThat(
             EvalUtils.exec(

@@ -61,8 +61,7 @@ public interface RuleClassProvider extends RuleDefinitionContext {
 
   /**
    * Returns the predeclared environment for a loading-phase thread. Includes "native", though its
-   * value may be inappropriate for a WORKSPACE file. Includes the universal bindings (e.g. True,
-   * len), though that will soon change.
+   * value may be inappropriate for a WORKSPACE file. Excludes universal bindings (e.g. True, len).
    */
   // TODO(adonovan): update doc comment. And does it really include native?
   ImmutableMap<String, Object> getEnvironment();

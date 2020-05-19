@@ -22,14 +22,13 @@ import com.google.devtools.build.lib.packages.StarlarkLibrary;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
-import com.google.devtools.build.lib.syntax.Starlark;
 
 /** The basis for a Starlark Environment with all build-related modules registered. */
 public final class StarlarkModules {
 
   private StarlarkModules() { }
 
-  /** A bootstrap for non-rules-specific globals of the build API. */
+  /** A bootstrap for non-rules-specific built-ins of the build API. */
   private static TopLevelBootstrap topLevelBootstrap =
       new TopLevelBootstrap(
           new BazelBuildApiGlobals(),
@@ -42,13 +41,10 @@ public final class StarlarkModules {
           ActionsProvider.INSTANCE,
           DefaultInfo.PROVIDER);
 
-  /**
-   * Adds bindings for Starlark built-ins and non-rules-specific globals of the build API to the
-   * given environment map builder.
-   */
-  public static void addStarlarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> env) {
-    env.putAll(Starlark.UNIVERSE);
-    env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
-    topLevelBootstrap.addBindingsToBuilder(env);
+  /** Adds predeclared Starlark bindings for the Bazel build language. */
+  // TODO(adonovan): rename "globals" -> "builtins"
+  public static void addStarlarkGlobalsToBuilder(ImmutableMap.Builder<String, Object> predeclared) {
+    predeclared.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
+    topLevelBootstrap.addBindingsToBuilder(predeclared);
   }
 }

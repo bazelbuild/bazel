@@ -677,24 +677,19 @@ public class StarlarkImportLookupFunction implements SkyFunction {
       boolean inWorkspace,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws StarlarkImportFailedException, InterruptedException {
-    // .bzl predeclared environment
+    // set up .bzl predeclared environment
     Map<String, Object> predeclared = new HashMap<>(ruleClassProvider.getEnvironment());
     predeclared.put("native", packageFactory.getNativeModule(inWorkspace));
+    Module module = Module.withPredeclared(starlarkSemantics, predeclared);
+    module.setClientData(BazelModuleContext.create(moduleLabel, transitiveDigest));
 
     try (Mutability mu = Mutability.create("importing", moduleLabel)) {
-      StarlarkThread thread =
-          StarlarkThread.builder(mu)
-              .setGlobals(
-                  Module.createForBuiltins(predeclared)
-                      .withClientData(BazelModuleContext.create(moduleLabel, transitiveDigest)))
-              .setSemantics(starlarkSemantics)
-              .build();
+      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setLoader(loadedModules::get);
       StoredEventHandler eventHandler = new StoredEventHandler();
       thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
       ruleClassProvider.setStarlarkThreadContext(thread, moduleLabel, repositoryMapping);
-      Module module = thread.getGlobals();
-      execAndExport(file, moduleLabel, eventHandler, thread);
+      execAndExport(file, moduleLabel, eventHandler, module, thread);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
       for (Postable post : eventHandler.getPosts()) {
@@ -711,7 +706,11 @@ public class StarlarkImportLookupFunction implements SkyFunction {
   // Precondition: thread has a valid transitiveDigest.
   // TODO(adonovan): executeModule would make a better public API than this function.
   public static void execAndExport(
-      StarlarkFile file, Label extensionLabel, EventHandler handler, StarlarkThread thread)
+      StarlarkFile file,
+      Label extensionLabel,
+      EventHandler handler,
+      Module module,
+      StarlarkThread thread)
       throws InterruptedException {
 
     // Intercept execution after every assignment at top level
@@ -732,7 +731,7 @@ public class StarlarkImportLookupFunction implements SkyFunction {
         });
 
     try {
-      EvalUtils.exec(file, thread.getGlobals(), thread);
+      EvalUtils.exec(file, module, thread);
     } catch (EvalException ex) {
       handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
     }

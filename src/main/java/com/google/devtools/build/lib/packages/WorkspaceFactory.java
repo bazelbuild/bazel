@@ -157,22 +157,22 @@ public class WorkspaceFactory {
       throws InterruptedException {
     loadedModules.putAll(additionalLoadedModules);
 
-    // environment
-    HashMap<String, Object> env = new HashMap<>();
-    env.putAll(getDefaultEnvironment());
-    env.putAll(bindings); // (may shadow bindings in default environment)
+    // set up predeclared environment
+    HashMap<String, Object> predeclared = new HashMap<>();
+    predeclared.putAll(getDefaultEnvironment());
+    predeclared.putAll(bindings); // (may shadow bindings in default environment)
+    Module module = Module.withPredeclared(starlarkSemantics, predeclared);
 
-    StarlarkThread thread =
-        StarlarkThread.builder(this.mutability)
-            .setSemantics(this.starlarkSemantics)
-            .setGlobals(Module.createForBuiltins(env))
-            .build();
+    // resolve
+    Resolver.resolveFile(file, module);
+
+    // create thread
+    StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
     thread.setLoader(loadedModules::get);
     thread.setPrintHandler(Event.makeDebugPrintHandler(localReporter));
     thread.setThreadLocal(
         PackageFactory.PackageContext.class,
         new PackageFactory.PackageContext(builder, null, localReporter));
-    Module module = thread.getGlobals();
 
     // The workspace environment doesn't need the tools repository or the fragment map
     // because executing workspace rules happens before analysis and it doesn't need a
@@ -187,7 +187,6 @@ public class WorkspaceFactory {
             /*analysisRuleLabel=*/ null)
         .storeInThread(thread);
 
-    Resolver.resolveFile(file, thread.getGlobals());
     List<String> globs = new ArrayList<>(); // unused
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
@@ -204,7 +203,7 @@ public class WorkspaceFactory {
     // for use in the next chunk. This set does not include the bindings
     // added by getDefaultEnvironment; but it does include bindings created by load,
     // so we will need to set the legacy load-binds-globally flag for this file in due course.
-    this.bindings.putAll(thread.getGlobals().getBindings());
+    this.bindings.putAll(module.getGlobals());
 
     builder.addPosts(localReporter.getPosts());
     builder.addEvents(localReporter.getEvents());
@@ -358,7 +357,6 @@ public class WorkspaceFactory {
 
   private ImmutableMap<String, Object> getDefaultEnvironment() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    env.putAll(Starlark.UNIVERSE);
     env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
     env.putAll(workspaceFunctions);
     if (installDir != null) {

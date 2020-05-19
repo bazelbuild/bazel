@@ -79,8 +79,8 @@ public final class StarlarkRepositoryContextTest {
   private Root root;
   private Path workspaceFile;
   private StarlarkRepositoryContext context;
-  private StarlarkThread thread =
-      StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
+  private static final StarlarkThread thread =
+      new StarlarkThread(Mutability.create("test"), StarlarkSemantics.DEFAULT);
 
   private static String ONE_LINE_PATCH = "@@ -1,1 +1,2 @@\n line one\n+line two\n";
 
@@ -105,10 +105,9 @@ public final class StarlarkRepositoryContextTest {
   }
 
   private static Object execAndEval(String... lines) {
-    try (Mutability mu = Mutability.create("impl")) {
-      StarlarkThread thread = StarlarkThread.builder(mu).useDefaultSemantics().build();
-      Module module = thread.getGlobals();
-      return EvalUtils.exec(ParserInput.fromLines(lines), FileOptions.DEFAULT, module, thread);
+    try {
+      return EvalUtils.exec(
+          ParserInput.fromLines(lines), FileOptions.DEFAULT, Module.create(), thread);
     } catch (Exception ex) { // SyntaxError | EvalException | InterruptedException
       throw new AssertionError("exec failed", ex);
     }

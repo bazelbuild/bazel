@@ -34,6 +34,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server",
         "//src/test/java/com/google/devtools/build/lib/events:testutil",
         "//third_party:guava",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
     ],

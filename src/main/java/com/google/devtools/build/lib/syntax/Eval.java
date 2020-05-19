@@ -63,7 +63,7 @@ final class Eval {
           AssignmentStatement assign = (AssignmentStatement) stmt;
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
             String name = id.getName();
-            Object value = fn(fr).getModule().lookup(name);
+            Object value = fn(fr).getModule().getGlobal(name);
             fr.thread.postAssignHook.assign(name, value);
           }
         }
@@ -181,7 +181,7 @@ final class Eval {
                   + "Make sure the 'load' statement appears in the global scope in your file",
               moduleName));
     }
-    Map<String, Object> globals = module.getExportedBindings();
+    Map<String, Object> globals = module.getExportedGlobals();
 
     for (LoadStatement.Binding binding : node.getBindings()) {
       // Extract symbol.
@@ -202,13 +202,9 @@ final class Eval {
       // loads bind file-locally. Either way, the resolver should designate
       // the proper scope of binding.getLocalName() and this should become
       // simply assign(binding.getLocalName(), value).
-      // Currently, we update the module but not module.exportedBindings;
+      // Currently, we update the module but not module.exportedGlobals;
       // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
-      try {
-        fn(fr).getModule().put(binding.getLocalName().getName(), value);
-      } catch (EvalException ex) {
-        throw new AssertionError(ex);
-      }
+      fn(fr).getModule().setGlobal(binding.getLocalName().getName(), value);
     }
   }
 
@@ -327,14 +323,10 @@ final class Eval {
       case GLOBAL:
         // Updates a module binding and sets its 'exported' flag.
         // (Only load bindings are not exported.
-        // But exportedBindings does at run time what should be done in the resolver.)
+        // But exportedGlobals does at run time what should be done in the resolver.)
         Module module = fn(fr).getModule();
-        try {
-          module.put(name, value);
-          module.exportedBindings.add(name);
-        } catch (EvalException ex) {
-          throw new IllegalStateException(ex);
-        }
+        module.setGlobal(name, value);
+        module.exportedGlobals.add(name);
         break;
       default:
         throw new IllegalStateException(scope.toString());
@@ -659,10 +651,10 @@ final class Eval {
         result = fr.locals.get(name);
         break;
       case GLOBAL:
-        result = fn(fr).getModule().lookup(name);
+        result = fn(fr).getModule().getGlobal(name);
         break;
       case PREDECLARED:
-        // TODO(laurentlb): look only at predeclared (not module globals).
+        // TODO(adonovan): call getPredeclared
         result = fn(fr).getModule().get(name);
         break;
       default:

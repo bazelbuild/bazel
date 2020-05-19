@@ -58,7 +58,8 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
       String toolsRepository)
       throws InterruptedException, ActionConflictException {
     StarlarkRuleContext starlarkRuleContext = null;
-    try (Mutability mutability = Mutability.create("aspect")) {
+    // TODO(adonovan): simplify use of try/finally here.
+    try {
       AspectDescriptor aspectDescriptor =
           new AspectDescriptor(starlarkAspect.getAspectClass(), parameters);
       AnalysisEnvironment analysisEnv = ruleContext.getAnalysisEnvironment();
@@ -70,22 +71,19 @@ public class StarlarkAspectFactory implements ConfiguredAspectFactory {
         ruleContext.ruleError(e.getMessage());
         return null;
       }
-      StarlarkThread thread =
-          StarlarkThread.builder(mutability)
-              .setSemantics(analysisEnv.getStarlarkSemantics())
-              .build();
-      thread.setPrintHandler(Event.makeDebugPrintHandler(analysisEnv.getEventHandler()));
+      try (Mutability mu = Mutability.create("aspect")) {
+        StarlarkThread thread = new StarlarkThread(mu, analysisEnv.getStarlarkSemantics());
+        thread.setPrintHandler(Event.makeDebugPrintHandler(analysisEnv.getEventHandler()));
 
-      new BazelStarlarkContext(
-              BazelStarlarkContext.Phase.ANALYSIS,
-              toolsRepository,
-              /*fragmentNameToClass=*/ null,
-              ruleContext.getRule().getPackage().getRepositoryMapping(),
-              ruleContext.getSymbolGenerator(),
-              ruleContext.getLabel())
-          .storeInThread(thread);
+        new BazelStarlarkContext(
+                BazelStarlarkContext.Phase.ANALYSIS,
+                toolsRepository,
+                /*fragmentNameToClass=*/ null,
+                ruleContext.getRule().getPackage().getRepositoryMapping(),
+                ruleContext.getSymbolGenerator(),
+                ruleContext.getLabel())
+            .storeInThread(thread);
 
-      try {
         Object aspectStarlarkObject =
             Starlark.call(
                 thread,

@@ -149,7 +149,8 @@ public class ASTFileLookupFunction implements SkyFunction {
     }
 
     // resolve (and soon, compile)
-    Resolver.resolveFile(file, Module.createForBuiltins(ruleClassProvider.getEnvironment()));
+    Module module = Module.withPredeclared(semantics, ruleClassProvider.getEnvironment());
+    Resolver.resolveFile(file, module);
     Event.replayEventsOn(env.getListener(), file.errors()); // TODO(adonovan): fail if !ok()?
 
     return ASTFileLookupValue.withFile(file, digest);

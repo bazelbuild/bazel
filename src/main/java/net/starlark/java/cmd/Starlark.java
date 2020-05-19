@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.io.BufferedReader;
@@ -44,22 +45,16 @@ class Starlark {
   private final BufferedReader reader =
       new BufferedReader(new InputStreamReader(System.in, CHARSET));
   private final StarlarkThread thread;
-  private final Module module;
+  private final Module module = Module.create();
 
   // TODO(adonovan): set load-binds-globally option when we support load,
   // so that loads bound in one REPL chunk are visible in the next.
   private final FileOptions options = FileOptions.DEFAULT;
 
   {
-    thread =
-        StarlarkThread.builder(Mutability.create("interpreter"))
-            .useDefaultSemantics()
-            .setGlobals(
-                Module.createForBuiltins(com.google.devtools.build.lib.syntax.Starlark.UNIVERSE))
-            .build();
+    Mutability mu = Mutability.create("interpreter");
+    thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
     thread.setPrintHandler((th, msg) -> System.out.println(msg));
-
-    module = thread.getGlobals();
   }
 
   private String prompt() {

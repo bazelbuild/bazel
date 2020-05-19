@@ -50,6 +50,10 @@ final class FileLocations {
     return new FileLocations(computeLinestart(buffer), file, buffer.length);
   }
 
+  String file() {
+    return file;
+  }
+
   private int getLineAt(int offset) {
     if (offset < 0 || offset > size) {
       throw new IllegalStateException("Illegal position: " + offset);

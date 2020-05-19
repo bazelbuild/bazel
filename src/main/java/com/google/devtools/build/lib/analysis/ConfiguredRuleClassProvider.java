@@ -730,7 +730,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
-    // Among other symbols, this step adds the Starlark universe (e.g. None/True/len), for now.
+    // Add predeclared symbols of the Bazel build language.
     StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder);
 
     envBuilder.putAll(starlarkAccessibleTopLevels.entrySet());

@@ -145,11 +145,8 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
     ImmutableSet<PathFragment> blacklistedPatterns =
         Preconditions.checkNotNull(blacklistedPackagesValue).getPatterns();
 
-    try (Mutability mutability = Mutability.create("Starlark repository")) {
-      StarlarkThread thread =
-          StarlarkThread.builder(mutability)
-              .setSemantics(starlarkSemantics)
-              .build();
+    try (Mutability mu = Mutability.create("Starlark repository")) {
+      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(env.getListener()));
 
       // The fetch phase does not need the tools repository
