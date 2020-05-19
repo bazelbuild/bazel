@@ -1321,7 +1321,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Map<String, CcLinkingContext.LinkerInput> exportsMap = new HashMap<>();
     for (CcSharedLibraryInfo entry : mergedCcSharedLibraryInfos) {
       for (String export : entry.getExports()) {
-        if (exportsMap.containsKey(export)) {
+        if (exportsMap.containsKey(export)
+            && !entry.getLinkerInput().getOwner().equals(exportsMap.get(export).getOwner())) {
           ruleContext.ruleError(
               "Two shared libraries in dependencies export the same symbols. Both "
                   + exportsMap
