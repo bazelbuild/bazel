@@ -129,6 +129,7 @@ message FailureDetail {
   reserved 131; // For internal use
   reserved 133; // For internal use
   reserved 138; // For internal use
+  reserved 143; // For internal use
 }
 
 message Interrupted {
@@ -146,6 +147,7 @@ message Interrupted {
     SYNC_COMMAND = 18 [(metadata) = { exit_code: 8 }];
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
+    reserved 19; // For internal use
   }
 
   Code code = 1;
