@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.packages.Type.STRING;
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Function;
@@ -1464,8 +1463,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             NestedSetBuilder.create(Order.STABLE_ORDER, inputTree),
             paramFile,
             args,
-            ParameterFile.ParameterFileType.SHELL_QUOTED,
-            ISO_8859_1));
+            ParameterFile.ParameterFileType.SHELL_QUOTED));
     ruleContext.registerAction(
         singleJarSpawnActionBuilder(ruleContext)
             .setMnemonic("MergeDexZips")

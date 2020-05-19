@@ -1283,8 +1283,7 @@ public class CompilationSupport {
             treeObjFiles.build(),
             objList,
             objFilesToLinkParam.build(),
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
+            ParameterFile.ParameterFileType.UNQUOTED));
     return this;
   }
 
