@@ -289,6 +289,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean includePrimaryOutput;
 
   @Option(
+          name = "experimental_profile_include_target_label",
+          defaultValue = "false",
+          documentationCategory = OptionDocumentationCategory.LOGGING,
+          effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+          help = "Includes target label in action events' JSON profile data.")
+  public boolean profileIncludeTargetLabel;
+
+  @Option(
       name = "experimental_announce_profile_path",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,

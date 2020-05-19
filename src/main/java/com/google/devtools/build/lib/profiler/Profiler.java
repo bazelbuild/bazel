@@ -165,15 +165,18 @@ public final class Profiler {
 
   private static final class ActionTaskData extends TaskData {
     final String primaryOutputPath;
+    final String targetLabel;
 
     ActionTaskData(
         int id,
         long startTimeNanos,
         ProfilerTask eventType,
         String description,
-        String primaryOutputPath) {
+        String primaryOutputPath,
+        String targetLabel) {
       super(id, startTimeNanos, eventType, description);
       this.primaryOutputPath = primaryOutputPath;
+      this.targetLabel = targetLabel;
     }
   }
 
@@ -370,7 +373,8 @@ public final class Profiler {
       long execStartTimeNanos,
       boolean enabledCpuUsageProfiling,
       boolean slimProfile,
-      boolean includePrimaryOutput)
+      boolean includePrimaryOutput,
+      boolean includeTargetLabel)
       throws IOException {
     Preconditions.checkState(!isActive(), "Profiler already active");
     initHistograms();
@@ -401,7 +405,8 @@ public final class Profiler {
                   slimProfile,
                   outputBase,
                   buildID,
-                  includePrimaryOutput);
+                  includePrimaryOutput,
+                  includeTargetLabel);
           break;
         case JSON_TRACE_FILE_COMPRESSED_FORMAT:
           writer =
@@ -411,7 +416,8 @@ public final class Profiler {
                   slimProfile,
                   outputBase,
                   buildID,
-                  includePrimaryOutput);
+                  includePrimaryOutput,
+                  includeTargetLabel);
       }
       writer.start();
     }
@@ -670,14 +676,14 @@ public final class Profiler {
    * primaryOutput.
    */
   public SilentCloseable profileAction(
-      ProfilerTask type, String description, String primaryOutput) {
+      ProfilerTask type, String description, String primaryOutput, String targetLabel) {
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       taskStack
           .get()
           .push(
               new ActionTaskData(
-                  taskId.incrementAndGet(), clock.nanoTime(), type, description, primaryOutput));
+                  taskId.incrementAndGet(), clock.nanoTime(), type, description, primaryOutput, targetLabel));
       return () -> completeTask(type);
     } else {
       return NOP;
@@ -805,6 +811,7 @@ public final class Profiler {
         ThreadLocal.withInitial(() -> Boolean.FALSE);
     private final boolean slimProfile;
     private final boolean includePrimaryOutput;
+    private final boolean includeTargetLabel;
     private final UUID buildID;
     private final String outputBase;
 
@@ -821,13 +828,15 @@ public final class Profiler {
         boolean slimProfile,
         String outputBase,
         UUID buildID,
-        boolean includePrimaryOutput) {
+        boolean includePrimaryOutput,
+        boolean includeTargetLabel) {
       this.outStream = outStream;
       this.profileStartTimeNanos = profileStartTimeNanos;
       this.slimProfile = slimProfile;
       this.buildID = buildID;
       this.outputBase = outputBase;
       this.includePrimaryOutput = includePrimaryOutput;
+      this.includeTargetLabel = includeTargetLabel;
     }
 
     @Override
@@ -931,6 +940,12 @@ public final class Profiler {
       // Primary outputs are non-mergeable, thus incompatible with slim profiles.
       if (includePrimaryOutput && data instanceof ActionTaskData) {
         writer.name("out").value(((ActionTaskData) data).primaryOutputPath);
+      }
+      if (includeTargetLabel && data instanceof ActionTaskData) {
+        writer.name("args");
+        writer.beginObject();
+        writer.name("target").value(((ActionTaskData) data).targetLabel);
+        writer.endObject();
       }
       long threadId =
           data.type == ProfilerTask.CRITICAL_PATH_COMPONENT
