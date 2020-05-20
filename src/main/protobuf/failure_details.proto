@@ -120,6 +120,7 @@ message FailureDetail {
     TargetPatterns target_patterns = 142;
     CleanCommand clean_command = 144;
     ConfigCommand config_command = 145;
+    ConfigurableQuery configurable_query = 146;
   }
 
   reserved 102; // For internal use
@@ -642,6 +643,16 @@ message ConfigCommand {
     CONFIG_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     TOO_MANY_CONFIG_IDS = 1 [(metadata) = { exit_code: 2 }];
     CONFIGURATION_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message ConfigurableQuery {
+  enum Code {
+    CONFIGURABLE_QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    COMMAND_LINE_EXPRESSION_MISSING = 1 [(metadata) = { exit_code: 2 }];
+    EXPRESSION_PARSE_FAILURE = 2 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
