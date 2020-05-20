@@ -121,6 +121,7 @@ message FailureDetail {
     CleanCommand clean_command = 144;
     ConfigCommand config_command = 145;
     ConfigurableQuery configurable_query = 146;
+    DumpCommand dump_command = 147;
   }
 
   reserved 102; // For internal use
@@ -653,6 +654,19 @@ message ConfigurableQuery {
     CONFIGURABLE_QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     COMMAND_LINE_EXPRESSION_MISSING = 1 [(metadata) = { exit_code: 2 }];
     EXPRESSION_PARSE_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message DumpCommand {
+  enum Code {
+    DUMP_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NO_OUTPUT_SPECIFIED = 1 [(metadata) = { exit_code: 7 }];
+    ACTION_CACHE_DUMP_FAILED = 2 [(metadata) = { exit_code: 7 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 3 [(metadata) = { exit_code: 7 }];
+    ACTION_GRAPH_DUMP_FAILED = 4 [(metadata) = { exit_code: 7 }];
+    STARLARK_HEAP_DUMP_FAILED = 5 [(metadata) = { exit_code: 8 }];
   }
 
   Code code = 1;
