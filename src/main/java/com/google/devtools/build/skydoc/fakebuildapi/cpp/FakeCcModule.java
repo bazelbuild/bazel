@@ -193,7 +193,7 @@ public class FakeCcModule
   }
 
   @Override
-  public CcInfoApi<FileApi> mergeCcInfos(Sequence<?> ccInfos) {
+  public CcInfoApi<FileApi> mergeCcInfos(Sequence<?> directCcInfos, Sequence<?> ccInfos) {
     return null;
   }
 

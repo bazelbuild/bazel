@@ -6335,4 +6335,69 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//foo:a")).isNotNull();
     assertNoEvents();
   }
+
+  @Test
+  public void testMergeCcInfosWithDirects() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder().withFeatures(MockCcSupport.HEADER_MODULES_FEATURES));
+
+    scratch.file(
+        "direct/cc_merger.bzl",
+        "def _cc_merger_impl(ctx):",
+        "    direct_cc_infos = [dep[CcInfo] for dep in ctx.attr.exports]",
+        "    cc_infos = [dep[CcInfo] for dep in ctx.attr.deps]",
+        "    return [cc_common.merge_cc_infos(",
+        "        direct_cc_infos = direct_cc_infos,",
+        "        cc_infos = cc_infos,",
+        "    )]",
+        "cc_merger = rule(",
+        "    _cc_merger_impl,",
+        "    attrs = {",
+        "        'deps': attr.label_list(providers = [[CcInfo]]),",
+        "        'exports': attr.label_list(providers = [[CcInfo]]),",
+        "    }",
+        ")");
+    scratch.file(
+        "direct/BUILD",
+        "load('//direct:cc_merger.bzl', 'cc_merger')",
+        "cc_library(",
+        "    name = 'public1',",
+        "    srcs = ['public1.cc', 'public1_impl.h'],",
+        "    hdrs = ['public1.h'],",
+        "    textual_hdrs = ['public1.inc'],",
+        ")",
+        "cc_library(",
+        "    name = 'public2',",
+        "    srcs = ['public2.cc', 'public2_impl.h'],",
+        "    hdrs = ['public2.h'],",
+        "    textual_hdrs = ['public2.inc'],",
+        ")",
+        "cc_library(",
+        "    name = 'private',",
+        "    srcs = ['private.cc', 'private_impl.h'],",
+        "    hdrs = ['private.h'],",
+        "    textual_hdrs = ['private.inc'],",
+        ")",
+        "cc_merger(",
+        "    name = 'merge',",
+        "    exports = [':public1', ':public2'],",
+        "    deps = [':private'],",
+        ")");
+
+    ConfiguredTarget lib = getConfiguredTarget("//direct:merge");
+    CcCompilationContext ccCompilationContext = lib.get(CcInfo.PROVIDER).getCcCompilationContext();
+    assertThat(
+            baseArtifactNames(
+                ccCompilationContext.getExportingModuleMaps().stream()
+                    .map(CppModuleMap::getArtifact)
+                    .collect(ImmutableList.toImmutableList())))
+        .containsExactly("public1.cppmap", "public2.cppmap");
+    assertThat(baseArtifactNames(ccCompilationContext.getDirectHdrs()))
+        .containsExactly("public1.h", "public2.h", "public1_impl.h", "public2_impl.h");
+    assertThat(baseArtifactNames(ccCompilationContext.getTextualHdrs()))
+        .containsExactly("public1.inc", "public2.inc");
+  }
 }
