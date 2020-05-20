@@ -119,6 +119,7 @@ message FailureDetail {
     ActionQuery action_query = 141;
     TargetPatterns target_patterns = 142;
     CleanCommand clean_command = 144;
+    ConfigCommand config_command = 145;
   }
 
   reserved 102; // For internal use
@@ -631,6 +632,16 @@ message CleanCommand {
     EXECROOT_DELETE_FAILURE = 7 [(metadata) = { exit_code: 36 }];
     EXECROOT_TEMP_MOVE_FAILURE = 8 [(metadata) = { exit_code: 36 }];
     ASYNC_EXECROOT_DELETE_FAILURE = 9 [(metadata) = { exit_code: 6 }];
+  }
+
+  Code code = 1;
+}
+
+message ConfigCommand {
+  enum Code {
+    CONFIG_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    TOO_MANY_CONFIG_IDS = 1 [(metadata) = { exit_code: 2 }];
+    CONFIGURATION_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
