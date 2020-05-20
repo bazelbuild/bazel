@@ -954,7 +954,6 @@ public class Desugar {
   private static void runPersistentWorker(Path dumpDirectory) throws Exception {
     while (true) {
       WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
-
       if (request == null) {
         break;
       }
@@ -964,15 +963,16 @@ public class Desugar {
 
       DesugarOptions options = DesugarOptions.parseCommandLineOptions(argList);
 
+      WorkResponse wr;
       try {
         processRequest(options, dumpDirectory);
-        logger.atInfo().log(
-            "Processing Request success: %s", WorkResponse.newBuilder().setExitCode(0).build());
+        wr = WorkResponse.newBuilder().setExitCode(0).build();
+        logger.atInfo().log( "Processing Request success: %s", wr);
       } catch (Exception e) {
-        logger.atWarning().withCause(e).log(
-            "Processing Request exception: %s",
-            WorkResponse.newBuilder().setExitCode(1).setOutput(e.getMessage()).build());
+        wr = WorkResponse.newBuilder().setExitCode(1).setOutput(e.getMessage()).build();
+        logger.atWarning().withCause(e).log( "Processing Request exception: %s", wr);
       }
+      wr.writeDelimitedTo(System.out);
     }
   }
 
