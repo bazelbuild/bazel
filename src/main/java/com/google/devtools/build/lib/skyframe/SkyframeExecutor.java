@@ -502,6 +502,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.AST_FILE_LOOKUP,
         new ASTFileLookupFunction(ruleClassProvider, DigestHashFunction.getDefaultUnchecked()));
+    map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction());
     map.put(
         SkyFunctions.STARLARK_IMPORTS_LOOKUP,
         newStarlarkImportLookupFunction(ruleClassProvider, pkgFactory));

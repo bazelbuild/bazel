@@ -70,6 +70,8 @@ java_library(
         "SkyframeTargetPatternEvaluator.java",
         "SkyframeTransitivePackageLoader.java",
         "StarlarkAspectFactory.java",
+        "StarlarkBuiltinsFunction.java",
+        "StarlarkBuiltinsValue.java",
         "StarlarkImportLookupFunction.java",
         "TargetCompletionValue.java",
         "TargetCompletor.java",
