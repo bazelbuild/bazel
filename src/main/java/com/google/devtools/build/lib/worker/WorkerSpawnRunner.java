@@ -194,7 +194,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             workerArgs,
             env,
             execRoot,
-            spawn.getMnemonic(),
+            Spawns.getWorkerKeyMnemonic(spawn),
             workerFilesCombinedHash,
             workerFiles,
             context.speculating(),

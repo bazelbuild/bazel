@@ -88,9 +88,13 @@ public final class Spawns {
         .equals(spawn.getExecutionInfo().get(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS));
   }
 
-  /**
-   * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1.
-   */
+  /** Returns the mnemonic that should be used in the worker's key. */
+  public static String getWorkerKeyMnemonic(Spawn spawn) {
+    String customValue = spawn.getExecutionInfo().get(ExecutionRequirements.WORKER_KEY_MNEMONIC);
+    return customValue != null ? customValue : spawn.getMnemonic();
+  }
+
+  /** Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1. */
   public static Duration getTimeout(Spawn spawn) throws ExecException {
     String timeoutStr = spawn.getExecutionInfo().get(ExecutionRequirements.TIMEOUT);
     if (timeoutStr == null) {
