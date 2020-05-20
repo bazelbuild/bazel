@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.runtime.commands;
+package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.runtime.CommonCommandOptions;
-import com.google.devtools.build.lib.runtime.ProjectFile;
+import com.google.devtools.build.lib.runtime.events.GotProjectFileEvent;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,7 +34,7 @@ import java.util.List;
  */
 public final class ProjectFileSupport {
   static final String PROJECT_FILE_PREFIX = "+";
-  
+
   private ProjectFileSupport() {}
 
   /**

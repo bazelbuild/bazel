@@ -390,6 +390,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/skyframe:loading_phase_started_event",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_progress_receiver",

@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
-import com.google.devtools.build.lib.runtime.commands.CleanCommand.CleanStartingEvent;
+import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxOptions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -50,7 +50,7 @@ public class WorkerModule extends BlazeModule {
   private WorkerPool workerPool;
   private WorkerOptions options;
   private ImmutableMap<String, Integer> workerPoolConfig;
-  
+
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
     return "build".equals(command.name())
