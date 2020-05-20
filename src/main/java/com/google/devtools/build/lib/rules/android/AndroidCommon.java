@@ -728,7 +728,7 @@ public class AndroidCommon {
           AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(/*resourceInfo=*/ null));
     } else {
       resourceApk.addToConfiguredTargetBuilder(
-          builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true, isLibrary);
+          builder, ruleContext.getLabel(), /* includeStarlarkApiProvider = */ true, isLibrary);
     }
 
     return builder

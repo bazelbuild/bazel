@@ -277,7 +277,7 @@ public class DumpCommand implements BlazeCommand {
 
       if (dumpOptions.skylarkMemory != null) {
         try {
-          dumpSkylarkHeap(env.getBlazeWorkspace(), dumpOptions.skylarkMemory, out);
+          dumpStarlarkHeap(env.getBlazeWorkspace(), dumpOptions.skylarkMemory, out);
         } catch (IOException e) {
           String message = "Could not dump Starlark memory";
           env.getReporter().error(null, message, e);
@@ -453,7 +453,7 @@ public class DumpCommand implements BlazeCommand {
     return String.format("%,d", number);
   }
 
-  private void dumpSkylarkHeap(BlazeWorkspace workspace, String path, PrintStream out)
+  private void dumpStarlarkHeap(BlazeWorkspace workspace, String path, PrintStream out)
       throws IOException {
     AllocationTracker allocationTracker = workspace.getAllocationTracker();
     if (allocationTracker == null) {
@@ -464,7 +464,7 @@ public class DumpCommand implements BlazeCommand {
       return;
     }
     out.println("Dumping Starlark heap to: " + path);
-    allocationTracker.dumpSkylarkAllocations(path);
+    allocationTracker.dumpStarlarkAllocations(path);
   }
 
   private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {

@@ -205,7 +205,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContextApi, T
       super(
           String.format(
               "toolchain type %s resolved to target %s, but that target does not provide "
-                  + ToolchainInfo.SKYLARK_NAME,
+                  + ToolchainInfo.STARLARK_NAME,
               toolchainType.typeLabel(),
               resolvedTargetLabel));
     }

@@ -78,7 +78,7 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
 
   @Override
   public ImmutableMap<String, Depset> getNativeLibs() {
-    return getIdeInfoProvider().getNativeLibsSkylark();
+    return getIdeInfoProvider().getNativeLibsStarlark();
   }
 
   @Override

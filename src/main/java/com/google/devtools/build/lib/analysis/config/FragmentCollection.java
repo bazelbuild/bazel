@@ -42,12 +42,12 @@ public class FragmentCollection implements FragmentCollectionApi {
   @Override
   @Nullable
   public Object getValue(String name) throws EvalException {
-    return ruleContext.getSkylarkFragment(name, transition);
+    return ruleContext.getStarlarkFragment(name, transition);
   }
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    return ruleContext.getSkylarkFragmentNames(transition);
+    return ruleContext.getStarlarkFragmentNames(transition);
   }
 
   @Override

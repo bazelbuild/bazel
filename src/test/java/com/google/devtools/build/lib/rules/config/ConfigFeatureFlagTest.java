@@ -154,7 +154,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   }
 
   @Test
-  public void configFeatureFlagProvider_valueIsAccessibleFromSkylark() throws Exception {
+  public void configFeatureFlagProvider_valueIsAccessibleFromStarlark() throws Exception {
     scratch.file(
         "test/wrapper.bzl",
         "def _flag_reading_wrapper_impl(ctx):",
@@ -217,7 +217,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   }
 
   @Test
-  public void configFeatureFlagProvider_valueValidationIsPossibleFromSkylark() throws Exception {
+  public void configFeatureFlagProvider_valueValidationIsPossibleFromStarlark() throws Exception {
     scratch.file(
         "test/wrapper.bzl",
         "def _flag_reading_wrapper_impl(ctx):",

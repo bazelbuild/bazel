@@ -131,7 +131,7 @@ public final class ConfigurationFragmentPolicyTest {
   }
 
   @Test
-  public void testRequiresConfigurationFragments_MapSetsLegalityBySkylarkModuleName_NoRequires()
+  public void testRequiresConfigurationFragments_MapSetsLegalityByStarlarkModuleName_NoRequires()
       throws Exception {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()

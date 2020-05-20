@@ -1182,7 +1182,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testNoJavaCallsWithoutSkylark() throws Exception {
+  public void testNoJavaCallsWithoutStarlark() throws Exception {
     new Scenario()
         .testIfExactError("'int' value has no field or method 'to_string'", "s = 3.to_string()");
   }
@@ -1769,7 +1769,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testNoneTrueFalseInSkylark() throws Exception {
+  public void testNoneTrueFalseInStarlark() throws Exception {
     new Scenario()
         .setUp("a = None", "b = True", "c = False")
         .testLookup("a", Starlark.NONE)
@@ -1812,18 +1812,18 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testListAnTupleConcatenationDoesNotWorkInSkylark() throws Exception {
+  public void testListAnTupleConcatenationDoesNotWorkInStarlark() throws Exception {
     new Scenario()
         .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)");
   }
 
   @Test
-  public void testCannotCreateMixedListInSkylark() throws Exception {
+  public void testCannotCreateMixedListInStarlark() throws Exception {
     new Scenario().testExactOrder("['a', 'b', 1, 2]", "a", "b", 1, 2);
   }
 
   @Test
-  public void testCannotConcatListInSkylarkWithDifferentGenericTypes() throws Exception {
+  public void testCannotConcatListInStarlarkWithDifferentGenericTypes() throws Exception {
     new Scenario().testExactOrder("[1, 2] + ['a', 'b']", 1, 2, "a", "b");
   }
 

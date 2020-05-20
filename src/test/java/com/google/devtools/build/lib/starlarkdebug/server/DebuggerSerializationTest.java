@@ -201,7 +201,7 @@ public final class DebuggerSerializationTest {
   }
 
   @Test
-  public void testUnrecognizedObjectOrSkylarkPrimitiveHasNoChildren() {
+  public void testUnrecognizedObjectOrStarlarkPrimitiveHasNoChildren() {
     assertThat(getValueProto("name", 1).getHasChildren()).isFalse();
     assertThat(getValueProto("name", "string").getHasChildren()).isFalse();
     assertThat(getValueProto("name", new Object()).getHasChildren()).isFalse();
@@ -233,7 +233,7 @@ public final class DebuggerSerializationTest {
   }
 
   @Test
-  public void testSkipSkylarkCallableThrowingException() {
+  public void testSkipStarlarkCallableThrowingException() {
     DummyTypeWithException dummy = new DummyTypeWithException();
 
     Value value = getValueProto("name", dummy);

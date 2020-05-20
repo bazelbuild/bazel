@@ -4152,7 +4152,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testApkInfoAccessibleFromSkylark() throws Exception {
+  public void testApkInfoAccessibleFromStarlark() throws Exception {
     scratch.file(
         "java/com/google/android/BUILD",
         "load(':postprocess.bzl', 'postprocess')",
@@ -4174,7 +4174,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testInstrumentationInfoAccessibleFromSkylark() throws Exception {
+  public void testInstrumentationInfoAccessibleFromStarlark() throws Exception {
     scratch.file(
         "java/com/google/android/instr/BUILD",
         "load(':instr.bzl', 'instr')",
@@ -4200,7 +4200,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testInstrumentationInfoCreatableFromSkylark() throws Exception {
+  public void testInstrumentationInfoCreatableFromStarlark() throws Exception {
     scratch.file(
         "java/com/google/android/instr/BUILD",
         "load(':instr.bzl', 'instr')",
@@ -4370,7 +4370,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void skylarkJavaInfoToAndroidBinaryAttributes() throws Exception {
+  public void starlarkJavaInfoToAndroidBinaryAttributes() throws Exception {
     scratch.file(
         "java/r/android/extension.bzl",
         "def _impl(ctx):",
@@ -4643,7 +4643,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAndroidSkylarkApiNativeLibs() throws Exception {
+  public void testAndroidStarlarkApiNativeLibs() throws Exception {
     scratch.file(
         "java/a/fetch_native_libs.bzl",
         "def _impl(ctx):",

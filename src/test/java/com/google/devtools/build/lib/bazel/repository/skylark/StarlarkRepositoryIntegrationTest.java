@@ -119,7 +119,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkLocalRepository() throws Exception {
+  public void testStarlarkLocalRepository() throws Exception {
     // A simple test that recreates local_repository with Starlark.
     scratch.file("/repo2/WORKSPACE");
     scratch.file("/repo2/bar.txt");
@@ -207,7 +207,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkSymlinkFileFromRepository() throws Exception {
+  public void testStarlarkSymlinkFileFromRepository() throws Exception {
     scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='foo')");
     scratch.file("/repo2/BUILD");
     scratch.file("/repo2/WORKSPACE");
@@ -235,7 +235,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkRepositoryTemplate() throws Exception {
+  public void testStarlarkRepositoryTemplate() throws Exception {
     scratch.file("/repo2/bar.txt", "filegroup(name='{target}', srcs=['foo.txt'], path='{path}')");
     scratch.file("/repo2/BUILD");
     scratch.file("/repo2/WORKSPACE");
@@ -264,7 +264,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkRepositoryName() throws Exception {
+  public void testStarlarkRepositoryName() throws Exception {
     // Variation of the template rule to test the repository_ctx.name field.
     scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='{path}')");
     scratch.file("/repo2/BUILD");
@@ -419,7 +419,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkRepositoryCannotOverrideBuiltInAttribute() throws Exception {
+  public void testStarlarkRepositoryCannotOverrideBuiltInAttribute() throws Exception {
     scratch.file(
         "def.bzl",
         "def _impl(ctx):",

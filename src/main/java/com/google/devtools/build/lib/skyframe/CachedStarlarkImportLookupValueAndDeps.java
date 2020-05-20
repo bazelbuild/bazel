@@ -134,7 +134,7 @@ class CachedStarlarkImportLookupValueAndDeps {
     }
 
     CachedStarlarkImportLookupValueAndDeps build() {
-      // We expect that we don't handle any exceptions in SkylarkLookupImportFunction directly.
+      // We expect that we don't handle any exceptions in StarlarkLookupImportFunction directly.
       Preconditions.checkState(exceptionSeen.get() == null, "Caching a value in error?: %s", this);
       Preconditions.checkNotNull(value, "Expected value to be set: %s", this);
       Preconditions.checkNotNull(key, "Expected key to be set: %s", this);

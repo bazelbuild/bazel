@@ -40,8 +40,8 @@ public interface JavaCommonApi<
         JavaToolchainT extends JavaToolchainStarlarkApiProviderApi,
         JavaRuntimeT extends JavaRuntimeInfoApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
-        SkylarkActionFactoryT extends StarlarkActionFactoryApi>
+        starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        StarlarkActionFactoryT extends StarlarkActionFactoryApi>
     extends StarlarkValue {
 
   @StarlarkMethod(
@@ -215,7 +215,7 @@ public interface JavaCommonApi<
       },
       useStarlarkThread = true)
   JavaInfoT createJavaCompileAction(
-      SkylarkRuleContextT skylarkRuleContext,
+      starlarkRuleContextT starlarkRuleContext,
       Sequence<?> sourceJars, // <FileT> expected.
       Sequence<?> sourceFiles, // <FileT> expected.
       FileT outputJar,
@@ -277,7 +277,7 @@ public interface JavaCommonApi<
             doc = "A JavaToolchainInfo to used to find the ijar tool."),
       })
   FileApi runIjar(
-      SkylarkActionFactoryT actions, FileT jar, Object targetLabel, JavaToolchainT javaToolchain)
+      StarlarkActionFactoryT actions, FileT jar, Object targetLabel, JavaToolchainT javaToolchain)
       throws EvalException;
 
   @StarlarkMethod(
@@ -320,7 +320,7 @@ public interface JavaCommonApi<
             doc = "A JavaToolchainInfo to used to find the stamp_jar tool."),
       })
   FileApi stampJar(
-      SkylarkActionFactoryT actions, FileT jar, Label targetLabel, JavaToolchainT javaToolchain)
+      StarlarkActionFactoryT actions, FileT jar, Label targetLabel, JavaToolchainT javaToolchain)
       throws EvalException;
 
   @StarlarkMethod(
@@ -375,7 +375,7 @@ public interface JavaCommonApi<
       },
       allowReturnNones = true)
   FileApi packSources(
-      SkylarkActionFactoryT actions,
+      StarlarkActionFactoryT actions,
       FileT outputJar,
       Sequence<?> sourceFiles, // <FileT> expected.
       Sequence<?> sourceJars, // <FileT> expected.
@@ -460,7 +460,7 @@ public interface JavaCommonApi<
             doc = "The rule context."),
       },
       doc = "Returns true if --incompatible_use_toolchain_resolution_for_java_rules is enabled.")
-  boolean isJavaToolchainResolutionEnabled(SkylarkRuleContextT ruleContext) throws EvalException;
+  boolean isJavaToolchainResolutionEnabled(starlarkRuleContextT ruleContext) throws EvalException;
 
   @StarlarkMethod(
       name = "MessageBundleInfo",

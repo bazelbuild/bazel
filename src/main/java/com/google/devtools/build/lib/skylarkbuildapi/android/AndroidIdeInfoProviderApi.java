@@ -169,7 +169,7 @@ public interface AndroidIdeInfoProviderApi<
 
   /** A map, keyed on architecture, of the native libs for the app, if any. */
   @StarlarkMethod(name = "native_libs", structField = true, doc = "", documented = false)
-  ImmutableMap<String, Depset> getNativeLibsSkylark();
+  ImmutableMap<String, Depset> getNativeLibsStarlark();
 
   /** The provider implementing this can construct the AndroidIdeInfo provider. */
   @StarlarkBuiltin(

@@ -126,7 +126,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                 (StarlarkFunction) defaultValue,
                 thread.getSemantics(),
                 BazelStarlarkContext.from(thread));
-        // SkylarkComputedDefaultTemplate needs to know the names of all attributes that it depends
+        // StarlarkComputedDefaultTemplate needs to know the names of all attributes that it depends
         // on. However, this method does not know anything about other attributes.
         // We solve this problem by asking the StarlarkCallbackHelper for the parameter names used
         // in the function definition, which must be the names of attributes used by the callback.

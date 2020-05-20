@@ -331,7 +331,7 @@ public final class ConfiguredTargetFactory {
             starlarkName -> {
               requiredFragments.add(
                   ClassName.getSimpleNameWithOuter(
-                      configuration.getSkylarkFragmentByName(starlarkName)));
+                      configuration.getStarlarkFragmentByName(starlarkName)));
             });
     // Fragments universally required by everything:
     universallyRequiredFragments.forEach(
@@ -500,7 +500,7 @@ public final class ConfiguredTargetFactory {
           ruleContext.getConfiguredTargetMap().values();
       for (TransitiveInfoCollection infoCollection : infoCollections) {
         AnalysisFailureInfo failureInfo =
-            infoCollection.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR);
+            infoCollection.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR);
         if (failureInfo != null) {
           analysisFailures.add(failureInfo.getCausesNestedSet());
         }

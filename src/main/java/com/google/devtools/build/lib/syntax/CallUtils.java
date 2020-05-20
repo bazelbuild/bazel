@@ -154,7 +154,7 @@ public final class CallUtils {
    * necessarily the same as Starlark attribute name).
    */
   // TODO(adonovan): eliminate sole use in skydoc.
-  public static ImmutableMap<Method, StarlarkMethod> collectSkylarkMethodsWithAnnotation(
+  public static ImmutableMap<Method, StarlarkMethod> collectStarlarkMethodsWithAnnotation(
       Class<?> objClass) {
     ImmutableMap.Builder<Method, StarlarkMethod> result = ImmutableMap.builder();
     for (MethodDescriptor desc :

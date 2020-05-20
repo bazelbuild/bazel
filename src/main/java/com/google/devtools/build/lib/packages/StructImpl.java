@@ -38,8 +38,8 @@ import javax.annotation.Nullable;
  *
  * <p>StructImpl does not specify how the fields are represented; subclasses must define {@code
  * getValue} and {@code getFieldNames}. For example, {@code NativeInfo} supplies fields from the
- * subclass's {@code StarlarkMethod(structField=true)} annotations, and {@code SkylarkInfo} supplies
- * fields from the map provided at its construction.
+ * subclass's {@code StarlarkMethod(structField=true)} annotations, and {@code StarlarkInfo}
+ * supplies fields from the map provided at its construction.
  *
  * <p>Two StructImpls are equivalent if they have the same provider and, for each field name
  * reported by {@code getFieldNames} their corresponding field values are equivalent, or accessing

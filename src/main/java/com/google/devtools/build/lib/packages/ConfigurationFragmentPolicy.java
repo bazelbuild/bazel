@@ -215,7 +215,7 @@ public final class ConfigurationFragmentPolicy {
    * with the naming form seen in the Starlark API.
    *
    * <p>{@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#getSkylarkFragmentByName} can
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#getStarlarkFragmentByName} can
    * be used to convert this to Java fragment instances.
    */
   public Collection<String> getRequiredStarlarkFragments() {

@@ -93,7 +93,7 @@ public final class JavaRuleOutputJarsProvider
 
     @Nullable
     @Override
-    public Sequence<Artifact> getSrcJarsSkylark() {
+    public Sequence<Artifact> getSrcJarsStarlark() {
       return StarlarkList.immutableCopyOf(srcJars);
     }
 

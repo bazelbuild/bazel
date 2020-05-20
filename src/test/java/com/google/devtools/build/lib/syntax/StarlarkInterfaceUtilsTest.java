@@ -212,7 +212,7 @@ public class StarlarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkCallableBasic() throws Exception {
+  public void testGetStarlarkCallableBasic() throws Exception {
     // Normal case. Ensure two-arg form is consistent with one-arg form.
     Method method = MockClassA.class.getMethod("foo");
     StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
@@ -224,7 +224,7 @@ public class StarlarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkCallableSubclass() throws Exception {
+  public void testGetStarlarkCallableSubclass() throws Exception {
     // Subclass's annotation is used.
     Method method = MockClassC.class.getMethod("foo");
     StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
@@ -233,7 +233,7 @@ public class StarlarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkCallableSubclassNoSubannotation() throws Exception {
+  public void testGetStarlarkCallableSubclassNoSubannotation() throws Exception {
     // Falls back on superclass's annotation. Superclass takes precedence over interface.
     Method method = MockClassC.class.getMethod("bar");
     StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
@@ -242,7 +242,7 @@ public class StarlarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkCallableTwoargForm() throws Exception {
+  public void testGetStarlarkCallableTwoargForm() throws Exception {
     // Ensure that when passing superclass in directly, we bypass subclass's annotation.
     Method method = MockClassC.class.getMethod("foo");
     StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(MockClassA.class, method);
@@ -251,7 +251,7 @@ public class StarlarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkCallableNotFound() throws Exception {
+  public void testGetStarlarkCallableNotFound() throws Exception {
     // Null result when no annotation present...
     Method method = MockClassA.class.getMethod("baz");
     StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);
@@ -269,7 +269,7 @@ public class StarlarkInterfaceUtilsTest {
   }
 
   @Test
-  public void testGetSkylarkCallableInterface() throws Exception {
+  public void testGetStarlarkCallableInterface() throws Exception {
     // Search through parent interfaces. First interface takes priority.
     Method method = MockClassC.class.getMethod("baz");
     StarlarkMethod ann = StarlarkInterfaceUtils.getStarlarkMethod(method);

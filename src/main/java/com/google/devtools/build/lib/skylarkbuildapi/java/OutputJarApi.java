@@ -66,5 +66,5 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
       doc = "A list of sources archive files.",
       allowReturnNones = true,
       structField = true)
-  Sequence<FileT> getSrcJarsSkylark();
+  Sequence<FileT> getSrcJarsStarlark();
 }

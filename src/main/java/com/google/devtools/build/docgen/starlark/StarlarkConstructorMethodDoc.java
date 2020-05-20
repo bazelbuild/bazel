@@ -22,14 +22,14 @@ import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A class representing a Java method callable from Starlark which constructs a type of Starlark
- * object. Such a method is annotated with {@link SkylarkConstructor}, and has special handling.
+ * object. Such a method is annotated with {@link StarlarkConstructor}, and has special handling.
  */
 public final class StarlarkConstructorMethodDoc extends StarlarkMethodDoc {
   private final String fullyQualifiedName;
   private final Method method;
   private final StarlarkMethod callable;
   private final ImmutableList<StarlarkParamDoc> params;
-  // TODO(cparsons): Move to superclass when SkylarkBuiltinMethodDoc is removed.
+  // TODO(cparsons): Move to superclass when StarlarkBuiltinMethodDoc is removed.
   private final boolean deprecated;
 
   public StarlarkConstructorMethodDoc(

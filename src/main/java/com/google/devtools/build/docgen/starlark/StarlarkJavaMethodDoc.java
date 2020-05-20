@@ -31,7 +31,7 @@ public final class StarlarkJavaMethodDoc extends StarlarkMethodDoc {
   private final Method method;
   private final StarlarkMethod callable;
   private final ImmutableList<StarlarkParamDoc> params;
-  // TODO(cparsons): Move to superclass when SkylarkBuiltinMethodDoc is removed.
+  // TODO(cparsons): Move to superclass when StarlarkBuiltinMethodDoc is removed.
   private final boolean deprecated;
 
   private boolean isOverloaded;

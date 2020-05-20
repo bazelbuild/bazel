@@ -42,7 +42,7 @@ import org.junit.runners.JUnit4;
 
 /**
  * Tests for the hash code calculated for Starlark RuleClasses based on the transitive closure of
- * the imports of their respective definition SkylarkEnvironments.
+ * the imports of their respective definition StarlarkEnvironments.
  */
 @RunWith(JUnit4.class)
 public class StarlarkFileContentHashTests extends BuildViewTestCase {

@@ -132,7 +132,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadFromSkylarkFileInRemoteRepo() throws Exception {
+  public void testLoadFromStarlarkFileInRemoteRepo() throws Exception {
     scratch.overwriteFile("WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",

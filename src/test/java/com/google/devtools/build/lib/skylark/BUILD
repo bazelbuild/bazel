@@ -15,7 +15,7 @@ filegroup(
 )
 
 java_test(
-    name = "SkylarkTests",
+    name = "StarlarkTests",
     timeout = "long",
     srcs = glob(["*.java"]),
     shard_count = 25,

@@ -40,7 +40,7 @@ import net.starlark.java.annot.StarlarkMethod;
 @Immutable
 public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
 
-  public static final String SKYLARK_NAME = "BootClassPathInfo";
+  public static final String STARLARK_NAME = "BootClassPathInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<BootClassPathInfo> PROVIDER = new Provider();
@@ -49,7 +49,7 @@ public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   public static class Provider extends BuiltinProvider<BootClassPathInfo> implements ProviderApi {
     private Provider() {
-      super(SKYLARK_NAME, BootClassPathInfo.class);
+      super(STARLARK_NAME, BootClassPathInfo.class);
     }
 
     @StarlarkMethod(

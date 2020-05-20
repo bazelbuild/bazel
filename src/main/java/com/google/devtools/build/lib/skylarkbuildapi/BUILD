@@ -7,7 +7,7 @@
 #   annotation interfaces).
 #
 # This package contains specific files for Bazel concepts, such as
-# SkylarkRuleClassApi and FileApi. Only add it as a dependency if you require
+# StarlarkRuleClassApi and FileApi. Only add it as a dependency if you require
 # those APIs.
 
 load("@rules_java//java:defs.bzl", "java_library")

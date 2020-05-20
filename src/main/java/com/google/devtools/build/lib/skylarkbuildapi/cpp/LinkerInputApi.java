@@ -36,13 +36,13 @@ public interface LinkerInputApi<
       name = "owner",
       doc = "Returns the owner of this LinkerInput.",
       structField = true)
-  Label getSkylarkOwner() throws EvalException;
+  Label getStarlarkOwner() throws EvalException;
 
   @StarlarkMethod(
       name = "user_link_flags",
       doc = "Returns the list of user link flags passed as strings.",
       structField = true)
-  Sequence<String> getSkylarkUserLinkFlags();
+  Sequence<String> getStarlarkUserLinkFlags();
 
   @StarlarkMethod(
       name = "libraries",
@@ -51,11 +51,11 @@ public interface LinkerInputApi<
               + "deprecated. See #8118.",
       structField = true,
       useStarlarkSemantics = true)
-  Sequence<LibraryToLinkT> getSkylarkLibrariesToLink(StarlarkSemantics semantics);
+  Sequence<LibraryToLinkT> getStarlarkLibrariesToLink(StarlarkSemantics semantics);
 
   @StarlarkMethod(
       name = "additional_inputs",
       doc = "Returns the depset of additional inputs, e.g.: linker scripts.",
       structField = true)
-  Sequence<FileT> getSkylarkNonCodeInputs();
+  Sequence<FileT> getStarlarkNonCodeInputs();
 }

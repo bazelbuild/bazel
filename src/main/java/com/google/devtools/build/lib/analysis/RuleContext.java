@@ -502,10 +502,10 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public Fragment getSkylarkFragment(String name, ConfigurationTransition transition)
+  public Fragment getStarlarkFragment(String name, ConfigurationTransition transition)
       throws EvalException {
     Class<? extends Fragment> fragmentClass =
-        getConfiguration(transition).getSkylarkFragmentByName(name);
+        getConfiguration(transition).getStarlarkFragmentByName(name);
     if (fragmentClass == null) {
       return null;
     }
@@ -523,8 +523,8 @@ public final class RuleContext extends TargetContext
     }
   }
 
-  public ImmutableCollection<String> getSkylarkFragmentNames(ConfigurationTransition transition) {
-    return getConfiguration(transition).getSkylarkFragmentNames();
+  public ImmutableCollection<String> getStarlarkFragmentNames(ConfigurationTransition transition) {
+    return getConfiguration(transition).getStarlarkFragmentNames();
   }
 
   public <T extends Fragment> boolean isLegalFragment(

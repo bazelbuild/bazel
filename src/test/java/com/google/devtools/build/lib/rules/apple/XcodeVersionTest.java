@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
 public final class XcodeVersionTest extends BuildViewTestCase {
 
   @Test
-  public void testXcodeVersionCanBeReadFromSkylark() throws Exception {
+  public void testXcodeVersionCanBeReadFromStarlark() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",

@@ -39,7 +39,7 @@ import net.starlark.java.annot.StarlarkMethod;
 public interface WrapCcHelperApi<
         FeatureConfigurationT extends FeatureConfigurationApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
+        starlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         CompilationInfoT extends CompilationInfoApi<FileT>,
         FileT extends FileApi,
@@ -60,7 +60,7 @@ public interface WrapCcHelperApi<
             type = CcToolchainProviderApi.class),
       })
   public FeatureConfigurationT starlarkGetFeatureConfiguration(
-      SkylarkRuleContextT skylarkRuleContext, CcToolchainProviderT ccToolchain)
+      starlarkRuleContextT starlarkRuleContext, CcToolchainProviderT ccToolchain)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -69,7 +69,7 @@ public interface WrapCcHelperApi<
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
       })
-  public Depset starlarkCollectTransitiveSwigIncludes(SkylarkRuleContextT skylarkRuleContext);
+  public Depset starlarkCollectTransitiveSwigIncludes(starlarkRuleContextT starlarkRuleContext);
 
   @StarlarkMethod(
       name = "create_compile_actions",
@@ -96,7 +96,7 @@ public interface WrapCcHelperApi<
         @Param(name = "target_copts", positional = false, named = true, type = Sequence.class),
       })
   public CompilationInfoT starlarkCreateCompileActions(
-      SkylarkRuleContextT skylarkRuleContext,
+      starlarkRuleContextT starlarkRuleContext,
       FeatureConfigurationT featureConfiguration,
       CcToolchainProviderT ccToolchain,
       FileT ccFile,
@@ -112,7 +112,7 @@ public interface WrapCcHelperApi<
       parameters = {
         @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
       })
-  public String starlarkGetMangledTargetName(SkylarkRuleContextT skylarkRuleContext)
+  public String starlarkGetMangledTargetName(starlarkRuleContextT starlarkRuleContext)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -125,7 +125,7 @@ public interface WrapCcHelperApi<
       })
   // TODO(plf): Not written in Starlark because of PythonRunfilesProvider.
   public WrapCcIncludeProviderT getWrapCcIncludeProvider(
-      SkylarkRuleContextT skylarkRuleContext, Depset swigIncludes)
+      starlarkRuleContextT starlarkRuleContext, Depset swigIncludes)
       throws EvalException, InterruptedException;
 
   @StarlarkMethod(
@@ -184,7 +184,7 @@ public interface WrapCcHelperApi<
       })
   // TODO(plf): Write in Starlark when all 3 SWIG rules are in Starlark.
   public void registerSwigAction(
-      SkylarkRuleContextT skylarkRuleContext,
+      starlarkRuleContextT starlarkRuleContext,
       CcToolchainProviderT ccToolchain,
       FeatureConfigurationT featureConfiguration,
       CcCompilationContextT wrapperCcCompilationContext,

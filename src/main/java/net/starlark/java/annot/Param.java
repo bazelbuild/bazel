@@ -71,12 +71,12 @@ public @interface Param {
   Class<?> generic1() default Object.class;
 
   /**
-   * Whether the name of a callback function can be given instead of a computed value. If a
-   * callback function is used then the value of this parameter will be computed only when
-   * actually requested. E.g., if a parameter {@code foo} of a function {@code bar} is passed a
-   * callback function, then only when the method {@code bar} actually asks for the value
-   * {@code foo}, replacing it by a
-   * {@link com.google.devtools.build.lib.syntax.SkylarkCallbackFunction} in between.
+   * Whether the name of a callback function can be given instead of a computed value. If a callback
+   * function is used then the value of this parameter will be computed only when actually
+   * requested. E.g., if a parameter {@code foo} of a function {@code bar} is passed a callback
+   * function, then only when the method {@code bar} actually asks for the value {@code foo},
+   * replacing it by a {@link com.google.devtools.build.lib.syntax.StarlarkCallbackFunction} in
+   * between.
    */
   boolean callbackEnabled() default false;
 

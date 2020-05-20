@@ -110,7 +110,7 @@ public class ObjcProviderTest {
   }
 
   @Test
-  public void directFieldsAddFromSkylark() throws Exception {
+  public void directFieldsAddFromStarlark() throws Exception {
     ImmutableList<Artifact> artifacts =
         ImmutableList.of(createArtifact("/foo"), createArtifact("/bar"));
     Depset set = Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
@@ -133,7 +133,7 @@ public class ObjcProviderTest {
   }
 
   @Test
-  public void keysExportedToSkylark() throws Exception {
+  public void keysExportedToStarlark() throws Exception {
     ImmutableSet<Key<?>> allRegisteredKeys =
         ImmutableSet.<Key<?>>builder()
             .addAll(ObjcProvider.KEYS_FOR_STARLARK)

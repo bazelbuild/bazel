@@ -2135,10 +2135,10 @@ public class RuleClass {
       // expressions in the build language, and they require configuration data from the analysis
       // phase to be resolved). Instead, we're setting the attribute value to a reference to the
       // computed default function, or if #getDefaultValue is a Starlark computed default
-      // template, setting the attribute value to a reference to the SkylarkComputedDefault
-      // returned from SkylarkComputedDefaultTemplate#computePossibleValues.
+      // template, setting the attribute value to a reference to the StarlarkComputedDefault
+      // returned from StarlarkComputedDefaultTemplate#computePossibleValues.
       //
-      // SkylarkComputedDefaultTemplate#computePossibleValues pre-computes all possible values the
+      // StarlarkComputedDefaultTemplate#computePossibleValues pre-computes all possible values the
       // function may evaluate to, and records them in a lookup table. By calling it here, with an
       // EventHandler, any errors that might occur during the function's evaluation can
       // be discovered and propagated here.

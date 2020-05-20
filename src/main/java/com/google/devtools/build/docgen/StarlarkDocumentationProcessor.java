@@ -83,7 +83,7 @@ public final class StarlarkDocumentationProcessor {
     writeCategoryPage(StarlarkDocumentationCategory.PROVIDER, outputDir, modulesByCategory);
     writeNavPage(outputDir, modulesByCategory.get(StarlarkDocumentationCategory.TOP_LEVEL_TYPE));
 
-    // In the code, there are two SkylarkModuleCategory instances that have no heading:
+    // In the code, there are two StarlarkModuleCategory instances that have no heading:
     // TOP_LEVEL_TYPE and NONE.
 
     // TOP_LEVEL_TYPE also contains the "global" module.

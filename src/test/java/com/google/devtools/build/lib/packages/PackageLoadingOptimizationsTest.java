@@ -89,7 +89,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void skylarkProviderIdentifierIsDedupedAcrossRuleClasses() throws Exception {
+  public void starlarkProviderIdentifierIsDedupedAcrossRuleClasses() throws Exception {
     scratch.file("foo/provider.bzl", "foo_provider = provider()");
     scratch.file(
         "foo/foo.bzl",

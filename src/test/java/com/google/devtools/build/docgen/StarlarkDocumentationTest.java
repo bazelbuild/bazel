@@ -53,13 +53,13 @@ public class StarlarkDocumentationTest {
       ImmutableList.of("Actions");
 
   @Test
-  public void testSkylarkRuleClassBuiltInItemsAreDocumented() throws Exception {
+  public void testStarlarkRuleClassBuiltInItemsAreDocumented() throws Exception {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
     StarlarkModules.addStarlarkGlobalsToBuilder(env);
-    checkSkylarkTopLevelEnvItemsAreDocumented(env.build());
+    checkStarlarkTopLevelEnvItemsAreDocumented(env.build());
   }
 
-  private void checkSkylarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
+  private void checkStarlarkTopLevelEnvItemsAreDocumented(Map<String, Object> globals)
       throws Exception {
     Map<String, String> docMap = new HashMap<>();
     Map<String, StarlarkBuiltinDoc> modules =
@@ -196,7 +196,7 @@ public class StarlarkDocumentationTest {
 
   /**
    * MockGlobalLibrary. While nothing directly depends on it, a test method in
-   * SkylarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
+   * StarlarkDocumentationTest checks all of the classes under a wide classpath and ensures this one
    * shows up.
    */
   @StarlarkGlobalLibrary
@@ -245,7 +245,7 @@ public class StarlarkDocumentationTest {
     }
 
     @StarlarkMethod(name = "skylark", doc = "skylark")
-    public Sequence<Integer> getSkylarkList() {
+    public Sequence<Integer> getStarlarkList() {
       return null;
     }
   }
@@ -330,7 +330,7 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
-  public void testSkylarkCallableParameters() throws Exception {
+  public void testStarlarkCallableParameters() throws Exception {
     Map<String, StarlarkBuiltinDoc> objects = collect(MockClassD.class);
     StarlarkBuiltinDoc moduleDoc = objects.get("MockClassD");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassD");
@@ -344,7 +344,7 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
-  public void testSkylarkCallableParametersAndArgs() throws Exception {
+  public void testStarlarkCallableParametersAndArgs() throws Exception {
     Map<String, StarlarkBuiltinDoc> objects = collect(MockClassF.class);
     StarlarkBuiltinDoc moduleDoc = objects.get("MockClassF");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassF");
@@ -359,7 +359,7 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
-  public void testSkylarkCallableParametersAndKwargs() throws Exception {
+  public void testStarlarkCallableParametersAndKwargs() throws Exception {
     Map<String, StarlarkBuiltinDoc> objects = collect(MockClassG.class);
     StarlarkBuiltinDoc moduleDoc = objects.get("MockClassG");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassG");
@@ -374,7 +374,7 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
-  public void testSkylarkCallableParametersAndArgsAndKwargs() throws Exception {
+  public void testStarlarkCallableParametersAndArgsAndKwargs() throws Exception {
     Map<String, StarlarkBuiltinDoc> objects = collect(MockClassH.class);
     StarlarkBuiltinDoc moduleDoc = objects.get("MockClassH");
     assertThat(moduleDoc.getDocumentation()).isEqualTo("MockClassH");
@@ -411,9 +411,8 @@ public class StarlarkDocumentationTest {
     assertThat(foundGlobalLibrary).isTrue();
   }
 
-
   @Test
-  public void testSkylarkCallableOverriding() throws Exception {
+  public void testStarlarkCallableOverriding() throws Exception {
     Map<String, StarlarkBuiltinDoc> objects =
         collect(ImmutableList.of(MockClassA.class, MockClassE.class));
     StarlarkBuiltinDoc moduleDoc = objects.get("MockClassE");
@@ -426,7 +425,7 @@ public class StarlarkDocumentationTest {
   }
 
   @Test
-  public void testSkylarkContainerReturnTypesWithoutAnnotations() throws Exception {
+  public void testStarlarkContainerReturnTypesWithoutAnnotations() throws Exception {
     Map<String, StarlarkBuiltinDoc> objects = collect(MockClassWithContainerReturnValues.class);
     assertThat(objects).containsKey("MockClassWithContainerReturnValues");
     Collection<StarlarkMethodDoc> methods =

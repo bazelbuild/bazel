@@ -109,7 +109,7 @@ public class PackageLoadingTest extends FoundationTestCase {
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
-    setUpSkyframe(parsePackageOptions(), parseSkylarkSemanticsOptions());
+    setUpSkyframe(parsePackageOptions(), parseStarlarkSemanticsOptions());
   }
 
   private void setUpSkyframe(
@@ -155,13 +155,13 @@ public class PackageLoadingTest extends FoundationTestCase {
     return parse(options).getOptions(PackageOptions.class);
   }
 
-  private StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+  private StarlarkSemanticsOptions parseStarlarkSemanticsOptions(String... options)
       throws Exception {
     return parse(options).getOptions(StarlarkSemanticsOptions.class);
   }
 
   protected void setOptions(String... options) throws Exception {
-    setUpSkyframe(parsePackageOptions(options), parseSkylarkSemanticsOptions(options));
+    setUpSkyframe(parsePackageOptions(options), parseStarlarkSemanticsOptions(options));
   }
 
   private PackageManager getPackageManager() {

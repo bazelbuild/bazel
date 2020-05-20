@@ -957,7 +957,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   // Tests that a j2objc library can acquire java library information from a Starlark rule target.
   @Test
-  public void testJ2ObjcLibraryDepThroughSkylarkRule() throws Exception {
+  public void testJ2ObjcLibraryDepThroughStarlarkRule() throws Exception {
     scratch.file("examples/inner.java");
     scratch.file("examples/outer.java");
     scratch.file(

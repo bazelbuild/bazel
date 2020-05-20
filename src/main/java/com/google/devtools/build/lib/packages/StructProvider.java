@@ -43,7 +43,7 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
     return create(kwargs, thread.getCallerLocation());
   }
 
-  // Called from SkylarkRepositoryContext. TODO(adonovan): eliminate.
+  // Called from StarlarkRepositoryContext. TODO(adonovan): eliminate.
   public StructImpl createWithBuiltinLocation(Dict<String, Object> kwargs) throws EvalException {
     return create(kwargs, Location.BUILTIN);
   }

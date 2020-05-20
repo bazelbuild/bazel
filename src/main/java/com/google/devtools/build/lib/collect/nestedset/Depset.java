@@ -448,7 +448,7 @@ public final class Depset implements StarlarkValue {
 
     // Returns the Java class representing the Starlark type of an instance of cls,
     // which must be one of String, Integer, or Boolean (in which case the result is cls),
-    // or a SkylarkModule-annotated Starlark value class or one of its subclasses,
+    // or a StarlarkModule-annotated Starlark value class or one of its subclasses,
     // in which case the result is the annotated class.
     //
     // TODO(adonovan): consider publishing something like this as Starlark.typeClass
@@ -550,7 +550,7 @@ public final class Depset implements StarlarkValue {
               semantics.incompatibleAlwaysCheckDepsetElements());
     } else {
       if (x != Starlark.NONE) {
-        if (!isEmptySkylarkList(items)) {
+        if (!isEmptyStarlarkList(items)) {
           throw new EvalException(
               null, "parameter 'items' cannot be specified both positionally and by keyword");
         }
@@ -582,7 +582,7 @@ public final class Depset implements StarlarkValue {
       return legacyOf(order, items);
     }
 
-    if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
+    if (direct != Starlark.NONE && !isEmptyStarlarkList(items)) {
       throw new EvalException(
           null, "Do not pass both 'direct' and 'items' argument to depset constructor.");
     }
@@ -599,7 +599,7 @@ public final class Depset implements StarlarkValue {
         order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
   }
 
-  private static boolean isEmptySkylarkList(Object o) {
+  private static boolean isEmptyStarlarkList(Object o) {
     return o instanceof Sequence && ((Sequence) o).isEmpty();
   }
 }

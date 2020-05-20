@@ -74,7 +74,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for SkylarkRuleClassFunctions. */
+/** Tests for StarlarkRuleClassFunctions. */
 @RunWith(JUnit4.class)
 public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
@@ -782,7 +782,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testExportAliasedName() throws Exception {
-    // When there are multiple names aliasing the same SkylarkExportable, the first one to be
+    // When there are multiple names aliasing the same StarlarkExportable, the first one to be
     // declared should be used. Make sure we're not using lexicographical order, hash order,
     // non-deterministic order, or anything else.
     evalAndExport(

@@ -622,7 +622,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAndroidDeviceBrokerInfoExposedToSkylark() throws Exception {
+  public void testAndroidDeviceBrokerInfoExposedToStarlark() throws Exception {
     scratch.file(
         "tools/android/emulated_device/BUILD",
         "android_device(",

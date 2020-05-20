@@ -28,7 +28,7 @@ public final class JavaStarlarkApiProvider extends StarlarkApiProvider
   /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "java";
   /** The name of the field in Starlark proto aspects used to access this class. */
-  public static final StarlarkProviderIdentifier SKYLARK_NAME =
+  public static final StarlarkProviderIdentifier STARLARK_NAME =
       StarlarkProviderIdentifier.forLegacy(NAME);
 
   /**

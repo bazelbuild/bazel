@@ -298,7 +298,8 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testEmptySkylarkConfigurationFragmentPolicySetup_HasNonNullPolicy() throws Exception {
+  public void testEmptyStarlarkConfigurationFragmentPolicySetup_HasNonNullPolicy()
+      throws Exception {
     AspectDefinition noPolicy =
         ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
             .requiresHostConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.<String>of())

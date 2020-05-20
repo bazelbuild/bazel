@@ -60,7 +60,7 @@ public class InterruptedExceptionTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testSkylarkGlobInterruptedException() throws Exception {
+  public void testStarlarkGlobInterruptedException() throws Exception {
     scratch.file("a/gen.bzl",
         "def gen():",
         "  native.filegroup(name = 'a', srcs = native.glob(['**/*']))");

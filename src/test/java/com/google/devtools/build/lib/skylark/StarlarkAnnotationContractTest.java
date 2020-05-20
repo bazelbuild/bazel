@@ -64,7 +64,7 @@ public class StarlarkAnnotationContractTest {
    * StarlarkBuiltin}.
    */
   @Test
-  public void testSkylarkCallableScope() throws Exception {
+  public void testStarlarkCallableScope() throws Exception {
     for (Class<?> candidateClass : Classpath.findClasses(MODULES_PACKAGE_PREFIX)) {
       if (StarlarkInterfaceUtils.getStarlarkBuiltin(candidateClass) == null
           && !StarlarkInterfaceUtils.hasStarlarkGlobalLibrary(candidateClass)) {

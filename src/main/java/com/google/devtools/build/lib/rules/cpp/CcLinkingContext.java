@@ -192,7 +192,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public Label getSkylarkOwner() throws EvalException {
+    public Label getStarlarkOwner() throws EvalException {
       if (owner == null) {
         throw Starlark.errorf(
             "Owner is null. This means that some target upstream is of a rule type that uses the"
@@ -210,7 +210,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public Sequence<LibraryToLink> getSkylarkLibrariesToLink(StarlarkSemantics semantics) {
+    public Sequence<LibraryToLink> getStarlarkLibrariesToLink(StarlarkSemantics semantics) {
       return StarlarkList.immutableCopyOf(getLibraries());
     }
 
@@ -219,7 +219,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public Sequence<String> getSkylarkUserLinkFlags() {
+    public Sequence<String> getStarlarkUserLinkFlags() {
       return StarlarkList.immutableCopyOf(
           getUserLinkFlags().stream()
               .map(LinkOptions::get)
@@ -232,7 +232,7 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public Sequence<Artifact> getSkylarkNonCodeInputs() {
+    public Sequence<Artifact> getStarlarkNonCodeInputs() {
       return StarlarkList.immutableCopyOf(getNonCodeInputs());
     }
 

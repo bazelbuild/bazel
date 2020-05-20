@@ -2791,7 +2791,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testFlagGroup_expandIfEqual_notSkylarkInfo() throws Exception {
+  public void testFlagGroup_expandIfEqual_notStarlarkInfo() throws Exception {
     loadCcToolchainConfigLib();
     createFlagGroupRule(
         "eight",
@@ -4499,7 +4499,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylark() throws Exception {
+  public void testCcToolchainInfoFromStarlark() throws Exception {
     loadCcToolchainConfigLib();
     scratch.file(
         "foo/crosstool.bzl",
@@ -4559,8 +4559,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkRequiredToolchainIdentifier() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("toolchain_identifier");
+  public void testCcToolchainInfoFromStarlarkRequiredToolchainIdentifier() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("toolchain_identifier");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e)
         .hasMessageThat()
@@ -4568,15 +4568,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkRequiredHostSystemName() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("host_system_name");
+  public void testCcToolchainInfoFromStarlarkRequiredHostSystemName() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("host_system_name");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e).hasMessageThat().contains("missing 1 required named argument: host_system_name");
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkRequiredTargetSystemName() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("target_system_name");
+  public void testCcToolchainInfoFromStarlarkRequiredTargetSystemName() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("target_system_name");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e)
         .hasMessageThat()
@@ -4584,43 +4584,43 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkRequiredTargetCpu() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("target_cpu");
+  public void testCcToolchainInfoFromStarlarkRequiredTargetCpu() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("target_cpu");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e).hasMessageThat().contains("missing 1 required named argument: target_cpu");
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkRequiredTargetLibc() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("target_libc");
+  public void testCcToolchainInfoFromStarlarkRequiredTargetLibc() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("target_libc");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e).hasMessageThat().contains("missing 1 required named argument: target_libc");
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkRequiredCompiler() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("compiler");
+  public void testCcToolchainInfoFromStarlarkRequiredCompiler() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("compiler");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e).hasMessageThat().contains("missing 1 required named argument: compiler");
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkRequiredAbiVersion() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("abi_version");
+  public void testCcToolchainInfoFromStarlarkRequiredAbiVersion() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("abi_version");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_version");
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkRequiredAbiLibcVersion() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("abi_libc_version");
+  public void testCcToolchainInfoFromStarlarkRequiredAbiLibcVersion() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("abi_libc_version");
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:r"));
     assertThat(e).hasMessageThat().contains("missing 1 required named argument: abi_libc_version");
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkAllRequiredStringsPresent() throws Exception {
-    setupSkylarkRuleForStringFieldsTesting("");
+  public void testCcToolchainInfoFromStarlarkAllRequiredStringsPresent() throws Exception {
+    setupStarlarkRuleForStringFieldsTesting("");
     ConfiguredTarget target = getConfiguredTarget("//foo:r");
     assertThat(target).isNotNull();
     CcToolchainConfigInfo ccToolchainConfigInfo =
@@ -4628,7 +4628,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(ccToolchainConfigInfo).isNotNull();
   }
 
-  private void setupSkylarkRuleForStringFieldsTesting(String fieldToExclude) throws Exception {
+  private void setupStarlarkRuleForStringFieldsTesting(String fieldToExclude) throws Exception {
     ImmutableList<String> fields =
         ImmutableList.of(
             "toolchain_identifier = 'identifier'",
@@ -4661,7 +4661,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkNoLegacyFeatures() throws Exception {
+  public void testCcToolchainInfoFromStarlarkNoLegacyFeatures() throws Exception {
     loadCcToolchainConfigLib();
     scratch.file(
         "foo/crosstool.bzl",
@@ -4728,7 +4728,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcToolchainInfoFromSkylarkWithLegacyFeatures() throws Exception {
+  public void testCcToolchainInfoFromStarlarkWithLegacyFeatures() throws Exception {
     loadCcToolchainConfigLib();
     scratch.file(
         "foo/crosstool.bzl",
@@ -5398,7 +5398,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testCcNativeRuleDependingOnSkylarkDefinedRule() throws Exception {
+  public void testCcNativeRuleDependingOnStarlarkDefinedRule() throws Exception {
     createFiles(scratch, "tools/build_defs/cc");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
   }

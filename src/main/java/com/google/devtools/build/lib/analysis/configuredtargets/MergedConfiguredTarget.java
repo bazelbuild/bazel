@@ -104,7 +104,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   protected Object rawGetStarlarkProvider(String providerKey) {
     if (providerKey.equals(AbstractConfiguredTarget.ACTIONS_FIELD_NAME)) {
       ImmutableList.Builder<ActionAnalysisMetadata> actions = ImmutableList.builder();
-      // Only expose actions which are SkylarkValues.
+      // Only expose actions which are StarlarkValues.
       // TODO(cparsons): Expose all actions to Starlark.
       for (ConfiguredAspect aspect : aspects) {
         actions.addAll(

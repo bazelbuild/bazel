@@ -37,7 +37,7 @@ java_library(
     ],
     deps = [
         ":CcImportBaseConfiguredTargetTest",
-        ":SkylarkCcCommonTestHelper",
+        ":StarlarkCcCommonTestHelper",
         ":util",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -109,7 +109,7 @@ java_library(
     name = "CcImportBaseConfiguredTargetTest",
     srcs = ["CcImportBaseConfiguredTargetTest.java"],
     deps = [
-        ":SkylarkCcCommonTestHelper",
+        ":StarlarkCcCommonTestHelper",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -123,7 +123,7 @@ java_library(
 )
 
 java_library(
-    name = "SkylarkCcCommonTestHelper",
+    name = "StarlarkCcCommonTestHelper",
     srcs = ["StarlarkCcCommonTestHelper.java"],
 )
 

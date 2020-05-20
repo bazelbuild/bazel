@@ -460,7 +460,7 @@ public final class DepsetTest {
     assertThat(ElementType.of(StarlarkList.class).toString()).isEqualTo("list");
     assertThat(ElementType.of(Tuple.class).toString()).isEqualTo("tuple");
     assertThat(ElementType.of(Dict.class).toString()).isEqualTo("dict");
-    class V implements StarlarkValue {} // no SkylarkModule annotation
+    class V implements StarlarkValue {} // no StarlarkModule annotation
     assertThat(ElementType.of(V.class).toString()).isEqualTo("V");
 
     // abstract classes that implement StarlarkValue

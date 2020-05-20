@@ -81,7 +81,7 @@ public class StarlarkActionProviderTest extends AnalysisTestCase {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void aspectGetsActionProviderForSkylarkRule() throws Exception {
+  public void aspectGetsActionProviderForStarlarkRule() throws Exception {
     scratch.file(
         "test/aspect.bzl",
         "foo = provider()",

@@ -29,7 +29,7 @@ import net.starlark.java.annot.StarlarkMethod;
  * stable interface for Starlark users.
  */
 @StarlarkBuiltin(
-    name = "AndroidSkylarkApiProvider",
+    name = "AndroidStarlarkApiProvider",
     title = "android",
     category = StarlarkDocumentationCategory.PROVIDER,
     doc =
@@ -146,7 +146,7 @@ public interface AndroidStarlarkApiProviderApi<FileT extends FileApi> extends St
 
   /** Helper class to provide information about IDLs related to this rule. */
   @StarlarkBuiltin(
-      name = "AndroidSkylarkIdlInfo",
+      name = "AndroidStarlarkIdlInfo",
       category = StarlarkDocumentationCategory.NONE,
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "

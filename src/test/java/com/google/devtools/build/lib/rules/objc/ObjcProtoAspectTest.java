@@ -243,7 +243,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcProtoAspectPropagatesProviderThroughSkylarkRule() throws Exception {
+  public void testObjcProtoAspectPropagatesProviderThroughStarlarkRule() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("x/data_filter.pbascii");
     scratch.file("test_skylark/BUILD");

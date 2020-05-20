@@ -104,7 +104,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
   private final FragmentClassSet fragmentClassSet;
 
-  private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
+  private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
   private final ImmutableSet<String> reservedActionMnemonics;
   private CommandLineLimits commandLineLimits;
@@ -252,7 +252,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     // this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
     this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
-    this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
+    this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions.clone();
     this.buildOptionsDiff = buildOptionsDiff;
     this.options = buildOptions.get(CoreOptions.class);
@@ -345,7 +345,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options;
   }
 
-  private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfSkylarkVisibleFragments() {
+  private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
     ImmutableMap.Builder<String, Class<? extends Fragment>> builder = ImmutableMap.builder();
 
     for (Class<? extends Fragment> fragmentClass : fragments.keySet()) {
@@ -866,12 +866,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.autoCpuEnvironmentGroup;
   }
 
-  public Class<? extends Fragment> getSkylarkFragmentByName(String name) {
-    return skylarkVisibleFragments.get(name);
+  public Class<? extends Fragment> getStarlarkFragmentByName(String name) {
+    return starlarkVisibleFragments.get(name);
   }
 
-  public ImmutableCollection<String> getSkylarkFragmentNames() {
-    return skylarkVisibleFragments.keySet();
+  public ImmutableCollection<String> getStarlarkFragmentNames() {
+    return starlarkVisibleFragments.keySet();
   }
 
   public BuildEventId getEventId() {

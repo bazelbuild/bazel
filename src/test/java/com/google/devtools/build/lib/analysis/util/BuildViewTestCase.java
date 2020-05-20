@@ -361,7 +361,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected final BuildConfigurationCollection createConfigurations(
-      ImmutableMap<String, Object> skylarkOptions, String... args) throws Exception {
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
     optionsParser =
         OptionsParser.builder()
             .optionsClasses(
@@ -383,7 +383,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsParser.parse(args);
 
     // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
-    optionsParser.setStarlarkOptions(skylarkOptions);
+    optionsParser.setStarlarkOptions(starlarkOptions);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     return skyframeExecutor.createConfigurations(
@@ -527,12 +527,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
    * into a single parameter so Starlark/native options don't have to be specified separately.
    *
-   * @param skylarkOptions map of Starlark-defined options where the keys are option names (in the
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    * @throws IllegalArgumentException
    */
-  protected void useConfiguration(ImmutableMap<String, Object> skylarkOptions, String... args)
+  protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
       throws Exception {
     ImmutableList<String> actualArgs =
         ImmutableList.<String>builder()
@@ -541,7 +541,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .add("--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString()))
             .build();
 
-    masterConfig = createConfigurations(skylarkOptions, actualArgs.toArray(new String[0]));
+    masterConfig = createConfigurations(starlarkOptions, actualArgs.toArray(new String[0]));
     targetConfig = getTargetConfiguration();
     targetConfigKey = BuildConfigurationValue.key(targetConfig);
     configurationArgs = actualArgs;

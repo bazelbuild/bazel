@@ -177,12 +177,12 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       builder.add(attr);
     }
     builder.requireAspectsWithProviders(requiredAspectProviders);
-    ImmutableList.Builder<StarlarkProviderIdentifier> advertisedSkylarkProviders =
+    ImmutableList.Builder<StarlarkProviderIdentifier> advertisedStarlarkProviders =
         ImmutableList.builder();
     for (StarlarkProviderIdentifier provider : provides) {
-      advertisedSkylarkProviders.add(provider);
+      advertisedStarlarkProviders.add(provider);
     }
-    builder.advertiseProvider(advertisedSkylarkProviders.build());
+    builder.advertiseProvider(advertisedStarlarkProviders.build());
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
     builder.addRequiredToolchains(requiredToolchains);

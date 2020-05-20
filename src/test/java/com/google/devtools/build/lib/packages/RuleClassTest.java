@@ -892,7 +892,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         DUMMY_STACK,
         /*key=*/ name,
         RuleClassType.NORMAL,
-        /*isSkylark=*/ skylarkExecutable,
+        /*isStarlark=*/ skylarkExecutable,
         /*skylarkTestable=*/ false,
         documented,
         publicByDefault,
