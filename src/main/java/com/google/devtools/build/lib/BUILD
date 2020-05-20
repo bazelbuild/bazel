@@ -256,7 +256,6 @@ java_library(
     srcs = glob(
         [
             "runtime/*.java",
-            # "runtime/commands/*.java",
             "buildtool/*.java",
             "buildtool/buildevent/*.java",
         ],
