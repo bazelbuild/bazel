@@ -155,6 +155,7 @@ message Interrupted {
     SYNC_COMMAND = 18 [(metadata) = { exit_code: 8 }];
     CLEAN_COMMAND = 20 [(metadata) = { exit_code: 8 }];
     MOBILE_INSTALL_COMMAND = 21 [(metadata) = { exit_code: 8 }];
+    QUERY = 22 [(metadata) = { exit_code: 8 }];
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
     reserved 19; // For internal use
@@ -511,6 +512,7 @@ message Query {
     QUERY_OUTPUT_WRITE_FAILURE = 6 [(metadata) = { exit_code: 36 }];
     QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
     ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
+    QUERY_RESULTS_FLUSH_FAILURE = 15 [(metadata) = { exit_code: 36 }];
 
     reserved 7 to 12; // For internal use
   }
