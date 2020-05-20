@@ -36,7 +36,9 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.commands.proto.BazelFlagsProto;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.HelpCommand.Code;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Converters;
@@ -129,8 +131,9 @@ public final class HelpCommand implements BlazeCommand {
       return BlazeCommandResult.success();
     }
     if (options.getResidue().size() != 1) {
-      env.getReporter().handle(Event.error("You must specify exactly one command"));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String message = "You must specify exactly one command";
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.MISSING_ARGUMENT);
     }
     String helpSubject = options.getResidue().get(0);
     String productName = runtime.getProductName();
@@ -162,8 +165,9 @@ public final class HelpCommand implements BlazeCommand {
 
     BlazeCommand command = runtime.getCommandMap().get(helpSubject);
     if (command == null) {
-      env.getReporter().handle(Event.error(null, "'" + helpSubject + "' is not a known command"));
-        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String message = "'" + helpSubject + "' is not a known command";
+      env.getReporter().handle(Event.error(null, message));
+      return createFailureResult(message, Code.COMMAND_NOT_FOUND);
     }
     emitBlazeVersionInfo(outErr, productName);
     outErr.printOut(
@@ -506,6 +510,14 @@ public final class HelpCommand implements BlazeCommand {
      *     by the command.
      */
     void visit(String commandName, Command commandAnnotation, OptionsParser parser);
+  }
+
+  private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
+    return BlazeCommandResult.failureDetail(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setHelpCommand(FailureDetails.HelpCommand.newBuilder().setCode(detailedCode))
+            .build());
   }
 }
 

@@ -122,6 +122,7 @@ message FailureDetail {
     ConfigCommand config_command = 145;
     ConfigurableQuery configurable_query = 146;
     DumpCommand dump_command = 147;
+    HelpCommand help_command = 148;
   }
 
   reserved 102; // For internal use
@@ -667,6 +668,16 @@ message DumpCommand {
     COMMAND_LINE_EXPANSION_FAILURE = 3 [(metadata) = { exit_code: 7 }];
     ACTION_GRAPH_DUMP_FAILED = 4 [(metadata) = { exit_code: 7 }];
     STARLARK_HEAP_DUMP_FAILED = 5 [(metadata) = { exit_code: 8 }];
+  }
+
+  Code code = 1;
+}
+
+message HelpCommand {
+  enum Code {
+    HELP_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MISSING_ARGUMENT = 1 [(metadata) = { exit_code: 2 }];
+    COMMAND_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
