@@ -390,12 +390,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
       Duration remoteQueueTime =
           spawnMetrics
               .build()
-              .remoteQueueTime()
+              .queueTime()
               .plus(
                   between(
                       executionMetadata.getQueuedTimestamp(),
                       executionMetadata.getWorkerStartTimestamp()));
-      spawnMetrics.setRemoteQueueTime(remoteQueueTime);
+      spawnMetrics.setQueueTime(remoteQueueTime);
       // setup time does not include failed attempts
       Duration setupTime =
           between(
@@ -413,7 +413,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
           between(
               executionMetadata.getOutputUploadStartTimestamp(),
               executionMetadata.getOutputUploadCompletedTimestamp());
-      spawnMetrics.setRemoteProcessOutputsTime(remoteProcessOutputsTime);
+      spawnMetrics.setProcessOutputsTime(remoteProcessOutputsTime);
     }
   }
 
@@ -629,7 +629,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
         .setFailureMessage(errorMessage)
         .build();
   }
-
 
   static Action buildAction(Digest command, Digest inputRoot, Duration timeout, boolean cacheable) {
 

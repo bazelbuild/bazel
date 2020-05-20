@@ -292,13 +292,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn),
-            eq(policy),
-            any(),
-            any(),
-            any(),
-            any(),
-            /* uploadLocalResults= */ eq(true));
+            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
     verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
   }
 
@@ -334,13 +328,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn),
-            eq(policy),
-            any(),
-            any(),
-            any(),
-            any(),
-            /* uploadLocalResults= */ eq(true));
+            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
     verify(cache).upload(any(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
@@ -988,10 +976,10 @@ public class RemoteSpawnRunnerTest {
   public void accountingAddsDurationsForStages() {
     SpawnMetrics.Builder builder =
         new SpawnMetrics.Builder()
-            .setRemoteQueueTime(Duration.ofSeconds(1))
+            .setQueueTime(Duration.ofSeconds(1))
             .setSetupTime(Duration.ofSeconds(2))
             .setExecutionWallTime(Duration.ofSeconds(2))
-            .setRemoteProcessOutputsTime(Duration.ofSeconds(2));
+            .setProcessOutputsTime(Duration.ofSeconds(2));
     Timestamp queued = Timestamp.getDefaultInstance();
     com.google.protobuf.Duration oneSecond = Durations.fromMillis(1000);
     Timestamp workerStart = Timestamps.add(queued, oneSecond);
@@ -1012,13 +1000,13 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata);
     SpawnMetrics spawnMetrics = builder.build();
     // remote queue time is accumulated
-    assertThat(spawnMetrics.remoteQueueTime()).isEqualTo(Duration.ofSeconds(2));
+    assertThat(spawnMetrics.queueTime()).isEqualTo(Duration.ofSeconds(2));
     // setup time is substituted
     assertThat(spawnMetrics.setupTime()).isEqualTo(Duration.ofSeconds(1));
     // execution time is unspecified, assume substituted
     assertThat(spawnMetrics.executionWallTime()).isEqualTo(Duration.ofSeconds(1));
-    // remoteProcessOutputs time is unspecified, assume substituted
-    assertThat(spawnMetrics.remoteProcessOutputsTime()).isEqualTo(Duration.ofSeconds(1));
+    // ProcessOutputs time is unspecified, assume substituted
+    assertThat(spawnMetrics.processOutputsTime()).isEqualTo(Duration.ofSeconds(1));
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {

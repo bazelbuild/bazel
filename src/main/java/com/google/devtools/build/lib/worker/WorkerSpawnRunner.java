@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -215,6 +216,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setStatus(
                 exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
             .setWallTime(wallTime)
+            .setSpawnMetrics(
+                new SpawnMetrics.Builder()
+                    .setExecKind(SpawnMetrics.ExecKind.WORKER)
+                    .setTotalTime(wallTime)
+                    .setExecutionWallTime(wallTime)
+                    .build())
             .build();
     reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
     return result;
