@@ -124,6 +124,7 @@ message FailureDetail {
     DumpCommand dump_command = 147;
     HelpCommand help_command = 148;
     MobileInstall mobile_install = 150;
+    ProfileCommand profile_command = 151;
   }
 
   reserved 102; // For internal use
@@ -695,6 +696,16 @@ message MobileInstall {
     TARGET_TYPE_INVALID = 4 [(metadata) = { exit_code: 6 }];
     NON_ZERO_EXIT = 5 [(metadata) = { exit_code: 6 }];
     ERROR_RUNNING_PROGRAM = 6 [(metadata) = { exit_code: 6 }];
+  }
+
+  Code code = 1;
+}
+
+message ProfileCommand {
+  enum Code {
+    PROFILE_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OLD_BINARY_FORMAT_UNSUPPORTED = 1 [(metadata) = { exit_code: 1 }];
+    FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
