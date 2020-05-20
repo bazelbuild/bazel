@@ -369,8 +369,9 @@ This will end up building `//bar_tools:barc_linux` but not
 
 ## Toolchain resolution
 
-**Note:** [Some Bazel rules](platforms-intro.html#status) do not yet support
-toolchain resolution.
+**Note:**
+[Some Bazel rules](platforms-intro.html#status)
+do not yet support toolchain resolution.
 
 For each target that uses toolchains, Bazel's toolchain resolution procedure
 determines the target's concrete toolchain dependencies. The procedure takes as input a
