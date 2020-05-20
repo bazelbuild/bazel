@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeBinInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeGenfilesInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.BlazeTestlogsInfoItem;
@@ -64,6 +65,7 @@ import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -198,7 +200,17 @@ public class InfoCommand implements BlazeCommand {
         }
       }
 
-      List<String> residue = optionsParsingResult.getResidue();
+      Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
+          StarlarkOptionsParser.removeStarlarkOptions(optionsParsingResult.getResidue());
+      ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
+      ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
+      if (!removedStarlarkOptions.isEmpty()) {
+        env.getReporter()
+            .handle(
+                Event.warn(
+                    "Blaze info does not support starlark options. Ignoring options: "
+                        + removedStarlarkOptions));
+      }
       if (residue.size() > 1) {
         String message = "at most one key may be specified";
         env.getReporter().handle(Event.error(message));
