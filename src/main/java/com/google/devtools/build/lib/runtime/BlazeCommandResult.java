@@ -65,6 +65,10 @@ public final class BlazeCommandResult {
     return execDescription;
   }
 
+  public boolean isSuccess() {
+    return detailedExitCode.isSuccess();
+  }
+
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)

@@ -130,12 +130,12 @@ public abstract class TestStrategy implements TestActionContext {
    * Generates a command line to run for the test action, taking into account coverage and {@code
    * --run_under} settings.
    *
-   * <p>Basically {@code expandedArgsFromAction}, but throws ExecException instead. This should be
-   * used in action execution.
+   * <p>Basically {@link #expandedArgsFromAction}, but throws {@link ExecException} instead. This
+   * should be used in action execution.
    *
    * @param testAction The test action.
    * @return the command line as string list.
-   * @throws ExecException
+   * @throws ExecException if {@link #expandedArgsFromAction} throws
    */
   public static ImmutableList<String> getArgs(TestRunnerAction testAction) throws ExecException {
     try {

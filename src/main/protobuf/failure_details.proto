@@ -125,6 +125,7 @@ message FailureDetail {
     HelpCommand help_command = 148;
     MobileInstall mobile_install = 150;
     ProfileCommand profile_command = 151;
+    RunCommand run_command = 152;
   }
 
   reserved 102; // For internal use
@@ -156,6 +157,7 @@ message Interrupted {
     CLEAN_COMMAND = 20 [(metadata) = { exit_code: 8 }];
     MOBILE_INSTALL_COMMAND = 21 [(metadata) = { exit_code: 8 }];
     QUERY = 22 [(metadata) = { exit_code: 8 }];
+    RUN_COMMAND = 23 [(metadata) = { exit_code: 8 }];
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
     reserved 19; // For internal use
@@ -708,6 +710,27 @@ message ProfileCommand {
     PROFILE_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     OLD_BINARY_FORMAT_UNSUPPORTED = 1 [(metadata) = { exit_code: 1 }];
     FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message RunCommand {
+  enum Code {
+    RUN_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NO_TARGET_SPECIFIED = 1 [(metadata) = { exit_code: 2 }];
+    TOO_MANY_TARGETS_SPECIFIED = 2 [(metadata) = { exit_code: 2 }];
+    TARGET_NOT_EXECUTABLE = 3 [(metadata) = { exit_code: 2 }];
+    TARGET_BUILT_BUT_PATH_NOT_EXECUTABLE = 4 [(metadata) = { exit_code: 37 }];
+    TARGET_BUILT_BUT_PATH_VALIDATION_FAILED = 5
+        [(metadata) = { exit_code: 36 }];
+    RUN_UNDER_TARGET_NOT_BUILT = 6 [(metadata) = { exit_code: 2 }];
+    RUN_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
+    TOO_MANY_TEST_SHARDS_OR_RUNS = 8 [(metadata) = { exit_code: 2 }];
+    TEST_ENVIRONMENT_SETUP_FAILURE = 9 [(metadata) = { exit_code: 36 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 10 [(metadata) = { exit_code: 36 }];
+    NO_SHELL_SPECIFIED = 11 [(metadata) = { exit_code: 2 }];
+    SCRIPT_WRITE_FAILURE = 12 [(metadata) = { exit_code: 6 }];
   }
 
   Code code = 1;
