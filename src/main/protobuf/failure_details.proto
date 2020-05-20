@@ -126,6 +126,7 @@ message FailureDetail {
     MobileInstall mobile_install = 150;
     ProfileCommand profile_command = 151;
     RunCommand run_command = 152;
+    VersionCommand version_command = 153;
   }
 
   reserved 102; // For internal use
@@ -731,6 +732,15 @@ message RunCommand {
     COMMAND_LINE_EXPANSION_FAILURE = 10 [(metadata) = { exit_code: 36 }];
     NO_SHELL_SPECIFIED = 11 [(metadata) = { exit_code: 2 }];
     SCRIPT_WRITE_FAILURE = 12 [(metadata) = { exit_code: 6 }];
+  }
+
+  Code code = 1;
+}
+
+message VersionCommand {
+  enum Code {
+    VERSION_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NOT_AVAILABLE = 1 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
