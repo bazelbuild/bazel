@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.runtime.commands;
+package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.runtime.CommonCommandOptions;
-import com.google.devtools.build.lib.runtime.ProjectFile;
+import com.google.devtools.build.lib.runtime.events.GotProjectFileEvent;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,7 +34,7 @@ import java.util.List;
  */
 public final class ProjectFileSupport {
   static final String PROJECT_FILE_PREFIX = "+";
-  
+
   private ProjectFileSupport() {}
 
   /**
@@ -44,18 +43,24 @@ public final class ProjectFileSupport {
    * are not enabled, then it throws an exception instead.
    */
   public static void handleProjectFiles(
-      ExtendedEventHandler eventHandler, ProjectFile.Provider projectFileProvider,
-      Path workspaceDir, Path workingDir, OptionsParser optionsParser, String command)
-          throws OptionsParsingException {
+      ExtendedEventHandler eventHandler,
+      ProjectFile.Provider projectFileProvider,
+      Path workspaceDir,
+      Path workingDir,
+      OptionsParser optionsParser,
+      String command)
+      throws OptionsParsingException {
     List<String> targets = optionsParser.getResidue();
-    if (projectFileProvider != null && !targets.isEmpty()
+    if (projectFileProvider != null
+        && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       if (targets.size() > 1) {
         throw new OptionsParsingException("Cannot handle more than one +<file> argument yet");
       }
       if (!optionsParser.getOptions(CommonCommandOptions.class).allowProjectFiles) {
-        throw new OptionsParsingException("project file support is not enabled. "
-                                          + "Pass --experimental_allow_project_files to enable.");
+        throw new OptionsParsingException(
+            "project file support is not enabled. "
+                + "Pass --experimental_allow_project_files to enable.");
       }
       // TODO(bazel-team): This is currently treated as a path relative to the workspace - if the
       // cwd is a subdirectory of the workspace, that will be surprising, and we should interpret it
@@ -73,8 +78,9 @@ public final class ProjectFileSupport {
                   workingDir,
                   BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY)
               .getPathEntries();
-      ProjectFile projectFile = projectFileProvider.getProjectFile(
-          workingDir, packagePath, projectFilePath, optionsParser);
+      ProjectFile projectFile =
+          projectFileProvider.getProjectFile(
+              workingDir, packagePath, projectFilePath, optionsParser);
       eventHandler.handle(Event.info("Using " + projectFile.getName()));
 
       optionsParser.parse(
@@ -91,7 +97,8 @@ public final class ProjectFileSupport {
   public static List<String> getTargets(
       ProjectFile.Provider projectFileProvider, OptionsParsingResult options) {
     List<String> targets = options.getResidue();
-    if (projectFileProvider != null && !targets.isEmpty()
+    if (projectFileProvider != null
+        && !targets.isEmpty()
         && targets.get(0).startsWith(PROJECT_FILE_PREFIX)) {
       return targets.subList(1, targets.size());
     }

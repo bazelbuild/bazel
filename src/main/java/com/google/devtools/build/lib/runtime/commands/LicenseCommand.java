@@ -43,8 +43,10 @@ public class LicenseCommand implements BlazeCommand {
   private static final ImmutableSet<String> JAVA_LICENSE_FILES =
       ImmutableSet.of("ASSEMBLY_EXCEPTION", "DISCLAIMER", "LICENSE", "THIRD_PARTY_README");
 
+  private static final String BAZEL_LICENSE = "license/LICENSE";
+
   public static boolean isSupported() {
-    return ResourceFileLoader.resourceExists(LicenseCommand.class, "LICENSE");
+    return ResourceFileLoader.resourceExists(LicenseCommand.class, BAZEL_LICENSE);
   }
 
   @Override
@@ -55,7 +57,7 @@ public class LicenseCommand implements BlazeCommand {
     outErr.printOutLn("Licenses of all components included in this binary:\n");
 
     try {
-      outErr.printOutLn(ResourceFileLoader.loadResource(this.getClass(), "LICENSE"));
+      outErr.printOutLn(ResourceFileLoader.loadResource(this.getClass(), BAZEL_LICENSE));
     } catch (IOException e) {
       throw new IllegalStateException(
           "I/O error while trying to print 'LICENSE' resource: " + e.getMessage(), e);

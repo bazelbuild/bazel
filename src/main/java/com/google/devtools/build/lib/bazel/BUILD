@@ -59,8 +59,8 @@ java_library(
     name = "builtin_command_module",
     srcs = ["BazelBuiltinCommandModule.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/exec:standalone_test_strategy",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
     ],
 )
 

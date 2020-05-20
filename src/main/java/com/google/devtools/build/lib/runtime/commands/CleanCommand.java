@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -98,19 +99,6 @@ public final class CleanCommand implements BlazeCommand {
               + "in the background."
     )
     public boolean async;
-  }
-
-  /** Posted on the public event stream to announce that a clean is happening. */
-  public static class CleanStartingEvent {
-    private final OptionsParsingResult optionsParsingResult;
-
-    public CleanStartingEvent(OptionsParsingResult optionsParsingResult) {
-      this.optionsParsingResult = optionsParsingResult;
-    }
-
-    public OptionsParsingResult getOptionsProvider() {
-      return optionsParsingResult;
-    }
   }
 
   private final OS os;
