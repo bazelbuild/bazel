@@ -104,10 +104,10 @@ void LegacyProcessWrapper::WaitForChild() {
   int status;
   if (!opt.stats_path.empty()) {
     struct rusage child_rusage;
-    status = WaitChildWithRusage(child_pid, &child_rusage);
+    status = WaitChildWithRusage(child_pid, &child_rusage, opt.wait_fix);
     WriteStatsToFile(&child_rusage, opt.stats_path);
   } else {
-    status = WaitChild(child_pid);
+    status = WaitChild(child_pid, opt.wait_fix);
   }
 
   if (opt.wait_fix) {
