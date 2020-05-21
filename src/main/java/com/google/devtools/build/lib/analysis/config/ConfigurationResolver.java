@@ -218,7 +218,7 @@ public final class ConfigurationResolver {
                   Dependency.builder()
                       .setLabel(dep.getLabel())
                       .withNullConfiguration()
-                      .addTransitionKeys(ImmutableList.copyOf(toOptions.keySet()))
+                      .setTransitionKeys(ImmutableList.copyOf(toOptions.keySet()))
                       .build();
             }
           }
@@ -338,6 +338,9 @@ public final class ConfigurationResolver {
                 .setLabel(dep.getLabel())
                 .setConfiguration(ctgValue.getConfiguration())
                 .setAspects(dep.getAspects())
+                // Explicitly do not set the transition key, since there is only one configuration
+                // and it matches the current one. This ignores the transition key set if this
+                // was a split transition.
                 .build());
         continue;
       }
@@ -429,7 +432,7 @@ public final class ConfigurationResolver {
                   .setLabel(originalDep.getLabel())
                   .setConfiguration(trimmedConfig)
                   .setAspects(originalDep.getAspects())
-                  .addTransitionKey(info.second)
+                  .setTransitionKey(info.second)
                   .build();
           Attribute attribute = attr.dependencyKind.getAttribute();
           if (attribute != null && attribute.getTransitionFactory().isSplit()) {
