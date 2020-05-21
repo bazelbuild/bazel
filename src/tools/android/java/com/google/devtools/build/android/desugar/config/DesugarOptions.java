@@ -308,15 +308,6 @@ public class DesugarOptions extends OptionsBase {
               + " implementations.")
   public boolean desugarIndifyStringConcat;
 
-  @Option(
-      name = "persistent_worker",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      help = "Run as a Bazel persistent worker.")
-  public boolean persistentWorker;
-
   public static DesugarOptions parseCommandLineOptions(String[] args) {
     OptionsParser parser =
         OptionsParser.builder()
