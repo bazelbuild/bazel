@@ -25,31 +25,31 @@ import com.google.devtools.build.lib.syntax.Starlark;
  * A {@link Bootstrap} for top-level libraries of the build API.
  */
 public class TopLevelBootstrap implements Bootstrap {
-  private final SkylarkBuildApiGlobals skylarkBuildApiGlobals;
+  private final StarlarkBuildApiGlobals starlarkBuildApiGlobals;
   private final StarlarkAttrModuleApi starlarkAttrModuleApi;
   private final StarlarkCommandLineApi starlarkCommandLineApi;
-  private final SkylarkNativeModuleApi skylarkNativeModuleApi;
-  private final SkylarkRuleFunctionsApi<?> skylarkRuleFunctionsApi;
+  private final StarlarkNativeModuleApi starlarkNativeModuleApi;
+  private final StarlarkRuleFunctionsApi<?> starlarkRuleFunctionsApi;
   private final StructApi.StructProviderApi structProvider;
   private final OutputGroupInfoApiProvider outputGroupInfoProvider;
   private final ActionsInfoProviderApi actionsInfoProviderApi;
   private final DefaultInfoApiProvider<?, ?> defaultInfoProvider;
 
   public TopLevelBootstrap(
-      SkylarkBuildApiGlobals skylarkBuildApiGlobals,
+      StarlarkBuildApiGlobals starlarkBuildApiGlobals,
       StarlarkAttrModuleApi starlarkAttrModuleApi,
       StarlarkCommandLineApi starlarkCommandLineApi,
-      SkylarkNativeModuleApi skylarkNativeModuleApi,
-      SkylarkRuleFunctionsApi<?> skylarkRuleFunctionsApi,
+      StarlarkNativeModuleApi starlarkNativeModuleApi,
+      StarlarkRuleFunctionsApi<?> starlarkRuleFunctionsApi,
       StructApi.StructProviderApi structProvider,
       OutputGroupInfoApiProvider outputGroupInfoProvider,
       ActionsInfoProviderApi actionsInfoProviderApi,
       DefaultInfoApiProvider<?, ?> defaultInfoProvider) {
     this.starlarkAttrModuleApi = starlarkAttrModuleApi;
-    this.skylarkBuildApiGlobals = skylarkBuildApiGlobals;
+    this.starlarkBuildApiGlobals = starlarkBuildApiGlobals;
     this.starlarkCommandLineApi = starlarkCommandLineApi;
-    this.skylarkNativeModuleApi = skylarkNativeModuleApi;
-    this.skylarkRuleFunctionsApi = skylarkRuleFunctionsApi;
+    this.starlarkNativeModuleApi = starlarkNativeModuleApi;
+    this.starlarkRuleFunctionsApi = starlarkRuleFunctionsApi;
     this.structProvider = structProvider;
     this.outputGroupInfoProvider = outputGroupInfoProvider;
     this.actionsInfoProviderApi = actionsInfoProviderApi;
@@ -58,11 +58,11 @@ public class TopLevelBootstrap implements Bootstrap {
 
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
-    Starlark.addMethods(builder, skylarkBuildApiGlobals);
-    Starlark.addMethods(builder, skylarkRuleFunctionsApi);
+    Starlark.addMethods(builder, starlarkBuildApiGlobals);
+    Starlark.addMethods(builder, starlarkRuleFunctionsApi);
     Starlark.addModule(builder, starlarkAttrModuleApi); // "attr"
     Starlark.addModule(builder, starlarkCommandLineApi); // "cmd_helper"
-    Starlark.addModule(builder, skylarkNativeModuleApi); // "native"
+    Starlark.addModule(builder, starlarkNativeModuleApi); // "native"
     builder.put("struct", structProvider);
     builder.put("OutputGroupInfo", outputGroupInfoProvider);
     builder.put("Actions", actionsInfoProviderApi);

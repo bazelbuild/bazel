@@ -2,7 +2,7 @@
 layout: documentation
 title: Test encyclopedia
 ---
-<h1>Writing tests</h1>
+<h1>Test encyclopedia</h1>
 
 <p class="lead">An Exhaustive Specification of the Test Execution Environment</p>
 
@@ -409,6 +409,14 @@ These directories may be a symbolic links.<br>
 The filesystem type of <code>$TEST_TMPDIR/.</code> remains unspecified.<br>
 Tests may also write .part files to the <code>$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code>
 to annotate undeclared output files.</p>
+
+<p>In rare cases, a test may be forced to create files in <code>/tmp</code>. For
+example, <a href="https://serverfault.com/questions/641347">path length limits
+for Unix domain sockets</a> typically require creating the socket under
+<code>/tmp</code>. Bazel will be unable to track such files; the test itself must
+take care to be hermetic, to use unique paths to avoid colliding with other,
+simultaneously running tests and non-test processes, and to clean up the files it
+creates in <code>/tmp</code>.</p>
 
 <p>Tests must access inputs through the <b>runfiles</b> mechanism, or other
 parts of the execution environment which are specifically intended to make

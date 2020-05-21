@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.TokenKind;
@@ -191,18 +192,16 @@ public final class AllocationTrackerTest {
   private void exec(String... lines)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.create(Joiner.on("\n").join(lines), "a.star");
-    Mutability mu = Mutability.create("test");
-    StarlarkThread thread =
-        StarlarkThread.builder(mu)
-            .useDefaultSemantics()
-            .setGlobals(
-                Module.createForBuiltins(
-                    ImmutableMap.of(
-                        "sample", new SamplerValue(),
-                        "myrule", new MyRuleFunction())))
-            .build();
-    Module module = thread.getGlobals();
-    EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+    Module module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT,
+            ImmutableMap.of(
+                "sample", new SamplerValue(),
+                "myrule", new MyRuleFunction()));
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+    }
   }
 
   // A fake Bazel rule. The allocation tracker reports retained memory broken down by rule class.

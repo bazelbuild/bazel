@@ -17,12 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A target that can provide local proguard specifications. */
 @StarlarkBuiltin(
@@ -35,7 +35,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
   /** The name of the provider for this info object. */
   String NAME = "AndroidProguardInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "local_proguard_specs",
       structField = true,
       doc = "Returns the local proguard specs defined by this target.",
@@ -51,7 +51,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidProguardInfo</code> constructor.",
         documented = false,
@@ -65,7 +65,7 @@ public interface AndroidProguardInfoApi<FileT extends FileApi> extends StructApi
               generic1 = FileApi.class)
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidProguardInfoApi.class)
+    @StarlarkConstructor(objectType = AndroidProguardInfoApi.class)
     AndroidProguardInfoApi<FileT> createInfo(Sequence<?> localProguardSpecs /* <FileT> */)
         throws EvalException;
   }

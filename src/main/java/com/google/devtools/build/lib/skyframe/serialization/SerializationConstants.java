@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.devtools.build.lib.util.ResourceUsage;
+import com.google.devtools.build.lib.util.TestType;
 
 /**
  * Some static constants for deciding serialization behavior.
@@ -24,7 +25,6 @@ public class SerializationConstants {
   /** Number of threads in deserialization pools. */
   public static final int DESERIALIZATION_POOL_SIZE = 2 * ResourceUsage.getAvailableProcessors();
 
-  private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
   private static final boolean CHECK_SERIALIZATION =
       System.getenv("DONT_SANITY_CHECK_SERIALIZATION") == null;
 
@@ -32,6 +32,6 @@ public class SerializationConstants {
    * Returns true if serialization should be validated on all Skyframe writes.
    */
   public static boolean shouldCheckSerializationBecauseInTest() {
-    return IN_TEST && CHECK_SERIALIZATION;
+    return TestType.isInTest() && CHECK_SERIALIZATION;
   }
 }

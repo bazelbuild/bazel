@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.shell;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.flogger.LazyArg;
+import com.google.common.flogger.LazyArgs;
 import java.io.ByteArrayOutputStream;
 import java.time.Duration;
 import java.util.Optional;
@@ -105,15 +105,13 @@ public abstract class CommandResult {
   public abstract Optional<Duration> getSystemExecutionTime();
 
   void logThis() {
-    logger.atFiner().log("%s", (LazyArg<TerminationStatus>) () -> getTerminationStatus());
+    logger.atFiner().log("%s", LazyArgs.lazy(() -> getTerminationStatus()));
 
     if (getStdoutStream() == NO_OUTPUT_COLLECTED) {
       return;
     }
-    logger.atFiner().log(
-        "Stdout: %s", (LazyArg<String>) () -> LogUtil.toTruncatedString(getStdout()));
-    logger.atFiner().log(
-        "Stderr: %s", (LazyArg<String>) () -> LogUtil.toTruncatedString(getStderr()));
+    logger.atFiner().log("Stdout: %s", LazyArgs.lazy(() -> LogUtil.toTruncatedString(getStdout())));
+    logger.atFiner().log("Stderr: %s", LazyArgs.lazy(() -> LogUtil.toTruncatedString(getStderr())));
   }
 
   /** Returns a new {@link CommandResult.Builder}. */

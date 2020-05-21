@@ -27,11 +27,11 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 @Immutable
 public class AndroidHostServiceFixtureInfoProvider extends NativeInfo {
 
-  private static final String SKYLARK_NAME = "HostServiceFixtureInfo";
+  private static final String STARLARK_NAME = "HostServiceFixtureInfo";
   static final NativeProvider<AndroidHostServiceFixtureInfoProvider>
       ANDROID_HOST_SERVICE_FIXTURE_INFO =
           new NativeProvider<AndroidHostServiceFixtureInfoProvider>(
-              AndroidHostServiceFixtureInfoProvider.class, SKYLARK_NAME) {};
+              AndroidHostServiceFixtureInfoProvider.class, STARLARK_NAME) {};
 
   private final Artifact executable;
   private final ImmutableList<String> serviceNames;

@@ -66,8 +66,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:mac', '//platforms:linux')");
 
     useConfiguration("--platforms=//platforms:linux");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(testToolchainTypeLabel)
             .build();
@@ -110,8 +110,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "alias/BUILD", "alias(name = 'toolchain_type', actual = '//toolchain:test_toolchain')");
 
     useConfiguration("--platforms=//platforms:linux");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(aliasedToolchainTypeLabel)
             .build();
@@ -142,8 +142,7 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     rewriteWorkspace("register_execution_platforms('//platforms:mac', '//platforms:linux')");
 
     useConfiguration("--host_platform=//host:host", "--platforms=//platforms:linux");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key().configurationKey(targetConfigKey).build();
+    ToolchainContextKey key = ToolchainContextKey.key().configurationKey(targetConfigKey).build();
 
     EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
 
@@ -178,8 +177,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "    '//sample:sample_a', '//sample:sample_b')");
 
     useConfiguration("--host_platform=//host:host", "--platforms=//platforms:linux");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .execConstraintLabels(Label.parseAbsoluteUnchecked("//sample:demo_b"))
             .build();
@@ -205,8 +204,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void resolve_unavailableToolchainType_single() throws Exception {
     scratch.file("fake/toolchain/BUILD", "");
     useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(
                 testToolchainTypeLabel, Label.parseAbsoluteUnchecked("//fake/toolchain:type_1"))
@@ -229,8 +228,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void resolve_unavailableToolchainType_multiple() throws Exception {
     scratch.file("fake/toolchain/BUILD", "");
     useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(
                 testToolchainTypeLabel,
@@ -251,8 +250,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void resolve_invalidTargetPlatform_badTarget() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--platforms=//invalid:not_a_platform");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(testToolchainTypeLabel)
             .build();
@@ -277,8 +276,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void resolve_invalidTargetPlatform_badPackage() throws Exception {
     scratch.resolve("invalid").delete();
     useConfiguration("--platforms=//invalid:not_a_platform");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(testToolchainTypeLabel)
             .build();
@@ -301,8 +300,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void resolve_invalidHostPlatform() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--host_platform=//invalid:not_a_platform");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(testToolchainTypeLabel)
             .build();
@@ -325,8 +324,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   public void resolve_invalidExecutionPlatform() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
     useConfiguration("--extra_execution_platforms=//invalid:not_a_platform");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(testToolchainTypeLabel)
             .build();
@@ -366,8 +365,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:mac', '//platforms:linux')");
 
     useConfiguration("--platforms=//platforms:linux");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(testToolchainTypeLabel)
             .execConstraintLabels(Label.parseAbsoluteUnchecked("//constraints:linux"))
@@ -395,8 +394,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
 
   @Test
   public void resolve_execConstraints_invalid() throws Exception {
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(testToolchainTypeLabel)
             .execConstraintLabels(Label.parseAbsoluteUnchecked("//platforms:linux"))
@@ -447,8 +446,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
         "register_execution_platforms('//platforms:mac', '//platforms:linux')");
 
     useConfiguration("--platforms=//platforms:linux");
-    UnloadedToolchainContextKey key =
-        UnloadedToolchainContextKey.key()
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
             .configurationKey(targetConfigKey)
             .requiredToolchainTypeLabels(
                 Label.parseAbsoluteUnchecked("//a:toolchain_type_A"),

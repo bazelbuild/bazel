@@ -40,12 +40,12 @@ public class RequiredProvidersTest {
   private static final Provider P_NATIVE =
       new NativeProvider<StructImpl>(StructImpl.class, "p_native") {};
 
-  private static final StarlarkProvider P_SKYLARK =
+  private static final StarlarkProvider P_STARLARK =
       StarlarkProvider.createUnexportedSchemaless(Location.BUILTIN);
 
   static {
     try {
-      P_SKYLARK.export(Label.create("foo/bar", "x.bzl"), "p_skylark");
+      P_STARLARK.export(Label.create("foo/bar", "x.bzl"), "p_skylark");
     } catch (LabelSyntaxException e) {
       throw new AssertionError(e);
     }
@@ -53,8 +53,8 @@ public class RequiredProvidersTest {
 
   private static final StarlarkProviderIdentifier ID_NATIVE =
       StarlarkProviderIdentifier.forKey(P_NATIVE.getKey());
-  private static final StarlarkProviderIdentifier ID_SKYLARK =
-      StarlarkProviderIdentifier.forKey(P_SKYLARK.getKey());
+  private static final StarlarkProviderIdentifier ID_STARLARK =
+      StarlarkProviderIdentifier.forKey(P_STARLARK.getKey());
   private static final StarlarkProviderIdentifier ID_LEGACY =
       StarlarkProviderIdentifier.forLegacy("p_legacy");
 
@@ -65,7 +65,7 @@ public class RequiredProvidersTest {
     assertThat(
             requiredProviders.isSatisfiedBy(
                 providers.getNativeProviders()::contains,
-                providers.getSkylarkProviders()::contains))
+                providers.getStarlarkProviders()::contains))
         .isEqualTo(result);
     return result;
   }
@@ -82,10 +82,10 @@ public class RequiredProvidersTest {
             RequiredProviders.acceptAnyBuilder().build()
         )).isTrue();
     assertThat(
-        satisfies(
-            AdvertisedProviderSet.builder().addSkylark("p1").build(),
-            RequiredProviders.acceptAnyBuilder().build()
-        )).isTrue();
+            satisfies(
+                AdvertisedProviderSet.builder().addStarlark("p1").build(),
+                RequiredProviders.acceptAnyBuilder().build()))
+        .isTrue();
   }
 
   @Test
@@ -100,10 +100,10 @@ public class RequiredProvidersTest {
             RequiredProviders.acceptNoneBuilder().build()
         )).isFalse();
     assertThat(
-        satisfies(
-            AdvertisedProviderSet.builder().addSkylark("p1").build(),
-            RequiredProviders.acceptNoneBuilder().build()
-        )).isFalse();
+            satisfies(
+                AdvertisedProviderSet.builder().addStarlark("p1").build(),
+                RequiredProviders.acceptNoneBuilder().build()))
+        .isFalse();
   }
 
   @Test
@@ -140,25 +140,26 @@ public class RequiredProvidersTest {
   }
 
   @Test
-  public void skylarkProvidersAllMatch() {
-    AdvertisedProviderSet providerSet = AdvertisedProviderSet.builder()
-        .addSkylark(ID_LEGACY)
-        .addSkylark(ID_NATIVE)
-        .addSkylark(ID_SKYLARK)
-        .build();
+  public void starlarkProvidersAllMatch() {
+    AdvertisedProviderSet providerSet =
+        AdvertisedProviderSet.builder()
+            .addStarlark(ID_LEGACY)
+            .addStarlark(ID_NATIVE)
+            .addStarlark(ID_STARLARK)
+            .build();
     assertThat(
-            validateSkylark(
+            validateStarlark(
                 providerSet,
                 NO_PROVIDERS_REQUIRED,
-                ImmutableSet.of(ID_LEGACY, ID_SKYLARK, ID_NATIVE)))
+                ImmutableSet.of(ID_LEGACY, ID_STARLARK, ID_NATIVE)))
         .isTrue();
   }
 
   @Test
-  public void skylarkProvidersBranchMatch() {
+  public void starlarkProvidersBranchMatch() {
     assertThat(
-            validateSkylark(
-                AdvertisedProviderSet.builder().addSkylark(ID_LEGACY).build(),
+            validateStarlark(
+                AdvertisedProviderSet.builder().addStarlark(ID_LEGACY).build(),
                 NO_PROVIDERS_REQUIRED,
                 ImmutableSet.of(ID_LEGACY),
                 ImmutableSet.of(ID_NATIVE)))
@@ -166,10 +167,10 @@ public class RequiredProvidersTest {
   }
 
   @Test
-  public void skylarkProvidersNoMatch() {
+  public void starlarkProvidersNoMatch() {
     assertThat(
-            validateSkylark(
-                AdvertisedProviderSet.builder().addSkylark(ID_SKYLARK).build(),
+            validateStarlark(
+                AdvertisedProviderSet.builder().addStarlark(ID_STARLARK).build(),
                 "'p_legacy' or 'p_native'",
                 ImmutableSet.of(ID_LEGACY),
                 ImmutableSet.of(ID_NATIVE)))
@@ -184,8 +185,8 @@ public class RequiredProvidersTest {
         .isEqualTo("no providers accepted");
     assertThat(
             RequiredProviders.acceptAnyBuilder()
-                .addSkylarkSet(ImmutableSet.of(ID_LEGACY, ID_SKYLARK))
-                .addSkylarkSet(ImmutableSet.of(ID_SKYLARK))
+                .addStarlarkSet(ImmutableSet.of(ID_LEGACY, ID_STARLARK))
+                .addStarlarkSet(ImmutableSet.of(ID_STARLARK))
                 .addNativeSet(ImmutableSet.of(P1.class, P2.class))
                 .build()
                 .getDescription())
@@ -214,15 +215,15 @@ public class RequiredProvidersTest {
   }
 
   @SafeVarargs
-  private static boolean validateSkylark(
+  private static boolean validateStarlark(
       AdvertisedProviderSet providerSet,
       String missing,
       ImmutableSet<StarlarkProviderIdentifier>... sets) {
     RequiredProviders.Builder anyBuilder = RequiredProviders.acceptAnyBuilder();
     RequiredProviders.Builder noneBuilder = RequiredProviders.acceptNoneBuilder();
     for (ImmutableSet<StarlarkProviderIdentifier> set : sets) {
-      anyBuilder.addSkylarkSet(set);
-      noneBuilder.addSkylarkSet(set);
+      anyBuilder.addStarlarkSet(set);
+      noneBuilder.addStarlarkSet(set);
     }
 
     RequiredProviders rpStartingFromAny = anyBuilder.build();

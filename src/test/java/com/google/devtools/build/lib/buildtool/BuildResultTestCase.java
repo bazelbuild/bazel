@@ -18,7 +18,6 @@ import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -214,9 +213,9 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
     write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc", "void f() {}");
 
-    addOptions("--print_workspace_in_output_paths_if_needed");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkingDirectoryForTesting(getWorkspace().getRelative("my_clib"));
+    addOptions(
+        "--print_workspace_in_output_paths_if_needed",
+        "--client_cwd=" + getWorkspace().getChild("my_clib").getPathString());
     build(false, "no-error", "//my_clib");
 
     String stderr = recOutErr.errAsLatin1();
@@ -232,9 +231,9 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
     write("my_clib/BUILD", "cc_library(name='my_clib', srcs=['myclib.cc'])\n");
     write("my_clib/myclib.cc", "void f() {}");
 
-    addOptions("--noprint_workspace_in_output_paths_if_needed");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkingDirectoryForTesting(getWorkspace().getRelative("my_clib"));
+    addOptions(
+        "--noprint_workspace_in_output_paths_if_needed",
+        "--client_cwd=" + getWorkspace().getChild("my_clib").getPathString());
     build(false, "no-error", "//my_clib");
 
     String stderr = recOutErr.errAsLatin1();
@@ -253,8 +252,6 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
     write("my_clib/myclib.cc", "void f() {}");
 
     addOptions("--print_workspace_in_output_paths_if_needed");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkingDirectoryForTesting(getWorkspace());
     build(false, "no-error", "//my_clib");
 
     String stderr = recOutErr.errAsLatin1();
@@ -273,8 +270,6 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
     write("my_clib/myclib.cc", "void f() {}");
 
     addOptions("--noprint_workspace_in_output_paths_if_needed");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkingDirectoryForTesting(getWorkspace());
     build(false, "no-error", "//my_clib");
 
     String stderr = recOutErr.errAsLatin1();
@@ -295,9 +290,11 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
     write("bad_clib/badlib.cc", "int f() { }");
 
     // We need to set --keep_going so that the temps get built even though the compilation fails.
-    addOptions("--save_temps", "--keep_going", "--print_workspace_in_output_paths_if_needed");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkingDirectoryForTesting(getWorkspace().getRelative("bad_clib"));
+    addOptions(
+        "--save_temps",
+        "--keep_going",
+        "--print_workspace_in_output_paths_if_needed",
+        "--client_cwd=" + getWorkspace().getChild("bad_clib").getPathString());
     build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
 
     String stderr = recOutErr.errAsLatin1();
@@ -317,9 +314,11 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
     write("bad_clib/badlib.cc", "int f() { }");
 
     // We need to set --keep_going so that the temps get built even though the compilation fails.
-    addOptions("--save_temps", "--keep_going", "--noprint_workspace_in_output_paths_if_needed");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkingDirectoryForTesting(getWorkspace().getRelative("bad_clib"));
+    addOptions(
+        "--save_temps",
+        "--keep_going",
+        "--noprint_workspace_in_output_paths_if_needed",
+        "--client_cwd=" + getWorkspace().getChild("bad_clib").getPathString());
     build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
 
     String stderr = recOutErr.errAsLatin1();
@@ -336,8 +335,6 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
 
     // We need to set --keep_going so that the temps get built even though the compilation fails.
     addOptions("--save_temps", "--keep_going", "--print_workspace_in_output_paths_if_needed");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkingDirectoryForTesting(getWorkspace());
     build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
 
     String stderr = recOutErr.errAsLatin1();
@@ -354,8 +351,6 @@ public abstract class BuildResultTestCase extends GoogleBuildIntegrationTestCase
 
     // We need to set --keep_going so that the temps get built even though the compilation fails.
     addOptions("--save_temps", "--keep_going", "--noprint_workspace_in_output_paths_if_needed");
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.setWorkingDirectoryForTesting(getWorkspace());
     build(true, "compilation of rule '//bad_clib:bad_clib' failed", "//bad_clib");
 
     String stderr = recOutErr.errAsLatin1();

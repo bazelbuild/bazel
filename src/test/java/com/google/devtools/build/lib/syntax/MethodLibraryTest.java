@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;

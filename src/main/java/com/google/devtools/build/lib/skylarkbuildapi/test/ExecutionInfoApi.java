@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * This provider can be implemented by rules which need special environments to run in (especially
@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 @StarlarkBuiltin(name = "ExecutionInfo", doc = "", documented = false)
 public interface ExecutionInfoApi extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "requirements",
       doc = "A dict indicating special execution requirements, such as hardware platforms.",
       structField = true)

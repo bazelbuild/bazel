@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -67,7 +66,6 @@ import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
-import com.google.devtools.build.lib.exec.SpawnActionContextMaps;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.exec.SymlinkTreeStrategy;
@@ -81,11 +79,16 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -127,9 +130,10 @@ public class ExecutionTool {
   private BlazeExecutor executor;
   private final ActionInputPrefetcher prefetcher;
   private final ImmutableSet<ExecutorLifecycleListener> executorLifecycleListeners;
-  private final SpawnActionContextMaps spawnActionContextMaps;
+  private final SpawnStrategyRegistry spawnStrategyRegistry;
+  private final ModuleActionContextRegistry actionContextRegistry;
 
-  ExecutionTool(CommandEnvironment env, BuildRequest request) throws ExecutorInitException {
+  ExecutionTool(CommandEnvironment env, BuildRequest request) throws AbruptExitException {
     this.env = env;
     this.runtime = env.getRuntime();
     this.request = request;
@@ -137,7 +141,7 @@ public class ExecutionTool {
     try {
       env.getExecRoot().createDirectoryAndParents();
     } catch (IOException e) {
-      throw new ExecutorInitException("Execroot creation failed", e);
+      throw createExitException("Execroot creation failed", Code.EXECROOT_CREATION_FAILURE, e);
     }
 
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
@@ -197,16 +201,25 @@ public class ExecutionTool {
         ModuleActionContextRegistry.class, moduleActionContextRegistry);
     executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
 
-    spawnActionContextMaps = executorBuilder.getSpawnActionContextMaps();
+    this.actionContextRegistry = moduleActionContextRegistry;
+    this.spawnStrategyRegistry = spawnStrategyRegistry;
 
     if (options.availableResources != null && options.removeLocalResources) {
-      throw new ExecutorInitException(
-          "--local_resources is deprecated. Please use "
-              + "--local_ram_resources and/or --local_cpu_resources");
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "--local_resources is deprecated. Please use --local_ram_resources and/or"
+                          + " --local_cpu_resources")
+                  .setExecutionOptions(
+                      FailureDetails.ExecutionOptions.newBuilder()
+                          .setCode(
+                              FailureDetails.ExecutionOptions.Code.DEPRECATED_LOCAL_RESOURCES_USED))
+                  .build()));
     }
   }
 
-  Executor getExecutor() throws ExecutorInitException {
+  Executor getExecutor() throws AbruptExitException {
     if (executor == null) {
       executor = createExecutor();
       for (ExecutorLifecycleListener executorLifecycleListener : executorLifecycleListeners) {
@@ -217,17 +230,18 @@ public class ExecutionTool {
   }
 
   /** Creates an executor for the current set of blaze runtime, execution options, and request. */
-  private BlazeExecutor createExecutor() throws ExecutorInitException {
+  private BlazeExecutor createExecutor() {
     return new BlazeExecutor(
         runtime.getFileSystem(),
         env.getExecRoot(),
         getReporter(),
         runtime.getClock(),
         request,
-        spawnActionContextMaps);
+        actionContextRegistry,
+        spawnStrategyRegistry);
   }
 
-  void init() throws ExecutorInitException {
+  void init() throws AbruptExitException {
     getExecutor();
   }
 
@@ -238,7 +252,7 @@ public class ExecutionTool {
   }
 
   TestActionContext getTestActionContext() {
-    return spawnActionContextMaps.getContext(TestActionContext.class);
+    return actionContextRegistry.getContext(TestActionContext.class);
   }
 
   /**
@@ -472,32 +486,49 @@ public class ExecutionTool {
                     .experimentalSiblingRepositoryLayout);
         symlinkForest.plantSymlinkForest();
       } catch (IOException e) {
-        throw new ExecutorInitException("Source forest creation failed", e);
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage("Source forest creation failed")
+                    .setSymlinkForest(
+                        FailureDetails.SymlinkForest.newBuilder()
+                            .setCode(FailureDetails.SymlinkForest.Code.CREATION_FAILED))
+                    .build()),
+            e);
       }
     }
     env.getEventBus().post(new ExecRootPreparedEvent(packageRootMap));
   }
 
-  private void createActionLogDirectory() throws ExecutorInitException {
+  private void createActionLogDirectory() throws AbruptExitException {
     Path directory = env.getActionTempsDirectory();
     if (directory.exists()) {
       try {
         directory.deleteTree();
       } catch (IOException e) {
-        throw new ExecutorInitException("Couldn't delete action output directory", e);
+        throw createExitException(
+            "Couldn't delete action output directory",
+            Code.ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
+            e);
       }
     }
 
     try {
       directory.createDirectoryAndParents();
     } catch (IOException e) {
-      throw new ExecutorInitException("Couldn't create action output directory", e);
+      throw createExitException(
+          "Couldn't create action output directory",
+          Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
+          e);
     }
 
     try {
       env.getPersistentActionOutsDirectory().createDirectoryAndParents();
     } catch (IOException e) {
-      throw new ExecutorInitException("Couldn't create persistent action output directory", e);
+      throw createExitException(
+          "Couldn't create persistent action output directory",
+          Code.PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
+          e);
     }
   }
 
@@ -523,7 +554,7 @@ public class ExecutionTool {
 
   /**
    * Handles what action to perform on the convenience symlinks. If the the mode is {@link
-   * ConvenienceSymlinksMode.IGNORE}, then skip any creating or cleaning of convenience symlinks.
+   * ConvenienceSymlinksMode#IGNORE}, then skip any creating or cleaning of convenience symlinks.
    * Otherwise, manage the convenience symlinks and then post a {@link
    * ConvenienceSymlinksIdentifiedEvent} build event.
    */
@@ -585,7 +616,7 @@ public class ExecutionTool {
   }
 
   /** Prepare for a local output build. */
-  private void startLocalOutputBuild() throws ExecutorInitException {
+  private void startLocalOutputBuild() throws AbruptExitException {
     try (SilentCloseable c = Profiler.instance().profile("Starting local output build")) {
       Path outputPath = env.getDirectories().getOutputPath(env.getWorkspaceName());
       Path localOutputPath = env.getDirectories().getLocalOutputPath();
@@ -599,7 +630,10 @@ public class ExecutionTool {
             localOutputPath.renameTo(outputPath);
           }
         } catch (IOException e) {
-          throw new ExecutorInitException("Couldn't handle local output directory symlinks", e);
+          throw createExitException(
+              "Couldn't handle local output directory symlinks",
+              Code.LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE,
+              e);
         }
       }
     }
@@ -693,7 +727,7 @@ public class ExecutionTool {
   }
 
   /** Get action cache if present or reload it from the on-disk cache. */
-  private ActionCache getActionCache() throws LocalEnvironmentException {
+  private ActionCache getActionCache() throws AbruptExitException {
     try {
       return env.getPersistentActionCache();
     } catch (IOException e) {
@@ -701,10 +735,19 @@ public class ExecutionTool {
       // caches.
       LoggingUtil.logToRemote(
           Level.WARNING, "Failed to initialize action cache: " + e.getMessage(), e);
-      throw new LocalEnvironmentException(
-          "couldn't create action cache: "
-              + e.getMessage()
-              + ". If error persists, use 'bazel clean'");
+      String message =
+          String.format(
+              "Couldn't create action cache: %s. If error persists, use 'bazel clean'.",
+              e.getMessage());
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setActionCache(
+                      FailureDetails.ActionCache.newBuilder()
+                          .setCode(FailureDetails.ActionCache.Code.INITIALIZATION_FAILURE))
+                  .build()),
+          e);
     }
   }
 
@@ -798,5 +841,16 @@ public class ExecutionTool {
 
   private Path getExecRoot() {
     return env.getExecRoot();
+  }
+
+  private static AbruptExitException createExitException(
+      String message, Code detailedCode, IOException e) {
+    return new AbruptExitException(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setExecution(Execution.newBuilder().setCode(detailedCode))
+                .build()),
+        e);
   }
 }

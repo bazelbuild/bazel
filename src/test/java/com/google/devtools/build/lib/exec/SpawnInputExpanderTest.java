@@ -270,10 +270,8 @@ public class SpawnInputExpanderTest {
   public void testRunfilesWithTreeArtifacts() throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
     assertThat(treeArtifact.isTreeArtifact()).isTrue();
-    TreeFileArtifact file1 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeArtifact, "file1");
-    TreeFileArtifact file2 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeArtifact, "file2");
+    TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
+    TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
     FileSystemUtils.writeContentAsLatin1(file2.getPath(), "bar");
 
@@ -302,10 +300,8 @@ public class SpawnInputExpanderTest {
   public void testRunfilesWithTreeArtifactsInSymlinks() throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
     assertThat(treeArtifact.isTreeArtifact()).isTrue();
-    TreeFileArtifact file1 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeArtifact, "file1");
-    TreeFileArtifact file2 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeArtifact, "file2");
+    TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
+    TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
     FileSystemUtils.writeContentAsLatin1(file2.getPath(), "bar");
     Runfiles runfiles =
@@ -337,10 +333,8 @@ public class SpawnInputExpanderTest {
   public void testTreeArtifactsInInputs() throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact("treeArtifact");
     assertThat(treeArtifact.isTreeArtifact()).isTrue();
-    TreeFileArtifact file1 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeArtifact, "file1");
-    TreeFileArtifact file2 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(treeArtifact, "file2");
+    TreeFileArtifact file1 = TreeFileArtifact.createTreeOutput(treeArtifact, "file1");
+    TreeFileArtifact file2 = TreeFileArtifact.createTreeOutput(treeArtifact, "file2");
     FileSystemUtils.writeContentAsLatin1(file1.getPath(), "foo");
     FileSystemUtils.writeContentAsLatin1(file2.getPath(), "bar");
 
@@ -363,7 +357,9 @@ public class SpawnInputExpanderTest {
   }
 
   private SpecialArtifact createTreeArtifact(String relPath) throws IOException {
-    return createSpecialArtifact(relPath, SpecialArtifactType.TREE);
+    SpecialArtifact treeArtifact = createSpecialArtifact(relPath, SpecialArtifactType.TREE);
+    treeArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+    return treeArtifact;
   }
 
   private SpecialArtifact createFilesetArtifact(String relPath) throws IOException {

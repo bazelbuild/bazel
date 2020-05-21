@@ -19,6 +19,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.OptionsProvider;
+import com.sun.nio.file.ExtendedWatchEventModifier;
 import java.io.IOException;
 import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystems;
@@ -46,6 +47,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
    * functionality built-in so we do it ourselves.
    */
   private final HashBiMap<WatchKey, Path> watchKeyToDirBiMap = HashBiMap.create();
+
+  private final boolean isWindows = OS.getCurrent() == OS.WINDOWS;
 
   /** Every directory is registered under this watch service. */
   private WatchService watchService;
@@ -85,9 +88,11 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     //      contain files that are modified between init() and poll() below, because those are
     //      already taken into account for the current build, as we ended up with
     //      ModifiedFileSet.EVERYTHING_MODIFIED in the current build.
-    // Disable WatchFs on Windows, because it is not implemented correctly on Windows.
-    // TODO(pcloudy): Enable watchFs on Windows, https://github.com/bazelbuild/bazel/issues/1931
-    boolean watchFs = options.getOptions(Options.class).watchFS && OS.getCurrent() != OS.WINDOWS;
+    boolean watchFs =
+        options.getOptions(Options.class).watchFS
+            &&
+            // Guard WatchFs on Windows behind --experimental_windows_watchfs.
+            (!isWindows || options.getOptions(Options.class).windowsWatchFS);
     if (watchFs && watchService == null) {
       init();
     } else if (!watchFs && (watchService != null)) {
@@ -115,7 +120,24 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     Set<Path> modifiedAbsolutePaths;
     if (isFirstCall()) {
       try {
-        registerSubDirectoriesAndReturnContents(watchRootPath);
+        // Due to a known issue nested watches may result in errors on windows:
+        // https://bugs.openjdk.java.net/browse/JDK-6972833
+        // Therefore on windows we register using the special ExtendedWatchEventModifier.FILE_TREE
+        // This watches a folder recursively so there is no need to apply this ourselves
+        if (isWindows) {
+          WatchKey key =
+              watchRootPath.register(
+                  watchService,
+                  new Kind<?>[] {
+                    StandardWatchEventKinds.ENTRY_CREATE,
+                    StandardWatchEventKinds.ENTRY_MODIFY,
+                    StandardWatchEventKinds.ENTRY_DELETE,
+                  },
+                  ExtendedWatchEventModifier.FILE_TREE);
+          watchKeyToDirBiMap.put(key, watchRootPath);
+        } else {
+          registerSubDirectoriesAndReturnContents(watchRootPath);
+        }
       } catch (IOException e) {
         close();
         throw new BrokenDiffAwarenessException(
@@ -285,15 +307,19 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
       // are guaranteed to see new files/directories either on this #getDiff or the next one.
       // Otherwise, e.g., an intra-build creation of a child directory will be forever missed if it
       // happens before the directory is listed as part of the visitation.
-      WatchKey key =
-          path.register(
-              watchService,
-              StandardWatchEventKinds.ENTRY_CREATE,
-              StandardWatchEventKinds.ENTRY_MODIFY,
-              StandardWatchEventKinds.ENTRY_DELETE);
       Preconditions.checkState(path.isAbsolute(), path);
+      // On windows we register the root path with ExtendedWatchEventModifier.FILE_TREE
+      // Therefore there is no need to register recursive watchers
+      if (!isWindows) {
+        WatchKey key =
+            path.register(
+                watchService,
+                StandardWatchEventKinds.ENTRY_CREATE,
+                StandardWatchEventKinds.ENTRY_MODIFY,
+                StandardWatchEventKinds.ENTRY_DELETE);
+        watchKeyToDirBiMap.put(key, path);
+      }
       visitedAbsolutePaths.add(path);
-      watchKeyToDirBiMap.put(key, path);
       return FileVisitResult.CONTINUE;
     }
   }

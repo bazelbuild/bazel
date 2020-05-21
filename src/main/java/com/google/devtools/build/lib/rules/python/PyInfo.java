@@ -58,7 +58,7 @@ public final class PyInfo implements Info, PyInfoApi<Artifact> {
   private static String describeType(Object value) {
     if (value instanceof Depset) {
       Depset depset = (Depset) value;
-      return depset.getOrder().getSkylarkName()
+      return depset.getOrder().getStarlarkName()
           + "-ordered depset of "
           + depset.getElementType()
           + "s";

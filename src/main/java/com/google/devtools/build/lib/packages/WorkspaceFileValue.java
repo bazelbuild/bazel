@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -101,7 +101,7 @@ public class WorkspaceFileValue implements SkyValue {
   private final RootedPath path;
   private final boolean hasNext;
   private final ImmutableMap<String, Object> bindings;
-  private final ImmutableMap<String, Extension> importMap;
+  private final ImmutableMap<String, Module> loadedModules;
   private final ImmutableMap<String, Integer> importToChunkMap;
   private final ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
       repositoryMapping;
@@ -116,8 +116,8 @@ public class WorkspaceFileValue implements SkyValue {
    * WORKSPACE file.
    *
    * @param pkg Package built by agreggating all parts of the split WORKSPACE file up to this one.
-   * @param importMap List of imports (i.e., load statements) present in all parts of the split
-   *     WORKSPACE file up to this one.
+   * @param loadedModules modules loaded by load statements in chunks of the WORKSPACE file up to
+   *     this one.
    * @param importToChunkMap Map of all load statements encountered so far to the chunk they
    *     initially appeared in.
    * @param bindings List of top-level variable bindings from the all parts of the split WORKSPACE
@@ -132,7 +132,7 @@ public class WorkspaceFileValue implements SkyValue {
    */
   public WorkspaceFileValue(
       Package pkg,
-      Map<String, Extension> importMap,
+      Map<String, Module> loadedModules,
       Map<String, Integer> importToChunkMap,
       Map<String, Object> bindings,
       RootedPath path,
@@ -145,7 +145,7 @@ public class WorkspaceFileValue implements SkyValue {
     this.path = path;
     this.hasNext = hasNext;
     this.bindings = ImmutableMap.copyOf(bindings);
-    this.importMap = ImmutableMap.copyOf(importMap);
+    this.loadedModules = ImmutableMap.copyOf(loadedModules);
     this.importToChunkMap = ImmutableMap.copyOf(importToChunkMap);
     this.repositoryMapping = pkg.getExternalPackageRepositoryMappings();
     this.managedDirectories = managedDirectories;
@@ -219,8 +219,8 @@ public class WorkspaceFileValue implements SkyValue {
     return bindings;
   }
 
-  public ImmutableMap<String, Extension> getImportMap() {
-    return importMap;
+  public ImmutableMap<String, Module> getLoadedModules() {
+    return loadedModules;
   }
 
   public ImmutableMap<String, Integer> getImportToChunkMap() {

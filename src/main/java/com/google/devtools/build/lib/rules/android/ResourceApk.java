@@ -271,7 +271,7 @@ public final class ResourceApk {
   public void addToConfiguredTargetBuilder(
       RuleConfiguredTargetBuilder builder,
       Label label,
-      boolean includeSkylarkApiProvider,
+      boolean includeStarlarkApiProvider,
       boolean isLibrary) {
     AndroidResourcesInfo resourceInfo = toResourceInfo(label);
     builder.addNativeDeclaredProvider(resourceInfo);
@@ -294,8 +294,8 @@ public final class ResourceApk {
               resourceApk, resourceProguardConfig, resourceInfo, assetsInfo, manifestInfo.get()));
     }
 
-    if (includeSkylarkApiProvider) {
-      builder.addSkylarkTransitiveInfo(
+    if (includeStarlarkApiProvider) {
+      builder.addStarlarkTransitiveInfo(
           AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(resourceInfo));
     }
   }

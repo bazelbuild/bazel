@@ -56,8 +56,8 @@ public abstract class NativeProvider<V extends Info> implements StarlarkValue, P
    * Starlark code.
    */
   @Deprecated
-  public interface WithLegacySkylarkName {
-    String getSkylarkName();
+  public interface WithLegacyStarlarkName {
+    String getStarlarkName();
   }
 
   protected NativeProvider(Class<V> valueClass, String name) {
@@ -70,6 +70,11 @@ public abstract class NativeProvider<V extends Info> implements StarlarkValue, P
 
   public final StarlarkProviderIdentifier id() {
     return StarlarkProviderIdentifier.forKey(getKey());
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   /**

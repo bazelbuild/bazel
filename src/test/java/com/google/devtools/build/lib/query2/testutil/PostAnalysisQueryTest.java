@@ -488,10 +488,10 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   public void testTestsOperatorReportsMissingTargets() {}
 
   @Override
-  public void testCycleInSkylark() {}
+  public void testCycleInStarlark() {}
 
   @Override
-  public void testCycleInSkylarkParentDir() {}
+  public void testCycleInStarlarkParentDir() {}
 
   @Override
   public void testCycleInSubpackage() {}

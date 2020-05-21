@@ -241,7 +241,7 @@ public class OptionDefinitionTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  public void emptyStringForMultipleOptionShouldResultInEmptyList() throws Exception {
+  public void emptyStringForMultipleOptionShouldBeConverted() throws Exception {
     // arrange
     OptionDefinition optionDef =
         OptionDefinition.extractOptionDefinition(
@@ -251,12 +251,12 @@ public class OptionDefinitionTest {
     List<String> result = (List<String>) optionDef.getDefaultValue();
 
     // assert
-    assertThat(result).isEmpty();
+    assertThat(result).containsExactly("");
   }
 
   @Test
   @SuppressWarnings("unchecked")
-  public void nonEmptyStringForMultipleOptionShouldResultInEmptyList() throws Exception {
+  public void nonEmptyStringForMultipleOptionShouldBeConverted() throws Exception {
     // arrange
     OptionDefinition optionDef =
         OptionDefinition.extractOptionDefinition(
@@ -266,7 +266,6 @@ public class OptionDefinitionTest {
     List<String> result = (List<String>) optionDef.getDefaultValue();
 
     // assert
-    // TODO(b/138573276): this is a legacy behavior - assert the value is actually converted
-    assertThat(result).isEmpty();
+    assertThat(result).containsExactly("text");
   }
 }

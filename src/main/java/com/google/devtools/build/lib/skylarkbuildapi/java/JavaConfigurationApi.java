@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A java compiler configuration. */
 @StarlarkBuiltin(
@@ -28,21 +28,21 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public interface JavaConfigurationApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "default_javac_flags",
       structField = true,
       doc = "The default flags for the Java compiler.")
-  // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
+  // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
   // probably.
   ImmutableList<String> getDefaultJavacFlags();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "strict_java_deps",
       structField = true,
       doc = "The value of the strict_java_deps flag.")
   String getStrictJavaDepsName();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "plugins",
       structField = true,
       doc = "A list containing the labels provided with --plugins, if any.")

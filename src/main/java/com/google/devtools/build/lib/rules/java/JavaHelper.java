@@ -115,7 +115,7 @@ public abstract class JavaHelper {
       throws InterruptedException {
     PathFragment rootRelativePath = resource.getRootRelativePath();
     StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
+        ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
 
     if (!ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics).isEmpty()) {
       PathFragment workspace =

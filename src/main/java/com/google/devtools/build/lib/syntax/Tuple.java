@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import java.util.AbstractCollection;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Iterator;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A Starlark tuple, i.e. the value represented by {@code (1, 2, 3)}. Tuples are always immutable

@@ -60,7 +60,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     OptionsParser optionsParser = runtimeWrapper.createOptionsParser();
     Command command = QueryCommand.class.getAnnotation(Command.class);
     CommandEnvironment env =
-        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>());
+        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>(), 0L, 0L);
 
     assertThrows(AqueryActionFilterException.class, () -> new AqueryBuildTool(env, expr));
   }
@@ -71,7 +71,7 @@ public class AqueryBuildToolTest extends BuildIntegrationTestCase {
     OptionsParser optionsParser = runtimeWrapper.createOptionsParser();
     Command command = QueryCommand.class.getAnnotation(Command.class);
     CommandEnvironment env =
-        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>());
+        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>(), 0L, 0L);
     AqueryActionFilterException thrown =
         assertThrows(AqueryActionFilterException.class, () -> new AqueryBuildTool(env, expr));
     assertThat(thrown).hasMessageThat().contains("Wrong query syntax:");

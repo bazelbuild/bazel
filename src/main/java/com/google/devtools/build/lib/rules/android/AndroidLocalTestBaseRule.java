@@ -149,7 +149,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE($android_local_test_base).ATTRIBUTE(densities) -->
         Densities to filter for when building the apk. A corresponding compatible-screens
         section will also be added to the manifest if it does not already contain a
-        superset SkylarkListing.
+        superset StarlarkListing.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("densities", STRING_LIST))
         .build();

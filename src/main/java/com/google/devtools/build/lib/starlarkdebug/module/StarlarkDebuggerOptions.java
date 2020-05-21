@@ -31,7 +31,7 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
       help =
           "If true, Blaze will open the Starlark debug server at the start of the build "
               + "invocation, and wait for a debugger to attach before running the build.")
-  public boolean debugSkylark;
+  public boolean debugStarlark;
 
   @Option(
       name = "experimental_skylark_debug_server_port",

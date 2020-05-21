@@ -724,16 +724,16 @@ public class AndroidCommon {
         && !isLibrary) {
       // Binary rule; allow extracting merged manifest from Starlark via
       // ctx.attr.android_binary.android.merged_manifest, but not much more.
-      builder.addSkylarkTransitiveInfo(
+      builder.addStarlarkTransitiveInfo(
           AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(/*resourceInfo=*/ null));
     } else {
       resourceApk.addToConfiguredTargetBuilder(
-          builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true, isLibrary);
+          builder, ruleContext.getLabel(), /* includeStarlarkApiProvider = */ true, isLibrary);
     }
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(
+        .addStarlarkTransitiveInfo(
             JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
@@ -863,7 +863,7 @@ public class AndroidCommon {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo provider :
         getTransitivePrerequisites(
-            ruleContext, TransitionMode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+            ruleContext, TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       builder.addTransitive(provider.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }
     return builder.build();

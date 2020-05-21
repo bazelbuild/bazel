@@ -33,6 +33,7 @@ public class ClassMemberTrackReasonTest {
 
   private static final ImmutableList<Integer> MEMBER_USE_OPCODES =
       ImmutableList.of(
+          0, // default unknown value.
           Opcodes.H_GETFIELD,
           Opcodes.H_GETSTATIC,
           Opcodes.H_PUTFIELD,

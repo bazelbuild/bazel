@@ -54,7 +54,7 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
     return MethodKey.create(ClassName.create(payloads.get(0)), payloads.get(1), payloads.get(2));
   }
 
-  public static MethodKey from(MethodId methodId) {
+  public static MethodKey fromProto(MethodId methodId) {
     return create(ClassName.create(methodId.getOwner()), methodId.getName(), methodId.getDesc());
   }
 
@@ -149,7 +149,7 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
   }
 
   /** The descriptor of the static version of a given instance method. */
-  private String instanceMethodToStaticDescriptor() {
+  public final String instanceMethodToStaticDescriptor() {
     checkState(!isConstructor(), "Expect a Non-constructor method: %s", this);
     ImmutableList<Type> argumentTypes = getArgumentTypes();
     ImmutableList<Type> bridgeMethodArgTypes =

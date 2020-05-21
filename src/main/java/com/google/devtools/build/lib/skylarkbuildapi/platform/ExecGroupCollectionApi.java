@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Stores {@link com.google.devtools.build.lib.packages.ExecGroup}s available to a given rule. */
 @StarlarkBuiltin(
@@ -26,14 +26,14 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     category = StarlarkDocumentationCategory.BUILTIN,
     // TODO(b/151742236) update this doc when this becomes non-experimental.
     doc = "<i>experimental</i> Stores exec groups available to a given rule.")
-public interface ExecGroupCollectionApi extends StarlarkValue, SkylarkIndexable {
+public interface ExecGroupCollectionApi extends StarlarkValue, StarlarkIndexable {
 
   /**
-   * Stores information about a single ExecGroup. The SkylarkCallable functions in this module
-   * should be a subset of the SkylarkCallable functions available for the default exec group via
-   * {@link com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi}. This allows a user
-   * to pass in a rule ctx to the same places that take an exec group ctx to have them operate on
-   * the default exec group.
+   * Stores information about a single ExecGroup. The StarlarkMethod functions in this module should
+   * be a subset of the StarlarkMethod functions available for the default exec group via {@link
+   * com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi}. This allows a user to
+   * pass in a rule ctx to the same places that take an exec group ctx to have them operate on the
+   * default exec group.
    */
   @StarlarkBuiltin(
       name = "ExecGroupContext",
@@ -41,7 +41,7 @@ public interface ExecGroupCollectionApi extends StarlarkValue, SkylarkIndexable 
       // TODO(b/151742236) update this doc when this becomes non-experimental.
       doc = "<i>experimental</i> Stores information about an exec group.")
   interface ExecGroupContextApi extends StarlarkValue {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "toolchains",
         structField = true,
         // TODO(b/151742236) update this doc when this becomes non-experimental.

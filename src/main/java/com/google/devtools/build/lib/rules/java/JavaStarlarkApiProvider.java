@@ -17,18 +17,18 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkApiProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaSkylarkApiProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaStarlarkApiProviderApi;
 
 /**
  * A class that exposes the Java providers to Starlark. It is intended to provide a simple and
  * stable interface for Starlark users.
  */
 public final class JavaStarlarkApiProvider extends StarlarkApiProvider
-    implements JavaSkylarkApiProviderApi<Artifact> {
+    implements JavaStarlarkApiProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "java";
   /** The name of the field in Starlark proto aspects used to access this class. */
-  public static final StarlarkProviderIdentifier SKYLARK_NAME =
+  public static final StarlarkProviderIdentifier STARLARK_NAME =
       StarlarkProviderIdentifier.forLegacy(NAME);
 
   /**

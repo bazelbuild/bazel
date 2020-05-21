@@ -15,9 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
@@ -27,6 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * The Starlark class defines the most important entry points, constants, and functions needed by
@@ -41,7 +41,7 @@ public final class Starlark {
   public static final NoneType NONE = NoneType.NONE;
 
   /**
-   * A sentinel value passed to optional parameters of SkylarkCallable-annotated methods to indicate
+   * A sentinel value passed to optional parameters of StarlarkMethod-annotated methods to indicate
    * that no argument value was supplied.
    */
   public static final Object UNBOUND = new UnboundMarker();
@@ -76,7 +76,7 @@ public final class Starlark {
     env //
         .put("False", false)
         .put("True", true)
-        .put("None", Starlark.NONE);
+        .put("None", NONE);
     addMethods(env, new MethodLibrary());
     return env.build();
   }
@@ -109,12 +109,12 @@ public final class Starlark {
    * {@link #NONE}. Any other non-Starlark value causes the function to throw
    * IllegalArgumentException.
    *
-   * <p>This function is applied to the results of @SkylarkCallable-annotated Java methods.
+   * <p>This function is applied to the results of @StarlarkMethod-annotated Java methods.
    */
   public static Object fromJava(Object x, @Nullable Mutability mutability) {
     if (x == null) {
       return NONE;
-    } else if (Starlark.valid(x)) {
+    } else if (valid(x)) {
       return x;
     } else if (x instanceof List) {
       return StarlarkList.copyOf(mutability, (List<?>) x);
@@ -152,11 +152,10 @@ public final class Starlark {
    */
   public static void checkMutable(Mutability.Freezable x) throws EvalException {
     if (x.mutability().isFrozen()) {
-      throw Starlark.errorf("trying to mutate a frozen %s value", Starlark.type(x));
+      throw errorf("trying to mutate a frozen %s value", type(x));
     }
     if (x.updateIteratorCount(0)) {
-      throw Starlark.errorf(
-          "%s value is temporarily immutable due to active for-loop iteration", Starlark.type(x));
+      throw errorf("%s value is temporarily immutable due to active for-loop iteration", type(x));
     }
   }
 
@@ -244,7 +243,7 @@ public final class Starlark {
 
     } else if (StarlarkCallable.class.isAssignableFrom(c)) {
       // All callable values have historically been lumped together as "function".
-      // TODO(adonovan): built-in types that don't use SkylarkModule should report
+      // TODO(adonovan): built-in types that don't use StarlarkModule should report
       // their own type string, but this is a breaking change as users often
       // use type(x)=="function" for Starlark and built-in functions.
       return "function";
@@ -416,7 +415,7 @@ public final class Starlark {
     if (fn instanceof StarlarkCallable) {
       callable = (StarlarkCallable) fn;
     } else {
-      // @SkylarkCallable(selfCall)?
+      // @StarlarkMethod(selfCall)?
       MethodDescriptor desc =
           CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
       if (desc == null) {
@@ -444,28 +443,28 @@ public final class Starlark {
     return new EvalException(null, String.format(format, args));
   }
 
-  /** Equivalent to {@code addMethods(env, v, DEFAULT_SEMANTICS)}. */
+  /** Equivalent to {@code addMethods(env, v, StarlarkSemantics.DEFAULT)}. */
   public static void addMethods(ImmutableMap.Builder<String, Object> env, Object v) {
-    addMethods(env, v, StarlarkSemantics.DEFAULT_SEMANTICS);
+    addMethods(env, v, StarlarkSemantics.DEFAULT);
   }
 
   /**
    * Adds to the environment {@code env} all {@code StarlarkCallable}-annotated fields and methods
    * of value {@code v}, filtered by the given semantics. The class of {@code v} must have or
-   * inherit a {@link StarlarkBuiltin} or {@code SkylarkGlobalLibrary} annotation.
+   * inherit a {@link StarlarkBuiltin} or {@code StarlarkGlobalLibrary} annotation.
    */
   public static void addMethods(
       ImmutableMap.Builder<String, Object> env, Object v, StarlarkSemantics semantics) {
     Class<?> cls = v.getClass();
-    if (!StarlarkInterfaceUtils.hasSkylarkGlobalLibrary(cls)
+    if (!StarlarkInterfaceUtils.hasStarlarkGlobalLibrary(cls)
         && StarlarkInterfaceUtils.getStarlarkBuiltin(cls) == null) {
       throw new IllegalArgumentException(
-          cls.getName() + " is annotated with neither @SkylarkGlobalLibrary nor @StarlarkBuiltin");
+          cls.getName() + " is annotated with neither @StarlarkGlobalLibrary nor @StarlarkBuiltin");
     }
     for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
       // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
       // the descriptor that CallUtils.getMethod would return,
-      // because most calls to addMethods pass DEFAULT_SEMANTICS,
+      // because most calls to addMethods pass StarlarkSemantics.DEFAULT,
       // which is probably incorrect for the call.
       // The effect is that the default semantics determine which methods appear in
       // env, but the thread's semantics determine which method calls succeed.
@@ -492,7 +491,7 @@ public final class Starlark {
   // tiny steps are headed. It doesn't work yet, but it helps to remember our direction.
   //
   // The API assumes that the "universe" portion (None, len, str) of the "predeclared" lexical block
-  // is always available, so clients needn't mention it in the API. Starlark.UNIVERSE will expose it
+  // is always available, so clients needn't mention it in the API. UNIVERSE will expose it
   // as a public constant.
   //
   // Q. is there any value to returning the Module as opposed to just its global bindings as a Map?

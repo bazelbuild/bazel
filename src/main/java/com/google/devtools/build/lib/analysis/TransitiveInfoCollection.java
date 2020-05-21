@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 
 /**
  * Multiple {@link TransitiveInfoProvider}s bundled together.
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.SkylarkIndexable;
  * @see TransitiveInfoProvider
  */
 public interface TransitiveInfoCollection
-    extends SkylarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
+    extends StarlarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
 
   /**
    * Returns the label associated with this prerequisite.

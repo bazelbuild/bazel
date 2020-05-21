@@ -70,14 +70,14 @@ import java.util.UUID;
 
 /** Provides a Starlark interface for all action creation needs. */
 public class StarlarkActionFactory implements StarlarkActionFactoryApi {
-  private final SkylarkRuleContext context;
+  private final StarlarkRuleContext context;
   private final StarlarkSemantics starlarkSemantics;
   private RuleContext ruleContext;
   /** Counter for actions.run_shell helper scripts. Every script must have a unique name. */
   private int runShellOutputCounter = 0;
 
   public StarlarkActionFactory(
-      SkylarkRuleContext context, StarlarkSemantics starlarkSemantics, RuleContext ruleContext) {
+      StarlarkRuleContext context, StarlarkSemantics starlarkSemantics, RuleContext ruleContext) {
     this.context = context;
     this.starlarkSemantics = starlarkSemantics;
     this.ruleContext = ruleContext;
@@ -307,8 +307,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
               NestedSetBuilder.wrap(Order.STABLE_ORDER, args.getDirectoryArtifacts()),
               (Artifact) output,
               args.build(),
-              args.getParameterFileType(),
-              StandardCharsets.UTF_8);
+              args.getParameterFileType());
     } else {
       throw new AssertionError("Unexpected type: " + content.getClass().getSimpleName());
     }

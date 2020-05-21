@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  */
 public final class PyStarlarkTransitions implements PyStarlarkTransitionsApi {
 
-  /** Singleton instance of {@link PySkylarkTransitions}. */
+  /** Singleton instance of {@link PyStarlarkTransitions}. */
   public static final PyStarlarkTransitions INSTANCE = new PyStarlarkTransitions();
 
   @Override

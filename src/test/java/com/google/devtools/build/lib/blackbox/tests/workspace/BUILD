@@ -37,10 +37,10 @@ java_test(
 )
 
 java_test(
-    name = "BazelEmbeddedSkylarkBlackBoxTest",
+    name = "BazelEmbeddedStarlarkBlackBoxTest",
     timeout = "moderate",
     srcs = [
-        "BazelEmbeddedSkylarkBlackBoxTest.java",
+        "BazelEmbeddedStarlarkBlackBoxTest.java",
         "RepoWithRuleWritingTextGenerator.java",
         "WorkspaceTestUtils.java",
     ],
@@ -91,7 +91,7 @@ test_suite(
     name = "ws_black_box_tests",
     tags = ["black_box_test"],
     tests = [
-        "BazelEmbeddedSkylarkBlackBoxTest",
+        "BazelEmbeddedStarlarkBlackBoxTest",
         "GitRepositoryBlackBoxTest",
         "PatchApiBlackBoxTest",
         "RepoWithRuleWritingTextGeneratorTest",

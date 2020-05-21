@@ -103,7 +103,7 @@ public final class FileContentProvider<S extends InputStream> implements Provide
   }
 
   public boolean isClassFile() {
-    return binaryPathName.endsWith(".class");
+    return binaryPathName.endsWith(".class") && !binaryPathName.startsWith("META-INF/");
   }
 
   public final ImmutableSetMultimap<Predicate<ClassName>, ClassName> findReferencedTypes(

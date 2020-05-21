@@ -52,8 +52,19 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         help =
             "On Linux/macOS: If true, %{product} tries to use the operating system's file watch "
                 + "service for local changes instead of scanning every file for a change. On "
-                + "Windows: this flag is a non-op.")
+                + "Windows: this flag currently is a non-op but can be enabled in conjunction "
+                + "with --experimental_windows_watchfs.")
     public boolean watchFS;
+
+    @Option(
+        name = "experimental_windows_watchfs",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If true, experimental Windows support for --watchfs is enabled. Otherwise --watchfs"
+                + "is a non-op on Windows. Make sure to also enable --watchfs.")
+    public boolean windowsWatchFS;
   }
 
   /** Factory for creating {@link LocalDiffAwareness} instances. */
@@ -179,7 +190,11 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         throw new BrokenDiffAwarenessException(
             String.format("%s is not under %s", modifiedPath, watchRootPath));
       }
-      resultBuilder.modify(PathFragment.create(watchRootPath.relativize(modifiedPath).toString()));
+      PathFragment relativePath =
+          PathFragment.create(watchRootPath.relativize(modifiedPath).toString());
+      if (!relativePath.isEmpty()) {
+        resultBuilder.modify(relativePath);
+      }
     }
     return resultBuilder.build();
   }

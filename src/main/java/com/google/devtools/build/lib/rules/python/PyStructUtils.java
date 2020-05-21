@@ -109,7 +109,7 @@ public class PyStructUtils {
     if (!set.getOrder().isCompatible(Order.COMPILE_ORDER)) {
       throw Starlark.errorf(
           "Incompatible depset order for '%s': expected 'default' or 'postorder', but got '%s'",
-          TRANSITIVE_SOURCES, set.getOrder().getSkylarkName());
+          TRANSITIVE_SOURCES, set.getOrder().getStarlarkName());
     }
     return set;
   }

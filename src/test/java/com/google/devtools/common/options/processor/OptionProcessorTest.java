@@ -203,14 +203,6 @@ public class OptionProcessorTest {
   }
 
   @Test
-  public void defaultConvertersForAllowMultipleOptionsAreFound() {
-    assertAbout(javaSource())
-        .that(getFile("AllDefaultConvertersWithAllowMultiple.java"))
-        .processedWith(new OptionProcessor())
-        .compilesWithoutError();
-  }
-
-  @Test
   public void converterReturnsListForAllowMultipleIsAllowed() {
     assertAbout(javaSource())
         .that(getFile("MultipleOptionWithListTypeConverter.java"))
@@ -257,6 +249,16 @@ public class OptionProcessorTest {
         .withErrorContaining(
             "Option that allows multiple occurrences must be of type java.util.List<E>, "
                 + "but is of type java.lang.String");
+  }
+
+  @Test
+  public void allowMultipleOptionsWithDefaultValuesAreRejected() {
+    assertAbout(javaSource())
+        .that(getFile("AllowMultipleOptionWithDefaultValue.java"))
+        .processedWith(new OptionProcessor())
+        .failsToCompile()
+        .withErrorContaining(
+            "Default values for multiple options are not allowed - use \"null\" special value");
   }
 
   @Test

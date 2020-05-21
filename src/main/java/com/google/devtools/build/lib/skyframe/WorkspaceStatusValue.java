@@ -50,10 +50,7 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
     return volatileArtifact;
   }
 
-  /**
-   * {@link com/google/devtools/build/lib/skyframe/WorkspaceStatusValue.java used only in javadoc:
-   * com.google.devtools.build.skyframe.SkyKey} for {@link WorkspaceStatusValue}.
-   */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link WorkspaceStatusValue}. */
   public static class BuildInfoKey extends ActionLookupKey {
     private BuildInfoKey() {}
 

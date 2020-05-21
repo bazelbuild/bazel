@@ -299,7 +299,7 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       deprecationWarning = "Will be enabled by default and removed soon",
-      help = "Whether or not to exit if an exception is thrown by an internal EventBus handler.")
+      help = "No-op: please use --fatal_event_bus_exceptions_exclusions instead")
   public boolean fatalEventBusExceptions;
 
   @Option(

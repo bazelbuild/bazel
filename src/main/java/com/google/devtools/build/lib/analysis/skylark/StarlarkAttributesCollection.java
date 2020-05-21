@@ -38,7 +38,7 @@ import java.util.Map;
 
 /** Information about attributes of a rule an aspect is applied to. */
 class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
-  private final SkylarkRuleContext starlarkRuleContext;
+  private final StarlarkRuleContext starlarkRuleContext;
   private final StructImpl attrObject;
   private final StructImpl executableObject;
   private final StructImpl fileObject;
@@ -50,7 +50,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       "No attribute '%s' in attr. Make sure you declared a rule attribute with this name.";
 
   private StarlarkAttributesCollection(
-      SkylarkRuleContext starlarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       String ruleClassName,
       Map<String, Object> attrs,
       Map<String, Object> executables,
@@ -126,12 +126,12 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
     printer.append("<rule collection for " + starlarkRuleContext.getRuleLabelCanonicalName() + ">");
   }
 
-  public static Builder builder(SkylarkRuleContext ruleContext) {
+  public static Builder builder(StarlarkRuleContext ruleContext) {
     return new Builder(ruleContext);
   }
 
   public static class Builder {
-    private final SkylarkRuleContext context;
+    private final StarlarkRuleContext context;
     private final LinkedHashMap<String, Object> attrBuilder = new LinkedHashMap<>();
     private final LinkedHashMap<String, Object> executableBuilder = new LinkedHashMap<>();
     private final ImmutableMap.Builder<Artifact, FilesToRunProvider> executableRunfilesbuilder =
@@ -140,7 +140,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
     private final LinkedHashMap<String, Object> filesBuilder = new LinkedHashMap<>();
     private final HashSet<Artifact> seenExecutables = new HashSet<>();
 
-    private Builder(SkylarkRuleContext ruleContext) {
+    private Builder(StarlarkRuleContext ruleContext) {
       this.context = ruleContext;
     }
 

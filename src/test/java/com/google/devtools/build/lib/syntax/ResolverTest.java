@@ -29,8 +29,7 @@ public class ResolverTest {
   // Resolves a file using the current options.
   private StarlarkFile resolveFile(String... lines) throws SyntaxError.Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    Module module = Module.createForBuiltins(Starlark.UNIVERSE);
-    return EvalUtils.parseAndValidate(input, options.build(), module);
+    return EvalUtils.parseAndValidate(input, options.build(), Module.create());
   }
 
   // Assertions that parsing and resolution succeeds.

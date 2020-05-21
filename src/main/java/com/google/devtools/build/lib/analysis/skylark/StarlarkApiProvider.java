@@ -33,7 +33,7 @@ public abstract class StarlarkApiProvider {
       // todo(dslomov): nuke this weird initialization mechanism.
 
       // Allow multiple calls.
-      // It is possible for the Starlark rule to get a SkylarkApiProvider such as `target.java`
+      // It is possible for the Starlark rule to get a StarlarkApiProvider such as `target.java`
       // from its dependency and pass it on. It does not make a whole lot of sense, but we
       // shouldn't crash.
       return;

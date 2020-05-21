@@ -19,7 +19,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.AbstractLabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
@@ -27,23 +27,23 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.concurrent.Immutable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * An implementation of {@link LateBoundDefault} which obtains a late-bound attribute value (of type
  * 'label') specifically by Starlark configuration fragment name and field name, as registered by
- * {@link SkylarkConfigurationField}.
+ * {@link StarlarkConfigurationField}.
  *
- * <p>For example, a SkylarkLateBoundDefault on "java" and "toolchain" would require a valid
+ * <p>For example, a StarlarkLateBoundDefault on "java" and "toolchain" would require a valid
  * configuration fragment named "java" with a method annotated with {@link
- * SkylarkConfigurationField} of name "toolchain". This {@link LateBoundDefault} would provide a
+ * StarlarkConfigurationField} of name "toolchain". This {@link LateBoundDefault} would provide a
  * late-bound dependency (defined by the label returned by that configuration field) in the current
  * target configuration.
  */
@@ -67,11 +67,9 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
     }
   }
 
-  /**
-   * Returns the {@link SkylarkConfigurationField} annotation corresponding to this method.
-   */
+  /** Returns the {@link StarlarkConfigurationField} annotation corresponding to this method. */
   private static Label getDefaultLabel(
-      SkylarkConfigurationField annotation, String toolsRepository) {
+      StarlarkConfigurationField annotation, String toolsRepository) {
     if (annotation.defaultLabel().isEmpty()) {
       return null;
     }
@@ -81,8 +79,12 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
     return defaultLabel;
   }
 
-  private StarlarkLateBoundDefault(SkylarkConfigurationField annotation,
-      Class<FragmentT> fragmentClass, String fragmentName, Method method, String toolsRepository) {
+  private StarlarkLateBoundDefault(
+      StarlarkConfigurationField annotation,
+      Class<FragmentT> fragmentClass,
+      String fragmentName,
+      Method method,
+      String toolsRepository) {
     this(
         getDefaultLabel(annotation, toolsRepository),
         fragmentClass,
@@ -114,7 +116,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
 
   /**
    * Returns the Starlark name of the configuration field name, as registered by {@link
-   * SkylarkConfigurationField} annotation on the configuration fragment.
+   * StarlarkConfigurationField} annotation on the configuration fragment.
    */
   public String getFragmentFieldName() {
     return fragmentFieldName;
@@ -134,8 +136,8 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
   /**
    * An exception thrown if a user specifies an invalid configuration field identifier.
    *
-   * @see SkylarkConfigurationField
-   **/
+   * @see StarlarkConfigurationField
+   */
   public static class InvalidConfigurationFieldException extends Exception {
     public InvalidConfigurationFieldException(String message) {
       super(message);
@@ -178,7 +180,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
    * A cache for efficient {@link StarlarkLateBoundDefault} loading by configuration fragment. Each
    * configuration fragment class key is mapped to a {@link Map} where keys are configuration field
    * Starlark names, and values are the {@link StarlarkLateBoundDefault}s. Methods must be annotated
-   * with {@link SkylarkConfigurationField} to be considered.
+   * with {@link StarlarkConfigurationField} to be considered.
    */
   private static final LoadingCache<CacheKey, Map<String, StarlarkLateBoundDefault<?>>> fieldCache =
       CacheBuilder.newBuilder()
@@ -197,7 +199,7 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
 
                   if (fragmentModule != null) {
                     for (Method method : fragmentClass.getMethods()) {
-                      if (method.isAnnotationPresent(SkylarkConfigurationField.class)) {
+                      if (method.isAnnotationPresent(StarlarkConfigurationField.class)) {
                         // TODO(b/68817606): Use annotation processors to verify these constraints.
                         Preconditions.checkArgument(
                             method.getReturnType() == Label.class,
@@ -206,8 +208,8 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
                             method.getParameterTypes().length == 0,
                             String.format("Method %s must not accept arguments", method));
 
-                        SkylarkConfigurationField configField =
-                            method.getAnnotation(SkylarkConfigurationField.class);
+                        StarlarkConfigurationField configField =
+                            method.getAnnotation(StarlarkConfigurationField.class);
                         lateBoundDefaultMap.put(
                             configField.name(),
                             new StarlarkLateBoundDefault<>(
@@ -226,11 +228,11 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
   /**
    * Returns a {@link LateBoundDefault} which obtains a late-bound attribute value (of type 'label')
    * specifically by Starlark configuration fragment name and field name, as registered by {@link
-   * SkylarkConfigurationField}.
+   * StarlarkConfigurationField}.
    *
    * @param fragmentClass the configuration fragment class, which must have a valid Starlark name
    * @param fragmentFieldName the configuration field name, as registered by {@link
-   *     SkylarkConfigurationField} annotation
+   *     StarlarkConfigurationField} annotation
    * @param toolsRepository the Bazel tools repository path fragment
    * @throws InvalidConfigurationFieldException if there is no valid configuration field with the
    *     given fragment class and field name

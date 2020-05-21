@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.ActionContext;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -139,7 +139,7 @@ public class ModuleActionContextRegistryTest {
             .register(IT1.class, context2, "baz", "boz")
             .restrictTo(IT1.class, "bar");
 
-    ExecutorInitException exception = assertThrows(ExecutorInitException.class, builder::build);
+    AbruptExitException exception = assertThrows(AbruptExitException.class, builder::build);
     assertThat(exception).hasMessageThat().containsMatch("IT1.*bar.*[foo, baz, boz]");
   }
 

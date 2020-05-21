@@ -85,7 +85,7 @@ public class NinjaPhonyTargetsUtil {
           isAlwaysDirty |= alreadyComputed.isAlwaysDirty();
           phonyNames.add(Iterables.getOnlyElement(phonyInput.getAllOutputs()));
         } else {
-          // The input is the usual file.
+          // The input is an explicit input file.
           directInputs.add(input);
         }
       }

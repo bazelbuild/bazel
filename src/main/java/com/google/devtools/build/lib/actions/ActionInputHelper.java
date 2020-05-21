@@ -18,31 +18,21 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
-/**
- * Helper utility to create ActionInput instances.
- */
+/** Helper utility to create ActionInput instances. */
 public final class ActionInputHelper {
-  private ActionInputHelper() {
-  }
+  private ActionInputHelper() {}
 
   @VisibleForTesting
-  public static ArtifactExpander actionGraphArtifactExpander(
-      final ActionGraph actionGraph) {
+  public static ArtifactExpander actionGraphArtifactExpander(ActionGraph actionGraph) {
     return new ArtifactExpander() {
       @Override
       public void expand(Artifact mm, Collection<? super Artifact> output) {
@@ -135,64 +125,6 @@ public final class ActionInputHelper {
    */
   public static ActionInput fromPath(PathFragment path) {
     return fromPath(path.getPathString());
-  }
-
-  /**
-   * Creates a sequence of {@link ActionInput}s from a sequence of string paths.
-   */
-  public static Collection<ActionInput> fromPaths(Collection<String> paths) {
-    return Collections2.transform(paths, ActionInputHelper::fromPath);
-  }
-
-  /**
-   * Instantiates a concrete TreeFileArtifact with the given parent Artifact and path relative to
-   * that Artifact.
-   */
-  public static TreeFileArtifact treeFileArtifact(
-      Artifact.SpecialArtifact parent, PathFragment relativePath) {
-    TreeFileArtifact result =
-        treeFileArtifactWithNoGeneratingActionSet(parent, relativePath, parent.getArtifactOwner());
-    result.setGeneratingActionKey(parent.getGeneratingActionKey());
-    return result;
-  }
-
-  /**
-   * Instantiates a concrete TreeFileArtifact with the given parent Artifact and path relative to
-   * that Artifact.
-   */
-  public static TreeFileArtifact treeFileArtifact(
-      Artifact.SpecialArtifact parent, String relativePath) {
-    return treeFileArtifact(parent, PathFragment.create(relativePath));
-  }
-
-  public static TreeFileArtifact treeFileArtifactWithNoGeneratingActionSet(
-      SpecialArtifact parent, PathFragment relativePath, ActionLookupKey artifactOwner) {
-    Preconditions.checkState(
-        parent.isTreeArtifact(), "Given parent %s must be a TreeArtifact", parent);
-    return new TreeFileArtifact(parent, relativePath, artifactOwner);
-  }
-
-  /** Returns an Iterable of TreeFileArtifacts with the given parent and parent relative paths. */
-  public static Iterable<TreeFileArtifact> asTreeFileArtifacts(
-      final Artifact.SpecialArtifact parent, Iterable<? extends PathFragment> parentRelativePaths) {
-    Preconditions.checkState(parent.isTreeArtifact(),
-        "Given parent %s must be a TreeArtifact", parent);
-    return Iterables.transform(
-        parentRelativePaths, pathFragment -> treeFileArtifact(parent, pathFragment));
-  }
-
-  /** Returns a Set of TreeFileArtifacts with the given parent and parent-relative paths. */
-  public static Set<TreeFileArtifact> asTreeFileArtifacts(
-      final Artifact.SpecialArtifact parent, Set<? extends PathFragment> parentRelativePaths) {
-    Preconditions.checkState(parent.isTreeArtifact(),
-        "Given parent %s must be a TreeArtifact", parent);
-
-    ImmutableSet.Builder<TreeFileArtifact> builder = ImmutableSet.builder();
-    for (PathFragment path : parentRelativePaths) {
-      builder.add(treeFileArtifact(parent, path));
-    }
-
-    return builder.build();
   }
 
   /**

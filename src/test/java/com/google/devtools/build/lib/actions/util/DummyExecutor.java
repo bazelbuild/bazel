@@ -18,9 +18,11 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcomma
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
+import java.util.function.Predicate;
 
 /** A dummy implementation of Executor. */
 public class DummyExecutor implements Executor {
@@ -53,7 +55,7 @@ public class DummyExecutor implements Executor {
   }
 
   @Override
-  public boolean getVerboseFailures() {
+  public Predicate<Label> getVerboseFailuresPredicate() {
     throw new UnsupportedOperationException();
   }
 

@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -43,9 +43,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -76,6 +78,7 @@ import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -915,6 +918,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            "action-id",
             r,
             ImmutableList.of(a1, a2),
             /* inMemoryOutputPath= */ null,
@@ -925,10 +929,8 @@ public class RemoteCacheTests {
 
     // assert
     assertThat(inMemoryOutput).isNull();
-    verify(injector)
-        .injectRemoteFile(eq(a1), eq(toBinaryDigest(d1)), eq(d1.getSizeBytes()), anyInt());
-    verify(injector)
-        .injectRemoteFile(eq(a2), eq(toBinaryDigest(d2)), eq(d2.getSizeBytes()), anyInt());
+    verify(injector).injectRemoteFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(injector).injectRemoteFile(eq(a2), remoteFileMatchingDigest(d2));
 
     Path outputBase = artifactRoot.getRoot().asPath();
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
@@ -971,12 +973,14 @@ public class RemoteCacheTests {
             PathFragment.create("outputs/dir"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,
             SpecialArtifactType.TREE);
+    dir.setGeneratingActionKey(ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0));
 
     MetadataInjector injector = mock(MetadataInjector.class);
 
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            "action-id",
             r,
             ImmutableList.of(dir),
             /* inMemoryOutputPath= */ null,
@@ -988,15 +992,12 @@ public class RemoteCacheTests {
     // assert
     assertThat(inMemoryOutput).isNull();
 
-    Map<PathFragment, RemoteFileArtifactValue> m =
-        ImmutableMap.<PathFragment, RemoteFileArtifactValue>builder()
-            .put(
-                PathFragment.create("file1"),
-                new RemoteFileArtifactValue(toBinaryDigest(d1), d1.getSizeBytes(), 1))
-            .put(
-                PathFragment.create("a/file2"),
-                new RemoteFileArtifactValue(toBinaryDigest(d2), d2.getSizeBytes(), 1))
-            .build();
+    Map<TreeFileArtifact, RemoteFileArtifactValue> m =
+        ImmutableMap.of(
+            TreeFileArtifact.createTreeOutput(dir, "file1"),
+            new RemoteFileArtifactValue(toBinaryDigest(d1), d1.getSizeBytes(), 1, "action-id"),
+            TreeFileArtifact.createTreeOutput(dir, "a/file2"),
+            new RemoteFileArtifactValue(toBinaryDigest(d2), d2.getSizeBytes(), 1, "action-id"));
     verify(injector).injectRemoteDirectory(eq(dir), eq(m));
 
     Path outputBase = artifactRoot.getRoot().asPath();
@@ -1042,6 +1043,7 @@ public class RemoteCacheTests {
             PathFragment.create("outputs/dir"),
             ActionsTestUtil.NULL_ARTIFACT_OWNER,
             SpecialArtifactType.TREE);
+    dir.setGeneratingActionKey(ActionLookupData.create(ActionsTestUtil.NULL_ARTIFACT_OWNER, 0));
     MetadataInjector injector = mock(MetadataInjector.class);
 
     // act
@@ -1050,6 +1052,7 @@ public class RemoteCacheTests {
             BulkTransferException.class,
             () ->
                 remoteCache.downloadMinimal(
+                    "action-id",
                     r,
                     ImmutableList.of(dir),
                     /* inMemoryOutputPath= */ null,
@@ -1083,6 +1086,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            "action-id",
             r,
             ImmutableList.of(),
             /* inMemoryOutputPath= */ null,
@@ -1125,6 +1129,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            "action-id",
             r,
             ImmutableList.of(a1, a2),
             inMemoryOutputPathFragment,
@@ -1139,10 +1144,8 @@ public class RemoteCacheTests {
     assertThat(inMemoryOutput.getContents()).isEqualTo(expectedContents);
     assertThat(inMemoryOutput.getOutput()).isEqualTo(a1);
     // The in memory file also needs to be injected as an output
-    verify(injector)
-        .injectRemoteFile(eq(a1), eq(toBinaryDigest(d1)), eq(d1.getSizeBytes()), anyInt());
-    verify(injector)
-        .injectRemoteFile(eq(a2), eq(toBinaryDigest(d2)), eq(d2.getSizeBytes()), anyInt());
+    verify(injector).injectRemoteFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(injector).injectRemoteFile(eq(a2), remoteFileMatchingDigest(d2));
 
     Path outputBase = artifactRoot.getRoot().asPath();
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
@@ -1166,6 +1169,7 @@ public class RemoteCacheTests {
     // act
     InMemoryOutput inMemoryOutput =
         remoteCache.downloadMinimal(
+            "action-id",
             r,
             ImmutableList.of(a1),
             inMemoryOutputPathFragment,
@@ -1177,8 +1181,7 @@ public class RemoteCacheTests {
     // assert
     assertThat(inMemoryOutput).isNull();
     // The in memory file metadata also should not have been injected.
-    verify(injector, never())
-        .injectRemoteFile(eq(a1), eq(toBinaryDigest(d1)), eq(d1.getSizeBytes()), anyInt());
+    verify(injector, never()).injectRemoteFile(eq(a1), remoteFileMatchingDigest(d1));
   }
 
   @Test
@@ -1497,6 +1500,13 @@ public class RemoteCacheTests {
 
     ImmutableList<Digest> toQuery = ImmutableList.of(wobbleDigest, quxDigest, barDigest);
     assertThat(remoteCache.findMissingDigests(toQuery)).isEmpty();
+  }
+
+  private static RemoteFileArtifactValue remoteFileMatchingDigest(Digest expectedDigest) {
+    return argThat(
+        metadata ->
+            Arrays.equals(metadata.getDigest(), toBinaryDigest(expectedDigest))
+                && metadata.getSize() == expectedDigest.getSizeBytes());
   }
 
   private InMemoryRemoteCache newRemoteCache(Map<Digest, byte[]> casEntries) {

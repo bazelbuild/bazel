@@ -5,7 +5,7 @@
 ## my_repo
 
 <pre>
-my_repo(<a href="#my_repo-name">name</a>, <a href="#my_repo-useless">useless</a>)
+my_repo(<a href="#my_repo-name">name</a>, <a href="#my_repo-repo_mapping">repo_mapping</a>, <a href="#my_repo-useless">useless</a>)
 </pre>
 
 Minimal example of a repository rule.
@@ -24,6 +24,15 @@ Minimal example of a repository rule.
         <a href="https://bazel.build/docs/build-ref.html#name">Name</a>; required
         <p>
           A unique name for this repository.
+        </p>
+      </td>
+    </tr>
+    <tr id="my_repo-repo_mapping">
+      <td><code>repo_mapping</code></td>
+      <td>
+        <a href="https://bazel.build/docs/skylark/lib/dict.html">Dictionary: String -> String</a>; required
+        <p>
+          A dictionary from local repository name to global repository name. This allows controls over workspace dependency resolution for dependencies of this repository.<p>For example, an entry `"@foo": "@bar"` declares that, for any time this repository depends on `@foo` (such as a dependency on `@foo//some:target`, it should actually resolve that dependency within globally-declared `@bar` (`@bar//some:target`).
         </p>
       </td>
     </tr>

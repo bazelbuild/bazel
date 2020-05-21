@@ -18,9 +18,9 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Module;
@@ -104,24 +104,25 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
   }
 
   @Override
-  public Sequence<Artifact> getSkylarkObjectFiles(boolean usePic, StarlarkThread thread)
+  public Sequence<Artifact> getStarlarkObjectFiles(boolean usePic, StarlarkThread thread)
       throws EvalException {
     CcCommon.checkLocationWhitelisted(
         thread.getSemantics(),
         thread.getCallerLocation(),
-        ((Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel())
+        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+            .label()
             .getPackageIdentifier()
             .toString());
     return StarlarkList.immutableCopyOf(getObjectFiles(usePic));
   }
 
   @Override
-  public Sequence<Artifact> getSkylarkObjects() throws EvalException {
+  public Sequence<Artifact> getStarlarkObjects() throws EvalException {
     return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ false));
   }
 
   @Override
-  public Sequence<Artifact> getSkylarkPicObjects() throws EvalException {
+  public Sequence<Artifact> getStarlarkPicObjects() throws EvalException {
     return StarlarkList.immutableCopyOf(getObjectFiles(/* usePic= */ true));
   }
 

@@ -288,7 +288,8 @@ public class CriticalPathComponent {
   }
 
   private long getElapsedTimeNanosNoCheck() {
-    return finishNanos - startNanos;
+    // The delta value may be negative, see note in {@link Clock#nanoTime}.
+    return Math.max(0, finishNanos - startNanos);
   }
 
   /**

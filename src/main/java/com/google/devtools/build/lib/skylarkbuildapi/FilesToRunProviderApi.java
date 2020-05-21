@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Returns information about executables produced by a target and the files needed to run it. */
 @StarlarkBuiltin(
@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
     category = StarlarkDocumentationCategory.PROVIDER)
 public interface FilesToRunProviderApi<FileT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "executable",
       doc = "The main executable or None if it does not exist.",
       structField = true,
@@ -35,7 +35,7 @@ public interface FilesToRunProviderApi<FileT extends FileApi> extends StarlarkVa
   @Nullable
   FileT getExecutable();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "runfiles_manifest",
       doc = "The runfiles manifest or None if it does not exist.",
       structField = true,

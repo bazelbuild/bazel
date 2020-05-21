@@ -132,8 +132,8 @@ public class FakeAndroidResourcesInfo
         Depset transitiveAapt2RTxt,
         Depset transitiveSymbolsBin,
         Depset transitiveCompiledSymbols,
-        Depset transitiveStaticLib,
-        Depset transitiveRTxt,
+        Object transitiveStaticLib,
+        Object transitiveRTxt,
         Object transitiveAapt2ValidationArtifacts)
         throws EvalException {
       return new FakeAndroidResourcesInfo();

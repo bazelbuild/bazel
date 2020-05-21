@@ -40,6 +40,11 @@ public final class FileProvider implements TransitiveInfoProvider, FileProviderA
     this.filesToBuild = filesToBuild;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * Returns the set of artifacts that are the "output" of this rule.
    *

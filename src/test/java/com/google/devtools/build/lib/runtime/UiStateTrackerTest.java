@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SchedulingActionEvent;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadProgressEvent;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
 import com.google.devtools.build.lib.buildtool.BuildResult;
@@ -45,15 +47,14 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.runtime.UiStateTracker.ProgressMode;
 import com.google.devtools.build.lib.runtime.UiStateTracker.StrategyIds;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.PackageProgressReceiver;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.LoggingTerminalWriter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -524,12 +525,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionOwner owner =
         ActionOwner.create(
             label,
-            ImmutableList.<AspectDescriptor>of(),
-            null,
-            null,
-            null,
+            ImmutableList.of(),
+            new Location("dummy-file", 0, 0),
+            "dummy-mnemonic",
+            "dummy-target-kind",
             "fedcba",
-            null,
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             null,
             ImmutableMap.of(),
             null);
@@ -951,12 +954,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionOwner fooOwner =
         ActionOwner.create(
             labelFooTest,
-            ImmutableList.<AspectDescriptor>of(),
-            null,
-            null,
-            null,
+            ImmutableList.of(),
+            new Location("dummy-file", 0, 0),
+            "dummy-mnemonic",
+            "dummy-target-kind",
             "abcdef",
-            null,
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             null,
             ImmutableMap.of(),
             null);
@@ -970,12 +975,14 @@ public class UiStateTrackerTest extends FoundationTestCase {
     ActionOwner barOwner =
         ActionOwner.create(
             labelBarTest,
-            ImmutableList.<AspectDescriptor>of(),
-            null,
-            null,
-            null,
+            ImmutableList.of(),
+            new Location("dummy-file", 0, 0),
+            "dummy-mnemonic",
+            "dummy-target-kind",
             "fedcba",
-            null,
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
             null,
             ImmutableMap.of(),
             null);
@@ -1129,7 +1136,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport2");
     BuildEventTransport transport3 = newBepTransport("BuildEventTransport3");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.SUCCESS));
+    buildResult.setDetailedExitCode(DetailedExitCode.success());
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
     buildResult.setStopTime(clock.currentTimeMillis());
 
@@ -1199,7 +1206,7 @@ public class UiStateTrackerTest extends FoundationTestCase {
     BuildEventTransport transport1 = newBepTransport(Strings.repeat("A", 61));
     BuildEventTransport transport2 = newBepTransport("BuildEventTransport");
     BuildResult buildResult = new BuildResult(clock.currentTimeMillis());
-    buildResult.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.SUCCESS));
+    buildResult.setDetailedExitCode(DetailedExitCode.success());
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(true);
     UiStateTracker stateTracker = new UiStateTracker(clock, 60);
     stateTracker.buildStarted(null);

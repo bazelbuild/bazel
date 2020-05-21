@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -33,8 +34,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
-  private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
-
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
@@ -72,7 +71,7 @@ public class ExternalFilesHelper {
       BlazeDirectories directories,
       ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
       ExternalPackageHelper externalPackageHelper) {
-    return IN_TEST
+    return TestType.isInTest()
         ? createForTesting(
             pkgLocator,
             externalFileAction,

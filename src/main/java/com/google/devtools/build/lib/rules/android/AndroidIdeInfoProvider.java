@@ -301,7 +301,7 @@ public final class AndroidIdeInfoProvider extends NativeInfo
   }
 
   @Override
-  public ImmutableMap<String, Depset> getNativeLibsSkylark() {
+  public ImmutableMap<String, Depset> getNativeLibsStarlark() {
     ImmutableMap.Builder<String, Depset> builder = ImmutableMap.builder();
     for (Map.Entry<String, NestedSet<Artifact>> entry : getNativeLibs().entrySet()) {
       builder.put(entry.getKey(), Depset.of(Artifact.TYPE, entry.getValue()));

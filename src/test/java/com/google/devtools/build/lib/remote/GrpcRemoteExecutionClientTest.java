@@ -184,7 +184,7 @@ public class GrpcRemoteExecutionClientTest {
     fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn =
         new SimpleSpawn(
-            new FakeOwner("Mnemonic", "Progress Message"),
+            new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"),
             ImmutableList.of("/bin/echo", "Hi!"),
             ImmutableMap.of("VARIABLE", "value"),
             /*executionInfo=*/ ImmutableMap.<String, String>of(),
@@ -273,7 +273,7 @@ public class GrpcRemoteExecutionClientTest {
             execRoot,
             remoteOptions,
             Options.getDefaults(ExecutionOptions.class),
-            /* verboseFailures= */ true,
+            /* verboseFailures= */ l -> true,
             /*cmdlineReporter=*/ null,
             "build-req-id",
             "command-id",

@@ -491,6 +491,18 @@ the compilation of binaries during the build.
   used CROSSTOOL file.
 </p>
 
+<h4 id='flag--action_env'>
+  <code class='flag'>--action_env=<var>VAR=VALUE</var></code>
+</h4>
+<p>
+  Specifies the set of environment variables available during the execution of all actions.
+  Variables can be either specified by name, in which case the value will be taken from the
+  invocation environment, or by the `name=value` pair which sets the value independent of the
+  invocation environment.
+
+  This `--action_env` flag can be specified multiple times. If a value is assigned to the same
+  variable across multiple `--action_env` flags, the latest assignment wins.
+</p>
 
 <h4 id='flag--experimental_action_listener'>
   <code class='flag'>--experimental_action_listener=<var>label</var></code>
@@ -2419,6 +2431,11 @@ a user-friendly way.
   (e.g. you are building from a read-only directory).
 </p>
 
+<pre>% bazel info --cpu=piii bazel-bin
+/var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/piii-opt/bin
+% bazel info --cpu=k8 bazel-bin
+/var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/k8-opt/bin
+</pre>
 <h3 id='version'><code>version</code> and <code>--version</code></h3>
 
 <p>
@@ -2711,9 +2728,10 @@ adb -s deadbeef install ...
 </p>
 
 <p>For example:</p>
-<pre>
-  % bazel --output_base /tmp/1 build //foo  &amp;  bazel --output_base /tmp/2 build //bar
-</pre>
+<pre><code>
+  OUTPUT_BASE=/var/tmp/google/_bazel_johndoe/custom_output_base
+  % bazel --output_base $OUTPUT_BASE build //foo  &amp;  bazel --output_base $OUTPUT_BASE build //bar
+</code></pre>
 <p>
   In this command, the two Bazel commands run concurrently (because of
   the shell <code>&amp;</code> operator), each using a different Bazel
@@ -2731,19 +2749,13 @@ adb -s deadbeef install ...
 
 <h4 id='flag--output_user_root'><code class='flag'>--output_user_root=<var>dir</var></code></h4>
 <p>
-  By default, the <code>output_base</code> value is chosen to as to
-  avoid conflicts between multiple users building in the same workspace directory.
-  In some situations, though, it is desirable to build from a directory
-  shared between multiple users; release engineers often do this.  In
-  those cases it may be useful to deliberately override the default so
-  as to ensure "conflicts" (i.e., sharing) between multiple users.
-  Use the <code class='flag'>--output_user_root</code> option to achieve this: the
-  output base is placed in a subdirectory of the output user root,
-  with a unique name based on the workspace, so the result of using an
-  output user root that is not a function of <code>$USER</code> is
-  sharing.  Of course, it is important to ensure (via umask and group
-  membership) that all the cooperating users can read/write each
-  others files.
+  Points to the root directory where output bases are created unless
+  overriden with <code class='flag'>--output_base</code>. The directory
+  must either not exist or be owned by the calling user. In the past,
+  this was allowed to point to a directory shared among various users
+  but it's not allowed any longer. (We can reconsider allowing this once
+  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>
+  is addressed.)
 </p>
 <p>
   If the <code class='flag'>--output_base</code> option is specified, it overrides

@@ -34,7 +34,8 @@ import org.objectweb.asm.Type;
 
 /** A unit data object represents a class or interface declaration. */
 @AutoValue
-public abstract class MethodDeclInfo implements TypeMappable<MethodDeclInfo> {
+public abstract class MethodDeclInfo
+    implements TypeMappable<MethodDeclInfo>, Comparable<MethodDeclInfo> {
 
   public abstract MethodKey methodKey();
 
@@ -223,5 +224,10 @@ public abstract class MethodDeclInfo implements TypeMappable<MethodDeclInfo> {
         memberAccess(),
         typeMapper.mapSignature(signature(), /* typeSignature= */ false),
         typeMapper.mapTypes(exceptionArray()));
+  }
+
+  @Override
+  public int compareTo(MethodDeclInfo other) {
+    return methodKey().compareTo(other.methodKey());
   }
 }

@@ -42,12 +42,12 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
     implements AppleDynamicFrameworkInfoApi<Artifact> {
 
   /** Starlark name for the AppleDynamicFrameworkInfo. */
-  public static final String SKYLARK_NAME = "AppleDynamicFramework";
+  public static final String STARLARK_NAME = "AppleDynamicFramework";
 
   /** Starlark constructor and identifier for AppleDynamicFrameworkInfo. */
-  public static final NativeProvider<AppleDynamicFrameworkInfo> SKYLARK_CONSTRUCTOR =
+  public static final NativeProvider<AppleDynamicFrameworkInfo> STARLARK_CONSTRUCTOR =
       new NativeProvider<AppleDynamicFrameworkInfo>(
-          AppleDynamicFrameworkInfo.class, SKYLARK_NAME) {};
+          AppleDynamicFrameworkInfo.class, STARLARK_NAME) {};
 
   /** Field name for the dylib binary artifact of the dynamic framework. */
   public static final String DYLIB_BINARY_FIELD_NAME = "binary";
@@ -68,7 +68,7 @@ public final class AppleDynamicFrameworkInfo extends NativeInfo
       ObjcProvider depsObjcProvider,
       NestedSet<String> dynamicFrameworkDirs,
       NestedSet<Artifact> dynamicFrameworkFiles) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.dylibBinary = dylibBinary;
     this.depsObjcProvider = depsObjcProvider;
     this.dynamicFrameworkDirs = dynamicFrameworkDirs;

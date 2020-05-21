@@ -13,29 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.ActionInputHelper.treeFileArtifact;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.hash.Hashing;
-import com.google.common.util.concurrent.Runnables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -44,6 +39,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -51,12 +47,11 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -71,66 +66,23 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Iterator;
 import java.util.List;
-import javax.annotation.Nullable;
-import org.junit.Before;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Timestamp builder tests for TreeArtifacts. */
 @RunWith(JUnit4.class)
-public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
-
-  private static final Predicate<Event> IS_ERROR_EVENT = new Predicate<Event>() {
-    @Override
-    public boolean apply(Event event) {
-      return event.getKind().equals(EventKind.ERROR);
-    }
-  };
-
-  // Common Artifacts, TreeFileArtifact, and Buttons. These aren't all used in all tests, but
-  // they're used often enough that we can save ourselves a lot of copy-pasted code by creating them
-  // in setUp().
-
-  Artifact in;
-
-  SpecialArtifact outOne;
-  TreeFileArtifact outOneFileOne;
-  TreeFileArtifact outOneFileTwo;
-  Button buttonOne = new Button();
-
-  SpecialArtifact outTwo;
-  TreeFileArtifact outTwoFileOne;
-  TreeFileArtifact outTwoFileTwo;
-  Button buttonTwo = new Button();
-  @Before
-  public void setUp() throws Exception {
-    in = createSourceArtifact("input");
-    writeFile(in, "input_content");
-
-    outOne = createTreeArtifact("outputOne");
-    outOneFileOne =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(outOne, "out_one_file_one");
-    outOneFileTwo =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(outOne, "out_one_file_two");
-
-    outTwo = createTreeArtifact("outputTwo");
-    outTwoFileOne =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(outTwo, "out_one_file_one");
-    outTwoFileTwo =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(outTwo, "out_one_file_two");
-  }
+public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   @Test
-  public void testCodec() throws Exception {
+  public void codec() throws Exception {
     SpecialArtifact parent = createTreeArtifact("parent");
     parent.setGeneratingActionKey(ActionLookupData.create(ACTION_LOOKUP_KEY, 0));
-    new SerializationTester(parent, ActionInputHelper.treeFileArtifact(parent, "child"))
+    new SerializationTester(parent, TreeFileArtifact.createTreeOutput(parent, "child"))
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .addDependency(
             Root.RootCodecDependencies.class,
@@ -140,59 +92,74 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   /** Simple smoke test. If this isn't passing, something is very wrong... */
   @Test
-  public void testTreeArtifactSimpleCase() throws Exception {
-    TouchingTestAction action = new TouchingTestAction(outOneFileOne, outOneFileTwo);
+  public void treeArtifactSimpleCase() throws Exception {
+    SpecialArtifact parent = createTreeArtifact("parent");
+    TouchingTestAction action = new TouchingTestAction(parent, "out1", "out2");
     registerAction(action);
-    buildArtifact(action.getSoleOutput());
 
-    assertThat(outOneFileOne.getPath().exists()).isTrue();
-    assertThat(outOneFileTwo.getPath().exists()).isTrue();
+    TreeArtifactValue result = buildArtifact(parent);
+
+    verifyOutputTree(result, parent, "out1", "out2");
   }
 
   /** Simple test for the case with dependencies. */
   @Test
-  public void testDependentTreeArtifacts() throws Exception {
-    TouchingTestAction actionOne = new TouchingTestAction(outOneFileOne, outOneFileTwo);
-    registerAction(actionOne);
+  public void dependentTreeArtifacts() throws Exception {
+    SpecialArtifact tree1 = createTreeArtifact("tree1");
+    TouchingTestAction action1 = new TouchingTestAction(tree1, "out1", "out2");
+    registerAction(action1);
 
-    CopyTreeAction actionTwo = new CopyTreeAction(
-        ImmutableList.of(outOneFileOne, outOneFileTwo),
-        ImmutableList.of(outTwoFileOne, outTwoFileTwo));
-    registerAction(actionTwo);
+    SpecialArtifact tree2 = createTreeArtifact("tree2");
+    CopyTreeAction action2 = new CopyTreeAction(tree1, tree2);
+    registerAction(action2);
 
-    buildArtifact(outTwo);
+    TreeArtifactValue result = buildArtifact(tree2);
 
-    assertThat(outOneFileOne.getPath().exists()).isTrue();
-    assertThat(outOneFileTwo.getPath().exists()).isTrue();
-    assertThat(outTwoFileOne.getPath().exists()).isTrue();
-    assertThat(outTwoFileTwo.getPath().exists()).isTrue();
+    assertThat(tree1.getPath().getRelative("out1").exists()).isTrue();
+    assertThat(tree1.getPath().getRelative("out2").exists()).isTrue();
+    verifyOutputTree(result, tree2, "out1", "out2");
+  }
+
+  /** Test for tree artifacts with sub directories. */
+  @Test
+  public void treeArtifactWithSubDirectory() throws Exception {
+    SpecialArtifact parent = createTreeArtifact("parent");
+    TouchingTestAction action = new TouchingTestAction(parent, "sub1/file1", "sub2/file2");
+    registerAction(action);
+
+    TreeArtifactValue result = buildArtifact(parent);
+
+    verifyOutputTree(result, parent, "sub1/file1", "sub2/file2");
   }
 
   @Test
-  public void testInputTreeArtifactMetadataProvider() throws Exception {
-    TouchingTestAction actionOne = new TouchingTestAction(outOneFileOne, outOneFileTwo);
-    registerAction(actionOne);
+  public void inputTreeArtifactMetadataProvider() throws Exception {
+    SpecialArtifact treeArtifactInput = createTreeArtifact("tree");
+    TouchingTestAction action1 = new TouchingTestAction(treeArtifactInput, "out1", "out2");
+    registerAction(action1);
 
-    final Artifact normalOutput = createDerivedArtifact("normal/out");
+    Artifact normalOutput = createDerivedArtifact("normal/out");
     Action testAction =
-        new TestAction(
-            TestAction.NO_EFFECT,
-            NestedSetBuilder.create(Order.STABLE_ORDER, outOne),
-            ImmutableSet.of(normalOutput)) {
+        new SimpleTestAction(ImmutableList.of(treeArtifactInput), normalOutput) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-            try {
-              // Check the metadata provider for input TreeFileArtifacts.
-              MetadataProvider metadataProvider = actionExecutionContext.getMetadataProvider();
-              assertThat(metadataProvider.getMetadata(outOneFileOne).getType().isFile()).isTrue();
-              assertThat(metadataProvider.getMetadata(outOneFileTwo).getType().isFile()).isTrue();
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            // Check the metadata provider for input TreeFileArtifacts.
+            MetadataProvider metadataProvider = actionExecutionContext.getMetadataProvider();
+            assertThat(
+                    metadataProvider
+                        .getMetadata(TreeFileArtifact.createTreeOutput(treeArtifactInput, "out1"))
+                        .getType()
+                        .isFile())
+                .isTrue();
+            assertThat(
+                    metadataProvider
+                        .getMetadata(TreeFileArtifact.createTreeOutput(treeArtifactInput, "out2"))
+                        .getType()
+                        .isFile())
+                .isTrue();
 
-              // Touch the action output.
-              touchFile(normalOutput);
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+            // Touch the action output.
+            touchFile(normalOutput);
           }
         };
 
@@ -202,296 +169,189 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   /** Unchanged TreeArtifact outputs should not cause reexecution. */
   @Test
-  public void testCacheCheckingForTreeArtifactsDoesNotCauseReexecution() throws Exception {
-    SpecialArtifact outOne = createTreeArtifact("outputOne");
-    Button buttonOne = new Button();
+  public void cacheCheckingForTreeArtifactsDoesNotCauseReexecution() throws Exception {
+    SpecialArtifact out1 = createTreeArtifact("out1");
+    Button button1 = new Button();
 
-    SpecialArtifact outTwo = createTreeArtifact("outputTwo");
-    Button buttonTwo = new Button();
+    SpecialArtifact out2 = createTreeArtifact("out2");
+    Button button2 = new Button();
 
-    TouchingTestAction actionOne = new TouchingTestAction(
-        buttonOne, outOne, "file_one", "file_two");
-    registerAction(actionOne);
+    TouchingTestAction action1 = new TouchingTestAction(button1, out1, "file_one", "file_two");
+    registerAction(action1);
 
-    CopyTreeAction actionTwo = new CopyTreeAction(
-        buttonTwo, outOne, outTwo, "file_one", "file_two");
-    registerAction(actionTwo);
+    CopyTreeAction action2 = new CopyTreeAction(button2, out1, out2);
+    registerAction(action2);
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    buildArtifact(outTwo);
-    assertThat(buttonOne.pressed).isTrue(); // built
-    assertThat(buttonTwo.pressed).isTrue(); // built
+    button1.pressed = false;
+    button2.pressed = false;
+    buildArtifact(out2);
+    assertThat(button1.pressed).isTrue(); // built
+    assertThat(button2.pressed).isTrue(); // built
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    buildArtifact(outTwo);
-    assertThat(buttonOne.pressed).isFalse(); // not built
-    assertThat(buttonTwo.pressed).isFalse(); // not built
+    button1.pressed = false;
+    button2.pressed = false;
+    buildArtifact(out2);
+    assertThat(button1.pressed).isFalse(); // not built
+    assertThat(button2.pressed).isFalse(); // not built
   }
 
-  /**
-   * Test rebuilding TreeArtifacts for inputs, outputs, and dependents.
-   * Also a test for caching.
-   */
+  /** Test rebuilding TreeArtifacts for inputs, outputs, and dependents. Also a test for caching. */
   @Test
-  public void testTransitiveReexecutionForTreeArtifacts() throws Exception {
-    WriteInputToFilesAction actionOne = new WriteInputToFilesAction(
-        buttonOne,
-        in,
-        outOneFileOne, outOneFileTwo);
-    registerAction(actionOne);
+  public void transitiveReexecutionForTreeArtifacts() throws Exception {
+    Artifact in = createSourceArtifact("input");
+    writeFile(in, "input content");
 
-    CopyTreeAction actionTwo = new CopyTreeAction(
-        buttonTwo,
-        ImmutableList.of(outOneFileOne, outOneFileTwo),
-        ImmutableList.of(outTwoFileOne, outTwoFileTwo));
-    registerAction(actionTwo);
+    Button button1 = new Button();
+    SpecialArtifact out1 = createTreeArtifact("output1");
+    WriteInputToFilesAction action1 =
+        new WriteInputToFilesAction(button1, in, out1, "file1", "file2");
+    registerAction(action1);
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    buildArtifact(outTwo);
-    assertThat(buttonOne.pressed).isTrue(); // built
-    assertThat(buttonTwo.pressed).isTrue(); // built
+    Button button2 = new Button();
+    SpecialArtifact out2 = createTreeArtifact("output2");
+    CopyTreeAction action2 = new CopyTreeAction(button2, out1, out2);
+    registerAction(action2);
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    writeFile(in, "modified_input");
-    buildArtifact(outTwo);
-    assertThat(buttonOne.pressed).isTrue(); // built
-    assertThat(buttonTwo.pressed).isTrue(); // not built
+    button1.pressed = false;
+    button2.pressed = false;
+    buildArtifact(out2);
+    assertThat(button1.pressed).isTrue(); // built
+    assertThat(button2.pressed).isTrue(); // built
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    writeFile(outOneFileOne, "modified_output");
-    buildArtifact(outTwo);
-    assertThat(buttonOne.pressed).isTrue(); // built
-    assertThat(buttonTwo.pressed).isFalse(); // should have been cached
+    button1.pressed = false;
+    button2.pressed = false;
+    writeFile(in, "modified input");
+    buildArtifact(out2);
+    assertThat(button1.pressed).isTrue(); // built
+    assertThat(button2.pressed).isTrue(); // built
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    writeFile(outTwoFileOne, "more_modified_output");
-    buildArtifact(outTwo);
-    assertThat(buttonOne.pressed).isFalse(); // not built
-    assertThat(buttonTwo.pressed).isTrue(); // built
+    button1.pressed = false;
+    button2.pressed = false;
+    writeFile(TreeFileArtifact.createTreeOutput(out1, "file1"), "modified output");
+    buildArtifact(out2);
+    assertThat(button1.pressed).isTrue(); // built
+    assertThat(button2.pressed).isFalse(); // should have been cached
+
+    button1.pressed = false;
+    button2.pressed = false;
+    writeFile(TreeFileArtifact.createTreeOutput(out2, "file1"), "more modified output");
+    buildArtifact(out2);
+    assertThat(button1.pressed).isFalse(); // not built
+    assertThat(button2.pressed).isTrue(); // built
   }
 
   /** Tests that changing a TreeArtifact directory should cause reexeuction. */
   @Test
-  public void testDirectoryContentsCachingForTreeArtifacts() throws Exception {
-    WriteInputToFilesAction actionOne = new WriteInputToFilesAction(
-        buttonOne,
-        in,
-        outOneFileOne, outOneFileTwo);
-    registerAction(actionOne);
+  public void directoryContentsCachingForTreeArtifacts() throws Exception {
+    Artifact in = createSourceArtifact("input");
+    writeFile(in, "input content");
 
-    CopyTreeAction actionTwo = new CopyTreeAction(
-        buttonTwo,
-        ImmutableList.of(outOneFileOne, outOneFileTwo),
-        ImmutableList.of(outTwoFileOne, outTwoFileTwo));
-    registerAction(actionTwo);
+    Button button1 = new Button();
+    SpecialArtifact out1 = createTreeArtifact("output1");
+    WriteInputToFilesAction action1 =
+        new WriteInputToFilesAction(button1, in, out1, "file1", "file2");
+    registerAction(action1);
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    buildArtifact(outTwo);
+    Button button2 = new Button();
+    SpecialArtifact out2 = createTreeArtifact("output2");
+    CopyTreeAction action2 = new CopyTreeAction(button2, out1, out2);
+    registerAction(action2);
+
+    button1.pressed = false;
+    button2.pressed = false;
+    buildArtifact(out2);
     // just a smoke test--if these aren't built we have bigger problems!
-    assertThat(buttonOne.pressed).isTrue();
-    assertThat(buttonTwo.pressed).isTrue();
+    assertThat(button1.pressed).isTrue();
+    assertThat(button2.pressed).isTrue();
 
     // Adding a file to a directory should cause reexecution.
-    buttonOne.pressed = buttonTwo.pressed = false;
-    Path spuriousOutputOne = outOne.getPath().getRelative("spuriousOutput");
+    button1.pressed = false;
+    button2.pressed = false;
+    Path spuriousOutputOne = out1.getPath().getRelative("spuriousOutput");
     touchFile(spuriousOutputOne);
-    buildArtifact(outTwo);
+    buildArtifact(out2);
     // Should re-execute, and delete spurious output
     assertThat(spuriousOutputOne.exists()).isFalse();
-    assertThat(buttonOne.pressed).isTrue();
-    assertThat(buttonTwo.pressed).isFalse(); // should have been cached
+    assertThat(button1.pressed).isTrue();
+    assertThat(button2.pressed).isFalse(); // should have been cached
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    Path spuriousOutputTwo = outTwo.getPath().getRelative("anotherSpuriousOutput");
+    button1.pressed = false;
+    button2.pressed = false;
+    Path spuriousOutputTwo = out2.getPath().getRelative("anotherSpuriousOutput");
     touchFile(spuriousOutputTwo);
-    buildArtifact(outTwo);
+    buildArtifact(out2);
     assertThat(spuriousOutputTwo.exists()).isFalse();
-    assertThat(buttonOne.pressed).isFalse();
-    assertThat(buttonTwo.pressed).isTrue();
+    assertThat(button1.pressed).isFalse();
+    assertThat(button2.pressed).isTrue();
 
     // Deleting should cause reexecution.
-    buttonOne.pressed = buttonTwo.pressed = false;
-    deleteFile(outOneFileOne);
-    buildArtifact(outTwo);
-    assertThat(outOneFileOne.getPath().exists()).isTrue();
-    assertThat(buttonOne.pressed).isTrue();
-    assertThat(buttonTwo.pressed).isFalse(); // should have been cached
+    button1.pressed = false;
+    button2.pressed = false;
+    TreeFileArtifact out1File1 = TreeFileArtifact.createTreeOutput(out1, "file1");
+    deleteFile(out1File1);
+    buildArtifact(out2);
+    assertThat(out1File1.getPath().exists()).isTrue();
+    assertThat(button1.pressed).isTrue();
+    assertThat(button2.pressed).isFalse(); // should have been cached
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    deleteFile(outTwoFileOne);
-    buildArtifact(outTwo);
-    assertThat(outTwoFileOne.getPath().exists()).isTrue();
-    assertThat(buttonOne.pressed).isFalse();
-    assertThat(buttonTwo.pressed).isTrue();
+    button1.pressed = false;
+    button2.pressed = false;
+    TreeFileArtifact out2File1 = TreeFileArtifact.createTreeOutput(out2, "file1");
+    deleteFile(out2File1);
+    buildArtifact(out2);
+    assertThat(out2File1.getPath().exists()).isTrue();
+    assertThat(button1.pressed).isFalse();
+    assertThat(button2.pressed).isTrue();
   }
 
   /** TreeArtifacts don't care about mtime, even when the file is empty. */
   @Test
-  public void testMTimeForTreeArtifactsDoesNotMatter() throws Exception {
+  public void mTimeForTreeArtifactsDoesNotMatter() throws Exception {
     // For this test, we only touch the input file.
     Artifact in = createSourceArtifact("touchable_input");
     touchFile(in);
 
-    WriteInputToFilesAction actionOne = new WriteInputToFilesAction(
-        buttonOne,
-        in,
-        outOneFileOne, outOneFileTwo);
-    registerAction(actionOne);
+    Button button1 = new Button();
+    SpecialArtifact out1 = createTreeArtifact("output1");
+    WriteInputToFilesAction action1 =
+        new WriteInputToFilesAction(button1, in, out1, "file1", "file2");
+    registerAction(action1);
 
-    CopyTreeAction actionTwo = new CopyTreeAction(
-        buttonTwo,
-        ImmutableList.of(outOneFileOne, outOneFileTwo),
-        ImmutableList.of(outTwoFileOne, outTwoFileTwo));
-    registerAction(actionTwo);
+    Button button2 = new Button();
+    SpecialArtifact out2 = createTreeArtifact("output2");
+    CopyTreeAction action2 = new CopyTreeAction(button2, out1, out2);
+    registerAction(action2);
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    buildArtifact(outTwo);
-    assertThat(buttonOne.pressed).isTrue(); // built
-    assertThat(buttonTwo.pressed).isTrue(); // built
+    button1.pressed = false;
+    button2.pressed = false;
+    buildArtifact(out2);
+    assertThat(button1.pressed).isTrue(); // built
+    assertThat(button2.pressed).isTrue(); // built
 
-    buttonOne.pressed = buttonTwo.pressed = false;
+    button1.pressed = false;
+    button2.pressed = false;
     touchFile(in);
-    buildArtifact(outTwo);
+    buildArtifact(out2);
     // mtime does not matter.
-    assertThat(buttonOne.pressed).isFalse();
-    assertThat(buttonTwo.pressed).isFalse();
+    assertThat(button1.pressed).isFalse();
+    assertThat(button2.pressed).isFalse();
 
     // None of the below following should result in anything being built.
-    buttonOne.pressed = buttonTwo.pressed = false;
-    touchFile(outOneFileOne);
-    buildArtifact(outTwo);
+    button1.pressed = false;
+    button2.pressed = false;
+    touchFile(TreeFileArtifact.createTreeOutput(out1, "file1"));
+    buildArtifact(out2);
     // Nothing should be built.
-    assertThat(buttonOne.pressed).isFalse();
-    assertThat(buttonTwo.pressed).isFalse();
+    assertThat(button1.pressed).isFalse();
+    assertThat(button2.pressed).isFalse();
 
-    buttonOne.pressed = buttonTwo.pressed = false;
-    touchFile(outOneFileTwo);
-    buildArtifact(outTwo);
+    button1.pressed = false;
+    button2.pressed = false;
+    touchFile(TreeFileArtifact.createTreeOutput(out1, "file2"));
+    buildArtifact(out2);
     // Nothing should be built.
-    assertThat(buttonOne.pressed).isFalse();
-    assertThat(buttonTwo.pressed).isFalse();
-  }
-
-  /** Tests that the declared order of TreeArtifact contents does not matter. */
-  @Test
-  public void testOrderIndependenceOfTreeArtifactContents() throws Exception {
-    WriteInputToFilesAction actionOne = new WriteInputToFilesAction(
-        in,
-        // The design of WritingTestAction is s.t.
-        // these files will be registered in the given order.
-        outOneFileTwo, outOneFileOne);
-    registerAction(actionOne);
-
-    CopyTreeAction actionTwo = new CopyTreeAction(
-        ImmutableList.of(outOneFileOne, outOneFileTwo),
-        ImmutableList.of(outTwoFileOne, outTwoFileTwo));
-    registerAction(actionTwo);
-
-    buildArtifact(outTwo);
-  }
-
-  @Test
-  public void testActionExpansion() throws Exception {
-    WriteInputToFilesAction action = new WriteInputToFilesAction(in, outOneFileOne, outOneFileTwo);
-
-    CopyTreeAction actionTwo =
-        new CopyTreeAction(
-            ImmutableList.of(outOneFileOne, outOneFileTwo),
-            ImmutableList.of(outTwoFileOne, outTwoFileTwo)) {
-          @Override
-          public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
-              throws ActionExecutionException {
-            super.executeTestBehavior(actionExecutionContext);
-
-            Collection<ActionInput> expanded =
-                ActionInputHelper.expandArtifacts(
-                    NestedSetBuilder.create(Order.STABLE_ORDER, outOne),
-                    actionExecutionContext.getArtifactExpander());
-            // Only files registered should show up here.
-            assertThat(expanded).containsExactly(outOneFileOne, outOneFileTwo);
-          }
-        };
-
-    registerAction(action);
-    registerAction(actionTwo);
-
-    buildArtifact(outTwo); // should not fail
-  }
-
-  @Test
-  public void testInvalidOutputRegistrations() throws Exception {
-    // Failure expected
-    StoredEventHandler storingEventHandler = new StoredEventHandler();
-    reporter.removeHandler(failFastHandler);
-    reporter.addHandler(storingEventHandler);
-
-    SpecialArtifact outOne = createTreeArtifact("outputOne");
-    TreeFileArtifact outOneFileOne =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            outOne, PathFragment.create("out_one_file_one"), ACTION_LOOKUP_KEY);
-    TreeFileArtifact outOneFileTwo =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            outOne, PathFragment.create("out_one_file_two"), ACTION_LOOKUP_KEY);
-    TreeArtifactTestAction failureOne = new TreeArtifactTestAction(
-        Runnables.doNothing(), outOneFileOne, outOneFileTwo) {
-      @Override
-      public void executeTestBehavior(ActionExecutionContext actionExecutionContext) {
-        try {
-          writeFile(outOneFileOne, "one");
-          writeFile(outOneFileTwo, "two");
-          // In this test case, we only register one output. This will fail.
-          registerOutput(actionExecutionContext, "one");
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }
-    };
-
-    registerAction(failureOne);
-    outOneFileOne.setGeneratingActionKey(outOne.getGeneratingActionKey());
-    outOneFileTwo.setGeneratingActionKey(outOne.getGeneratingActionKey());
-    assertThrows(BuildFailedException.class, () -> buildArtifact(outOne));
-    // not all outputs were created
-    List<Event> errors =
-        ImmutableList.copyOf(Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
-    assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage()).contains("not present on disk");
-    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
-
-    SpecialArtifact outTwo = createTreeArtifact("outputTwo");
-    TreeFileArtifact outTwoFileOne =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            outTwo, PathFragment.create("out_two_file_one"), ACTION_LOOKUP_KEY);
-    TreeFileArtifact outTwoFileTwo =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            outTwo, PathFragment.create("out_two_file_two"), ACTION_LOOKUP_KEY);
-    TreeArtifactTestAction failureTwo = new TreeArtifactTestAction(
-        Runnables.doNothing(), outTwoFileOne, outTwoFileTwo) {
-      @Override
-      public void executeTestBehavior(ActionExecutionContext actionExecutionContext) {
-        try {
-          writeFile(outTwoFileOne, "one");
-          writeFile(outTwoFileTwo, "two");
-          // In this test case, register too many outputs. This will fail.
-          registerOutput(actionExecutionContext, "one");
-          registerOutput(actionExecutionContext, "two");
-          registerOutput(actionExecutionContext, "three");
-        } catch (IOException e) {
-          throw new RuntimeException(e);
-        }
-      }
-    };
-
-    registerAction(failureTwo);
-    outTwoFileOne.setGeneratingActionKey(outTwo.getGeneratingActionKey());
-    outTwoFileTwo.setGeneratingActionKey(outTwo.getGeneratingActionKey());
-    storingEventHandler.clear();
-    assertThrows(BuildFailedException.class, () -> buildArtifact(outTwo));
-    errors =
-        ImmutableList.copyOf(Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
-    assertThat(errors).hasSize(2);
-    assertThat(errors.get(0).getMessage()).contains("not present on disk");
-    assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
+    assertThat(button1.pressed).isFalse();
+    assertThat(button2.pressed).isFalse();
   }
 
   private static void checkDirectoryPermissions(Path path) throws IOException {
@@ -509,30 +369,21 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testOutputsAreReadOnlyAndExecutable() throws Exception {
-    final SpecialArtifact out = createTreeArtifact("output");
+  public void outputsAreReadOnlyAndExecutable() throws Exception {
+    SpecialArtifact out = createTreeArtifact("output");
 
-    TreeArtifactTestAction action =
-        new TreeArtifactTestAction(out) {
+    Action action =
+        new SimpleTestAction(out) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-            try {
-              writeFile(out.getPath().getChild("one"), "one");
-              writeFile(out.getPath().getChild("two"), "two");
-              writeFile(out.getPath().getChild("three").getChild("four"), "three/four");
-              registerOutput(actionExecutionContext, "one");
-              registerOutput(actionExecutionContext, "two");
-              registerOutput(actionExecutionContext, "three/four");
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+          void run(ActionExecutionContext context) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            writeFile(out.getPath().getChild("three").getChild("four"), "three/four");
           }
         };
 
     registerAction(action);
-
-    buildArtifact(action.getSoleOutput());
+    buildArtifact(out);
 
     checkDirectoryPermissions(out.getPath());
     checkFilePermissions(out.getPath().getChild("one"));
@@ -542,202 +393,167 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testValidRelativeSymlinkAccepted() throws Exception {
-    final SpecialArtifact out = createTreeArtifact("output");
+  public void validRelativeSymlinkAccepted() throws Exception {
+    SpecialArtifact out = createTreeArtifact("output");
 
-    TreeArtifactTestAction action =
-        new TreeArtifactTestAction(out) {
+    Action action =
+        new SimpleTestAction(out) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-            try {
-              writeFile(out.getPath().getChild("one"), "one");
-              writeFile(out.getPath().getChild("two"), "two");
-              FileSystemUtils.ensureSymbolicLink(
-                  out.getPath().getChild("links").getChild("link"), "../one");
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "../one");
           }
         };
 
     registerAction(action);
-
-    buildArtifact(action.getSoleOutput());
+    buildArtifact(out);
   }
 
   @Test
-  public void testInvalidSymlinkRejected() throws Exception {
+  public void invalidSymlinkRejected() {
     // Failure expected
-    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
-    reporter.addHandler(storingEventHandler);
+    reporter.addHandler(eventCollector);
 
-    final SpecialArtifact out = createTreeArtifact("output");
+    SpecialArtifact out = createTreeArtifact("output");
 
-    TreeArtifactTestAction action =
-        new TreeArtifactTestAction(out) {
+    Action action =
+        new SimpleTestAction(out) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-            try {
-              writeFile(out.getPath().getChild("one"), "one");
-              writeFile(out.getPath().getChild("two"), "two");
-              FileSystemUtils.ensureSymbolicLink(
-                  out.getPath().getChild("links").getChild("link"), "../invalid");
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "../invalid");
           }
         };
 
     registerAction(action);
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
 
-    assertThrows(BuildFailedException.class, () -> buildArtifact(action.getSoleOutput()));
-    List<Event> errors =
-        ImmutableList.copyOf(Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
-      assertThat(errors).hasSize(2);
-      assertThat(errors.get(0).getMessage()).contains(
-          "Failed to resolve relative path links/link");
+    List<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage()).contains("Failed to resolve relative path links/link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
   @Test
-  public void testAbsoluteSymlinkBadTargetRejected() throws Exception {
+  public void absoluteSymlinkBadTargetRejected() {
     // Failure expected
-    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
-    reporter.addHandler(storingEventHandler);
+    reporter.addHandler(eventCollector);
 
-    final SpecialArtifact out = createTreeArtifact("output");
+    SpecialArtifact out = createTreeArtifact("output");
 
-    TreeArtifactTestAction action =
-        new TreeArtifactTestAction(out) {
+    Action action =
+        new SimpleTestAction(out) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-            try {
-              writeFile(out.getPath().getChild("one"), "one");
-              writeFile(out.getPath().getChild("two"), "two");
-              FileSystemUtils.ensureSymbolicLink(
-                  out.getPath().getChild("links").getChild("link"), "/random/pointer");
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "/random/pointer");
           }
         };
 
     registerAction(action);
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
 
-    assertThrows(BuildFailedException.class, () -> buildArtifact(action.getSoleOutput()));
-    List<Event> errors =
-        ImmutableList.copyOf(Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
-      assertThat(errors).hasSize(2);
-      assertThat(errors.get(0).getMessage()).contains("Failed to resolve relative path links/link");
+    List<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage()).contains("Failed to resolve relative path links/link");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
   @Test
-  public void testAbsoluteSymlinkAccepted() throws Exception {
+  public void absoluteSymlinkAccepted() throws Exception {
     scratch.overwriteFile("/random/pointer");
 
-    final SpecialArtifact out = createTreeArtifact("output");
+    SpecialArtifact out = createTreeArtifact("output");
 
-    TreeArtifactTestAction action =
-        new TreeArtifactTestAction(out) {
+    Action action =
+        new SimpleTestAction(out) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-            try {
-              writeFile(out.getPath().getChild("one"), "one");
-              writeFile(out.getPath().getChild("two"), "two");
-              FileSystemUtils.ensureSymbolicLink(
-                  out.getPath().getChild("links").getChild("link"), "/random/pointer");
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "/random/pointer");
           }
         };
 
     registerAction(action);
-
-    buildArtifact(action.getSoleOutput());
+    buildArtifact(out);
   }
 
   @Test
-  public void testRelativeSymlinkTraversingOutsideOfTreeArtifactRejected() throws Exception {
+  public void relativeSymlinkTraversingOutsideOfTreeArtifactRejected() {
     // Failure expected
-    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
-    reporter.addHandler(storingEventHandler);
+    reporter.addHandler(eventCollector);
 
-    final SpecialArtifact out = createTreeArtifact("output");
+    SpecialArtifact out = createTreeArtifact("output");
 
-    TreeArtifactTestAction action =
-        new TreeArtifactTestAction(out) {
+    Action action =
+        new SimpleTestAction(out) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-            try {
-              writeFile(out.getPath().getChild("one"), "one");
-              writeFile(out.getPath().getChild("two"), "two");
-              FileSystemUtils.ensureSymbolicLink(
-                  out.getPath().getChild("links").getChild("link"), "../../output/random/pointer");
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "../../output/random/pointer");
           }
         };
 
     registerAction(action);
 
-    assertThrows(BuildFailedException.class, () -> buildArtifact(action.getSoleOutput()));
-    List<Event> errors =
-        ImmutableList.copyOf(Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
-      assertThat(errors).hasSize(2);
-      assertThat(errors.get(0).getMessage()).contains(
-          "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-          + "outside of the TreeArtifact");
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
+    List<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage())
+        .contains(
+            "A TreeArtifact may not contain relative symlinks whose target paths traverse "
+                + "outside of the TreeArtifact");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
   @Test
-  public void testRelativeSymlinkTraversingToDirOutsideOfTreeArtifactRejected() throws Exception {
+  public void relativeSymlinkTraversingToDirOutsideOfTreeArtifactRejected() throws Exception {
     // Failure expected
-    StoredEventHandler storingEventHandler = new StoredEventHandler();
+    EventCollector eventCollector = new EventCollector(EventKind.ERROR);
     reporter.removeHandler(failFastHandler);
-    reporter.addHandler(storingEventHandler);
+    reporter.addHandler(eventCollector);
 
-    final SpecialArtifact out = createTreeArtifact("output");
+    SpecialArtifact out = createTreeArtifact("output");
 
     // Create a valid directory that can be referenced
     scratch.dir(out.getRoot().getRoot().getRelative("some/dir").getPathString());
 
-    TreeArtifactTestAction action =
-        new TreeArtifactTestAction(out) {
+    TestAction action =
+        new SimpleTestAction(out) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext) {
-            try {
-              writeFile(out.getPath().getChild("one"), "one");
-              writeFile(out.getPath().getChild("two"), "two");
-              FileSystemUtils.ensureSymbolicLink(
-                  out.getPath().getChild("links").getChild("link"), "../../some/dir");
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            writeFile(out.getPath().getChild("one"), "one");
+            writeFile(out.getPath().getChild("two"), "two");
+            FileSystemUtils.ensureSymbolicLink(
+                out.getPath().getChild("links").getChild("link"), "../../some/dir");
           }
         };
 
     registerAction(action);
 
-    assertThrows(BuildFailedException.class, () -> buildArtifact(action.getSoleOutput()));
-    List<Event> errors =
-        ImmutableList.copyOf(Iterables.filter(storingEventHandler.getEvents(), IS_ERROR_EVENT));
-      assertThat(errors).hasSize(2);
-      assertThat(errors.get(0).getMessage()).contains(
-          "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-              + "outside of the TreeArtifact");
+    assertThrows(BuildFailedException.class, () -> buildArtifact(out));
+    List<Event> errors = ImmutableList.copyOf(eventCollector);
+    assertThat(errors).hasSize(2);
+    assertThat(errors.get(0).getMessage())
+        .contains(
+            "A TreeArtifact may not contain relative symlinks whose target paths traverse "
+                + "outside of the TreeArtifact");
     assertThat(errors.get(1).getMessage()).contains("not all outputs were created or valid");
   }
 
@@ -749,125 +565,132 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   // So all we're really testing here is that injectDigest() doesn't throw a weird exception.
   // TODO(bazel-team): write real tests for injectDigest, here and elsewhere.
   @Test
-  public void testDigestInjection() throws Exception {
-    TreeArtifactTestAction action =
-        new TreeArtifactTestAction(outOne) {
+  public void digestInjection() throws Exception {
+    SpecialArtifact out = createTreeArtifact("output");
+    Action action =
+        new SimpleTestAction(out) {
           @Override
-          public ActionResult execute(ActionExecutionContext actionExecutionContext)
-              throws ActionExecutionException {
-            try {
-              writeFile(outOneFileOne, "one");
-              writeFile(outOneFileTwo, "two");
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(out, "one");
+            TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(out, "two");
+            writeFile(child1, "one");
+            writeFile(child2, "two");
 
-              MetadataHandler md = actionExecutionContext.getMetadataHandler();
-              FileStatus stat = outOneFileOne.getPath().stat(Symlinks.NOFOLLOW);
-              md.injectDigest(
-                  outOneFileOne,
-                  stat,
-                  Hashing.md5().hashString("one", Charset.forName("UTF-8")).asBytes());
+            MetadataHandler md = actionExecutionContext.getMetadataHandler();
+            FileStatus stat = child1.getPath().stat(Symlinks.NOFOLLOW);
+            md.injectDigest(child1, stat, Hashing.sha256().hashString("one", UTF_8).asBytes());
 
-              stat = outOneFileTwo.getPath().stat(Symlinks.NOFOLLOW);
-              md.injectDigest(
-                  outOneFileTwo,
-                  stat,
-                  Hashing.md5().hashString("two", Charset.forName("UTF-8")).asBytes());
-            } catch (Exception e) {
-              throw new RuntimeException(e);
-            }
-            return ActionResult.EMPTY;
+            stat = child2.getPath().stat(Symlinks.NOFOLLOW);
+            md.injectDigest(child2, stat, Hashing.sha256().hashString("two", UTF_8).asBytes());
           }
         };
 
     registerAction(action);
-    buildArtifact(action.getSoleOutput());
+    buildArtifact(out);
   }
 
   @Test
-  public void testExpandedActionsBuildInActionTemplate() throws Throwable {
+  public void remoteDirectoryInjection() throws Exception {
+    SpecialArtifact out = createTreeArtifact("output");
+    RemoteFileArtifactValue remoteFile1 =
+        new RemoteFileArtifactValue(
+            Hashing.sha256().hashString("one", UTF_8).asBytes(), /*size=*/ 3, /*locationIndex=*/ 1);
+    RemoteFileArtifactValue remoteFile2 =
+        new RemoteFileArtifactValue(
+            Hashing.sha256().hashString("two", UTF_8).asBytes(), /*size=*/ 3, /*locationIndex=*/ 2);
+
+    Action action =
+        new SimpleTestAction(out) {
+          @Override
+          void run(ActionExecutionContext actionExecutionContext) throws IOException {
+            TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(out, "one");
+            TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(out, "two");
+            writeFile(child1, "one");
+            writeFile(child2, "two");
+
+            actionExecutionContext
+                .getMetadataHandler()
+                .injectRemoteDirectory(
+                    out, ImmutableMap.of(child1, remoteFile1, child2, remoteFile2));
+          }
+        };
+
+    registerAction(action);
+    TreeArtifactValue result = buildArtifact(out);
+
+    assertThat(result.getChildValues())
+        .containsExactly(
+            TreeFileArtifact.createTreeOutput(out, "one"),
+            remoteFile1,
+            TreeFileArtifact.createTreeOutput(out, "two"),
+            remoteFile2);
+  }
+
+  @Test
+  public void expandedActionsBuildInActionTemplate() throws Exception {
     // artifact1 is a tree artifact generated by a TouchingTestAction.
     SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
-    TreeFileArtifact treeFileArtifactA =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact1, PathFragment.create("child1"), ACTION_LOOKUP_KEY);
-    TreeFileArtifact treeFileArtifactB =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact1, PathFragment.create("child2"), ACTION_LOOKUP_KEY);
-    registerAction(new TouchingTestAction(treeFileArtifactA, treeFileArtifactB));
-    treeFileArtifactA.setGeneratingActionKey(artifact1.getGeneratingActionKey());
-    treeFileArtifactB.setGeneratingActionKey(artifact1.getGeneratingActionKey());
+    registerAction(new TouchingTestAction(artifact1, "file1", "file2"));
 
     // artifact2 is a tree artifact generated by an action template.
     SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
-    SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
-        artifact1, artifact2);
+    SpawnActionTemplate actionTemplate =
+        ActionsTestUtil.createDummySpawnActionTemplate(artifact1, artifact2);
     registerAction(actionTemplate);
 
     // We mock out the action template function to expand into two actions that just touch the
     // output files.
-    ActionTemplateExpansionKey secondOwner = ActionTemplateExpansionKey.of(ACTION_LOOKUP_KEY, 1);
-    TreeFileArtifact expectedOutputTreeFileArtifact1 =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact2, PathFragment.createAlreadyNormalized("child1"), secondOwner);
-    TreeFileArtifact expectedOutputTreeFileArtifact2 =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact2, PathFragment.createAlreadyNormalized("child2"), secondOwner);
-    Action generateOutputAction =
+    ActionTemplateExpansionKey secondOwner = ActionTemplateExpansionValue.key(ACTION_LOOKUP_KEY, 1);
+    TreeFileArtifact expectedExpansionOutput1 =
+        TreeFileArtifact.createTemplateExpansionOutput(artifact2, "child1", secondOwner);
+    TreeFileArtifact expectedExpansionOutput2 =
+        TreeFileArtifact.createTemplateExpansionOutput(artifact2, "child2", secondOwner);
+    Action expandedAction1 =
         new DummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, treeFileArtifactA),
-            expectedOutputTreeFileArtifact1);
-    Action noGenerateOutputAction =
+            TreeFileArtifact.createTreeOutput(artifact1, "file1"), expectedExpansionOutput1);
+    Action expandedAction2 =
         new DummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, treeFileArtifactB),
-            expectedOutputTreeFileArtifact2);
+            TreeFileArtifact.createTreeOutput(artifact1, "file2"), expectedExpansionOutput2);
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
-            actionKeyContext, ImmutableList.of(generateOutputAction, noGenerateOutputAction));
+            actionKeyContext, ImmutableList.of(expandedAction1, expandedAction2));
 
-    buildArtifact(artifact2);
+    TreeArtifactValue result = buildArtifact(artifact2);
+
+    assertThat(result.getChildren())
+        .containsExactly(expectedExpansionOutput1, expectedExpansionOutput2);
   }
 
   @Test
-  public void testExpandedActionDoesNotGenerateOutputInActionTemplate() throws Throwable {
+  public void expandedActionDoesNotGenerateOutputInActionTemplate() {
     // expect errors
     reporter.removeHandler(failFastHandler);
 
     // artifact1 is a tree artifact generated by a TouchingTestAction.
     SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
-    TreeFileArtifact treeFileArtifactA =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact1, PathFragment.create("child1"), ACTION_LOOKUP_KEY);
-    TreeFileArtifact treeFileArtifactB =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact1, PathFragment.create("child2"), ACTION_LOOKUP_KEY);
-    registerAction(new TouchingTestAction(treeFileArtifactA, treeFileArtifactB));
-    treeFileArtifactA.setGeneratingActionKey(artifact1.getGeneratingActionKey());
-    treeFileArtifactB.setGeneratingActionKey(artifact1.getGeneratingActionKey());
+    registerAction(new TouchingTestAction(artifact1, "child1", "child2"));
 
     // artifact2 is a tree artifact generated by an action template.
     SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
-    SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
-        artifact1, artifact2);
+    SpawnActionTemplate actionTemplate =
+        ActionsTestUtil.createDummySpawnActionTemplate(artifact1, artifact2);
     registerAction(actionTemplate);
 
     // We mock out the action template function to expand into two actions:
     // One Action that touches the output file.
     // The other action that does not generate the output file.
     ActionTemplateExpansionKey secondOwner = ActionTemplateExpansionKey.of(ACTION_LOOKUP_KEY, 1);
-    TreeFileArtifact expectedOutputTreeFileArtifact1 =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact2, PathFragment.createAlreadyNormalized("child1"), secondOwner);
-    TreeFileArtifact expectedOutputTreeFileArtifact2 =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact2, PathFragment.createAlreadyNormalized("child2"), secondOwner);
+    TreeFileArtifact expectedExpansionOutput1 =
+        TreeFileArtifact.createTemplateExpansionOutput(artifact2, "child1", secondOwner);
+    TreeFileArtifact expectedExpansionOutput2 =
+        TreeFileArtifact.createTemplateExpansionOutput(artifact2, "child2", secondOwner);
     Action generateOutputAction =
         new DummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, treeFileArtifactA),
-            expectedOutputTreeFileArtifact1);
+            TreeFileArtifact.createTreeOutput(artifact1, "child1"), expectedExpansionOutput1);
     Action noGenerateOutputAction =
         new NoOpDummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, treeFileArtifactB),
-            ImmutableSet.of(expectedOutputTreeFileArtifact2));
+            TreeFileArtifact.createTreeOutput(artifact1, "child2"), expectedExpansionOutput2);
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
@@ -879,49 +702,34 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testOneExpandedActionThrowsInActionTemplate() throws Throwable {
+  public void oneExpandedActionThrowsInActionTemplate() {
     // expect errors
     reporter.removeHandler(failFastHandler);
 
     // artifact1 is a tree artifact generated by a TouchingTestAction.
     SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
-    TreeFileArtifact treeFileArtifactA =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact1, PathFragment.create("child1"), ACTION_LOOKUP_KEY);
-    TreeFileArtifact treeFileArtifactB =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact1, PathFragment.create("child2"), ACTION_LOOKUP_KEY);
-    registerAction(new TouchingTestAction(treeFileArtifactA, treeFileArtifactB));
-    treeFileArtifactA.setGeneratingActionKey(artifact1.getGeneratingActionKey());
-    treeFileArtifactB.setGeneratingActionKey(artifact1.getGeneratingActionKey());
+    registerAction(new TouchingTestAction(artifact1, "child1", "child2"));
 
     // artifact2 is a tree artifact generated by an action template.
     SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
-    SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
-        artifact1, artifact2);
+    SpawnActionTemplate actionTemplate =
+        ActionsTestUtil.createDummySpawnActionTemplate(artifact1, artifact2);
     registerAction(actionTemplate);
 
     // We mock out the action template function to expand into two actions:
     // One Action that touches the output file.
     // The other action that just throws when executed.
-    TreeFileArtifact expectedOutputTreeFileArtifact1 =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact2,
-            PathFragment.createAlreadyNormalized("child1"),
-            ActionTemplateExpansionKey.of(artifact1.getArtifactOwner(), 1));
-    TreeFileArtifact expectedOutputTreeFileArtifact2 =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact2,
-            PathFragment.createAlreadyNormalized("child2"),
-            ActionTemplateExpansionKey.of(artifact1.getArtifactOwner(), 1));
+    ActionTemplateExpansionKey secondOwner = ActionTemplateExpansionKey.of(ACTION_LOOKUP_KEY, 1);
+    TreeFileArtifact expectedExpansionOutput1 =
+        TreeFileArtifact.createTemplateExpansionOutput(artifact2, "child1", secondOwner);
+    TreeFileArtifact expectedExpansionOutput2 =
+        TreeFileArtifact.createTemplateExpansionOutput(artifact2, "child2", secondOwner);
     Action generateOutputAction =
         new DummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, treeFileArtifactA),
-            expectedOutputTreeFileArtifact1);
+            TreeFileArtifact.createTreeOutput(artifact1, "child1"), expectedExpansionOutput1);
     Action throwingAction =
         new ThrowingDummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, treeFileArtifactB),
-            ImmutableSet.of(expectedOutputTreeFileArtifact2));
+            TreeFileArtifact.createTreeOutput(artifact1, "child2"), expectedExpansionOutput2);
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
@@ -933,44 +741,32 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testAllExpandedActionsThrowInActionTemplate() throws Throwable {
+  public void allExpandedActionsThrowInActionTemplate() {
     // expect errors
     reporter.removeHandler(failFastHandler);
 
     // artifact1 is a tree artifact generated by a TouchingTestAction.
     SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
-    TreeFileArtifact treeFileArtifactA =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact1, PathFragment.create("child1"), ACTION_LOOKUP_KEY);
-    TreeFileArtifact treeFileArtifactB =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact1, PathFragment.create("child2"), ACTION_LOOKUP_KEY);
-    registerAction(new TouchingTestAction(treeFileArtifactA, treeFileArtifactB));
-    treeFileArtifactA.setGeneratingActionKey(artifact1.getGeneratingActionKey());
-    treeFileArtifactB.setGeneratingActionKey(artifact1.getGeneratingActionKey());
+    registerAction(new TouchingTestAction(artifact1, "child1", "child2"));
 
     // artifact2 is a tree artifact generated by an action template.
     SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
-    SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
-        artifact1, artifact2);
+    SpawnActionTemplate actionTemplate =
+        ActionsTestUtil.createDummySpawnActionTemplate(artifact1, artifact2);
     registerAction(actionTemplate);
 
     // We mock out the action template function to expand into two actions that throw when executed.
     ActionTemplateExpansionKey secondOwner = ActionTemplateExpansionKey.of(ACTION_LOOKUP_KEY, 1);
-    TreeFileArtifact expectedOutputTreeFileArtifact1 =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact2, PathFragment.createAlreadyNormalized("child1"), secondOwner);
-    TreeFileArtifact expectedOutputTreeFileArtifact2 =
-        ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-            artifact2, PathFragment.createAlreadyNormalized("child2"), secondOwner);
+    TreeFileArtifact expectedExpansionOutput1 =
+        TreeFileArtifact.createTemplateExpansionOutput(artifact2, "child1", secondOwner);
+    TreeFileArtifact expectedExpansionOutput2 =
+        TreeFileArtifact.createTemplateExpansionOutput(artifact2, "child2", secondOwner);
     Action throwingAction =
         new ThrowingDummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, treeFileArtifactA),
-            ImmutableSet.of(expectedOutputTreeFileArtifact1));
+            TreeFileArtifact.createTreeOutput(artifact1, "child1"), expectedExpansionOutput1);
     Action anotherThrowingAction =
         new ThrowingDummyAction(
-            NestedSetBuilder.create(Order.STABLE_ORDER, treeFileArtifactB),
-            ImmutableSet.of(expectedOutputTreeFileArtifact2));
+            TreeFileArtifact.createTreeOutput(artifact1, "child2"), expectedExpansionOutput2);
 
     actionTemplateExpansionFunction =
         new DummyActionTemplateExpansionFunction(
@@ -982,20 +778,18 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testInputTreeArtifactCreationFailedInActionTemplate() throws Throwable {
+  public void inputTreeArtifactCreationFailedInActionTemplate() {
     // expect errors
     reporter.removeHandler(failFastHandler);
 
     // artifact1 is created by a action that throws.
     SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
-    registerAction(
-        new ThrowingDummyAction(
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableSet.of(artifact1)));
+    registerAction(new ThrowingDummyAction(artifact1));
 
     // artifact2 is a tree artifact generated by an action template.
     SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
-    SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
-        artifact1, artifact2);
+    SpawnActionTemplate actionTemplate =
+        ActionsTestUtil.createDummySpawnActionTemplate(artifact1, artifact2);
     registerAction(actionTemplate);
 
     BuildFailedException e =
@@ -1004,17 +798,15 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testEmptyInputAndOutputTreeArtifactInActionTemplate() throws Throwable {
+  public void emptyInputAndOutputTreeArtifactInActionTemplate() throws Exception {
     // artifact1 is an empty tree artifact which is generated by a single no-op dummy action.
     SpecialArtifact artifact1 = createTreeArtifact("treeArtifact1");
-    registerAction(
-        new NoOpDummyAction(
-            NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableSet.of(artifact1)));
+    registerAction(new NoOpDummyAction(artifact1));
 
     // artifact2 is a tree artifact generated by an action template that takes artifact1 as input.
     SpecialArtifact artifact2 = createTreeArtifact("treeArtifact2");
-    SpawnActionTemplate actionTemplate = ActionsTestUtil.createDummySpawnActionTemplate(
-        artifact1, artifact2);
+    SpawnActionTemplate actionTemplate =
+        ActionsTestUtil.createDummySpawnActionTemplate(artifact1, artifact2);
     registerAction(actionTemplate);
 
     buildArtifact(artifact2);
@@ -1025,237 +817,98 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(artifact2.getPath().getDirectoryEntries()).isEmpty();
   }
 
-  /**
-   * A generic test action that takes at most one input TreeArtifact,
-   * exactly one output TreeArtifact, and some path fragment inputs/outputs.
-   */
-  private abstract static class TreeArtifactTestAction extends TestAction {
-    final Iterable<TreeFileArtifact> inputFiles;
-    final Iterable<TreeFileArtifact> outputFiles;
+  private abstract static class SimpleTestAction extends TestAction {
+    private final Button button;
 
-    TreeArtifactTestAction(final SpecialArtifact output, final String... subOutputs) {
-      this(Runnables.doNothing(),
-          null,
-          ImmutableList.<TreeFileArtifact>of(),
-          output,
-          Collections2.transform(
-              Arrays.asList(subOutputs),
-              new Function<String, TreeFileArtifact>() {
-                @Nullable
-                @Override
-                public TreeFileArtifact apply(String s) {
-                  return ActionInputHelper.treeFileArtifact(output, s);
-                }
-              }));
+    SimpleTestAction(Artifact output) {
+      this(/*inputs=*/ ImmutableList.of(), output);
     }
 
-    TreeArtifactTestAction(Runnable effect, TreeFileArtifact... outputFiles) {
-      this(effect, Arrays.asList(outputFiles));
+    SimpleTestAction(Iterable<Artifact> inputs, Artifact output) {
+      this(new Button(), inputs, output);
     }
 
-    TreeArtifactTestAction(Runnable effect, Collection<TreeFileArtifact> outputFiles) {
-      this(effect, null, ImmutableList.<TreeFileArtifact>of(),
-          outputFiles.iterator().next().getParent(), outputFiles);
-    }
-
-    TreeArtifactTestAction(Runnable effect, Artifact inputFile,
-        Collection<TreeFileArtifact> outputFiles) {
-      this(effect, inputFile, ImmutableList.<TreeFileArtifact>of(),
-          outputFiles.iterator().next().getParent(), outputFiles);
-    }
-
-    TreeArtifactTestAction(Runnable effect, Collection<TreeFileArtifact> inputFiles,
-        Collection<TreeFileArtifact> outputFiles) {
-      this(effect, inputFiles.iterator().next().getParent(), inputFiles,
-          outputFiles.iterator().next().getParent(), outputFiles);
-    }
-
-    TreeArtifactTestAction(
-        Runnable effect,
-        @Nullable Artifact input,
-        Collection<TreeFileArtifact> inputFiles,
-        Artifact output,
-        Collection<TreeFileArtifact> outputFiles) {
-      super(
-          effect,
-          input == null
-              ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
-              : NestedSetBuilder.create(Order.STABLE_ORDER, input),
-          ImmutableSet.of(output));
-      Preconditions.checkArgument(
-          inputFiles.isEmpty() || (input != null && input.isTreeArtifact()));
-      Preconditions.checkArgument(output == null || output.isTreeArtifact());
-      this.inputFiles = ImmutableList.copyOf(inputFiles);
-      this.outputFiles = ImmutableList.copyOf(outputFiles);
-      for (TreeFileArtifact inputFile : inputFiles) {
-        Preconditions.checkState(inputFile.getParent().equals(input));
-      }
-      for (TreeFileArtifact outputFile : outputFiles) {
-        Preconditions.checkState(outputFile.getParent().equals(output));
-      }
+    SimpleTestAction(Button button, Iterable<Artifact> inputs, Artifact output) {
+      super(NO_EFFECT, NestedSetBuilder.wrap(Order.STABLE_ORDER, inputs), ImmutableSet.of(output));
+      this.button = button;
     }
 
     @Override
-    public ActionResult execute(ActionExecutionContext actionExecutionContext)
+    public final ActionResult execute(ActionExecutionContext context)
         throws ActionExecutionException {
-      if (!getInputs().isEmpty()) {
-        // Sanity check--verify all inputs exist.
-        Artifact input = getInputs().getSingleton();
-        if (!input.getPath().exists()) {
-          throw new IllegalStateException("action's input Artifact does not exist: "
-              + input.getPath());
-        }
-        for (Artifact inputFile : inputFiles) {
-          if (!inputFile.getPath().exists()) {
-            throw new IllegalStateException("action's input does not exist: " + inputFile);
-          }
-        }
-      }
-
-      Artifact output = getSoleOutput();
-      assertThat(output.getPath().exists()).isTrue();
+      button.pressed = true;
       try {
-        effect.call();
-        executeTestBehavior(actionExecutionContext);
-        for (TreeFileArtifact outputFile : outputFiles) {
-          actionExecutionContext.getMetadataHandler().addExpandedTreeOutput(outputFile);
-        }
-      } catch (RuntimeException e) {
-        throw new RuntimeException(e);
-      } catch (Exception e) {
-        throw new ActionExecutionException(
-            "TestAction failed due to exception: " + e.getMessage(), e, this, false);
+        run(context);
+      } catch (IOException e) {
+        throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
       }
       return ActionResult.EMPTY;
     }
 
-    void executeTestBehavior(ActionExecutionContext c) throws ActionExecutionException {
-      // Default: do nothing
-    }
-
-    /** Checks there's exactly one output, and returns it. */
-    SpecialArtifact getSoleOutput() {
-      Iterator<Artifact> it = getOutputs().iterator();
-      SpecialArtifact r = (SpecialArtifact) it.next();
-      Preconditions.checkNotNull(r);
-      Preconditions.checkState(!it.hasNext());
-      Preconditions.checkState(r.equals(getPrimaryOutput()));
-      return r;
-    }
-
-    void registerOutput(ActionExecutionContext context, String outputName) throws IOException {
-      context.getMetadataHandler().addExpandedTreeOutput(
-          treeFileArtifact(getSoleOutput(), PathFragment.create(outputName)));
-    }
-
-    static List<TreeFileArtifact> asTreeFileArtifacts(
-        final SpecialArtifact parent, String... files) {
-      return Lists.transform(
-          Arrays.asList(files),
-          new Function<String, TreeFileArtifact>() {
-            @Nullable
-            @Override
-            public TreeFileArtifact apply(String s) {
-              return ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-                  parent, PathFragment.create(s), parent.getArtifactOwner());
-            }
-          });
-    }
+    abstract void run(ActionExecutionContext context) throws IOException;
   }
 
   /** An action that touches some output TreeFileArtifacts. Takes no inputs. */
-  private static class TouchingTestAction extends TreeArtifactTestAction {
-    TouchingTestAction(TreeFileArtifact... outputPaths) {
-      super(Runnables.doNothing(), outputPaths);
+  private static final class TouchingTestAction extends SimpleTestAction {
+    private final ImmutableList<String> outputFiles;
+
+    TouchingTestAction(SpecialArtifact output, String... outputFiles) {
+      this(new Button(), output, outputFiles);
     }
 
-    TouchingTestAction(Runnable effect, SpecialArtifact output, String... outputPaths) {
-      super(effect, asTreeFileArtifacts(output, outputPaths));
+    TouchingTestAction(Button button, SpecialArtifact output, String... outputFiles) {
+      super(button, /*inputs=*/ ImmutableList.of(), output);
+      this.outputFiles = ImmutableList.copyOf(outputFiles);
     }
 
     @Override
-    public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
-      try {
-        for (Artifact file : outputFiles) {
-          touchFile(file);
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+    void run(ActionExecutionContext context) throws IOException {
+      for (String file : outputFiles) {
+        touchFile(getPrimaryOutput().getPath().getRelative(file));
       }
     }
   }
 
   /** Takes an input file and populates several copies inside a TreeArtifact. */
-  private static class WriteInputToFilesAction extends TreeArtifactTestAction {
-    WriteInputToFilesAction(Artifact input, TreeFileArtifact... outputs) {
-      this(Runnables.doNothing(), input, outputs);
-    }
+  private static final class WriteInputToFilesAction extends SimpleTestAction {
+    private final ImmutableList<String> outputFiles;
 
     WriteInputToFilesAction(
-        Runnable effect,
-        Artifact input,
-        TreeFileArtifact... outputs) {
-      super(effect, input, Arrays.asList(outputs));
-      Preconditions.checkArgument(!input.isTreeArtifact());
+        Button button, Artifact input, SpecialArtifact output, String... outputFiles) {
+      super(button, ImmutableList.of(input), output);
+      this.outputFiles = ImmutableList.copyOf(outputFiles);
     }
 
     @Override
-    public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
-      try {
-        for (Artifact file : outputFiles) {
-          FileSystemUtils.createDirectoryAndParents(file.getPath().getParentDirectory());
-          FileSystemUtils.copyFile(getInputs().getSingleton().getPath(), file.getPath());
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+    void run(ActionExecutionContext actionExecutionContext) throws IOException {
+      for (String file : outputFiles) {
+        Path newOutput = getPrimaryOutput().getPath().getRelative(file);
+        newOutput.createDirectoryAndParents();
+        FileSystemUtils.copyFile(getPrimaryInput().getPath(), newOutput);
       }
     }
   }
 
   /** Copies the given TreeFileArtifact inputs to the given outputs, in respective order. */
-  private static class CopyTreeAction extends TreeArtifactTestAction {
+  private static final class CopyTreeAction extends SimpleTestAction {
 
-    CopyTreeAction(
-        Runnable effect, SpecialArtifact input, SpecialArtifact output, String... sourcesAndDests) {
-      super(effect, input, asTreeFileArtifacts(input, sourcesAndDests), output,
-          asTreeFileArtifacts(output, sourcesAndDests));
+    CopyTreeAction(SpecialArtifact input, SpecialArtifact output) {
+      this(new Button(), input, output);
     }
 
-    CopyTreeAction(
-        Collection<TreeFileArtifact> inputPaths,
-        Collection<TreeFileArtifact> outputPaths) {
-      super(Runnables.doNothing(), inputPaths, outputPaths);
-    }
-
-    CopyTreeAction(
-        Runnable effect,
-        Collection<TreeFileArtifact> inputPaths,
-        Collection<TreeFileArtifact> outputPaths) {
-      super(effect, inputPaths, outputPaths);
+    CopyTreeAction(Button button, SpecialArtifact input, SpecialArtifact output) {
+      super(button, ImmutableList.of(input), output);
     }
 
     @Override
-    public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
-      Iterator<TreeFileArtifact> inputIterator = inputFiles.iterator();
-      Iterator<TreeFileArtifact> outputIterator = outputFiles.iterator();
-
-      try {
-        while (inputIterator.hasNext() || outputIterator.hasNext()) {
-          Artifact input = inputIterator.next();
-          Artifact output = outputIterator.next();
-          FileSystemUtils.createDirectoryAndParents(output.getPath().getParentDirectory());
-          FileSystemUtils.copyFile(input.getPath(), output.getPath());
-        }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+    void run(ActionExecutionContext context) throws IOException {
+      List<Artifact> children = new ArrayList<>();
+      context.getArtifactExpander().expand(getPrimaryInput(), children);
+      for (Artifact child : children) {
+        Path newOutput = getPrimaryOutput().getPath().getRelative(child.getParentRelativePath());
+        newOutput.createDirectoryAndParents();
+        FileSystemUtils.copyFile(child.getPath(), newOutput);
       }
-
-      // both iterators must be of the same size
-      assertThat(inputIterator.hasNext()).isFalse();
-      assertThat(inputIterator.hasNext()).isFalse();
     }
   }
 
@@ -1271,12 +924,32 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         SpecialArtifactType.TREE);
   }
 
-  private void buildArtifact(Artifact artifact) throws Exception {
-    buildArtifacts(cachingBuilder(), artifact);
+  private TreeArtifactValue buildArtifact(SpecialArtifact treeArtifact) throws Exception {
+    Preconditions.checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
+    BuilderWithResult builder = cachingBuilder();
+    buildArtifacts(builder, treeArtifact);
+    return (TreeArtifactValue) builder.getLatestResult().get(treeArtifact);
+  }
+
+  private void buildArtifact(Artifact normalArtifact) throws Exception {
+    buildArtifacts(cachingBuilder(), normalArtifact);
+  }
+
+  private static void verifyOutputTree(
+      TreeArtifactValue result, SpecialArtifact parent, String... expectedChildPaths) {
+    Preconditions.checkArgument(parent.isTreeArtifact(), parent);
+    Set<TreeFileArtifact> expectedChildren =
+        Arrays.stream(expectedChildPaths)
+            .map(path -> TreeFileArtifact.createTreeOutput(parent, path))
+            .collect(toImmutableSet());
+    for (TreeFileArtifact child : expectedChildren) {
+      assertWithMessage(child + " does not exist").that(child.getPath().exists()).isTrue();
+    }
+    assertThat(result.getChildren()).isEqualTo(expectedChildren);
   }
 
   private static void writeFile(Path path, String contents) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     // sometimes we write read-only files
     if (path.exists()) {
       path.setWritable(true);
@@ -1289,7 +962,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   private static void touchFile(Path path) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
+    path.getParentDirectory().createDirectoryAndParents();
     path.getParentDirectory().setWritable(true);
     FileSystemUtils.touchFile(path);
   }
@@ -1301,16 +974,14 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   private static void deleteFile(Artifact file) throws IOException {
     Path path = file.getPath();
     // sometimes we write read-only files
-    if (path.exists()) {
-      path.setWritable(true);
-      // work around the sticky bit (this might depend on the behavior of the OS?)
-      path.getParentDirectory().setWritable(true);
-      path.delete();
-    }
+    path.setWritable(true);
+    // work around the sticky bit (this might depend on the behavior of the OS?)
+    path.getParentDirectory().setWritable(true);
+    path.delete();
   }
 
-  /** A dummy action template expansion function that just returns the injected actions */
-  private static class DummyActionTemplateExpansionFunction implements SkyFunction {
+  /** A dummy action template expansion function that just returns the injected actions. */
+  private static final class DummyActionTemplateExpansionFunction implements SkyFunction {
     private final ActionKeyContext actionKeyContext;
     private final ImmutableList<ActionAnalysisMetadata> actions;
 
@@ -1325,10 +996,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         return new ActionTemplateExpansionValue(
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                actionKeyContext,
-                actions,
-                (ActionLookupValue.ActionLookupKey) skyKey,
-                /*outputFiles=*/ null));
+                actionKeyContext, actions, (ActionLookupKey) skyKey, /*outputFiles=*/ null));
       } catch (ActionConflictException e) {
         throw new IllegalStateException(e);
       }
@@ -1341,30 +1009,37 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
   }
 
   /** No-op action that does not generate the action outputs. */
-  private static class NoOpDummyAction extends TestAction {
-    public NoOpDummyAction(NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
-      super(NO_EFFECT, inputs, outputs);
+  private static final class NoOpDummyAction extends SimpleTestAction {
+
+    NoOpDummyAction(Artifact output) {
+      super(/*inputs=*/ ImmutableList.of(), output);
     }
 
-    /** Do nothing */
-    @Override
-    public ActionResult execute(ActionExecutionContext actionExecutionContext)
-        throws ActionExecutionException {
-      return ActionResult.EMPTY;
+    NoOpDummyAction(Artifact input, Artifact output) {
+      super(ImmutableList.of(input), output);
     }
+
+    /** Does nothing. */
+    @Override
+    void run(ActionExecutionContext actionExecutionContext) {}
   }
 
-  /** No-op action that throws when executed */
-  private static class ThrowingDummyAction extends TestAction {
-    public ThrowingDummyAction(NestedSet<Artifact> inputs, ImmutableSet<Artifact> outputs) {
-      super(NO_EFFECT, inputs, outputs);
+  /** No-op action that throws when executed. */
+  private static final class ThrowingDummyAction extends TestAction {
+
+    ThrowingDummyAction(Artifact output) {
+      super(NO_EFFECT, NestedSetBuilder.emptySet(Order.STABLE_ORDER), ImmutableSet.of(output));
     }
 
-    /** Throws */
+    ThrowingDummyAction(Artifact input, Artifact output) {
+      super(NO_EFFECT, NestedSetBuilder.create(Order.STABLE_ORDER, input), ImmutableSet.of(output));
+    }
+
+    /** Unconditionally throws. */
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
-      throw new ActionExecutionException("Throwing dummy action", this, true);
+      throw new ActionExecutionException("Throwing dummy action", this, /*catastrophe=*/ true);
     }
   }
 }

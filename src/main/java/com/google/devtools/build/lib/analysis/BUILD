@@ -247,14 +247,14 @@ java_library(
         "extra/ExtraAction.java",
         "extra/ExtraActionMapProvider.java",
         "extra/ExtraActionSpec.java",
-        "skylark/SkylarkModules.java",
-        "skylark/SkylarkRuleClassFunctions.java",
-        "skylark/SkylarkRuleConfiguredTargetUtil.java",
-        "skylark/SkylarkRuleContext.java",
         "skylark/StarlarkActionFactory.java",
         "skylark/StarlarkAttrModule.java",
         "skylark/StarlarkAttributeTransitionProvider.java",
         "skylark/StarlarkAttributesCollection.java",
+        "skylark/StarlarkModules.java",
+        "skylark/StarlarkRuleClassFunctions.java",
+        "skylark/StarlarkRuleConfiguredTargetUtil.java",
+        "skylark/StarlarkRuleContext.java",
         "skylark/StarlarkRuleTransitionProvider.java",
         "skylark/StarlarkTransition.java",
         "test/AnalysisTestActionBuilder.java",
@@ -320,6 +320,7 @@ java_library(
         ":constraints/supported_environments",
         ":constraints/supported_environments_provider",
         ":dependency",
+        ":dependency_key",
         ":dependency_kind",
         ":duplicate_exception",
         ":extra/extra_action_info_file_write_action",
@@ -365,7 +366,6 @@ java_library(
         ":transitive_info_provider_map_builder",
         ":visibility_provider",
         ":visibility_provider_impl",
-        "//src/main/java/com/google/devtools/build/lib:bug-report",
         "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime/build_event_streamer_utils",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -373,6 +373,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/causes",
@@ -407,6 +408,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_value",
@@ -417,7 +420,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -432,6 +434,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:test_status_java_proto",
@@ -660,7 +663,7 @@ java_library(
         ":config/build_configuration",
         ":config/build_options",
         ":config/invalid_configuration_exception",
-        ":dependency",
+        ":dependency_key",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//third_party:guava",
     ],
@@ -701,8 +704,20 @@ java_library(
         ":config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "dependency_key",
+    srcs = ["DependencyKey.java"],
+    deps = [
+        ":aspect_collection",
+        ":config/transitions/configuration_transition",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:auto_value",
     ],
 )
 
@@ -711,6 +726,8 @@ java_library(
     srcs = ["DependencyKind.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//third_party:auto_value",
+        "//third_party:guava",
         "//third_party:jsr305",
     ],
 )
@@ -1016,6 +1033,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//third_party:guava",
     ],
 )
@@ -1302,6 +1320,7 @@ java_library(
         ":analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_template_expansion_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
@@ -1429,11 +1448,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/net/starlark/java/annot",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -1450,7 +1469,10 @@ java_library(
 
 java_library(
     name = "config/build_options",
-    srcs = ["config/BuildOptions.java"],
+    srcs = [
+        "config/BuildOptions.java",
+        "config/BuildOptionsView.java",
+    ],
     deps = [
         ":config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1567,6 +1589,7 @@ java_library(
     srcs = ["config/Fragment.java"],
     deps = [
         ":config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//third_party:jsr305",
@@ -1606,11 +1629,13 @@ java_library(
     deps = [
         ":config/build_options",
         ":config/core_options",
+        ":config/fragment_options",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//third_party:auto_value",
+        "//third_party:guava",
     ],
 )
 
@@ -1701,6 +1726,7 @@ java_library(
     srcs = ["config/transitions/ComposingTransition.java"],
     deps = [
         ":config/build_options",
+        ":config/fragment_options",
         ":config/transitions/configuration_transition",
         ":config/transitions/no_transition",
         ":config/transitions/null_transition",
@@ -1726,10 +1752,15 @@ java_library(
 
 java_library(
     name = "config/transitions/configuration_transition",
-    srcs = ["config/transitions/ConfigurationTransition.java"],
+    srcs = [
+        "config/transitions/ConfigurationTransition.java",
+        "config/transitions/TransitionUtil.java",
+    ],
     deps = [
         ":config/build_options",
+        ":config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//third_party:guava",
     ],
 )
 
@@ -2025,8 +2056,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/net/starlark/java/annot",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -2171,6 +2202,7 @@ java_library(
     srcs = ["test/TestTrimmingTransitionFactory.java"],
     deps = [
         ":config/build_options",
+        ":config/fragment_options",
         ":config/transitions/no_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",

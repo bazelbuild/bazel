@@ -13,8 +13,8 @@ filegroup(
 )
 
 java_test(
-    name = "JavaInfoSkylarkApiTest",
-    srcs = ["JavaInfoSkylarkApiTest.java"],
+    name = "JavaInfoStarlarkApiTest",
+    srcs = ["JavaInfoStarlarkApiTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -55,8 +55,8 @@ java_test(
 )
 
 java_test(
-    name = "JavaSkylarkApiTest",
-    srcs = ["JavaSkylarkApiTest.java"],
+    name = "JavaStarlarkApiTest",
+    srcs = ["JavaStarlarkApiTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",

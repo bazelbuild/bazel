@@ -239,11 +239,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return pathResolver;
   }
 
-  /**
-   * Returns whether failures should have verbose error messages.
-   */
-  public boolean getVerboseFailures() {
-    return executor.getVerboseFailures();
+  /** Returns whether failures for {@code failedLabel} should have verbose error messages. */
+  public boolean showVerboseFailures(Label failedLabel) {
+    return executor.getVerboseFailuresPredicate().test(failedLabel);
   }
 
   /**

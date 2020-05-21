@@ -4152,7 +4152,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testApkInfoAccessibleFromSkylark() throws Exception {
+  public void testApkInfoAccessibleFromStarlark() throws Exception {
     scratch.file(
         "java/com/google/android/BUILD",
         "load(':postprocess.bzl', 'postprocess')",
@@ -4174,7 +4174,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testInstrumentationInfoAccessibleFromSkylark() throws Exception {
+  public void testInstrumentationInfoAccessibleFromStarlark() throws Exception {
     scratch.file(
         "java/com/google/android/instr/BUILD",
         "load(':instr.bzl', 'instr')",
@@ -4200,7 +4200,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testInstrumentationInfoCreatableFromSkylark() throws Exception {
+  public void testInstrumentationInfoCreatableFromStarlark() throws Exception {
     scratch.file(
         "java/com/google/android/instr/BUILD",
         "load(':instr.bzl', 'instr')",
@@ -4370,7 +4370,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void skylarkJavaInfoToAndroidBinaryAttributes() throws Exception {
+  public void starlarkJavaInfoToAndroidBinaryAttributes() throws Exception {
     scratch.file(
         "java/r/android/extension.bzl",
         "def _impl(ctx):",
@@ -4643,7 +4643,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAndroidSkylarkApiNativeLibs() throws Exception {
+  public void testAndroidStarlarkApiNativeLibs() throws Exception {
     scratch.file(
         "java/a/fetch_native_libs.bzl",
         "def _impl(ctx):",
@@ -4677,6 +4677,68 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
             ActionsTestUtil.baseArtifactNames(
                 clibs.getProvider(FileProvider.class).getFilesToBuild()))
         .containsExactly("libapp.so");
+  }
+
+  @Test
+  public void testInstrumentsManifestMergeEnabled() throws Exception {
+    // This is the incorrect behavior where dependency manifests are merged into the test apk.
+    useConfiguration("--noexperimental_disable_instrumentation_manifest_merge");
+    scratch.file(
+        "java/com/google/android/instr/BUILD",
+        "android_binary(",
+        "    name = 'b1',",
+        "    srcs = ['b1.java'],",
+        "    instruments = ':b2',",
+        "    deps = [':lib'],",
+        "    manifest = 'test/AndroidManifest.xml',",
+        ")",
+        "android_library(",
+        "    name = 'lib',",
+        "    manifest = 'lib/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['lib/res/values/strings.xml'],",
+        ")",
+        "android_binary(",
+        "    name = 'b2',",
+        "    srcs = ['b2.java'],",
+        "    deps = [':lib'],",
+        "    manifest = 'bin/AndroidManifest.xml',",
+        ")");
+    assertThat(
+            getBinaryMergeeManifests(getConfiguredTarget("//java/com/google/android/instr:b1"))
+                .values())
+        .containsExactly("//java/com/google/android/instr:lib");
+  }
+
+  @Test
+  public void testInstrumentsManifestMergeDisabled() throws Exception {
+    // This is the correct behavior where dependency manifests are not merged into the test apk.
+    useConfiguration("--experimental_disable_instrumentation_manifest_merge");
+    scratch.file(
+        "java/com/google/android/instr/BUILD",
+        "android_binary(",
+        "    name = 'b1',",
+        "    srcs = ['b1.java'],",
+        "    instruments = ':b2',",
+        "    deps = [':lib'],",
+        "    manifest = 'test/AndroidManifest.xml',",
+        ")",
+        "android_library(",
+        "    name = 'lib',",
+        "    manifest = 'lib/AndroidManifest.xml',",
+        "    exports_manifest = 1,",
+        "    resource_files = ['lib/res/values/strings.xml'],",
+        ")",
+        "android_binary(",
+        "    name = 'b2',",
+        "    srcs = ['b2.java'],",
+        "    deps = [':lib'],",
+        "    manifest = 'bin/AndroidManifest.xml',",
+        ")");
+    assertThat(
+            getBinaryMergeeManifests(getConfiguredTarget("//java/com/google/android/instr:b1"))
+                .values())
+        .isEmpty();
   }
 
   // DEPENDENCY order is not tested; the incorrect order of dependencies means the test would

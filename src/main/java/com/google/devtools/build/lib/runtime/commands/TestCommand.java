@@ -39,8 +39,10 @@ import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSumm
 import com.google.devtools.build.lib.runtime.TestResultNotifier;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.runtime.UiOptions;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TestCommand.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
@@ -120,7 +122,7 @@ public class TestCommand implements BlazeCommand {
       targets = TargetPatternsHelper.readFrom(env, options);
     } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
     BuildRequest request = BuildRequest.create(
         getClass().getAnnotation(Command.class).name(), options,
@@ -141,10 +143,16 @@ public class TestCommand implements BlazeCommand {
       // This can happen if there were errors in the target parsing or loading phase
       // (original exitcode=BUILD_FAILURE) or if there weren't but --noanalyze was given
       // (original exitcode=SUCCESS).
-      env.getReporter().handle(Event.error("Couldn't start the build. Unable to run tests"));
+      String message = "Couldn't start the build. Unable to run tests";
+      env.getReporter().handle(Event.error(message));
       DetailedExitCode detailedExitCode =
           buildResult.getSuccess()
-              ? DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE)
+              ? DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setTestCommand(
+                          FailureDetails.TestCommand.newBuilder().setCode(Code.TEST_WITH_NOANALYZE))
+                      .build())
               : buildResult.getDetailedExitCode();
       env.getEventBus()
           .post(
@@ -157,12 +165,17 @@ public class TestCommand implements BlazeCommand {
     // TODO(bazel-team): the check above shadows NO_TESTS_FOUND, but switching the conditions breaks
     // more tests
     if (testTargets.isEmpty()) {
-      env.getReporter().handle(Event.error(
-          null, "No test targets were found, yet testing was requested"));
+      String message = "No test targets were found, yet testing was requested";
+      env.getReporter().handle(Event.error(null, message));
 
       DetailedExitCode detailedExitCode =
           buildResult.getSuccess()
-              ? DetailedExitCode.justExitCode(ExitCode.NO_TESTS_FOUND)
+              ? DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(message)
+                      .setTestCommand(
+                          FailureDetails.TestCommand.newBuilder().setCode(Code.NO_TEST_TARGETS))
+                      .build())
               : buildResult.getDetailedExitCode();
       env.getEventBus()
           .post(
@@ -189,8 +202,13 @@ public class TestCommand implements BlazeCommand {
     DetailedExitCode detailedExitCode =
         buildSuccess
             ? (testSuccess
-                ? DetailedExitCode.justExitCode(ExitCode.SUCCESS)
-                : DetailedExitCode.justExitCode(ExitCode.TESTS_FAILED))
+                ? DetailedExitCode.success()
+                : DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setMessage("tests failed")
+                        .setTestCommand(
+                            FailureDetails.TestCommand.newBuilder().setCode(Code.TESTS_FAILED))
+                        .build()))
             : buildResult.getDetailedExitCode();
     env.getEventBus()
         .post(

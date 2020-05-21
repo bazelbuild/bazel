@@ -250,7 +250,7 @@ public final class CanonicalizeCommand implements BlazeCommand {
           env, e.getMessage(), FailureDetails.Command.Code.INVOCATION_POLICY_INVALID);
     }
 
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 
   private static BlazeCommandResult reportAndCreateCommandFailure(

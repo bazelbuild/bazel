@@ -12,6 +12,9 @@ unofficial packages on
 
 The commands below must be run either via `sudo` or while logged in as `root`.
 
+Add `--allowerasing` when installing an upgrade from a previous major
+version of the Bazel package.
+
 ## Installing on Fedora 25+
 
 1. The [DNF](https://fedoraproject.org/wiki/DNF) package manager can install
@@ -27,7 +30,7 @@ The commands below must be run either via `sudo` or while logged in as `root`.
 
     ```bash
     dnf copr enable vbatts/bazel
-    dnf install bazel
+    dnf install bazel3
     ```
 
 ## Installing on CentOS 7
@@ -39,5 +42,5 @@ The commands below must be run either via `sudo` or while logged in as `root`.
 2. Run the following command:
 
     ```bash
-    yum install bazel
+    yum install bazel3
     ```

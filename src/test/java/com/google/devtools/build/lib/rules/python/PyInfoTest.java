@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.rules.python;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,15 +31,17 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link PyInfo}. */
 @RunWith(JUnit4.class)
-public class PyInfoTest extends SkylarkTestCase {
+public class PyInfoTest extends BuildViewTestCase {
+
+  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private Artifact dummyArtifact;
 
   @Before
   public void setUp() throws Exception {
     dummyArtifact = getSourceArtifact("dummy");
-    update("PyInfo", PyInfo.PROVIDER);
-    update("dummy_file", dummyArtifact);
+    ev.update("PyInfo", PyInfo.PROVIDER);
+    ev.update("dummy_file", dummyArtifact);
   }
 
   /** We need this because {@code NestedSet}s don't have value equality. */
@@ -87,7 +91,7 @@ public class PyInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructor() throws Exception {
-    exec(
+    ev.exec(
         "info = PyInfo(",
         "    transitive_sources = depset(direct=[dummy_file]),",
         "    uses_shared_libraries = True,",
@@ -95,7 +99,7 @@ public class PyInfoTest extends SkylarkTestCase {
         "    has_py2_only_sources = True,",
         "    has_py3_only_sources = True,",
         ")");
-    PyInfo info = (PyInfo) lookup("info");
+    PyInfo info = (PyInfo) ev.lookup("info");
     assertThat(info.getCreationLoc().toString()).isEqualTo(":1:14");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
@@ -108,8 +112,8 @@ public class PyInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructorDefaults() throws Exception {
-    exec("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
-    PyInfo info = (PyInfo) lookup("info");
+    ev.exec("info = PyInfo(transitive_sources = depset(direct=[dummy_file]))");
+    PyInfo info = (PyInfo) ev.lookup("info");
     assertThat(info.getCreationLoc().toString()).isEqualTo(":1:14");
     assertHasOrderAndContainsExactly(
         info.getTransitiveSources().getSet(Artifact.class), Order.STABLE_ORDER, dummyArtifact);
@@ -121,48 +125,48 @@ public class PyInfoTest extends SkylarkTestCase {
 
   @Test
   public void starlarkConstructorErrors_TransitiveSources() throws Exception {
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "missing 1 required named argument: transitive_sources", //
         "PyInfo()");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got value of type 'string', want 'depset'", //
         "PyInfo(transitive_sources = 'abc')");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "should be a postorder-compatible depset of Files (got a 'default-ordered depset of"
             + " strings')", //
         "PyInfo(transitive_sources = depset(direct=['abc']))");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "'transitive_sources' field should be a postorder-compatible depset of Files",
         "PyInfo(transitive_sources = depset(direct=[dummy_file], order='preorder'))");
   }
 
   @Test
   public void starlarkConstructorErrors_UsesSharedLibraries() throws Exception {
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), uses_shared_libraries = 'abc')");
   }
 
   @Test
   public void starlarkConstructorErrors_Imports() throws Exception {
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got value of type 'string', want 'depset'",
         "PyInfo(transitive_sources = depset([]), imports = 'abc')");
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "should be a depset of strings (got a 'default-ordered depset of ints')",
         "PyInfo(transitive_sources = depset([]), imports = depset(direct=[123]))");
   }
 
   @Test
   public void starlarkConstructorErrors_HasPy2OnlySources() throws Exception {
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), has_py2_only_sources = 'abc')");
   }
 
   @Test
   public void starlarkConstructorErrors_HasPy3OnlySources() throws Exception {
-    checkEvalErrorContains(
+    ev.checkEvalErrorContains(
         "got value of type 'string', want 'bool'",
         "PyInfo(transitive_sources = depset([]), has_py3_only_sources = 'abc')");
   }

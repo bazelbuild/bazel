@@ -16,7 +16,7 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.DocgenConsts;
-import com.google.devtools.build.lib.skylarkinterface.Param;
+import net.starlark.java.annot.Param;
 
 /** A utility class for the documentation generator. */
 public final class StarlarkDocUtils {

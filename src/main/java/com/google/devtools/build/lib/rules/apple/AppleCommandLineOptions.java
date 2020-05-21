@@ -280,7 +280,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "ios_multi_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "unused",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -292,7 +292,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "watchos_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "unused",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple watchOS binaries.")
@@ -302,7 +302,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "tvos_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "unused",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple tvOS binaries.")
@@ -312,7 +312,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "macos_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "unused",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple macOS binaries.")
@@ -418,6 +418,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
     private AppleBitcodeMode(String mode, ImmutableList<String> featureNames) {
       this.mode = mode;
       this.featureNames = featureNames;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
     }
 
     @Override

@@ -52,7 +52,7 @@ public class PlatformInfo extends NativeInfo
   public static final String PARENT_REMOTE_EXECUTION_KEY = "{PARENT_REMOTE_EXECUTION_PROPERTIES}";
 
   /** Name used in Starlark for accessing this provider. */
-  public static final String SKYLARK_NAME = "PlatformInfo";
+  public static final String STARLARK_NAME = "PlatformInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<PlatformInfo> PROVIDER = new Provider();
@@ -62,7 +62,7 @@ public class PlatformInfo extends NativeInfo
       implements PlatformInfoApi.Provider<
           ConstraintSettingInfo, ConstraintValueInfo, PlatformInfo> {
     private Provider() {
-      super(SKYLARK_NAME, PlatformInfo.class);
+      super(STARLARK_NAME, PlatformInfo.class);
     }
 
     @Override

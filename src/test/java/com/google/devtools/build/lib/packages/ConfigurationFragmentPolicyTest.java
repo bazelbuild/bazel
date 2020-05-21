@@ -18,12 +18,13 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -79,8 +80,8 @@ public final class ConfigurationFragmentPolicyTest {
       new ConfigurationTransition() {
         @Override
         public ImmutableMap<String, BuildOptions> apply(
-            BuildOptions buildOptions, EventHandler eventHandler) {
-          return ImmutableMap.of("", buildOptions);
+            BuildOptionsView buildOptions, EventHandler eventHandler) {
+          return ImmutableMap.of("", buildOptions.underlying());
         }
 
         @Override
@@ -130,7 +131,7 @@ public final class ConfigurationFragmentPolicyTest {
   }
 
   @Test
-  public void testRequiresConfigurationFragments_MapSetsLegalityBySkylarkModuleName_NoRequires()
+  public void testRequiresConfigurationFragments_MapSetsLegalityByStarlarkModuleName_NoRequires()
       throws Exception {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()

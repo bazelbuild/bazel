@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /**
  * Interface for protocol buffers support in Bazel.

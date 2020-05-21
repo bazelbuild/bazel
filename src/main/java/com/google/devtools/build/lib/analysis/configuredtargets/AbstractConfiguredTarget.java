@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,8 +46,7 @@ import javax.annotation.Nullable;
  * An abstract implementation of ConfiguredTarget in which all properties are assigned trivial
  * default values.
  */
-public abstract class AbstractConfiguredTarget
-    implements ConfiguredTarget, VisibilityProvider, SkylarkClassObject {
+public abstract class AbstractConfiguredTarget implements ConfiguredTarget, VisibilityProvider {
   private final Label label;
   private final BuildConfigurationValue.Key configurationKey;
 
@@ -77,8 +75,8 @@ public abstract class AbstractConfiguredTarget
           FILES_FIELD,
           DEFAULT_RUNFILES_FIELD,
           DATA_RUNFILES_FIELD,
-          FilesToRunProvider.SKYLARK_NAME,
-          OutputGroupInfo.SKYLARK_NAME,
+          FilesToRunProvider.STARLARK_NAME,
+          OutputGroupInfo.STARLARK_NAME,
           ACTIONS_FIELD_NAME);
 
   public AbstractConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
@@ -92,6 +90,11 @@ public abstract class AbstractConfiguredTarget
     this.label = label;
     this.configurationKey = configurationKey;
     this.visibility = visibility;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // all Targets are immutable and Starlark-hashable
   }
 
   @Override
@@ -189,21 +192,21 @@ public abstract class AbstractConfiguredTarget
   @Override
   public final ImmutableCollection<String> getFieldNames() {
     ImmutableList.Builder<String> result = ImmutableList.builder();
-    result.addAll(ImmutableList.of(
-        DATA_RUNFILES_FIELD,
-        DEFAULT_RUNFILES_FIELD,
-        LABEL_FIELD,
-        FILES_FIELD,
-        FilesToRunProvider.SKYLARK_NAME));
-    if (get(OutputGroupInfo.SKYLARK_CONSTRUCTOR) != null) {
-      result.add(OutputGroupInfo.SKYLARK_NAME);
+    result.addAll(
+        ImmutableList.of(
+            DATA_RUNFILES_FIELD,
+            DEFAULT_RUNFILES_FIELD,
+            LABEL_FIELD,
+            FILES_FIELD,
+            FilesToRunProvider.STARLARK_NAME));
+    if (get(OutputGroupInfo.STARLARK_CONSTRUCTOR) != null) {
+      result.add(OutputGroupInfo.STARLARK_NAME);
     }
-    addExtraSkylarkKeys(result::add);
+    addExtraStarlarkKeys(result::add);
     return result.build();
   }
 
-  protected void addExtraSkylarkKeys(Consumer<String> result) {
-  }
+  protected void addExtraStarlarkKeys(Consumer<String> result) {}
 
   private DefaultInfo getDefaultProvider() {
     if (defaultProvider.get() == null) {
@@ -224,12 +227,12 @@ public abstract class AbstractConfiguredTarget
     if (providerKey.equals(DefaultInfo.PROVIDER.getKey())) {
       return getDefaultProvider();
     }
-    return rawGetSkylarkProvider(providerKey);
+    return rawGetStarlarkProvider(providerKey);
   }
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
   @Nullable
-  protected abstract Info rawGetSkylarkProvider(Provider.Key providerKey);
+  protected abstract Info rawGetStarlarkProvider(Provider.Key providerKey);
 
   public String getRuleClassString() {
     return "";
@@ -245,17 +248,17 @@ public abstract class AbstractConfiguredTarget
         return getDefaultProvider().getDefaultRunfiles();
       case DATA_RUNFILES_FIELD:
         return getDefaultProvider().getDataRunfiles();
-      case FilesToRunProvider.SKYLARK_NAME:
+      case FilesToRunProvider.STARLARK_NAME:
         return getDefaultProvider().getFilesToRun();
-      case OutputGroupInfo.SKYLARK_NAME:
-        return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+      case OutputGroupInfo.STARLARK_NAME:
+        return get(OutputGroupInfo.STARLARK_CONSTRUCTOR);
       default:
-        return rawGetSkylarkProvider(providerKey);
+        return rawGetStarlarkProvider(providerKey);
     }
   }
 
   /** Implement in subclasses to get a Starlark provider for a given {@code providerKey}. */
-  protected abstract Object rawGetSkylarkProvider(String providerKey);
+  protected abstract Object rawGetStarlarkProvider(String providerKey);
 
   // All main target classes must override this method to provide more descriptive strings.
   // Exceptions are currently EnvironmentGroupConfiguredTarget and PackageGroupConfiguredTarget.

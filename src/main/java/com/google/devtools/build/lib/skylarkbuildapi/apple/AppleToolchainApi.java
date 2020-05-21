@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Interface for a utility module involving the Apple toolchain. */
 @StarlarkBuiltin(
@@ -26,17 +26,17 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface AppleToolchainApi<AppleConfigurationApiT extends AppleConfigurationApi<?>>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "sdk_dir",
       doc = "Returns the platform directory inside of Xcode for a given configuration.")
   String sdkDirConstant();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "developer_dir",
       doc = "Returns the Developer directory inside of Xcode for a given configuration.")
   String developerDirConstant();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "platform_developer_framework_dir",
       doc = "Returns the platform frameworks directory inside of Xcode for a given configuration.",
       parameters = {

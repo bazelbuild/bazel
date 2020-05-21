@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
@@ -100,54 +98,29 @@ public class ArtifactNestedSetFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env)
-      throws InterruptedException, ArtifactNestedSetFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
     ArtifactNestedSetKey artifactNestedSetKey = (ArtifactNestedSetKey) skyKey;
-    Iterable<SkyKey> directKeys = artifactNestedSetKey.directKeys();
+    Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
+        directArtifactsEvalResult =
+            env.getValuesOrThrow(
+                artifactNestedSetKey.directKeys(),
+                IOException.class,
+                ActionExecutionException.class);
+
+    // Evaluate all children.
     ArrayList<SkyKey> transitiveKeys = new ArrayList<>();
     for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
       nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
       transitiveKeys.add(nestedSetToSkyKey.get(transitive));
     }
+    env.getValues(transitiveKeys);
 
-    Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> depsEvalResult =
-        env.getValuesOrThrow(
-            Iterables.concat(directKeys, transitiveKeys),
-            IOException.class,
-            ActionExecutionException.class);
-
-    Exception exceptionToThrow = null;
-    SkyKey rootCauseKey = null;
-
-    // Only commit to the map when a value or exception of a direct Artifact's SkyKey is present.
-    // Throw a SkyFunctionException when a dep evaluation results in an exception.
-    for (Map.Entry<SkyKey, ValueOrException2<IOException, ActionExecutionException>> entry :
-        depsEvalResult.entrySet()) {
-      try {
-        SkyValue value = entry.getValue().get();
-        if (value != null && !(entry.getKey() instanceof ArtifactNestedSetKey)) {
-          artifactSkyKeyToValueOrException.put(entry.getKey(), entry.getValue());
-        }
-      } catch (IOException | ActionExecutionException e) {
-        exceptionToThrow = e;
-        rootCauseKey = entry.getKey();
-        if (!(entry.getKey() instanceof ArtifactNestedSetKey)) {
-          artifactSkyKeyToValueOrException.put(entry.getKey(), entry.getValue());
-        }
-      }
-    }
-    if (exceptionToThrow != null) {
-      if (exceptionToThrow instanceof ActionExecutionException) {
-        throw new ArtifactNestedSetFunctionException(
-            (ActionExecutionException) exceptionToThrow, rootCauseKey);
-      }
-      throw new ArtifactNestedSetFunctionException((IOException) exceptionToThrow, rootCauseKey);
-    }
-
-    // This should only happen when all error handling is done.
     if (env.valuesMissing()) {
       return null;
     }
+
+    // Only commit to the map when every value is present.
+    artifactSkyKeyToValueOrException.putAll(directArtifactsEvalResult);
     return new ArtifactNestedSetValue();
   }
 
@@ -208,26 +181,5 @@ public class ArtifactNestedSetFunction implements SkyFunction {
     }
     sizeThreshold = newValue;
     return true;
-  }
-
-  /** Mainly used for error bubbling when evaluating direct/transitive children. */
-  static final class ArtifactNestedSetFunctionException extends SkyFunctionException {
-
-    private final boolean catastrophe;
-
-    ArtifactNestedSetFunctionException(ActionExecutionException e, SkyKey child) {
-      super(e, child);
-      this.catastrophe = e.isCatastrophe();
-    }
-
-    ArtifactNestedSetFunctionException(IOException e, SkyKey child) {
-      super(e, child);
-      this.catastrophe = false;
-    }
-
-    @Override
-    public boolean isCatastrophic() {
-      return catastrophe;
-    }
   }
 }

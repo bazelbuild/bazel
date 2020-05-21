@@ -62,7 +62,7 @@ fi
 function test_multiple_strategies() {
   bazel build --spawn_strategy=worker,local --debug_print_action_contexts &> $TEST_log || fail
   # Can't test for exact strategy names here, because they differ between platforms and products.
-  expect_log "\"\" = \[.*, .*\]"
+  expect_log "DefaultStrategyImplementations: \[.*, .*\]"
 }
 
 # Tests that the hardcoded Worker strategies are not introduced with the new

@@ -65,8 +65,8 @@ class SyntheticAttributeHashCalculator {
     RuleClass ruleClass = rule.getRuleClassObject();
     if (ruleClass.isStarlark()) {
       try {
-        codedOut.writeStringNoTag(
-            Preconditions.checkNotNull(ruleClass.getRuleDefinitionEnvironmentHashCode(), rule));
+        codedOut.writeByteArrayNoTag(
+            Preconditions.checkNotNull(ruleClass.getRuleDefinitionEnvironmentDigest(), rule));
       } catch (IOException e) {
         throw new IllegalStateException("Unexpected IO failure writing to digest stream", e);
       }

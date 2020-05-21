@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Interface for a single runfiles symlink represented by a link name and target. */
 @StarlarkBuiltin(
@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     doc = "A single runfiles symlink represented by a link name and target.")
 public interface SymlinkEntryApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "path",
       doc = "The path of the symlink in the runfiles tree",
       structField = true)
   String getPathString();
 
-  @SkylarkCallable(name = "target_file", doc = "Target file of the symlink", structField = true)
+  @StarlarkMethod(name = "target_file", doc = "Target file of the symlink", structField = true)
   FileApi getArtifact();
 }

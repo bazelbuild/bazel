@@ -1256,7 +1256,7 @@ public final class ParserTest {
   }
 
   @Test
-  public void testClassDefinitionInSkylark() throws Exception {
+  public void testClassDefinitionInStarlark() throws Exception {
     setFailFast(false);
     parseFile("class test(object): pass");
     assertContainsError("keyword 'class' not supported");

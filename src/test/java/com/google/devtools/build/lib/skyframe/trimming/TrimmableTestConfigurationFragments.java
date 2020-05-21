@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.rules.ToolchainType.ToolchainTypeRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -76,6 +75,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /** Set of trimmable fragments for testing automatic trimming. */
 public final class TrimmableTestConfigurationFragments {

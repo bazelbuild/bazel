@@ -38,7 +38,7 @@ title: Build Encyclopedia
   <li><a href="$expander.expandRef("exports_files")">exports_files</a></li>
   <li><a href="$expander.expandRef("glob")">glob</a></li>
   <li><a href="$expander.expandRef("select")">select</a></li>
-  <li><a href="$expander.expandRef("workspace")">workspace</a></li>
+  <li><a href="../skylark/lib/globals.html#workspace">workspace</a></li>
 </ul>
 
 <h2>Rules</h2>
@@ -46,6 +46,9 @@ title: Build Encyclopedia
 Native rules ship with the Bazel binary and do not require a <code>load</code> statement.
 Native rules are available globally in BUILD files. In .bzl files, you can find them in
 the <code>native</code> module.
+
+For non-native Starlark rules that ship separately from Bazel, see the list of
+<a href="../rules.html#recommended-rules">Recommended Rules</a>.
 
 <h3>Language-specific native rules</h3>
 

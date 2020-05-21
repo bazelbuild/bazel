@@ -17,11 +17,11 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Provider of transitively available ZIPs of native libs that should be directly copied into the
@@ -38,7 +38,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
   /** Name of this info object. */
   String NAME = "AndroidNativeLibsInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "native_libs",
       doc = "Returns the native libraries produced by the rule.",
       documented = false,
@@ -54,7 +54,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
       documented = false)
   interface AndroidNativeLibsInfoApiProvider extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidNativeLibsInfo",
         doc = "The <code>AndroidNativeLibsInfo</code> constructor.",
         documented = false,
@@ -67,7 +67,7 @@ public interface AndroidNativeLibsInfoApi<FileT extends FileApi> extends StructA
               doc = "The native libraries produced by the rule."),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidNativeLibsInfoApi.class)
+    @StarlarkConstructor(objectType = AndroidNativeLibsInfoApi.class)
     AndroidNativeLibsInfoApi<?> createInfo(Depset nativeLibs) throws EvalException;
   }
 }

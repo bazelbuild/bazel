@@ -37,6 +37,11 @@ public final class JavaCompilationInfoProvider
   @Nullable private final NestedSet<Artifact> compilationClasspath;
   private final BootClassPathInfo bootClasspath;
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /** Builder for {@link JavaCompilationInfoProvider}. */
   public static class Builder {
     private ImmutableList<String> javacOpts;

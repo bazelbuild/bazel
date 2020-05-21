@@ -80,6 +80,7 @@ function create_java_file_that_prints_jvm_args() {
   local -r pkg="$1"; shift
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat >"$pkg/A.java" <<'eof'
+package test;
 public class A {
   public static void main(String[] args) {
     for (int i = 0; ; ++i) {
@@ -125,7 +126,7 @@ function create_build_file_with_many_jvm_flags() {
 java_binary(
     name = "x",
     srcs = ["A.java"],
-    main_class = "A",
+    main_class = "test.A",
     jvm_flags = [
         "-Darg0=''",
         "-Darg1=' '",

@@ -64,6 +64,7 @@ BUILD files without a `load` statement.
   - [`constraint_value`](be/platform.html#constraint_value)
   - [`platform`](be/platform.html#platform)
   - [`toolchain`](be/platform.html#toolchain)
+  - [`toolchain_type`](be/platform.html#toolchain_type)
 * Workspace
   - [`bind`](be/workspace.html#bind)
   - [`local_repository`](be/workspace.html#local_repository)
@@ -82,4 +83,4 @@ the `@bazel_tools` built-in external repository.
   - [`http_archive`](repo/http.html#http_archive)
   - [`http_file`](repo/http.html#http_archive)
   - [`http_jar`](repo/http.html#http_jar)
-  - [Utility functions on patching](utils.md)
+  - [Utility functions on patching](repo/utils.md)

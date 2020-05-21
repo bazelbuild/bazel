@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Resolver;
-import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -78,31 +77,24 @@ public class ResolvedFileFunction implements SkyFunction {
           throw resolvedValueError("Failed to parse resolved file " + key.getPath());
         }
 
-        Module resolvedModule;
-        try (Mutability mutability = Mutability.create("resolved file", key.getPath())) {
-          StarlarkThread thread =
-              StarlarkThread.builder(mutability)
-                  .setSemantics(starlarkSemantics)
-                  .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
-                  .build();
-          resolvedModule = thread.getGlobals();
+        Module module = Module.create();
 
-          // resolve
-          Resolver.resolveFile(file, resolvedModule);
-          if (!file.ok()) {
-            Event.replayEventsOn(env.getListener(), file.errors());
-            throw resolvedValueError("Failed to validate resolved file " + key.getPath());
-          }
-
-          // execute
-          try {
-            EvalUtils.exec(file, resolvedModule, thread);
-          } catch (EvalException ex) {
-            env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
-            throw resolvedValueError("Failed to evaluate resolved file " + key.getPath());
-          }
+        // resolve
+        Resolver.resolveFile(file, module);
+        if (!file.ok()) {
+          Event.replayEventsOn(env.getListener(), file.errors());
+          throw resolvedValueError("Failed to validate resolved file " + key.getPath());
         }
-        Object resolved = resolvedModule.lookup("resolved");
+
+        // execute
+        try (Mutability mu = Mutability.create("resolved file", key.getPath())) {
+          StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+          EvalUtils.exec(file, module, thread);
+        } catch (EvalException ex) {
+          env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
+          throw resolvedValueError("Failed to evaluate resolved file " + key.getPath());
+        }
+        Object resolved = module.getGlobal("resolved");
         if (resolved == null) {
           throw resolvedValueError(
               "Symbol 'resolved' not exported in resolved file " + key.getPath());

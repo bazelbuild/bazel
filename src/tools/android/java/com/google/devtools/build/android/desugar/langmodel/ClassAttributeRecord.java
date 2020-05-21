@@ -33,6 +33,10 @@ public abstract class ClassAttributeRecord implements TypeMappable<ClassAttribut
     return new AutoValue_ClassAttributeRecord.Builder();
   }
 
+  public final boolean hasAttributeRecordFor(ClassName className) {
+    return record().containsKey(className);
+  }
+
   public final Optional<ClassName> getNestHost(ClassName className) {
     return requireClassAttributes(className).nestHost();
   }
@@ -43,6 +47,10 @@ public abstract class ClassAttributeRecord implements TypeMappable<ClassAttribut
 
   public final ImmutableSet<MethodKey> getPrivateInstanceMethods(ClassName className) {
     return requireClassAttributes(className).privateInstanceMethods();
+  }
+
+  public final ImmutableSet<MethodKey> getDesugarIgnoredMethods(ClassName className) {
+    return requireClassAttributes(className).desugarIgnoredMethods();
   }
 
   /** Gets the non-null class attributes record for the specified className. */

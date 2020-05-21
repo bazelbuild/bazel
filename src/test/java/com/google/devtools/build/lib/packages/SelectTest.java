@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import java.util.List;
@@ -37,13 +38,12 @@ public class SelectTest {
   private static Object eval(String expr)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(expr);
-    StarlarkThread thread =
-        StarlarkThread.builder(Mutability.create("test"))
-            .setGlobals(Module.createForBuiltins(StarlarkLibrary.COMMON)) // select et al
-            .useDefaultSemantics()
-            .build();
-    Module module = thread.getGlobals();
-    return EvalUtils.eval(input, FileOptions.DEFAULT, module, thread);
+    Module module =
+        Module.withPredeclared(StarlarkSemantics.DEFAULT, /*predeclared=*/ StarlarkLibrary.COMMON);
+    try (Mutability mu = Mutability.create()) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      return EvalUtils.eval(input, FileOptions.DEFAULT, module, thread);
+    }
   }
 
   private static void assertFails(String expr, String wantError) {

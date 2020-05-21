@@ -66,7 +66,7 @@ public final class ConfiguredAspect implements ProviderCollection {
     this.actions = actions;
     this.providers = providers;
 
-    // Initialize every SkylarkApiProvider
+    // Initialize every StarlarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object obj = providers.getProviderInstanceAt(i);
       if (obj instanceof StarlarkApiProvider) {
@@ -98,8 +98,8 @@ public final class ConfiguredAspect implements ProviderCollection {
 
   @Override
   public Object get(String legacyKey) {
-    if (OutputGroupInfo.SKYLARK_NAME.equals(legacyKey)) {
-      return get(OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey());
+    if (OutputGroupInfo.STARLARK_NAME.equals(legacyKey)) {
+      return get(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey());
     }
     return providers.get(legacyKey);
   }
@@ -184,12 +184,12 @@ public final class ConfiguredAspect implements ProviderCollection {
       return this;
     }
 
-    public Builder addSkylarkTransitiveInfo(String name, Object value) {
+    public Builder addStarlarkTransitiveInfo(String name, Object value) {
       providers.put(name, value);
       return this;
     }
 
-    public Builder addSkylarkDeclaredProvider(Info declaredProvider) throws EvalException {
+    public Builder addStarlarkDeclaredProvider(Info declaredProvider) throws EvalException {
       Provider constructor = declaredProvider.getProvider();
       if (!constructor.isExported()) {
         throw new EvalException(
@@ -226,7 +226,7 @@ public final class ConfiguredAspect implements ProviderCollection {
           outputGroups.put(entry.getKey(), entry.getValue().build());
         }
 
-        if (providers.contains(OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey())) {
+        if (providers.contains(OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey())) {
           throw new IllegalStateException(
               "OutputGroupInfo was provided explicitly; do not use addOutputGroup");
         }

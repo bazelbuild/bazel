@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A target that can provide the aar artifact of Android libraries */
 @StarlarkBuiltin(
@@ -34,7 +34,7 @@ public interface AndroidLibraryAarInfoApi<FileT extends FileApi> extends StructA
   /** The name of the provider for this info object. */
   String NAME = "AndroidLibraryAarInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "aar",
       doc = "",
       documented = false,
@@ -42,7 +42,7 @@ public interface AndroidLibraryAarInfoApi<FileT extends FileApi> extends StructA
       allowReturnNones = true)
   FileT getAarArtifact();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_aar_artifacts",
       doc = "",
       documented = false,

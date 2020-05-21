@@ -61,7 +61,7 @@ class WaitableProcess {
               void* env, const std::wstring& wcwd, HANDLE stdin_process,
               HANDLE stdout_process, HANDLE stderr_process,
               LARGE_INTEGER* opt_out_start_time, bool create_window,
-              std::wstring* error);
+              bool handle_signals, std::wstring* error);
 
   AutoHandle process_, job_, ioport_;
   DWORD pid_, exit_code_;

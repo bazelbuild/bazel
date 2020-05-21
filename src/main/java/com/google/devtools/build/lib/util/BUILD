@@ -179,6 +179,11 @@ java_library(
 )
 
 java_library(
+    name = "TestType",
+    srcs = ["TestType.java"],
+)
+
+java_library(
     name = "resource_usage",
     srcs = [
         "ResourceUsage.java",

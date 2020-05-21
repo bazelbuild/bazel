@@ -148,7 +148,7 @@ public final class CoverageReportActionBuilder {
       } catch (ExecException e) {
         throw e.toActionExecutionException(
             "Coverage report generation failed: ",
-            actionExecutionContext.getVerboseFailures(),
+            actionExecutionContext.showVerboseFailures(getOwner().getLabel()),
             this);
       }
     }

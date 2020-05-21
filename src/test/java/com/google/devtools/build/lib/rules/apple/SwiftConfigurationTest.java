@@ -47,7 +47,7 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSkylarkApi() throws Exception {
+  public void testStarlarkApi() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",

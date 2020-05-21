@@ -101,7 +101,7 @@ public abstract class ImplicitOutputsFunction {
         if (!map.isConfigurable(attrName)) {
           Object value = map.get(attrName, attrType);
           attrValues.put(
-              Attribute.getSkylarkName(attrName), Starlark.fromJava(value, /*mutability=*/ null));
+              Attribute.getStarlarkName(attrName), Starlark.fromJava(value, /*mutability=*/ null));
         }
       }
       ClassObject attrs =
