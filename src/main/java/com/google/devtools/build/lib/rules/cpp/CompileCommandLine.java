@@ -65,7 +65,7 @@ public final class CompileCommandLine {
   }
 
   /** Returns the environment variables that should be set for C++ compile actions. */
-  protected Map<String, String> getEnvironment() throws CommandLineExpansionException {
+  Map<String, String> getEnvironment() throws CommandLineExpansionException {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
@@ -87,7 +87,7 @@ public final class CompileCommandLine {
    * @param overwrittenVariables: Variables that will overwrite original build variables. When null,
    *     unmodified original variables are used.
    */
-  protected List<String> getArguments(
+  List<String> getArguments(
       @Nullable PathFragment parameterFilePath, @Nullable CcToolchainVariables overwrittenVariables)
       throws CommandLineExpansionException {
     List<String> commandLine = new ArrayList<>();

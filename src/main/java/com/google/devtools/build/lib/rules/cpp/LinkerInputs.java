@@ -223,6 +223,7 @@ public abstract class LinkerInputs {
       return ArtifactCategory.DYNAMIC_LIBRARY;
     }
 
+    @Override
     public Artifact getArtifact() {
       return solibSymlinkArtifact;
     }
@@ -383,6 +384,7 @@ public abstract class LinkerInputs {
       return category;
     }
 
+    @Override
     public Artifact getArtifact() {
       return libraryArtifact;
     }

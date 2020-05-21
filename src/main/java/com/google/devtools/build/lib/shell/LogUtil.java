@@ -43,7 +43,7 @@ class LogUtil {
         return new String(bytes, 0, TRUNCATE_STRINGS_AT, StandardCharsets.UTF_8)
           + "[... truncated. original size was " + bytes.length + " bytes.]";
       }
-      return new String(bytes);
+      return new String(bytes, StandardCharsets.UTF_8);
     } catch (Exception e) {
       /*
        * In case encoding a binary string doesn't work for some reason, we

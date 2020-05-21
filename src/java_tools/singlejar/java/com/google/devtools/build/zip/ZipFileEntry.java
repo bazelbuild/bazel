@@ -321,11 +321,11 @@ public final class ZipFileEntry {
    */
   public void setFlag(Flag flag, boolean set) {
     short mask = 0x0000;
-    mask |= 1 << flag.getBit();
+    mask = (short) (mask | 1 << flag.getBit());
     if (set) {
       flags |= mask;
     } else {
-      flags &= ~mask;
+      flags = (short) (flags & ~mask);
     }
   }
 

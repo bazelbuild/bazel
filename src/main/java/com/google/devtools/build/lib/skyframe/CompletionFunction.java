@@ -217,7 +217,7 @@ public final class CompletionFunction<
         rootCausesBuilder.addTransitive(e.getRootCauses());
         // Prefer a catastrophic exception as the one we propagate.
         if (firstActionExecutionException == null
-            || !firstActionExecutionException.isCatastrophe() && e.isCatastrophe()) {
+            || (!firstActionExecutionException.isCatastrophe() && e.isCatastrophe())) {
           firstActionExecutionException = e;
         }
       } catch (IOException e) {

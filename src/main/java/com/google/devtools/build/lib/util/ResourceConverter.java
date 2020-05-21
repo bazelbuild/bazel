@@ -24,6 +24,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import org.apache.commons.lang.math.NumberUtils;
+import java.util.Map;
 
 /**
  * Converter for options that configure Bazel's resource usage.
@@ -135,7 +136,7 @@ public class ResourceConverter extends Converters.IntegerConverter {
     if (expression == null) {
       return firstOperandSupplier.get();
     }
-    for (ImmutableMap.Entry<String, DoubleBinaryOperator> operator : OPERATORS.entrySet()) {
+    for (Map.Entry<String, DoubleBinaryOperator> operator : OPERATORS.entrySet()) {
       if (expression.startsWith(operator.getKey())) {
         float secondOperand;
         try {

@@ -483,7 +483,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  protected <T extends Fragment> T getFragment(Class<T> fragment, String name,
+  <T extends Fragment> T getFragment(Class<T> fragment, String name,
       String additionalErrorMessage, ConfigurationTransition transition) {
     // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
     // Can we lock that down somehow?
@@ -708,6 +708,7 @@ public final class RuleContext extends TargetContext
    * configuration. The choice of which tree to use is based on the rule with which this target
    * (which must be an OutputFile or a Rule) is associated.
    */
+  @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
     return rule.hasBinaryOutput()
         ? getConfiguration().getBinDirectory(rule.getRepository())
@@ -1514,6 +1515,7 @@ public final class RuleContext extends TargetContext
    *
    * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
    */
+  @Override
   public final PathFragment getUniqueDirectory(PathFragment fragment) {
     return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
   }

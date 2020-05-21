@@ -88,7 +88,7 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
   // TODO(katre): When all external callers are converted to use toolchain resolution, make this
   // method private.
   @Nullable
-  protected static JavaRuntimeInfo from(
+  static JavaRuntimeInfo from(
       TransitiveInfoCollection collection, RuleErrorConsumer errorConsumer) {
     return (JavaRuntimeInfo) collection.get(ToolchainInfo.PROVIDER);
   }

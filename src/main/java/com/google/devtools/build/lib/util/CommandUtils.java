@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -74,8 +76,8 @@ public class CommandUtils {
       CommandResult result = ((AbnormalTerminationException) exception).getResult();
       try {
         return message + "\n"
-            + new String(result.getStdout())
-            + new String(result.getStderr());
+            + new String(result.getStdout(), UTF_8)
+	    + new String(result.getStderr(), UTF_8);
       } catch (IllegalStateException e) {
         // This can happen if the command didn't save stdout/stderr,
         // so ignore this exception and fall through to the ordinary case.

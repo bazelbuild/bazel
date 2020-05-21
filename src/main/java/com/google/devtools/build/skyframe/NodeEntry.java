@@ -219,7 +219,7 @@ public interface NodeEntry extends ThinNodeEntry {
       throws InterruptedException;
 
   /**
-   * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@param reverseDep} must already
+   * Similar to {@link #addReverseDepAndCheckIfDone}, except that {@code reverseDep} must already
    * be a reverse dep of this entry. Should be used when reverseDep has been marked dirty and is
    * checking its dependencies for changes or is rebuilding. The caller must treat the return value
    * just as they would the return value of {@link #addReverseDepAndCheckIfDone} by scheduling this

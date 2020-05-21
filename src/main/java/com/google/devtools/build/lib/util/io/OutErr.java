@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.BufferedWriter;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
+import java.io.OutputStreamWriter;
+
 
 /**
  * A pair of output streams to be used for redirecting the output and error streams of a subprocess.
@@ -152,7 +157,7 @@ public class OutErr implements Closeable {
    * Writes the specified string to the output stream, and flushes.
    */
   public void printOut(String s) {
-    PrintWriter writer = new PrintWriter(out, true);
+    PrintWriter writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(out, UTF_8)), true);
     writer.print(s);
     writer.flush();
   }
@@ -165,7 +170,7 @@ public class OutErr implements Closeable {
    * Writes the specified string to the error stream, and flushes.
    */
   public void printErr(String s) {
-    PrintWriter writer = new PrintWriter(err, true);
+    PrintWriter writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(err, UTF_8)), true);
     writer.print(s);
     writer.flush();
   }

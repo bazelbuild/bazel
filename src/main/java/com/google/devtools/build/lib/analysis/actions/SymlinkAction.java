@@ -89,7 +89,7 @@ public final class SymlinkAction extends AbstractAction {
 
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  protected SymlinkAction(
+  SymlinkAction(
       ActionOwner owner,
       PathFragment inputPath,
       Artifact primaryInput,

@@ -196,6 +196,6 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       authHeadersJson.add(entry.getKey(), entry.getValue());
     }
 
-    return (new Gson()).toJson(authHeadersJson);
+    return new Gson().toJson(authHeadersJson);
   }
 }

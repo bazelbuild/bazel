@@ -94,7 +94,7 @@ import javax.annotation.Nullable;
  *  String shellCommand = "ps auxx | grep " + processName + " | awk '{print $1}' | "
  *  + "while read pid; do readlink /proc/$pid/cwd; done";</pre>
  * </pre>
- * Passing this string to {@link Command} is unsafe because if the string {@processName} contains
+ * Passing this string to {@link Command} is unsafe because if the string {@code processName} contains
  * shell metacharacters, the meaning of the command can be arbitrarily changed; consider:
  * <pre>String processName = ". ; rm -fr $HOME & ";</pre>
  *

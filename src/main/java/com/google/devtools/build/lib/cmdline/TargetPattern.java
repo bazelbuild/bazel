@@ -243,7 +243,7 @@ public abstract class TargetPattern implements Serializable {
 
   /**
    * Determines how, if it all, the evaluation of this TBD pattern with a directory exclusion of the
-   * given TBD {@containedPattern}'s directory relates to the evaluation of the subtraction of the
+   * given TBD {@code containedPattern}'s directory relates to the evaluation of the subtraction of the
    * given {@link containedPattern} from this one.
    */
   public ContainsTBDForTBDResult containsTBDForTBD(TargetPattern containedPattern) {

@@ -251,6 +251,7 @@ public class ConfiguredTargetQueryEnvironment
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
   }
 
+  @Override
   public String getOutputFormat() {
     return cqueryOptions.outputFormat;
   }

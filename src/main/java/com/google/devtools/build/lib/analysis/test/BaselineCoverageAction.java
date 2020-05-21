@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.analysis.test;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.OutputStreamWriter;
+import java.io.BufferedWriter;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -71,7 +75,7 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        PrintWriter writer = new PrintWriter(out);
+	PrintWriter writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(out, UTF_8)));
         for (Artifact file : instrumentedFiles.toList()) {
           writer.write("SF:" + file.getExecPathString() + "\n");
           writer.write("end_of_record\n");

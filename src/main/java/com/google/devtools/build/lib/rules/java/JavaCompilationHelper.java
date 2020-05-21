@@ -860,7 +860,7 @@ public final class JavaCompilationHelper {
    *     the current rule
    * @return the Artifact to create with the Action
    */
-  protected static Artifact createIjarAction(
+  static Artifact createIjarAction(
       RuleContext ruleContext,
       JavaToolchainProvider javaToolchain,
       Artifact inputJar,

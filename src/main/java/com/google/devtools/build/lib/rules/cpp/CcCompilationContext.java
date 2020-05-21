@@ -552,7 +552,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * @return all declared headers of the current module if the current target
    * is compiled as a module.
    */
-  protected Set<Artifact> getHeaderModuleSrcs() {
+  Set<Artifact> getHeaderModuleSrcs() {
     return new ImmutableSet.Builder<Artifact>()
         .addAll(headerInfo.modularPublicHeaders)
         .addAll(headerInfo.modularPrivateHeaders)

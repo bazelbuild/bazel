@@ -92,10 +92,4 @@ public class ResolvedHashesFunction implements SkyFunction {
   public String extractTag(SkyKey skyKey) {
     return null;
   }
-
-  private static final class ResolvedHashesFunctionException extends SkyFunctionException {
-    ResolvedHashesFunctionException(BuildFileContainsErrorsException e) {
-      super(e, SkyFunctionException.Transience.PERSISTENT);
-    }
-  }
 }

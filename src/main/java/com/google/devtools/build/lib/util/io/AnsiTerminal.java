@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -75,7 +77,7 @@ public class AnsiTerminal {
    * window.
    */
   public void cursorUp(int numLines) throws IOException {
-    writeBytes(ESC, ("" + numLines).getBytes(), new byte[] { UP });
+    writeBytes(ESC, ("" + numLines).getBytes(UTF_8), new byte[] { UP });
   }
 
   /**
@@ -156,7 +158,7 @@ public class AnsiTerminal {
    * Set the terminal title.
    */
   public void setTitle(String title) throws IOException {
-    writeBytes(SET_TERM_TITLE, title.getBytes(), new byte[] { BEL });
+    writeBytes(SET_TERM_TITLE, title.getBytes(UTF_8), new byte[] { BEL });
   }
 
   /**
@@ -166,7 +168,7 @@ public class AnsiTerminal {
    * @param text the text to write
    */
   public void writeString(String text) throws IOException {
-    out.write(text.getBytes());
+    out.write(text.getBytes(UTF_8));
   }
 
   /**

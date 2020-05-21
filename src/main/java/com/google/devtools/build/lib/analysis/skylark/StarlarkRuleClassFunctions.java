@@ -673,6 +673,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     }
 
     /** Export a RuleFunction from a Starlark file with a given name. */
+    @Override
     public void export(Label starlarkLabel, String ruleClassName) throws EvalException {
       Preconditions.checkState(ruleClass == null && builder != null);
       this.starlarkLabel = starlarkLabel;
@@ -767,6 +768,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       this.attributes = null;
     }
 
+    @Override
     public RuleClass getRuleClass() {
       Preconditions.checkState(ruleClass != null && builder == null);
       return ruleClass;

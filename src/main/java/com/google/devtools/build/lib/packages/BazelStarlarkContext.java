@@ -108,6 +108,7 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
    * written in the BUILD files and the values are new repository names chosen by the main
    * repository.
    */
+  @Override
   public ImmutableMap<RepositoryName, RepositoryName> getRepoMapping() {
     return repoMapping;
   }

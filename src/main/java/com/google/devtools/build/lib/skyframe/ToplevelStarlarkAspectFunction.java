@@ -70,7 +70,7 @@ public class ToplevelStarlarkAspectFunction implements SkyFunction {
   /**
    * Exceptions thrown from ToplevelStarlarkAspectFunction.
    */
-  public class LoadStarlarkAspectFunctionException extends SkyFunctionException {
+  public static class LoadStarlarkAspectFunctionException extends SkyFunctionException {
     public LoadStarlarkAspectFunctionException(AspectCreationException cause) {
       super(cause, Transience.PERSISTENT);
     }

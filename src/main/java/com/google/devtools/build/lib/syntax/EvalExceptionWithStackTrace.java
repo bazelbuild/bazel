@@ -246,7 +246,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
     }
 
     /** Returns the string representation of the given element. */
-    protected String print(StackFrame element) {
+    String print(StackFrame element) {
       // Similar to Python, the first (most-recent) entry in the stack frame is printed only once.
       // Consequently, we skip it here.
       if (element.getCause() == null) {
@@ -288,7 +288,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
     /**
      * Adds the given string to the specified Deque.
      */
-    protected void addEntry(Deque<String> output, String toAdd) {
+    void addEntry(Deque<String> output, String toAdd) {
       output.addLast(toAdd);
     }
 
@@ -296,7 +296,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
      * Adds the given message to the given output dequeue after all stack trace elements have been
      * added.
      */
-    protected void addMessage(Deque<String> output, String message) {
+    void addMessage(Deque<String> output, String message) {
       output.addFirst("Traceback (most recent call last):");
       output.addLast(message);
     }

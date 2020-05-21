@@ -659,6 +659,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   /**
    * Returns the set of configuration fragments provided by this module.
    */
+  @Override
   public ImmutableList<ConfigurationFragmentFactory> getConfigurationFragments() {
     return configurationFragmentFactories;
   }

@@ -14,6 +14,10 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.BufferedWriter;
+import java.io.OutputStreamWriter;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import java.io.IOException;
@@ -80,7 +84,7 @@ public class AnsiTerminalPrinter {
   public AnsiTerminalPrinter(OutputStream out, boolean useColor) {
     this.useColor = useColor;
     terminal = new AnsiTerminal(out);
-    writer = new PrintWriter(out, true);
+    writer = new PrintWriter(new BufferedWriter(new OutputStreamWriter(out, UTF_8)), true);
     stream = out;
   }
 
