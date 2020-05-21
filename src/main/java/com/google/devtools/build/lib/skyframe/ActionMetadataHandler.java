@@ -436,58 +436,53 @@ public final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+  public void injectDigest(Artifact output, FileStatus statNoFollow, byte[] digest) {
     Preconditions.checkState(executionMode.get());
     Preconditions.checkState(!output.isSymlink());
 
-    // Assumption: any non-Artifact output is 'virtual' and should be ignored here.
-    if (output instanceof Artifact) {
-      final Artifact artifact = (Artifact) output;
-      // We have to add the artifact to injectedFiles before calling constructFileArtifactValue
-      // to avoid duplicate chmod calls.
-      store.injectedFiles().add(artifact);
-      FileArtifactValue fileMetadata;
-      try {
-        // This call may do an unnecessary call to Path#getFastDigest to see if the digest is
-        // readily available. We cannot pass the digest in, though, because if it is not available
-        // from the filesystem, this ArtifactFileMetadata will not compare equal to another one
-        // created for the
-        // same file, because the other one will be missing its digest.
-        fileMetadata =
-            constructFileArtifactValue(artifact, FileStatusWithDigestAdapter.adapt(statNoFollow));
-        // Ensure the digest supplied matches the actual digest if it exists.
-        byte[] fileDigest = fileMetadata.getDigest();
-        if (fileDigest != null && !Arrays.equals(digest, fileDigest)) {
-          BaseEncoding base16 = BaseEncoding.base16();
-          String digestString = (digest != null) ? base16.encode(digest) : "null";
-          String fileDigestString = base16.encode(fileDigest);
-          throw new IllegalStateException(
-              "Expected digest "
-                  + digestString
-                  + " for artifact "
-                  + artifact
-                  + ", but got "
-                  + fileDigestString
-                  + " ("
-                  + fileMetadata
-                  + ")");
-        }
-      } catch (IOException e) {
-        // Do nothing - we just failed to inject metadata. Real error handling will be done later,
-        // when somebody will try to access that file.
-        return;
-      }
-      // If needed, insert additional data. Note that this can only be true if the file is empty or
-      // the filesystem does not support fast digests. Since we usually only inject digests when
-      // running with a filesystem that supports fast digests, this is fairly unlikely.
-      try {
-        maybeStoreAdditionalData(artifact, fileMetadata, digest);
-      } catch (IOException e) {
+    // We have to add the artifact to injectedFiles before calling constructFileArtifactValue
+    // to avoid duplicate chmod calls.
+    store.injectedFiles().add(output);
+    FileArtifactValue fileMetadata;
+    try {
+      // This call may do an unnecessary call to Path#getFastDigest to see if the digest is readily
+      // available. We cannot pass the digest in, though, because if it is not available from the
+      // filesystem, this ArtifactFileMetadata will not compare equal to another one created for the
+      // same file, because the other one will be missing its digest.
+      fileMetadata =
+          constructFileArtifactValue(output, FileStatusWithDigestAdapter.adapt(statNoFollow));
+      // Ensure the digest supplied matches the actual digest if it exists.
+      byte[] fileDigest = fileMetadata.getDigest();
+      if (fileDigest != null && !Arrays.equals(digest, fileDigest)) {
+        BaseEncoding base16 = BaseEncoding.base16();
+        String digestString = (digest != null) ? base16.encode(digest) : "null";
+        String fileDigestString = base16.encode(fileDigest);
         throw new IllegalStateException(
-            "Filesystem should not have been accessed while injecting data for "
-                + artifact.prettyPrint(),
-            e);
+            "Expected digest "
+                + digestString
+                + " for artifact "
+                + output
+                + ", but got "
+                + fileDigestString
+                + " ("
+                + fileMetadata
+                + ")");
       }
+    } catch (IOException e) {
+      // Do nothing - we just failed to inject metadata. Real error handling will be done later,
+      // when somebody will try to access that file.
+      return;
+    }
+    // If needed, insert additional data. Note that this can only be true if the file is empty or
+    // the filesystem does not support fast digests. Since we usually only inject digests when
+    // running with a filesystem that supports fast digests, this is fairly unlikely.
+    try {
+      maybeStoreAdditionalData(output, fileMetadata, digest);
+    } catch (IOException e) {
+      throw new IllegalStateException(
+          "Filesystem should not have been accessed while injecting data for "
+              + output.prettyPrint(),
+          e);
     }
   }
 
@@ -516,13 +511,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void markOmitted(ActionInput output) {
+  public void markOmitted(Artifact output) {
     Preconditions.checkState(executionMode.get());
-    if (output instanceof Artifact) {
-      Artifact artifact = (Artifact) output;
-      Preconditions.checkState(omittedOutputs.add(artifact), artifact);
-      store.putArtifactData(artifact, FileArtifactValue.OMITTED_FILE_MARKER);
-    }
+    Preconditions.checkState(omittedOutputs.add(output), "%s marked as omitted twice", output);
+    store.putArtifactData(output, FileArtifactValue.OMITTED_FILE_MARKER);
   }
 
   @Override

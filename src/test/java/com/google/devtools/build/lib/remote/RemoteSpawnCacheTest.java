@@ -38,16 +38,15 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -69,7 +68,6 @@ import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -81,7 +79,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
 import org.junit.Before;
 import org.junit.Test;
@@ -177,29 +174,7 @@ public class RemoteSpawnCacheTest {
 
         @Override
         public MetadataInjector getMetadataInjector() {
-          return new MetadataInjector() {
-            @Override
-            public void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata) {
-              throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void injectRemoteDirectory(
-                Artifact.SpecialArtifact output,
-                Map<TreeFileArtifact, RemoteFileArtifactValue> children) {
-              throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void markOmitted(ActionInput output) {
-              throw new UnsupportedOperationException();
-            }
-
-            @Override
-            public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
-              throw new UnsupportedOperationException();
-            }
-          };
+          return ActionsTestUtil.THROWING_METADATA_HANDLER;
         }
 
         @Override

@@ -60,6 +60,7 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeMetadataHandlerBase;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
@@ -930,10 +931,23 @@ public final class ActionsTestUtil {
   }
 
   /**
+   * A {@link MetadataHandler} for tests that throws {@link UnsupportedOperationException} for its
+   * operations.
+   */
+  public static final MetadataHandler THROWING_METADATA_HANDLER =
+      new FakeMetadataHandlerBase() {
+        @Override
+        public String toString() {
+          return "THROWING_METADATA_HANDLER";
+        }
+      };
+
+  /**
    * A {@link MetadataHandler} all of whose operations throw an exception.
    *
-   * <p>This is to be used as a base class by other test programs that need to implement only a
-   * few of the hooks required by the scenario under test.
+   * <p>This is to be used as a base class by other test programs that need to implement only a few
+   * of the hooks required by the scenario under test. Tests that need an instance but do not need
+   * any functionality can use {@link #THROWING_METADATA_HANDLER}.
    */
   public static class FakeMetadataHandlerBase implements MetadataHandler {
     @Override
@@ -957,7 +971,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+    public void injectDigest(Artifact output, FileStatus statNoFollow, byte[] digest) {
       throw new UnsupportedOperationException();
     }
 
@@ -973,7 +987,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void markOmitted(ActionInput output) {
+    public void markOmitted(Artifact output) {
       throw new UnsupportedOperationException();
     }
 

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -47,10 +46,10 @@ public interface MetadataInjector {
    * <p>This is used as an optimization to not download "orphaned artifacts" (=artifacts that no
    * action depends on) from a remote system.
    */
-  void markOmitted(ActionInput output);
+  void markOmitted(Artifact output);
 
   /**
    * Injects provided digest into the metadata handler, simultaneously caching lstat() data as well.
    */
-  void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
+  void injectDigest(Artifact output, FileStatus statNoFollow, byte[] digest);
 }
