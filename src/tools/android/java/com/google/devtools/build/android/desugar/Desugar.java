@@ -159,7 +159,6 @@ public class Desugar {
       invocationReplacementRangesBuilder.add(REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS);
     }
 
-    // See details at b/157166380 for flag configuration.
     if (options.desugarCoreLibs && options.autoDesugarShadowedApiUse) {
       invocationReplacementRangesBuilder.add(DESUGAR_JAVA8_LIBS);
     }
