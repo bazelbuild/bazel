@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.shell;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.flogger.LazyArg;
+import com.google.common.flogger.LazyArgs;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.shell.Consumers.OutErrConsumers;
 import java.io.File;
@@ -409,6 +409,6 @@ public final class Command {
   }
 
   private void logCommand() {
-    logger.atFine().log("%s", (LazyArg<String>) this::toDebugString);
+    logger.atFine().log("%s", LazyArgs.lazy(this::toDebugString));
   }
 }

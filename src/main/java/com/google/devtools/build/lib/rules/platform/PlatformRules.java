@@ -43,7 +43,7 @@ public class PlatformRules implements RuleSet {
 
     builder.addRuleDefinition(new ToolchainRule());
 
-    builder.addSkylarkBootstrap(new PlatformBootstrap(new PlatformCommon()));
+    builder.addStarlarkBootstrap(new PlatformBootstrap(new PlatformCommon()));
   }
 
   @Override

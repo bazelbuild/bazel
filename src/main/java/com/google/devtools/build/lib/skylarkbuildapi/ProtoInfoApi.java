@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object propagating information about protocol buffer sources. */
 @StarlarkBuiltin(
@@ -41,13 +41,13 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
     // Currently empty. ProtoInfo cannot be created from Starlark at the moment.
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_imports",
       doc = "Transitive imports including weak dependencies.",
       structField = true)
   Depset /*<FileT>*/ getTransitiveImports();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_sources",
       doc = "Proto sources for this rule and all its dependent protocol buffer rules.",
       structField = true)
@@ -56,13 +56,13 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
   // preferably soon, before Starlark users start depending on them.
   Depset /*<FileT>*/ getTransitiveProtoSourcesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "direct_sources",
       doc = "Proto sources from the 'srcs' attribute.",
       structField = true)
   ImmutableList<FileT> getDirectProtoSources();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "check_deps_sources",
       doc =
           "Proto sources from the 'srcs' attribute. If the library is a proxy library "
@@ -71,7 +71,7 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   Depset /*<FileT>*/ getStrictImportableProtoSourcesForDependentsForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "direct_descriptor_set",
       doc =
           "The <a href=\""
@@ -80,7 +80,7 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   FileT getDirectDescriptorSet();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_descriptor_sets",
       doc =
           "A set of <a href=\""
@@ -91,13 +91,13 @@ public interface ProtoInfoApi<FileT extends FileApi> extends StructApi {
       structField = true)
   Depset /*<FileT>*/ getTransitiveDescriptorSetsForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_proto_path",
       doc = "A set of proto source roots collected from the transitive closure of this rule.",
       structField = true)
   Depset /*<String>*/ getTransitiveProtoSourceRootsForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "proto_source_root",
       doc =
           "The directory relative to which the .proto files defined in the proto_library are "

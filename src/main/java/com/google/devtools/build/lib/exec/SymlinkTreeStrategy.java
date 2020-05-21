@@ -125,7 +125,9 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         }
       } catch (ExecException e) {
         throw e.toActionExecutionException(
-            action.getProgressMessage(), actionExecutionContext.getVerboseFailures(), action);
+            action.getProgressMessage(),
+            actionExecutionContext.showVerboseFailures(action.getOwner().getLabel()),
+            action);
       }
     }
   }

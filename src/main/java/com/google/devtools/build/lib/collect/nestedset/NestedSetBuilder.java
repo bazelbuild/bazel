@@ -138,7 +138,9 @@ public final class NestedSetBuilder<E> {
     Preconditions.checkNotNull(subset);
     Preconditions.checkArgument(
         order.isCompatible(subset.getOrder()),
-        "Order mismatch: %s != %s", subset.getOrder().getSkylarkName(), order.getSkylarkName());
+        "Order mismatch: %s != %s",
+        subset.getOrder().getStarlarkName(),
+        order.getStarlarkName());
     if (!subset.isEmpty()) {
       if (transitiveSets == null) {
         transitiveSets = CompactHashSet.create();
@@ -200,11 +202,9 @@ public final class NestedSetBuilder<E> {
   private static final ConcurrentMap<ImmutableList<?>, NestedSet<?>> immutableListCache =
       new MapMaker().concurrencyLevel(16).weakKeys().makeMap();
 
-  /**
-   * Creates a nested set from a given list of items.
-   */
+  /** Creates a nested set from a given list of items. */
   @SuppressWarnings("unchecked")
-  public static <E> NestedSet<E> wrap(Order order, Iterable<E> wrappedItems) {
+  public static <E> NestedSet<E> wrap(Order order, Iterable<? extends E> wrappedItems) {
     if (Iterables.isEmpty(wrappedItems)) {
       return order.emptySet();
     } else if (order == Order.STABLE_ORDER && wrappedItems instanceof ImmutableList) {

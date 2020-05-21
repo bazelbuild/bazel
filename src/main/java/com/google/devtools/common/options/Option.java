@@ -24,8 +24,8 @@ import java.lang.annotation.Target;
  * <p>The fields of this annotation have matching getters in {@link OptionDefinition}. Please do not
  * access these fields directly, but instead go through that class.
  *
- * <p>A number of checks are run on an Option's fields' values at compile time. See
- * {@link com.google.devtools.common.options.processor.OptionProcessor} for details.
+ * <p>A number of checks are run on an Option's fields' values at compile time. See {@link
+ * com.google.devtools.common.options.processor.OptionProcessor} for details.
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
@@ -36,7 +36,10 @@ public @interface Option {
   /** The single-character abbreviation of the option ("-a"). */
   char abbrev() default '\0';
 
-  /** A help string for the usage information. */
+  /**
+   * A help string for the usage information. Note that this should be in plain text (no HTML tags,
+   * for example).
+   */
   String help() default "";
 
   /**
@@ -57,15 +60,18 @@ public @interface Option {
    * were dual to each other. The second reason is more mundane but also more restrictive:
    * annotation values must be compile-time constants.
    *
-   * <p>If an option's defaultValue() is the string "null", the option's converter will not be
-   * invoked to interpret it; a null reference will be used instead. (It would be nice if
-   * defaultValue could simply return null, but bizarrely, the Java Language Specification does not
-   * consider null to be a compile-time constant.) This special interpretation of the string "null"
-   * is only applicable when computing the default value; if specified on the command-line, this
-   * string will have its usual literal meaning.
+   * <p>If an option's defaultValue() is the string "null" (see {@link
+   * OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}), the option's converter will not be invoked to
+   * interpret it; an empty {@link java.util.List} (for {@code allowMultiple = true} options) or a
+   * null reference (for others) will be used instead. (It would be nice if defaultValue could
+   * simply return null, but bizarrely, the Java Language Specification does not consider null to be
+   * a compile-time constant.) This special interpretation of the string "null" is only applicable
+   * when computing the default value; if specified on the command-line, this string will have its
+   * usual literal meaning.
    *
-   * <p>The default value for flags that set allowMultiple is always the empty list and its default
-   * value is ignored.
+   * <p>Multiple options (e.g. with {@code allowMultiple = true}) are not allowed to have default
+   * values (with only a small numner of exceptions - see {@link OptionsProcessor}), thus should
+   * always use {@link OptionDefinition#SPECIAL_NULL_DEFAULT_VALUE}.
    */
   String defaultValue();
 

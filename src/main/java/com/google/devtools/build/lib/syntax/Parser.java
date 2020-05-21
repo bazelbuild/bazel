@@ -17,9 +17,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -172,13 +169,20 @@ final class Parser {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
-    List<Statement> statements;
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.STARLARK_PARSER, input.getFile())) {
-      statements = parser.parseFileInput();
+
+    StarlarkFile.ParseProfiler profiler = Parser.profiler;
+    Object span = profiler != null ? profiler.start(input.getFile()) : null;
+    try {
+      List<Statement> statements = parser.parseFileInput();
+      return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
+    } finally {
+      if (profiler != null) {
+        profiler.end(span);
+      }
     }
-    return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
   }
+
+  @Nullable static StarlarkFile.ParseProfiler profiler;
 
   // stmt = simple_stmt
   //      | def_stmt

@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.OS;
 
@@ -24,6 +25,7 @@ import com.google.devtools.build.lib.util.OS;
 @ThreadCompatible
 public final class LocalHostCapacity {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final OS currentOS = OS.getCurrent();
   private static ResourceSet localHostCapacity;
 
@@ -51,6 +53,10 @@ public final class LocalHostCapacity {
     if (localResources == null) {
       localResources = LocalHostResourceFallback.getLocalHostResources();
     }
+
+    logger.atInfo().log(
+        "Determined local resources: RAM=%dMB, CPU=%.1f",
+        (int) localResources.getMemoryMb(), localResources.getCpuUsage());
     return localResources;
   }
 

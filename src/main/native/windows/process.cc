@@ -60,7 +60,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
   // it works on all supported Windows versions.
   // Fixes https://github.com/bazelbuild/bazel/issues/8676
   return Create(argv0, argv_rest, env, wcwd, INVALID_HANDLE_VALUE,
-                INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, nullptr, true,
+                INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE, nullptr, true, true,
                 error);
 }
 
@@ -71,7 +71,7 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              LARGE_INTEGER* opt_out_start_time,
                              std::wstring* error) {
   return Create(argv0, argv_rest, env, wcwd, stdin_process, stdout_process,
-                stderr_process, opt_out_start_time, false, error);
+                stderr_process, opt_out_start_time, false, false, error);
 }
 
 bool WaitableProcess::Create(const std::wstring& argv0,
@@ -79,7 +79,8 @@ bool WaitableProcess::Create(const std::wstring& argv0,
                              const std::wstring& wcwd, HANDLE stdin_process,
                              HANDLE stdout_process, HANDLE stderr_process,
                              LARGE_INTEGER* opt_out_start_time,
-                             bool create_window, std::wstring* error) {
+                             bool create_window, bool handle_signals,
+                             std::wstring* error) {
   std::wstring cwd;
   std::wstring error_msg(AsShortPath(wcwd, &cwd));
   if (!error_msg.empty()) {
@@ -177,7 +178,9 @@ bool WaitableProcess::Create(const std::wstring& argv0,
           /* lpThreadAttributes */ NULL,
           /* bInheritHandles */ attr_list->InheritAnyHandles() ? TRUE : FALSE,
           /* dwCreationFlags */ (create_window ? 0 : CREATE_NO_WINDOW) |
-              CREATE_NEW_PROCESS_GROUP  // So that Ctrl-Break isn't propagated
+              (handle_signals ? 0
+                              : CREATE_NEW_PROCESS_GROUP)  // So that Ctrl-Break
+                                                           // isn't propagated
               | CREATE_SUSPENDED  // So that it doesn't start a new job itself
               | EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT,
           /* lpEnvironment */ env,

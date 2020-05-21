@@ -163,7 +163,7 @@ public final class NinjaTarget {
   /** Enum with possible kinds of inputs. */
   @Immutable
   public enum InputKind implements InputOutputKind {
-    USUAL,
+    EXPLICIT,
     IMPLICIT,
     ORDER_ONLY
   }
@@ -171,7 +171,7 @@ public final class NinjaTarget {
   /** Enum with possible kinds of outputs. */
   @Immutable
   public enum OutputKind implements InputOutputKind {
-    USUAL,
+    EXPLICIT,
     IMPLICIT
   }
 
@@ -193,7 +193,7 @@ public final class NinjaTarget {
    */
   private final ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> ruleVariables;
 
-  public NinjaTarget(
+  private NinjaTarget(
       String ruleName,
       ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
       ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
@@ -211,7 +211,7 @@ public final class NinjaTarget {
   }
 
   public List<PathFragment> getOutputs() {
-    return outputs.get(OutputKind.USUAL);
+    return outputs.get(OutputKind.EXPLICIT);
   }
 
   public List<PathFragment> getImplicitOutputs() {
@@ -226,8 +226,12 @@ public final class NinjaTarget {
     return inputs.values();
   }
 
-  public Collection<PathFragment> getUsualInputs() {
-    return inputs.get(InputKind.USUAL);
+  public Collection<Map.Entry<InputKind, PathFragment>> getAllInputsAndKind() {
+    return inputs.entries();
+  }
+
+  public Collection<PathFragment> getExplicitInputs() {
+    return inputs.get(InputKind.EXPLICIT);
   }
 
   public Collection<PathFragment> getImplicitInputs() {
@@ -252,7 +256,7 @@ public final class NinjaTarget {
         + prettyPrintPaths("\n| ", getImplicitOutputs())
         + "\n: "
         + this.ruleName
-        + prettyPrintPaths("\n", getUsualInputs())
+        + prettyPrintPaths("\n", getExplicitInputs())
         + prettyPrintPaths("\n| ", getImplicitInputs())
         + prettyPrintPaths("\n|| ", getOrderOnlyInputs());
   }
@@ -298,11 +302,11 @@ public final class NinjaTarget {
   private ImmutableSortedMap<String, String> computeInputOutputVariables() {
     ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
     String inNewline =
-        inputs.get(InputKind.USUAL).stream()
+        inputs.get(InputKind.EXPLICIT).stream()
             .map(PathFragment::getPathString)
             .collect(Collectors.joining("\n"));
     String out =
-        outputs.get(OutputKind.USUAL).stream()
+        outputs.get(OutputKind.EXPLICIT).stream()
             .map(PathFragment::getPathString)
             .collect(Collectors.joining(" "));
     builder.put("in", inNewline.replace('\n', ' '));

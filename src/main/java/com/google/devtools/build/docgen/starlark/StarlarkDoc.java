@@ -15,10 +15,6 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -27,6 +23,10 @@ import com.google.devtools.build.lib.syntax.Tuple;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Abstract class for containing documentation for a Starlark syntactic entity. */
 abstract class StarlarkDoc {
@@ -79,7 +79,7 @@ abstract class StarlarkDoc {
   }
 
   // Omit self parameter from parameters in class methods.
-  protected static Param[] withoutSelfParam(SkylarkCallable annotation, Method method) {
+  protected static Param[] withoutSelfParam(StarlarkMethod annotation, Method method) {
     Param[] params = annotation.parameters();
     if (params.length > 0) {
       StarlarkBuiltin module = method.getDeclaringClass().getAnnotation(StarlarkBuiltin.class);

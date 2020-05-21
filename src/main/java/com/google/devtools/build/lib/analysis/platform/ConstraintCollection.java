@@ -107,6 +107,11 @@ public abstract class ConstraintCollection
     return builder().parent(parent).addConstraints(constraints).build();
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * Returns the parent {@link ConstraintCollection} for this instance, or {@code null} if none
    * exists.

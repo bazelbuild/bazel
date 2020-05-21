@@ -32,7 +32,7 @@ public final class StarlarkDebuggerModule extends BlazeModule {
     // Conditionally enable debugging
     StarlarkDebuggerOptions buildOptions =
         env.getOptions().getOptions(StarlarkDebuggerOptions.class);
-    boolean enabled = buildOptions != null && buildOptions.debugSkylark;
+    boolean enabled = buildOptions != null && buildOptions.debugStarlark;
     if (enabled) {
       initializeDebugging(
           env.getReporter(), buildOptions.debugServerPort, buildOptions.verboseLogs);

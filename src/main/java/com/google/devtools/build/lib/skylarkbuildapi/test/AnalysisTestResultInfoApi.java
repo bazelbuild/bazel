@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "provider.")
 public interface AnalysisTestResultInfoApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "success",
       doc =
           "If true, then the analysis-phase test represented by this target passed. If "
@@ -43,7 +43,7 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
       structField = true)
   Boolean getSuccess();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "message",
       doc = "A descriptive message containing information about the test and its success/failure.",
       structField = true)
@@ -53,7 +53,7 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface AnalysisTestResultInfoProviderApi extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AnalysisTestResultInfo",
         doc = "The <code>AnalysisTestResultInfo</code> constructor.",
         parameters = {
@@ -73,7 +73,7 @@ public interface AnalysisTestResultInfoApi extends StarlarkValue {
                       + "success/failure.")
         },
         selfCall = true)
-    @SkylarkConstructor(
+    @StarlarkConstructor(
         objectType = AnalysisTestResultInfoApi.class,
         receiverNameForDoc = "AnalysisTestResultInfo")
     AnalysisTestResultInfoApi testResultInfo(Boolean success, String message);

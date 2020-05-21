@@ -221,7 +221,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
             invocation -> {
               SkyKey key = (SkyKey) invocation.getArguments()[0];
               if (key.equals(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting())) {
-                return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
+                return new PrecomputedValue(StarlarkSemantics.DEFAULT);
               } else if (key.equals(
                   RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
                       .getKeyForTesting())) {

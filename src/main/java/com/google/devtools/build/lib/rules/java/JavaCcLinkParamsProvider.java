@@ -36,6 +36,11 @@ public final class JavaCcLinkParamsProvider
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public Provider getProvider() {
     return PROVIDER;
   }

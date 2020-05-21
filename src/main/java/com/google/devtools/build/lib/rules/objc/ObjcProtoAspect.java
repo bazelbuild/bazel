@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.SkylarkNativeAspect;
+import com.google.devtools.build.lib.packages.StarlarkNativeAspect;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
@@ -39,7 +39,7 @@ import java.util.List;
  * Aspect that gathers the proto dependencies of the attached rule target, and propagates the proto
  * values of its dependencies through the ObjcProtoProvider.
  */
-public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAspectFactory {
+public class ObjcProtoAspect extends StarlarkNativeAspect implements ConfiguredAspectFactory {
   public static final String NAME = "ObjcProtoAspect";
 
   @Override
@@ -63,7 +63,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
     if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
       Iterable<ObjcProtoProvider> depObjcProtoProviders =
           ruleContext.getPrerequisites(
-              "deps", TransitionMode.TARGET, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+              "deps", TransitionMode.TARGET, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
       aspectObjcProtoProvider.addTransitive(depObjcProtoProviders);
     }
 
@@ -113,7 +113,7 @@ public class ObjcProtoAspect extends SkylarkNativeAspect implements ConfiguredAs
             ruleContext.getPrerequisite(
                 ObjcRuleClasses.PROTO_LIB_ATTR,
                 TransitionMode.TARGET,
-                ObjcProvider.SKYLARK_CONSTRUCTOR);
+                ObjcProvider.STARLARK_CONSTRUCTOR);
         protobufCcCompilationContext = protobufObjcProvider.getCcCompilationContext();
       }
       aspectObjcProtoProvider.addProtobufHeaders(

@@ -64,8 +64,22 @@ void FsEventsDiffAwarenessCallback(ConstFSEventStreamRef streamRef,
       // caller is expected to rescan the directory contents on its own.
       info->everything_changed = true;
       break;
+    } else if ((eventFlags[i] & kFSEventStreamEventFlagItemIsDir) != 0 &&
+        (eventFlags[i] & kFSEventStreamEventFlagItemRenamed) != 0) {
+      // A directory was renamed. When this happens, fsevents may or may not
+      // give us individual events about which files changed underneath, which
+      // means we have to rescan the directories in order to know what changed.
+      //
+      // The problem is that we cannot rescan the source of the move to discover
+      // which files "disappeared"... so we have no choice but to rescan
+      // everything. Well, in theory, we could try to track directory inodes and
+      // using those to guess which files within them moved... but that'd be way
+      // too much complexity for this rather-uncommon use case.
+      info->everything_changed = true;
+      break;
+    } else {
+      info->paths.push_back(std::string(paths[i]));
     }
-    info->paths.push_back(std::string(paths[i]));
   }
   pthread_mutex_unlock(&(info->mutex));
 }

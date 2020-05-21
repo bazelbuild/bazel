@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.hash.HashCode;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -32,7 +30,6 @@ public final class StarlarkFile extends Node {
   private final FileOptions options;
   private final ImmutableList<Comment> comments;
   final List<SyntaxError> errors; // appended to by Resolver
-  @Nullable private final String contentHashCode;
 
   // set by resolver
   @Nullable Resolver.Function resolved;
@@ -52,14 +49,12 @@ public final class StarlarkFile extends Node {
       ImmutableList<Statement> statements,
       FileOptions options,
       ImmutableList<Comment> comments,
-      List<SyntaxError> errors,
-      String contentHashCode) {
+      List<SyntaxError> errors) {
     super(locs);
     this.statements = statements;
     this.options = options;
     this.comments = comments;
     this.errors = errors;
-    this.contentHashCode = contentHashCode;
   }
 
   // Creates a StarlarkFile from the given effective list of statements,
@@ -68,15 +63,9 @@ public final class StarlarkFile extends Node {
       FileLocations locs,
       ImmutableList<Statement> statements,
       FileOptions options,
-      Parser.ParseResult result,
-      String contentHashCode) {
+      Parser.ParseResult result) {
     return new StarlarkFile(
-        locs,
-        statements,
-        options,
-        ImmutableList.copyOf(result.comments),
-        result.errors,
-        contentHashCode);
+        locs, statements, options, ImmutableList.copyOf(result.comments), result.errors);
   }
 
   /** Extract a subtree containing only statements from i (included) to j (excluded). */
@@ -86,8 +75,7 @@ public final class StarlarkFile extends Node {
         this.statements.subList(i, j),
         this.options,
         /*comments=*/ ImmutableList.of(),
-        errors,
-        /*contentHashCode=*/ null);
+        errors);
   }
   /**
    * Returns an unmodifiable view of the list of scanner, parser, and (perhaps) resolver errors
@@ -134,19 +122,7 @@ public final class StarlarkFile extends Node {
     stmts.addAll(prelude);
     stmts.addAll(result.statements);
 
-    return create(result.locs, stmts.build(), options, result, /*contentHashCode=*/ null);
-  }
-
-  // TODO(adonovan): make the digest publicly settable, and delete this.
-  public static StarlarkFile parseWithDigest(ParserInput input, byte[] digest, FileOptions options)
-      throws IOException {
-    Parser.ParseResult result = Parser.parseFile(input, options);
-    return create(
-        result.locs,
-        ImmutableList.copyOf(result.statements),
-        options,
-        result,
-        HashCode.fromBytes(digest).toString());
+    return create(result.locs, stmts.build(), options, result);
   }
 
   /**
@@ -165,12 +141,7 @@ public final class StarlarkFile extends Node {
    */
   public static StarlarkFile parse(ParserInput input, FileOptions options) {
     Parser.ParseResult result = Parser.parseFile(input, options);
-    return create(
-        result.locs,
-        ImmutableList.copyOf(result.statements),
-        options,
-        result,
-        /*contentHashCode=*/ null);
+    return create(result.locs, ImmutableList.copyOf(result.statements), options, result);
   }
 
   /** Parse a Starlark file with default options. */
@@ -183,10 +154,20 @@ public final class StarlarkFile extends Node {
     return options;
   }
 
-  /**
-   * Returns a hash code calculated from the string content of the source file of this AST.
-   */
-  @Nullable public String getContentHashCode() {
-    return contentHashCode;
+  /** Returns the name of this file, as specified to the parser. */
+  public String getName() {
+    return locs.file();
+  }
+
+  /** A ParseProfiler records the start and end times of parse operations. */
+  public interface ParseProfiler {
+    Object start(String filename);
+
+    void end(Object span);
+  }
+
+  /** Installs a global hook that will be notified of parse operations. */
+  public static void setParseProfiler(@Nullable ParseProfiler p) {
+    Parser.profiler = p;
   }
 }

@@ -136,7 +136,7 @@ public final class ObjcCommon {
         throws InterruptedException {
       this.purpose = purpose;
       this.context = Preconditions.checkNotNull(context);
-      this.semantics = context.getAnalysisEnvironment().getSkylarkSemantics();
+      this.semantics = context.getAnalysisEnvironment().getStarlarkSemantics();
       this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
 
       ObjcConfiguration objcConfiguration = buildConfiguration.getFragment(ObjcConfiguration.class);
@@ -190,8 +190,8 @@ public final class ObjcCommon {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
         // It is redundant to process both ObjcProvider and CcInfo; doing so causes direct header
         // field to include indirect headers from deps.
-        if (depCT.get(ObjcProvider.SKYLARK_CONSTRUCTOR) != null) {
-          addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        if (depCT.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
+          addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.STARLARK_CONSTRUCTOR);
         } else {
           addAnyProviders(cppDeps, depCT, CcInfo.PROVIDER);
           if (isCcLibrary(dep)) {
@@ -216,8 +216,8 @@ public final class ObjcCommon {
 
       for (ConfiguredTargetAndData dep : deps) {
         ConfiguredTarget depCT = dep.getConfiguredTarget();
-        if (depCT.get(ObjcProvider.SKYLARK_CONSTRUCTOR) != null) {
-          addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        if (depCT.get(ObjcProvider.STARLARK_CONSTRUCTOR) != null) {
+          addAnyProviders(propagatedObjcDeps, depCT, ObjcProvider.STARLARK_CONSTRUCTOR);
         } else {
           // This is the way we inject cc_library attributes into direct fields.
           addAnyProviders(directCppDeps, depCT, CcInfo.PROVIDER);
@@ -248,7 +248,7 @@ public final class ObjcCommon {
       ImmutableList.Builder<ObjcProvider> propagatedDeps = ImmutableList.builder();
 
       for (TransitiveInfoCollection dep : runtimeDeps) {
-        addAnyProviders(propagatedDeps, dep, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        addAnyProviders(propagatedDeps, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
       }
       this.runtimeDepObjcProviders =
           Iterables.concat(this.runtimeDepObjcProviders, propagatedDeps.build());
@@ -261,7 +261,7 @@ public final class ObjcCommon {
       ImmutableList.Builder<CcInfo> cppDeps = ImmutableList.builder();
 
       for (TransitiveInfoCollection dep : runtimeDeps) {
-        addAnyProviders(propagatedObjcDeps, dep, ObjcProvider.SKYLARK_CONSTRUCTOR);
+        addAnyProviders(propagatedObjcDeps, dep, ObjcProvider.STARLARK_CONSTRUCTOR);
         addAnyProviders(cppDeps, dep, CcInfo.PROVIDER);
       }
       this.runtimeDepObjcProviders =

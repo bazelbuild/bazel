@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.core;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Interface for the "struct" object in the build API. */
 @StarlarkBuiltin(
@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "equal if they have the same fields and if corresponding field values are equal.")
 public interface StructApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "to_proto",
       doc =
           "Creates a text message from the struct parameter. This method only works if all "
@@ -65,7 +65,7 @@ public interface StructApi extends StarlarkValue {
               + "</pre>")
   String toProto() throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "to_json",
       doc =
           "Creates a JSON string from the struct parameter. This method only works if all "
@@ -89,7 +89,7 @@ public interface StructApi extends StarlarkValue {
   @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface StructProviderApi extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "struct",
         doc =
             "Creates an immutable struct using the keyword arguments as attributes. It is used to "
@@ -104,7 +104,7 @@ public interface StructApi extends StarlarkValue {
                 doc = "Dictionary of arguments."),
         useStarlarkThread = true,
         selfCall = true)
-    @SkylarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
+    @StarlarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
     StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
   }
 }

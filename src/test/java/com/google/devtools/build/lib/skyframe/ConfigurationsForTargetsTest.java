@@ -363,8 +363,14 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     // We don't care what order split deps are listed, but it must be deterministic.
     assertThat(
             ConfigurationResolver.SPLIT_DEP_ORDERING.compare(
-                Dependency.withConfiguration(dep1.getLabel(), getConfiguration(dep1)),
-                Dependency.withConfiguration(dep2.getLabel(), getConfiguration(dep2))))
+                Dependency.builder()
+                    .setLabel(dep1.getLabel())
+                    .setConfiguration(getConfiguration(dep1))
+                    .build(),
+                Dependency.builder()
+                    .setLabel(dep2.getLabel())
+                    .setConfiguration(getConfiguration(dep2))
+                    .build()))
         .isLessThan(0);
   }
 

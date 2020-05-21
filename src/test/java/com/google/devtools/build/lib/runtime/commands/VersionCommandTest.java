@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import java.io.IOException;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,44 +29,43 @@ public class VersionCommandTest {
   private static final boolean GNU_FORMAT = true;
   private static final boolean LEGACY_FORMAT = false;
 
-  @Test(expected = IOException.class)
-  public void testNoSummaryThrows() throws Exception {
-    VersionCommand.getInfo(
-        "product", new BlazeVersionInfo(ImmutableMap.of()), LEGACY_FORMAT);
-  }
-
-  @Test(expected = IOException.class)
-  public void testNoSummaryThrowsGnuFormat() throws Exception {
-    VersionCommand.getInfo(
-        "product", new BlazeVersionInfo(ImmutableMap.of()), GNU_FORMAT);
+  @Test
+  public void testNoSummary() {
+    assertThat(
+            VersionCommand.getInfo(
+                "product", new BlazeVersionInfo(ImmutableMap.of()), LEGACY_FORMAT))
+        .isEmpty();
   }
 
   @Test
-  public void testNoVersionGnuFormat() throws Exception {
-    Map<String, String> map =
-        ImmutableMap.of(BlazeVersionInfo.BUILD_LABEL, "");
-    String info = VersionCommand.getInfo(
-        "product", new BlazeVersionInfo(map), GNU_FORMAT);
-    assertThat(info).isEqualTo("product no_version");
+  public void testNoSummaryGnuFormat() {
+    assertThat(
+            VersionCommand.getInfo("product", new BlazeVersionInfo(ImmutableMap.of()), GNU_FORMAT))
+        .isEmpty();
   }
 
   @Test
-  public void testVersionGnuFormat() throws Exception {
-    Map<String, String> map =
-        ImmutableMap.of(BlazeVersionInfo.BUILD_LABEL, "1.2");
-    String info = VersionCommand.getInfo(
-        "product", new BlazeVersionInfo(map), GNU_FORMAT);
-    assertThat(info).isEqualTo("product 1.2");
+  public void testNoVersionGnuFormat() {
+    Map<String, String> map = ImmutableMap.of(BlazeVersionInfo.BUILD_LABEL, "");
+    Optional<String> info =
+        VersionCommand.getInfo("product", new BlazeVersionInfo(map), GNU_FORMAT);
+    assertThat(info).hasValue("product no_version");
   }
 
   @Test
-  public void testLegacyFormat() throws Exception {
+  public void testVersionGnuFormat() {
+    Map<String, String> map = ImmutableMap.of(BlazeVersionInfo.BUILD_LABEL, "1.2");
+    Optional<String> info =
+        VersionCommand.getInfo("product", new BlazeVersionInfo(map), GNU_FORMAT);
+    assertThat(info).hasValue("product 1.2");
+  }
+
+  @Test
+  public void testLegacyFormat() {
     Map<String, String> map =
-        ImmutableMap.of(
-            BlazeVersionInfo.BUILD_LABEL, "version",
-            "More", "foo");
-    String info = VersionCommand.getInfo(
-        "product", new BlazeVersionInfo(map), LEGACY_FORMAT);
-    assertThat(info).isEqualTo("Build label: version\nMore: foo");
+        ImmutableMap.of(BlazeVersionInfo.BUILD_LABEL, "version", "More", "foo");
+    Optional<String> info =
+        VersionCommand.getInfo("product", new BlazeVersionInfo(map), LEGACY_FORMAT);
+    assertThat(info).hasValue("Build label: version\nMore: foo");
   }
 }

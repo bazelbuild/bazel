@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.skylark.Args;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -191,8 +192,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   /** Used modules that are not transitively used through other topLevelModules. */
   private NestedSet<Artifact> topLevelModules;
 
-  private CcToolchainVariables overwrittenVariables;
-
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
 
@@ -296,7 +295,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.additionalInputs = null;
     this.usedModules = null;
     this.topLevelModules = null;
-    this.overwrittenVariables = null;
     this.grepIncludes = grepIncludes;
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
       paramFilePath =
@@ -437,9 +435,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         throw new IllegalStateException(e.getCause());
       }
     } catch (ExecException e) {
+      Label label = getOwner().getLabel();
       throw e.toActionExecutionException(
-          "Include scanning of rule '" + getOwner().getLabel() + "'",
-          actionExecutionContext.getVerboseFailures(),
+          "Include scanning of rule '" + label + "'",
+          actionExecutionContext.showVerboseFailures(label),
           this);
     }
   }
@@ -756,16 +755,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
     result.addAll(ccCompilationContext.getIncludeDirs());
     for (String opt : compileCommandLine.getCopts()) {
-      if (startsWithIgnoreCase(opt, "-I") || startsWithIgnoreCase(opt, "/I")) {
+      if (opt.startsWith("-I") || opt.startsWith("/I")) {
         // We insist on the combined form "-Idir".
         String includeDir = opt.substring(2);
         if (includeDir.isEmpty()) {
           continue;
         }
-        if (startsWithIgnoreCase(includeDir, "msvc")
-            || startsWithIgnoreCase(includeDir, "quote")
-            || startsWithIgnoreCase(includeDir, "system")) {
-          // This is actually a "-iquote", "-isystem", or "-imsvc"; it's handled elsewhere.
+        if (startsWithIgnoreCase(includeDir, "msvc")) {
+          // This is actually a "-imsvc", a system include dir.
           continue;
         }
         result.add(PathFragment.create(opt.substring(2)));
@@ -897,7 +894,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException {
-    return compileCommandLine.getArguments(paramFilePath, overwrittenVariables);
+    return compileCommandLine.getArguments(paramFilePath, getOverwrittenVariables());
   }
 
   @Override
@@ -927,15 +924,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(compileCommandLine.getToolPath());
 
-    // For actual extra actions, the shadowed action is fully executed and overwrittenVariables get
-    // computed. However, this function is also used for print_action and there, the action is
-    // retrieved from the cache, the modules are reconstructed via updateInputs and
-    // overwrittenVariables don't get computed.
-    List<String> options =
-        compileCommandLine.getCompilerOptions(
-            overwrittenVariables != null
-                ? overwrittenVariables
-                : getOverwrittenVariables(getInputs()));
+    List<String> options = compileCommandLine.getCompilerOptions(getOverwrittenVariables());
 
     for (String option : options) {
       info.addCompilerOption(option);
@@ -1205,25 +1194,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  /** Sets module file flags based on the action's inputs. */
-  protected void setModuleFileFlags() {
-    if (useHeaderModules) {
-      // If modules pruning is used, modules will be supplied via topLevelModules, otherwise they
-      // are regular inputs.
-      if (shouldPruneModules) {
-        Preconditions.checkNotNull(this.topLevelModules);
-        overwrittenVariables = getOverwrittenVariables(topLevelModules);
-      } else {
-        overwrittenVariables = getOverwrittenVariables(getInputs());
-      }
-    }
-  }
-
   /**
    * Extracts all module (.pcm) files from potentialModules and returns a Variables object where
    * their exec paths are added to the value "module_files".
    */
-  private static CcToolchainVariables getOverwrittenVariables(
+  private static CcToolchainVariables calculateModuleVariable(
       NestedSet<Artifact> potentialModules) {
     ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
     for (Artifact input : potentialModules.toList()) {
@@ -1238,7 +1213,22 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   public CcToolchainVariables getOverwrittenVariables() {
-    return overwrittenVariables;
+    if (useHeaderModules) {
+      // TODO(cmita): Avoid keeping state in CppCompileAction.
+      // There are two cases for when this method might be called:
+      // 1. After input discovery, after which toplevelModules is set (in discoverInputs()).
+      // 2. After the action is loaded from the local action cache, leaving topLevelModules null.
+      //
+      // Ideally the same thing would be done in both cases, but as is, we just overestimate modules
+      // in the latter case using the inputs from the action cache.
+      // Note that this breaks the invariant that Actions are immutable after the analysis phase.
+      if (shouldPruneModules && topLevelModules != null) {
+        return calculateModuleVariable(topLevelModules);
+      } else {
+        return calculateModuleVariable(getInputs());
+      }
+    }
+    return CcToolchainVariables.builder().build();
   }
 
   @Override
@@ -1389,13 +1379,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    setModuleFileFlags();
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
       try {
         paramFileActionInput =
             new ParamFileActionInput(
                 paramFilePath,
-                compileCommandLine.getCompilerOptions(overwrittenVariables),
+                compileCommandLine.getCompilerOptions(getOverwrittenVariables()),
                 // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
                 ParameterFileType.GCC_QUOTED,
                 StandardCharsets.ISO_8859_1);
@@ -1824,9 +1813,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         dotDContents = getDotDContents(spawnResults.get(0));
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
+        Label label = getOwner().getLabel();
         throw e.toActionExecutionException(
-            "C++ compilation of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
+            "C++ compilation of rule '" + label + "'",
+            actionExecutionContext.showVerboseFailures(label),
             CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
@@ -1917,7 +1907,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           throw new EnvironmentalExecException(e)
               .toActionExecutionException(
                   getRawProgressMessage(),
-                  actionExecutionContext.getVerboseFailures(),
+                  actionExecutionContext.showVerboseFailures(getOwner().getLabel()),
                   CppCompileAction.this);
         }
       }

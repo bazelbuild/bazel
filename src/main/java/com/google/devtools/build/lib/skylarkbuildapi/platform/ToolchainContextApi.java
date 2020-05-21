@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Stores toolchains available to a given rule. */
 @StarlarkBuiltin(
@@ -27,4 +27,4 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
         "Holds toolchains available for a particular exec group. Toolchain targets are accessed by"
             + " indexing with the toolchain type, as in"
             + " <code>context[\"//pkg:my_toolchain_type\"]</code>.")
-public interface ToolchainContextApi extends StarlarkValue, SkylarkIndexable {}
+public interface ToolchainContextApi extends StarlarkValue, StarlarkIndexable {}

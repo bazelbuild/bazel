@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.bazel;
 
 import com.google.devtools.build.lib.exec.StandaloneTestStrategy;
-import com.google.devtools.build.lib.runtime.BuiltinCommandModule;
+import com.google.devtools.build.lib.runtime.commands.BuiltinCommandModule;
 import com.google.devtools.build.lib.runtime.commands.RunCommand;
 
 /** A module that contains the built-in commands. */

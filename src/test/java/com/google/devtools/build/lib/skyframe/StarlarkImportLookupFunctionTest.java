@@ -407,7 +407,7 @@ public class StarlarkImportLookupFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), starlarkImportLookupKey, /*keepGoing=*/ false, reporter);
 
-    assertThat(result.get(starlarkImportLookupKey).getEnvironmentExtension().getBindings())
+    assertThat(result.get(starlarkImportLookupKey).getModule().getGlobals())
         .containsEntry("a_symbol", 5);
   }
 

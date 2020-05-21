@@ -1,0 +1,91 @@
+load("@rules_proto//proto:defs.bzl", "proto_lang_toolchain")
+
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
+# Protobuf targets needed for building //src:bazel_nojdk
+# @com_google_protobuf//:protobuf_headers
+# @com_google_protobuf//:protobuf_java
+# @com_google_protobuf//:protobuf_java_util
+# @com_google_protobuf//:protoc
+# @com_google_protobuf//:protoc_lib
+# @com_google_protobuf//:any_proto
+# @com_google_protobuf//:descriptor_proto
+# @com_google_protobuf//:duration_proto
+# @com_google_protobuf//:empty_proto
+# @com_google_protobuf//:timestamp_proto
+# @com_google_protobuf//:wrappers_proto
+# @com_google_protobuf//:cc_toolchain
+# @com_google_protobuf//:java_toolchain
+
+# This could be empty because all headers are installed at /usr/include
+# which is the default search path for gcc on Debian.
+cc_library(
+    name = "protobuf_headers",
+)
+
+alias(
+    name = "protobuf_java",
+    actual = "@debian_java_deps//:protobuf_java",
+)
+
+alias(
+    name = "protobuf_java_util",
+    actual = "@debian_java_deps//:protobuf_java_util",
+)
+
+alias(
+    name = "protoc",
+    actual = "@debian_bin_deps//:protobuf-compiler",
+)
+
+alias(
+    name = "protoc_lib",
+    actual = "@debian_cc_deps//:protoc_lib",
+)
+
+alias(
+    name = "any_proto",
+    actual = "@debian_proto_deps//:any_proto",
+)
+
+alias(
+    name = "descriptor_proto",
+    actual = "@debian_proto_deps//:descriptor_proto",
+)
+
+alias(
+    name = "duration_proto",
+    actual = "@debian_proto_deps//:duration_proto",
+)
+
+alias(
+    name = "empty_proto",
+    actual = "@debian_proto_deps//:empty_proto",
+)
+
+alias(
+    name = "timestamp_proto",
+    actual = "@debian_proto_deps//:timestamp_proto",
+)
+
+alias(
+    name = "wrappers_proto",
+    actual = "@debian_proto_deps//:wrappers_proto",
+)
+
+proto_lang_toolchain(
+    name = "cc_toolchain",
+    command_line = "--cpp_out=$(OUT)",
+    runtime = ":protoc_lib",
+)
+
+proto_lang_toolchain(
+    name = "java_toolchain",
+    command_line = "--java_out=$(OUT)",
+    runtime = ":protobuf_java",
+)

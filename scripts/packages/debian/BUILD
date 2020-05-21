@@ -26,15 +26,25 @@ pkg_tar(
 )
 
 genrule(
-    name = "rename-bazel-completion",
+    name = "rename-bash-completion",
     srcs = ["//scripts:bash_completion"],
     outs = ["etc/bash_completion.d/bazel"],
     cmd = "cp $< $@",
 )
 
+genrule(
+    name = "rename-zsh-completion",
+    srcs = ["//scripts/zsh_completion:_bazel"],
+    outs = ["usr/share/zsh/vendor-completions/_bazel"],
+    cmd = "cp $< $@",
+)
+
 pkg_tar(
     name = "bazel-completion",
-    srcs = [":etc/bash_completion.d/bazel"],
+    srcs = [
+        ":etc/bash_completion.d/bazel",
+        ":usr/share/zsh/vendor-completions/_bazel",
+    ],
     mode = "0644",
     strip_prefix = ".",
 )
@@ -73,6 +83,7 @@ pkg_deb(
     conffiles = [
         "/etc/bash_completion.d/bazel",
         "/etc/bazel.bazelrc",
+        "/usr/share/zsh/vendor-completions/_bazel",
     ],
     data = ":debian-data",
     depends = [

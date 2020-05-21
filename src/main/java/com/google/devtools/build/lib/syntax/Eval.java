@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.spelling.SpellChecker;
 
 /** A syntax-tree-walking evaluator for StarlarkFunction bodies. */
 final class Eval {
@@ -63,7 +63,7 @@ final class Eval {
           AssignmentStatement assign = (AssignmentStatement) stmt;
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
             String name = id.getName();
-            Object value = fn(fr).getModule().lookup(name);
+            Object value = fn(fr).getModule().getGlobal(name);
             fr.thread.postAssignHook.assign(name, value);
           }
         }
@@ -163,23 +163,30 @@ final class Eval {
   }
 
   private static void execLoad(StarlarkThread.Frame fr, LoadStatement node) throws EvalException {
+    // Has the application defined a behavior for load statements in this thread?
+    StarlarkThread.Loader loader = fr.thread.getLoader();
+    if (loader == null) {
+      throw new EvalException(
+          node.getStartLocation(), "load statements may not be executed in this thread");
+    }
+
+    // Load module.
+    String moduleName = node.getImport().getValue();
+    Module module = loader.load(moduleName);
+    if (module == null) {
+      throw new EvalException(
+          node.getStartLocation(),
+          String.format(
+              "file '%s' was not correctly loaded. "
+                  + "Make sure the 'load' statement appears in the global scope in your file",
+              moduleName));
+    }
+    Map<String, Object> globals = module.getExportedGlobals();
+
     for (LoadStatement.Binding binding : node.getBindings()) {
-
-      // Load module.
-      String moduleName = node.getImport().getValue();
-      StarlarkThread.Extension module = fr.thread.getExtension(moduleName);
-      if (module == null) {
-        throw new EvalException(
-            node.getStartLocation(),
-            String.format(
-                "file '%s' was not correctly loaded. "
-                    + "Make sure the 'load' statement appears in the global scope in your file",
-                moduleName));
-      }
-
       // Extract symbol.
       Identifier orig = binding.getOriginalName();
-      Object value = module.getBindings().get(orig.getName());
+      Object value = globals.get(orig.getName());
       if (value == null) {
         throw new EvalException(
             orig.getStartLocation(),
@@ -187,7 +194,7 @@ final class Eval {
                 "file '%s' does not contain symbol '%s'%s",
                 moduleName,
                 orig.getName(),
-                SpellChecker.didYouMean(orig.getName(), module.getBindings().keySet())));
+                SpellChecker.didYouMean(orig.getName(), globals.keySet())));
       }
 
       // Define module-local variable.
@@ -195,13 +202,9 @@ final class Eval {
       // loads bind file-locally. Either way, the resolver should designate
       // the proper scope of binding.getLocalName() and this should become
       // simply assign(binding.getLocalName(), value).
-      // Currently, we update the module but not module.exportedBindings;
+      // Currently, we update the module but not module.exportedGlobals;
       // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
-      try {
-        fn(fr).getModule().put(binding.getLocalName().getName(), value);
-      } catch (EvalException ex) {
-        throw new AssertionError(ex);
-      }
+      fn(fr).getModule().setGlobal(binding.getLocalName().getName(), value);
     }
   }
 
@@ -320,14 +323,10 @@ final class Eval {
       case GLOBAL:
         // Updates a module binding and sets its 'exported' flag.
         // (Only load bindings are not exported.
-        // But exportedBindings does at run time what should be done in the resolver.)
+        // But exportedGlobals does at run time what should be done in the resolver.)
         Module module = fn(fr).getModule();
-        try {
-          module.put(name, value);
-          module.exportedBindings.add(name);
-        } catch (EvalException ex) {
-          throw new IllegalStateException(ex);
-        }
+        module.setGlobal(name, value);
+        module.exportedGlobals.add(name);
         break;
       default:
         throw new IllegalStateException(scope.toString());
@@ -652,10 +651,10 @@ final class Eval {
         result = fr.locals.get(name);
         break;
       case GLOBAL:
-        result = fn(fr).getModule().lookup(name);
+        result = fn(fr).getModule().getGlobal(name);
         break;
       case PREDECLARED:
-        // TODO(laurentlb): look only at predeclared (not module globals).
+        // TODO(adonovan): call getPredeclared
         result = fn(fr).getModule().get(name);
         break;
       default:

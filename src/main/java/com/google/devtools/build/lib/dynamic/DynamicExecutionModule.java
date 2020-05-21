@@ -20,7 +20,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -30,6 +29,11 @@ import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions;
+import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsBase;
 import java.util.List;
 import java.util.Map;
@@ -104,7 +108,7 @@ public class DynamicExecutionModule extends BlazeModule {
   @Override
   public void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env)
-      throws ExecutorInitException {
+      throws AbruptExitException {
     registerSpawnStrategies(
         registryBuilder, env.getOptions().getOptions(DynamicExecutionOptions.class));
   }
@@ -113,7 +117,7 @@ public class DynamicExecutionModule extends BlazeModule {
   @VisibleForTesting
   final void registerSpawnStrategies(
       SpawnStrategyRegistry.Builder registryBuilder, DynamicExecutionOptions options)
-      throws ExecutorInitException {
+      throws AbruptExitException {
     if (!options.internalSpawnScheduler) {
       return;
     }
@@ -139,15 +143,20 @@ public class DynamicExecutionModule extends BlazeModule {
   }
 
   private void throwIfContainsDynamic(List<String> strategies, String flagName)
-      throws ExecutorInitException {
+      throws AbruptExitException {
     ImmutableSet<String> identifiers = ImmutableSet.of("dynamic", "dynamic_worker");
     if (!Sets.intersection(identifiers, ImmutableSet.copyOf(strategies)).isEmpty()) {
-      throw new ExecutorInitException(
-          "Cannot use strategy "
-              + identifiers
-              + " in flag "
-              + flagName
-              + " as it would create a cycle during execution");
+      String message =
+          String.format(
+              "Cannot use strategy %s in flag %s as it would create a cycle during" + " execution",
+              identifiers, flagName);
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setExecutionOptions(
+                      ExecutionOptions.newBuilder().setCode(Code.INVALID_CYCLIC_DYNAMIC_STRATEGY))
+                  .build()));
     }
   }
 

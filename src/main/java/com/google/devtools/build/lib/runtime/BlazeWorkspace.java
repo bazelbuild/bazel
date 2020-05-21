@@ -188,7 +188,11 @@ public final class BlazeWorkspace {
    *     fully configured at this point.
    */
   public CommandEnvironment initCommand(
-      Command command, OptionsParsingResult options, List<String> warnings) {
+      Command command,
+      OptionsParsingResult options,
+      List<String> warnings,
+      long waitTimeInMs,
+      long commandStartTime) {
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -197,7 +201,9 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
-            warnings);
+            warnings,
+            waitTimeInMs,
+            commandStartTime);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }
@@ -215,9 +221,7 @@ public final class BlazeWorkspace {
     skyframeExecutor.resetEvaluator();
   }
 
-  /**
-   * Removes in-memory caches.
-   */
+  /** Removes in-memory and on-disk action caches. */
   public void clearCaches() throws IOException {
     if (actionCache != null) {
       actionCache.clear();

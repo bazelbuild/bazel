@@ -76,7 +76,7 @@ public interface CommandLineItem {
    */
   static String expandToCommandLine(Object object) {
     // TODO(b/150322434): The fallback on toString() isn't great. Particularly so for
-    // SkylarkCustomCommandLine, since toString() does not necessarily give the same results as
+    // StarlarkCustomCommandLine, since toString() does not necessarily give the same results as
     // Starlark's str() or repr().
     //
     // The ideal refactoring is to make StarlarkValue implement CommandLineItem (or a slimmer

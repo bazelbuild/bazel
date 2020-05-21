@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
 public final class XcodeVersionTest extends BuildViewTestCase {
 
   @Test
-  public void testXcodeVersionCanBeReadFromSkylark() throws Exception {
+  public void testXcodeVersionCanBeReadFromStarlark() throws Exception {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
@@ -105,7 +105,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
 
     ConfiguredTarget nativeTarget = getConfiguredTarget("//examples/apple:my_xcode");
     XcodeVersionProperties xcodeProperties =
-        nativeTarget.get(XcodeVersionProperties.SKYLARK_CONSTRUCTOR);
+        nativeTarget.get(XcodeVersionProperties.STARLARK_CONSTRUCTOR);
     assertThat(xcodeProperties.getXcodeVersion().get().toString()).isEqualTo("8");
     assertThat(xcodeProperties.getDefaultIosSdkVersion().toString()).isEqualTo("9.0");
     assertThat(xcodeProperties.getDefaultWatchosSdkVersion().toString()).isEqualTo("9.1");

@@ -123,7 +123,7 @@ public class NinjaPhonyTargetsUtilTest {
     assertThat(phonyTarget.isAlwaysDirty()).isEqualTo(isAlwaysDirty);
 
     ImmutableSortedSet.Builder<PathFragment> paths = ImmutableSortedSet.naturalOrder();
-    pathsMap.get(PathFragment.create(key)).visitUsualInputs(pathsMap, paths::addAll);
+    pathsMap.get(PathFragment.create(key)).visitExplicitInputs(pathsMap, paths::addAll);
     assertThat(paths.build()).containsExactlyElementsIn(expectedPaths);
   }
 

@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -216,7 +216,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   @Override
-  // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
+  // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
   // probably.
   public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
@@ -294,7 +294,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Returns the label provided with --proguard_top, if any. */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "proguard_top",
       doc = "Returns the label provided with --proguard_top, if any.",
       defaultInToolRepository = true)
@@ -329,7 +329,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Returns the label of the default java_toolchain rule */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "java_toolchain",
       doc = "Returns the label of the default java_toolchain rule.",
       defaultLabel = "//tools/jdk:toolchain",

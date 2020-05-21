@@ -728,7 +728,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Add or remove keys from an action's execution info based on action mnemonic.  "
               + "Applies only to actions which support execution info. Many common actions "
-              + "support execution info, e.g. Genrule, CppCompile, Javac, SkylarkAction, "
+              + "support execution info, e.g. Genrule, CppCompile, Javac, StarlarkAction, "
               + "TestRunner. When specifying multiple values, order matters because "
               + "many regexes may apply to the same mnemonic.\n\n"
               + "Syntax: \"regex=[+-]key,[+-]key,...\".\n\n"

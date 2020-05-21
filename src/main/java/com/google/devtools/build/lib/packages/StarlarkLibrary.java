@@ -23,9 +23,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
@@ -36,6 +33,9 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.List;
 import java.util.Set;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkGlobalLibrary;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A library of pre-declared Bazel Starlark functions.
@@ -62,10 +62,10 @@ public final class StarlarkLibrary {
     return env.build();
   }
 
-  @SkylarkGlobalLibrary
+  @StarlarkGlobalLibrary
   private static class CommonLibrary {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "depset",
         doc =
             "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a"
@@ -167,7 +167,7 @@ public final class StarlarkLibrary {
       return Depset.depset(x, orderString, direct, transitive, items, thread.getSemantics());
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "select",
         doc =
             "<code>select()</code> is the helper function that makes a rule attribute "
@@ -210,9 +210,9 @@ public final class StarlarkLibrary {
     return env.build();
   }
 
-  @SkylarkGlobalLibrary
+  @StarlarkGlobalLibrary
   private static class BuildLibrary {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "environment_group",
         doc =
             "Defines a set of related environments that can be tagged onto rules to prevent"
@@ -275,7 +275,7 @@ public final class StarlarkLibrary {
       }
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "licenses",
         doc = "Declare the license(s) for the code in the current package.",
         parameters = {
@@ -304,7 +304,7 @@ public final class StarlarkLibrary {
       return Starlark.NONE;
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "distribs",
         doc = "Declare the distribution(s) for the code in the current package.",
         parameters = {

@@ -22,7 +22,8 @@ import javax.annotation.Nullable;
 public interface ClassObject extends StarlarkValue {
 
   /**
-   * Returns the value of the field with the given name, or null if the field does not exist.
+   * Returns the value of the field with the given name, or null if the field does not exist. The
+   * interpreter (Starlark code) calls the getValue below, which has access to StarlarkSemantics.
    *
    * <p>The set of names for which {@code getValue} returns non-null should match {@code
    * getFieldNames} if possible.
@@ -34,13 +35,27 @@ public interface ClassObject extends StarlarkValue {
   Object getValue(String name) throws EvalException;
 
   /**
+   * Returns the value of the field with the given name, or null if the field does not exist. The
+   * interpreter (Starlark code) calls this getValue, but client code cannot be relied upon to do
+   * so, so any checks done on the semantics are incompletely enforced.
+   *
+   * @param semantics the Starlark semantics, which determine the available fields
+   * @param name the name of the field to retrieve
+   * @throws EvalException if the field exists but could not be retrieved
+   */
+  @Nullable
+  default Object getValue(StarlarkSemantics semantics, String name) throws EvalException {
+    return this.getValue(name);
+  }
+
+  /**
    * Returns the names of this value's fields, in some undefined but stable order.
    *
    * <p>A call to {@code getValue} for each of these names should return non-null, though this is
    * not enforced.
    *
    * <p>The Starlark expression {@code dir(x)} reports the union of {@code getFieldNames()} and any
-   * SkylarkCallable-annotated fields and methods of this value.
+   * StarlarkMethod-annotated fields and methods of this value.
    */
   ImmutableCollection<String> getFieldNames();
 

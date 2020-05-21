@@ -249,9 +249,7 @@ class OptionsUsage {
     usage.append("</dt>\n");
     usage.append("<dd>\n");
     if (!optionDefinition.getHelpText().isEmpty()) {
-      usage.append(
-          paragraphFill(
-              escaper.escape(optionDefinition.getHelpText()), /*indent=*/ 0, /*width=*/ 80));
+      usage.append(escaper.escape(optionDefinition.getHelpText()));
       usage.append('\n');
     }
 

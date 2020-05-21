@@ -15,17 +15,17 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Module providing functions to create actions. */
 @StarlarkBuiltin(
@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + "Access this module using <a href=\"ctx.html#actions\"><code>ctx.actions</code></a>.")
 public interface StarlarkActionFactoryApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "declare_file",
       doc =
           "Declares that the rule or aspect creates a file with the given filename. "
@@ -75,7 +75,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   FileApi declareFile(String filename, Object sibling) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "declare_directory",
       doc =
           "Declares that the rule or aspect creates a directory with the given name, in the "
@@ -102,7 +102,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   FileApi declareDirectory(String filename, Object sibling) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "declare_symlink",
       doc =
           "<p><b>Experimental</b>. This parameter is experimental and may change at any "
@@ -131,7 +131,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   FileApi declareSymlink(String filename, Object sibling) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "do_nothing",
       doc =
           "Creates an empty action that neither executes a command nor produces any "
@@ -157,7 +157,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   void doNothing(String mnemonic, Object inputs) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "symlink",
       doc =
           "Creates an action that writes a symlink in the file system."
@@ -229,7 +229,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object progressMessage)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "write",
       doc =
           "Creates a file write action. When the action is executed, it will write the given "
@@ -259,7 +259,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       })
   void write(FileApi output, Object content, Boolean isExecutable) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "run",
       doc =
           "Creates an action that runs an executable. "
@@ -425,7 +425,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       Object execGroupUnchecked)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "run_shell",
       doc =
           "Creates an action that runs a shell command. "
@@ -510,7 +510,8 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "<p>If <code>command</code> is a string, then it is executed as if by "
                     + "<code>sh -c &lt;command&gt; \"\" &lt;arguments&gt;</code> -- that is, the "
                     + "elements in <code>arguments</code> are made available to the command as "
-                    + "<code>$1</code>, <code>$2</code>, etc. If <code>arguments</code> contains "
+                    + "<code>$1</code>, <code>$2</code> (or <code>%1</code>, <code>%2</code> if "
+                    + "using Windows batch), etc. If <code>arguments</code> contains "
                     + "any <a href=\"actions.html#args\"><code>actions.args()</code></a> objects, "
                     + "their contents are appended one by one to the command line, so "
                     + "<code>$</code><i>i</i> can refer to individual strings within an Args "
@@ -608,7 +609,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "expand_template",
       doc =
           "Creates a template expansion action. When the action is executed, it will "
@@ -652,7 +653,7 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
       FileApi template, FileApi output, Dict<?, ?> substitutionsUnchecked, Boolean executable)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "args",
       doc = "Returns an Args object that can be used to build memory-efficient command lines.",
       useStarlarkThread = true)

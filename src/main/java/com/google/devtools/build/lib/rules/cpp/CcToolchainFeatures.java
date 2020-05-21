@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -775,7 +776,7 @@ public class CcToolchainFeatures {
         flagSetBuilder.add(new FlagSet(flagSet));
       }
       this.flagSets = flagSetBuilder.build();
-      
+
       ImmutableList.Builder<EnvSet> envSetBuilder = ImmutableList.builder();
       for (CToolchain.EnvSet flagSet : feature.getEnvSetList()) {
         envSetBuilder.add(new EnvSet(flagSet));
@@ -909,30 +910,89 @@ public class CcToolchainFeatures {
   @Immutable
   public static class Tool {
     private final PathFragment toolPathFragment;
+    private final CToolchain.Tool.PathOrigin toolPathOrigin;
     private final ImmutableSet<String> executionRequirements;
     private final ImmutableSet<WithFeatureSet> withFeatureSetSets;
 
-    private Tool(
-        CToolchain.Tool tool,
-        ImmutableSet<WithFeatureSet> withFeatureSetSets) {
-      this.withFeatureSetSets = withFeatureSetSets;
-      this.toolPathFragment = PathFragment.create(tool.getToolPath());
-      executionRequirements = ImmutableSet.copyOf(tool.getExecutionRequirementList());
+    private Tool(CToolchain.Tool tool, ImmutableSet<WithFeatureSet> withFeatureSetSets)
+        throws EvalException {
+      this(
+          PathFragment.create(tool.getToolPath()),
+          tool.getToolPathOrigin(),
+          ImmutableSet.copyOf(tool.getExecutionRequirementList()),
+          withFeatureSetSets);
     }
 
     @VisibleForTesting
     public Tool(
         PathFragment toolPathFragment,
+        CToolchain.Tool.PathOrigin toolPathOrigin,
         ImmutableSet<String> executionRequirements,
-        ImmutableSet<WithFeatureSet> withFeatureSetSets) {
+        ImmutableSet<WithFeatureSet> withFeatureSetSets)
+        throws EvalException {
+      checkToolPath(toolPathFragment, toolPathOrigin);
       this.toolPathFragment = toolPathFragment;
+      this.toolPathOrigin = toolPathOrigin;
       this.executionRequirements = executionRequirements;
       this.withFeatureSetSets = withFeatureSetSets;
     }
 
+    @Deprecated
+    @VisibleForTesting
+    public Tool(
+        PathFragment toolPathFragment,
+        ImmutableSet<String> executionRequirements,
+        ImmutableSet<WithFeatureSet> withFeatureSetSets)
+        throws EvalException {
+      this(
+          toolPathFragment,
+          CToolchain.Tool.PathOrigin.CROSSTOOL_PACKAGE,
+          executionRequirements,
+          withFeatureSetSets);
+    }
+
+    private static void checkToolPath(PathFragment toolPath, CToolchain.Tool.PathOrigin origin)
+        throws EvalException {
+      switch (origin) {
+        case CROSSTOOL_PACKAGE:
+          // For legacy reasons, we allow absolute and relative paths here.
+          return;
+
+        case FILESYSTEM_ROOT:
+          if (!toolPath.isAbsolute()) {
+            throw Starlark.errorf(
+                "Tool-path with origin FILESYSTEM_ROOT must be absolute, got '%s'.",
+                toolPath.getPathString());
+          }
+          return;
+
+        case WORKSPACE_ROOT:
+          if (toolPath.isAbsolute()) {
+            throw Starlark.errorf(
+                "Tool-path with origin WORKSPACE_ROOT must be relative, got '%s'.",
+                toolPath.getPathString());
+          }
+          return;
+      }
+
+      // Unreached.
+      throw new IllegalStateException();
+    }
+
     /** Returns the path to this action's tool relative to the provided crosstool path. */
     String getToolPathString(PathFragment ccToolchainPath) {
-      return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+      switch (toolPathOrigin) {
+        case CROSSTOOL_PACKAGE:
+          // Legacy behavior.
+          return ccToolchainPath.getRelative(toolPathFragment).getSafePathString();
+
+        case FILESYSTEM_ROOT: // fallthrough.
+        case WORKSPACE_ROOT:
+          return toolPathFragment.getSafePathString();
+      }
+
+      // Unreached.
+      throw new IllegalStateException();
     }
 
     /**
@@ -952,6 +1012,10 @@ public class CcToolchainFeatures {
 
     PathFragment getToolPathFragment() {
       return toolPathFragment;
+    }
+
+    CToolchain.Tool.PathOrigin getToolPathOrigin() {
+      return toolPathOrigin;
     }
   }
 
@@ -995,19 +1059,16 @@ public class CcToolchainFeatures {
     ActionConfig(CToolchain.ActionConfig actionConfig) throws EvalException {
       this.configName = actionConfig.getConfigName();
       this.actionName = actionConfig.getActionName();
-      this.tools =
-          actionConfig
-              .getToolList()
-              .stream()
-              .map(
-                  t ->
-                      new Tool(
-                          t,
-                          t.getWithFeatureList()
-                              .stream()
-                              .map(f -> new WithFeatureSet(f))
-                              .collect(ImmutableSet.toImmutableSet())))
-              .collect(ImmutableList.toImmutableList());
+
+      ImmutableList.Builder<Tool> tools = ImmutableList.builder();
+      for (CToolchain.Tool tool : actionConfig.getToolList()) {
+        ImmutableSet<WithFeatureSet> withFeatureSetSets =
+            tool.getWithFeatureList().stream()
+                .map(f -> new WithFeatureSet(f))
+                .collect(ImmutableSet.toImmutableSet());
+        tools.add(new Tool(tool, withFeatureSetSets));
+      }
+      this.tools = tools.build();
 
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : actionConfig.getFlagSetList()) {
@@ -1510,7 +1571,7 @@ public class CcToolchainFeatures {
       }
     }
     this.defaultSelectables = defaultSelectablesBuilder.build();
-       
+
     this.selectables = selectablesBuilder.build();
     this.selectablesByName = ImmutableMap.copyOf(selectablesByName);
 

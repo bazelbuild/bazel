@@ -72,8 +72,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -89,6 +87,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A ConfiguredTarget for <code>cc_binary</code> rules.
@@ -294,7 +294,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("dynamic_deps")) {
       if (!ruleContext
           .getAnalysisEnvironment()
-          .getSkylarkSemantics()
+          .getStarlarkSemantics()
           .experimentalCcSharedLibrary()) {
         ruleContext.ruleError(
             "The attribute 'dynamic_deps' can only be used with the flag"
@@ -1321,7 +1321,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Map<String, CcLinkingContext.LinkerInput> exportsMap = new HashMap<>();
     for (CcSharedLibraryInfo entry : mergedCcSharedLibraryInfos) {
       for (String export : entry.getExports()) {
-        if (exportsMap.containsKey(export)) {
+        if (exportsMap.containsKey(export)
+            && !entry.getLinkerInput().getOwner().equals(exportsMap.get(export).getOwner())) {
           ruleContext.ruleError(
               "Two shared libraries in dependencies export the same symbols. Both "
                   + exportsMap

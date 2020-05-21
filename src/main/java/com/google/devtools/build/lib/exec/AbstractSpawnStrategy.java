@@ -168,7 +168,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           !Strings.isNullOrEmpty(resultMessage)
               ? resultMessage
               : CommandFailureUtils.describeCommandFailure(
-                  actionExecutionContext.getVerboseFailures(),
+                  actionExecutionContext.showVerboseFailures(
+                      spawn.getResourceOwner().getOwner().getLabel()),
                   spawn.getArguments(),
                   spawn.getEnvironment(),
                   cwd,

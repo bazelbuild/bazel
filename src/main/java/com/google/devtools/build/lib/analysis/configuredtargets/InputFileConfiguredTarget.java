@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.Instantiator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Objects;
 
 /**
@@ -40,8 +39,8 @@ import java.util.Objects;
  * here and is always set to <b>null</b>.
  */
 @AutoCodec
-@Immutable // (and Starlark-hashable)
-public final class InputFileConfiguredTarget extends FileConfiguredTarget implements StarlarkValue {
+@Immutable
+public final class InputFileConfiguredTarget extends FileConfiguredTarget {
   private final SourceArtifact artifact;
   private final NestedSet<TargetLicense> licenses;
 

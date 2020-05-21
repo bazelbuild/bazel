@@ -76,7 +76,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisitesByConfiguration(
                 AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
                 TransitionMode.SPLIT,
-                ObjcProvider.SKYLARK_CONSTRUCTOR));
+                ObjcProvider.STARLARK_CONSTRUCTOR));
 
     ImmutableListMultimap<String, CcInfo> cpuToCcAvoidDepsMap =
         MultiArchBinarySupport.transformMap(
@@ -89,7 +89,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites(
             AppleStaticLibraryRule.AVOID_DEPS_ATTR_NAME,
             TransitionMode.TARGET,
-            ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+            ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(avoidProtoProviders);
 
     Map<BuildConfiguration, CcToolchainProvider> childConfigurationsAndToolchains =
@@ -104,11 +104,11 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
             .add(ruleIntermediateArtifacts.combinedArchitectureArchive());
 
     ObjcProvider.Builder objcProviderBuilder =
-        new ObjcProvider.NativeBuilder(ruleContext.getAnalysisEnvironment().getSkylarkSemantics());
+        new ObjcProvider.NativeBuilder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());
 
     ImmutableListMultimap<BuildConfiguration, ObjcProtoProvider> objcProtoProvidersByConfig =
         ruleContext.getPrerequisitesByConfiguration(
-            "deps", TransitionMode.SPLIT, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+            "deps", TransitionMode.SPLIT, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     Multimap<String, ObjcProtoProvider> objcProtoProvidersMap =
         MultiArchBinarySupport.transformMap(objcProtoProvidersByConfig);
 
@@ -197,7 +197,7 @@ public class AppleStaticLibrary implements RuleConfiguredTargetFactory {
 
     if (appleConfiguration.shouldLinkingRulesPropagateObjc()) {
       targetBuilder.addNativeDeclaredProvider(objcProvider);
-      targetBuilder.addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider);
+      targetBuilder.addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider);
     }
 
     targetBuilder

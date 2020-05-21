@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A provider for targets that create Android instrumentations. Consumed by Android testing rules.
@@ -38,7 +38,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
   /** Name of this info object. */
   String NAME = "AndroidInstrumentationInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "target",
       doc = "Returns the target ApkInfo of the instrumentation test.",
       documented = false,
@@ -55,7 +55,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
       documented = false)
   interface AndroidInstrumentationInfoApiProvider<ApkT extends ApkInfoApi<?>> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidInstrumentationInfo",
         doc = "The <code>AndroidInstrumentationInfo</code> constructor.",
         documented = false,
@@ -67,7 +67,9 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
               doc = "The target ApkInfo of the instrumentation test.")
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidInstrumentationInfoApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor(
+        objectType = AndroidInstrumentationInfoApi.class,
+        receiverNameForDoc = NAME)
     AndroidInstrumentationInfoApi<ApkT> createInfo(ApkT target) throws EvalException;
   }
 }

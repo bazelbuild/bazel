@@ -1691,3 +1691,11 @@ grpc_cc_library(
         "grpc_base",
     ],
 )
+
+filegroup(
+    name = "embedded_tools_srcs",
+    srcs = [
+        "BUILD.tools",
+        "build_defs.bzl",
+    ],
+)

@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A provider that holds debug outputs of an apple_binary target. */
 @StarlarkBuiltin(
@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCateg
     doc = "A provider that holds debug outputs of an apple_binary target.")
 public interface AppleDebugOutputsApi<FileT extends FileApi> extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "outputs_map",
       structField = true,
       doc =

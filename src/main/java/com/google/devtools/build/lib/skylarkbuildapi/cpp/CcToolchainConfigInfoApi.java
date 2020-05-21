@@ -16,9 +16,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Additional layer of configurability for c++ rules through features and actions. */
 @StarlarkBuiltin(
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCateg
             + "configure the C++ toolchain, and later on for command line construction. "
             + "Replaces the functionality of CROSSTOOL file.")
 public interface CcToolchainConfigInfoApi extends StructApi {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "proto",
       doc = "Returns CToolchain text proto from the CcToolchainConfigInfo data.",
       structField = true)

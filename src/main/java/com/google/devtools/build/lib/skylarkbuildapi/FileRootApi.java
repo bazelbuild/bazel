@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A root for a file. The roots are the directories containing files, and they are mapped together
@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
         "A root for files. The roots are the directories containing files, and they are mapped "
             + "together into a single directory tree to form the execution environment.")
 public interface FileRootApi extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "path",
       structField = true,
       doc = "Returns the relative path from the exec root to the actual root.")

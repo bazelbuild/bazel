@@ -24,9 +24,6 @@ import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkParamDoc;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.BuiltinCallable;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -44,6 +41,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.Function;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** The main class for the Starlark documentation generator. */
 public class ApiExporter {
@@ -116,10 +116,10 @@ public class ApiExporter {
         StarlarkBuiltin typeModule = StarlarkInterfaceUtils.getStarlarkBuiltin(obj.getClass());
         if (typeModule != null) {
           Method selfCallMethod =
-              CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, obj.getClass());
+              CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT, obj.getClass());
           if (selfCallMethod != null) {
             // selfCallMethod may be from a subclass of the annotated method.
-            SkylarkCallable annotation = StarlarkInterfaceUtils.getSkylarkCallable(selfCallMethod);
+            StarlarkMethod annotation = StarlarkInterfaceUtils.getStarlarkMethod(selfCallMethod);
             value = valueFromAnnotation(annotation);
           } else {
             value.setName(entry.getKey());
@@ -174,7 +174,7 @@ public class ApiExporter {
     return signatureToValue(sig);
   }
 
-  private static Value.Builder valueFromAnnotation(SkylarkCallable annot) {
+  private static Value.Builder valueFromAnnotation(StarlarkMethod annot) {
     return signatureToValue(getSignature(annot));
   }
 
@@ -326,8 +326,8 @@ public class ApiExporter {
     }
   }
 
-  // Extracts signature and parameter default value expressions from a SkylarkCallable annotation.
-  private static Signature getSignature(SkylarkCallable annot) {
+  // Extracts signature and parameter default value expressions from a StarlarkMethod annotation.
+  private static Signature getSignature(StarlarkMethod annot) {
     // Build-time annotation processing ensures mandatory parameters do not follow optional ones.
     boolean hasStar = false;
     String star = null;
@@ -335,7 +335,7 @@ public class ApiExporter {
     ArrayList<String> params = new ArrayList<>();
     ArrayList<String> defaults = new ArrayList<>();
 
-    for (com.google.devtools.build.lib.skylarkinterface.Param param : annot.parameters()) {
+    for (net.starlark.java.annot.Param param : annot.parameters()) {
       // Implicit * or *args parameter separates transition from positional to named.
       // f (..., *, ... )  or  f(..., *args, ...)
       // TODO(adonovan): this logic looks fishy. Clean it up.

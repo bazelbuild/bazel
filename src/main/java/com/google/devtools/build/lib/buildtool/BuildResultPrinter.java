@@ -177,7 +177,8 @@ class BuildResultPrinter {
       }
       success = failed.isEmpty();
     }
-    if (!success && !request.getOptions(ExecutionOptions.class).verboseFailures) {
+    if (!success && !request.getOptions(ExecutionOptions.class).hasSomeVerboseFailures()) {
+      // TODO(janakr): Show better message if --experimental_verbose_failures_filter is on.
       outErr.printErr("Use --verbose_failures to see the command lines of failed build steps.\n");
     }
   }

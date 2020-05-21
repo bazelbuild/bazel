@@ -132,7 +132,7 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadFromSkylarkFileInRemoteRepo() throws Exception {
+  public void testLoadFromStarlarkFileInRemoteRepo() throws Exception {
     scratch.overwriteFile("WORKSPACE",
         "local_repository(",
         "    name = 'a_remote_repo',",
@@ -174,9 +174,9 @@ public class ASTFileLookupFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
     assertThat(result.get(skyKey).lookupSuccessful()).isFalse();
-    assertThat(result.get(skyKey).getErrorMsg())
-    .contains("Unable to load package for '@a_remote_repo//remote_pkg:BUILD'");
-    assertThat(result.get(skyKey).getErrorMsg())
+    assertThat(result.get(skyKey).getError())
+        .contains("cannot load '@a_remote_repo//remote_pkg:BUILD':");
+    assertThat(result.get(skyKey).getError())
         .contains("The repository '@a_remote_repo' could not be resolved");
   }
 }

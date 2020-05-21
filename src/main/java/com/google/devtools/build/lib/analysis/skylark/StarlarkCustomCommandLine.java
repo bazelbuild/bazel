@@ -671,12 +671,9 @@ public class StarlarkCustomCommandLine extends CommandLine {
       Location loc,
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException {
-    try (Mutability mutability = Mutability.create("map_each")) {
-      StarlarkThread thread =
-          StarlarkThread.builder(mutability)
-              .setSemantics(starlarkSemantics)
-              .build();
-      // TODO(b/77140311): Error if we issue print statements
+    try (Mutability mu = Mutability.create("map_each")) {
+      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
+      // TODO(b/77140311): Error if we issue print statements.
       thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
       for (int i = 0; i < count; ++i) {
@@ -858,6 +855,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Override
     public String getExecPathString() {
       return getExecPath().getPathString();
+    }
+
+    @Override
+    public String getTreeRelativePathString() throws EvalException {
+      throw new EvalException(
+          "tree_relative_path not allowed for files that are not tree artifact files.");
     }
 
     @Override

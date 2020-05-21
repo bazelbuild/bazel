@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -34,7 +35,7 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
   void setDigestForVirtualArtifact(Artifact artifact, byte[] digest);
 
   /** Retrieves the artifacts inside the TreeArtifact, without injecting its digest. */
-  Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact);
+  ImmutableSet<TreeFileArtifact> getExpandedOutputs(Artifact artifact);
 
   /**
    * Returns true iff artifact was intentionally omitted (not saved).

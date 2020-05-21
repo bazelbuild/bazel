@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -282,7 +281,7 @@ public class ActionExecutionValue implements SkyValue {
                 artifact,
                 newArtifactMap);
         transformedArtifact =
-            ActionInputHelper.treeFileArtifact(
+            TreeFileArtifact.createTreeOutput(
                 (Artifact.SpecialArtifact) newParent, artifact.getParentRelativePath());
       }
       result.put(transformedArtifact, entry.getValue());

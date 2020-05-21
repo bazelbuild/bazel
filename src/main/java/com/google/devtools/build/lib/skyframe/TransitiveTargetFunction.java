@@ -144,7 +144,7 @@ public class TransitiveTargetFunction
           rule.getRuleClassObject().getConfigurationFragmentPolicy();
       for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
         Class<? extends Fragment> fragment = factory.creates();
-        // isLegalConfigurationFragment considers both natively declared fragments and Skylark
+        // isLegalConfigurationFragment considers both natively declared fragments and Starlark
         // (named) fragments.
         if (configurationFragmentPolicy.isLegalConfigurationFragment(fragment)) {
           addFragmentIfNew(builder, fragment.asSubclass(Fragment.class));

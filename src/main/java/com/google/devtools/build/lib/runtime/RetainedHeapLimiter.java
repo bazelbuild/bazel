@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -29,6 +28,7 @@ import com.sun.management.GarbageCollectionNotificationInfo;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -64,13 +64,38 @@ class RetainedHeapLimiter implements NotificationListener {
   @VisibleForTesting
   RetainedHeapLimiter(List<GarbageCollectorMXBean> gcBeans) {
     tenuredGcEmitters = findTenuredCollectorBeans(gcBeans);
-    Preconditions.checkState(
-        !tenuredGcEmitters.isEmpty(),
-        "Can't find tenured space; update this class for a new collector");
+    if (tenuredGcEmitters.isEmpty()) {
+      logger.atSevere().log(
+          "Unable to find tenured collector from %s: names were %s. "
+              + "--experimental_oom_more_eagerly_threshold cannot be specified for this JVM",
+          gcBeans,
+          gcBeans.stream()
+              .map(GarbageCollectorMXBean::getMemoryPoolNames)
+              .map(Arrays::asList)
+              .collect(ImmutableList.toImmutableList()));
+    }
   }
 
   @ThreadSafety.ThreadCompatible // Can only be called on the logical main Bazel thread.
   void updateThreshold(int occupiedHeapPercentageThreshold) throws AbruptExitException {
+    if (tenuredGcEmitters.isEmpty() && occupiedHeapPercentageThreshold != 100) {
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              ExitCode.COMMAND_LINE_ERROR,
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "No tenured GC collectors were found: unable to watch for GC events to exit"
+                          + " JVM when "
+                          + occupiedHeapPercentageThreshold
+                          + "% of heap is used")
+                  .setMemoryOptions(
+                      FailureDetails.MemoryOptions.newBuilder()
+                          .setCode(
+                              FailureDetails.MemoryOptions.Code
+                                  .EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND)
+                          .build())
+                  .build()));
+    }
     if (occupiedHeapPercentageThreshold < 0 || occupiedHeapPercentageThreshold > 100) {
       throw new AbruptExitException(
           DetailedExitCode.of(

@@ -18,10 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkInterfaceUtils;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -34,6 +30,10 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A Depset is a Starlark value that wraps a {@link NestedSet}.
@@ -49,7 +49,6 @@ import javax.annotation.Nullable;
  *
  * <p>Every call to {@code depset} returns a distinct instance equal to no other.
  */
-// TODO(adonovan): move to lib.packages, as this is a Bazelism.
 @StarlarkBuiltin(
     name = "depset",
     category = StarlarkDocumentationCategory.BUILTIN,
@@ -215,7 +214,7 @@ public final class Depset implements StarlarkValue {
    * given class. Only the top-level class is verified.
    *
    * <p>If you do not specifically need the {@code NestedSet} and you are going to flatten it
-   * anyway, prefer {@link #toCollection} to make your intent clear.
+   * anyway, prefer {@link #toList} to make your intent clear.
    *
    * @param type a {@link Class} representing the expected type of the elements
    * @return the {@code NestedSet}, with the appropriate generic type
@@ -241,8 +240,6 @@ public final class Depset implements StarlarkValue {
     return set;
   }
 
-  // TODO(adonovan): rename these toCollection methods toList.
-
   /**
    * Returns an ImmutableList containing the set elements, asserting that each element is an
    * instance of class {@code type}. Requires traversing the entire graph of the underlying
@@ -251,7 +248,7 @@ public final class Depset implements StarlarkValue {
    * @param type a {@link Class} representing the expected type of the elements
    * @throws TypeException if the type does not accurately describe all elements
    */
-  public <T> ImmutableList<T> toCollection(Class<T> type) throws TypeException {
+  public <T> ImmutableList<T> toList(Class<T> type) throws TypeException {
     return getSet(type).toList();
   }
 
@@ -259,7 +256,7 @@ public final class Depset implements StarlarkValue {
    * Returns an ImmutableList containing the set elements. Requires traversing the entire graph of
    * the underlying NestedSet.
    */
-  public ImmutableList<?> toCollection() {
+  public ImmutableList<?> toList() {
     return set.toList();
   }
 
@@ -328,12 +325,12 @@ public final class Depset implements StarlarkValue {
     Order order = getOrder();
     if (order != Order.STABLE_ORDER) {
       printer.append(", order = ");
-      printer.repr(order.getSkylarkName());
+      printer.repr(order.getStarlarkName());
     }
     printer.append(")");
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "to_list",
       doc =
           "Returns a list of the elements, without duplicates, in the depset's traversal order. "
@@ -343,9 +340,9 @@ public final class Depset implements StarlarkValue {
               + "from that of the parent depset. The list is a copy; modifying it has no effect "
               + "on the depset and vice versa.",
       useStarlarkThread = true)
-  public StarlarkList<Object> toList(StarlarkThread thread) throws EvalException {
+  public StarlarkList<Object> toListForStarlark(StarlarkThread thread) throws EvalException {
     try {
-      return StarlarkList.copyOf(thread.mutability(), this.toCollection());
+      return StarlarkList.copyOf(thread.mutability(), this.toList());
     } catch (NestedSetDepthException exception) {
       throw new EvalException(
           null,
@@ -392,7 +389,7 @@ public final class Depset implements StarlarkValue {
         if (!order.isCompatible(x.getOrder())) {
           throw Starlark.errorf(
               "Order '%s' is incompatible with order '%s'",
-              order.getSkylarkName(), x.getOrder().getSkylarkName());
+              order.getStarlarkName(), x.getOrder().getStarlarkName());
         }
         builder.addTransitive(x.getSet());
       }
@@ -451,7 +448,7 @@ public final class Depset implements StarlarkValue {
 
     // Returns the Java class representing the Starlark type of an instance of cls,
     // which must be one of String, Integer, or Boolean (in which case the result is cls),
-    // or a SkylarkModule-annotated Starlark value class or one of its subclasses,
+    // or a StarlarkModule-annotated Starlark value class or one of its subclasses,
     // in which case the result is the annotated class.
     //
     // TODO(adonovan): consider publishing something like this as Starlark.typeClass
@@ -553,7 +550,7 @@ public final class Depset implements StarlarkValue {
               semantics.incompatibleAlwaysCheckDepsetElements());
     } else {
       if (x != Starlark.NONE) {
-        if (!isEmptySkylarkList(items)) {
+        if (!isEmptyStarlarkList(items)) {
           throw new EvalException(
               null, "parameter 'items' cannot be specified both positionally and by keyword");
         }
@@ -568,7 +565,7 @@ public final class Depset implements StarlarkValue {
       // This is an extremely inefficient check and should be only done in the
       // "--debug_depset_depth" mode.
       try {
-        result.toCollection(); // may throw exception
+        result.toList(); // may throw exception
       } catch (NestedSetDepthException ex) {
         throw Starlark.errorf("depset exceeded maximum depth %d", ex.getDepthLimit());
       }
@@ -585,7 +582,7 @@ public final class Depset implements StarlarkValue {
       return legacyOf(order, items);
     }
 
-    if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
+    if (direct != Starlark.NONE && !isEmptyStarlarkList(items)) {
       throw new EvalException(
           null, "Do not pass both 'direct' and 'items' argument to depset constructor.");
     }
@@ -602,7 +599,7 @@ public final class Depset implements StarlarkValue {
         order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
   }
 
-  private static boolean isEmptySkylarkList(Object o) {
+  private static boolean isEmptyStarlarkList(Object o) {
     return o instanceof Sequence && ((Sequence) o).isEmpty();
   }
 }

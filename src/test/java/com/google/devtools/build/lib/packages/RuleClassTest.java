@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -124,7 +123,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -162,7 +160,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -269,7 +266,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
-            StarlarkSemantics.DEFAULT_SEMANTICS)
+            StarlarkSemantics.DEFAULT)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
 
@@ -293,7 +290,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -341,7 +337,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -441,7 +436,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -483,7 +477,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true);
@@ -520,7 +513,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -690,7 +682,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -734,7 +725,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -893,21 +883,16 @@ public class RuleClassTest extends PackageLoadingTestCase {
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      @Nullable StarlarkThread ruleDefinitionStarlarkThread,
       Set<Class<?>> allowedConfigurationFragments,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
-    String ruleDefinitionStarlarkThreadHashCode =
-        ruleDefinitionStarlarkThread == null
-            ? null
-            : ruleDefinitionStarlarkThread.getTransitiveContentHashCode();
     return new RuleClass(
         name,
         DUMMY_STACK,
         /*key=*/ name,
         RuleClassType.NORMAL,
-        /*isSkylark=*/ skylarkExecutable,
+        /*isStarlark=*/ skylarkExecutable,
         /*skylarkTestable=*/ false,
         documented,
         publicByDefault,
@@ -927,12 +912,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         configuredTargetFunction,
         externalBindingsFunction,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
-        ruleDefinitionStarlarkThread == null
-            ? null
-            : (Label)
-                Module.ofInnermostEnclosingStarlarkFunction(ruleDefinitionStarlarkThread)
-                    .getLabel(),
-        ruleDefinitionStarlarkThreadHashCode,
+        /*ruleDefinitionEnvironmentLabel=*/ null,
+        /*ruleDefinitionEnvironmentDigest=*/ null,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .setMissingFragmentPolicy(missingFragmentPolicy)
@@ -966,7 +947,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(DummyFragment.class),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,

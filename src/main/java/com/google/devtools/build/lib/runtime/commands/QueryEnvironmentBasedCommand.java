@@ -197,7 +197,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
                   env, "query interrupted", Interrupted.Code.AFTER_QUERY);
             }
             if (queryEvalResult.getSuccess()) {
-              return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+              return BlazeCommandResult.success();
             }
             // TODO(b/138456686): query + keep_going partial failures require more refactoring for
             //  detailed failure representations.

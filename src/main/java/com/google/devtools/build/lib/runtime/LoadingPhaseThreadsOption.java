@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.ResourceConverter;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -61,7 +62,7 @@ public class LoadingPhaseThreadsOption extends OptionsBase {
       // performance.
       //
       // TODO(jmmv): If tests care about this, it's them who should be setting a cap.
-      if (System.getenv("TEST_TMPDIR") != null) {
+      if (TestType.isInTest()) {
         value = Math.min(20, value);
         logger.atInfo().log("Running under a test; loading_phase_threads capped at %d", value);
       }

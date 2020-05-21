@@ -90,6 +90,11 @@ public final class JavaGenJarsProvider
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public boolean usesAnnotationProcessing() {
     return usesAnnotationProcessing;
   }

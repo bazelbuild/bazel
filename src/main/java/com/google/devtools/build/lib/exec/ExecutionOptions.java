@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext.ShowSubcomma
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.util.ResourceConverter;
@@ -38,6 +39,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Options affecting the execution phase of a build.
@@ -69,7 +71,7 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how spawn actions are executed by default. Accepts a comma-separated list of"
               + " strategies from highest to lowest priority. For each action Bazel picks the"
               + " strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\".See"
+              + " value is \"remote,worker,sandboxed,local\". See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<String> spawnStrategy;
 
@@ -96,7 +98,7 @@ public class ExecutionOptions extends OptionsBase {
           "Specify how to distribute compilation of other spawn actions. Accepts a comma-separated"
               + " list of strategies from highest to lowest priority. For each action Bazel picks"
               + " the strategy with the highest priority that can execute the action. The default"
-              + " value is \"remote,worker,sandboxed,local\".See"
+              + " value is \"remote,worker,sandboxed,local\". See"
               + " https://blog.bazel.build/2019/06/19/list-strategy.html for details.")
   public List<Map.Entry<String, List<String>>> strategy;
 
@@ -126,9 +128,9 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "Writes intermediate parameter files to output tree even when using "
-              + "remote action execution. Useful when debugging actions. "
-              + "This is implied by --subcommands and --verbose_failures.")
+          "Writes intermediate parameter files to output tree even when using remote action"
+              + " execution. Useful when debugging actions. This is implied by --subcommands,"
+              + " --verbose_failures, and --experimental_verbose_failures_filter.")
   public boolean materializeParamFiles;
 
   @Option(
@@ -140,10 +142,13 @@ public class ExecutionOptions extends OptionsBase {
   public boolean materializeParamFilesDirectly;
 
   public boolean shouldMaterializeParamFiles() {
-    // Implied by --subcommands and --verbose_failures
+    // Implied by --subcommands and verbose_failures
     return materializeParamFiles
         || showSubcommands != ActionExecutionContext.ShowSubcommands.FALSE
-        || verboseFailures;
+        // Conservatively materialize params files if any failures may be verbose.
+        // TODO(janakr): Could try to thread action label through to here and only materialize for
+        //  those actions, but seems pretty gnarly.
+        || hasSomeVerboseFailures();
   }
 
   @Option(
@@ -151,8 +156,31 @@ public class ExecutionOptions extends OptionsBase {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "If a command fails, print out the full command line.")
+      help = "If any command fails, print out the full command line.")
   public boolean verboseFailures;
+
+  @Option(
+      name = "experimental_verbose_failures_filter",
+      defaultValue = "null",
+      converter = RegexFilter.RegexFilterConverter.class,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "If a command fails, print out the full command line if its label matches the given"
+              + " regex filter.")
+  public RegexFilter verboseFailuresFilter;
+
+  public boolean hasSomeVerboseFailures() {
+    return verboseFailures || verboseFailuresFilter != null;
+  }
+
+  public Predicate<Label> getVerboseFailuresPredicate() {
+    return verboseFailures
+        ? l -> true
+        : verboseFailuresFilter == null
+            ? l -> false
+            : l -> l == null || verboseFailuresFilter.isIncluded(l.getCanonicalForm());
+  }
 
   @Option(
       name = "subcommands",

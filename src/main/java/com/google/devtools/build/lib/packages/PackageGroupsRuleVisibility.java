@@ -16,15 +16,12 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import java.util.Collection;
 import java.util.List;
 
-/**
- * A rule visibility that allows visibility to a list of package groups.
- */
-@Immutable @ThreadSafe
+/** A rule visibility that allows visibility to a list of package groups. */
+@Immutable
 public class PackageGroupsRuleVisibility implements RuleVisibility {
   private final List<Label> packageGroups;
   private final PackageGroupContents directPackages;

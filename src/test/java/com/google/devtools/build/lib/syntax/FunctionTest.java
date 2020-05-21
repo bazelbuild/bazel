@@ -160,7 +160,7 @@ public final class FunctionTest extends EvaluationTestCase {
 
   @SuppressWarnings("unchecked")
   @Test
-  public void testSkylarkGlobalComprehensionIsAllowed() throws Exception {
+  public void testStarlarkGlobalComprehensionIsAllowed() throws Exception {
     exec("a = [i for i in [1, 2, 3]]\n");
     assertThat((Iterable<Object>) lookup("a")).containsExactly(1, 2, 3).inOrder();
   }

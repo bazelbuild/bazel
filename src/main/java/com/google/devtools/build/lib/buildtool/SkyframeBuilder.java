@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -309,6 +311,7 @@ public class SkyframeBuilder implements Builder {
   /** Figure out why an action's execution failed and rethrow the right kind of exception. */
   @VisibleForTesting
   public static void rethrow(Throwable cause) throws BuildFailedException, TestExecException {
+    Throwables.throwIfUnchecked(cause);
     Throwable innerCause = cause.getCause();
     if (innerCause instanceof TestExecException) {
       throw (TestExecException) innerCause;
@@ -323,7 +326,6 @@ public class SkyframeBuilder implements Builder {
       throw new BuildFailedException(
           message,
           actionExecutionCause.isCatastrophe(),
-          actionExecutionCause.getAction(),
           actionExecutionCause.getRootCauses(),
           /*errorAlreadyShown=*/ !actionExecutionCause.showError(),
           actionExecutionCause.getDetailedExitCode());
@@ -334,16 +336,14 @@ public class SkyframeBuilder implements Builder {
       // failures reading those packages shouldn't terminate the build, but in Skyframe they do.
       LoggingUtil.logToRemote(Level.WARNING, "undesirable loading exception", cause);
       throw new BuildFailedException(cause.getMessage());
-    } else if (cause instanceof RuntimeException) {
-      throw (RuntimeException) cause;
-    } else if (cause instanceof Error) {
-      throw (Error) cause;
     } else {
       // We encountered an exception we don't think we should have encountered. This can indicate
-      // a bug in our code, such as lower level exceptions not being properly handled, or in our
-      // expectations in this method.
-      throw new IllegalArgumentException(
-          "action terminated with " + "unexpected exception: " + cause.getMessage(), cause);
+      // an exception-processing bug in our code, such as lower level exceptions not being properly
+      // handled, or in our expectations in this method.
+      BugReport.sendBugReport(
+          new IllegalStateException("action terminated with unexpected exception", cause));
+      throw new BuildFailedException(
+          "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage());
     }
   }
 

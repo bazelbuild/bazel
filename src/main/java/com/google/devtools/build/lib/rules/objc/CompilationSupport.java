@@ -1283,8 +1283,7 @@ public class CompilationSupport {
             treeObjFiles.build(),
             objList,
             objFilesToLinkParam.build(),
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
+            ParameterFile.ParameterFileType.UNQUOTED));
     return this;
   }
 
@@ -1426,7 +1425,7 @@ public class CompilationSupport {
       Artifact dummyArchive =
           ruleContext
               .getPrerequisite(
-                  "$dummy_lib", TransitionMode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR)
+                  "$dummy_lib", TransitionMode.TARGET, ObjcProvider.STARLARK_CONSTRUCTOR)
               .get(LIBRARY)
               .getSingleton();
 

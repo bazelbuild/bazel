@@ -33,9 +33,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -244,36 +242,6 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
             skyframeExecutor.getSkyFunctionEnvironmentForTesting(eventHandler)),
         new BuildConfigurationCollection(
             ImmutableList.of(dummy.getConfiguration()), dummy.getHostConfiguration()));
-  }
-
-  public ValidatedAndroidResources makeValidatedResourcesFor(
-      ImmutableList<Artifact> resources,
-      boolean includeAapt2Outs,
-      ProcessedAndroidManifest manifest,
-      ResourceDependencies resourceDependencies)
-      throws RuleErrorException {
-    return ValidatedAndroidResources.of(
-        MergedAndroidResources.of(
-            ParsedAndroidResources.of(
-                AndroidResources.forResources(errorConsumer, resources, "resource_files"),
-                getOutput("symbols.bin"),
-                includeAapt2Outs ? getOutput("symbols.zip") : null,
-                manifest.getManifest().getOwnerLabel(),
-                manifest,
-                DataBinding.DISABLED_V1_CONTEXT),
-            getOutput("merged/resources.zip"),
-            getOutput("class.jar"),
-            includeAapt2Outs ? getOutput("aapt2-r.txt") : null,
-            /* dataBindingInfoZip = */ null,
-            resourceDependencies,
-            manifest),
-        getOutput("r.txt"),
-        getOutput("source.jar"),
-        getOutput("resources.apk"),
-        includeAapt2Outs ? getOutput("aapt2-validation.txt") : null,
-        includeAapt2Outs ? getOutput("aapt2-source.jar") : null,
-        includeAapt2Outs ? getOutput("aapt2-static-lib") : null,
-        /*useRTxtFromMergedResources=*/ true);
   }
 
   /**

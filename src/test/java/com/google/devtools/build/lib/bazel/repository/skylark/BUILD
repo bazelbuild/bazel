@@ -13,7 +13,7 @@ filegroup(
 )
 
 java_library(
-    name = "SkylarkTests_lib",
+    name = "StarlarkTests_lib",
     testonly = 1,
     srcs = glob(["*.java"]),
     deps = [
@@ -50,7 +50,7 @@ java_library(
 )
 
 java_test(
-    name = "SkylarkTests",
+    name = "StarlarkTests",
     testonly = 1,
     srcs = glob(["*.java"]),
     tags = [
@@ -58,7 +58,7 @@ java_test(
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
-        ":SkylarkTests_lib",
+        ":StarlarkTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [

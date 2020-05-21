@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkBuiltin;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** An interface for an object representing an Apple platform. */
 @StarlarkBuiltin(
@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface ApplePlatformApi extends StarlarkValue {
 
   /** Returns the platform type of this platform. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "platform_type",
       doc = "Returns the platform type of this platform.",
       structField = true)
@@ -56,7 +56,7 @@ public interface ApplePlatformApi extends StarlarkValue {
   /**
    * Returns true if this platform is a device platform, or false if this is a simulator platform.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "is_device",
       doc =
           "Returns <code>True</code> if this platform is a device platform or <code>False</code> "
@@ -68,7 +68,7 @@ public interface ApplePlatformApi extends StarlarkValue {
    * Returns the name of the "platform" as it appears in the CFBundleSupportedPlatforms plist
    * setting.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "name_in_plist",
       structField = true,
       doc =

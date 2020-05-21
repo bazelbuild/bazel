@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -200,16 +200,16 @@ public final class CcCommon {
     return mergedOutputGroups;
   }
 
-  public static void checkRuleWhitelisted(SkylarkRuleContext skylarkRuleContext)
+  public static void checkRuleWhitelisted(StarlarkRuleContext starlarkRuleContext)
       throws EvalException, InterruptedException {
-    RuleContext context = skylarkRuleContext.getRuleContext();
+    RuleContext context = starlarkRuleContext.getRuleContext();
     Rule rule = context.getRule();
 
     RuleClass ruleClass = rule.getRuleClassObject();
     Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
     if (label != null) {
       checkLocationWhitelisted(
-          context.getAnalysisEnvironment().getSkylarkSemantics(),
+          context.getAnalysisEnvironment().getStarlarkSemantics(),
           rule.getLocation(),
           label.getPackageFragment().toString());
     }
@@ -217,7 +217,7 @@ public final class CcCommon {
 
   public static void checkLocationWhitelisted(
       StarlarkSemantics semantics, Location location, String callPath) throws EvalException {
-    List<String> whitelistedPackagesList = semantics.experimentalCcSkylarkApiEnabledPackages();
+    List<String> whitelistedPackagesList = semantics.experimentalCcStarlarkApiEnabledPackages();
     if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {
       throwWhiteListError(location, callPath, whitelistedPackagesList);
     }
@@ -605,7 +605,7 @@ public final class CcCommon {
             .getExecPath(
                 ruleContext
                     .getAnalysisEnvironment()
-                    .getSkylarkSemantics()
+                    .getStarlarkSemantics()
                     .experimentalSiblingRepositoryLayout());
     result.add(rulePackage);
 
@@ -622,7 +622,7 @@ public final class CcCommon {
               .getExecPath(
                   ruleContext
                       .getAnalysisEnvironment()
-                      .getSkylarkSemantics()
+                      .getStarlarkSemantics()
                       .experimentalSiblingRepositoryLayout());
       // For now, anything with an 'includes' needs a blanket declaration
       result.add(packageFragment.getRelative("**"));
@@ -634,7 +634,7 @@ public final class CcCommon {
     boolean siblingRepositoryLayout =
         ruleContext
             .getAnalysisEnvironment()
-            .getSkylarkSemantics()
+            .getStarlarkSemantics()
             .experimentalSiblingRepositoryLayout();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();

@@ -233,7 +233,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAndroidInstrumentationTestWithSkylarkDevice() throws Exception {
+  public void testAndroidInstrumentationTestWithStarlarkDevice() throws Exception {
     scratch.file(
         "javatests/com/app/skylarkdevice/local_adb_device.bzl",
         "def _impl(ctx):",

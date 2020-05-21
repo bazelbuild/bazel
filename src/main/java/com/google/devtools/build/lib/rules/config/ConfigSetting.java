@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -29,7 +28,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
@@ -272,15 +270,9 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     // to check they're indeed valid flag specifications.
     boolean foundMismatch = false;
 
-    // Flags that appear multiple times are known as "multi-value options". Each time the options
-    // parser parses one of their values it adds it to an existing list. In those cases we need to
-    // make sure to examine only the value we just parsed: not the entire list.
-    Multiset<String> optionsCount = HashMultiset.create();
-
     for (Map.Entry<String, String> setting : expectedSettings) {
       String optionName = setting.getKey();
       String expectedRawValue = setting.getValue();
-      int previousOptionCount = optionsCount.add(optionName, 1);
 
       Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
       if (optionClass == null) {
@@ -344,11 +336,6 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       }
 
       Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
-      if (previousOptionCount > 0) {
-        // We've seen this option before, so it's a multi-value option with multiple entries.
-        int listLength = ((List<?>) expectedParsedValue).size();
-        expectedParsedValue = ((List<?>) expectedParsedValue).subList(listLength - 1, listLength);
-      }
       if (!optionMatches(options, optionName, expectedParsedValue)) {
         foundMismatch = true;
       }
@@ -526,9 +513,18 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
             // If the config_setting expects "foo", convertedSpecifiedValue converts it to the
             // flag's native type, which produces ["foo"]. So unpack that again.
-            Object specifiedUnpacked =
-                Iterables.getOnlyElement((Iterable<?>) convertedSpecifiedValue);
-            if (!((List<?>) configurationValue).contains(specifiedUnpacked)) {
+            Iterable<?> specifiedValueAsIterable = (Iterable<?>) convertedSpecifiedValue;
+            if (Iterables.size(specifiedValueAsIterable) != 1) {
+              ruleContext.attributeError(
+                  ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                  String.format(
+                      "\"%s\" not a valid value for flag %s. Only single, exact values are allowed."
+                          + " If you want to match multiple values, consider Skylib's "
+                          + "selects.config_setting_group",
+                      specifiedValue, specifiedLabel));
+              matches = false;
+            } else if (!((List<?>) configurationValue)
+                .contains(Iterables.getOnlyElement(specifiedValueAsIterable))) {
               matches = false;
             }
           } else if (!configurationValue.equals(convertedSpecifiedValue)) {

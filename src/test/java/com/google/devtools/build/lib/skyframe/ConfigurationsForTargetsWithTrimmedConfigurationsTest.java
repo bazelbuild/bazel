@@ -567,17 +567,20 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
    * prefix + "2"}.
    */
   private static SplitTransition newSplitTransition(final String prefix) {
-    return (buildOptions, eventHandler) -> {
-      ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
-      for (int index = 1; index <= 2; index++) {
-        BuildOptions toOptions = buildOptions.clone();
-        TestConfiguration.TestOptions baseOptions =
-            toOptions.get(TestConfiguration.TestOptions.class);
-        baseOptions.testFilter =
-            (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
-        result.put(prefix + index, toOptions);
+    return new SplitTransition() {
+      @Override
+      public Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
+        ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
+        for (int index = 1; index <= 2; index++) {
+          BuildOptions toOptions = buildOptions.clone();
+          TestConfiguration.TestOptions baseOptions =
+              toOptions.get(TestConfiguration.TestOptions.class);
+          baseOptions.testFilter =
+              (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
+          result.put(prefix + index, toOptions);
+        }
+        return result.build();
       }
-      return result.build();
     };
   }
 

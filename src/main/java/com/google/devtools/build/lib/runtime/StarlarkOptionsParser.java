@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
@@ -214,6 +215,24 @@ public class StarlarkOptionsParser {
       throw new OptionsParsingException("Unrecognized option: " + targetToBuild);
     }
     return buildSetting;
+  }
+
+  /**
+   * Separates out any Starlark options from the given list
+   *
+   * @param list List of strings from which to parse out starlark options
+   * @return Returns a pair of string lists. The first item contains the list of starlark options
+   *     that were removed; the second contains the remaining string from the original list.
+   */
+  public static Pair<ImmutableList<String>, ImmutableList<String>> removeStarlarkOptions(
+      List<String> list) {
+    ImmutableList<String> removed =
+        list.stream()
+            .filter(r -> r.startsWith("--//") || r.startsWith("--no//"))
+            .collect(toImmutableList());
+    ImmutableList<String> kept =
+        list.stream().filter(r -> !removed.contains(r)).collect(toImmutableList());
+    return Pair.of(removed, kept);
   }
 
   @VisibleForTesting

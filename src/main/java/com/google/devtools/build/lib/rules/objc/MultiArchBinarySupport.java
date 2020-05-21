@@ -215,7 +215,7 @@ public class MultiArchBinarySupport {
       throws RuleErrorException, InterruptedException {
     Iterable<ObjcProvider> dylibObjcProviders = getDylibObjcProviders(dylibProviders);
     Iterable<ObjcProtoProvider> dylibProtoProviders =
-        getTypedProviders(dylibProviders, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+        getTypedProviders(dylibProviders, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     NestedSet<Artifact> protosToAvoid = protoArtifactsToAvoid(dylibProtoProviders);
     ImmutableSet.Builder<DependencySpecificConfiguration> childInfoBuilder = ImmutableSet.builder();
 
@@ -223,7 +223,7 @@ public class MultiArchBinarySupport {
       String childCpu = childToolchainConfig.getCpu();
       Iterable<TransitiveInfoCollection> infoCollections = cpuToDepsCollectionMap.get(childCpu);
       ImmutableList<ObjcProtoProvider> depProtoProviders =
-          getTypedProviders(infoCollections, ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+          getTypedProviders(infoCollections, ObjcProtoProvider.STARLARK_CONSTRUCTOR);
       Optional<ObjcProvider> protosObjcProvider;
       if (ObjcRuleClasses.objcConfiguration(ruleContext).enableAppleBinaryNativeProtos()) {
         ProtobufSupport protoSupport =
@@ -275,13 +275,13 @@ public class MultiArchBinarySupport {
       ImmutableList<TransitiveInfoCollection> transitiveInfoCollections) {
     // Dylibs.
     ImmutableList<ObjcProvider> frameworkObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR)
+        getTypedProviders(transitiveInfoCollections, AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR)
             .stream()
             .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
             .collect(ImmutableList.toImmutableList());
     // Bundle Loaders.
     ImmutableList<ObjcProvider> executableObjcProviders =
-        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR)
+        getTypedProviders(transitiveInfoCollections, AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR)
             .stream()
             .map(frameworkProvider -> frameworkProvider.getDepsObjcProvider())
             .collect(ImmutableList.toImmutableList());
@@ -289,7 +289,7 @@ public class MultiArchBinarySupport {
     return Iterables.concat(
         frameworkObjcProviders,
         executableObjcProviders,
-        getTypedProviders(transitiveInfoCollections, ObjcProvider.SKYLARK_CONSTRUCTOR));
+        getTypedProviders(transitiveInfoCollections, ObjcProvider.STARLARK_CONSTRUCTOR));
   }
 
   private ObjcCommon common(

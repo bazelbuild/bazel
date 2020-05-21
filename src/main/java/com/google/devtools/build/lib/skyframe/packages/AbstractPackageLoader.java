@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -181,13 +182,13 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    public Builder setSkylarkSemantics(StarlarkSemantics semantics) {
+    public Builder setStarlarkSemantics(StarlarkSemantics semantics) {
       this.starlarkSemantics = semantics;
       return this;
     }
 
-    public Builder useDefaultSkylarkSemantics() {
-      this.starlarkSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+    public Builder useDefaultStarlarkSemantics() {
+      this.starlarkSemantics = StarlarkSemantics.DEFAULT;
       return this;
     }
 
@@ -231,7 +232,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected void validate() {
       if (starlarkSemantics == null) {
         throw new IllegalArgumentException(
-            "must call either setSkylarkSemantics or useDefaultSkylarkSemantics");
+            "must call either setStarlarkSemantics or useDefaultStarlarkSemantics");
       }
     }
 
@@ -276,7 +277,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             getEnvironmentExtensions(),
             "PackageLoader",
             Package.Builder.DefaultHelper.INSTANCE,
-            PackageValidator.NOOP_VALIDATOR);
+            PackageValidator.NOOP_VALIDATOR,
+            PackageLoadingListener.NOOP_LISTENER);
   }
 
   private static ImmutableDiff makePreinjectedDiff(

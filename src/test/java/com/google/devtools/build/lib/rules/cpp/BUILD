@@ -24,7 +24,7 @@ java_library(
             "CcBinaryThinLtoTest.java",
             "CcCompilationHelperTest.java",
             "CcImportBaseConfiguredTargetTest.java",
-            "CppConfigurationSkylarkTest.java",
+            "CppConfigurationStarlarkTest.java",
             "CppSysrootTest.java",
             "LinkCommandLineTest.java",
             "StarlarkCcCommonTestHelper.java",
@@ -37,7 +37,7 @@ java_library(
     ],
     deps = [
         ":CcImportBaseConfiguredTargetTest",
-        ":SkylarkCcCommonTestHelper",
+        ":StarlarkCcCommonTestHelper",
         ":util",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -109,7 +109,7 @@ java_library(
     name = "CcImportBaseConfiguredTargetTest",
     srcs = ["CcImportBaseConfiguredTargetTest.java"],
     deps = [
-        ":SkylarkCcCommonTestHelper",
+        ":StarlarkCcCommonTestHelper",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -123,7 +123,7 @@ java_library(
 )
 
 java_library(
-    name = "SkylarkCcCommonTestHelper",
+    name = "StarlarkCcCommonTestHelper",
     srcs = ["StarlarkCcCommonTestHelper.java"],
 )
 
@@ -140,8 +140,8 @@ java_test(
 )
 
 java_test(
-    name = "CppConfigurationSkylarkTest",
-    srcs = ["CppConfigurationSkylarkTest.java"],
+    name = "CppConfigurationStarlarkTest",
+    srcs = ["CppConfigurationStarlarkTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",

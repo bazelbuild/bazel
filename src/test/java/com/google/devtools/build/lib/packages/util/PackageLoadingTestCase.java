@@ -78,7 +78,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   public final void initializeSkyframeExecutor() throws Exception {
     loadingMock = LoadingMock.get();
     packageOptions = parsePackageOptions();
-    starlarkSemanticsOptions = parseSkylarkSemanticsOptions();
+    starlarkSemanticsOptions = parseStarlarkSemanticsOptions();
     List<RuleDefinition> extraRules = getExtraRules();
     if (!extraRules.isEmpty()) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -185,7 +185,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private static StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+  private static StarlarkSemanticsOptions parseStarlarkSemanticsOptions(String... options)
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
@@ -198,8 +198,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     setUpSkyframe();
   }
 
-  protected void setSkylarkSemanticsOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+  protected void setStarlarkSemanticsOptions(String... options) throws Exception {
+    starlarkSemanticsOptions = parseStarlarkSemanticsOptions(options);
     setUpSkyframe();
   }
 

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkDocUtils;
 import com.google.devtools.build.docgen.starlark.StarlarkMethodDoc;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDocumentationCategory;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
 import java.io.File;
@@ -30,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** A class to assemble documentation for Starlark. */
 public final class StarlarkDocumentationProcessor {
@@ -83,7 +83,7 @@ public final class StarlarkDocumentationProcessor {
     writeCategoryPage(StarlarkDocumentationCategory.PROVIDER, outputDir, modulesByCategory);
     writeNavPage(outputDir, modulesByCategory.get(StarlarkDocumentationCategory.TOP_LEVEL_TYPE));
 
-    // In the code, there are two SkylarkModuleCategory instances that have no heading:
+    // In the code, there are two StarlarkModuleCategory instances that have no heading:
     // TOP_LEVEL_TYPE and NONE.
 
     // TOP_LEVEL_TYPE also contains the "global" module.
@@ -139,7 +139,7 @@ public final class StarlarkDocumentationProcessor {
 
   private static void writePage(String outputDir, StarlarkBuiltinDoc module) throws IOException {
     File skylarkDocPath = new File(outputDir + "/" + module.getName() + ".html");
-    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_LIBRARY_TEMPLATE);
+    Page page = TemplateEngine.newPage(DocgenConsts.STARLARK_LIBRARY_TEMPLATE);
     page.add("module", module);
     page.write(skylarkDocPath);
   }
@@ -151,7 +151,7 @@ public final class StarlarkDocumentationProcessor {
       throws IOException {
     File skylarkDocPath = new File(String.format("%s/skylark-%s.html",
         outputDir, category.getTemplateIdentifier()));
-    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_MODULE_CATEGORY_TEMPLATE);
+    Page page = TemplateEngine.newPage(DocgenConsts.STARLARK_MODULE_CATEGORY_TEMPLATE);
     page.add("category", category);
     page.add("modules", modules.get(category));
     page.add("description", StarlarkDocUtils.substituteVariables(category.getDescription()));
@@ -161,7 +161,7 @@ public final class StarlarkDocumentationProcessor {
   private static void writeNavPage(String outputDir, List<StarlarkBuiltinDoc> navModules)
       throws IOException {
     File navFile = new File(outputDir + "/skylark-nav.html");
-    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_NAV_TEMPLATE);
+    Page page = TemplateEngine.newPage(DocgenConsts.STARLARK_NAV_TEMPLATE);
     page.add("modules", navModules);
     page.write(navFile);
   }
@@ -175,7 +175,7 @@ public final class StarlarkDocumentationProcessor {
       Map<StarlarkDocumentationCategory, List<StarlarkBuiltinDoc>> modulesPerCategory)
       throws IOException {
     File skylarkDocPath = new File(outputDir + "/skylark-overview.html");
-    Page page = TemplateEngine.newPage(DocgenConsts.SKYLARK_OVERVIEW_TEMPLATE);
+    Page page = TemplateEngine.newPage(DocgenConsts.STARLARK_OVERVIEW_TEMPLATE);
     page.add("global_name", globalModuleName);
     page.add("global_functions", globalFunctions);
     page.add("global_constants", globalConstants);

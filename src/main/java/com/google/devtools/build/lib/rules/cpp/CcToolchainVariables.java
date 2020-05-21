@@ -1330,6 +1330,11 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     }
 
     @Override
+    public boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
+    }
+
+    @Override
     Map<String, Object> getVariablesMap() {
       return variablesMap;
     }

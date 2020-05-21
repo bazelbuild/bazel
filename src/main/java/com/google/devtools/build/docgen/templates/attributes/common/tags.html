@@ -1,6 +1,6 @@
 <p>
   <code>List of arbitrary text tags.  Tags may be any valid string; default is
-  the empty list.</code>
+  the empty list; <a href="#configurable-attributes">nonconfigurable</a></code>
 </p>
 
 <p>
@@ -22,9 +22,8 @@
 
 <ul>
   <li><code>no-sandbox</code> keyword results in the action or test never being
-    <a href="../user-manual.html#sandboxing">sandboxed</a>; it can still be
-    cached or run remotely - use <code>no-cache</code> or <code>no-remote</code>
-    to prevent either or both of those.
+    sandboxed; it can still be cached or run remotely - use <code>no-cache</code>
+    or <code>no-remote</code> to prevent either or both of those.
   </li>
 
   <li><code>no-cache</code> keyword results in the action or test never being
@@ -48,8 +47,7 @@
   </li>
 
   <li><code>local</code> keyword precludes the action or test from being remotely cached,
-    remotely executed, or run inside the
-    <a href="../user-manual.html#sandboxing">sandbox</a>.
+    remotely executed, or run inside the sandbox.
     For genrules and tests, marking the rule with the <code>local = True</code>
     attribute has the same effect.
   </li>

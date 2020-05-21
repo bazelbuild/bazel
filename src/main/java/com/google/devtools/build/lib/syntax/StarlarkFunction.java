@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /** A StarlarkFunction is a function value created by a Starlark {@code def} statement. */
 public final class StarlarkFunction implements StarlarkCallable {
@@ -145,11 +145,12 @@ public final class StarlarkFunction implements StarlarkCallable {
 
   @Override
   public void repr(Printer printer) {
-    Object label = module.getLabel();
+    // TODO(adonovan): use the file name instead. But that's a breaking Bazel change.
+    Object clientData = module.getClientData();
 
     printer.append("<function " + getName());
-    if (label != null) {
-      printer.append(" from " + label);
+    if (clientData != null) {
+      printer.append(" from " + clientData);
     }
     printer.append(">");
   }

@@ -157,13 +157,14 @@ function test_process_spawned_by_test_doesnt_block_test_from_completing() {
   cat > $pkg/BUILD <<'EOF'
 java_test(
     name = "my_test",
-    main_class = "MyTest",
+    main_class = "test.MyTest",
     srcs = ["MyTest.java"],
     timeout = "short",
     use_testrunner = 0,
 )
 EOF
   cat > $pkg/MyTest.java <<'EOF'
+package test;
 public class MyTest {
   public static void main(String[] args) throws Exception {
     new ProcessBuilder("sleep", "300").inheritIO().start();
