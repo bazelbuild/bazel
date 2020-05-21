@@ -83,9 +83,12 @@ public abstract class Dependency {
 
     // Added to enable copy, below. Should not be accessible to other classes.
     protected abstract Label getLabel();
+
     @Nullable
     protected abstract BuildConfiguration getConfiguration();
+
     protected abstract AspectCollection getAspects();
+
     protected abstract ImmutableList<String> getTransitionKeys();
 
     /** Returns a copy of this Builder, with the values the same. */

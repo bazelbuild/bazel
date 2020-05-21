@@ -341,15 +341,17 @@ public final class ConfigurationResolver {
         throw new DependencyEvaluationException(e);
       }
 
-      if (depFragments.equals(getCurrentConfiguration().fragmentClasses().fragmentClasses()) && SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
+      if (depFragments.equals(getCurrentConfiguration().fragmentClasses().fragmentClasses())
+          && SplitTransition.equals(getCurrentConfiguration().getOptions(), toOptions.values())) {
         // Optimize and don't look up the configuration again.
-        return ImmutableList.of(dependencyBuilder
-            .setConfiguration(getCurrentConfiguration())
-            .setAspects(dependencyKey.getAspects())
-            // Explicitly do not set the transition key, since there is only one configuration
-            // and it matches the current one. This ignores the transition key set if this
-            // was a split transition.
-            .build());
+        return ImmutableList.of(
+            dependencyBuilder
+                .setConfiguration(getCurrentConfiguration())
+                .setAspects(dependencyKey.getAspects())
+                // Explicitly do not set the transition key, since there is only one configuration
+                // and it matches the current one. This ignores the transition key set if this
+                // was a split transition.
+                .build());
       }
 
       PathFragment platformMappingPath =
@@ -397,7 +399,7 @@ public final class ConfigurationResolver {
                     .setConfiguration(configuration)
                     .setAspects(dependencyKey.getAspects())
                     .setTransitionKey(transitionKey)
-                .build();
+                    .build();
             dependencies.add(resolvedDep);
           }
         }
