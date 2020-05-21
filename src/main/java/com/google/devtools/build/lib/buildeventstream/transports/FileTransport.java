@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.base.Throwables;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -145,7 +144,9 @@ abstract class FileTransport implements BuildEventTransport {
           }
         }
       } catch (ExecutionException e) {
-        Throwables.throwIfUnchecked(e.getCause());
+        if (e.getCause() instanceof RuntimeException || e.getCause() instanceof Error) {
+          closeFuture.setException(e.getCause());
+        }
         exitFailure(e);
       } catch (IOException | InterruptedException | CancellationException e) {
         exitFailure(e);
