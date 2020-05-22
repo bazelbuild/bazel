@@ -29,7 +29,7 @@ class Configuration():
     return hash(tuple(items_to_hash))
 
 @dataclass(frozen=True)
-class ConfiguredTarget:
+class ConfiguredTarget():
   """Encapsulates a target + configuration + required fragments."""
   # Label of the target this represents.
   label: str
@@ -57,7 +57,7 @@ class HostConfiguration(Configuration):
   """
   # We don't currently read the host config's fragments or option values.
   fragments: Tuple[str,...] = ()
-  options: Dict[str, Dict[str, str]] = field(default_factory={})
+  options: Dict[str, Dict[str, str]] = field(default_factory=lambda: {})
 
 @dataclass(frozen=True)
 class NullConfiguration(Configuration):
@@ -66,4 +66,4 @@ class NullConfiguration(Configuration):
   By definition this has no fragments or options.
   """
   fragments: Tuple[str,...] = ()
-  options: Dict[str, Dict[str, str]] = field(default_factory={})
+  options: Dict[str, Dict[str, str]] = field(default_factory=lambda: {})
