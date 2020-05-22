@@ -14,7 +14,7 @@ BUILD files are intended to be simple and repetitive.
 
 All software is read more often than it is written. This is especially true for
 Starlark, as engineers read BUILD files to understand dependencies of their
-targets and details of their builds.This reading will often happen in passing,
+targets and details of their builds. This reading will often happen in passing,
 in a hurry, or in parallel to accomplishing some other task. Consequently,
 simplicity and readability are very important so that users can parse and
 comprehend BUILD files quickly.
