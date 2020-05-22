@@ -45,7 +45,7 @@ class MemoryStorageHandler(BaseHTTPRequestHandler):
     self.finish()
 
   def do_GET(self):
-    if self.path in self.server.storage:
+    if self.path in self.server.storage and 'gzip' in self.headers['Accept-Encoding']:
       out = io.BytesIO()
       with gzip.GzipFile(fileobj=out, mode='w') as f:
         f.write(self.server.storage[self.path])
@@ -89,7 +89,7 @@ class CacheDecompressionTest(test_base.TestBase):
         ')',
     ])
 
-    exit_code, _, stderr = self.RunBazel(['build', '//:genrule.txt', '--remote_http_cache', self.url])
+    exit_code, _, stderr = self.RunBazel(['build', '//:genrule.txt', '--remote_cache', self.url])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertNotIn('INFO: 1 process: 1 remote cache hit.', stderr)
     self.assertNotIn('HTTP version 1.1 is required', stderr)
@@ -97,7 +97,7 @@ class CacheDecompressionTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['clean', '--expunge'])
     self.AssertExitCode(exit_code, 0, stderr)
 
-    exit_code, _, stderr = self.RunBazel(['build', '//:genrule.txt', '--remote_http_cache', self.url])
+    exit_code, _, stderr = self.RunBazel(['build', '//:genrule.txt', '--remote_cache', self.url])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('INFO: 1 process: 1 remote cache hit.', stderr)
     self.assertNotIn('HTTP version 1.1 is required', stderr)
