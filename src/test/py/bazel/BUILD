@@ -182,6 +182,9 @@ py_test(
     main = "remote/cache_decompression_test.py",
     srcs = ["remote/cache_decompression_test.py"],
     deps = [":test_base"],
+    tags = [
+        "no-sandbox", # This test sets up mock cache on localhost.
+    ],
 )
 
 py_test(
