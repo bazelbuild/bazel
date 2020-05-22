@@ -96,7 +96,7 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
             @Override
             public String apply(SkyKey input) {
               if (input.argument() instanceof StarlarkImportLookupValue.Key) {
-                return ((StarlarkImportLookupValue.Key) input.argument()).importLabel.toString();
+                return ((StarlarkImportLookupValue.Key) input.argument()).getLabel().toString();
               } else if (input.argument() instanceof PackageIdentifier) {
                 return ((PackageIdentifier) input.argument()) + "/BUILD";
               } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
@@ -162,7 +162,7 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
         Label fileLabel =
             ((StarlarkImportLookupValue.Key)
                     Iterables.getLast(Iterables.filter(cycle, IS_STARLARK_IMPORTS_LOOKUP)))
-                .getImportLabel();
+                .getLabel();
         message.append("Failed to load Starlark extension '").append(fileLabel).append("'.\n");
       }
 
@@ -197,7 +197,7 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
       Label fileLabel =
           ((StarlarkImportLookupValue.Key)
                   Iterables.getLast(Iterables.filter(cycle, IS_STARLARK_IMPORTS_LOOKUP)))
-              .getImportLabel();
+              .getLabel();
       eventHandler.handle(
           Event.error(null, "Failed to load Starlark extension '" + fileLabel + "'.\n"));
         return true;

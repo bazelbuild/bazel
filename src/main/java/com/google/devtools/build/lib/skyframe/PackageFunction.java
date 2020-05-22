@@ -611,9 +611,9 @@ public class PackageFunction implements SkyFunction {
       Label bzlLabel = load.second;
       if (inWorkspace) {
         int originalChunk = getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, bzlLabel);
-        keys.add(StarlarkImportLookupValue.keyInWorkspace(bzlLabel, originalChunk, buildFilePath));
+        keys.add(StarlarkImportLookupValue.workspaceBzlKey(bzlLabel, originalChunk, buildFilePath));
       } else {
-        keys.add(StarlarkImportLookupValue.key(bzlLabel));
+        keys.add(StarlarkImportLookupValue.packageBzlKey(bzlLabel));
       }
     }
 

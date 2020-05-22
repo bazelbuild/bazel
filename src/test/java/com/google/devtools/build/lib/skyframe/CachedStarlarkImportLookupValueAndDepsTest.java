@@ -128,10 +128,6 @@ public class CachedStarlarkImportLookupValueAndDepsTest {
   }
 
   private static StarlarkImportLookupValue.Key createStarlarkKey(String name) {
-    return StarlarkImportLookupValue.Key.create(
-        Label.parseAbsoluteUnchecked(name),
-        /*inWorkspace=*/ false,
-        /*workspaceChunk=*/ 0,
-        /* workspacePath= */ null);
+    return StarlarkImportLookupValue.packageBzlKey(Label.parseAbsoluteUnchecked(name));
   }
 }

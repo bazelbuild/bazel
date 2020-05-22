@@ -67,52 +67,54 @@ public class StarlarkImportLookupValue implements SkyValue {
     return dependency;
   }
 
-  /**
-   * SkyKey for a Starlark import composed of the label of the Starlark extension and whether it is
-   * loaded from the WORKSPACE file or from a BUILD file.
-   */
-  @Immutable
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static final class Key implements SkyKey {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+  private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
-    public final Label importLabel;
-    public final boolean inWorkspace;
-    // a workspaceChunk = -1 means inWorkspace is false
-    public final int workspaceChunk;
-    // a null rooted workspace path means inWorkspace is false
-    public final RootedPath workspacePath;
+  /** SkyKey for a Starlark import. */
+  abstract static class Key implements SkyKey {
 
-    private Key(
-        Label importLabel, boolean inWorkspace, int workspaceChunk, RootedPath workspacePath) {
-      Preconditions.checkNotNull(importLabel);
-      Preconditions.checkArgument(!importLabel.getPackageIdentifier().getRepository().isDefault());
-      this.importLabel = importLabel;
-      this.inWorkspace = inWorkspace;
-      this.workspaceChunk = workspaceChunk;
-      this.workspacePath = workspacePath;
-    }
+    /** Returns the label of the .bzl file to be loaded. */
+    abstract Label getLabel();
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(
-        Label importLabel, boolean inWorkspace, int workspaceChunk, RootedPath workspacePath) {
-      return interner.intern(new Key(importLabel, inWorkspace, workspaceChunk, workspacePath));
-    }
+    /**
+     * Constructs a new key suitable for evaluating a {@code load()} dependency of this key's .bzl
+     * file.
+     *
+     * <p>The new key uses the given label but the same contextual information -- whether the
+     * top-level requesting value is a BUILD or WORKSPACE file, and if it's a WORKSPACE, its
+     * chunking info.
+     */
+    abstract Key getKeyForLoad(Label loadLabel);
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.STARLARK_IMPORTS_LOOKUP;
     }
+  }
+
+  /** A key for loading a .bzl during package loading (BUILD evaluation). */
+  @Immutable
+  @AutoCodec.VisibleForSerialization
+  static final class PackageBzlKey extends Key {
+
+    private final Label label;
+
+    private PackageBzlKey(Label label) {
+      this.label = Preconditions.checkNotNull(label);
+    }
+
+    @Override
+    Label getLabel() {
+      return label;
+    }
+
+    @Override
+    Key getKeyForLoad(Label loadLabel) {
+      return packageBzlKey(loadLabel);
+    }
 
     @Override
     public String toString() {
-      return importLabel + (inWorkspace ? " (in workspace)" : "");
-    }
-
-    Label getImportLabel() {
-      return importLabel;
+      return label.toString();
     }
 
     @Override
@@ -120,42 +122,101 @@ public class StarlarkImportLookupValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof Key)) {
+      if (!(obj instanceof PackageBzlKey)) {
         return false;
       }
-      Key other = (Key) obj;
-      return importLabel.equals(other.importLabel)
-          && inWorkspace == other.inWorkspace
-          && workspaceChunk == other.workspaceChunk
-          && Objects.equals(workspacePath, other.workspacePath);
+      return this.label.equals(((PackageBzlKey) obj).label);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(importLabel, inWorkspace, workspaceChunk, workspacePath);
+      return Objects.hash(PackageBzlKey.class, label);
     }
   }
 
   /**
-   * Creates a {@link StarlarkImportLookupValue.Key}.
+   * A key for loading a .bzl during WORKSPACE evaluation.
    *
-   * @param importLabel the label of the bzl file being loaded
+   * <p>This needs to track "chunking" information, i.e. a sequence number indicating which segment
+   * of the WORKSPACE file we are in the process of evaluating. This helps determine the appropriate
+   * repository remapping value to use.
+   */
+  // TODO(brandjon): Question: It looks like the chunk number doesn't play any role in deciding
+  // whether or not a repo is available for load()ing. Are we tracking incremental dependencies
+  // correctly? For instance, if a repository declaration moves from one workspace chunk to another,
+  // are we reevaluating whether its loads are still valid? AI: fix if broken, improve this comment
+  // if not broken.
+  @Immutable
+  @AutoCodec.VisibleForSerialization
+  static final class WorkspaceBzlKey extends Key {
+
+    private final Label label;
+    private final int workspaceChunk;
+    private final RootedPath workspacePath;
+
+    private WorkspaceBzlKey(Label label, int workspaceChunk, RootedPath workspacePath) {
+      this.label = Preconditions.checkNotNull(label);
+      this.workspaceChunk = workspaceChunk;
+      this.workspacePath = Preconditions.checkNotNull(workspacePath);
+    }
+
+    @Override
+    Label getLabel() {
+      return label;
+    }
+
+    int getWorkspaceChunk() {
+      return workspaceChunk;
+    }
+
+    RootedPath getWorkspacePath() {
+      return workspacePath;
+    }
+
+    @Override
+    Key getKeyForLoad(Label loadLabel) {
+      return workspaceBzlKey(loadLabel, workspaceChunk, workspacePath);
+    }
+
+    @Override
+    public String toString() {
+      return label + " (in workspace)";
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof WorkspaceBzlKey)) {
+        return false;
+      }
+      WorkspaceBzlKey other = (WorkspaceBzlKey) obj;
+      return label.equals(other.label)
+          && workspaceChunk == other.workspaceChunk
+          && workspacePath.equals(other.workspacePath);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(WorkspaceBzlKey.class, label, workspaceChunk, workspacePath);
+    }
+  }
+
+  /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
+  static Key packageBzlKey(Label label) {
+    return keyInterner.intern(new PackageBzlKey(label));
+  }
+
+  /**
+   * Constructs a key for loading a .bzl file from the context of evaluating the WORKSPACE file.
+   *
+   * @param label the label of the bzl file being loaded
    * @param workspaceChunk the workspace chunk that the load statement originated from. If the bzl
    *     file is loaded more than once, this is the chunk that it was first loaded from
    * @param workspacePath the path of the workspace file for the project
    */
-  static Key keyInWorkspace(Label importLabel, int workspaceChunk, RootedPath workspacePath) {
-    return Key.create(importLabel, /* inWorkspace= */ true, workspaceChunk, workspacePath);
-  }
-
-  /**
-   * Convenience method to construct a key for load statements that do not originate from a
-   * workspace file.
-   *
-   * @param importLabel the label of the bzl file being loaded
-   */
-  static Key key(Label importLabel) {
-    return Key.create(
-        importLabel, /* inWorkspace= */ false, /* workspaceChunk= */ -1, /* workspacePath= */ null);
+  static Key workspaceBzlKey(Label label, int workspaceChunk, RootedPath workspacePath) {
+    return keyInterner.intern(new WorkspaceBzlKey(label, workspaceChunk, workspacePath));
   }
 }

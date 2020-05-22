@@ -29,17 +29,12 @@ public final class StarlarkImportLookupKeyCodecTest {
   public void testCodec() throws Exception {
     SerializationTester serializationTester =
         new SerializationTester(
-            StarlarkImportLookupValue.Key.create(
-                Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()), false, -1, null),
-            StarlarkImportLookupValue.Key.create(
-                Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()), true, -1, null),
-            StarlarkImportLookupValue.Key.create(
-                Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()), true, 8, null),
-            StarlarkImportLookupValue.Key.create(
+            StarlarkImportLookupValue.packageBzlKey(
+                Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of())),
+            StarlarkImportLookupValue.workspaceBzlKey(
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()),
-                true,
-                4,
-                FsUtils.TEST_ROOTED_PATH));
+                /*workspaceChunk=*/ 4,
+                /*workspacePath=*/ FsUtils.TEST_ROOTED_PATH));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
   }

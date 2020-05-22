@@ -154,7 +154,7 @@ public final class AspectFunction implements SkyFunction {
   static StarlarkAspect loadStarlarkAspect(
       Environment env, Label extensionLabel, String starlarkValueName)
       throws AspectCreationException, InterruptedException {
-    SkyKey importFileKey = StarlarkImportLookupValue.key(extensionLabel);
+    SkyKey importFileKey = StarlarkImportLookupValue.packageBzlKey(extensionLabel);
     try {
       StarlarkImportLookupValue starlarkImportLookupValue =
           (StarlarkImportLookupValue)
