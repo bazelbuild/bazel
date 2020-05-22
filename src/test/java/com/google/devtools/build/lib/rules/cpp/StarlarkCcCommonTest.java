@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.MakeV
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 import com.google.protobuf.TextFormat;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -5594,30 +5595,44 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testPossiblePrivateHdrExtensions() throws Exception {
+  public void testCustomPrivateHdrsExtensions() throws Exception {
+    ArrayList<String> extensions = new ArrayList<>();
+    extensions.add(".unknown");
+    extensions.add(".foo");
+    doTestPossibleExtensionsOfSrcsAndHdrs("private_hdrs", extensions);
+  }
+
+  @Test
+  public void testPrivateHdrEmptyExtensions() throws Exception {
+    ArrayList<String> extensions = new ArrayList<>();
+    extensions.add("");
+    doTestPossibleExtensionsOfSrcsAndHdrs("private_hdrs", extensions);
+  }
+
+  @Test
+  public void testWellKnownPrivateHdrExtensions() throws Exception {
     doTestPossibleExtensionsOfSrcsAndHdrs("private_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
   }
 
   @Test
-  public void testPossiblePublicHdrExtensions() throws Exception {
+  public void testWellKnownPublicHdrExtensions() throws Exception {
     doTestPossibleExtensionsOfSrcsAndHdrs("public_hdrs", CppFileTypes.CPP_HEADER.getExtensions());
   }
 
   @Test
-  public void testWrongSrcsExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("srcs");
+  public void testUnknownPublicHdrExtensions() throws Exception {
+    ArrayList<String> extensions = new ArrayList<>();
+    extensions.add(".unknown");
+    extensions.add(".foo");
+    doTestPossibleExtensionsOfSrcsAndHdrs("public_hdrs", extensions);
   }
 
   @Test
-  public void testWrongPrivateHdrExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("private_hdrs");
+  public void testEmptyPublicHdrExtension() throws Exception {
+    ArrayList<String> extensions = new ArrayList<>();
+    extensions.add("");
+    doTestPossibleExtensionsOfSrcsAndHdrs("public_hdrs", extensions);
   }
-
-  @Test
-  public void testWrongPublicHdrExtensionGivesError() throws Exception {
-    doTestWrongExtensionOfSrcsAndHdrs("public_hdrs");
-  }
-
 
   @Test
   public void testWrongSrcExtensionGivesError() throws Exception {
