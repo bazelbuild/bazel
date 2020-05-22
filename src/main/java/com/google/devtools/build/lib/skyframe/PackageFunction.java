@@ -648,8 +648,8 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Compute the StarlarkImportLookupValue for all given SkyKeys using vanilla skyframe evaluation,
-   * returning {@code null} if skyframe deps were missing and have been requested.
+   * Compute the StarlarkImportLookupValue for all given keys using vanilla Skyframe evaluation,
+   * returning {@code null} if Skyframe deps were missing and have been requested.
    */
   @Nullable
   private static List<StarlarkImportLookupValue> computeStarlarkImportsNoInlining(
@@ -668,9 +668,9 @@ public class PackageFunction implements SkyFunction {
   }
 
   /**
-   * Compute the StarlarkImportLookupValue for all given SkyKeys by "inlining" the
-   * StarlarkImportLookupFunction and bypassing traditional skyframe evaluation, returning {@code
-   * null} if skyframe deps were missing and have been requested.
+   * Compute the StarlarkImportLookupValue for all given keys by "inlining" the
+   * StarlarkImportLookupFunction and bypassing traditional Skyframe evaluation, returning {@code
+   * null} if Skyframe deps were missing and have been requested.
    */
   @Nullable
   private static List<StarlarkImportLookupValue> computeStarlarkImportsWithInlining(
@@ -682,20 +682,19 @@ public class PackageFunction implements SkyFunction {
         Lists.newArrayListWithExpectedSize(keys.size());
     Exception deferredException = null;
     boolean valuesMissing = false;
-    // For each listed import in order, try to compute its StarlarkImportLookupValue.
+    // Compute StarlarkImportLookupValue for each key, sharing this map as one big cache. This
+    // ensures that each .bzl is loaded only once, regardless of diamond dependencies. (Multiple
+    // loads of the same .bzl would screw up identity equality of some Starlark symbols.)
     Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps>
         visitedDepsInToplevelLoad = new HashMap<>();
     for (StarlarkImportLookupValue.Key key : keys) {
       SkyValue skyValue;
       try {
-        if (visitedDepsInToplevelLoad.containsKey(key)) {
-          skyValue = visitedDepsInToplevelLoad.get(key).getValue();
-        } else {
-          skyValue =
-              starlarkImportLookupFunctionForInlining
-                  .computeWithSelfInlineCallsForPackageAndWorkspaceNodes(
-                      key, env, visitedDepsInToplevelLoad);
-        }
+        // Will complete right away if it's already cached in visitedDepsInToplevelLoad.
+        skyValue =
+            starlarkImportLookupFunctionForInlining
+                .computeWithSelfInlineCallsForPackageAndWorkspaceNodes(
+                    key, env, visitedDepsInToplevelLoad);
       } catch (StarlarkImportFailedException | InconsistentFilesystemException e) {
         // For determinism's sake while inlining, preserve the first exception and continue to run
         // subsequently listed imports to completion/exception, loading all transitive deps anyway.
