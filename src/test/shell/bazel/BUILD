@@ -179,6 +179,30 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_java14_test",
+    srcs = ["bazel_java14_test.sh"],
+    tags = ["local"],
+    args = [
+        # --java_toolchain and --host_java_toolchain values
+        "@local_java_tools//:toolchain_jdk_14",
+        # java_tools zip to test
+        "src/java_tools_java14.zip",
+    ] + select({
+        # --javabase and --host_javabase values
+        "//src/conditions:darwin": ["@openjdk14_darwin_archive//:runtime"],
+        "//src/conditions:darwin_x86_64": ["@openjdk14_darwin_archive//:runtime"],
+        "//src/conditions:windows": ["@openjdk14_windows_archive//:runtime"],
+        "//src/conditions:linux_x86_64": ["@openjdk14_linux_archive//:runtime"],
+    }),
+    data = [
+        ":test-deps",
+        "//src:java_tools_java14_zip",
+        "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+sh_test(
     name = "bazel_java_test",
     # TODO(iirina): Investigate if the 'large' and 'eternal' values still apply.
     size = "large",
@@ -196,7 +220,10 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("11",)
+JAVA_VERSIONS = ("11", "14")
+
+# TODO(davido): Remove this once remote_java_tools_javac14 is released
+JAVA_TOOLS_VERSIONS = ("11",)
 
 [
     sh_test(
@@ -467,7 +494,7 @@ sh_test(
             "no_windows",
         ],
     )
-    for java_version in JAVA_VERSIONS
+    for java_version in JAVA_TOOLS_VERSIONS
 ]
 
 # Test java coverage with the java_toolchain in the java_tools zip built at head.
