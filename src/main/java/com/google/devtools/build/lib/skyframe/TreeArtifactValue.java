@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
@@ -43,14 +44,12 @@ import javax.annotation.Nullable;
  * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s of its child
  * {@link TreeFileArtifact}s.
  */
-@AutoCodec
 public class TreeArtifactValue implements HasDigest, SkyValue {
 
-  private static final TreeArtifactValue EMPTY =
+  @SerializationConstant @AutoCodec.VisibleForSerialization
+  static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
-          DigestUtils.fromMetadata(ImmutableMap.of()),
-          ImmutableSortedMap.of(),
-          /* remote= */ false);
+          DigestUtils.fromMetadata(ImmutableMap.of()), ImmutableSortedMap.of(), /*remote=*/ false);
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
@@ -161,57 +160,67 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   /**
+   * Represents a tree artifact that was intentionally omitted, similar to {@link
+   * FileArtifactValue#OMITTED_FILE_MARKER}.
+   */
+  @SerializationConstant
+  public static final TreeArtifactValue OMITTED_TREE_MARKER = createMarker("OMITTED_TREE_MARKER");
+
+  /**
    * A TreeArtifactValue that represents a missing TreeArtifact. This is occasionally useful because
    * Java's concurrent collections disallow null members.
    */
-  static final TreeArtifactValue MISSING_TREE_ARTIFACT =
-      new TreeArtifactValue(null, ImmutableSortedMap.of(), /* remote= */ false) {
-        @Override
-        FileArtifactValue getSelfData() {
-          throw new UnsupportedOperationException();
-        }
+  static final TreeArtifactValue MISSING_TREE_ARTIFACT = createMarker("MISSING_TREE_ARTIFACT");
 
-        @Override
-        public ImmutableSet<TreeFileArtifact> getChildren() {
-          throw new UnsupportedOperationException();
-        }
+  private static TreeArtifactValue createMarker(String toStringRepresentation) {
+    return new TreeArtifactValue(null, ImmutableSortedMap.of(), /*remote=*/ false) {
+      @Override
+      FileArtifactValue getSelfData() {
+        throw new UnsupportedOperationException(toString());
+      }
 
-        @Override
-        ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
-          throw new UnsupportedOperationException();
-        }
+      @Override
+      public ImmutableSet<TreeFileArtifact> getChildren() {
+        throw new UnsupportedOperationException(toString());
+      }
 
-        @Override
-        FileArtifactValue getMetadata() {
-          throw new UnsupportedOperationException();
-        }
+      @Override
+      ImmutableMap<TreeFileArtifact, FileArtifactValue> getChildValues() {
+        throw new UnsupportedOperationException(toString());
+      }
 
-        @Override
-        ImmutableSet<PathFragment> getChildPaths() {
-          throw new UnsupportedOperationException();
-        }
+      @Override
+      FileArtifactValue getMetadata() {
+        throw new UnsupportedOperationException(toString());
+      }
 
-        @Nullable
-        @Override
-        public byte[] getDigest() {
-          throw new UnsupportedOperationException();
-        }
+      @Override
+      ImmutableSet<PathFragment> getChildPaths() {
+        throw new UnsupportedOperationException(toString());
+      }
 
-        @Override
-        public int hashCode() {
-          return 24; // my favorite number
-        }
+      @Nullable
+      @Override
+      public byte[] getDigest() {
+        throw new UnsupportedOperationException(toString());
+      }
 
-        @Override
-        public boolean equals(Object other) {
-          return this == other;
-        }
+      @Override
+      public int hashCode() {
+        return System.identityHashCode(this);
+      }
 
-        @Override
-        public String toString() {
-          return "MISSING_TREE_ARTIFACT";
-        }
-      };
+      @Override
+      public boolean equals(Object other) {
+        return this == other;
+      }
+
+      @Override
+      public String toString() {
+        return toStringRepresentation;
+      }
+    };
+  }
 
   private static void explodeDirectory(
       Path treeArtifactPath,

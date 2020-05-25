@@ -161,7 +161,7 @@ class ArtifactFunction implements SkyFunction {
     }
   }
 
-  private static SkyValue createTreeArtifactValueFromActionKey(
+  private static TreeArtifactValue createTreeArtifactValueFromActionKey(
       ArtifactDependencies artifactDependencies, Environment env) throws InterruptedException {
     // Request the list of expanded actions from the ActionTemplate.
     ActionTemplateExpansion actionTemplateExpansion =
@@ -232,7 +232,7 @@ class ArtifactFunction implements SkyFunction {
           children.isEmpty(),
           "Action template expansion has some but not all outputs omitted, present outputs: %s",
           children);
-      return FileArtifactValue.OMITTED_FILE_MARKER;
+      return TreeArtifactValue.OMITTED_TREE_MARKER;
     }
     return TreeArtifactValue.create(children);
   }
