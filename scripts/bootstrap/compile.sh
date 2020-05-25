@@ -21,8 +21,11 @@ if [ -d derived/jars ]; then
 else
   PROTOBUF_JARS="/usr/share/java/protobuf.jar /usr/share/java/protobuf-java-util.jar"
 fi
-PROTO_FILES=$(find third_party/remoteapis third_party/googleapis third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto -name "*.proto")
-LIBRARY_JARS=$(find $PROTOBUF_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
+
+# Parse third_party/googleapis/BUILD.bazel to find the proto files we need to compile from googleapis
+GOOGLE_API_PROTOS="$(grep -o '".*\.proto"' third_party/googleapis/BUILD.bazel | sed 's/"//g' | sed 's|^|third_party/googleapis/|g')"
+PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof src/main/protobuf src/main/java/com/google/devtools/build/lib/buildeventstream/proto src/main/java/com/google/devtools/build/skyframe src/main/java/com/google/devtools/build/lib/skyframe/proto src/main/java/com/google/devtools/build/lib/bazel/debug src/main/java/com/google/devtools/build/lib/starlarkdebug/proto -name "*.proto")
+LIBRARY_JARS=$(find $PROTOBUF_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
 GRPC_JAVA_VERSION=1.20.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
 GUAVA_VERSION=25.1
@@ -244,6 +247,12 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
                 --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN-}" \
                 --grpc_out=${OUTPUT_DIR}/src "$f"
         done
+
+        # Recreate the derived directory
+        mkdir -p derived/src/java/build
+        mkdir -p derived/src/java/com
+        link_children ${OUTPUT_DIR}/src build derived/src/java
+        link_children ${OUTPUT_DIR}/src com derived/src/java
     fi
 
   java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}"
