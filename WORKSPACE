@@ -150,8 +150,11 @@ distdir_tar(
         "java_tools_javac11_windows-v8.0.zip",
         "java_tools_javac11_darwin-v8.0.zip",
         "coverage_output_generator-v2.1.zip",
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        # bazelbuid/stardoc
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+        # rules_sass
         "1.25.0.zip",
+        # rules_nodejs
         "rules_nodejs-1.3.0.tar.gz",
         "android_tools_pkg-0.16.0.tar.gz",
         # bazelbuild/bazel-skylib
@@ -178,7 +181,8 @@ distdir_tar(
         "java_tools_javac11_windows-v8.0.zip": "444c391977e50af4e10549a28d021069d2ca7745a0e7b9b968a7b153fe3ea430",
         "java_tools_javac11_darwin-v8.0.zip": "e0291e8956ac295143da4a673ca50727f7376665ee82b649a4ee810b64ff76c1",
         "coverage_output_generator-v2.1.zip": "96ac6bc9b9fbc67b532bcae562da1642409791e6a4b8e522f04946ee5cc3ff8e",
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
+        # bazelbuild/stardoc
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
         # rules_sass
         "1.25.0.zip": "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
         # rules_nodejs
@@ -218,9 +222,8 @@ distdir_tar(
         "coverage_output_generator-v2.1.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.1.zip",
         ],
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
-            "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": [
+            "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         ],
         "1.25.0.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
@@ -420,16 +423,15 @@ http_archive(
     ],
 )
 
-# Note that skydoc depends on being called io_bazel_skydoc (and not just skydoc)
+# Note that stardoc depends on being called io_bazel_skydoc
 # to work without being patched, as it hard-codes this name in its sources.
+# TODO(wyv): Is the above still true? Try a different name and see if it works.
+#   If it does, can we rename the workspace in bazelbuild/stardoc?
 http_archive(
     name = "io_bazel_skydoc",
-    sha256 = "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
-    strip_prefix = "skydoc-c7bbde2950769aac9a99364b0926230060a3ce04",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
-        "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
-    ],
+    sha256 = "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
+    strip_prefix = "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
+    urls = ["https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz"],
 )
 
 http_archive(
@@ -589,7 +591,7 @@ exports_files(["_sass/style.scss"])
 """
 )
 
-# Skydoc recommends declaring its dependencies via "*_dependencies" functions.
+# Stardoc recommends declaring its dependencies via "*_dependencies" functions.
 # This requires that the repositories these functions come from need to be
 # fetched unconditionally for everything (including just building bazel!), so
 # provide them as http_archives that can be shiped in the distdir, to keep the
@@ -875,9 +877,9 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-win_x64.zip"],
 )
 
-load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")
+load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 
-skydoc_repositories()
+stardoc_repositories()
 
 load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
 
