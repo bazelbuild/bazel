@@ -438,9 +438,8 @@ public final class SkyframeActionExecutor {
    * pass the returned context to {@link #executeAction}, and any other method that needs to execute
    * tasks related to that action.
    */
-  public ActionExecutionContext getContext(
+  ActionExecutionContext getContext(
       Action action,
-      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ProgressEventBehavior progressEventBehavior,
       Map<Artifact, Collection<Artifact>> expandedInputs,
@@ -467,7 +466,7 @@ public final class SkyframeActionExecutor {
     }
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(metadataProvider, actionFileSystem),
+        createFileCache(metadataHandler, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
@@ -622,7 +621,6 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
-      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ProgressEventBehavior progressEventBehavior,
       Environment env,
@@ -631,7 +629,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            createFileCache(metadataProvider, actionFileSystem),
+            createFileCache(metadataHandler, actionFileSystem),
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,

@@ -343,9 +343,7 @@ public class ActionExecutionFunction implements SkyFunction {
    * between runs.
    */
   private static Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>> getInputDeps(
-      Environment env,
-      NestedSet<Artifact> allInputs,
-      ContinuationState state)
+      Environment env, NestedSet<Artifact> allInputs, ContinuationState state)
       throws InterruptedException {
     if (evalInputsAsNestedSet(allInputs)) {
       // We "unwrap" the NestedSet and evaluate the first layer of direct Artifacts here in order
@@ -808,7 +806,6 @@ public class ActionExecutionFunction implements SkyFunction {
                     action,
                     actionLookupData,
                     metadataHandler,
-                    metadataHandler,
                     skyframeActionExecutor.probeCompletedAndReset(action)
                         ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
                         : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
@@ -883,7 +880,6 @@ public class ActionExecutionFunction implements SkyFunction {
     ActionExecutionContext actionExecutionContext =
         skyframeActionExecutor.getContext(
             action,
-            metadataHandler,
             metadataHandler,
             skyframeActionExecutor.probeCompletedAndReset(action)
                 ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
