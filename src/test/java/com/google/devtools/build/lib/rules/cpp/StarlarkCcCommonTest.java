@@ -6239,6 +6239,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    compilation_context = ctx.attr.dep[CcInfo].compilation_context",
         "    return [MyInfo(",
         "        direct_headers = compilation_context.direct_headers,",
+        "        direct_public_headers = compilation_context.direct_public_headers,",
+        "        direct_private_headers = compilation_context.direct_private_headers,",
         "        direct_textual_headers = compilation_context.direct_textual_headers,",
         "    )]",
         "cc_info_extractor = rule(",
@@ -6286,9 +6288,25 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     Iterable<Artifact> fooDirectHeaders = getArtifactsFromMyInfo(fooTarget, "direct_headers");
     assertThat(baseArtifactNames(fooDirectHeaders)).containsExactly("foo.h", "foo_impl.h");
 
+    Iterable<Artifact> fooDirectPublicHeaders =
+        getArtifactsFromMyInfo(fooTarget, "direct_public_headers");
+    assertThat(baseArtifactNames(fooDirectPublicHeaders)).containsExactly("foo.h");
+
+    Iterable<Artifact> fooDirectPrivateHeaders =
+        getArtifactsFromMyInfo(fooTarget, "direct_private_headers");
+    assertThat(baseArtifactNames(fooDirectPrivateHeaders)).containsExactly("foo_impl.h");
+
     ConfiguredTarget barTarget = getConfiguredTarget("//direct:bar");
     Iterable<Artifact> barDirectHeaders = getArtifactsFromMyInfo(barTarget, "direct_headers");
     assertThat(baseArtifactNames(barDirectHeaders)).containsExactly("bar.h");
+
+    Iterable<Artifact> barDirectPublicHeaders =
+        getArtifactsFromMyInfo(barTarget, "direct_public_headers");
+    assertThat(baseArtifactNames(barDirectPublicHeaders)).containsExactly("bar.h");
+
+    Iterable<Artifact> barDirectPrivateHeaders =
+        getArtifactsFromMyInfo(barTarget, "direct_private_headers");
+    assertThat(barDirectPrivateHeaders).isEmpty();
   }
 
   @Test
@@ -6395,8 +6413,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
                     .map(CppModuleMap::getArtifact)
                     .collect(ImmutableList.toImmutableList())))
         .containsExactly("public1.cppmap", "public2.cppmap");
-    assertThat(baseArtifactNames(ccCompilationContext.getDirectHdrs()))
-        .containsExactly("public1.h", "public2.h", "public1_impl.h", "public2_impl.h");
+    assertThat(baseArtifactNames(ccCompilationContext.getDirectPublicHdrs()))
+        .containsExactly("public1.h", "public2.h");
+    assertThat(baseArtifactNames(ccCompilationContext.getDirectPrivateHdrs()))
+        .containsExactly("public1_impl.h", "public2_impl.h");
     assertThat(baseArtifactNames(ccCompilationContext.getTextualHdrs()))
         .containsExactly("public1.inc", "public2.inc");
   }

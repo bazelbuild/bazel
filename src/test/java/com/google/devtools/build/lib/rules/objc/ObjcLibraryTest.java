@@ -1931,8 +1931,10 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     ConfiguredTarget target = getConfiguredTarget("//x:bar");
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
-    assertThat(baseArtifactNames(ccCompilationContext.getDirectHdrs()))
-        .containsExactly("bar.h", "bar_impl.h");
+    assertThat(baseArtifactNames(ccCompilationContext.getDirectPublicHdrs()))
+        .containsExactly("bar.h");
+    assertThat(baseArtifactNames(ccCompilationContext.getDirectPrivateHdrs()))
+        .containsExactly("bar_impl.h");
     assertThat(baseArtifactNames(ccCompilationContext.getTextualHdrs())).containsExactly("bar.inc");
   }
 

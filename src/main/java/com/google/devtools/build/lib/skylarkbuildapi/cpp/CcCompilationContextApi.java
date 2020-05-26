@@ -98,6 +98,22 @@ public interface CcCompilationContextApi<FileT extends FileApi> extends Starlark
   StarlarkList<FileT> getStarlarkDirectModularHeaders();
 
   @StarlarkMethod(
+      name = "direct_public_headers",
+      doc =
+          "Returns the list of modular public headers (those listed in \"hdrs\") that are declared"
+              + " by this target.",
+      structField = true)
+  StarlarkList<FileT> getStarlarkDirectPublicHeaders();
+
+  @StarlarkMethod(
+      name = "direct_private_headers",
+      doc =
+          "Returns the list of modular private headers (those listed in \"srcs\") that are"
+              + " declared by this target.",
+      structField = true)
+  StarlarkList<FileT> getStarlarkDirectPrivateHeaders();
+
+  @StarlarkMethod(
       name = "direct_textual_headers",
       doc = "Returns the list of textual headers that are declared by this target.",
       structField = true)
