@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -39,7 +37,8 @@ import java.util.zip.GZIPOutputStream;
 /**
  * Action to write a file whose contents are known at analysis time.
  *
- * <p>The output is always UTF-8 encoded.
+ * <p>The output is not reencoded in any way. That is, the raw bytes from BUILD
+ * and .bzl files for string attributes will be emitted exactly as read.
  *
  * <p>TODO(bazel-team): Choose a better name to distinguish this class from {@link
  * BinaryFileWriteAction}.
@@ -171,7 +170,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
     final int uncompressedSize;
 
     CompressedString(String chars) {
-      byte[] dataToCompress = chars.getBytes(UTF_8);
+      byte[] dataToCompress = chars.getBytes();
       ByteArrayOutputStream byteStream = new ByteArrayOutputStream(dataToCompress.length);
       try (GZIPOutputStream zipStream = new GZIPOutputStream(byteStream)) {
         zipStream.write(dataToCompress);
@@ -202,7 +201,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
         // This should be impossible since we're reading from a byte array.
         throw new RuntimeException(e);
       }
-      return new String(uncompressedBytes, UTF_8);
+      return new String(uncompressedBytes);
     }
   }
 
@@ -235,7 +234,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {
-        out.write(getFileContents().getBytes(UTF_8));
+        out.write(getFileContents().getBytes());
       }
     };
   }
