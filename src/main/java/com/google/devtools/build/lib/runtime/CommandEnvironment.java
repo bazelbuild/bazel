@@ -248,22 +248,36 @@ public class CommandEnvironment {
     Path workspace = getWorkspace();
     Path workingDirectory;
     if (inWorkspace()) {
-      if (commandOptions.clientCwd.containsUplevelReferences()) {
+      PathFragment clientCwd = commandOptions.clientCwd;
+      if (clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
             DetailedExitCode.of(
                 ExitCode.COMMAND_LINE_ERROR,
                 FailureDetail.newBuilder()
-                    .setMessage("Client cwd contains uplevel references")
+                    .setMessage("Client cwd '" + clientCwd + "' contains uplevel references")
                     .setClientEnvironment(
                         FailureDetails.ClientEnvironment.newBuilder()
                             .setCode(FailureDetails.ClientEnvironment.Code.CLIENT_CWD_MALFORMED)
                             .build())
                     .build()));
       }
-      workingDirectory = workspace.getRelative(commandOptions.clientCwd);
+      if (clientCwd.isAbsolute() && !clientCwd.startsWith(workspace.asFragment())) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                ExitCode.COMMAND_LINE_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage(
+                        String.format(
+                            "Client cwd '%s' is not inside workspace '%s'", clientCwd, workspace))
+                    .setClientEnvironment(
+                        FailureDetails.ClientEnvironment.newBuilder()
+                            .setCode(FailureDetails.ClientEnvironment.Code.CLIENT_CWD_MALFORMED)
+                            .build())
+                    .build()));
+      }
+      workingDirectory = workspace.getRelative(clientCwd);
     } else {
-      workspace = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
-      workingDirectory = workspace;
+      workingDirectory = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
     }
     return workingDirectory;
   }
