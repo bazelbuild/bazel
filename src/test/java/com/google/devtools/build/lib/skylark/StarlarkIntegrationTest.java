@@ -2227,8 +2227,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingRule_flag() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file("test/rules.bzl",
         "def _impl(ctx): return None",
         "build_setting_rule = rule(_impl, build_setting = config.string(flag=True))");
@@ -2248,8 +2246,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingRule_settingByDefault() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file("test/rules.bzl",
         "def _impl(ctx): return None",
         "build_setting_rule = rule(_impl, build_setting = config.string())");
@@ -2269,8 +2265,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingRule_settingByFlagParameter() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file("test/rules.bzl",
         "def _impl(ctx): return None",
         "build_setting_rule = rule(_impl, build_setting = config.string(flag=False))");
@@ -2291,8 +2285,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingRule_noDefault() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file("test/rules.bzl",
         "def _impl(ctx): return None",
         "build_setting_rule = rule(_impl, build_setting = config.string())");
@@ -2305,26 +2297,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("missing value for mandatory attribute "
         + "'build_setting_default' in 'build_setting_rule' rule");
 
-  }
-
-  @Test
-  public void testBuildSettingRule_errorsWithoutExperimentalFlag() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=false");
-
-    scratch.file(
-        "test/rules.bzl",
-        "def _impl(ctx): return None",
-        "build_setting_rule = rule(_impl, build_setting = config.string())");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:rules.bzl', 'build_setting_rule')",
-        "build_setting_rule(name = 'my_build_setting', build_setting_default = 'default')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:my_build_setting");
-    assertContainsEvent(
-        "parameter 'build_setting' is experimental and thus unavailable with the "
-            + "current flags. It may be enabled by setting --experimental_build_setting_api");
   }
 
   @Test

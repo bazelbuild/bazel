@@ -69,8 +69,6 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
 
   private void writeBuildSetting(String type, String defaultValue, boolean isFlag)
       throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
-
     String flag = isFlag ? "True" : "False";
 
     scratch.file(

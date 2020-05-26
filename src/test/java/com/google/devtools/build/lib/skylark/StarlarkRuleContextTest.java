@@ -2547,7 +2547,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   private void writeIntFlagBuildSettingFiles() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
     scratch.file(
         "test/build_setting.bzl",
         "BuildSettingInfo = provider(fields = ['name', 'value'])",
@@ -2595,7 +2594,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingValue_nonBuildSettingRule() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
     scratch.file(
         "test/rule.bzl",
         "def _impl(ctx):",

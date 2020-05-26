@@ -29,8 +29,6 @@ import org.junit.runners.JUnit4;
 public class LabelBuildSettingTest extends BuildViewTestCase {
 
   private void writeRulesBzl(String type) throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=True");
-
     scratch.file(
         "test/rules.bzl",
         "def _my_rule_impl(ctx):",
