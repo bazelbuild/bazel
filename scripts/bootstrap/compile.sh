@@ -33,26 +33,6 @@ GUAVA_VERSION=25.1
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
 
-# tl;dr - error_prone_core contains a copy of an older version of guava, so we
-# need to make sure the newer version of guava always appears first on the
-# classpath.
-#
-# Please read the comment in third_party/BUILD for more details.
-LIBRARY_JARS_ARRAY=($LIBRARY_JARS)
-for i in $(eval echo {0..$((${#LIBRARY_JARS_ARRAY[@]} - 1))})
-do
-  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/error_prone/error_prone_core-".*\.jar$ ]] && ERROR_PRONE_INDEX=$i
-  [[ "${LIBRARY_JARS_ARRAY[$i]}" =~ ^"third_party/guava/guava-".*\.jar$ ]] && GUAVA_INDEX=$i
-done
-[ "${ERROR_PRONE_INDEX:+present}" = "present" ] || { echo "no error prone jar"; echo "${LIBRARY_JARS_ARRAY[@]}"; exit 1; }
-[ "${GUAVA_INDEX:+present}" = "present" ] || { echo "no guava jar"; exit 1; }
-if [ "$ERROR_PRONE_INDEX" -lt "$GUAVA_INDEX" ]; then
-  TEMP_FOR_SWAP="${LIBRARY_JARS_ARRAY[$ERROR_PRONE_INDEX]}"
-  LIBRARY_JARS_ARRAY[$ERROR_PRONE_INDEX]="${LIBRARY_JARS_ARRAY[$GUAVA_INDEX]}"
-  LIBRARY_JARS_ARRAY[$GUAVA_INDEX]="$TEMP_FOR_SWAP"
-  LIBRARY_JARS="${LIBRARY_JARS_ARRAY[*]}"
-fi
-
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java} tools/java/runfiles ${OUTPUT_DIR}/src)
 # Exclude source files that are not needed for Bazel itself, which avoids dependencies like truth.
 EXCLUDE_FILES="src/main/java/com/google/devtools/build/lib/server/GrpcServerImpl.java src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/testing/* src/main/java/com/google/devtools/build/lib/collect/nestedset/NestedSetCodecTestUtils.java"
