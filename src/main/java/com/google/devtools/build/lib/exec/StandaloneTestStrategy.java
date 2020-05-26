@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -240,20 +241,26 @@ public class StandaloneTestStrategy extends TestStrategy {
       testOutputs = renameOutputs(actionExecutionContext, action, testOutputs, attemptId);
     }
 
+    TestResultData.Builder dataBuilder = result.testResultDataBuilder();
+    // Start off incomplete, only a discovered test log permits a pass
+    BlazeTestStatus status = BlazeTestStatus.INCOMPLETE;
     // Recover the test log path, which may have been renamed, and add it to the data builder.
     Path renamedTestLog = null;
     for (Pair<String, Path> pair : testOutputs) {
       if (TestFileNameConstants.TEST_LOG.equals(pair.getFirst())) {
+        Preconditions.checkState(renamedTestLog == null, "multiple test_log matches");
         renamedTestLog = pair.getSecond();
+        status = dataBuilder.getStatus();
       }
     }
 
-    TestResultData.Builder dataBuilder = result.testResultDataBuilder();
-    if (dataBuilder.getStatus() == BlazeTestStatus.PASSED) {
+    if (status == BlazeTestStatus.PASSED) {
       dataBuilder.setPassedLog(renamedTestLog.toString());
-    } else if (dataBuilder.getStatus() == BlazeTestStatus.INCOMPLETE) {
+    } else if (status == BlazeTestStatus.INCOMPLETE) {
       // Incomplete (cancelled) test runs don't have a log.
       Preconditions.checkState(renamedTestLog == null);
+      // Assign status if missing test log moved it to incomplete
+      dataBuilder.setStatus(status);
     } else {
       dataBuilder.addFailedLogs(renamedTestLog.toString());
     }
@@ -400,11 +407,16 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new TestResult(action, data, /*cached*/ true, execRoot);
   }
 
-  private static final class StandaloneFailedAttemptResult implements FailedAttemptResult {
+  @VisibleForTesting
+  static final class StandaloneFailedAttemptResult implements FailedAttemptResult {
     private final TestResultData testResultData;
 
     StandaloneFailedAttemptResult(TestResultData testResultData) {
       this.testResultData = testResultData;
+    }
+
+    TestResultData testResultData() {
+      return testResultData;
     }
   }
 
