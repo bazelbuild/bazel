@@ -638,7 +638,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalAllowIncrementalRepositoryUpdates(
                 experimentalAllowIncrementalRepositoryUpdates)
             .experimentalAllowTagsPropagation(experimentalAllowTagsPropagation)
-            .experimentalBuildSettingApi(experimentalBuildSettingApi)
             .experimentalCcStarlarkApiEnabledPackages(experimentalCcStarlarkApiEnabledPackages)
             .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
             .experimentalGoogleLegacyApi(experimentalGoogleLegacyApi)

@@ -124,7 +124,6 @@ public class StarlarkSemanticsConsistencyTest {
         "--experimental_disable_external_package=" + rand.nextBoolean(),
         "--experimental_sibling_repository_layout=" + rand.nextBoolean(),
         "--experimental_allow_incremental_repository_updates=" + rand.nextBoolean(),
-        "--experimental_build_setting_api=" + rand.nextBoolean(),
         "--experimental_cc_skylark_api_enabled_packages="
             + rand.nextDouble()
             + ","
@@ -178,7 +177,6 @@ public class StarlarkSemanticsConsistencyTest {
         .experimentalDisableExternalPackage(rand.nextBoolean())
         .experimentalSiblingRepositoryLayout(rand.nextBoolean())
         .experimentalAllowIncrementalRepositoryUpdates(rand.nextBoolean())
-        .experimentalBuildSettingApi(rand.nextBoolean())
         .experimentalCcStarlarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
         .experimentalEnableAndroidMigrationApis(rand.nextBoolean())
