@@ -3,7 +3,7 @@
 #
 # http://search.maven.org/remotecontent?filepath=org/jacoco/jacoco/0.8.3/jacoco-0.8.3.zip
 
-load("@rules_java//java:defs.bzl", "java_import")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import", "distrib_jar_filegroup")
 
 licenses(["reciprocal"])  # EPL 1.0 (Eclipse Public License)
 
@@ -43,22 +43,25 @@ filegroup(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "agent",
     jars = ["org.jacoco.agent-%s.jar" % VERSION],
     srcjar = "org.jacoco.agent-%s-sources.jar" % VERSION,
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "agent-%s" % VERSION,
     jars = ["org.jacoco.agent-%s.jar" % VERSION],
     srcjar = "org.jacoco.agent-%s-sources.jar" % VERSION,
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "core",
     jars = ["org.jacoco.core-%s.jar" % VERSION],
     srcjar = "org.jacoco.core-%s-sources.jar" % VERSION,
+    enable_distributions = ["debian"],
     exports = [
         "//third_party:asm",
         "//third_party:asm-commons",
@@ -66,10 +69,11 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "core-%s" % VERSION,
     jars = ["org.jacoco.core-%s.jar" % VERSION],
     srcjar = "org.jacoco.core-%s-sources.jar" % VERSION,
+    enable_distributions = ["debian"],
     exports = [
         "//third_party:asm",
         "//third_party:asm-commons",
@@ -77,54 +81,48 @@ java_import(
     ],
 )
 
-filegroup(
+distrib_jar_filegroup(
     name = "core-jars",
     srcs = ["org.jacoco.core-%s.jar" % VERSION],
+    enable_distributions = ["debian"],
 )
 
-filegroup(
+distrib_jar_filegroup(
     name = "core-jars-%s" % VERSION,
     srcs = ["org.jacoco.core-%s.jar" % VERSION],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "report",
     jars = ["org.jacoco.report-%s.jar" % VERSION],
     srcjar = "org.jacoco.report-%s-sources.jar" % VERSION,
+    enable_distributions = ["debian"],
     exports = [
         ":core",
         "//third_party:asm",
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "report-%s" % VERSION,
     jars = ["org.jacoco.report-%s.jar" % VERSION],
     srcjar = "org.jacoco.report-%s-sources.jar" % VERSION,
+    enable_distributions = ["debian"],
     exports = [
         ":core-%s" % VERSION,
         "//third_party:asm",
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "blaze-agent",
     jars = ["jacocoagent-%s.jar" % VERSION],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "blaze-agent-%s" % VERSION,
     jars = ["jacocoagent-%s.jar" % VERSION],
-)
-
-java_import(
-    name = "blaze-agent-neverlink",
-    jars = ["jacocoagent-%s.jar" % VERSION],
-    neverlink = 1,
-)
-
-java_import(
-    name = "blaze-agent-neverlink-%s" % VERSION,
-    jars = ["jacocoagent-%s.jar" % VERSION],
-    neverlink = 1,
+    enable_distributions = ["debian"],
 )
