@@ -450,7 +450,7 @@ public class BzlLoadFunction implements SkyFunction {
             loadedModules,
             starlarkSemantics,
             env,
-            /*inWorkspace=*/ key instanceof BzlLoadValue.WorkspaceBzlKey,
+            /*inWorkspace=*/ key instanceof BzlLoadValue.KeyForWorkspace,
             repoMapping);
     BzlLoadValue result =
         new BzlLoadValue(
@@ -463,16 +463,16 @@ public class BzlLoadFunction implements SkyFunction {
     Label enclosingFileLabel = key.getLabel();
 
     ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
-    if (key instanceof BzlLoadValue.WorkspaceBzlKey) {
+    if (key instanceof BzlLoadValue.KeyForWorkspace) {
       // Still during workspace file evaluation
-      BzlLoadValue.WorkspaceBzlKey workspaceBzlKey = (BzlLoadValue.WorkspaceBzlKey) key;
-      if (workspaceBzlKey.getWorkspaceChunk() == 0) {
+      BzlLoadValue.KeyForWorkspace keyForWorkspace = (BzlLoadValue.KeyForWorkspace) key;
+      if (keyForWorkspace.getWorkspaceChunk() == 0) {
         // There is no previous workspace chunk
         repositoryMapping = ImmutableMap.of();
       } else {
         SkyKey workspaceFileKey =
             WorkspaceFileValue.key(
-                workspaceBzlKey.getWorkspacePath(), workspaceBzlKey.getWorkspaceChunk() - 1);
+                keyForWorkspace.getWorkspacePath(), keyForWorkspace.getWorkspaceChunk() - 1);
         WorkspaceFileValue workspaceFileValue = (WorkspaceFileValue) env.getValue(workspaceFileKey);
         // Note: we know for sure that the requested WorkspaceFileValue is fully computed so we do
         // not need to check if it is null

@@ -126,6 +126,6 @@ public class CachedBzlLoadValueAndDepsTest {
   }
 
   private static BzlLoadValue.Key createStarlarkKey(String name) {
-    return BzlLoadValue.packageBzlKey(Label.parseAbsoluteUnchecked(name));
+    return BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked(name));
   }
 }

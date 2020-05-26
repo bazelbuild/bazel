@@ -610,9 +610,9 @@ public class PackageFunction implements SkyFunction {
       Label bzlLabel = load.second;
       if (inWorkspace) {
         int originalChunk = getOriginalWorkspaceChunk(env, buildFilePath, workspaceChunk, bzlLabel);
-        keys.add(BzlLoadValue.workspaceBzlKey(bzlLabel, originalChunk, buildFilePath));
+        keys.add(BzlLoadValue.keyForWorkspace(bzlLabel, originalChunk, buildFilePath));
       } else {
-        keys.add(BzlLoadValue.packageBzlKey(bzlLabel));
+        keys.add(BzlLoadValue.keyForBuild(bzlLabel));
       }
     }
 

@@ -93,11 +93,11 @@ public class BzlLoadValue implements SkyValue {
   /** A key for loading a .bzl during package loading (BUILD evaluation). */
   @Immutable
   @AutoCodec.VisibleForSerialization
-  static final class PackageBzlKey extends Key {
+  static final class KeyForBuild extends Key {
 
     private final Label label;
 
-    private PackageBzlKey(Label label) {
+    private KeyForBuild(Label label) {
       this.label = Preconditions.checkNotNull(label);
     }
 
@@ -108,7 +108,7 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     Key getKeyForLoad(Label loadLabel) {
-      return packageBzlKey(loadLabel);
+      return keyForBuild(loadLabel);
     }
 
     @Override
@@ -121,15 +121,15 @@ public class BzlLoadValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof PackageBzlKey)) {
+      if (!(obj instanceof KeyForBuild)) {
         return false;
       }
-      return this.label.equals(((PackageBzlKey) obj).label);
+      return this.label.equals(((KeyForBuild) obj).label);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(PackageBzlKey.class, label);
+      return Objects.hash(KeyForBuild.class, label);
     }
   }
 
@@ -147,13 +147,13 @@ public class BzlLoadValue implements SkyValue {
   // if not broken.
   @Immutable
   @AutoCodec.VisibleForSerialization
-  static final class WorkspaceBzlKey extends Key {
+  static final class KeyForWorkspace extends Key {
 
     private final Label label;
     private final int workspaceChunk;
     private final RootedPath workspacePath;
 
-    private WorkspaceBzlKey(Label label, int workspaceChunk, RootedPath workspacePath) {
+    private KeyForWorkspace(Label label, int workspaceChunk, RootedPath workspacePath) {
       this.label = Preconditions.checkNotNull(label);
       this.workspaceChunk = workspaceChunk;
       this.workspacePath = Preconditions.checkNotNull(workspacePath);
@@ -174,7 +174,7 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     Key getKeyForLoad(Label loadLabel) {
-      return workspaceBzlKey(loadLabel, workspaceChunk, workspacePath);
+      return keyForWorkspace(loadLabel, workspaceChunk, workspacePath);
     }
 
     @Override
@@ -187,10 +187,10 @@ public class BzlLoadValue implements SkyValue {
       if (this == obj) {
         return true;
       }
-      if (!(obj instanceof WorkspaceBzlKey)) {
+      if (!(obj instanceof KeyForWorkspace)) {
         return false;
       }
-      WorkspaceBzlKey other = (WorkspaceBzlKey) obj;
+      KeyForWorkspace other = (KeyForWorkspace) obj;
       return label.equals(other.label)
           && workspaceChunk == other.workspaceChunk
           && workspacePath.equals(other.workspacePath);
@@ -198,13 +198,13 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(WorkspaceBzlKey.class, label, workspaceChunk, workspacePath);
+      return Objects.hash(KeyForWorkspace.class, label, workspaceChunk, workspacePath);
     }
   }
 
   /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
-  static Key packageBzlKey(Label label) {
-    return keyInterner.intern(new PackageBzlKey(label));
+  static Key keyForBuild(Label label) {
+    return keyInterner.intern(new KeyForBuild(label));
   }
 
   /**
@@ -215,7 +215,7 @@ public class BzlLoadValue implements SkyValue {
    *     file is loaded more than once, this is the chunk that it was first loaded from
    * @param workspacePath the path of the workspace file for the project
    */
-  static Key workspaceBzlKey(Label label, int workspaceChunk, RootedPath workspacePath) {
-    return keyInterner.intern(new WorkspaceBzlKey(label, workspaceChunk, workspacePath));
+  static Key keyForWorkspace(Label label, int workspaceChunk, RootedPath workspacePath) {
+    return keyInterner.intern(new KeyForWorkspace(label, workspaceChunk, workspacePath));
   }
 }

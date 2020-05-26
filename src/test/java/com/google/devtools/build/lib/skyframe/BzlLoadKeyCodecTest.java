@@ -29,8 +29,8 @@ public final class BzlLoadKeyCodecTest {
   public void testCodec() throws Exception {
     SerializationTester serializationTester =
         new SerializationTester(
-            BzlLoadValue.packageBzlKey(Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of())),
-            BzlLoadValue.workspaceBzlKey(
+            BzlLoadValue.keyForBuild(Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of())),
+            BzlLoadValue.keyForWorkspace(
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()),
                 /*workspaceChunk=*/ 4,
                 /*workspacePath=*/ FsUtils.TEST_ROOTED_PATH));

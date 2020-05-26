@@ -66,7 +66,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     // TODO(brandjon): Replace by @builtins//:exports once BzlLoadFunction can resolve the @builtins
     // namespace.
     SkyKey exportsKey =
-        BzlLoadValue.packageBzlKey(
+        BzlLoadValue.keyForBuild(
             Label.parseAbsoluteUnchecked("//tools/builtins_staging:exports.bzl"));
     BzlLoadValue exportsValue = (BzlLoadValue) env.getValue(exportsKey);
     if (exportsValue == null) {

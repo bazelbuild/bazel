@@ -177,7 +177,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   }
 
   private static SkyKey key(String label) {
-    return BzlLoadValue.packageBzlKey(Label.parseAbsoluteUnchecked(label));
+    return BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked(label));
   }
 
   // Ensures that a Starlark file has been successfully processed by checking that the
@@ -254,7 +254,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
             Root.fromPath(p.getParentDirectory()), PathFragment.create("WORKSPACE"));
 
     SkyKey skyKey =
-        BzlLoadValue.workspaceBzlKey(
+        BzlLoadValue.keyForWorkspace(
             Label.parseAbsoluteUnchecked("@a_remote_repo//remote_pkg:ext.bzl"),
             /* inWorkspace= */
             /* workspaceChunk= */ 0,
@@ -397,7 +397,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     RootedPath rootedPath = RootedPath.toRootedPath(root, PathFragment.create("WORKSPACE"));
 
     SkyKey skyKey =
-        BzlLoadValue.workspaceBzlKey(Label.parseAbsoluteUnchecked("@a//:a.bzl"), 1, rootedPath);
+        BzlLoadValue.keyForWorkspace(Label.parseAbsoluteUnchecked("@a//:a.bzl"), 1, rootedPath);
 
     EvaluationResult<BzlLoadValue> result =
         SkyframeExecutorTestUtils.evaluate(
