@@ -142,7 +142,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
 
   @Override
   protected String getRawProgressMessage() {
-    return "Writing " + (makeExecutable ? "script " : "file ")
+    return (makeExecutable ? "Writing script " : "Writing file ")
         + Iterables.getOnlyElement(getOutputs()).prettyPrint();
   }
 
