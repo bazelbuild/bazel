@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
@@ -377,10 +376,9 @@ public class RunCommand implements BlazeCommand  {
         runfilesDir = ensureRunfilesBuilt(env, runfilesSupport,
             env.getSkyframeExecutor().getConfiguration(env.getReporter(),
                 targetToRun.getConfigurationKey()));
-      } catch (EnvironmentalExecException e) {
-        // TODO(138456686): Handle failures with higher resolution
-        env.getReporter().handle(Event.error("Error creating runfiles: " + e.getMessage()));
-        return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+      } catch (RunfilesException e) {
+        env.getReporter().handle(Event.error(e.getMessage()));
+        return BlazeCommandResult.failureDetail(e.createFailureDetail());
       }
     }
 
@@ -569,7 +567,7 @@ public class RunCommand implements BlazeCommand  {
    */
   private static Path ensureRunfilesBuilt(
       CommandEnvironment env, RunfilesSupport runfilesSupport, BuildConfiguration configuration)
-      throws EnvironmentalExecException {
+      throws RunfilesException {
     Artifact manifest = Preconditions.checkNotNull(runfilesSupport.getRunfilesManifest());
     PathFragment runfilesDir = runfilesSupport.getRunfilesDirectoryExecPath();
     Path workingDir = env.getExecRoot().getRelative(runfilesDir);
@@ -589,7 +587,10 @@ public class RunCommand implements BlazeCommand  {
           .getRelative(runfilesSupport.getWorkspaceName())
           .createDirectoryAndParents();
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e);
+      throw new RunfilesException(
+          "Failed to create runfiles directories: " + e.getMessage(),
+          Code.RUNFILES_DIRECTORIES_CREATION_FAILURE,
+          e);
     }
 
     // When runfiles are not generated, getManifest() returns the
@@ -603,9 +604,18 @@ public class RunCommand implements BlazeCommand  {
         manifest.getPath(),
         runfilesSupport.getRunfilesDirectory(),
         false);
-    helper.createSymlinksUsingCommand(
-        env.getExecRoot(), env.getBlazeWorkspace().getBinTools(),
-        /* shellEnvironment= */ ImmutableMap.of(), /* outErr= */ null);
+    try {
+      helper.createSymlinksUsingCommand(
+          env.getExecRoot(),
+          env.getBlazeWorkspace().getBinTools(),
+          /* shellEnvironment= */ ImmutableMap.of(),
+          /* outErr= */ null);
+    } catch (EnvironmentalExecException e) {
+      throw new RunfilesException(
+          "Failed to create runfiles symlinks: " + e.getMessage(),
+          Code.RUNFILES_SYMLINKS_CREATION_FAILURE,
+          e);
+    }
     return workingDir;
   }
 
@@ -806,5 +816,21 @@ public class RunCommand implements BlazeCommand  {
         targetPatternString,
         Joiner.on(", ").join(ImmutableSortedSet.copyOf(targetNamesToIncludeInErrorMessage)),
         truncateTargetNameList ? "[TRUNCATED]" : "");
+  }
+
+  private static class RunfilesException extends Exception {
+    private final FailureDetails.RunCommand.Code detailedCode;
+
+    private RunfilesException(String message, Code detailedCode, Exception cause) {
+      super("Error creating runfiles: " + message, cause);
+      this.detailedCode = detailedCode;
+    }
+
+    private FailureDetail createFailureDetail() {
+      return FailureDetail.newBuilder()
+          .setMessage(getMessage())
+          .setRunCommand(FailureDetails.RunCommand.newBuilder().setCode(detailedCode))
+          .build();
+    }
   }
 }
