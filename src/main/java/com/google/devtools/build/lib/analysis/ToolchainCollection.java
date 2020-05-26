@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -70,6 +71,14 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
   /** Returns a new builder for {@link ToolchainCollection} instances. */
   public static <T extends ToolchainContext> Builder<T> builder() {
     return new Builder<T>();
+  }
+
+  /** Returns every instance of {@link ToolchainContext} that uses {@code resolvedToolchainLabel} as a resolved toolchain. */
+  public ImmutableList<T> getContextsForResolvedToolchain(
+      Label resolvedToolchainLabel) {
+    return getContextMap().values().stream()
+        .filter(tc -> tc.resolvedToolchainLabels().contains(resolvedToolchainLabel))
+        .collect(ImmutableList.toImmutableList());
   }
 
   /** Builder for ToolchainCollection. */
