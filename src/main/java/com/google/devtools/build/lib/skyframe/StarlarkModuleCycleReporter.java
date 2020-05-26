@@ -33,7 +33,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleReporter {
 
   private static final Predicate<SkyKey> IS_STARLARK_MODULE_SKY_KEY =
-      SkyFunctions.isSkyFunction(SkyFunctions.STARLARK_IMPORTS_LOOKUP);
+      SkyFunctions.isSkyFunction(SkyFunctions.BZL_LOAD);
 
   private static final Predicate<SkyKey> IS_PACKAGE_SKY_KEY =
       SkyFunctions.isSkyFunction(SkyFunctions.PACKAGE);
@@ -50,8 +50,8 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
   private static final Predicate<SkyKey> IS_REPOSITORY_DIRECTORY =
       SkyFunctions.isSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY);
 
-  private static final Predicate<SkyKey> IS_STARLARK_IMPORTS_LOOKUP =
-      SkyFunctions.isSkyFunction(SkyFunctions.STARLARK_IMPORTS_LOOKUP);
+  private static final Predicate<SkyKey> IS_BZL_LOAD =
+      SkyFunctions.isSkyFunction(SkyFunctions.BZL_LOAD);
 
   private static final Predicate<SkyKey> IS_EXTERNAL_PACKAGE =
       SkyFunctions.isSkyFunction(SkyFunctions.EXTERNAL_PACKAGE);
@@ -95,8 +95,8 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
           new Function<SkyKey, String>() {
             @Override
             public String apply(SkyKey input) {
-              if (input.argument() instanceof StarlarkImportLookupValue.Key) {
-                return ((StarlarkImportLookupValue.Key) input.argument()).getLabel().toString();
+              if (input.argument() instanceof BzlLoadValue.Key) {
+                return ((BzlLoadValue.Key) input.argument()).getLabel().toString();
               } else if (input.argument() instanceof PackageIdentifier) {
                 return ((PackageIdentifier) input.argument()) + "/BUILD";
               } else if (input.argument() instanceof WorkspaceFileValue.WorkspaceFileKey) {
@@ -158,11 +158,9 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
 
       StringBuilder message = new StringBuilder();
 
-      if (Iterables.any(cycle, IS_STARLARK_IMPORTS_LOOKUP)) {
+      if (Iterables.any(cycle, IS_BZL_LOAD)) {
         Label fileLabel =
-            ((StarlarkImportLookupValue.Key)
-                    Iterables.getLast(Iterables.filter(cycle, IS_STARLARK_IMPORTS_LOOKUP)))
-                .getLabel();
+            ((BzlLoadValue.Key) Iterables.getLast(Iterables.filter(cycle, IS_BZL_LOAD))).getLabel();
         message.append("Failed to load Starlark extension '").append(fileLabel).append("'.\n");
       }
 
@@ -193,11 +191,9 @@ public class StarlarkModuleCycleReporter implements CyclesReporter.SingleCycleRe
       // repositories were defined.
       requestRepoDefinitions(eventHandler, repos);
       return true;
-    } else if (Iterables.any(cycle, IS_STARLARK_IMPORTS_LOOKUP)) {
+    } else if (Iterables.any(cycle, IS_BZL_LOAD)) {
       Label fileLabel =
-          ((StarlarkImportLookupValue.Key)
-                  Iterables.getLast(Iterables.filter(cycle, IS_STARLARK_IMPORTS_LOOKUP)))
-              .getLabel();
+          ((BzlLoadValue.Key) Iterables.getLast(Iterables.filter(cycle, IS_BZL_LOAD))).getLabel();
       eventHandler.handle(
           Event.error(null, "Failed to load Starlark extension '" + fileLabel + "'.\n"));
         return true;

@@ -21,17 +21,16 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link StarlarkImportLookupKey_AutoCodec}. */
+/** Tests for BzlLoadValue key's autocodec. */
 @RunWith(JUnit4.class)
-public final class StarlarkImportLookupKeyCodecTest {
+public final class BzlLoadKeyCodecTest {
 
   @Test
   public void testCodec() throws Exception {
     SerializationTester serializationTester =
         new SerializationTester(
-            StarlarkImportLookupValue.packageBzlKey(
-                Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of())),
-            StarlarkImportLookupValue.workspaceBzlKey(
+            BzlLoadValue.packageBzlKey(Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of())),
+            BzlLoadValue.workspaceBzlKey(
                 Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()),
                 /*workspaceChunk=*/ 4,
                 /*workspacePath=*/ FsUtils.TEST_ROOTED_PATH));

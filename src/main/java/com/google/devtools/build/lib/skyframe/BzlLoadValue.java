@@ -28,11 +28,11 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * A value that represents a Starlark import lookup result. The lookup value corresponds to exactly
- * one Starlark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label
- * should not reference the special {@code external} package.
+ * A value that represents a Starlark load result. The lookup value corresponds to exactly one
+ * Starlark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label should
+ * not reference the special {@code external} package.
  */
-public class StarlarkImportLookupValue implements SkyValue {
+public class BzlLoadValue implements SkyValue {
 
   private final Module module; // .bzl module
   private final byte[] transitiveDigest; // of .bzl file and load dependencies
@@ -45,8 +45,7 @@ public class StarlarkImportLookupValue implements SkyValue {
   private final StarlarkFileDependency dependency;
 
   @VisibleForTesting
-  public StarlarkImportLookupValue(
-      Module module, byte[] transitiveDigest, StarlarkFileDependency dependency) {
+  public BzlLoadValue(Module module, byte[] transitiveDigest, StarlarkFileDependency dependency) {
     this.module = Preconditions.checkNotNull(module);
     this.transitiveDigest = Preconditions.checkNotNull(transitiveDigest);
     this.dependency = Preconditions.checkNotNull(dependency);
@@ -62,14 +61,14 @@ public class StarlarkImportLookupValue implements SkyValue {
     return transitiveDigest;
   }
 
-  /** Returns the immediate Starlark file dependency corresponding to this import lookup value. */
+  /** Returns the immediate Starlark file dependency corresponding to this load value. */
   public StarlarkFileDependency getDependency() {
     return dependency;
   }
 
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
-  /** SkyKey for a Starlark import. */
+  /** SkyKey for a Starlark load. */
   abstract static class Key implements SkyKey {
 
     /** Returns the label of the .bzl file to be loaded. */
@@ -87,7 +86,7 @@ public class StarlarkImportLookupValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.STARLARK_IMPORTS_LOOKUP;
+      return SkyFunctions.BZL_LOAD;
     }
   }
 

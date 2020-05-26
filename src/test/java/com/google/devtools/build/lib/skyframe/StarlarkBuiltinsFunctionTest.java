@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link StarlarkBuiltinsFunction}, and {@code @builtins} resolution behavior in {@link
- * {@link StarlarkImportLookupFunction}.
+ * {@link BzlLoadFunction}.
  */
 @RunWith(JUnit4.class)
 public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {

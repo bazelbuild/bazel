@@ -24,7 +24,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  * pseudo-repository.
  *
  * <p>These are parsed from {@code @builtins//:exports.bzl}, but not validated until they're used by
- * {@link PackageFunction} and {@link StarlarkImportLookupFunction}.
+ * {@link PackageFunction} and {@link BzlLoadFunction}.
  */
 public final class StarlarkBuiltinsValue implements SkyValue {
 

@@ -52,10 +52,10 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -1505,7 +1505,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMultipleImportsOfSameRule() throws Exception {
+  public void testMultipleLoadsOfSameRule() throws Exception {
     scratch.file("test/skylark/BUILD");
     scratch.file(
         "test/skylark/extension.bzl",
@@ -1545,7 +1545,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImportInStarlark() throws Exception {
+  public void testLoadInStarlark() throws Exception {
     scratch.file("test/skylark/implementation.bzl", "def custom_rule_impl(ctx):", "  return None");
 
     scratch.file(
@@ -1594,7 +1594,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRecursiveImport() throws Exception {
+  public void testRecursiveLoad() throws Exception {
     scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext1.bzl', 'symbol2')");
 
     scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol1')");
@@ -1615,7 +1615,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRecursiveImport2() throws Exception {
+  public void testRecursiveLoad2() throws Exception {
     scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol2')");
     scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext3.bzl', 'symbol3')");
     scratch.file("test/skylark/ext3.bzl", "load('//test/skylark:ext4.bzl', 'symbol4')");
@@ -2952,19 +2952,17 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
       ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions =
           ((InMemoryMemoizingEvaluator) getSkyframeExecutor().getEvaluatorForTesting())
               .getSkyFunctionsForTesting();
-      StarlarkImportLookupFunction starlarkImportLookupFunction =
-          StarlarkImportLookupFunction.createForInliningSelfForPackageAndWorkspaceNodes(
-              this.getRuleClassProvider(),
-              this.getPackageFactory(),
-              /*starlarkImportLookupValueCacheSize=*/ 2);
-      starlarkImportLookupFunction.resetSelfInliningCache();
+      BzlLoadFunction bzlLoadFunction =
+          BzlLoadFunction.createForInliningSelfForPackageAndWorkspaceNodes(
+              this.getRuleClassProvider(), this.getPackageFactory(), /*bzlLoadValueCacheSize=*/ 2);
+      bzlLoadFunction.resetSelfInliningCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
-          .setStarlarkImportLookupFunctionForInliningForTesting(starlarkImportLookupFunction);
+          .setBzlLoadFunctionForInliningForTesting(bzlLoadFunction);
     }
 
     @Override
     @Test
-    public void testRecursiveImport() throws Exception {
+    public void testRecursiveLoad() throws Exception {
       scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext1.bzl', 'symbol2')");
 
       scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol1')");
@@ -2980,12 +2978,12 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
               BuildFileContainsErrorsException.class, () -> getTarget("//test/skylark:rule"));
       assertThat(e)
           .hasMessageThat()
-          .contains("Starlark import cycle: [//test/skylark:ext1.bzl, //test/skylark:ext2.bzl]");
+          .contains("Starlark load cycle: [//test/skylark:ext1.bzl, //test/skylark:ext2.bzl]");
     }
 
     @Override
     @Test
-    public void testRecursiveImport2() throws Exception {
+    public void testRecursiveLoad2() throws Exception {
       scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol2')");
       scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext3.bzl', 'symbol3')");
       scratch.file("test/skylark/ext3.bzl", "load('//test/skylark:ext4.bzl', 'symbol4')");
@@ -3003,7 +3001,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
       assertThat(e)
           .hasMessageThat()
           .contains(
-              "Starlark import cycle: [//test/skylark:ext2.bzl, "
+              "Starlark load cycle: [//test/skylark:ext2.bzl, "
                   + "//test/skylark:ext3.bzl, //test/skylark:ext4.bzl]");
     }
   }

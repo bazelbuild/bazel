@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.skyframe.PackageFunction.StarlarkImportResult;
+import com.google.devtools.build.lib.skyframe.PackageFunction.BzlLoadResult;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -45,18 +45,18 @@ public class WorkspaceFileFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final RuleClassProvider ruleClassProvider;
-  private final StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining;
+  private final BzlLoadFunction bzlLoadFunctionForInlining;
   private static final PackageIdentifier rootPackage = PackageIdentifier.createInMainRepo("");
 
   public WorkspaceFileFunction(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       BlazeDirectories directories,
-      StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining) {
+      BzlLoadFunction bzlLoadFunctionForInlining) {
     this.packageFactory = packageFactory;
     this.directories = directories;
     this.ruleClassProvider = ruleClassProvider;
-    this.starlarkImportLookupFunctionForInlining = starlarkImportLookupFunctionForInlining;
+    this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
   }
 
   @Override
@@ -84,7 +84,7 @@ public class WorkspaceFileFunction implements SkyFunction {
         return new WorkspaceFileValue(
             /* pkg = */ builder.build(),
             /* loadedModules = */ ImmutableMap.<String, Module>of(),
-            /* importToChunkMap = */ ImmutableMap.<String, Integer>of(),
+            /* loadToChunkMap = */ ImmutableMap.<String, Integer>of(),
             /* bindings = */ ImmutableMap.<String, Object>of(),
             workspaceFile,
             /* idx = */ 0, // first fragment
@@ -123,19 +123,19 @@ public class WorkspaceFileFunction implements SkyFunction {
             prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
       }
       StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
-      StarlarkImportResult importResult =
-          PackageFunction.fetchImportsFromBuildFile(
+      BzlLoadResult loadResult =
+          PackageFunction.fetchLoadsFromBuildFile(
               workspaceFile,
               rootPackage,
               /*repoMapping=*/ ImmutableMap.of(),
               ast,
               key.getIndex(),
               env,
-              starlarkImportLookupFunctionForInlining);
-      if (importResult == null) {
+              bzlLoadFunctionForInlining);
+      if (loadResult == null) {
         return null;
       }
-      parser.execute(ast, importResult.loadedModules, key);
+      parser.execute(ast, loadResult.loadedModules, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {
@@ -146,7 +146,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       return new WorkspaceFileValue(
           builder.build(),
           parser.getLoadedModules(),
-          createImportToChunkMap(prevValue, parser, key),
+          createLoadToChunkMap(prevValue, parser, key),
           parser.getVariableBindings(),
           workspaceFile,
           key.getIndex(),
@@ -159,10 +159,11 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   /**
-   * This returns a map from import statement to the chunk the
-   * import statement originated from.
+   * This returns a map from load statement to the chunk the load statement originated from.
    *
-   * For example, if the WORKSPACE file looked like the following:
+   * <p>For example, if the WORKSPACE file looked like the following:
+   *
+   * <pre>
    * load(":a.bzl", "a")
    * x = 0
    * load(":b.bzl", "b")
@@ -170,12 +171,13 @@ public class WorkspaceFileFunction implements SkyFunction {
    * load(":a.bzl", "a1")
    * load(":c.bzl", "c")
    * x = 2
+   * </pre>
    *
-   * Then the map for chunk 0 would be: {@code {":a.bzl" : 0}}
-   * for chunk 1 would be: {@code {":a.bzl" : 0, ":b.bzl" : 1}}
-   * for chunk 2 would be: {@code {":a.bzl" : 0, ":b.bzl" : 1, ":c.bzl" : 2}}
+   * Then the map for chunk 0 would be {@code {":a.bzl" : 0}}, for chunk 1 it'd be: {@code {":a.bzl"
+   * : 0, ":b.bzl" : 1}}, and for chunk 2 it'd be: {@code {":a.bzl" : 0, ":b.bzl" : 1, ":c.bzl" :
+   * 2}}
    */
-  private ImmutableMap<String, Integer> createImportToChunkMap(
+  private static ImmutableMap<String, Integer> createLoadToChunkMap(
       WorkspaceFileValue prevValue, WorkspaceFactory parser, WorkspaceFileKey key) {
     ImmutableMap.Builder<String, Integer> builder = new ImmutableMap.Builder<String, Integer>();
     if (prevValue == null) {
@@ -183,9 +185,9 @@ public class WorkspaceFileFunction implements SkyFunction {
         builder.put(loadString, key.getIndex());
       }
     } else {
-      builder.putAll(prevValue.getImportToChunkMap());
+      builder.putAll(prevValue.getLoadToChunkMap());
       for (String label : parser.getLoadedModules().keySet()) {
-        if (!prevValue.getImportToChunkMap().containsKey(label)) {
+        if (!prevValue.getLoadToChunkMap().containsKey(label)) {
           builder.put(label, key.getIndex());
         }
       }

@@ -28,12 +28,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link CachedStarlarkImportLookupValueAndDeps}. */
+/** Tests for {@link CachedBzlLoadValueAndDeps}. */
 @RunWith(JUnit4.class)
-public class CachedStarlarkImportLookupValueAndDepsTest {
+public class CachedBzlLoadValueAndDepsTest {
   @Test
   public void testDepsAreNotVisitedMultipleTimesForDiamondDependencies() throws Exception {
-    // Graph structure of StarlarkImportLookupValues:
+    // Graph structure of BzlLoadValues:
     //
     //     p
     //   /  \
@@ -41,52 +41,51 @@ public class CachedStarlarkImportLookupValueAndDepsTest {
     //   \  /
     //    gc
 
-    StarlarkImportLookupValue dummyValue = mock(StarlarkImportLookupValue.class);
-    CachedStarlarkImportLookupValueAndDepsBuilderFactory
-        cachedStarlarkImportLookupValueAndDepsBuilderFactory =
-            new CachedStarlarkImportLookupValueAndDepsBuilderFactory();
+    BzlLoadValue dummyValue = mock(BzlLoadValue.class);
+    CachedBzlLoadValueAndDepsBuilderFactory cachedBzlLoadValueAndDepsBuilderFactory =
+        new CachedBzlLoadValueAndDepsBuilderFactory();
 
-    StarlarkImportLookupValue.Key gcKey = createStarlarkKey("//gc");
+    BzlLoadValue.Key gcKey = createStarlarkKey("//gc");
     SkyKey gcKey1 = createKey("gc key1");
     SkyKey gcKey2 = createKey("gc key2");
     SkyKey gcKey3 = createKey("gc key3");
-    CachedStarlarkImportLookupValueAndDeps gc =
-        cachedStarlarkImportLookupValueAndDepsBuilderFactory
-            .newCachedStarlarkImportLookupValueAndDepsBuilder()
+    CachedBzlLoadValueAndDeps gc =
+        cachedBzlLoadValueAndDepsBuilderFactory
+            .newCachedBzlLoadValueAndDepsBuilder()
             .addDep(gcKey1)
             .addDeps(ImmutableList.of(gcKey2, gcKey3))
             .setKey(gcKey)
             .setValue(dummyValue)
             .build();
 
-    StarlarkImportLookupValue.Key c1Key = createStarlarkKey("//c1");
+    BzlLoadValue.Key c1Key = createStarlarkKey("//c1");
     SkyKey c1Key1 = createKey("c1 key1");
-    CachedStarlarkImportLookupValueAndDeps c1 =
-        cachedStarlarkImportLookupValueAndDepsBuilderFactory
-            .newCachedStarlarkImportLookupValueAndDepsBuilder()
+    CachedBzlLoadValueAndDeps c1 =
+        cachedBzlLoadValueAndDepsBuilderFactory
+            .newCachedBzlLoadValueAndDepsBuilder()
             .addDep(c1Key1)
             .addTransitiveDeps(gc)
             .setValue(dummyValue)
             .setKey(c1Key)
             .build();
 
-    StarlarkImportLookupValue.Key c2Key = createStarlarkKey("//c2");
+    BzlLoadValue.Key c2Key = createStarlarkKey("//c2");
     SkyKey c2Key1 = createKey("c2 key1");
     SkyKey c2Key2 = createKey("c2 key2");
-    CachedStarlarkImportLookupValueAndDeps c2 =
-        cachedStarlarkImportLookupValueAndDepsBuilderFactory
-            .newCachedStarlarkImportLookupValueAndDepsBuilder()
+    CachedBzlLoadValueAndDeps c2 =
+        cachedBzlLoadValueAndDepsBuilderFactory
+            .newCachedBzlLoadValueAndDepsBuilder()
             .addDeps(ImmutableList.of(c2Key1, c2Key2))
             .addTransitiveDeps(gc)
             .setValue(dummyValue)
             .setKey(c2Key)
             .build();
 
-    StarlarkImportLookupValue.Key pKey = createStarlarkKey("//p");
+    BzlLoadValue.Key pKey = createStarlarkKey("//p");
     SkyKey pKey1 = createKey("p key1");
-    CachedStarlarkImportLookupValueAndDeps p =
-        cachedStarlarkImportLookupValueAndDepsBuilderFactory
-            .newCachedStarlarkImportLookupValueAndDepsBuilder()
+    CachedBzlLoadValueAndDeps p =
+        cachedBzlLoadValueAndDepsBuilderFactory
+            .newCachedBzlLoadValueAndDepsBuilder()
             .addDep(pKey1)
             .addTransitiveDeps(c1)
             .addTransitiveDeps(c2)
@@ -95,8 +94,7 @@ public class CachedStarlarkImportLookupValueAndDepsTest {
             .build();
 
     List<Iterable<SkyKey>> registeredDeps = new ArrayList<>();
-    Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps>
-        visitedDepsInToplevelLoad = new HashMap<>();
+    Map<BzlLoadValue.Key, CachedBzlLoadValueAndDeps> visitedDepsInToplevelLoad = new HashMap<>();
     p.traverse(registeredDeps::add, visitedDepsInToplevelLoad);
 
     assertThat(registeredDeps)
@@ -127,7 +125,7 @@ public class CachedStarlarkImportLookupValueAndDepsTest {
     };
   }
 
-  private static StarlarkImportLookupValue.Key createStarlarkKey(String name) {
-    return StarlarkImportLookupValue.packageBzlKey(Label.parseAbsoluteUnchecked(name));
+  private static BzlLoadValue.Key createStarlarkKey(String name) {
+    return BzlLoadValue.packageBzlKey(Label.parseAbsoluteUnchecked(name));
   }
 }

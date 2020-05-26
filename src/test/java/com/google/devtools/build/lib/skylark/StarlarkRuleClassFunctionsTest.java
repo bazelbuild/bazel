@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -776,7 +776,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     if (!file.ok()) {
       throw new SyntaxError.Exception(file.errors());
     }
-    StarlarkImportLookupFunction.execAndExport(
+    BzlLoadFunction.execAndExport(
         file, FAKE_LABEL, ev.getEventHandler(), module, ev.getStarlarkThread());
   }
 

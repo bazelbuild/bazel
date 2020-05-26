@@ -25,17 +25,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-class CachedStarlarkImportLookupValueAndDeps {
-  private final StarlarkImportLookupValue.Key key;
-  private final StarlarkImportLookupValue value;
+class CachedBzlLoadValueAndDeps {
+  private final BzlLoadValue.Key key;
+  private final BzlLoadValue value;
   private final ImmutableList<Iterable<SkyKey>> directDeps;
-  private final ImmutableList<CachedStarlarkImportLookupValueAndDeps> transitiveDeps;
+  private final ImmutableList<CachedBzlLoadValueAndDeps> transitiveDeps;
 
-  private CachedStarlarkImportLookupValueAndDeps(
-      StarlarkImportLookupValue.Key key,
-      StarlarkImportLookupValue value,
+  private CachedBzlLoadValueAndDeps(
+      BzlLoadValue.Key key,
+      BzlLoadValue value,
       ImmutableList<Iterable<SkyKey>> directDeps,
-      ImmutableList<CachedStarlarkImportLookupValueAndDeps> transitiveDeps) {
+      ImmutableList<CachedBzlLoadValueAndDeps> transitiveDeps) {
     this.key = key;
     this.value = value;
     this.directDeps = directDeps;
@@ -44,12 +44,12 @@ class CachedStarlarkImportLookupValueAndDeps {
 
   void traverse(
       DepGroupConsumer depGroupConsumer,
-      Map<StarlarkImportLookupValue.Key, CachedStarlarkImportLookupValueAndDeps> visitedDeps)
+      Map<BzlLoadValue.Key, CachedBzlLoadValueAndDeps> visitedDeps)
       throws InterruptedException {
     for (Iterable<SkyKey> directDepGroup : directDeps) {
       depGroupConsumer.accept(directDepGroup);
     }
-    for (CachedStarlarkImportLookupValueAndDeps indirectDeps : transitiveDeps) {
+    for (CachedBzlLoadValueAndDeps indirectDeps : transitiveDeps) {
       if (!visitedDeps.containsKey(indirectDeps.key)) {
         visitedDeps.put(indirectDeps.key, indirectDeps);
         indirectDeps.traverse(depGroupConsumer, visitedDeps);
@@ -57,16 +57,16 @@ class CachedStarlarkImportLookupValueAndDeps {
     }
   }
 
-  StarlarkImportLookupValue getValue() {
+  BzlLoadValue getValue() {
     return value;
   }
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof CachedStarlarkImportLookupValueAndDeps) {
+    if (obj instanceof CachedBzlLoadValueAndDeps) {
       // With the interner, force there to be exactly one cached value per key at any given point
       // in time.
-      return this.key.equals(((CachedStarlarkImportLookupValueAndDeps) obj).key);
+      return this.key.equals(((CachedBzlLoadValueAndDeps) obj).key);
     }
     return false;
   }
@@ -82,16 +82,16 @@ class CachedStarlarkImportLookupValueAndDeps {
   }
 
   static class Builder {
-    Builder(Interner<CachedStarlarkImportLookupValueAndDeps> interner) {
+    Builder(Interner<CachedBzlLoadValueAndDeps> interner) {
       this.interner = interner;
     }
 
-    private final Interner<CachedStarlarkImportLookupValueAndDeps> interner;
+    private final Interner<CachedBzlLoadValueAndDeps> interner;
     private final List<Iterable<SkyKey>> directDeps = new ArrayList<>();
-    private final List<CachedStarlarkImportLookupValueAndDeps> transitiveDeps = new ArrayList<>();
+    private final List<CachedBzlLoadValueAndDeps> transitiveDeps = new ArrayList<>();
     private final AtomicReference<Exception> exceptionSeen = new AtomicReference<>(null);
-    private StarlarkImportLookupValue value;
-    private StarlarkImportLookupValue.Key key;
+    private BzlLoadValue value;
+    private BzlLoadValue.Key key;
 
     @CanIgnoreReturnValue
     Builder addDep(SkyKey key) {
@@ -116,36 +116,36 @@ class CachedStarlarkImportLookupValueAndDeps {
     }
 
     @CanIgnoreReturnValue
-    Builder addTransitiveDeps(CachedStarlarkImportLookupValueAndDeps transitiveDeps) {
+    Builder addTransitiveDeps(CachedBzlLoadValueAndDeps transitiveDeps) {
       this.transitiveDeps.add(transitiveDeps);
       return this;
     }
 
     @CanIgnoreReturnValue
-    Builder setValue(StarlarkImportLookupValue value) {
+    Builder setValue(BzlLoadValue value) {
       this.value = value;
       return this;
     }
 
     @CanIgnoreReturnValue
-    Builder setKey(StarlarkImportLookupValue.Key key) {
+    Builder setKey(BzlLoadValue.Key key) {
       this.key = key;
       return this;
     }
 
-    CachedStarlarkImportLookupValueAndDeps build() {
-      // We expect that we don't handle any exceptions in StarlarkLookupImportFunction directly.
+    CachedBzlLoadValueAndDeps build() {
+      // We expect that we don't handle any exceptions in BzlLoadFunction directly.
       Preconditions.checkState(exceptionSeen.get() == null, "Caching a value in error?: %s", this);
       Preconditions.checkNotNull(value, "Expected value to be set: %s", this);
       Preconditions.checkNotNull(key, "Expected key to be set: %s", this);
       return interner.intern(
-          new CachedStarlarkImportLookupValueAndDeps(
+          new CachedBzlLoadValueAndDeps(
               key, value, ImmutableList.copyOf(directDeps), ImmutableList.copyOf(transitiveDeps)));
     }
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(CachedStarlarkImportLookupValueAndDeps.Builder.class)
+      return MoreObjects.toStringHelper(CachedBzlLoadValueAndDeps.Builder.class)
           .add("key", key)
           .add("value", value)
           .add("directDeps", directDeps)

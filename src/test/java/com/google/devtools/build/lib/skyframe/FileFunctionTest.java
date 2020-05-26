@@ -186,7 +186,7 @@ public class FileFunctionTest {
                             .builder(directories)
                             .build(ruleClassProvider, fs),
                         directories,
-                        /*starlarkImportLookupFunctionForInlining=*/ null))
+                        /*bzlLoadFunctionForInlining=*/ null))
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
                     new ExternalPackageFunction(

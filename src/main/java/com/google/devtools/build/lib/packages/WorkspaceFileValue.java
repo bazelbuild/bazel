@@ -102,7 +102,7 @@ public class WorkspaceFileValue implements SkyValue {
   private final boolean hasNext;
   private final ImmutableMap<String, Object> bindings;
   private final ImmutableMap<String, Module> loadedModules;
-  private final ImmutableMap<String, Integer> importToChunkMap;
+  private final ImmutableMap<String, Integer> loadToChunkMap;
   private final ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
       repositoryMapping;
   // Mapping of the relative paths of the incrementally updated managed directories
@@ -118,8 +118,8 @@ public class WorkspaceFileValue implements SkyValue {
    * @param pkg Package built by agreggating all parts of the split WORKSPACE file up to this one.
    * @param loadedModules modules loaded by load statements in chunks of the WORKSPACE file up to
    *     this one.
-   * @param importToChunkMap Map of all load statements encountered so far to the chunk they
-   *     initially appeared in.
+   * @param loadToChunkMap Map of all load statements encountered so far to the chunk they initially
+   *     appeared in.
    * @param bindings List of top-level variable bindings from the all parts of the split WORKSPACE
    *     file up to this one. The key is the name of the bindings and the value is the actual
    *     object.
@@ -133,7 +133,7 @@ public class WorkspaceFileValue implements SkyValue {
   public WorkspaceFileValue(
       Package pkg,
       Map<String, Module> loadedModules,
-      Map<String, Integer> importToChunkMap,
+      Map<String, Integer> loadToChunkMap,
       Map<String, Object> bindings,
       RootedPath path,
       int idx,
@@ -146,7 +146,7 @@ public class WorkspaceFileValue implements SkyValue {
     this.hasNext = hasNext;
     this.bindings = ImmutableMap.copyOf(bindings);
     this.loadedModules = ImmutableMap.copyOf(loadedModules);
-    this.importToChunkMap = ImmutableMap.copyOf(importToChunkMap);
+    this.loadToChunkMap = ImmutableMap.copyOf(loadToChunkMap);
     this.repositoryMapping = pkg.getExternalPackageRepositoryMappings();
     this.managedDirectories = managedDirectories;
     this.doNotSymlinkInExecrootPaths = doNotSymlinkInExecrootPaths;
@@ -223,8 +223,8 @@ public class WorkspaceFileValue implements SkyValue {
     return loadedModules;
   }
 
-  public ImmutableMap<String, Integer> getImportToChunkMap() {
-    return importToChunkMap;
+  public ImmutableMap<String, Integer> getLoadToChunkMap() {
+    return loadToChunkMap;
   }
 
   public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>

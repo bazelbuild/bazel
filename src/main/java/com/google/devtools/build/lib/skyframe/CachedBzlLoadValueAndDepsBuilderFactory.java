@@ -17,13 +17,11 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
-/** Factory class for producing CachedStarlarkImportLookupValueAndDeps. */
-public class CachedStarlarkImportLookupValueAndDepsBuilderFactory {
-  private final Interner<CachedStarlarkImportLookupValueAndDeps> interner =
-      BlazeInterners.newWeakInterner();
+/** Factory class for producing CachedBzlLoadValueAndDeps. */
+public class CachedBzlLoadValueAndDepsBuilderFactory {
+  private final Interner<CachedBzlLoadValueAndDeps> interner = BlazeInterners.newWeakInterner();
 
-  CachedStarlarkImportLookupValueAndDeps.Builder
-      newCachedStarlarkImportLookupValueAndDepsBuilder() {
-    return new CachedStarlarkImportLookupValueAndDeps.Builder(interner);
+  CachedBzlLoadValueAndDeps.Builder newCachedBzlLoadValueAndDepsBuilder() {
+    return new CachedBzlLoadValueAndDeps.Builder(interner);
   }
 }
