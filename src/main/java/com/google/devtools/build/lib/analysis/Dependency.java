@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import javax.annotation.Nullable;
 
 /**
@@ -116,4 +117,9 @@ public abstract class Dependency {
    * to the dependency.
    */
   public abstract ImmutableList<String> getTransitionKeys();
+
+  /** Returns the ConfiguredTargetKey needed to fetch this dependency. */
+  public ConfiguredTargetKey getConfiguredTargetKey() {
+    return ConfiguredTargetKey.of(getLabel(), getConfiguration());
+  }
 }
