@@ -178,6 +178,16 @@ py_test(
 )
 
 py_test(
+    name = "bazel_remote_cache_decompression_test",
+    srcs = ["remote/cache_decompression_test.py"],
+    main = "remote/cache_decompression_test.py",
+    tags = [
+        "no-sandbox",  # This test sets up mock cache on localhost.
+    ],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "test_wrapper_test",
     srcs = select({
         "//src/conditions:windows": ["test_wrapper_test.py"],
