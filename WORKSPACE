@@ -223,6 +223,7 @@ distdir_tar(
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.1.zip",
         ],
         "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
             "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         ],
         "1.25.0.zip": [
@@ -431,7 +432,10 @@ http_archive(
     name = "io_bazel_skydoc",
     sha256 = "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
     strip_prefix = "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
-    urls = ["https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz"],
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+        "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+    ],
 )
 
 http_archive(
