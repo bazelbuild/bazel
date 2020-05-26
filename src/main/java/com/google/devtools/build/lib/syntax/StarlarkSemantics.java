@@ -315,7 +315,7 @@ public abstract class StarlarkSemantics {
       builder()
           // <== Add new options here in alphabetic order ==>
           .debugDepsetDepth(false)
-          .experimentalActionArgs(false)
+          .experimentalActionArgs(true)
           .experimentalAllowTagsPropagation(false)
           .experimentalBuildSettingApi(true)
           .experimentalCcStarlarkApiEnabledPackages(ImmutableList.of())
