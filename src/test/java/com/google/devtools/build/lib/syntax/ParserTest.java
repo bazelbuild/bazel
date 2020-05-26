@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -1282,5 +1283,33 @@ public final class ParserTest {
   public void testConditionalExpressions() throws Exception {
     assertThat(parseExpressionError("1 if 2"))
         .contains("missing else clause in conditional expression or semicolon before if");
+  }
+
+  @Test
+  public void testParseFileStackOverflow() throws Exception {
+    StarlarkFile file = StarlarkFile.parse(veryDeepExpression());
+    SyntaxError ex = LexerTest.assertContainsError(file.errors(), "internal error: stack overflow");
+    assertThat(ex.message()).contains("parseDictEntry"); // includes stack
+    assertThat(ex.message()).contains("Please report the bug");
+    assertThat(ex.message()).contains("include the text of foo.star"); // includes file name
+  }
+
+  @Test
+  public void testParseExpressionStackOverflow() throws Exception {
+    SyntaxError.Exception ex =
+        assertThrows(SyntaxError.Exception.class, () -> Expression.parse(veryDeepExpression()));
+    SyntaxError err = LexerTest.assertContainsError(ex.errors(), "internal error: stack overflow");
+    assertThat(err.message()).contains("parseDictEntry"); // includes stack
+    assertThat(err.message())
+        .contains("while parsing Starlark expression <<{{{{"); // includes expression
+    assertThat(err.message()).contains("Please report the bug");
+  }
+
+  private static ParserInput veryDeepExpression() {
+    StringBuilder s = new StringBuilder();
+    for (int i = 0; i < 1000; i++) {
+      s.append("{");
+    }
+    return ParserInput.create(s.toString(), "foo.star");
   }
 }
