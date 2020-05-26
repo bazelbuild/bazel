@@ -398,7 +398,7 @@ filegroup(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "guava",
     jars = ["guava/guava-25.1-jre.jar"],
     exports = [
@@ -406,6 +406,7 @@ java_import(
         ":jcip_annotations",
         ":jsr305",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -435,9 +436,10 @@ java_import(
 )
 
 # For bootstrapping JavaBuilder
-filegroup(
+distrib_jar_filegroup(
     name = "guava-jars",
     srcs = ["guava/guava-25.1-jre.jar"],
+    enable_distributions = ["debian"],
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
