@@ -241,26 +241,26 @@ public class StandaloneTestStrategy extends TestStrategy {
       testOutputs = renameOutputs(actionExecutionContext, action, testOutputs, attemptId);
     }
 
-    TestResultData.Builder dataBuilder = result.testResultDataBuilder();
-    // Start off incomplete, only a discovered test log permits a pass
-    BlazeTestStatus status = BlazeTestStatus.INCOMPLETE;
     // Recover the test log path, which may have been renamed, and add it to the data builder.
     Path renamedTestLog = null;
     for (Pair<String, Path> pair : testOutputs) {
       if (TestFileNameConstants.TEST_LOG.equals(pair.getFirst())) {
         Preconditions.checkState(renamedTestLog == null, "multiple test_log matches");
         renamedTestLog = pair.getSecond();
-        status = dataBuilder.getStatus();
       }
     }
 
-    if (status == BlazeTestStatus.PASSED) {
+    TestResultData.Builder dataBuilder = result.testResultDataBuilder();
+    // If the test log path does not exist, mark the test as incomplete
+    if (renamedTestLog == null) {
+      dataBuilder.setStatus(BlazeTestStatus.INCOMPLETE);
+    }
+
+    if (dataBuilder.getStatus() == BlazeTestStatus.PASSED) {
       dataBuilder.setPassedLog(renamedTestLog.toString());
-    } else if (status == BlazeTestStatus.INCOMPLETE) {
+    } else if (dataBuilder.getStatus() == BlazeTestStatus.INCOMPLETE) {
       // Incomplete (cancelled) test runs don't have a log.
       Preconditions.checkState(renamedTestLog == null);
-      // Assign status if missing test log moved it to incomplete
-      dataBuilder.setStatus(status);
     } else {
       dataBuilder.addFailedLogs(renamedTestLog.toString());
     }
