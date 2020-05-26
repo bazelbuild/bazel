@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
@@ -226,13 +225,12 @@ public class StarlarkOptionsParser {
    */
   public static Pair<ImmutableList<String>, ImmutableList<String>> removeStarlarkOptions(
       List<String> list) {
-    ImmutableList<String> removed =
-        list.stream()
-            .filter(r -> r.startsWith("--//") || r.startsWith("--no//"))
-            .collect(toImmutableList());
-    ImmutableList<String> kept =
-        list.stream().filter(r -> !removed.contains(r)).collect(toImmutableList());
-    return Pair.of(removed, kept);
+    ImmutableList.Builder<String> keep = ImmutableList.builder();
+    ImmutableList.Builder<String> remove = ImmutableList.builder();
+    for (String name : list) {
+      ((name.startsWith("--//") || name.startsWith("--no//")) ? remove : keep).add(name);
+    }
+    return Pair.of(remove.build(), keep.build());
   }
 
   @VisibleForTesting
