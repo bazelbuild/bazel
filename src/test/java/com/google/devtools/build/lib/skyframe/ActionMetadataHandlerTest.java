@@ -277,6 +277,41 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
+  public void createsTreeArtifactValueFromFilesystem() throws Exception {
+    scratch.file("/output/bin/foo/bar/child1", "child1");
+    scratch.file("/output/bin/foo/bar/child2", "child2");
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("bin/foo/bar"));
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "child2");
+    assertThat(child1.getPath().exists()).isTrue();
+    assertThat(child2.getPath().exists()).isTrue();
+
+    OutputStore store = new OutputStore();
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            new ActionInputMap(1),
+            /*expandedFilesets=*/ ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableList.of(treeArtifact),
+            /*tsgm=*/ null,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+
+    FileArtifactValue treeMetadata = handler.getMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = handler.getMetadata(child1);
+    FileArtifactValue child2Metadata = handler.getMetadata(child2);
+    TreeArtifactValue tree = store.getTreeArtifactData(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getAllArtifactData()).isEmpty(); // All data should be in treeArtifactData.
+  }
+
+  @Test
   public void withFilesetInput() throws Exception {
     // This value should be mapped
     FileArtifactValue directoryFav = FileArtifactValue.createForDirectoryWithMtime(10L);
