@@ -51,9 +51,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.logging.LogManager;
 
-/**
- * Implements 'blaze clean'.
- */
+/** Implements 'blaze clean'. */
 @Command(
     name = "clean",
     builds = true, // Does not, but people expect build options to be there
@@ -66,48 +64,44 @@ import java.util.logging.LogManager;
     inherits = {BuildCommand.class}
 )
 public final class CleanCommand implements BlazeCommand {
-
-  /**
-   * An interface for special options for the clean command.
-   */
+  /** An interface for special options for the clean command. */
   public static class Options extends OptionsBase {
-
     @Option(
-        name = "expunge",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-        help =
-            "If true, clean removes the entire working tree for this %{product} instance, "
-                + "which includes all %{product}-created temporary and build output files, "
-                + "and stops the %{product} server if it is running."
+      name = "expunge",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If true, clean removes the entire working tree for this %{product} instance, "
+              + "which includes all %{product}-created temporary and build output files, "
+              + "and stops the %{product} server if it is running."
     )
     public boolean expunge;
 
     @Option(
-        name = "expunge_async",
-        defaultValue = "null",
-        expansion = {"--expunge", "--async"},
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-        help =
-            "If specified, clean asynchronously removes the entire working tree for "
-                + "this %{product} instance, which includes all %{product}-created temporary and "
-                + "build output files, and stops the %{product} server if it is running. When "
-                + "this command completes, it will be safe to execute new commands in the same "
-                + "client, even though the deletion may continue in the background."
+      name = "expunge_async",
+      defaultValue = "null",
+      expansion = {"--expunge", "--async"},
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If specified, clean asynchronously removes the entire working tree for "
+              + "this %{product} instance, which includes all %{product}-created temporary and "
+              + "build output files, and stops the %{product} server if it is running. When "
+              + "this command completes, it will be safe to execute new commands in the same "
+              + "client, even though the deletion may continue in the background."
     )
     public Void expungeAsync;
 
     @Option(
-        name = "async",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-        help =
-            "If true, output cleaning is asynchronous. When this command completes, it will be safe "
-                + "to execute new commands in the same client, even though the deletion may continue "
-                + "in the background."
+      name = "async",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+      help =
+          "If true, output cleaning is asynchronous. When this command completes, it will be safe "
+              + "to execute new commands in the same client, even though the deletion may continue "
+              + "in the background."
     )
     public boolean async;
   }
