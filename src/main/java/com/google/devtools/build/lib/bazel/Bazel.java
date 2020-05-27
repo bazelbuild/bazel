@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
-import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryDebugModule;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import java.io.IOException;

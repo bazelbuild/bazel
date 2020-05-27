@@ -9,7 +9,7 @@ filegroup(
 )
 
 java_library(
-    name = "skylark",
+    name = "starlark",
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",

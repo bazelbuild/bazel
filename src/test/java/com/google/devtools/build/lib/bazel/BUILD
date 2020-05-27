@@ -24,7 +24,7 @@ java_library(
         "//src/test/java/com/google/devtools/build/lib/bazel/repository:RepositoryTests_lib",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/cache:RepositoryCacheTests_lib",
         "//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:DownloaderTestSuite_lib",
-        "//src/test/java/com/google/devtools/build/lib/bazel/repository/skylark:StarlarkTests_lib",
+        "//src/test/java/com/google/devtools/build/lib/bazel/repository/starlark:StarlarkTests_lib",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules:BazelRuleTests_lib",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests_lib",
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools:NdkCrosstoolsTest_lib",
