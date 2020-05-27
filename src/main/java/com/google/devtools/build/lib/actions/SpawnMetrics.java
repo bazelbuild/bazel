@@ -266,61 +266,28 @@ public final class SpawnMetrics {
   }
 
   /**
-   * Aggregates a the duration and values of a collection of SpawnMetrics called by {@link
-   * CriticalPathComponent#addSpawnResult}
+   * Sums all the metrics (both duration and non-duration ones).
    *
    * @param spawnMetrics - collection of SpawnMetrics to aggregate
-   * @param onlyDuration - if true, only aggregate the Duration fields, otherwise everything
    * @return a single SpawnMetrics object has the total duration (and other values)
    */
-  public static SpawnMetrics aggregateMetrics(
-      ImmutableList<SpawnMetrics> spawnMetrics, boolean onlyDuration) {
-    Duration totalTime = Duration.ZERO;
-    Duration parseTime = Duration.ZERO;
-    Duration networkTime = Duration.ZERO;
-    Duration fetchTime = Duration.ZERO;
-    Duration queueTime = Duration.ZERO;
-    Duration uploadTime = Duration.ZERO;
-    Duration setupTime = Duration.ZERO;
-    Duration executionWallTime = Duration.ZERO;
-    Duration retryTime = Duration.ZERO;
-    Duration processOutputsTime = Duration.ZERO;
-    long inputFiles = 0L;
-    long inputBytes = 0L;
-    long memoryEstimate = 0L;
-
+  public static SpawnMetrics sumAllMetrics(ImmutableList<SpawnMetrics> spawnMetrics) {
+    Builder builder = new Builder();
     for (SpawnMetrics metric : spawnMetrics) {
-      totalTime = totalTime.plus(metric.totalTime());
-      parseTime = parseTime.plus(metric.parseTime());
-      networkTime = networkTime.plus(metric.networkTime());
-      fetchTime = fetchTime.plus(metric.fetchTime());
-      queueTime = queueTime.plus(metric.queueTime());
-      uploadTime = uploadTime.plus(metric.uploadTime());
-      setupTime = setupTime.plus(metric.setupTime());
-      executionWallTime = executionWallTime.plus(metric.executionWallTime());
-      retryTime = retryTime.plus(metric.retryTime());
-      processOutputsTime = processOutputsTime.plus(metric.processOutputsTime());
-      inputFiles = onlyDuration ? metric.inputFiles() : inputFiles + metric.inputFiles();
-      inputBytes = onlyDuration ? metric.inputBytes() : inputBytes + metric.inputBytes();
-      memoryEstimate =
-          onlyDuration ? metric.memoryEstimate() : memoryEstimate + metric.memoryEstimate();
+      builder.addDurations(metric);
+      builder.addNonDurations(metric);
     }
+    return builder.build();
+  }
 
-    return new SpawnMetrics.Builder()
-        .setTotalTime(totalTime)
-        .setParseTime(parseTime)
-        .setNetworkTime(networkTime)
-        .setFetchTime(fetchTime)
-        .setQueueTime(queueTime)
-        .setSetupTime(setupTime)
-        .setUploadTime(uploadTime)
-        .setExecutionWallTime(executionWallTime)
-        .setRetryTime(retryTime)
-        .setProcessOutputsTime(processOutputsTime)
-        .setInputBytes(inputBytes)
-        .setInputFiles(inputFiles)
-        .setMemoryEstimateBytes(memoryEstimate)
-        .build();
+  /** Sums all the duration metrics and selects the maximum of the non-duration ones. */
+  public static SpawnMetrics sumDurationsMaxOther(ImmutableList<SpawnMetrics> spawnMetrics) {
+    Builder builder = new Builder();
+    for (SpawnMetrics metric : spawnMetrics) {
+      builder.addDurations(metric);
+      builder.maxNonDurations(metric);
+    }
+    return builder.build();
   }
 
   /** Builder class for SpawnMetrics. */
@@ -412,6 +379,34 @@ public final class SpawnMetrics {
 
     public Builder setMemoryEstimateBytes(long memoryEstimateBytes) {
       this.memoryEstimateBytes = memoryEstimateBytes;
+      return this;
+    }
+
+    public Builder addDurations(SpawnMetrics metric) {
+      totalTime = totalTime.plus(metric.totalTime());
+      parseTime = parseTime.plus(metric.parseTime());
+      networkTime = networkTime.plus(metric.networkTime());
+      fetchTime = fetchTime.plus(metric.fetchTime());
+      queueTime = queueTime.plus(metric.queueTime());
+      uploadTime = uploadTime.plus(metric.uploadTime());
+      setupTime = setupTime.plus(metric.setupTime());
+      executionWallTime = executionWallTime.plus(metric.executionWallTime());
+      retryTime = retryTime.plus(metric.retryTime());
+      processOutputsTime = processOutputsTime.plus(metric.processOutputsTime());
+      return this;
+    }
+
+    public Builder addNonDurations(SpawnMetrics metric) {
+      inputFiles += metric.inputFiles();
+      inputBytes += metric.inputBytes();
+      memoryEstimateBytes += metric.memoryEstimate();
+      return this;
+    }
+
+    public Builder maxNonDurations(SpawnMetrics metric) {
+      inputFiles = Long.max(inputFiles, metric.inputFiles());
+      inputBytes = Long.max(inputBytes, metric.inputBytes());
+      memoryEstimateBytes = Long.max(memoryEstimateBytes, metric.memoryEstimate());
       return this;
     }
   }
