@@ -20,7 +20,7 @@ pkg_bzl = imp.load_source('pkg_bzl', 'tools/build_defs/pkg/path.bzl')
 
 
 class File(object):
-  """Mock Skylark File class for testing."""
+  """Mock Starlark File class for testing."""
 
   def __init__(self, short_path):
     self.short_path = short_path

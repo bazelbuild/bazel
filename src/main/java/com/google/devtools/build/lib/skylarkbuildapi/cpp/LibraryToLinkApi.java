@@ -15,50 +15,50 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A library the user can link to. This is different from a simple linker input in that it also has
  * a library identifier.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "LibraryToLink",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "A library the user can link against.")
 public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "objects",
       allowReturnNones = true,
       doc = "<code>List</code> of object files in the library.",
       structField = true)
   Sequence<FileT> getObjectFilesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "pic_objects",
       allowReturnNones = true,
       doc = "<code>List</code> of pic object files in the library.",
       structField = true)
   Sequence<FileT> getPicObjectFilesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "static_library",
       allowReturnNones = true,
       doc = "<code>Artifact</code> of static library to be linked.",
       structField = true)
   FileT getStaticLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "pic_static_library",
       allowReturnNones = true,
       doc = "<code>Artifact</code> of pic static library to be linked.",
       structField = true)
   FileT getPicStaticLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dynamic_library",
       doc =
           "<code>Artifact</code> of dynamic library to be linked. Always used for runtime "
@@ -67,7 +67,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       structField = true)
   FileT getDynamicLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resolved_symlink_dynamic_library",
       doc =
           "The resolved <code>Artifact</code> of the dynamic library to be linked if "
@@ -76,14 +76,14 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       structField = true)
   FileT getResolvedSymlinkDynamicLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "interface_library",
       doc = "<code>Artifact</code> of interface library to be linked.",
       allowReturnNones = true,
       structField = true)
   FileT getInterfaceLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resolved_symlink_interface_library",
       doc =
           "The resolved <code>Artifact</code> of the interface library to be linked if "
@@ -92,7 +92,7 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       structField = true)
   FileT getResolvedSymlinkInterfaceLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "alwayslink",
       doc = "Whether to link the static library/objects in the --whole_archive block.",
       allowReturnNones = true,

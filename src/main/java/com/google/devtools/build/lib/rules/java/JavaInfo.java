@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -36,11 +37,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -52,12 +51,12 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
-/** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
+/** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
 @AutoCodec
 public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> {
 
-  public static final String SKYLARK_NAME = "JavaInfo";
+  public static final String STARLARK_NAME = "JavaInfo";
 
   public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
@@ -203,7 +202,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   /**
    * Returns a provider of the specified class, fetched from the specified target or, if not found,
    * from the JavaInfo of the given target. JavaInfo can be found as a declared provider in
-   * SkylarkProviders. Returns null if no such provider exists.
+   * StarlarkProviders. Returns null if no such provider exists.
    *
    * <p>A target can either have both the specified provider and JavaInfo that encapsulates the same
    * information, or just one of them.
@@ -366,7 +365,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   @Override
   public Depset /*<Label>*/ getTransitiveExports() {
     return Depset.of(
-        SkylarkType.of(Label.class),
+        Depset.ElementType.of(Label.class),
         getProviderAsNestedSet(
             JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports));
   }
@@ -422,7 +421,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   public static class JavaInfoProvider extends BuiltinProvider<JavaInfo>
       implements JavaInfoProviderApi {
     private JavaInfoProvider() {
-      super(SKYLARK_NAME, JavaInfo.class);
+      super(STARLARK_NAME, JavaInfo.class);
     }
 
     @Override
@@ -556,8 +555,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
     public JavaInfo build() {
       // TODO(twerth): Clean up after we remove java_proto_library.strict_deps.
-      // Instead of teaching every (potential Skylark) caller to also create the provider for strict
-      // deps we wrap the non strict provider instead.
+      // Instead of teaching every (potential Starlark) caller to also create the provider for
+      // strict deps we wrap the non strict provider instead.
       if (!providerMap.contains(JavaStrictCompilationArgsProvider.class)
           && providerMap.contains(JavaCompilationArgsProvider.class)) {
         JavaStrictCompilationArgsProvider javaStrictCompilationArgsProvider =

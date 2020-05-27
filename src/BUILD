@@ -110,6 +110,8 @@ JAVA_TOOLS = [
                "BUILD.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
+               "//third_party/grpc:embedded_tools_srcs",
+               "//third_party/grpc/bazel:embedded_tools_srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
@@ -161,7 +163,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 470,
+    expect = 500,
     margin = 5,  # percentage
 )
 
@@ -440,8 +442,8 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skydoc:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
-        "//src/main/java/com/google/devtools/starlark/cmd:srcs",
-        "//src/main/java/com/google/devtools/starlark/spelling:srcs",
+        "//src/main/java/net/starlark/java/cmd:srcs",
+        "//src/main/java/net/starlark/java/spelling:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/tools:srcs",
@@ -457,10 +459,11 @@ filegroup(
         "//src/test/java/com/google/devtools/build/skydoc:srcs",
         "//src/test/java/com/google/devtools/build/skyframe:srcs",
         "//src/test/java/com/google/devtools/common/options:srcs",
-        "//src/test/java/com/google/devtools/starlark/spelling:srcs",
+        "//src/test/java/net/starlark/java/spelling:srcs",
         "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
+        "//src/test/tools:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/workspacelog:srcs",
@@ -482,7 +485,7 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skyframe:dist_jars",
         "@googleapis//:dist_jars",

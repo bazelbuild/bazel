@@ -43,8 +43,7 @@ public final class TemplateVariableInfo extends NativeInfo implements TemplateVa
     @Override
     public TemplateVariableInfo templateVariableInfo(Dict<?, ?> vars, StarlarkThread thread)
         throws EvalException {
-      Map<String, String> varsMap =
-          Dict.castSkylarkDictOrNoneToDict(vars, String.class, String.class, "vars");
+      Map<String, String> varsMap = Dict.noneableCast(vars, String.class, String.class, "vars");
       return new TemplateVariableInfo(ImmutableMap.copyOf(varsMap), thread.getCallerLocation());
     }
   }

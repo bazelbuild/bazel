@@ -552,4 +552,51 @@ EOF
   expect_log "$expected_error_msg"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/8582.
+function test_rbuildfiles_can_handle_non_loading_phase_edges() {
+  mkdir -p foo
+  # When we have a package //foo whose BUILD file
+  cat > foo/BUILD <<EOF
+  # Defines a target //foo:foo, with input file foo/foo.sh,
+sh_library(name = 'foo', srcs = ['foo.sh'])
+EOF
+  # And foo/foo.sh has some initial contents.
+  echo "bar" > foo/foo.sh
+
+  # Then `rbuildfiles` correctly thinks //foo "depends" on foo/BUILD,
+  bazel query \
+    --universe_scope=//foo:foo \
+    --order_output=no \
+    "rbuildfiles(foo/BUILD)" >& $TEST_log || fail "Expected success"
+  expect_log //foo:BUILD
+  # And that no package "depends" on foo/foo.sh.
+  bazel query \
+    --universe_scope=//foo:foo \
+    --order_output=no \
+    "rbuildfiles(foo/foo.sh)" >& $TEST_log || fail "Expected success"
+  expect_not_log //foo:BUILD
+
+  # But then, after we *build* //foo:foo (thus priming the Skyframe graph with
+  # a transitive dep path from the input ArtifactValue for foo/foo.sh to the
+  # FileStateValue for foo/foo.sh),
+  bazel build //foo:foo >& $TEST_log || fail "Expected success"
+
+  # And we modify the contents of foo/foo.sh,
+  echo "baz" > foo/foo.sh
+
+  # And we again do a `rbuildfiles(foo/foo.sh)`, Bazel again correctly thinks
+  # no package "depends" on foo/foo.sh.
+  #
+  # Historically, Bazel would crash here because it would first invalidate the
+  # UTC of FileStateValue for foo/foo.sh (invalidating the ArtifactValue for
+  # foo/foo.sh), and then evaluate the DTC of the *skyquery-land* universe of
+  # //foo:foo (*not* evaluating that ArtifactValue), and then observe an rdep
+  # edge on the not-done ArtifactValue, and then crash.
+  bazel query \
+    --universe_scope=//foo:foo \
+    --order_output=no \
+    "rbuildfiles(foo/foo.sh)" >& $TEST_log || fail "Expected success"
+  expect_not_log //foo:BUILD
+}
+
 run_suite "${PRODUCT_NAME} query tests"

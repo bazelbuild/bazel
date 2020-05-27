@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.shell;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
+import com.google.common.flogger.LazyArgs;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.shell.Consumers.OutErrConsumers;
 import java.io.File;
@@ -25,8 +27,6 @@ import java.io.OutputStream;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -113,8 +113,7 @@ import javax.annotation.Nullable;
  */
 public final class Command {
 
-  private static final Logger logger =
-      Logger.getLogger("com.google.devtools.build.lib.shell.Command");
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Pass this value to {@link #execute} to indicate that no input should be written to stdin. */
   public static final InputStream NO_INPUT = new NullInputStream();
@@ -394,9 +393,7 @@ public final class Command {
   }
 
   private static void processInput(InputStream stdinInput, Subprocess process) {
-    if (logger.isLoggable(Level.FINER)) {
-      logger.finer(stdinInput.toString());
-    }
+    logger.atFiner().log(stdinInput.toString());
     try (OutputStream out = process.getOutputStream()) {
       ByteStreams.copy(stdinInput, out);
     } catch (IOException ioe) {
@@ -412,9 +409,6 @@ public final class Command {
   }
 
   private void logCommand() {
-    if (!logger.isLoggable(Level.FINE)) {
-      return;
-    }
-    logger.fine(toDebugString());
+    logger.atFine().log("%s", LazyArgs.lazy(this::toDebugString));
   }
 }

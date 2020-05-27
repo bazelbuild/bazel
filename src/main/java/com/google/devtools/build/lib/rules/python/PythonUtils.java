@@ -19,9 +19,9 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -140,7 +140,7 @@ public final class PythonUtils {
   @Nullable
   private static Artifact generate2to3Action(RuleContext ruleContext, Artifact input) {
     FilesToRunProvider py2to3converter =
-        ruleContext.getExecutablePrerequisite("$python2to3", RuleConfiguredTarget.Mode.HOST);
+        ruleContext.getExecutablePrerequisite("$python2to3", TransitionMode.HOST);
     Artifact output = get2to3OutputArtifact(ruleContext, input);
     if (output == null) {
       return null;

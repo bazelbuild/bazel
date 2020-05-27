@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,7 +36,7 @@ public class ExecutorBuilder {
   private final Set<ExecutorLifecycleListener> executorLifecycleListeners = new LinkedHashSet<>();
   private ActionInputPrefetcher prefetcher;
 
-  public SpawnActionContextMaps getSpawnActionContextMaps() throws ExecutorInitException {
+  public SpawnActionContextMaps getSpawnActionContextMaps() throws AbruptExitException {
     return spawnActionContextMapsBuilder.build();
   }
 
@@ -163,21 +163,26 @@ public class ExecutorBuilder {
   }
 
   // TODO(katre): Use a fake implementation to allow for migration to the new API.
-  public ModuleActionContextRegistry.Builder asModuleActionContextRegistryBuilder() {
-    return new ModuleActionContextDelegate(this);
+  public ModuleActionContextRegistry.Builder asModuleActionContextRegistryBuilder(
+      ModuleActionContextRegistry.Builder registryBuilder) {
+    return new ModuleActionContextDelegate(registryBuilder, this);
   }
 
   private static final class ModuleActionContextDelegate
       implements ModuleActionContextRegistry.Builder {
+    private final ModuleActionContextRegistry.Builder registryBuilder;
     private final ExecutorBuilder executorBuilder;
 
-    private ModuleActionContextDelegate(ExecutorBuilder executorBuilder) {
+    private ModuleActionContextDelegate(
+        ModuleActionContextRegistry.Builder registryBuilder, ExecutorBuilder executorBuilder) {
       this.executorBuilder = executorBuilder;
+      this.registryBuilder = registryBuilder;
     }
 
     @Override
     public ModuleActionContextRegistry.Builder restrictTo(
         Class<?> identifyingType, String restriction) {
+      this.registryBuilder.restrictTo(identifyingType, restriction);
       Preconditions.checkArgument(ActionContext.class.isAssignableFrom(identifyingType));
       @SuppressWarnings("unchecked")
       Class<? extends ActionContext> castType = (Class<? extends ActionContext>) identifyingType;
@@ -188,32 +193,39 @@ public class ExecutorBuilder {
     @Override
     public <T extends ActionContext> ModuleActionContextRegistry.Builder register(
         Class<T> identifyingType, T context, String... commandLineIdentifiers) {
+      this.registryBuilder.register(identifyingType, context, commandLineIdentifiers);
       this.executorBuilder.addActionContext(identifyingType, context, commandLineIdentifiers);
       return this;
     }
 
     @Override
-    public ModuleActionContextRegistry build() throws ExecutorInitException {
-      throw new UnsupportedOperationException("not a real builder");
+    public ModuleActionContextRegistry build() throws AbruptExitException {
+      ModuleActionContextRegistry moduleActionContextRegistry = this.registryBuilder.build();
+      return moduleActionContextRegistry;
     }
   }
 
   // TODO(katre): Use a fake implementation to allow for migration to the new API.
-  public SpawnStrategyRegistry.Builder asSpawnStrategyRegistryBuilder() {
-    return new SpawnStrategyRegistryDelegate(this);
+  public SpawnStrategyRegistry.Builder asSpawnStrategyRegistryBuilder(
+      SpawnStrategyRegistry.Builder spawnStrategyRegistry) {
+    return new SpawnStrategyRegistryDelegate(spawnStrategyRegistry, this);
   }
 
   private static final class SpawnStrategyRegistryDelegate
       implements SpawnStrategyRegistry.Builder {
+    private final SpawnStrategyRegistry.Builder spawnStrategyRegistry;
     private final ExecutorBuilder executorBuilder;
 
-    private SpawnStrategyRegistryDelegate(ExecutorBuilder executorBuilder) {
+    private SpawnStrategyRegistryDelegate(
+        SpawnStrategyRegistry.Builder spawnStrategyRegistry, ExecutorBuilder executorBuilder) {
+      this.spawnStrategyRegistry = spawnStrategyRegistry;
       this.executorBuilder = executorBuilder;
     }
 
     @Override
     public SpawnStrategyRegistry.Builder addDescriptionFilter(
         RegexFilter filter, List<String> identifiers) {
+      this.spawnStrategyRegistry.addDescriptionFilter(filter, identifiers);
       this.executorBuilder.addStrategyByRegexp(filter, identifiers);
       return this;
     }
@@ -221,6 +233,7 @@ public class ExecutorBuilder {
     @Override
     public SpawnStrategyRegistry.Builder addMnemonicFilter(
         String mnemonic, List<String> identifiers) {
+      this.spawnStrategyRegistry.addMnemonicFilter(mnemonic, identifiers);
       this.executorBuilder.addStrategyByMnemonic(mnemonic, identifiers);
       return this;
     }
@@ -228,6 +241,7 @@ public class ExecutorBuilder {
     @Override
     public SpawnStrategyRegistry.Builder registerStrategy(
         SpawnStrategy strategy, List<String> commandlineIdentifiers) {
+      this.spawnStrategyRegistry.registerStrategy(strategy, commandlineIdentifiers);
       this.executorBuilder.addActionContext(
           SpawnStrategy.class, strategy, commandlineIdentifiers.toArray(new String[0]));
       return this;
@@ -241,12 +255,14 @@ public class ExecutorBuilder {
 
     @Override
     public SpawnStrategyRegistry.Builder setDefaultStrategies(List<String> defaultStrategies) {
+      this.spawnStrategyRegistry.setDefaultStrategies(defaultStrategies);
       this.executorBuilder.addStrategyByMnemonic("", defaultStrategies);
       return this;
     }
 
     @Override
     public SpawnStrategyRegistry.Builder resetDefaultStrategies() {
+      this.spawnStrategyRegistry.resetDefaultStrategies();
       this.executorBuilder.addStrategyByMnemonic("", ImmutableList.of(""));
       return this;
     }
@@ -254,6 +270,7 @@ public class ExecutorBuilder {
     @Override
     public SpawnStrategyRegistry.Builder addDynamicRemoteStrategiesByMnemonic(
         String mnemonic, List<String> strategies) {
+      this.spawnStrategyRegistry.addDynamicRemoteStrategiesByMnemonic(mnemonic, strategies);
       this.executorBuilder.addDynamicRemoteStrategiesByMnemonic(mnemonic, strategies);
       return this;
     }
@@ -261,6 +278,7 @@ public class ExecutorBuilder {
     @Override
     public SpawnStrategyRegistry.Builder addDynamicLocalStrategiesByMnemonic(
         String mnemonic, List<String> strategies) {
+      this.spawnStrategyRegistry.addDynamicLocalStrategiesByMnemonic(mnemonic, strategies);
       this.executorBuilder.addDynamicLocalStrategiesByMnemonic(mnemonic, strategies);
       return this;
     }
@@ -268,13 +286,14 @@ public class ExecutorBuilder {
     @Override
     public SpawnStrategyRegistry.Builder setRemoteLocalFallbackStrategyIdentifier(
         String commandlineIdentifier) {
+      this.spawnStrategyRegistry.setRemoteLocalFallbackStrategyIdentifier(commandlineIdentifier);
       this.executorBuilder.setRemoteFallbackStrategy(commandlineIdentifier);
       return this;
     }
 
     @Override
-    public SpawnStrategyRegistry build() throws ExecutorInitException {
-      throw new UnsupportedOperationException("not a real builder");
+    public SpawnStrategyRegistry build() throws AbruptExitException {
+      return this.spawnStrategyRegistry.build();
     }
   }
 }

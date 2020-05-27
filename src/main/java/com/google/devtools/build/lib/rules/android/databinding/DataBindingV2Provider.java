@@ -13,16 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android.databinding;
 
-import static com.google.devtools.build.lib.rules.android.AndroidSkylarkData.fromNoneable;
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import javax.annotation.Nullable;
@@ -193,13 +193,17 @@ public final class DataBindingV2Provider extends NativeInfo
           databindingV2ProvidersInDeps == null
               ? null
               : ImmutableList.copyOf(
-                  databindingV2ProvidersInDeps.getContents(
-                      DataBindingV2Provider.class, "databinding_v2_providers_in_deps")),
+                  Sequence.cast(
+                      databindingV2ProvidersInDeps,
+                      DataBindingV2Provider.class,
+                      "databinding_v2_providers_in_deps")),
           databindingV2ProvidersInExports == null
               ? null
               : ImmutableList.copyOf(
-                  databindingV2ProvidersInExports.getContents(
-                      DataBindingV2Provider.class, "databinding_v2_providers_in_exports")));
+                  Sequence.cast(
+                      databindingV2ProvidersInExports,
+                      DataBindingV2Provider.class,
+                      "databinding_v2_providers_in_exports")));
     }
   }
 }

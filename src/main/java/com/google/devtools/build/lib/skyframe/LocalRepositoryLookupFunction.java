@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.skyframe.PackageFunction.PackageFunctionException;
@@ -45,6 +45,12 @@ import javax.annotation.Nullable;
 
 /** SkyFunction for {@link LocalRepositoryLookupValue}s. */
 public class LocalRepositoryLookupFunction implements SkyFunction {
+
+  private final ExternalPackageHelper externalPackageHelper;
+
+  public LocalRepositoryLookupFunction(ExternalPackageHelper externalPackageHelper) {
+    this.externalPackageHelper = externalPackageHelper;
+  }
 
   @Override
   @Nullable
@@ -135,7 +141,7 @@ public class LocalRepositoryLookupFunction implements SkyFunction {
   private Optional<LocalRepositoryLookupValue> maybeCheckWorkspaceForRepository(
       Environment env, final RootedPath directory)
       throws InterruptedException, LocalRepositoryLookupFunctionException {
-    RootedPath workspacePath = ExternalPackageUtil.findWorkspaceFile(env);
+    RootedPath workspacePath = externalPackageHelper.findWorkspaceFile(env);
     if (env.valuesMissing()) {
       return Optional.absent();
     }

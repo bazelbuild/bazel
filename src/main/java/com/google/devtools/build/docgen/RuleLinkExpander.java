@@ -45,7 +45,6 @@ public class RuleLinkExpander {
           .put("exports_files", FUNCTIONS_PAGE)
           .put("glob", FUNCTIONS_PAGE)
           .put("select", FUNCTIONS_PAGE)
-          .put("workspace", FUNCTIONS_PAGE)
           .build();
 
   private final String productName;

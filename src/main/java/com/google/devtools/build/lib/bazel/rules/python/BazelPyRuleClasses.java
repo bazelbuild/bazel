@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyInfo;
@@ -76,7 +76,7 @@ public final class BazelPyRuleClasses {
                           // Legacy provider.
                           // TODO(b/153363654): Remove this legacy set.
                           ImmutableList.of(
-                              SkylarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
+                              StarlarkProviderIdentifier.forLegacy(PyStructUtils.PROVIDER_NAME)),
                           // Modern provider.
                           ImmutableList.of(PyInfo.PROVIDER.id())))
                   .allowedFileTypes())

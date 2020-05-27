@@ -17,8 +17,8 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
@@ -41,7 +41,7 @@ public abstract class JavaHelper {
   public static TransitiveInfoCollection launcherForTarget(
       JavaSemantics semantics, RuleContext ruleContext) {
     String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null) ? null : ruleContext.getPrerequisite(launcher, Mode.TARGET);
+    return (launcher == null) ? null : ruleContext.getPrerequisite(launcher, TransitionMode.TARGET);
   }
 
   /**
@@ -51,7 +51,9 @@ public abstract class JavaHelper {
   public static Artifact launcherArtifactForTarget(
       JavaSemantics semantics, RuleContext ruleContext) {
     String launcher = filterLauncherForTarget(ruleContext);
-    return (launcher == null) ? null : ruleContext.getPrerequisiteArtifact(launcher, Mode.TARGET);
+    return (launcher == null)
+        ? null
+        : ruleContext.getPrerequisiteArtifact(launcher, TransitionMode.TARGET);
   }
 
   /**
@@ -113,7 +115,7 @@ public abstract class JavaHelper {
       throws InterruptedException {
     PathFragment rootRelativePath = resource.getRootRelativePath();
     StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
+        ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
 
     if (!ruleContext.getLabel().getWorkspaceRoot(starlarkSemantics).isEmpty()) {
       PathFragment workspace =

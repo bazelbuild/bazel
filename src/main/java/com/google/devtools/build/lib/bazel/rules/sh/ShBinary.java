@@ -24,10 +24,10 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -45,7 +45,8 @@ public class ShBinary implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    ImmutableList<Artifact> srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+    ImmutableList<Artifact> srcs =
+        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list();
     if (srcs.size() != 1) {
       ruleContext.attributeError("srcs", "you must specify exactly one file in 'srcs'");
       return null;

@@ -6108,8 +6108,8 @@ def _impl(ctx):
                     flag_group(
                         flags = [
                             "-fprofile-use=%{fdo_profile_path}",
-                            "-Xclang-only=-Wno-profile-instr-unprofiled",
-                            "-Xclang-only=-Wno-profile-instr-out-of-date",
+                            "-Wno-profile-instr-unprofiled",
+                            "-Wno-profile-instr-out-of-date",
                             "-fprofile-correction",
                         ],
                         expand_if_available = "fdo_profile_path",
@@ -6808,7 +6808,7 @@ def _impl(ctx):
                     "objc-executable",
                     "objc++-executable",
                 ],
-                flag_groups = [flag_group(flags = ["-g"])],
+                flag_groups = [flag_group(flags = ["-g", "-DDUMMY_GENERATE_DSYM_FILE"])],
             ),
             flag_set(
                 actions = ["objc-executable", "objc++-executable"],

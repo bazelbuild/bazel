@@ -21,14 +21,16 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.VersionCommand.Code;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
-import java.io.IOException;
+import java.util.Optional;
 
 /**
  * The 'blaze version' command, which informs users about the blaze version
@@ -61,29 +63,35 @@ public final class VersionCommand implements BlazeCommand {
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     env.getEventBus().post(new NoBuildEvent());
-    try {
-      env.getReporter().getOutErr().printOutLn(
-          getInfo(
-              env.getRuntime().getProductName(),
-              BlazeVersionInfo.instance(),
-              options.getOptions(VersionOptions.class).gnuFormat));
-    } catch (IOException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+
+    Optional<String> info =
+        getInfo(
+            env.getRuntime().getProductName(),
+            BlazeVersionInfo.instance(),
+            options.getOptions(VersionOptions.class).gnuFormat);
+    if (info.isPresent()) {
+      env.getReporter().getOutErr().printOutLn(info.get());
+      return BlazeCommandResult.success();
     }
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    String message = "Version information not available";
+    env.getReporter().handle(Event.error(message));
+    return BlazeCommandResult.failureDetail(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setVersionCommand(
+                FailureDetails.VersionCommand.newBuilder().setCode(Code.NOT_AVAILABLE))
+            .build());
   }
 
   @VisibleForTesting
-  static String getInfo(String productName, BlazeVersionInfo info, boolean gnuFormat)
-      throws IOException {
+  static Optional<String> getInfo(String productName, BlazeVersionInfo info, boolean gnuFormat) {
     if (info.getSummary() == null) {
-      throw new IOException("Version information not available");
+      return Optional.empty();
     }
     if (gnuFormat) {
-      return productName + " " + (info.isReleasedBlaze() ? info.getVersion() : "no_version");
-    } else {
-      return info.getSummary();
+      return Optional.of(
+          productName + " " + (info.isReleasedBlaze() ? info.getVersion() : "no_version"));
     }
+    return Optional.of(info.getSummary());
   }
 }

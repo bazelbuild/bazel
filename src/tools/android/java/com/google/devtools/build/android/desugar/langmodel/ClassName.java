@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.function.Predicate;
 import org.objectweb.asm.Type;
 
 /**
@@ -31,13 +32,13 @@ import org.objectweb.asm.Type;
  * different names.
  */
 @AutoValue
-public abstract class ClassName implements TypeMappable<ClassName> {
+public abstract class ClassName implements TypeMappable<ClassName>, Comparable<ClassName> {
 
   public static final String IN_PROCESS_LABEL = "__desugar__/";
 
   private static final String IMMUTABLE_LABEL_LABEL = "__final__/";
 
-  private static final String TYPE_ADAPTER_PACKAGE_ROOT =
+  public static final String TYPE_ADAPTER_PACKAGE_ROOT =
       "com/google/devtools/build/android/desugar/typeadapter/";
 
   public static final TypeMapper IN_PROCESS_LABEL_STRIPPER =
@@ -48,7 +49,7 @@ public abstract class ClassName implements TypeMappable<ClassName> {
 
   private static final String TYPE_ADAPTER_SUFFIX = "Adapter";
 
-  private static final String TYPE_CONVERTER_SUFFIX = "Converter";
+  public static final String TYPE_CONVERTER_SUFFIX = "Converter";
 
   /**
    * The primitive type as specified at
@@ -221,22 +222,19 @@ public abstract class ClassName implements TypeMappable<ClassName> {
    * methods to be adapted, including overloaded API methods, in order to avoid adapter class name
    * clashing from separate compilation units.
    */
-  final ClassName typeAdapterOwner(String encodedMethodTag) {
+  final ClassName typeAdapterOwner(int invocationSiteTag) {
     checkState(
         !hasInProcessLabel() && !hasImmutableLabel(),
         "Expected a label-free type: Actual(%s)",
         this);
     checkState(
-        isInPackageEligibleForTypeAdapter(),
+        isAndroidDomainType(),
         "Expected an Android SDK type to have an adapter: Actual (%s)",
         this);
     String binaryName =
         String.format(
             "%s%s$%x$%s",
-            TYPE_ADAPTER_PACKAGE_ROOT,
-            binaryName(),
-            encodedMethodTag.hashCode(),
-            TYPE_ADAPTER_SUFFIX);
+            TYPE_ADAPTER_PACKAGE_ROOT, binaryName(), invocationSiteTag, TYPE_ADAPTER_SUFFIX);
     return ClassName.create(binaryName);
   }
 
@@ -315,24 +313,8 @@ public abstract class ClassName implements TypeMappable<ClassName> {
     return !isInDesugarRuntimeLibrary();
   }
 
-  public final boolean isInPackageEligibleForTypeAdapter() {
-    // TODO(b/152573900): Update to hasPackagePrefix("android/") once all package-wise incremental
-    // rollouts are complete.
-
-    return hasAnyPackagePrefix(
-        "android/testing/",
-        "android/accessibilityservice/AccessibilityService",
-        "android/app/admin/FreezePeriod",
-        "android/app/role/RoleManager",
-        "android/app/usage/UsageStatsManager",
-        "android/hardware/display/AmbientBrightnessDayStats",
-        "android/os/SystemClock",
-        "android/service/voice/VoiceInteractionSession",
-        "android/service/voice/VoiceInteractionSession",
-        "android/telephony/SubscriptionPlan$Builder",
-        "android/telephony/TelephonyManager",
-        "android/view/textclassifier/TextClassification$Request",
-        "android/view/textclassifier/TextLinks");
+  public final boolean isAndroidDomainType() {
+    return hasAnyPackagePrefix("android/", "androidx/");
   }
 
   public final boolean isInDesugarRuntimeLibrary() {
@@ -362,12 +344,21 @@ public abstract class ClassName implements TypeMappable<ClassName> {
         "Expected %s to have a package prefix of (%s) before stripping.",
         this,
         originalPrefix);
-    checkPackagePrefixFormat(targetPrefix);
+    // checkPackagePrefixFormat(targetPrefix);
     return ClassName.create(targetPrefix + binaryName().substring(originalPrefix.length()));
+  }
+
+  public boolean acceptTypeFilter(Predicate<ClassName> typeFilter) {
+    return typeFilter.test(this);
   }
 
   @Override
   public ClassName acceptTypeMapper(TypeMapper typeMapper) {
     return typeMapper.map(this);
+  }
+
+  @Override
+  public int compareTo(ClassName other) {
+    return binaryName().compareTo(other.binaryName());
   }
 }

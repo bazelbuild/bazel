@@ -23,8 +23,7 @@ effects. Bazel users are accustomed to rules that create executables, and rule
 authors can follow a common set of patterns to extend this to "custom verbs".
 
 ### In the wild: `rules_k8s`
-For an example, consider
-[`rules_k8s`]([https://github.com/bazelbuild/rules_k8s](https://github.com/bazelbuild/rules_k8s)),
+For an example, consider [`rules_k8s`](https://github.com/bazelbuild/rules_k8s),
 the Kubernetes rules for Bazel. Suppose we have the following target:
 
 ```python

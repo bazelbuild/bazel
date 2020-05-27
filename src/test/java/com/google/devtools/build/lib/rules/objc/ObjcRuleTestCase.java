@@ -237,6 +237,20 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     throw new AssertionError();
   }
 
+  private static List<String> compilationModeCopts(CompilationMode mode) {
+    switch (mode) {
+      case DBG:
+        return ImmutableList.<String>builder()
+            .addAll(ObjcConfiguration.DBG_COPTS)
+            .build();
+      case OPT:
+        return ObjcConfiguration.OPT_COPTS;
+      case FASTBUILD:
+        return FASTBUILD_COPTS;
+    }
+    throw new AssertionError();
+  }
+
   @Override
   protected void useConfiguration(String... args) throws Exception {
     ImmutableList<String> extraArgs = MockObjcSupport.requiredObjcCrosstoolFlags();
@@ -412,22 +426,22 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected ObjcProvider providerForTarget(String label) throws Exception {
-    ObjcProvider objcProvider = getConfiguredTarget(label).get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = getConfiguredTarget(label).get(ObjcProvider.STARLARK_CONSTRUCTOR);
     if (objcProvider != null) {
       return objcProvider;
     }
     AppleExecutableBinaryInfo executableProvider =
-        getConfiguredTarget(label).get(AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR);
+        getConfiguredTarget(label).get(AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR);
     if (executableProvider != null) {
       return executableProvider.getDepsObjcProvider();
     }
     AppleDylibBinaryInfo dylibProvider =
-        getConfiguredTarget(label).get(AppleDylibBinaryInfo.SKYLARK_CONSTRUCTOR);
+        getConfiguredTarget(label).get(AppleDylibBinaryInfo.STARLARK_CONSTRUCTOR);
     if (dylibProvider != null) {
       return dylibProvider.getDepsObjcProvider();
     }
     AppleLoadableBundleBinaryInfo loadableBundleProvider =
-        getConfiguredTarget(label).get(AppleLoadableBundleBinaryInfo.SKYLARK_CONSTRUCTOR);
+        getConfiguredTarget(label).get(AppleLoadableBundleBinaryInfo.STARLARK_CONSTRUCTOR);
     if (loadableBundleProvider != null) {
       return loadableBundleProvider.getDepsObjcProvider();
     }
@@ -551,7 +565,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch, "hdrs", "['a.h']", "includes", "['incdir']");
     ObjcProvider provider =
         getConfiguredTarget("//x:x", getAppleCrosstoolConfiguration())
-            .get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+            .get(ObjcProvider.STARLARK_CONSTRUCTOR);
     if (privateHdr.isPresent()) {
       assertThat(provider.header().toList())
           .containsExactly(getSourceArtifact("x/a.h"), getSourceArtifact(privateHdr.get()));
@@ -679,7 +693,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         view.getPrerequisiteConfiguredTargetForTesting(
             reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
 
-    ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(protoProvider).isNotNull();
     assertThat(
             Artifact.asExecPaths(
@@ -819,7 +833,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         view.getPrerequisiteConfiguredTargetForTesting(
             reporter, topTarget, Label.parseAbsoluteUnchecked("//libs:objc_lib"), masterConfig);
 
-    ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider protoProvider = libTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(protoProvider).isNotNull();
   }
 
@@ -958,8 +972,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   protected void checkClangCoptsForCompilationMode(RuleType ruleType, CompilationMode mode,
       CodeCoverageMode codeCoverageMode) throws Exception {
-    ImmutableList.Builder<String> allExpectedCoptsBuilder =
-        ImmutableList.<String>builder().addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+    ImmutableList.Builder<String> allExpectedCoptsBuilder = ImmutableList.<String>builder()
+        .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
+        .addAll(compilationModeCopts(mode));
 
     switch (codeCoverageMode) {
       case NONE:
@@ -993,8 +1008,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
   }
 
   protected void checkClangCoptsForDebugModeWithoutGlib(RuleType ruleType) throws Exception {
-    ImmutableList.Builder<String> allExpectedCoptsBuilder =
-        ImmutableList.<String>builder().addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS);
+     ImmutableList.Builder<String> allExpectedCoptsBuilder = ImmutableList.<String>builder()
+        .addAll(CompilationSupport.DEFAULT_COMPILER_FLAGS)
+        .addAll(ObjcConfiguration.DBG_COPTS);
 
     useConfiguration(
         "--apple_platform_type=ios", "--compilation_mode=dbg", "--objc_debug_with_GLIBCXX=false");
@@ -1637,7 +1653,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     assertThat(archiveAction).isInstanceOf(CppLinkAction.class);
   }
 
-  protected void scratchFrameworkSkylarkStub(String bzlPath) throws Exception {
+  protected void scratchFrameworkStarlarkStub(String bzlPath) throws Exception {
     PathFragment pathFragment = PathFragment.create(bzlPath);
     scratch.file(pathFragment.getParentDirectory() + "/BUILD");
     scratch.file(
@@ -1679,7 +1695,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "deps", "['//package:objcLib']",
         "dylibs", "['//package:avoidLib']");
-    scratchFrameworkSkylarkStub("frameworkstub/framework_stub.bzl");
+    scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
     scratch.file(
         "package/BUILD",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
@@ -1730,7 +1746,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "deps", "['//package:ObjcLib']",
         "dylibs", "['//package:dylib1']");
-    scratchFrameworkSkylarkStub("frameworkstub/framework_stub.bzl");
+    scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
     scratch.file("package/BUILD",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
         "objc_library(name = 'ObjcLib', srcs = [ 'ObjcLib.m' ],",
@@ -1784,7 +1800,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
     ruleType.scratchTarget(scratch,
         "deps", "['//package:objcLib']",
         "dylibs", "['//package:avoidLib']");
-    scratchFrameworkSkylarkStub("frameworkstub/framework_stub.bzl");
+    scratchFrameworkStarlarkStub("frameworkstub/framework_stub.bzl");
     scratch.file("package/BUILD",
         "load('//frameworkstub:framework_stub.bzl', 'framework_stub_rule')",
         "framework_stub_rule(name = 'avoidLib', binary = ':avoidLibBinary')",

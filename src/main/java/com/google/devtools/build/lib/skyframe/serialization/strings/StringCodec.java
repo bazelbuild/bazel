@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization.strings;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
@@ -21,8 +22,12 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
-/** Dead-simple serialization for {@link String}s. */
-class StringCodec implements ObjectCodec<String> {
+/**
+ * Dead-simple serialization for {@link String}s. May not be used by default if a more performant
+ * variant is available.
+ */
+@VisibleForTesting
+public class StringCodec implements ObjectCodec<String> {
 
   @Override
   public Class<String> getEncodedClass() {

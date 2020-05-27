@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorAr
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault.Resolve
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
@@ -104,13 +104,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
   private static final ImmutableList<Attribute> JAVA_DEPENDENT_ATTRIBUTES =
       ImmutableList.of(
-          new Attribute("$jre_lib", Mode.TARGET),
-          new Attribute("deps", Mode.TARGET),
-          new Attribute("exports", Mode.TARGET),
-          new Attribute("runtime_deps", Mode.TARGET));
+          new Attribute("$jre_lib", TransitionMode.TARGET),
+          new Attribute("deps", TransitionMode.TARGET),
+          new Attribute("exports", TransitionMode.TARGET),
+          new Attribute("runtime_deps", TransitionMode.TARGET));
 
   private static final ImmutableList<Attribute> PROTO_DEPENDENT_ATTRIBUTES =
-      ImmutableList.of(new Attribute("deps", Mode.TARGET));
+      ImmutableList.of(new Attribute("deps", TransitionMode.TARGET));
 
   private static final String J2OBJC_PROTO_TOOLCHAIN_ATTR = ":j2objc_proto_toolchain";
 
@@ -144,9 +144,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .propagateAlongAttribute("deps")
         .propagateAlongAttribute("exports")
         .propagateAlongAttribute("runtime_deps")
-        .requireSkylarkProviders(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
-        .advertiseProvider(ImmutableList.of(ObjcProvider.SKYLARK_CONSTRUCTOR.id()))
+        .requireStarlarkProviders(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
+        .advertiseProvider(ImmutableList.of(ObjcProvider.STARLARK_CONSTRUCTOR.id()))
         .requiresConfigurationFragments(
             AppleConfiguration.class,
             CppConfiguration.class,
@@ -244,22 +244,21 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       throws InterruptedException, ActionConflictException {
     ConfiguredTarget base = ctadBase.getConfiguredTarget();
     if (isProtoRule(base)) {
-      return proto(base, ruleContext, parameters);
+      return proto(base, ruleContext);
     } else {
-      return java(base, ruleContext, parameters);
+      return java(base, ruleContext);
     }
   }
 
   private ConfiguredAspect buildAspect(
       ConfiguredTarget base,
       RuleContext ruleContext,
-      AspectParameters parameters,
       J2ObjcSource j2ObjcSource,
       J2ObjcMappingFileProvider directJ2ObjcMappingFileProvider,
       List<Attribute> depAttributes,
       List<TransitiveInfoCollection> otherDeps)
       throws InterruptedException, ActionConflictException {
-    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(this, parameters, ruleContext);
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(ruleContext);
     ObjcCommon common;
     ObjcProvider objcProvider = null;
 
@@ -320,8 +319,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .build();
   }
 
-  private ConfiguredAspect java(
-      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+  private ConfiguredAspect java(ConfiguredTarget base, RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     JavaCompilationArgsProvider compilationArgsProvider =
         JavaInfo.getProvider(JavaCompilationArgsProvider.class, base);
@@ -363,15 +361,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     return buildAspect(
         base,
         ruleContext,
-        parameters,
         j2ObjcSource,
         directJ2ObjcMappingFileProvider,
         JAVA_DEPENDENT_ATTRIBUTES,
         ImmutableList.of());
   }
 
-  private ConfiguredAspect proto(
-      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+  private ConfiguredAspect proto(ConfiguredTarget base, RuleContext ruleContext)
       throws InterruptedException, ActionConflictException {
     ProtoInfo protoInfo = base.get(ProtoInfo.PROVIDER);
     ImmutableList<Artifact> protoSources = protoInfo.getDirectProtoSources();
@@ -399,7 +395,6 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     return buildAspect(
         base,
         ruleContext,
-        parameters,
         j2ObjcSource,
         directJ2ObjcMappingFileProvider,
         PROTO_DEPENDENT_ATTRIBUTES,
@@ -490,7 +485,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     PathFragment javaExecutable = JavaCommon.getHostJavaExecutable(ruleContext);
     argBuilder.add("--java", javaExecutable.getPathString());
 
-    Artifact j2ObjcDeployJar = ruleContext.getPrerequisiteArtifact("$j2objc", Mode.HOST);
+    Artifact j2ObjcDeployJar = ruleContext.getPrerequisiteArtifact("$j2objc", TransitionMode.HOST);
     argBuilder.addExecPath("--j2objc", j2ObjcDeployJar);
 
     argBuilder.add("--main_class").add("com.google.devtools.j2objc.J2ObjC");
@@ -533,12 +528,13 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     Artifact compiledLibrary = ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext).archive();
     argBuilder.addExecPath("--compiled_archive_file_path", compiledLibrary);
 
-    Artifact bootclasspathJar = ruleContext.getPrerequisiteArtifact("$jre_emul_jar", Mode.HOST);
+    Artifact bootclasspathJar =
+        ruleContext.getPrerequisiteArtifact("$jre_emul_jar", TransitionMode.HOST);
     argBuilder.addFormatted("-Xbootclasspath:%s", bootclasspathJar);
 
     // A valid Java system module contains 3 files. The top directory contains a file "release".
     ImmutableList<Artifact> moduleFiles =
-        ruleContext.getPrerequisiteArtifacts("$jre_emul_module", Mode.HOST).list();
+        ruleContext.getPrerequisiteArtifacts("$jre_emul_module", TransitionMode.HOST).list();
     for (Artifact a : moduleFiles) {
       if (a.getFilename().equals("release")) {
         argBuilder.add("--system", a.getDirname());
@@ -546,7 +542,8 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       }
     }
 
-    Artifact deadCodeReport = ruleContext.getPrerequisiteArtifact(":dead_code_report", Mode.HOST);
+    Artifact deadCodeReport =
+        ruleContext.getPrerequisiteArtifact(":dead_code_report", TransitionMode.HOST);
     if (deadCodeReport != null) {
       argBuilder.addExecPath("--dead-code-report", deadCodeReport);
     }
@@ -563,8 +560,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
     SpawnAction.Builder transpilationAction =
         new SpawnAction.Builder()
             .setMnemonic("TranspilingJ2objc")
-            .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", Mode.HOST))
-            .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", Mode.HOST))
+            .setExecutable(
+                ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", TransitionMode.HOST))
+            .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_wrapper", TransitionMode.HOST))
             .addInput(j2ObjcDeployJar)
             .addInput(bootclasspathJar)
             .addInputs(moduleFiles)
@@ -606,8 +604,10 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       ruleContext.registerAction(
           new SpawnAction.Builder()
               .setMnemonic("GenerateJ2objcHeaderMap")
-              .setExecutable(ruleContext.getPrerequisiteArtifact("$j2objc_header_map", Mode.HOST))
-              .addInput(ruleContext.getPrerequisiteArtifact("$j2objc_header_map", Mode.HOST))
+              .setExecutable(
+                  ruleContext.getPrerequisiteArtifact("$j2objc_header_map", TransitionMode.HOST))
+              .addInput(
+                  ruleContext.getPrerequisiteArtifact("$j2objc_header_map", TransitionMode.HOST))
               .addInputs(sources)
               .addInputs(sourceJars)
               .addCommandLine(
@@ -683,7 +683,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
       String attributeName) {
     if (context.attributes().has(attributeName, BuildType.LABEL_LIST)) {
       for (TransitiveInfoCollection dependencyInfoDatum :
-          context.getPrerequisites(attributeName, Mode.TARGET)) {
+          context.getPrerequisites(attributeName, TransitionMode.TARGET)) {
         J2ObjcMappingFileProvider provider =
             dependencyInfoDatum.getProvider(J2ObjcMappingFileProvider.class);
         if (provider != null) {
@@ -795,7 +795,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .getExecPath(
                     ruleContext
                         .getAnalysisEnvironment()
-                        .getSkylarkSemantics()
+                        .getStarlarkSemantics()
                         .experimentalSiblingRepositoryLayout()));
   }
 
@@ -869,7 +869,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
 
     for (Attribute dependentAttribute : dependentAttributes) {
       String attrName = dependentAttribute.getName();
-      Mode attrMode = dependentAttribute.getAccessMode();
+      TransitionMode attrMode = dependentAttribute.getAccessMode();
       if (ruleContext.attributes().has(attrName, BuildType.LABEL_LIST)
           || ruleContext.attributes().has(attrName, BuildType.LABEL)) {
         ImmutableList.Builder<CcInfo> ccInfoList = new ImmutableList.Builder<>();
@@ -886,14 +886,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         }
         builder.addDepCcHeaderProviders(ccInfoList.build());
         builder.addDepObjcProviders(
-            ruleContext.getPrerequisites(attrName, attrMode, ObjcProvider.SKYLARK_CONSTRUCTOR));
+            ruleContext.getPrerequisites(attrName, attrMode, ObjcProvider.STARLARK_CONSTRUCTOR));
       }
     }
 
     // We can't just use addDeps since that now takes ConfiguredTargetAndData and we only have
     // TransitiveInfoCollections
     builder.addDepObjcProviders(
-        otherDeps.stream().map(d -> d.get(ObjcProvider.SKYLARK_CONSTRUCTOR)).collect(toList()));
+        otherDeps.stream().map(d -> d.get(ObjcProvider.STARLARK_CONSTRUCTOR)).collect(toList()));
     builder.addDepCcHeaderProviders(
         otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toList()));
 

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
@@ -97,7 +96,8 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
             env.getExecRoot(),
             checkNotNull(env.getOptions().getOptions(RemoteOptions.class)),
             env.getOptions().getOptions(ExecutionOptions.class),
-            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class)).verboseFailures,
+            checkNotNull(env.getOptions().getOptions(ExecutionOptions.class))
+                .getVerboseFailuresPredicate(),
             env.getReporter(),
             env.getBuildRequestId(),
             env.getCommandId().toString(),
@@ -112,16 +112,11 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
   }
 
   /**
-   * Registers a spawn cache action context if this instance was created without an executor,
-   * otherwise does nothing.
+   * Registers a spawn cache action context
    *
    * @param registryBuilder builder with which to register the cache
    */
-  public void registerSpawnCacheIfApplicable(ModuleActionContextRegistry.Builder registryBuilder) {
-    if (executor != null) {
-      return; // No need to register cache if we're using a remote executor.
-    }
-
+  public void registerSpawnCache(ModuleActionContextRegistry.Builder registryBuilder) {
     RemoteSpawnCache spawnCache =
         new RemoteSpawnCache(
             env.getExecRoot(),
@@ -145,12 +140,11 @@ final class RemoteActionContextProvider implements ExecutorLifecycleListener {
   }
 
   @Override
-  public void executorCreated() throws ExecutorInitException {}
+  public void executorCreated() {}
 
   @Override
   public void executionPhaseStarting(
-      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels)
-      throws ExecutorInitException, InterruptedException {}
+      ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels) {}
 
   @Override
   public void executionPhaseEnding() {

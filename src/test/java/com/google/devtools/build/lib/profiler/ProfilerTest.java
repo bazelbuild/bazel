@@ -290,7 +290,7 @@ public class ProfilerTest {
     startUnbuffered(getSlowestProfilerTasks());
 
     // Add some fast tasks - these shouldn't show up in the slowest.
-    for (int i = 0; i < ProfilerTask.VFS_STAT.slowestInstancesCount; i++) {
+    for (int i = 0; i < 30; i++) {
       profiler.logSimpleTask(
           /*startTimeNanos=*/ 1,
           /*stopTimeNanos=*/ ProfilerTask.VFS_STAT.minDuration + 10,
@@ -300,7 +300,7 @@ public class ProfilerTest {
 
     // Add some slow tasks we expect to show up in the slowest.
     List<Long> expectedSlowestDurations = new ArrayList<>();
-    for (int i = 0; i < ProfilerTask.VFS_STAT.slowestInstancesCount; i++) {
+    for (int i = 0; i < 30; i++) {
       long fakeDuration = ProfilerTask.VFS_STAT.minDuration + i + 10_000;
       profiler.logSimpleTask(
           /*startTimeNanos=*/ 1,
@@ -346,7 +346,7 @@ public class ProfilerTest {
     }
 
     ImmutableList<SlowTask> slowTasks = ImmutableList.copyOf(profiler.getSlowestTasks());
-    assertThat(slowTasks).hasSize(ProfilerTask.VFS_STAT.slowestInstancesCount);
+    assertThat(slowTasks).hasSize(30);
 
     ImmutableList<Long> slowestDurations = slowTasks.stream()
         .map(task -> task.getDurationNanos())

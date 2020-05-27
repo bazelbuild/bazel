@@ -14,26 +14,26 @@
 
 package com.google.devtools.build.lib.server;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.platform.MemoryPressureCounter;
 import com.google.devtools.build.lib.unix.ProcMeminfoParser;
 import com.google.devtools.build.lib.util.OS;
 import io.grpc.Server;
 import java.io.IOException;
 import java.time.Duration;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Runnable that checks to see if a {@link Server} server has been idle for too long and shuts down
  * the server if so.
- *
- * <p>TODO(bazel-team): Implement the memory checking aspect.
  */
 class ServerWatcherRunnable implements Runnable {
-  private static final Logger logger = Logger.getLogger(ServerWatcherRunnable.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Duration IDLE_MEMORY_CHECK_INTERVAL = Duration.ofSeconds(5);
   private static final Duration TIME_IDLE_BEFORE_MEMORY_CHECK = Duration.ofMinutes(5);
   private static final long FREE_MEMORY_KB_ABSOLUTE_THRESHOLD = 1L << 20;
@@ -42,15 +42,120 @@ class ServerWatcherRunnable implements Runnable {
   private final Server server;
   private final long maxIdleSeconds;
   private final CommandManager commandManager;
-  private final ProcMeminfoParserSupplier procMeminfoParserSupplier;
+  private final LowMemoryChecker lowMemoryChecker;
   private final boolean shutdownOnLowSysMem;
+
+  /** Generic abstraction to check for low memory conditions on different platforms. */
+  private abstract static class LowMemoryChecker {
+
+    /** Timestamp of the moment the server went idle. */
+    private long lastIdleTimeNanos = 0;
+
+    /** Creates a memory checker that makes sense for the current platform. */
+    static LowMemoryChecker forCurrentOS() {
+      switch (OS.getCurrent()) {
+        case LINUX:
+          return new ProcMeminfoLowMemoryChecker(ProcMeminfoParser::new);
+
+        default:
+          return new MemoryPressureLowMemoryChecker();
+      }
+    }
+
+    /** Checks if the server should shut down due to a low memory condition. */
+    final boolean shouldShutdown() {
+      checkState(lastIdleTimeNanos > 0, "reset() ought to have been called before this");
+
+      if (BlazeClock.nanoTime() - lastIdleTimeNanos < TIME_IDLE_BEFORE_MEMORY_CHECK.toNanos()) {
+        // Only run memory check if the server has been idle for longer than
+        // TIME_IDLE_BEFORE_MEMORY_CHECK.
+        return false;
+      }
+
+      return check();
+    }
+
+    /** Returns true if the system has observed low memory conditions. */
+    abstract boolean check();
+
+    /** Notifies the checker that the server went idle at the given timestamp. */
+    void reset(long lastIdleTimeNanos) {
+      this.lastIdleTimeNanos = lastIdleTimeNanos;
+    }
+  }
+
+  /**
+   * A low memory conditions checker that relies on memory pressure notifications.
+   *
+   * <p>This checker will report a low memory condition when it detects a memory pressure
+   * notification between the point when {@link #reset(long)} was called and {@link
+   * #shouldShutdown()} is called.
+   *
+   * <p>Memory pressure notifications are provided by the platform-agnostic {@link
+   * MemoryPressureCounter} class, which may be a no-op for the current platform.
+   */
+  private static class MemoryPressureLowMemoryChecker extends LowMemoryChecker {
+    private int warningCountAtIdleStart = MemoryPressureCounter.warningCount();
+    private int criticalCountAtIdleStart = MemoryPressureCounter.criticalCount();
+
+    @Override
+    boolean check() {
+      return MemoryPressureCounter.warningCount() > warningCountAtIdleStart
+          || MemoryPressureCounter.criticalCount() > criticalCountAtIdleStart;
+    }
+
+    @Override
+    void reset(long lastIdleTimeNanos) {
+      super.reset(lastIdleTimeNanos);
+      warningCountAtIdleStart = MemoryPressureCounter.warningCount();
+      criticalCountAtIdleStart = MemoryPressureCounter.criticalCount();
+    }
+  }
+
+  /** A low memory condition checker that uses instantaneous data from {@code /proc/meminfo}. */
+  static class ProcMeminfoLowMemoryChecker extends LowMemoryChecker {
+
+    /** Supplier for a {@link ProcMeminfoParser}. */
+    interface ProcMeminfoParserSupplier {
+      ProcMeminfoParser get() throws IOException;
+    }
+
+    private final ProcMeminfoParserSupplier supplier;
+
+    ProcMeminfoLowMemoryChecker(ProcMeminfoParserSupplier supplier) {
+      this.supplier = supplier;
+    }
+
+    @Override
+    boolean check() {
+      try {
+        ProcMeminfoParser meminfoParser = supplier.get();
+        long freeRamKb = meminfoParser.getFreeRamKb();
+        long usedRamKb = meminfoParser.getTotalKb();
+        double fractionRamFree = ((double) freeRamKb) / usedRamKb;
+
+        // Shutdown when both the absolute amount and percentage of free RAM is lower than the set
+        // thresholds.
+        return fractionRamFree < FREE_MEMORY_PERCENTAGE_THRESHOLD
+            && freeRamKb < FREE_MEMORY_KB_ABSOLUTE_THRESHOLD;
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("Unable to read memory info.");
+        return false;
+      }
+    }
+  }
 
   ServerWatcherRunnable(
       Server server,
       long maxIdleSeconds,
       boolean shutdownOnLowSysMem,
       CommandManager commandManager) {
-    this(server, maxIdleSeconds, shutdownOnLowSysMem, commandManager, ProcMeminfoParser::new);
+    this(
+        server,
+        maxIdleSeconds,
+        shutdownOnLowSysMem,
+        commandManager,
+        LowMemoryChecker.forCurrentOS());
   }
 
   @VisibleForTesting
@@ -59,7 +164,7 @@ class ServerWatcherRunnable implements Runnable {
       long maxIdleSeconds,
       boolean shutdownOnLowSysMem,
       CommandManager commandManager,
-      ProcMeminfoParserSupplier procMeminfoParserSupplier) {
+      LowMemoryChecker lowMemoryChecker) {
     Preconditions.checkArgument(
         maxIdleSeconds > 0,
         "Expected to only check idleness when --max_idle_secs > 0 but it was %s",
@@ -67,7 +172,7 @@ class ServerWatcherRunnable implements Runnable {
     this.server = server;
     this.maxIdleSeconds = maxIdleSeconds;
     this.commandManager = commandManager;
-    this.procMeminfoParserSupplier = procMeminfoParserSupplier;
+    this.lowMemoryChecker = lowMemoryChecker;
     this.shutdownOnLowSysMem = shutdownOnLowSysMem;
   }
 
@@ -76,19 +181,19 @@ class ServerWatcherRunnable implements Runnable {
     boolean idle = commandManager.isEmpty();
     boolean wasIdle = false;
     long shutdownTimeNanos = -1;
-    long lastIdleTimeNanos = -1;
 
     while (true) {
       if (!wasIdle && idle) {
-        shutdownTimeNanos = BlazeClock.nanoTime() + Duration.ofSeconds(maxIdleSeconds).toNanos();
-        lastIdleTimeNanos = BlazeClock.nanoTime();
+        long now = BlazeClock.nanoTime();
+        shutdownTimeNanos = now + Duration.ofSeconds(maxIdleSeconds).toNanos();
+        lowMemoryChecker.reset(now);
       }
 
       try {
         if (idle) {
           Verify.verify(shutdownTimeNanos > 0);
-          if (shutdownOnLowSysMem && exitOnLowMemoryCheck(lastIdleTimeNanos)) {
-            logger.log(Level.SEVERE, "Available RAM is low. Shutting down idle server...");
+          if (shutdownOnLowSysMem && lowMemoryChecker.shouldShutdown()) {
+            logger.atSevere().log("Available RAM is low. Shutting down idle server...");
             break;
           }
           // Re-run the check every 5 seconds if no other commands have been sent to the server.
@@ -103,44 +208,10 @@ class ServerWatcherRunnable implements Runnable {
       wasIdle = idle;
       idle = commandManager.isEmpty();
       if (wasIdle && idle && BlazeClock.nanoTime() >= shutdownTimeNanos) {
-        logger.info("About to shutdown due to idleness");
+        logger.atInfo().log("About to shutdown due to idleness");
         break;
       }
     }
     server.shutdown();
-  }
-
-  private boolean exitOnLowMemoryCheck(long idleTimeNanos) {
-    // Only run memory check on linux.
-    if (OS.getCurrent() != OS.LINUX) {
-      // TODO(bazel-team): Consider making this work on all operating systems.
-      return false;
-    }
-
-    // Only run memory check if the server has been idle for longer than
-    // TIME_IDLE_BEFORE_MEMORY_CHECK.
-    if (BlazeClock.nanoTime() - idleTimeNanos < TIME_IDLE_BEFORE_MEMORY_CHECK.toNanos()) {
-      return false;
-    }
-
-    try {
-      ProcMeminfoParser meminfoParser = procMeminfoParserSupplier.get();
-      long freeRamKb = meminfoParser.getFreeRamKb();
-      long usedRamKb = meminfoParser.getTotalKb();
-      double fractionRamFree = ((double) freeRamKb) / usedRamKb;
-
-      // Shutdown when both the absolute amount and percentage of free RAM is lower than the set
-      // thresholds.
-      return fractionRamFree < FREE_MEMORY_PERCENTAGE_THRESHOLD
-          && freeRamKb < FREE_MEMORY_KB_ABSOLUTE_THRESHOLD;
-    } catch (IOException e) {
-      logger.log(Level.WARNING, "Unable to read memory info.", e);
-      return false;
-    }
-  }
-
-  /** Supplier for a {@link ProcMeminfoParser}. */
-  interface ProcMeminfoParserSupplier {
-    ProcMeminfoParser get() throws IOException;
   }
 }

@@ -728,7 +728,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Add or remove keys from an action's execution info based on action mnemonic.  "
               + "Applies only to actions which support execution info. Many common actions "
-              + "support execution info, e.g. Genrule, CppCompile, Javac, SkylarkAction, "
+              + "support execution info, e.g. Genrule, CppCompile, Javac, StarlarkAction, "
               + "TestRunner. When specifying multiple values, order matters because "
               + "many regexes may apply to the same mnemonic.\n\n"
               + "Syntax: \"regex=[+-]key,[+-]key,...\".\n\n"
@@ -835,7 +835,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to enable the use of AggregatingMiddleman in rules.")
   public boolean enableAggregatingMiddleman;
 
-  /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
+  /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     // Don't offer the provider at all. This is best for most builds, which don't use this
     // information and don't need the extra memory hit over every configured target.

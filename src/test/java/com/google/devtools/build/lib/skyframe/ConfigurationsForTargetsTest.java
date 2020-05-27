@@ -32,8 +32,8 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -57,7 +57,6 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -364,8 +363,14 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
     // We don't care what order split deps are listed, but it must be deterministic.
     assertThat(
             ConfigurationResolver.SPLIT_DEP_ORDERING.compare(
-                Dependency.withConfiguration(dep1.getLabel(), getConfiguration(dep1)),
-                Dependency.withConfiguration(dep2.getLabel(), getConfiguration(dep2))))
+                Dependency.builder()
+                    .setLabel(dep1.getLabel())
+                    .setConfiguration(getConfiguration(dep1))
+                    .build(),
+                Dependency.builder()
+                    .setLabel(dep2.getLabel())
+                    .setConfiguration(getConfiguration(dep2))
+                    .build()))
         .isLessThan(0);
   }
 

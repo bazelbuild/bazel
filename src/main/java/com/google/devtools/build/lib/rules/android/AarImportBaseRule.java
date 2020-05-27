@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -86,7 +86,7 @@ public class AarImportBaseRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .exec()
                 .value(env.getToolsLabel("//tools/zip:zipper")))
-        .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .requiresConfigurationFragments(AndroidConfiguration.class, JavaConfiguration.class)
         .build();
   }

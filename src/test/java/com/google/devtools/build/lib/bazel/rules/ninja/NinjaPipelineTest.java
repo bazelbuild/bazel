@@ -23,14 +23,10 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaPool;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
-import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
 import com.google.devtools.build.lib.bazel.rules.ninja.pipeline.NinjaPipelineImpl;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -41,7 +37,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import org.junit.After;
 import org.junit.Before;
@@ -310,22 +305,8 @@ public class NinjaPipelineTest {
     pipeline.setReadBlockSize(100);
     List<NinjaTarget> targets = pipeline.pipeline(path);
     assertThat(targets).hasSize(1);
-    Map<String, List<Pair<Long, NinjaPool>>> pools = targets.get(0).getScope().getPools();
-    assertThat(pools).hasSize(1);
-    Map<String, List<Pair<Long, NinjaRule>>> rules = targets.get(0).getScope().getRules();
-    assertThat(rules).hasSize(998);
-    assertThat(rules.get("rule1")).hasSize(1);
-    NinjaVariableValue expectedValue =
-        NinjaVariableValue.builder().addText("echo 'Hello' > ").addVariable("out").build();
-    assertThat(
-            rules
-                .get("rule1")
-                .get(0)
-                .getSecond()
-                .getVariables()
-                .get(NinjaRuleVariable.COMMAND)
-                .getRawText())
-        .isEqualTo(expectedValue.getRawText());
+    assertThat(targets.get(0).computeRuleVariables().get(NinjaRuleVariable.COMMAND))
+        .isEqualTo("echo 'Hello' > out");
   }
 
   private static void checkTargets(List<NinjaTarget> targets) {

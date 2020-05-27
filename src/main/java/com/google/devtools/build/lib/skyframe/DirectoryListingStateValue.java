@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -108,6 +110,13 @@ public final class DirectoryListingStateValue implements SkyValue {
     }
     DirectoryListingStateValue other = (DirectoryListingStateValue) obj;
     return compactSortedDirents.equals(other.compactSortedDirents);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("dirents", Iterables.toString(getDirents()))
+        .toString();
   }
 
   /** A space-efficient, sorted, immutable dirent structure. */

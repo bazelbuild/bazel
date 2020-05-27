@@ -30,12 +30,12 @@ import java.util.Objects;
 @Immutable
 @AutoCodec
 public class ConstraintValueInfo extends NativeInfo implements ConstraintValueInfoApi {
-  /** Name used in Skylark for accessing this provider. */
-  public static final String SKYLARK_NAME = "ConstraintValueInfo";
+  /** Name used in Starlark for accessing this provider. */
+  public static final String STARLARK_NAME = "ConstraintValueInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<ConstraintValueInfo> PROVIDER =
-      new BuiltinProvider<ConstraintValueInfo>(SKYLARK_NAME, ConstraintValueInfo.class) {};
+      new BuiltinProvider<ConstraintValueInfo>(STARLARK_NAME, ConstraintValueInfo.class) {};
 
   private final ConstraintSettingInfo constraint;
   private final Label label;

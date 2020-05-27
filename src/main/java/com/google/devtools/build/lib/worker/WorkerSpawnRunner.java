@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
+import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -140,6 +141,11 @@ final class WorkerSpawnRunner implements SpawnRunner {
     return Spawns.supportsWorkers(spawn) || Spawns.supportsMultiplexWorkers(spawn);
   }
 
+  @Override
+  public boolean handlesCaching() {
+    return false;
+  }
+
   private SpawnResult actuallyExec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, IOException, InterruptedException {
     if (spawn.getToolFiles().isEmpty()) {
@@ -150,7 +156,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
     runfilesTreeUpdater.updateRunfilesDirectory(
         execRoot,
         spawn.getRunfilesSupplier(),
-        context.getPathResolver(),
         binTools,
         spawn.getEnvironment(),
         context.getFileOutErr());
@@ -170,7 +175,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
         WorkerFilesHash.getWorkerFilesWithHashes(
             spawn,
             context.getArtifactExpander(),
-            context.getPathResolver(),
             context.getMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
@@ -188,7 +192,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             workerArgs,
             env,
             execRoot,
-            spawn.getMnemonic(),
+            Spawns.getWorkerKeyMnemonic(spawn),
             workerFilesCombinedHash,
             workerFiles,
             context.speculating(),
@@ -210,6 +214,12 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setStatus(
                 exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
             .setWallTime(wallTime)
+            .setSpawnMetrics(
+                new SpawnMetrics.Builder()
+                    .setExecKind(SpawnMetrics.ExecKind.WORKER)
+                    .setTotalTime(wallTime)
+                    .setExecutionWallTime(wallTime)
+                    .build())
             .build();
     reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
     return result;

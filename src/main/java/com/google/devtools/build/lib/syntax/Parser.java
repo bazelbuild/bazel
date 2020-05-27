@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -172,13 +171,20 @@ final class Parser {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
-    List<Statement> statements;
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.STARLARK_PARSER, input.getFile())) {
-      statements = parser.parseFileInput();
+
+    StarlarkFile.ParseProfiler profiler = Parser.profiler;
+    Object span = profiler != null ? profiler.start(input.getFile()) : null;
+    try {
+      List<Statement> statements = parser.parseFileInput();
+      return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
+    } finally {
+      if (profiler != null) {
+        profiler.end(span);
+      }
     }
-    return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
   }
+
+  @Nullable static StarlarkFile.ParseProfiler profiler;
 
   // stmt = simple_stmt
   //      | def_stmt
@@ -202,11 +208,23 @@ final class Parser {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
-    Expression result = parser.parseExpression();
-    while (parser.token.kind == TokenKind.NEWLINE) {
-      parser.nextToken();
+    Expression result = null;
+    try {
+      result = parser.parseExpression();
+      while (parser.token.kind == TokenKind.NEWLINE) {
+        parser.nextToken();
+      }
+      parser.expect(TokenKind.EOF);
+    } catch (StackOverflowError ex) {
+      // See rationale at parseFile.
+      parser.reportError(
+          lexer.end,
+          "internal error: stack overflow while parsing Starlark expression <<%s>>. Please report"
+              + " the bug.\n"
+              + "%s",
+          new String(input.getContent()),
+          Throwables.getStackTraceAsString(ex));
     }
-    parser.expect(TokenKind.EOF);
     if (!errors.isEmpty()) {
       throw new SyntaxError.Exception(errors);
     }
@@ -233,22 +251,24 @@ final class Parser {
     return new ListExpression(locs, /*isTuple=*/ true, -1, elems, -1);
   }
 
-  private void reportError(int offset, String message) {
+  @FormatMethod
+  private void reportError(int offset, String format, Object... args) {
     errorsCount++;
     // Limit the number of reported errors to avoid spamming output.
     if (errorsCount <= 5) {
       Location location = locs.getLocation(offset);
-      errors.add(new SyntaxError(location, message));
+      errors.add(new SyntaxError(location, String.format(format, args)));
     }
   }
 
   private void syntaxError(String message) {
     if (!recoveryMode) {
-      String msg =
-          token.kind == TokenKind.INDENT
-              ? "indentation error"
-              : "syntax error at '" + tokenString(token.kind, token.value) + "': " + message;
-      reportError(token.left, msg);
+      if (token.kind == TokenKind.INDENT) {
+        reportError(token.start, "indentation error");
+      } else {
+        reportError(
+            token.start, "syntax error at '%s': %s", tokenString(token.kind, token.value), message);
+      }
       recoveryMode = true;
     }
   }
@@ -280,7 +300,7 @@ final class Parser {
     while (!terminatingTokens.contains(token.kind)) {
       nextToken();
     }
-    int end = token.right;
+    int end = token.end;
     // read past the synchronization token
     nextToken();
     return end;
@@ -296,13 +316,13 @@ final class Parser {
     // EOF must be in the set to prevent an infinite loop
     Preconditions.checkState(terminatingTokens.contains(TokenKind.EOF));
     // read past the problematic token
-    int previous = token.right;
+    int previous = token.end;
     nextToken();
     int current = previous;
     while (!terminatingTokens.contains(token.kind)) {
       nextToken();
       previous = current;
-      current = token.right;
+      current = token.end;
     }
     return previous;
   }
@@ -348,11 +368,11 @@ final class Parser {
         error = "keyword '" + token.kind + "' not supported";
         break;
     }
-    reportError(token.left, error);
+    reportError(token.start, "%s", error);
   }
 
   private int nextToken() {
-    int prev = token.left;
+    int prev = token.start;
     if (token.kind != TokenKind.EOF) {
       lexer.nextToken();
     }
@@ -457,85 +477,20 @@ final class Parser {
   //
   // arg_list = ( (arg ',')* arg ','? )?
   private ImmutableList<Argument> parseArguments() {
-    boolean hasArgs = false;
-    boolean hasStarStar = false;
+    boolean seenArg = false;
     ImmutableList.Builder<Argument> list = ImmutableList.builder();
-
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
-      if (hasArgs) {
+      if (seenArg) {
         expect(TokenKind.COMMA);
-        // The list may end with a comma.
+        // If nonempty, the list may end with a comma.
         if (token.kind == TokenKind.RPAREN) {
           break;
         }
       }
-      if (hasStarStar) {
-        // TODO(adonovan): move this to validation pass too.
-        reportError(token.left, "unexpected tokens after **kwargs argument");
-        break;
-      }
-      Argument arg = parseArgument();
-      hasArgs = true;
-      if (arg instanceof Argument.StarStar) { // TODO(adonovan): not Star too? verify.
-        hasStarStar = true;
-      }
-      list.add(arg);
+      list.add(parseArgument());
+      seenArg = true;
     }
-    ImmutableList<Argument> args = list.build();
-    validateArguments(args); // TODO(adonovan): move to validation pass.
-    return args;
-  }
-
-  // TODO(adonovan): move all this to validator, since we have to check it again there.
-  private void validateArguments(List<Argument> arguments) {
-    int i = 0;
-    int len = arguments.size();
-
-    while (i < len && arguments.get(i) instanceof Argument.Positional) {
-      i++;
-    }
-
-    while (i < len && arguments.get(i) instanceof Argument.Keyword) {
-      i++;
-    }
-
-    if (i < len && arguments.get(i) instanceof Argument.Star) {
-      i++;
-    }
-
-    if (i < len && arguments.get(i) instanceof Argument.StarStar) {
-      i++;
-    }
-
-    // If there's no argument left, everything is correct.
-    if (i == len) {
-      return;
-    }
-
-    Argument arg = arguments.get(i);
-    if (arg instanceof Argument.Positional) {
-      reportError(
-          arg.getStartOffset(),
-          "positional argument is misplaced (positional arguments come first)");
-      return;
-    }
-
-    if (arg instanceof Argument.Keyword) {
-      reportError(
-          arg.getStartOffset(),
-          "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)");
-      return;
-    }
-
-    if (i < len && arg instanceof Argument.Star) {
-      reportError(arg.getStartOffset(), "*arg argument is misplaced");
-      return;
-    }
-
-    if (i < len && arg instanceof Argument.StarStar) {
-      reportError(arg.getStartOffset(), "**kwarg argument is misplaced (there can be only one)");
-      return;
-    }
+    return list.build();
   }
 
   // selector_suffix = '.' IDENTIFIER
@@ -562,7 +517,7 @@ final class Parser {
       expect(TokenKind.COMMA);
       if (EXPR_LIST_TERMINATOR_SET.contains(token.kind)) {
         if (!trailingCommaAllowed) {
-          reportError(token.left, "Trailing comma is allowed only in parenthesized tuples.");
+          reportError(token.start, "Trailing comma is allowed only in parenthesized tuples.");
         }
         break;
       }
@@ -597,10 +552,10 @@ final class Parser {
   private StringLiteral parseStringLiteral() {
     Preconditions.checkState(token.kind == TokenKind.STRING);
     StringLiteral literal =
-        new StringLiteral(locs, token.left, intern((String) token.value), token.right);
+        new StringLiteral(locs, token.start, intern((String) token.value), token.end);
     nextToken();
     if (token.kind == TokenKind.STRING) {
-      reportError(token.left, "Implicit string concatenation is forbidden, use the + operator");
+      reportError(token.start, "Implicit string concatenation is forbidden, use the + operator");
     }
     return literal;
   }
@@ -618,7 +573,7 @@ final class Parser {
       case INT:
         {
           IntegerLiteral literal =
-              new IntegerLiteral(locs, token.raw, token.left, (Integer) token.value);
+              new IntegerLiteral(locs, token.raw, token.start, (Integer) token.value);
           nextToken();
           return literal;
         }
@@ -681,7 +636,7 @@ final class Parser {
 
       default:
         {
-          int start = token.left;
+          int start = token.start;
           syntaxError("expected expression");
           int end = syncTo(EXPR_TERMINATOR_SET);
           return makeErrorExpression(start, end);
@@ -886,7 +841,7 @@ final class Parser {
 
   private Identifier parseIdent() {
     if (token.kind != TokenKind.IDENTIFIER) {
-      int start = token.left;
+      int start = token.start;
       int end = expect(TokenKind.IDENTIFIER);
       return makeErrorExpression(start, end);
     }
@@ -925,9 +880,10 @@ final class Parser {
       // are not associative.
       if (lastOp != null && operatorPrecedence.get(prec).contains(TokenKind.EQUALS_EQUALS)) {
         reportError(
-            token.left,
-            String.format(
-                "Operator '%s' is not associative with operator '%s'. Use parens.", lastOp, op));
+            token.start,
+            "Operator '%s' is not associative with operator '%s'. Use parens.",
+            lastOp,
+            op);
       }
 
       int opOffset = nextToken();
@@ -954,7 +910,7 @@ final class Parser {
 
   // Parses a non-tuple expression ("test" in Python terminology).
   private Expression parseTest() {
-    int start = token.left;
+    int start = token.start;
     Expression expr = parseTest(0);
     if (token.kind == TokenKind.IF) {
       nextToken();
@@ -991,17 +947,38 @@ final class Parser {
   // file_input = ('\n' | stmt)* EOF
   private List<Statement> parseFileInput() {
     List<Statement> list =  new ArrayList<>();
-    while (token.kind != TokenKind.EOF) {
-      if (token.kind == TokenKind.NEWLINE) {
-        expectAndRecover(TokenKind.NEWLINE);
-      } else if (recoveryMode) {
-        // If there was a parse error, we want to recover here
-        // before starting a new top-level statement.
-        syncTo(STATEMENT_TERMINATOR_SET);
-        recoveryMode = false;
-      } else {
-        parseStatement(list);
+    try {
+      while (token.kind != TokenKind.EOF) {
+        if (token.kind == TokenKind.NEWLINE) {
+          expectAndRecover(TokenKind.NEWLINE);
+        } else if (recoveryMode) {
+          // If there was a parse error, we want to recover here
+          // before starting a new top-level statement.
+          syncTo(STATEMENT_TERMINATOR_SET);
+          recoveryMode = false;
+        } else {
+          parseStatement(list);
+        }
       }
+    } catch (StackOverflowError ex) {
+      // JVM threads have very limited stack, and deeply nested inputs can
+      // easily cause the parser to consume all available stack. It is hard
+      // to anticipate all the possible recursions in the parser, especially
+      // when considering error recovery. Consider a long list of dicts:
+      // even if the intended parse tree has a depth of only two,
+      // if each dict contains a syntax error, the parser will go into recovery
+      // and may discard each dict's closing '}', turning a shallow tree
+      // into a deep one (see b/157470754).
+      //
+      // So, for robustness, the parser treats StackOverflowError as a parse
+      // error, exhorting the user to report a bug.
+      reportError(
+          token.end,
+          "internal error: stack overflow in Starlark parser. Please report the bug and include"
+              + " the text of %s.\n"
+              + "%s",
+          locs.file(),
+          Throwables.getStackTraceAsString(ex));
     }
     return list;
   }
@@ -1012,15 +989,15 @@ final class Parser {
     expect(TokenKind.LPAREN);
     if (token.kind != TokenKind.STRING) {
       // error: module is not a string literal.
-      StringLiteral module = new StringLiteral(locs, token.left, "", token.right);
+      StringLiteral module = new StringLiteral(locs, token.start, "", token.end);
       expect(TokenKind.STRING);
-      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.right);
+      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.end);
     }
 
     StringLiteral module = parseStringLiteral();
     if (token.kind == TokenKind.RPAREN) {
       syntaxError("expected at least one symbol to load");
-      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.right);
+      return new LoadStatement(locs, loadOffset, module, ImmutableList.of(), token.end);
     }
     expect(TokenKind.COMMA);
 
@@ -1054,7 +1031,7 @@ final class Parser {
     }
 
     String name = (String) token.value;
-    int nameOffset = token.left + (token.kind == TokenKind.STRING ? 1 : 0);
+    int nameOffset = token.start + (token.kind == TokenKind.STRING ? 1 : 0);
     Identifier local = new Identifier(locs, name, nameOffset);
 
     Identifier original;
@@ -1072,7 +1049,7 @@ final class Parser {
         syntaxError("expected string");
         return;
       }
-      original = new Identifier(locs, (String) token.value, token.left + 1);
+      original = new Identifier(locs, (String) token.value, token.start + 1);
     }
     nextToken();
     symbols.add(new LoadStatement.Binding(local, original));
@@ -1164,12 +1141,12 @@ final class Parser {
   // for_stmt = FOR IDENTIFIER IN expr ':' suite
   private ForStatement parseForStatement() {
     int forOffset = expect(TokenKind.FOR);
-    Expression lhs = parseForLoopVariables();
+    Expression vars = parseForLoopVariables();
     expect(TokenKind.IN);
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
-    List<Statement> block = parseSuite();
-    return new ForStatement(locs, forOffset, lhs, collection, block);
+    List<Statement> body = parseSuite();
+    return new ForStatement(locs, forOffset, vars, collection, body);
   }
 
   // def_stmt = DEF IDENTIFIER '(' arguments ')' ':' suite
@@ -1178,30 +1155,16 @@ final class Parser {
     Identifier ident = parseIdent();
     expect(TokenKind.LPAREN);
     ImmutableList<Parameter> params = parseParameters();
-
-    FunctionSignature signature;
-    try {
-      signature = FunctionSignature.fromParameters(params);
-    } catch (FunctionSignature.SignatureException e) {
-      reportError(e.getParameter().getStartOffset(), e.getMessage());
-      // bogus empty signature
-      signature = FunctionSignature.of();
-    }
-
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
     ImmutableList<Statement> block = ImmutableList.copyOf(parseSuite());
-    return new DefStatement(locs, defOffset, ident, params, signature, block);
+    return new DefStatement(locs, defOffset, ident, params, block);
   }
 
   // Parse a list of function parameters.
-  //
-  // This parser does minimal validation: it ensures the proper python use of the comma (that can
-  // terminate before a star but not after) and the fact that **kwargs must appear last. It does
-  // not validate further ordering constraints. This validation happens in the validator pass.
+  // Validation of parameter ordering and uniqueness is the job of the Resolver.
   private ImmutableList<Parameter> parseParameters() {
     boolean hasParam = false;
-    boolean hasStarStar = false;
     ImmutableList.Builder<Parameter> list = ImmutableList.builder();
 
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
@@ -1212,17 +1175,8 @@ final class Parser {
           break;
         }
       }
-      if (hasStarStar) {
-        // TODO(adonovan): move this to validation pass too.
-        reportError(token.left, "unexpected tokens after kwarg");
-        break;
-      }
-
       Parameter param = parseFunctionParameter();
       hasParam = true;
-      if (param instanceof Parameter.StarStar) { // TODO(adonovan): not Star too? verify.
-        hasStarStar = true;
-      }
       list.add(param);
     }
     return list.build();
@@ -1231,12 +1185,14 @@ final class Parser {
   // suite is typically what follows a colon (e.g. after def or for).
   // suite = simple_stmt
   //       | NEWLINE INDENT stmt+ OUTDENT
+  //
+  // TODO(adonovan): return ImmutableList and simplify downstream.
   private List<Statement> parseSuite() {
     List<Statement> list = new ArrayList<>();
     if (token.kind == TokenKind.NEWLINE) {
       expect(TokenKind.NEWLINE);
       if (token.kind != TokenKind.INDENT) {
-        reportError(token.left, "expected an indented block");
+        reportError(token.start, "expected an indented block");
         return list;
       }
       expect(TokenKind.INDENT);

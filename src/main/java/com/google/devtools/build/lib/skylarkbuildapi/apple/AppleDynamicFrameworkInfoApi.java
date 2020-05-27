@@ -14,20 +14,20 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * An interface representing an info type containing information about an Apple dynamic framework.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AppleDynamicFramework",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "A provider containing information about an Apple dynamic framework.")
 public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends StructApi {
 
@@ -35,7 +35,7 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
    * Returns the framework path names used as link inputs in order to link against the dynamic
    * framework.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "framework_dirs",
       structField = true,
       doc =
@@ -47,7 +47,7 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
    * Returns the full set of artifacts that should be included as inputs to link against the dynamic
    * framework.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "framework_files",
       structField = true,
       doc =
@@ -60,7 +60,7 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
    * rule providing the framework only specified framework imports.
    */
   @Nullable
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "binary",
       allowReturnNones = true,
       structField = true,
@@ -73,7 +73,7 @@ public interface AppleDynamicFrameworkInfoApi<FileApiT extends FileApi> extends 
    * Returns the {@link ObjcProviderApi} which contains information about the transitive
    * dependencies linked into the dylib.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "objc",
       structField = true,
       doc =

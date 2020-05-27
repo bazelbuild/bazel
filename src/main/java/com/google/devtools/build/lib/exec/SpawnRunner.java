@@ -217,7 +217,10 @@ public interface SpawnRunner {
     @Nullable
     <T extends ActionContext> T getContext(Class<T> identifyingType);
 
-    /** Throws if lost inputs have been detected. */
+    /** Returns whether rewinding is enabled. */
+    boolean isRewindingEnabled();
+
+    /** Throws if rewinding is enabled and lost inputs have been detected. */
     void checkForLostInputs() throws LostInputsExecException;
   }
 
@@ -254,6 +257,9 @@ public interface SpawnRunner {
 
   /** Returns whether this SpawnRunner supports executing the given Spawn. */
   boolean canExec(Spawn spawn);
+
+  /** Returns whether this SpawnRunner handles caching of actions internally. */
+  boolean handlesCaching();
 
   /** Returns the name of the SpawnRunner. */
   String getName();

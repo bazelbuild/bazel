@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** An info object that provides the included files of a _wrap_cc rule. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "WrapCcIncludeProvider",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "")
 public interface WrapCcIncludeProviderApi extends StructApi {}

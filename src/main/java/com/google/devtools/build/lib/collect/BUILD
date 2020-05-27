@@ -8,6 +8,12 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
+java_library(
+    name = "extrema",
+    srcs = ["Extrema.java"],
+    deps = ["//third_party:guava"],
+)
+
 # Library of collection utilities.
 java_library(
     name = "collect",

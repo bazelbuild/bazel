@@ -1,0 +1,42 @@
+/*
+ * Copyright 2020 The Bazel Authors. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+syntax = "proto3";
+
+package android.desugar;
+
+import "src/tools/android/java/com/google/devtools/build/android/desugar/langmodel/desugar_method_attr.proto";
+
+option java_package = "com.google.devtools.build.android.desugar.retarget";
+option java_multiple_files = true;
+
+message MethodInvocations {
+  repeated MethodInvocationReplacement replacements = 1;
+}
+
+message MethodInvocationReplacement {
+  MethodInvocation source = 1;
+  MethodInvocation destination = 2;
+  repeated ReplacementRange range = 3;
+  bool auto_deduce_opcode_and_desc = 4;
+}
+
+enum ReplacementRange {
+  ALL = 0;
+  REPLACE_CALLS_TO_LONG_UNSIGNED = 1;
+  REPLACE_CALLS_TO_PRIMITIVE_WRAPPERS = 2;
+  DESUGAR_JAVA8_LIBS = 3;
+}

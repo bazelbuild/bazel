@@ -4,9 +4,6 @@ load(
     dep_rule = "my_rule",
 )
 
-def my_rule_impl(ctx):
-    return struct()
-
 my_rule = rule(
     implementation = my_rule_impl,
     doc = "This is my rule. It does stuff.",

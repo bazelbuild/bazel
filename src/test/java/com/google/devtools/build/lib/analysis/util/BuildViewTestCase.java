@@ -81,11 +81,12 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.ConfigsMode;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
@@ -131,16 +132,18 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageRootsNoSymlinkCreation;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -206,7 +209,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   private ConfigsMode configsMode = ConfigsMode.NOTRIM;
 
   protected OptionsParser optionsParser;
-  private PackageCacheOptions packageCacheOptions;
+  private PackageOptions packageOptions;
   private StarlarkSemanticsOptions starlarkSemanticsOptions;
   protected PackageFactory pkgFactory;
 
@@ -253,8 +256,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         "  pass");
     initializeMockClient();
 
-    packageCacheOptions = parsePackageCacheOptions();
-    starlarkSemanticsOptions = parseSkylarkSemanticsOptions();
+    packageOptions = parsePackageOptions();
+    starlarkSemanticsOptions = parseStarlarkSemanticsOptions();
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
     mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = getRuleClassProvider();
@@ -262,7 +265,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =
         ImmutableList.of(
             PrecomputedValue.injected(
-                PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT_SEMANTICS),
+                PrecomputedValue.STARLARK_SEMANTICS, StarlarkSemantics.DEFAULT),
             PrecomputedValue.injected(PrecomputedValue.REPO_ENV, ImmutableMap.<String, String>of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.REPOSITORY_OVERRIDES,
@@ -274,7 +277,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
             PrecomputedValue.injected(
-                PrecomputedValue.BUILD_INFO_FACTORIES,
+                BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                 ruleClassProvider.getBuildInfoFactoriesAsMap()));
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
         analysisMock
@@ -301,15 +304,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(
             outputBase,
             ImmutableList.of(root),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-        packageCacheOptions,
+        packageOptions,
         starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -349,8 +352,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return ImmutableList.<EnvironmentExtension>of();
   }
 
-  protected StarlarkSemantics getSkylarkSemantics() {
-    return starlarkSemanticsOptions.toSkylarkSemantics();
+  protected StarlarkSemantics getStarlarkSemantics() {
+    return starlarkSemanticsOptions.toStarlarkSemantics();
   }
 
   protected PackageValidator getPackageValidator() {
@@ -358,7 +361,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected final BuildConfigurationCollection createConfigurations(
-      ImmutableMap<String, Object> skylarkOptions, String... args) throws Exception {
+      ImmutableMap<String, Object> starlarkOptions, String... args) throws Exception {
     optionsParser =
         OptionsParser.builder()
             .optionsClasses(
@@ -380,7 +383,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     optionsParser.parse(args);
 
     // TODO(juliexxia): when the starlark options parsing work goes in, add type verification here.
-    optionsParser.setStarlarkOptions(skylarkOptions);
+    optionsParser.setStarlarkOptions(starlarkOptions);
 
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     return skyframeExecutor.createConfigurations(
@@ -421,22 +424,22 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
-            packageCacheOptions.packagePath,
+            packageOptions.packagePath,
             reporter,
             rootDirectory,
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions,
+        packageOptions,
         starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         tsgm);
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -450,25 +453,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                 Optional.<RootedPath>absent())));
   }
 
-  protected void setPackageCacheOptions(String... options) throws Exception {
-    packageCacheOptions = parsePackageCacheOptions(options);
+  protected void setPackageOptions(String... options) throws Exception {
+    packageOptions = parsePackageOptions(options);
     setUpSkyframe();
   }
 
-  protected void setSkylarkSemanticsOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+  protected void setStarlarkSemanticsOptions(String... options) throws Exception {
+    starlarkSemanticsOptions = parseStarlarkSemanticsOptions(options);
     setUpSkyframe();
   }
 
-  private static PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
-    OptionsParser parser =
-        OptionsParser.builder().optionsClasses(PackageCacheOptions.class).build();
+  private static PackageOptions parsePackageOptions(String... options) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(PackageOptions.class).build();
     parser.parse("--default_visibility=public");
     parser.parse(options);
-    return parser.getOptions(PackageCacheOptions.class);
+    return parser.getOptions(PackageOptions.class);
   }
 
-  private static StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+  private static StarlarkSemanticsOptions parseStarlarkSemanticsOptions(String... options)
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
@@ -523,14 +525,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * options for unspecified ones, and recreates the build view.
    *
    * <p>TODO(juliexxia): when Starlark option parsing exists, find a way to combine these parameters
-   * into a single parameter so skylark/native options don't have to be specified separately.
+   * into a single parameter so Starlark/native options don't have to be specified separately.
    *
-   * @param skylarkOptions map of skylark-defined options where the keys are option names (in the
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    * @throws IllegalArgumentException
    */
-  protected void useConfiguration(ImmutableMap<String, Object> skylarkOptions, String... args)
+  protected void useConfiguration(ImmutableMap<String, Object> starlarkOptions, String... args)
       throws Exception {
     ImmutableList<String> actualArgs =
         ImmutableList.<String>builder()
@@ -539,7 +541,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .add("--experimental_dynamic_configs=" + Ascii.toLowerCase(configsMode.toString()))
             .build();
 
-    masterConfig = createConfigurations(skylarkOptions, actualArgs.toArray(new String[0]));
+    masterConfig = createConfigurations(starlarkOptions, actualArgs.toArray(new String[0]));
     targetConfig = getTargetConfiguration();
     targetConfigKey = BuildConfigurationValue.key(targetConfig);
     configurationArgs = actualArgs;
@@ -641,9 +643,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    *
    * <p>Historically this meant they contained the same object reference. But with upcoming dynamic
    * configurations that may no longer be true (for example, they may have the same values but not
-   * the same {@link BuildConfiguration.Fragment}s. So this method abstracts the
-   * "configuration equivalency" checking into one place, where the implementation logic can evolve
-   * as needed.
+   * the same {@link Fragment}s. So this method abstracts the "configuration equivalency" checking
+   * into one place, where the implementation logic can evolve as needed.
    */
   protected void assertConfigurationsEqual(BuildConfiguration config1, BuildConfiguration config2) {
     // BuildOptions and crosstool files determine a configuration's content. Within the context
@@ -670,7 +671,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Creates and returns a rule context to use for Starlark tests that is equivalent to the one that
    * was used to create the given configured target.
    */
-  protected RuleContext getRuleContextForSkylark(ConfiguredTarget target) throws Exception {
+  protected RuleContext getRuleContextForStarlark(ConfiguredTarget target) throws Exception {
     // TODO(bazel-team): we need this horrible workaround because CachingAnalysisEnvironment
     // only works with StoredErrorEventListener despite the fact it accepts the interface
     // ErrorEventListener, so it's not possible to create it with reporter.
@@ -1357,8 +1358,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        (AspectValue.AspectKey)
-            AspectValue.createAspectKey(
+        (AspectKey)
+            AspectValueKey.createAspectKey(
                     owner.getLabel(),
                     getConfiguration(owner),
                     new AspectDescriptor(creatingAspectFactory, parameters),
@@ -1443,10 +1444,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageRelativePath, config.getGenfilesDirectory(RepositoryName.MAIN), owner);
   }
 
-  protected AspectValue.AspectKey getOwnerForAspect(
+  protected AspectKey getOwnerForAspect(
       ConfiguredTarget owner, NativeAspectClass creatingAspectFactory, AspectParameters params) {
-    return (AspectValue.AspectKey)
-        AspectValue.createAspectKey(
+    return (AspectKey)
+        AspectValueKey.createAspectKey(
                 owner.getLabel(),
                 getConfiguration(owner),
                 new AspectDescriptor(creatingAspectFactory, params),
@@ -2032,8 +2033,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public StarlarkSemantics getSkylarkSemantics() {
-      return starlarkSemanticsOptions.toSkylarkSemantics();
+    public StarlarkSemantics getStarlarkSemantics() {
+      return starlarkSemanticsOptions.toStarlarkSemantics();
     }
 
     @Override
@@ -2095,7 +2096,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
     for (Artifact baselineCoverage :
         target
-            .get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR)
+            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
             .getBaselineCoverageArtifacts()
             .toList()) {
       BaselineCoverageAction baselineAction =
@@ -2287,6 +2288,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           /*actionInputPrefetcher=*/ null,
           actionKeyContext,
           /*metadataHandler=*/ null,
+          /*rewindingEnabled=*/ false,
           LostInputsCheck.NONE,
           actionLogBufferPathGenerator.generate(ArtifactPathResolver.IDENTITY),
           reporter,

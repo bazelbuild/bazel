@@ -111,6 +111,15 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return 0;
   }
 
+  /**
+   * Remote action source identifier for the file.
+   *
+   * <p>"" indicates that a remote action output was not the source of this artifact.
+   */
+  public String getActionId() {
+    return "";
+  }
+
   /** Returns {@code true} if this is a special marker as opposed to a representing a real file. */
   public boolean isMarkerValue() {
     return this instanceof Singleton;
@@ -177,7 +186,9 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
 
   public static FileArtifactValue createForSourceArtifact(Artifact artifact, FileValue fileValue)
       throws IOException {
-    Preconditions.checkState(artifact.isSourceArtifact());
+    // Artifacts with known generating actions should obtain the derived artifact's SkyValue
+    // from the generating action, instead.
+    Preconditions.checkState(!artifact.hasKnownGeneratingAction());
     Preconditions.checkState(!artifact.isConstantMetadata());
     boolean isFile = fileValue.isFile();
     return create(
@@ -542,11 +553,17 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     private final byte[] digest;
     private final long size;
     private final int locationIndex;
+    private final String actionId;
 
-    public RemoteFileArtifactValue(byte[] digest, long size, int locationIndex) {
+    public RemoteFileArtifactValue(byte[] digest, long size, int locationIndex, String actionId) {
       this.digest = digest;
       this.size = size;
       this.locationIndex = locationIndex;
+      this.actionId = actionId;
+    }
+
+    public RemoteFileArtifactValue(byte[] digest, long size, int locationIndex) {
+      this(digest, size, locationIndex, /* actionId= */ "");
     }
 
     @Override
@@ -584,6 +601,11 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     @Override
     public long getSize() {
       return size;
+    }
+
+    @Override
+    public String getActionId() {
+      return actionId;
     }
 
     @Override

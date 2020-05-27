@@ -348,19 +348,26 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToString("attr(deprecation, ' ', c:*)")).isEmpty();
   }
 
-  private void writeBooleanBuildFiles() throws Exception {
+  @Test
+  public void testAttrOperatorOnBooleans() throws Exception {
     writeFile(
         "t/BUILD",
         "cc_library(name='t', srcs=['t.cc'], data=['r'], testonly=0)",
         "cc_library(name='t_test', srcs=['t.cc'], data=['r'], testonly=1)");
-  }
 
-  @Test
-  public void testAttrOperatorOnBooleans() throws Exception {
-    writeBooleanBuildFiles();
     // Assure that integers query correctly for BOOLEAN values.
     assertThat(evalToString("attr(testonly, 0, t:*)")).isEqualTo("//t:t");
     assertThat(evalToString("attr(testonly, 1, t:*)")).isEqualTo("//t:t_test");
+  }
+
+  @Test
+  public void testAttrOnPackageDefaultVisibility() throws Exception {
+    writeFile(
+        "t/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "cc_library(name='t', srcs=['t.cc'])");
+
+    assertThat(evalToString("attr(visibility, public, t:*)")).isEqualTo("//t:t");
   }
 
   @Test
@@ -570,7 +577,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testSkylarkDiamondEquality() throws Exception {
+  public void testStarlarkDiamondEquality() throws Exception {
     writeFile(
         "foo/BUILD",
         "load('//foo:a.bzl', 'A')",
@@ -679,7 +686,7 @@ public abstract class AbstractQueryTest<T> {
     assertThat(evalToListOfStrings("deps(//a:a)")).containsExactly("//a:a", "//a:dep");
   }
 
-  protected void setupCycleInSkylarkParentDir() throws Exception {
+  protected void setupCycleInStarlarkParentDir() throws Exception {
     writeFile("a/BUILD", "load('//a:cycle1.bzl', 'C1')", "sh_library(name = 'a')");
     writeFile("a/cycle1.bzl", "load('//a:cycle2.bzl', 'C2')", "C1 = struct()");
     writeFile("a/cycle2.bzl", "load('//a:cycle1.bzl', 'C1')", "C2 = struct()");
@@ -687,8 +694,8 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testCycleInSkylarkParentDir() throws Exception {
-    setupCycleInSkylarkParentDir();
+  public void testCycleInStarlarkParentDir() throws Exception {
+    setupCycleInStarlarkParentDir();
     assertThat(evalToListOfStrings("//a/subdir:all")).containsExactly("//a/subdir:subdir");
   }
 
@@ -801,7 +808,7 @@ public abstract class AbstractQueryTest<T> {
   }
 
   @Test
-  public void testCycleInSkylark() throws Exception {
+  public void testCycleInStarlark() throws Exception {
     writeFile("a/BUILD", "load('//a:cycle1.bzl', 'C1')", "sh_library(name = 'a')");
     writeFile("a/cycle1.bzl", "load('//a:cycle2.bzl', 'C2')", "C1 = struct()");
     writeFile("a/cycle2.bzl", "load('//a:cycle1.bzl', 'C1')", "C2 = struct()");

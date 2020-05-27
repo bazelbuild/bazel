@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.FragmentCollectionApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 
-/** Represents a collection of configuration fragments in Skylark. */
+/** Represents a collection of configuration fragments in Starlark. */
 // Documentation can be found at ctx.fragments
 @Immutable
 public class FragmentCollection implements FragmentCollectionApi {
@@ -35,14 +35,19 @@ public class FragmentCollection implements FragmentCollectionApi {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   @Nullable
   public Object getValue(String name) throws EvalException {
-    return ruleContext.getSkylarkFragment(name, transition);
+    return ruleContext.getStarlarkFragment(name, transition);
   }
 
   @Override
   public ImmutableCollection<String> getFieldNames() {
-    return ruleContext.getSkylarkFragmentNames(transition);
+    return ruleContext.getStarlarkFragmentNames(transition);
   }
 
   @Override

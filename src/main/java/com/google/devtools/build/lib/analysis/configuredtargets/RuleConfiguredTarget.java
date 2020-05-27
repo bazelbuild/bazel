@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkApiProvider;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -59,20 +59,9 @@ import javax.annotation.Nullable;
  * works, see {@link com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory}.
  */
 @AutoCodec(checkClassExplicitlyAllowed = true)
-@Immutable // (and Starlark-hashable)
+@Immutable
 public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
 
-  /**
-   * The configuration transition for an attribute through which a prerequisite
-   * is requested.
-   */
-  public enum Mode {
-    TARGET,
-    HOST,
-    DATA,
-    SPLIT,
-    DONT_CHECK
-  }
   /** A set of this target's implicitDeps. */
   private final ImmutableSet<ConfiguredTargetKey> implicitDeps;
 
@@ -114,11 +103,11 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     Preconditions.checkState(providerBuilder.contains(FileProvider.class), label);
     Preconditions.checkState(providerBuilder.contains(FilesToRunProvider.class), label);
 
-    // Initialize every SkylarkApiProvider
+    // Initialize every StarlarkApiProvider
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object obj = providers.getProviderInstanceAt(i);
-      if (obj instanceof SkylarkApiProvider) {
-        ((SkylarkApiProvider) obj).init(this);
+      if (obj instanceof StarlarkApiProvider) {
+        ((StarlarkApiProvider) obj).init(this);
       }
     }
 
@@ -195,7 +184,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected void addExtraSkylarkKeys(Consumer<String> result) {
+  protected void addExtraStarlarkKeys(Consumer<String> result) {
     for (int i = 0; i < providers.getProviderCount(); i++) {
       Object classAt = providers.getProviderKeyAt(i);
       if (classAt instanceof String) {
@@ -206,12 +195,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return providers.get(providerKey);
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     if (providerKey.equals(ACTIONS_FIELD_NAME)) {
       // Only expose actions which are legitimate Starlark values, otherwise they will later
       // cause a Bazel crash.
@@ -234,14 +223,14 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     // Provider key names might potentially be *private* information, and thus a comprehensive
     // list of provider keys should not be exposed in any way other than for debug information.
     printer.append("<target " + getLabel() + ", keys:[");
-    ImmutableList.Builder<String> skylarkProviderKeyStrings = ImmutableList.builder();
+    ImmutableList.Builder<String> starlarkProviderKeyStrings = ImmutableList.builder();
     for (int providerIndex = 0; providerIndex < providers.getProviderCount(); providerIndex++) {
       Object providerKey = providers.getProviderKeyAt(providerIndex);
       if (providerKey instanceof Provider.Key) {
-        skylarkProviderKeyStrings.add(providerKey.toString());
+        starlarkProviderKeyStrings.add(providerKey.toString());
       }
     }
-    printer.append(Joiner.on(", ").join(skylarkProviderKeyStrings.build()));
+    printer.append(Joiner.on(", ").join(starlarkProviderKeyStrings.build()));
     printer.append("]>");
   }
 

@@ -26,12 +26,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -58,9 +58,9 @@ import com.google.devtools.build.lib.rules.java.JavaRunfilesProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeClasspathProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.OneVersionCheckActionBuilder;
@@ -338,6 +338,11 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     // Just confirming that there are no aliases being used here.
     AndroidFeatureFlagSetProvider.getAndValidateFlagMapFromRuleContext(ruleContext);
+    // Report set feature flags as required "config fragments".
+    // While these aren't technically fragments, in practice they're user-defined settings with
+    // the same meaning: pieces of configuration the rule requires to work properly. So it makes
+    // sense to treat them equivalently for "requirements" reporting purposes.
+    builder.addRequiredConfigFragments(AndroidFeatureFlagSetProvider.getFlagNames(ruleContext));
 
     if (oneVersionOutputArtifact != null) {
       builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, oneVersionOutputArtifact);
@@ -357,8 +362,8 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+        .addStarlarkTransitiveInfo(
+            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(
             RunfilesProvider.class,
@@ -420,8 +425,10 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
 
     ImmutableList<TransitiveInfoCollection> depsForRunfiles =
         ImmutableList.<TransitiveInfoCollection>builder()
-            .addAll(ruleContext.getPrerequisites("$robolectric_implicit_classpath", Mode.TARGET))
-            .addAll(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
+            .addAll(
+                ruleContext.getPrerequisites(
+                    "$robolectric_implicit_classpath", TransitionMode.TARGET))
+            .addAll(ruleContext.getPrerequisites("runtime_deps", TransitionMode.TARGET))
             .build();
 
     Artifact androidAllJarsPropertiesFile = getAndroidAllJarsPropertiesFile(ruleContext);
@@ -521,7 +528,7 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
   private static NestedSet<Artifact> getLibraryResourceJars(RuleContext ruleContext) {
     Iterable<AndroidLibraryResourceClassJarProvider> libraryResourceJarProviders =
         AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);
+            ruleContext, TransitionMode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);
 
     NestedSetBuilder<Artifact> libraryResourceJarsBuilder = NestedSetBuilder.naiveLinkOrder();
     for (AndroidLibraryResourceClassJarProvider provider : libraryResourceJarProviders) {
@@ -575,12 +582,12 @@ public abstract class AndroidLocalTestBase implements RuleConfiguredTargetFactor
       // JUnit jar must be ahead of android runtime jars since these contain stubbed definitions
       // for framework.junit.* classes which Robolectric does not re-write.
       javaCompilationHelper.addLibrariesToAttributes(
-          ruleContext.getPrerequisites("$junit", Mode.TARGET));
+          ruleContext.getPrerequisites("$junit", TransitionMode.TARGET));
     }
     // Robolectric jars must be ahead of other potentially conflicting jars
     // (e.g., Android runtime jars) in the classpath to make sure they always take precedence.
     javaCompilationHelper.addLibrariesToAttributes(
-        ruleContext.getPrerequisites("$robolectric_implicit_classpath", Mode.TARGET));
+        ruleContext.getPrerequisites("$robolectric_implicit_classpath", TransitionMode.TARGET));
 
     javaCompilationHelper.addLibrariesToAttributes(
         javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));

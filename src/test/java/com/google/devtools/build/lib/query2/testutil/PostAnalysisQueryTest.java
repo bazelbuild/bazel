@@ -415,6 +415,37 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
         .isNotEqualTo(getConfiguration(Iterables.getOnlyElement(eval("//test:top-level"))));
   }
 
+  private void writeSimpleTarget() throws Exception {
+    MockRule simpleRule =
+        () ->
+            MockRule.define(
+                "simple_rule", attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE));
+    helper.useRuleClassProvider(setRuleClassProviders(simpleRule).build());
+
+    writeFile("test/BUILD", "simple_rule(name = 'target')");
+  }
+
+  @Test
+  public void testVisibleFunctionDoesNotWork() throws Exception {
+    writeSimpleTarget();
+    assertThat(evalThrows("visible(//test:target, //test:*)", true))
+        .isEqualTo("visible() is not supported on configured targets");
+  }
+
+  @Test
+  public void testSiblingsFunctionDoesNotWork() throws Exception {
+    writeSimpleTarget();
+    assertThat(evalThrows("siblings(//test:target)", true))
+        .isEqualTo("siblings() not supported for post analysis queries");
+  }
+
+  @Test
+  public void testBuildfilesFunctionDoesNotWork() throws Exception {
+    writeSimpleTarget();
+    assertThat(evalThrows("buildfiles(//test:target)", true))
+        .isEqualTo("buildfiles() doesn't make sense for the configured target graph");
+  }
+
   // LabelListAttr not currently supported.
   @Override
   public void testLabelsOperator() {}
@@ -457,10 +488,10 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   public void testTestsOperatorReportsMissingTargets() {}
 
   @Override
-  public void testCycleInSkylark() {}
+  public void testCycleInStarlark() {}
 
   @Override
-  public void testCycleInSkylarkParentDir() {}
+  public void testCycleInStarlarkParentDir() {}
 
   @Override
   public void testCycleInSubpackage() {}

@@ -14,15 +14,10 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 
 /**
  * Multiple {@link TransitiveInfoProvider}s bundled together.
@@ -40,16 +35,7 @@ import com.google.devtools.build.lib.syntax.SkylarkIndexable;
  * @see TransitiveInfoProvider
  */
 public interface TransitiveInfoCollection
-    extends SkylarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
-
-  @Override
-  default Depset outputGroup(String group) {
-    OutputGroupInfo provider = OutputGroupInfo.get(this);
-    NestedSet<Artifact> result = provider != null
-        ? provider.getOutputGroup(group)
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    return Depset.of(Artifact.TYPE, result);
-  }
+    extends StarlarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
 
   /**
    * Returns the label associated with this prerequisite.
@@ -61,8 +47,7 @@ public interface TransitiveInfoCollection
    */
   default boolean satisfies(RequiredProviders providers) {
     return providers.isSatisfiedBy(
-        aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
-        id -> this.get(id) != null);
+        aClass -> getProvider(aClass) != null, id -> this.get(id) != null);
   }
 
   /**

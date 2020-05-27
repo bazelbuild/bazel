@@ -97,6 +97,10 @@ class NinjaGraphArtifactsHelper {
     return ruleContext.getDerivedArtifact(execPath.relativeTo(outputRootPath), derivedOutputRoot);
   }
 
+  ArtifactRoot getDerivedOutputRoot() {
+    return derivedOutputRoot;
+  }
+
   Artifact getInputArtifact(PathFragment workingDirectoryPath) throws GenericParsingException {
     if (symlinkPathToArtifact.containsKey(workingDirectoryPath)) {
       return symlinkPathToArtifact.get(workingDirectoryPath);

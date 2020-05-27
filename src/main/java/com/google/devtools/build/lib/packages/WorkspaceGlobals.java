@@ -106,14 +106,14 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     builder.addRepositoryMappingEntry(
         RepositoryName.MAIN, RepositoryName.createFromValidStrippedName(name), RepositoryName.MAIN);
     parseManagedDirectories(
-        managedDirectories.getContents(String.class, Object.class, "managed_directories"));
+        Dict.cast(managedDirectories, String.class, Object.class, "managed_directories"));
     return NONE;
   }
 
   @Override
   public NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    List<String> pathsList = paths.getContents(String.class, "paths");
+    List<String> pathsList = Sequence.cast(paths, String.class, "paths");
     Set<String> set = Sets.newHashSet();
     for (String path : pathsList) {
       PathFragment pathFragment = PathFragment.create(path);
@@ -235,10 +235,11 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     return label.getPackageIdentifier().getRepository();
   }
 
-  private static List<String> renamePatterns(
+  private static ImmutableList<String> renamePatterns(
       List<String> patterns, Package.Builder builder, StarlarkThread thread) {
-    RepositoryName myName =
-        getRepositoryName((Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel());
+    BazelModuleContext bzlModule =
+        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
+    RepositoryName myName = getRepositoryName((bzlModule != null ? bzlModule.label() : null));
     Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
     return patterns.stream()
         .map(patternEntry -> TargetPattern.renameRepository(patternEntry, renaming))
@@ -250,7 +251,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-    List<String> patterns = platformLabels.getContents(String.class, "platform_labels");
+    List<String> patterns = Sequence.cast(platformLabels, String.class, "platform_labels");
     builder.addRegisteredExecutionPlatforms(renamePatterns(patterns, builder, thread));
     return NONE;
   }
@@ -260,7 +261,7 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
       throws EvalException, InterruptedException {
     // Add to the package definition for later.
     Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
-    List<String> patterns = toolchainLabels.getContents(String.class, "toolchain_labels");
+    List<String> patterns = Sequence.cast(toolchainLabels, String.class, "toolchain_labels");
     builder.addRegisteredToolchains(renamePatterns(patterns, builder, thread));
     return NONE;
   }

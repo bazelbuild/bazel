@@ -16,17 +16,17 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * A BuiltinCallable is a callable Starlark value that reflectively invokes a
- * SkylarkCallable-annotated method of a Java object.
+ * StarlarkMethod-annotated method of a Java object.
  */
 // TODO(adonovan): make this private. Most users would be content with StarlarkCallable; the rest
 // need only a means of querying the function's parameters.
@@ -79,13 +79,13 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   /**
-   * Returns the SkylarkCallable annotation of this Starlark-callable Java method.
+   * Returns the StarlarkMethod annotation of this Starlark-callable Java method.
    *
    * @deprecated This method is intended only for docgen, and uses the default semantics.
    */
   @Deprecated
-  public SkylarkCallable getAnnotation() {
-    return getMethodDescriptor(StarlarkSemantics.DEFAULT_SEMANTICS).getAnnotation();
+  public StarlarkMethod getAnnotation() {
+    return getMethodDescriptor(StarlarkSemantics.DEFAULT).getAnnotation();
   }
 
   @Override
@@ -105,7 +105,7 @@ public final class BuiltinCallable implements StarlarkCallable {
 
   /**
    * Converts the arguments of a Starlark call into the argument vector for a reflective call to a
-   * SkylarkCallable-annotated Java method.
+   * StarlarkMethod-annotated Java method.
    *
    * @param thread the Starlark thread for the call
    * @param loc the location of the call expression, or BUILTIN for calls from Java
@@ -325,15 +325,28 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   private void checkParamValue(ParamDescriptor param, Object value) throws EvalException {
-    // invalid argument?
-    SkylarkType type = param.getSkylarkType();
-    if (!type.contains(value)) {
+    // Value must belong to one of the specified classes.
+    boolean ok = false;
+    for (Class<?> cls : param.getAllowedClasses()) {
+      if (cls.isInstance(value)) {
+        ok = true;
+        break;
+      }
+    }
+    if (!ok) {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' got value of type '%s', want '%s'",
-          methodName, param.getName(), EvalUtils.getDataTypeName(value), type);
+          methodName, param.getName(), Starlark.type(value), param.getTypeErrorMessage());
     }
 
-    // unexpected None?
+    // None is valid if and only if the parameter is marked noneable,
+    // in which case the above check passes as the list of classes will include NoneType.
+    // The reason for this check is to ensure that merely having type=Object.class
+    // does not allow None as an argument value; I'm not sure why, that but that's the
+    // historical behavior.
+    //
+    // We do this check second because the first check prints a better error
+    // that enumerates the allowed types.
     if (value == Starlark.NONE && !param.isNoneable()) {
       throw Starlark.errorf(
           "in call to %s(), parameter '%s' cannot be None", methodName, param.getName());

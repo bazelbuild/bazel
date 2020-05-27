@@ -32,6 +32,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.android.desugar.Desugar;
+import com.google.devtools.build.android.desugar.io.JarItem;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
@@ -441,7 +442,7 @@ final class RuntimeEntityResolver {
     return Iterables.getOnlyElement(matchedMethods);
   }
 
-  private static JarEntryRecord getJarEntry(
+  private static JarItem getJarEntry(
       RuntimeJarEntry jarEntryRequest,
       List<JarTransformationRecord> jarTransformationRecords,
       ImmutableList<Path> initialInputs,
@@ -459,7 +460,7 @@ final class RuntimeEntityResolver {
       JarFile jarFile = new JarFile(jar.toFile());
       JarEntry jarEntry = jarFile.getJarEntry(jarEntryPathName);
       if (jarEntry != null) {
-        return JarEntryRecord.create(jarFile, jarEntry);
+        return JarItem.create(jarFile, jarEntry);
       }
     }
     throw new IllegalStateException(
@@ -474,7 +475,7 @@ final class RuntimeEntityResolver {
       if (jarEntry != null) {
         try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
-          ClassNode classNode = new ClassNode(Opcodes.ASM7);
+          ClassNode classNode = new ClassNode(Opcodes.ASM8);
           cr.accept(classNode, 0);
           return classNode;
         }
@@ -527,7 +528,7 @@ final class RuntimeEntityResolver {
       for (JarEntry jarEntry : classFileJarEntries) {
         try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
-          ClassNode classNode = new ClassNode(Opcodes.ASM7);
+          ClassNode classNode = new ClassNode(Opcodes.ASM8);
           cr.accept(classNode, SKIP_CODE | SKIP_DEBUG | SKIP_FRAMES);
           majorVersions.put(classNode.name, classNode.version);
         }

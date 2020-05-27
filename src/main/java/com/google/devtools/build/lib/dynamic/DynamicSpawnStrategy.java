@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -44,8 +45,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -64,7 +63,7 @@ import javax.annotation.Nullable;
  */
 public class DynamicSpawnStrategy implements SpawnStrategy {
 
-  private static final Logger logger = Logger.getLogger(DynamicSpawnStrategy.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final ListeningExecutorService executorService;
   private final DynamicExecutionOptions options;
@@ -349,10 +348,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   @Override
-  public void usedContext(ActionContext.ActionContextRegistry actionExecutionRegistry) {
-    actionExecutionRegistry
+  public void usedContext(ActionContext.ActionContextRegistry actionContextRegistry) {
+    actionContextRegistry
         .getContext(DynamicStrategyRegistry.class)
-        .notifyUsedDynamic(actionExecutionRegistry);
+        .notifyUsedDynamic(actionContextRegistry);
   }
 
   private static FileOutErr getSuffixedFileOutErr(FileOutErr fileOutErr, String suffix) {
@@ -435,7 +434,7 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
           Files.move(from.getErrorPath().getPathFile(), to.getErrorPath().getPathFile());
         }
       } catch (IOException e) {
-        logger.log(Level.WARNING, "Could not move action logs from execution", e);
+        logger.atWarning().withCause(e).log("Could not move action logs from execution");
       }
     }
 

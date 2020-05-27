@@ -14,21 +14,21 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Helper module for accessing test infrastructure. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "testing",
     doc = "Helper methods for Starlark to access testing infrastructure.")
 public interface TestingModuleApi extends StarlarkValue {
 
   // TODO(bazel-team): Change this function to be the actual ExecutionInfo.PROVIDER.
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ExecutionInfo",
       doc =
           "Creates a new execution info provider. Use this provider to specify special"
@@ -49,7 +49,7 @@ public interface TestingModuleApi extends StarlarkValue {
       ) throws EvalException;
 
   // TODO(bazel-team): Change this function to be the actual TestEnvironmentInfo.PROVIDER.
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "TestEnvironment",
       doc =
           "Creates a new test environment provider. Use this provider to specify extra"

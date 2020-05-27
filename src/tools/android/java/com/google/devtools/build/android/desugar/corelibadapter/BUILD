@@ -13,10 +13,13 @@ java_library(
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel:desugar_class_attr_java_proto",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/typehierarchy",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

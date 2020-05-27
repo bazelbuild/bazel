@@ -16,7 +16,7 @@ java_library(
     name = "EventsTests_lib",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",

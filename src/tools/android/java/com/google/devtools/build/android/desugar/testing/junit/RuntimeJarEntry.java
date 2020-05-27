@@ -24,11 +24,10 @@ import java.lang.annotation.Target;
 import javax.inject.Qualifier;
 
 /**
- * Identifies injectable {@link
- * com.google.devtools.build.android.desugar.testing.junit.JarEntryRecord} fields with a zip entry
- * path. The desugar rule resolves the requested zip entry at runtime and assign it to the annotated
- * field. An injectable {@link RuntimeJarEntry}-annotated field may have any access modifier
- * (private, package-private, protected, public). Sample usage:
+ * Identifies injectable {@link com.google.devtools.build.android.desugar.io.JarItem} fields with a
+ * zip entry path. The desugar rule resolves the requested zip entry at runtime and assign it to the
+ * annotated field. An injectable {@link RuntimeJarEntry}-annotated field may have any access
+ * modifier (private, package-private, protected, public). Sample usage:
  *
  * <pre><code>
  * &#064;RunWith(JUnit4.class)
@@ -42,7 +41,7 @@ import javax.inject.Qualifier;
  *
  *   &#064;Inject
  *   &#064;RuntimeJarEntry("my/package/ClassToDesugar.class")
- *   private JarEntryRecord classToDesugarClassFile;
+ *   private JarItem classToDesugarClassFile;
  *
  *   // ... Test methods ...
  * }

@@ -313,7 +313,7 @@ message Rule {
 
   optional bool DEPRECATED_is_skylark = 10;
 
-  // Hash encapsulating the behavior of this Skylark rule. Any change to this
+  // Hash encapsulating the behavior of this Starlark rule. Any change to this
   // rule's definition that could change its behavior will be reflected here.
   optional string skylark_environment_hash_code = 12;
 }
@@ -370,7 +370,7 @@ message SourceFile {
   // a label in the build system.
   optional string location = 2;
 
-  // Labels of .bzl (Skylark) files that are transitively loaded in this BUILD
+  // Labels of .bzl (Starlark) files that are transitively loaded in this BUILD
   // file. This is present only when the SourceFile represents a BUILD file that
   // loaded .bzl files.
   // TODO(bazel-team): Rename this field.

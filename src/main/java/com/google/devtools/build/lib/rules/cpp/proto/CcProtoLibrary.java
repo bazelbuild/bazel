@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
-import com.google.devtools.build.lib.rules.cpp.CcSkylarkApiProvider;
+import com.google.devtools.build.lib.rules.cpp.CcStarlarkApiProvider;
 
 /** Part of the implementation of cc_proto_library. */
 public class CcProtoLibrary implements RuleConfiguredTargetFactory {
@@ -59,7 +59,7 @@ public class CcProtoLibrary implements RuleConfiguredTargetFactory {
           depProviders.outputGroupInfo.getOutputGroup(groupName));
     }
 
-    CcSkylarkApiProvider.maybeAdd(ruleContext, ruleConfiguredTargetBuilder);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, ruleConfiguredTargetBuilder);
     return ruleConfiguredTargetBuilder.build();
   }
 }

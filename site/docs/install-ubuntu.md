@@ -32,7 +32,7 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 **Note:** This is a one-time setup step.
 
 ```bash
-sudo apt install curl
+sudo apt install curl gnupg
 curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add -
 echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
 ```

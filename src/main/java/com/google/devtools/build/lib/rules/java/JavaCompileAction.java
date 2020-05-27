@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -339,7 +339,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     }
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnStrategy.class)
+            .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
     return new JavaActionContinuation(actionExecutionContext, reducedClasspath, spawnContinuation);
   }
@@ -487,7 +487,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  public Sequence<String> getSkylarkArgv() throws EvalException {
+  public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException exception) {
@@ -544,7 +544,8 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
       return Deps.Dependencies.parseFrom(input);
     } catch (IOException e) {
       throw toActionExecutionException(
-          new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+          new EnvironmentalExecException(e),
+          actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
     }
   }
 
@@ -604,15 +605,17 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         }
         SpawnContinuation fallbackContinuation =
             actionExecutionContext
-                .getContext(SpawnStrategy.class)
+                .getContext(SpawnStrategyResolver.class)
                 .beginExecution(spawn, actionExecutionContext);
         return new JavaFallbackActionContinuation(
             actionExecutionContext, results, fallbackContinuation);
       } catch (IOException e) {
         throw toActionExecutionException(
-            new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+            new EnvironmentalExecException(e),
+            actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+        throw toActionExecutionException(
+            e, actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
       }
     }
   }
@@ -656,7 +659,8 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             ActionResult.create(
                 ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults))));
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+        throw toActionExecutionException(
+            e, actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
       }
     }
   }

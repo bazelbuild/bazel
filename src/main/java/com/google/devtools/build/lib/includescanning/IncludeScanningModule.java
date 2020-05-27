@@ -19,6 +19,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -49,7 +49,12 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.IORuntimeException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -62,14 +67,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.logging.Logger;
 
 /**
  * Module that provides implementations of {@link CppIncludeExtractionContext},
  * {@link CppIncludeScanningContext}, and {@link SwigIncludeScanningContext}.
  */
 public class IncludeScanningModule extends BlazeModule {
-  private static final Logger log = Logger.getLogger(IncludeScanningModule.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final PathFragment INCLUDE_HINTS_FILENAME =
       PathFragment.create("tools/cpp/INCLUDE_HINTS");
@@ -275,7 +279,7 @@ public class IncludeScanningModule extends BlazeModule {
     public void executionPhaseStarting(
         ActionGraph actionGraph,
         Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToAccountingGroups)
-        throws ExecutorInitException, InterruptedException {
+        throws AbruptExitException, InterruptedException {
       try {
         includeScannerSupplier.init(
             new IncludeParser(
@@ -286,7 +290,16 @@ public class IncludeScanningModule extends BlazeModule {
                                 env.getReporter(), IncludeHintsFunction.INCLUDE_HINTS_KEY),
                     env.getSkyframeBuildView().getArtifactFactory())));
       } catch (ExecException e) {
-        throw new ExecutorInitException("could not initialize include hints", e);
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage("could not initialize include hints: " + e.getMessage())
+                    .setIncludeScanning(
+                        IncludeScanning.newBuilder()
+                            .setCode(IncludeScanning.Code.INITIALIZE_INCLUDE_HINTS_ERROR))
+                    .build()),
+            e);
       }
     }
 
@@ -298,15 +311,14 @@ public class IncludeScanningModule extends BlazeModule {
       IncludeScanningOptions options = buildRequest.getOptions(IncludeScanningOptions.class);
       int threads = options.includeScanningParallelism;
       if (threads > 0) {
-        log.info(
-            String.format("Include scanning configured to use a pool with %d threads", threads));
+        logger.atInfo().log("Include scanning configured to use a pool with %d threads", threads);
         if (options.useAsyncIncludeScanner) {
           includePool = NamedForkJoinPool.newNamedPool("Include scanner", threads);
         } else {
           includePool = ExecutorUtil.newSlackPool(threads, "Include scanner");
         }
       } else {
-        log.info("Include scanning configured to use a direct executor");
+        logger.atInfo().log("Include scanning configured to use a direct executor");
         includePool = MoreExecutors.newDirectExecutorService();
       }
       includeScannerSupplier =

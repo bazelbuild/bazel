@@ -19,6 +19,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
@@ -26,12 +27,12 @@ import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -43,7 +44,7 @@ import javax.annotation.Nullable;
  */
 public abstract class BugReport {
 
-  private static final Logger logger = Logger.getLogger(BugReport.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   static final BugReporter REPORTER_INSTANCE = new DefaultBugReporter();
 
@@ -54,10 +55,8 @@ public abstract class BugReport {
   @Nullable private static volatile Throwable unprocessedThrowableInTest = null;
   private static final Object LOCK = new Object();
 
-  private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
-
   private static final boolean SHOULD_NOT_SEND_BUG_REPORT_BECAUSE_IN_TEST =
-      IN_TEST && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
+      TestType.isInTest() && System.getenv("ENABLE_BUG_REPORT_LOGGING_IN_TEST") == null;
 
   private BugReport() {}
 
@@ -77,7 +76,7 @@ public abstract class BugReport {
   public static void setRuntime(BlazeRuntimeInterface newRuntime) {
     Preconditions.checkNotNull(newRuntime);
     Preconditions.checkState(
-        runtime == null || IN_TEST, "runtime already set: %s, %s", runtime, newRuntime);
+        runtime == null || TestType.isInTest(), "runtime already set: %s, %s", runtime, newRuntime);
     runtime = newRuntime;
   }
 
@@ -90,7 +89,7 @@ public abstract class BugReport {
    * is about to block on thread completion that might hang because of a failed halt below.
    */
   public static void maybePropagateUnprocessedThrowableIfInTest() {
-    if (IN_TEST) {
+    if (TestType.isInTest()) {
       // Instead of the jvm having been halted, we might have a saved Throwable.
       synchronized (LOCK) {
         Throwable lastUnprocessedThrowableInTest = unprocessedThrowableInTest;
@@ -125,7 +124,7 @@ public abstract class BugReport {
           "Bug reports in tests should crash: " + args + ", " + Arrays.toString(values), exception);
     }
     if (!versionInfo.isReleasedBlaze()) {
-      logger.info("(Not a released binary; not logged.)");
+      logger.atInfo().log("(Not a released binary; not logged.)");
       return;
     }
 
@@ -133,7 +132,7 @@ public abstract class BugReport {
   }
 
   private static void logCrash(Throwable throwable, boolean sendBugReport, String... args) {
-    logger.severe("Crash: " + throwable + " " + Throwables.getStackTraceAsString(throwable));
+    logger.atSevere().withCause(throwable).log("Crash");
     if (sendBugReport) {
       BugReport.sendBugReport(throwable, Arrays.asList(args));
     }
@@ -196,11 +195,11 @@ public abstract class BugReport {
     int numericExitCode = exitCodeToUse.getNumericExitCode();
     try {
       synchronized (LOCK) {
-        if (IN_TEST) {
+        if (TestType.isInTest()) {
           unprocessedThrowableInTest = throwable;
         }
         // Don't try to send a bug report during a crash in a test, it will throw itself.
-        if (!IN_TEST || !sendBugReport) {
+        if (!TestType.isInTest() || !sendBugReport) {
           logCrash(throwable, sendBugReport, args);
         }
         try {
@@ -249,7 +248,7 @@ public abstract class BugReport {
     PrintStream err = new PrintStream(outErr.getErrorStream());
     e.printStackTrace(err);
     err.flush();
-    logger.log(Level.SEVERE, getProductName() + " crashed", e);
+    logger.atSevere().withCause(e).log("%s crashed", getProductName());
   }
 
   /**
@@ -299,7 +298,7 @@ public abstract class BugReport {
   // Log the exception.  Because this method is only called in a blaze release,
   // this will result in a report being sent to a remote logging service.
   private static void logException(Throwable exception, List<String> args, String... values) {
-    logger.severe("Exception: " + Throwables.getStackTraceAsString(exception));
+    logger.atSevere().withCause(exception).log("Exception");
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
     String preamble = getProductName()

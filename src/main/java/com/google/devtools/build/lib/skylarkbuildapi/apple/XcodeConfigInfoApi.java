@@ -16,28 +16,28 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * An interface for an info type containing the set of Apple versions computed from command line
  * options and the {@code xcode_config} rule.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "XcodeVersionConfig",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "The set of Apple versions computed from command line options and the xcode_config rule.")
 public interface XcodeConfigInfoApi<
         ApplePlatformApiT extends ApplePlatformApi,
         ApplePlatformTypeApiT extends ApplePlatformTypeApi>
     extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "xcode_version",
       doc =
           "Returns the Xcode version that is being used to build.<p>"
@@ -45,7 +45,7 @@ public interface XcodeConfigInfoApi<
       allowReturnNones = true)
   DottedVersionApi<?> getXcodeVersion();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "minimum_os_for_platform_type",
       doc =
           "The minimum compatible OS version for target simulator and devices for a particular "
@@ -60,7 +60,7 @@ public interface XcodeConfigInfoApi<
       })
   DottedVersionApi<?> getMinimumOsForPlatformType(ApplePlatformTypeApiT platformType);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "sdk_version_for_platform",
       doc =
           "The version of the platform SDK that will be used to build targets for the given "
@@ -75,7 +75,7 @@ public interface XcodeConfigInfoApi<
       })
   DottedVersionApi<?> getSdkVersionForPlatform(ApplePlatformApiT platform);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "availability",
       doc =
           "Returns the availability of this Xcode version, 'remote' if the version is only"
@@ -84,20 +84,20 @@ public interface XcodeConfigInfoApi<
               + " availability could not be determined.")
   public String getAvailabilityString();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "execution_info",
       doc = "Returns the execution requirements for actions that use this Xcode config.")
   public Dict<String, String> getExecutionRequirementsDict();
 
   /** An interface for the provider of {@link XcodeConfigInfoApi}. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
-      category = SkylarkModuleCategory.PROVIDER,
+      category = StarlarkDocumentationCategory.PROVIDER,
       documented = false,
       doc = "")
   interface XcodeConfigProviderApi extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "XcodeVersionConfig",
         doc = "Returns the Xcode info that is associated with this target",
         parameters = {
@@ -148,7 +148,7 @@ public interface XcodeConfigInfoApi<
               doc = "The selected Xcode version from this config."),
         },
         selfCall = true)
-    @SkylarkConstructor(
+    @StarlarkConstructor(
         objectType = XcodeConfigInfoApi.class,
         receiverNameForDoc = "XcodeConfigInfo")
     XcodeConfigInfoApi<?, ?> xcodeConfigInfo(

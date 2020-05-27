@@ -265,7 +265,7 @@ class LH {
   void file_name(const char *filename, uint16_t len) {
     file_name_length_ = htole16(len);
     if (len) {
-      memcpy(file_name_, filename, file_name_length_);
+      memcpy(file_name_, filename, len);
     }
   }
   bool file_name_is(const char *name) const {

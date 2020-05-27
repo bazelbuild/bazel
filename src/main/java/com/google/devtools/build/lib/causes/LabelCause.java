@@ -41,6 +41,10 @@ public class LabelCause implements Cause {
     return label;
   }
 
+  public String getMessage() {
+    return msg;
+  }
+
   @Override
   public BuildEventStreamProtos.BuildEventId getIdProto() {
     return BuildEventStreamProtos.BuildEventId.newBuilder()

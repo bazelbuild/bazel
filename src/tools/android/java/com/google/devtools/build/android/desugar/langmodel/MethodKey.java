@@ -22,6 +22,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import java.util.List;
 import org.objectweb.asm.Type;
 
@@ -53,6 +54,18 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
     return MethodKey.create(ClassName.create(payloads.get(0)), payloads.get(1), payloads.get(2));
   }
 
+  public static MethodKey fromProto(MethodId methodId) {
+    return create(ClassName.create(methodId.getOwner()), methodId.getName(), methodId.getDesc());
+  }
+
+  public MethodId toMethodIdProto() {
+    return MethodId.newBuilder()
+        .setOwner(ownerName())
+        .setName(name())
+        .setDesc(descriptor())
+        .build();
+  }
+
   /** The return type of a method. */
   public Type getReturnType() {
     return Type.getReturnType(descriptor());
@@ -78,11 +91,23 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
     return getArgumentTypes().stream().map(ClassName::create).collect(toImmutableList());
   }
 
-  public MethodKey toAdapterMethodForArgsAndReturnTypes(boolean fromStaticOrigin) {
+  /**
+   * Returns the set of all types referenced in the method header, i.e. all types in the method
+   * return type and argument types.
+   */
+  public ImmutableSet<ClassName> getHeaderTypeNameSet() {
+    return ImmutableSet.<ClassName>builder()
+        .add(getReturnTypeName())
+        .addAll(getArgumentTypeNames())
+        .build();
+  }
+
+  public MethodKey toAdapterMethodForArgsAndReturnTypes(
+      boolean fromStaticOrigin, int invocationSiteHashCode) {
     checkState(
         !isConstructor(), "Argument type adapter for constructor is not supported: %s. ", this);
     return MethodKey.create(
-            owner().typeAdapterOwner(encode()),
+            owner().typeAdapterOwner(invocationSiteHashCode),
             name(),
             fromStaticOrigin ? descriptor() : instanceMethodToStaticDescriptor())
         .acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER);
@@ -124,7 +149,7 @@ public abstract class MethodKey extends ClassMemberKey<MethodKey> {
   }
 
   /** The descriptor of the static version of a given instance method. */
-  private String instanceMethodToStaticDescriptor() {
+  public final String instanceMethodToStaticDescriptor() {
     checkState(!isConstructor(), "Expect a Non-constructor method: %s", this);
     ImmutableList<Type> argumentTypes = getArgumentTypes();
     ImmutableList<Type> bridgeMethodArgTypes =

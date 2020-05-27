@@ -17,7 +17,7 @@
 def resolve_labels(repository_ctx, labels):
     """Resolves a collection of labels to their paths.
 
-    Label resolution can cause the evaluation of Skylark functions to restart.
+    Label resolution can cause the evaluation of Starlark functions to restart.
     For functions with side-effects (like the auto-configuration functions, which
     inspect the system and touch the file system), such restarts are costly.
     We cannot avoid the restarts, but we can minimize their penalty by resolving
@@ -82,7 +82,7 @@ def split_escaped(string, delimiter):
     if not string:
         return []
 
-    # Iterate over the length of string since Skylark doesn't have while loops
+    # Iterate over the length of string since Starlark doesn't have while loops
     for _ in range(length):
         if i >= length:
             break

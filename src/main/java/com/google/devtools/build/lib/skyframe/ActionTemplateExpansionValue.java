@@ -30,7 +30,7 @@ public final class ActionTemplateExpansionValue extends BasicActionLookupValue {
     super(generatingActions);
   }
 
-  static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
+  public static ActionTemplateExpansionKey key(ActionLookupKey actionLookupKey, int actionIndex) {
     return ActionTemplateExpansionKey.of(actionLookupKey, actionIndex);
   }
 

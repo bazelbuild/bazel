@@ -20,12 +20,12 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 /** The available xcode versions computed from the {@code available_xcodes} rule. */
 @Immutable
 public class AvailableXcodesInfo extends NativeInfo {
-  /** Skylark name for this provider. */
-  public static final String SKYLARK_NAME = "AvailableXcodesInfo";
+  /** Starlark name for this provider. */
+  public static final String STARLARK_NAME = "AvailableXcodesInfo";
 
   /** Provider identifier for {@link AvailableXcodesInfo}. */
   public static final BuiltinProvider<AvailableXcodesInfo> PROVIDER =
-      new BuiltinProvider<AvailableXcodesInfo>(SKYLARK_NAME, AvailableXcodesInfo.class) {};
+      new BuiltinProvider<AvailableXcodesInfo>(STARLARK_NAME, AvailableXcodesInfo.class) {};
 
   private final Iterable<XcodeVersionRuleData> availableXcodes;
   private final XcodeVersionRuleData defaultVersion;

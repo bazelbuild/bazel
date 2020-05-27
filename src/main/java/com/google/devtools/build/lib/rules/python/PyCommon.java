@@ -32,9 +32,9 @@ import com.google.devtools.build.lib.analysis.PseudoAction;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -188,7 +188,7 @@ public final class PyCommon {
   private static String getOrderErrorMessage(String fieldName, Order expected, Order actual) {
     return String.format(
         "Incompatible order for %s: expected 'default' or '%s', got '%s'",
-        fieldName, expected.getSkylarkName(), actual.getSkylarkName());
+        fieldName, expected.getStarlarkName(), actual.getStarlarkName());
   }
 
   public PyCommon(RuleContext ruleContext, PythonSemantics semantics) {
@@ -237,7 +237,7 @@ public final class PyCommon {
     collectTransitivePythonSourcesFromDeps(ruleContext, builder);
     builder.addAll(
         ruleContext
-            .getPrerequisiteArtifacts("srcs", Mode.TARGET)
+            .getPrerequisiteArtifacts("srcs", TransitionMode.TARGET)
             .filter(PyRuleClasses.PYTHON_SOURCE)
             .list());
     return builder.build();
@@ -249,7 +249,8 @@ public final class PyCommon {
    */
   private static void collectTransitivePythonSourcesFromDeps(
       RuleContext ruleContext, NestedSetBuilder<Artifact> builder) {
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
       try {
         builder.addTransitive(PyProviderUtils.getTransitiveSources(dep));
       } catch (EvalException e) {
@@ -275,10 +276,10 @@ public final class PyCommon {
     if (ruleContext.attributes().has("data")) {
       targets =
           Iterables.concat(
-              ruleContext.getPrerequisites("deps", Mode.TARGET),
-              ruleContext.getPrerequisites("data", Mode.DONT_CHECK));
+              ruleContext.getPrerequisites("deps", TransitionMode.TARGET),
+              ruleContext.getPrerequisites("data", TransitionMode.DONT_CHECK));
     } else {
-      targets = ruleContext.getPrerequisites("deps", Mode.TARGET);
+      targets = ruleContext.getPrerequisites("deps", TransitionMode.TARGET);
     }
     for (TransitiveInfoCollection target : targets) {
       try {
@@ -295,7 +296,8 @@ public final class PyCommon {
   private static NestedSet<String> initImports(RuleContext ruleContext, PythonSemantics semantics) {
     NestedSetBuilder<String> builder = NestedSetBuilder.compileOrder();
     builder.addAll(semantics.getImports(ruleContext));
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
       try {
         NestedSet<String> imports = PyProviderUtils.getImports(dep);
         if (!builder.getOrder().isCompatible(imports.getOrder())) {
@@ -324,7 +326,8 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY2ONLY) {
       return true;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
       try {
         if (PyProviderUtils.getHasPy2OnlySources(dep)) {
           return true;
@@ -346,7 +349,8 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY3 || sourcesVersion == PythonVersion.PY3ONLY) {
       return true;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
       try {
         if (PyProviderUtils.getHasPy3OnlySources(dep)) {
           return true;
@@ -403,7 +407,7 @@ public final class PyCommon {
           String.format(
               "Error parsing the Python toolchain's ToolchainInfo: Expected a PyRuntimeInfo in "
                   + "field '%s', but got '%s'",
-              field, EvalUtils.getDataTypeName(fieldValue)));
+              field, Starlark.type(fieldValue)));
       return null;
     }
     PyRuntimeInfo pyRuntimeInfo = (PyRuntimeInfo) fieldValue;
@@ -490,7 +494,7 @@ public final class PyCommon {
     if (sourcesVersion == PythonVersion.PY2 && version == PythonVersion.PY3) {
       Iterable<Artifact> artifacts =
           ruleContext
-              .getPrerequisiteArtifacts("srcs", Mode.TARGET)
+              .getPrerequisiteArtifacts("srcs", TransitionMode.TARGET)
               .filter(PyRuleClasses.PYTHON_SOURCE)
               .list();
       return PythonUtils.generate2to3Actions(ruleContext, artifacts);
@@ -529,7 +533,8 @@ public final class PyCommon {
     if (!ruleContext.getFragment(PythonConfiguration.class).disallowLegacyPyProvider()) {
       return;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
       if (PyProviderUtils.hasLegacyProvider(dep)) {
         ruleContext.attributeError(
             "deps",
@@ -589,7 +594,8 @@ public final class PyCommon {
             + ": "
             + "This target is being built for Python %s but (transitively) includes Python %s-only "
             + "sources. You can get diagnostic information about which dependencies introduce this "
-            + "version requirement by running the `find_requirements` aspect. For more info see "
+            + "version requirement by running the `find_requirements` aspect. If this is used in a "
+            + "genrule, you may need to migrate from tools to exec_tools. For more info see "
             + "the documentation for the `srcs_version` attribute: "
             + semantics.getSrcsVersionDocURL();
 
@@ -863,7 +869,7 @@ public final class PyCommon {
     List<Artifact> sourceFiles = new ArrayList<>();
     // TODO(bazel-team): Need to get the transitive deps closure, not just the sources of the rule.
     for (TransitiveInfoCollection src :
-        ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class)) {
+        ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class)) {
       // Make sure that none of the sources contain hyphens.
       if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
         ruleContext.attributeError("srcs",
@@ -907,7 +913,7 @@ public final class PyCommon {
             ruleContext.getActionOwner(),
             // Has to be unfiltered sources as filtered will give an error for
             // unsupported file types where as certain tests only expect a warning.
-            ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
+            ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list(),
             // We must not add the files declared in the srcs of this rule.;
             dependencyTransitivePythonSources,
             PseudoAction.getDummyOutput(ruleContext)));
@@ -964,7 +970,8 @@ public final class PyCommon {
     PathFragment mainSourcePath = PathFragment.create(mainSourceName);
 
     Artifact mainArtifact = null;
-    for (Artifact outItem : ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()) {
+    for (Artifact outItem :
+        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list()) {
       if (outItem.getRootRelativePath().endsWith(mainSourcePath)) {
         if (mainArtifact == null) {
           mainArtifact = outItem;

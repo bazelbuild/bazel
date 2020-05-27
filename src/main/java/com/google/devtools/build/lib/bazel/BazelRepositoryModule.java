@@ -36,15 +36,15 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
-import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
+import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledgeImpl;
@@ -59,14 +59,16 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.InfoItem;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutorFactory;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
@@ -98,7 +100,7 @@ public class BazelRepositoryModule extends BlazeModule {
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
-  private final SkylarkRepositoryFunction skylarkRepositoryFunction;
+  private final StarlarkRepositoryFunction starlarkRepositoryFunction;
   private final RepositoryCache repositoryCache = new RepositoryCache();
   private final HttpDownloader httpDownloader = new HttpDownloader();
   private final DelegatingDownloader delegatingDownloader =
@@ -117,7 +119,7 @@ public class BazelRepositoryModule extends BlazeModule {
   private final ManagedDirectoriesKnowledgeImpl managedDirectoriesKnowledge;
 
   public BazelRepositoryModule() {
-    this.skylarkRepositoryFunction = new SkylarkRepositoryFunction(downloadManager);
+    this.starlarkRepositoryFunction = new StarlarkRepositoryFunction(downloadManager);
     this.repositoryHandlers = repositoryRules();
     ManagedDirectoriesListener listener =
         repositoryNamesWithManagedDirs -> {
@@ -193,11 +195,12 @@ public class BazelRepositoryModule extends BlazeModule {
     RepositoryDelegatorFunction repositoryDelegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
-            skylarkRepositoryFunction,
+            starlarkRepositoryFunction,
             isFetch,
             clientEnvironmentSupplier,
             directories,
-            managedDirectoriesKnowledge);
+            managedDirectoriesKnowledge,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     builder.addSkyFunction(SkyFunctions.REPOSITORY_DIRECTORY, repositoryDelegatorFunction);
     filesystem = runtime.getFileSystem();
   }
@@ -217,30 +220,32 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       builder.addRuleDefinition(ruleDefinition);
     }
-    builder.addSkylarkBootstrap(new RepositoryBootstrap(new SkylarkRepositoryModule()));
+    builder.addStarlarkBootstrap(new RepositoryBootstrap(new StarlarkRepositoryModule()));
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     clientEnvironmentSupplier.set(env.getRepoEnv());
-    PackageCacheOptions pkgOptions = env.getOptions().getOptions(PackageCacheOptions.class);
+    PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
     resolvedFile = Optional.<RootedPath>absent();
     resolvedFileReplacingWorkspace = Optional.<RootedPath>absent();
     outputVerificationRules = ImmutableSet.<String>of();
 
+    starlarkRepositoryFunction.setProcessWrapper(ProcessWrapper.fromCommandEnvironment(env));
+
     RepositoryOptions repoOptions = env.getOptions().getOptions(RepositoryOptions.class);
     if (repoOptions != null) {
       repositoryCache.setHardlink(repoOptions.useHardlinks);
       if (repoOptions.experimentalScaleTimeouts > 0.0) {
-        skylarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
+        starlarkRepositoryFunction.setTimeoutScaling(repoOptions.experimentalScaleTimeouts);
       } else {
         env.getReporter()
             .handle(
                 Event.warn(
                     "Ignoring request to scale timeouts for repositories by a non-positive"
                         + " factor"));
-        skylarkRepositoryFunction.setTimeoutScaling(1.0);
+        starlarkRepositoryFunction.setTimeoutScaling(1.0);
       }
       if (repoOptions.experimentalRepositoryCache != null) {
         // A set but empty path indicates a request to disable the repository cache.
@@ -348,7 +353,7 @@ public class BazelRepositoryModule extends BlazeModule {
       if (remoteExecutorFactory != null) {
         remoteExecutor = remoteExecutorFactory.create();
       }
-      skylarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
+      starlarkRepositoryFunction.setRepositoryRemoteExecutor(remoteExecutor);
       delegatingDownloader.setDelegate(env.getRuntime().getDownloaderSupplier().get());
     }
   }

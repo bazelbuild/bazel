@@ -89,7 +89,7 @@ public final class TargetUtils {
     }
 
     Rule rule = (Rule) target;
-    return !rule.getRuleClassObject().isSkylark() && rule.getRuleClass().equals("alias");
+    return !rule.getRuleClassObject().isStarlark() && rule.getRuleClass().equals("alias");
   }
 
   /**
@@ -250,7 +250,7 @@ public final class TargetUtils {
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
    *     actions' execution requirements, for more details {@see
-   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   *     StarlarkSemanticsOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getExecutionInfo(
       Rule rule, boolean allowTagsPropagation) {
@@ -272,18 +272,20 @@ public final class TargetUtils {
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
    *     actions' execution requirements, for more details {@see
-   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   *     StarlarkSematicOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getFilteredExecutionInfo(
-      Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
+      @Nullable Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)
       throws EvalException {
     Map<String, String> checkedExecutionRequirements =
         TargetUtils.filter(
-            Dict.castSkylarkDictOrNoneToDict(
-                executionRequirementsUnchecked,
-                String.class,
-                String.class,
-                "execution_requirements"));
+            executionRequirementsUnchecked == null
+                ? ImmutableMap.of()
+                : Dict.noneableCast(
+                    executionRequirementsUnchecked,
+                    String.class,
+                    String.class,
+                    "execution_requirements"));
 
     Map<String, String> executionInfoBuilder = new HashMap<>();
     // adding filtered execution requirements to the execution info map

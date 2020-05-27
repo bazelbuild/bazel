@@ -50,17 +50,17 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileAccessException;
 import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.ErrorInfoSubject;
@@ -83,11 +82,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.util.List;
 import java.util.Map;
@@ -112,7 +107,7 @@ public class FileFunctionTest {
           .setEventHander(NullEventHandler.INSTANCE)
           .build();
 
-  private CustomInMemoryFs fs;
+  private InMemoryFileSystem fs;
   private Root pkgRoot;
   private Path outputBase;
   private PathPackageLocator pkgLocator;
@@ -174,13 +169,14 @@ public class FileFunctionTest {
                 .put(FileValue.FILE, new FileFunction(pkgLocatorRef))
                 .put(
                     SkyFunctions.PACKAGE,
-                    new PackageFunction(null, null, null, null, null, null, null))
+                    new PackageFunction(null, null, null, null, null, null, null, null))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
                         new AtomicReference<>(ImmutableSet.of()),
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
                 .put(
                     WorkspaceFileValue.WORKSPACE_FILE,
@@ -190,15 +186,21 @@ public class FileFunctionTest {
                             .builder(directories)
                             .build(ruleClassProvider, fs),
                         directories,
-                        /*starlarkImportLookupFunctionForInlining=*/ null))
-                .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
-                .put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction())
+                        /*bzlLoadFunctionForInlining=*/ null))
+                .put(
+                    SkyFunctions.EXTERNAL_PACKAGE,
+                    new ExternalPackageFunction(
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
+                .put(
+                    SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+                    new LocalRepositoryLookupFunction(
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .build(),
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.absent());
     return new SequentialBuildDriver(evaluator);
@@ -890,6 +892,7 @@ public class FileFunctionTest {
 
   @Test
   public void testDoesntStatChildIfParentDoesntExist() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
     // Our custom filesystem says "a" does not exist, so FileFunction shouldn't bother trying to
     // think about "a/b". Test for this by having a stat of "a/b" fail with an io error, and
     // observing that we don't encounter the error.
@@ -900,6 +903,7 @@ public class FileFunctionTest {
 
   @Test
   public void testFilesystemInconsistencies_GetFastDigest() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
     file("a");
     // Our custom filesystem says "a/b" exists but "a" does not exist.
     fs.stubFastDigestError(path("a"), new IOException("nope"));
@@ -1050,43 +1054,17 @@ public class FileFunctionTest {
 
   @Test
   public void testSerialization() throws Exception {
-    ByteArrayOutputStream bos = new ByteArrayOutputStream();
-    ObjectOutputStream oos = new ObjectOutputStream(bos);
-
-    FileSystem oldFileSystem = Path.getFileSystemForSerialization();
-    try {
-      // InMemoryFS is not supported for serialization.
-      FileSystem fs = FileSystems.getJavaIoFileSystem();
-      Path.setFileSystemForSerialization(fs);
-      pkgRoot = Root.absoluteRoot(fs);
-
-      FileValue a = valueForPath(fs.getPath("/"));
-
-      Path tmp = fs.getPath(TestUtils.tmpDirFile().getAbsoluteFile() + "/file.txt");
-
-      FileSystemUtils.writeContentAsLatin1(tmp, "test contents");
-
-      FileValue b = valueForPath(tmp);
-      Preconditions.checkState(b.isFile());
-      FileValue c = valueForPath(fs.getPath("/does/not/exist"));
-      oos.writeObject(a);
-      oos.writeObject(b);
-      oos.writeObject(c);
-
-      ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
-      ObjectInputStream ois = new ObjectInputStream(bis);
-
-      FileValue a2 = (FileValue) ois.readObject();
-      FileValue b2 = (FileValue) ois.readObject();
-      FileValue c2 = (FileValue) ois.readObject();
-
-      assertThat(a2).isEqualTo(a);
-      assertThat(b2).isEqualTo(b);
-      assertThat(c2).isEqualTo(c);
-      assertThat(a2.equals(b2)).isFalse();
-    } finally {
-      Path.setFileSystemForSerialization(oldFileSystem);
-    }
+    fs = FsUtils.TEST_FILESYSTEM;
+    pkgRoot = Root.absoluteRoot(fs);
+    FileValue a = valueForPath(fs.getPath("/"));
+    Path tmp = fs.getPath("/file.txt");
+    FileSystemUtils.writeContentAsLatin1(tmp, "test contents");
+    FileValue b = valueForPath(tmp);
+    Preconditions.checkState(b.isFile());
+    FileValue c = valueForPath(fs.getPath("/does/not/exist"));
+    SerializationTester serializationTester = new SerializationTester(a, b, c).makeMemoizing();
+    FsUtils.addDependencies(serializationTester);
+    serializationTester.runTests();
   }
 
   @Test
@@ -1321,6 +1299,7 @@ public class FileFunctionTest {
 
   @Test
   public void testInjectionOverIOException() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
     Path foo = file("foo");
     SkyKey fooKey = skyKey("foo");
     fs.stubStatError(foo, new IOException("bork"));
@@ -1471,6 +1450,7 @@ public class FileFunctionTest {
 
   @Test
   public void testFileAccessException() throws Exception {
+    CustomInMemoryFs fs = (CustomInMemoryFs) this.fs;
     Path foo = file("foo");
     FileAccessException fae = new FileAccessException("nope");
     fs.stubStatError(foo, fae);

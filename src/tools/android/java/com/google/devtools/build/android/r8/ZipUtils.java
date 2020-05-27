@@ -21,12 +21,13 @@ import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-class ZipUtils {
+/** Utilities for working with zip files. */
+public class ZipUtils {
   static void addEntry(String name, InputStream stream, ZipOutputStream zip) throws IOException {
     ZipUtils.addEntry(name, ByteStreams.toByteArray(stream), ZipEntry.STORED, zip);
   }
 
-  static void addEntry(String name, byte[] bytes, int compressionMethod, ZipOutputStream zip)
+  public static void addEntry(String name, byte[] bytes, int compressionMethod, ZipOutputStream zip)
       throws IOException {
     CRC32 crc = new CRC32();
     crc.update(bytes);
@@ -36,7 +37,7 @@ class ZipUtils {
     zip.closeEntry();
   }
 
-  static void writeToZipStream(
+  public static void writeToZipStream(
       String name, ByteDataView content, int compressionMethod, ZipOutputStream zip)
       throws IOException {
     byte[] buffer = content.getBuffer();

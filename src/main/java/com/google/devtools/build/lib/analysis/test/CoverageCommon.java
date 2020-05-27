@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -33,25 +33,22 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Helper functions for Starlark to access coverage-related infrastructure. */
-public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, SkylarkRuleContext> {
+public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, StarlarkRuleContext> {
 
   @Override
-  @SuppressWarnings("unchecked") // Casting extensions param is verified by Starlark interpreter.
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
       Sequence<?> dependencyAttributes, // <String>
       Object extensions)
       throws EvalException {
     List<String> extensionsList =
-        extensions == Starlark.NONE
-            ? null
-            : Sequence.castList((List<?>) extensions, String.class, "extensions");
+        extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
 
     return createInstrumentedFilesInfo(
-        skylarkRuleContext.getRuleContext(),
-        sourceAttributes.getContents(String.class, "source_attributes"),
-        dependencyAttributes.getContents(String.class, "dependency_attributes"),
+        starlarkRuleContext.getRuleContext(),
+        Sequence.cast(sourceAttributes, String.class, "source_attributes"),
+        Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
         extensionsList);
   }
 

@@ -43,7 +43,7 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
     return create(kwargs, thread.getCallerLocation());
   }
 
-  // Called from SkylarkRepositoryContext. TODO(adonovan): eliminate.
+  // Called from StarlarkRepositoryContext. TODO(adonovan): eliminate.
   public StructImpl createWithBuiltinLocation(Dict<String, Object> kwargs) throws EvalException {
     return create(kwargs, Location.BUILTIN);
   }
@@ -55,7 +55,7 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
     if (kwargs.containsKey("to_proto")) {
       throw Starlark.errorf("cannot override built-in struct function 'to_proto'");
     }
-    return SkylarkInfo.create(this, kwargs, location);
+    return StarlarkInfo.create(this, kwargs, location);
   }
 
   /**
@@ -65,7 +65,7 @@ public final class StructProvider extends BuiltinProvider<StructImpl>
    * providers, such as the {@code native} object, and the struct fields of {@code ctx} like {@code
    * ctx.attr}.
    */
-  public SkylarkInfo create(Map<String, Object> values, String errorMessageFormatForUnknownField) {
-    return SkylarkInfo.createWithCustomMessage(this, values, errorMessageFormatForUnknownField);
+  public StarlarkInfo create(Map<String, Object> values, String errorMessageFormatForUnknownField) {
+    return StarlarkInfo.createWithCustomMessage(this, values, errorMessageFormatForUnknownField);
   }
 }

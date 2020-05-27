@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -44,14 +45,14 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
@@ -66,7 +67,7 @@ import java.util.logging.Logger;
  */
 public class BuildTool {
 
-  private static Logger logger = Logger.getLogger(BuildTool.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected final CommandEnvironment env;
   protected final BlazeRuntime runtime;
@@ -105,7 +106,7 @@ public class BuildTool {
   public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
       throws BuildFailedException, InterruptedException, ViewCreationFailedException,
           TargetParsingException, LoadingFailedException, AbruptExitException,
-          InvalidConfigurationException, TestExecException, QueryCommandLineException {
+          InvalidConfigurationException, TestExecException, ExitException {
     try (SilentCloseable c = Profiler.instance().profile("validateOptions")) {
       validateOptions(request);
     }
@@ -120,7 +121,7 @@ public class BuildTool {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
         env.getEventBus().post(new BuildStartingEvent(env, request));
       }
-      logger.info("Build identifier: " + request.getId());
+      logger.atInfo().log("Build identifier: %s", request.getId());
 
       // Error out early if multi_cpus is set, but we're not in build or test command.
       if (!request.getMultiCpus().isEmpty()) {
@@ -246,7 +247,7 @@ public class BuildTool {
    * then process the results in some interesting way. See {@link CqueryBuildTool} as an example.
    */
   protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
-      throws InterruptedException, ViewCreationFailedException, QueryCommandLineException {}
+      throws InterruptedException, ViewCreationFailedException, ExitException {}
 
   private void reportExceptionError(Exception e) {
     if (e.getMessage() != null) {
@@ -283,7 +284,7 @@ public class BuildTool {
         DetailedExitCode.justExitCode(ExitCode.BLAZE_INTERNAL_ERROR);
     try {
       buildTargets(request, result, validator);
-      detailedExitCode = DetailedExitCode.justExitCode(ExitCode.SUCCESS);
+      detailedExitCode = DetailedExitCode.success();
     } catch (BuildFailedException e) {
       if (e.isErrorAlreadyShown()) {
         // The actual error has already been reported by the Builder.
@@ -299,27 +300,27 @@ public class BuildTool {
       // an error, so check to see if we should report that error code instead.
       AbruptExitException environmentPendingAbruptExitException = env.getPendingException();
       if (environmentPendingAbruptExitException == null) {
-        detailedExitCode = DetailedExitCode.justExitCode(ExitCode.INTERRUPTED);
-        env.getReporter().handle(Event.error("build interrupted"));
+        String message = "build interrupted";
+        detailedExitCode = InterruptedFailureDetails.detailedExitCode(message, Code.BUILD);
+        env.getReporter().handle(Event.error(message));
         env.getEventBus().post(new BuildInterruptedEvent());
       } else {
         // Report the exception from the environment - the exception we're handling here is just an
         // interruption.
-        detailedExitCode =
-            DetailedExitCode.justExitCode(environmentPendingAbruptExitException.getExitCode());
+        detailedExitCode = environmentPendingAbruptExitException.getDetailedExitCode();
         reportExceptionError(environmentPendingAbruptExitException);
         result.setCatastrophe();
       }
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
       reportExceptionError(e);
-    } catch (QueryCommandLineException e) {
-      detailedExitCode = DetailedExitCode.justExitCode(ExitCode.COMMAND_LINE_ERROR);
+    } catch (ExitException e) {
+      detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
     } catch (TestExecException e) {
       // ExitCode.SUCCESS means that build was successful. Real return code of program
       // is going to be calculated in TestCommand.doTest().
-      detailedExitCode = DetailedExitCode.justExitCode(ExitCode.SUCCESS);
+      detailedExitCode = DetailedExitCode.success();
       reportExceptionError(e);
     } catch (InvalidConfigurationException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.COMMAND_LINE_ERROR);
@@ -414,13 +415,13 @@ public class BuildTool {
     env.getEventBus().post(result.getBuildToolLogCollection().freeze().toEvent());
     if (ie != null) {
       if (detailedExitCode.isSuccess()) {
-        result.setDetailedExitCode(DetailedExitCode.justExitCode(ExitCode.INTERRUPTED));
+        result.setDetailedExitCode(
+            InterruptedFailureDetails.detailedExitCode(
+                "Build interrupted during command completion", Code.BUILD_COMPLETION));
       } else if (!detailedExitCode.getExitCode().equals(ExitCode.INTERRUPTED)) {
-        logger.log(
-            Level.WARNING,
-            "Suppressed interrupted exception during stop request because already failing with: "
-                + detailedExitCode,
-            ie);
+        logger.atWarning().withCause(ie).log(
+            "Suppressed interrupted exception during stop request because already failing with: %s",
+            detailedExitCode);
       }
     }
   }
@@ -442,10 +443,21 @@ public class BuildTool {
     return env.getReporter();
   }
 
-  /** Exceptions in parsing the supplied query options. */
-  protected static class QueryCommandLineException extends Exception {
-    QueryCommandLineException(String message) {
-      super(message);
+  /** Describes a failure that isn't severe enough to halt the command in keep_going mode. */
+  // TODO(mschaller): consider promoting this to be a sibling of AbruptExitException.
+  static class ExitException extends Exception {
+
+    private final DetailedExitCode detailedExitCode;
+
+    ExitException(DetailedExitCode detailedExitCode) {
+      super(
+          Preconditions.checkNotNull(detailedExitCode.getFailureDetail(), "failure detail")
+              .getMessage());
+      this.detailedExitCode = detailedExitCode;
+    }
+
+    DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 }

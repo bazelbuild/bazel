@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,20 +35,19 @@ import javax.annotation.Nullable;
  * Configuration fragment for Android's config_feature_flag, flags which can be defined in BUILD
  * files.
  */
-public final class ConfigFeatureFlagConfiguration extends BuildConfiguration.Fragment {
+public final class ConfigFeatureFlagConfiguration extends Fragment {
   /**
    * A configuration fragment loader able to create instances of {@link
    * ConfigFeatureFlagConfiguration} from {@link ConfigFeatureFlagOptions}.
    */
   public static final class Loader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(BuildOptions buildOptions)
-        throws InvalidConfigurationException {
+    public Fragment create(BuildOptions buildOptions) throws InvalidConfigurationException {
       return new ConfigFeatureFlagConfiguration(FeatureFlagValue.getFlagValues(buildOptions));
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return ConfigFeatureFlagConfiguration.class;
     }
 

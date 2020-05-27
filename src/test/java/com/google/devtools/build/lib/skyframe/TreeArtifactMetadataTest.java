@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.ActionInputHelper.asTreeFileArtifacts;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Predicate;
@@ -24,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
@@ -82,7 +80,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   private List<PathFragment> testTreeArtifactContents;
 
   @Before
-  public final void setUp() throws Exception  {
+  public final void setUp() {
     delegateActionExecutionFunction = new TreeArtifactExecutionFunction();
   }
 
@@ -105,8 +103,9 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       SpecialArtifact tree, Iterable<PathFragment> children) throws Exception {
     TreeArtifactValue value = evaluateTreeArtifact(tree, children);
     assertThat(value.getChildPaths()).containsExactlyElementsIn(ImmutableSet.copyOf(children));
-    assertThat(value.getChildren()).containsExactlyElementsIn(
-        asTreeFileArtifacts(tree, children));
+    assertThat(value.getChildren())
+        .containsExactlyElementsIn(
+            Iterables.transform(children, child -> TreeFileArtifact.createTreeOutput(tree, child)));
 
     // Assertions about digest. As of this writing this logic is essentially the same
     // as that in TreeArtifact, but it's good practice to unit test anyway to guard against
@@ -286,7 +285,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       SpecialArtifact output = (SpecialArtifact) Iterables.getOnlyElement(action.getOutputs());
       for (PathFragment subpath : testTreeArtifactContents) {
         try {
-          TreeFileArtifact suboutput = ActionInputHelper.treeFileArtifact(output, subpath);
+          TreeFileArtifact suboutput = TreeFileArtifact.createTreeOutput(output, subpath);
           Path path = suboutput.getPath();
           FileArtifactValue noDigest =
               ActionMetadataHandler.fileArtifactValueFromArtifact(

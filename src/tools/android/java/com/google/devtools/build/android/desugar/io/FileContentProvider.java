@@ -15,14 +15,25 @@
 package com.google.devtools.build.android.desugar.io;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Resources;
+import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Iterables;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import java.io.ByteArrayInputStream;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.util.Collection;
+import java.util.Objects;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import javax.inject.Provider;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -48,16 +59,38 @@ public final class FileContentProvider<S extends InputStream> implements Provide
     this.inputStreamProvider = inputStreamProvider;
   }
 
-  public static FileContentProvider<? extends InputStream> fromResources(ClassName className) {
+  public static FileContentProvider<InputStream> fromBytes(
+      String inArchiveBinaryPathName, byte[] bytes) {
     return new FileContentProvider<>(
-        className.classFilePathName(),
-        () -> {
-          try {
-            return Resources.getResource(className.classFilePathName()).openStream();
-          } catch (IOException e) {
-            throw new IOError(e);
-          }
-        });
+        inArchiveBinaryPathName, () -> new ByteArrayInputStream(bytes));
+  }
+
+  public static FileContentProvider<InputStream> fromJarItem(JarItem jarItem) {
+    return new FileContentProvider<>(jarItem.jarEntry().getName(), jarItem::getInputStream);
+  }
+
+  public static ImmutableListMultimap<String, FileContentProvider<InputStream>> fromJars(
+      Collection<Path> jars, Predicate<JarItem> jarItemFilter) {
+    return jars.stream()
+        .map(Path::toFile)
+        .map(JarItem::newJarFile)
+        .flatMap(JarItem::jarItemStream)
+        .filter(jarItemFilter)
+        .map(FileContentProvider::fromJarItem)
+        .collect(
+            toImmutableListMultimap(FileContentProvider::getBinaryPathName, content -> content));
+  }
+
+  public static ImmutableList<FileContentProvider<InputStream>> fromJarsWithFiFoResolution(
+      Collection<Path> jars, Predicate<JarItem> jarItemFilter) {
+    ImmutableListMultimap<String, FileContentProvider<InputStream>> raw =
+        fromJars(jars, jarItemFilter);
+    ImmutableList<FileContentProvider<InputStream>> contents =
+        raw.asMap().values().stream()
+            .map(values -> Iterables.getFirst(values, null))
+            .filter(Objects::nonNull)
+            .collect(toImmutableList());
+    return contents;
   }
 
   public String getBinaryPathName() {
@@ -70,15 +103,13 @@ public final class FileContentProvider<S extends InputStream> implements Provide
   }
 
   public boolean isClassFile() {
-    return binaryPathName.endsWith(".class");
+    return binaryPathName.endsWith(".class") && !binaryPathName.startsWith("META-INF/");
   }
 
-  public final ImmutableSet<ClassName> findReferencedTypes(Predicate<ClassName> typeFilter) {
-    checkState(
-        typeFilter.test(ClassName.create(stripRequiredStringEnd(binaryPathName, ".class"))),
-        "Expected the initial class itself to satisfy the type filter. Actual: (%s)",
-        this);
-    ImmutableSet.Builder<ClassName> collectedTypes = ImmutableSet.builder();
+  public final ImmutableSetMultimap<Predicate<ClassName>, ClassName> findReferencedTypes(
+      ImmutableSet<Predicate<ClassName>> typeFilters) {
+    ImmutableSetMultimap.Builder<ClassName, Predicate<ClassName>> collectedTypes =
+        ImmutableSetMultimap.builder();
     // Takes an advantage of hit-all-referenced-types ASM Remapper to perform type collection.
     try (S inputStream = get()) {
       ClassReader cr = new ClassReader(inputStream);
@@ -89,9 +120,11 @@ public final class FileContentProvider<S extends InputStream> implements Provide
                 @Override
                 public String map(String internalName) {
                   ClassName className = ClassName.create(internalName);
-                  if (typeFilter.test(className)) {
-                    collectedTypes.add(className);
-                  }
+                  collectedTypes.putAll(
+                      className,
+                      typeFilters.stream()
+                          .filter(className::acceptTypeFilter)
+                          .collect(Collectors.toList()));
                   return super.map(internalName);
                 }
               }),
@@ -99,17 +132,23 @@ public final class FileContentProvider<S extends InputStream> implements Provide
     } catch (IOException e) {
       throw new IOError(e);
     }
-    return collectedTypes.build();
+    return collectedTypes.build().inverse();
+  }
+
+  public final ImmutableSet<ClassName> findReferencedTypes(Predicate<ClassName> typeFilter) {
+    return findReferencedTypes(ImmutableSet.of(typeFilter)).get(typeFilter);
+  }
+
+  public void sink(OutputFileProvider outputFileProvider) {
+    try (S input = get()) {
+      outputFileProvider.write(getBinaryPathName(), ByteStreams.toByteArray(input));
+    } catch (IOException e) {
+      throw new IOError(e);
+    }
   }
 
   @Override
   public String toString() {
     return String.format("Binary Path: (%s)", binaryPathName);
-  }
-
-  private static String stripRequiredStringEnd(String text, String trailingText) {
-    checkState(
-        text.endsWith(trailingText), "Expected %s to end with %s to strip", text, trailingText);
-    return text.substring(0, text.length() - trailingText.length());
   }
 }

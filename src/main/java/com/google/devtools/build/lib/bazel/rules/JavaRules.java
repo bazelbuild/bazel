@@ -40,11 +40,11 @@ import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseR
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeRule;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkCommon;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
-import com.google.devtools.build.lib.rules.java.proto.JavaProtoSkylarkCommon;
+import com.google.devtools.build.lib.rules.java.proto.JavaProtoStarlarkCommon;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
@@ -89,11 +89,11 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new ExtraActionRule());
     builder.addRuleDefinition(new ActionListenerRule());
 
-    builder.addSkylarkBootstrap(
+    builder.addStarlarkBootstrap(
         new JavaBootstrap(
-            new JavaSkylarkCommon(BazelJavaSemantics.INSTANCE),
+            new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,
-            new JavaProtoSkylarkCommon(),
+            new JavaProtoStarlarkCommon(),
             JavaCcLinkParamsProvider.PROVIDER));
 
     try {

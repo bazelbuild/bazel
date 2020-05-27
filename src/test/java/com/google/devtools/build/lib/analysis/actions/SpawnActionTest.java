@@ -482,6 +482,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         builder()
             .addInput(input)
             .addOutput(output)
+            .setMnemonic("ActionToolMnemonic")
             .setExecutionInfo(executionInfoVariables)
             .setExecutable(scratch.file("/bin/xxx").asFragment())
             .build(ActionsTestUtil.NULL_ACTION_OWNER, targetConfig);
@@ -502,6 +503,22 @@ public class SpawnActionTest extends BuildViewTestCase {
             ImmutableMap.<String, String>of("supports-multiplex-workers", "1"));
     assertThat(Spawns.supportsMultiplexWorkers(multiplexWorkerSupportSpawn.getSpawn()))
         .isEqualTo(true);
+  }
+
+  @Test
+  public void testWorkerMnemonicDefault() throws Exception {
+    SpawnAction defaultMnemonicSpawn = createWorkerSupportSpawn(ImmutableMap.<String, String>of());
+    assertThat(Spawns.getWorkerKeyMnemonic(defaultMnemonicSpawn.getSpawn()))
+        .isEqualTo("ActionToolMnemonic");
+  }
+
+  @Test
+  public void testWorkerMnemonicOverride() throws Exception {
+    SpawnAction customMnemonicSpawn =
+        createWorkerSupportSpawn(
+            ImmutableMap.<String, String>of("worker-key-mnemonic", "ToolPoolMnemonic"));
+    assertThat(Spawns.getWorkerKeyMnemonic(customMnemonicSpawn.getSpawn()))
+        .isEqualTo("ToolPoolMnemonic");
   }
 
   private static RunfilesSupplier runfilesSupplier(Artifact manifest, PathFragment dir) {

@@ -14,13 +14,15 @@
 
 package com.google.devtools.build.lib.util;
 
-import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Preconditions.checkNotNull;
 
-import com.google.common.base.Supplier;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.errorprone.annotations.ForOverride;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.Logger;
 
@@ -37,11 +39,12 @@ import java.util.logging.Logger;
 public abstract class LogHandlerQuerier {
   private static final Supplier<LogHandlerQuerier> configuredInstanceSupplier =
       Suppliers.memoize(LogHandlerQuerier::makeConfiguredInstance);
+  // Morally visible only for testing.
+  protected static final String PROPERTY_NAME = LogHandlerQuerier.class.getName() + ".class";
 
   private static LogHandlerQuerier makeConfiguredInstance() {
-    String propertyName = LogHandlerQuerier.class.getName() + ".class";
-    String subclassName = System.getProperty(propertyName);
-    checkState(subclassName != null, "System property %s is not defined", propertyName);
+    String subclassName = System.getProperty(PROPERTY_NAME);
+    checkNotNull(subclassName, "System property %s is not defined", PROPERTY_NAME);
     try {
       return (LogHandlerQuerier)
           ClassLoader.getSystemClassLoader()
@@ -49,7 +52,8 @@ public abstract class LogHandlerQuerier {
               .getDeclaredConstructor()
               .newInstance();
     } catch (ReflectiveOperationException e) {
-      throw new IllegalStateException("System property " + propertyName + " value is invalid", e);
+      throw new ReflectiveOperationRuntimeException(
+          "System property " + PROPERTY_NAME + " value is invalid", e);
     }
   }
 
@@ -60,11 +64,15 @@ public abstract class LogHandlerQuerier {
    *
    * <p>This method is thread-safe.
    *
-   * @throws IllegalStateException if the JVM property was not defined or if an instance of the
-   *     class named by the property could not be constructed
+   * @throws IOException if the JVM property was not defined or if an instance of the class named by
+   *     the property could not be constructed
    */
-  public static LogHandlerQuerier getConfiguredInstance() {
-    return configuredInstanceSupplier.get();
+  static LogHandlerQuerier getConfiguredInstance() throws IOException {
+    try {
+      return configuredInstanceSupplier.get();
+    } catch (ReflectiveOperationRuntimeException e) {
+      throw new IOException("Could not find a querier for server log location", e.getCause());
+    }
   }
 
   /**
@@ -76,10 +84,11 @@ public abstract class LogHandlerQuerier {
    * that handler is currently unavailable.
    *
    * @param logger a logger whose handlers, and ancestors' handlers if necessary, will be queried
-   * @throws IllegalArgumentException if the {@link LogHandlerQuerier} cannot query any {@link
-   *     Handler} for this logger or its ancestors
+   * @throws IOException if the {@link LogHandlerQuerier} cannot query any {@link Handler} for this
+   *     logger or its ancestors
    */
-  public Optional<Path> getLoggerFilePath(Logger logger) {
+  @VisibleForTesting
+  public Optional<Path> getLoggerFilePath(Logger logger) throws IOException {
     for (; logger != null; logger = logger.getParent()) {
       for (Handler handler : logger.getHandlers()) {
         if (canQuery(handler)) {
@@ -87,7 +96,7 @@ public abstract class LogHandlerQuerier {
         }
       }
     }
-    throw new IllegalArgumentException("Failed to find a queryable logging handler");
+    throw new IOException("Failed to find a queryable logging handler");
   }
 
   /** Checks if this {@link LogHandlerQuerier} can query the given handler. */
@@ -102,4 +111,11 @@ public abstract class LogHandlerQuerier {
    */
   @ForOverride
   protected abstract Optional<Path> getLogHandlerFilePath(Handler handler);
+
+  private static class ReflectiveOperationRuntimeException extends RuntimeException {
+    private ReflectiveOperationRuntimeException(
+        String message, ReflectiveOperationException exception) {
+      super(message, exception);
+    }
+  }
 }

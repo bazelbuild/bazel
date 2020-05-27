@@ -1747,8 +1747,10 @@ function test_deps_includes_exec_group_toolchain() {
   write_test_toolchain
 
   cat >>toolchain/rule_use_toolchain.bzl <<EOF
+
 def _impl(ctx):
-  # TODO(b/151742236): test accessing exec_group here
+  print(ctx.exec_groups)
+  print(ctx.exec_groups['group'].toolchains)
   return []
 
 use_toolchain = rule(
@@ -1770,6 +1772,9 @@ EOF
 
   bazel cquery "deps(//demo:use, 1)" --experimental_exec_groups \
     &> $TEST_log || fail "Build failed"
+  expect_log "<toolchain_context.resolved_labels: //toolchain:test_toolchain"
+  expect_log "<ctx.exec_groups: group>"
+  expect_log "//:test_toolchain_impl_1"
   expect_log "//toolchain:test_toolchain"
 }
 

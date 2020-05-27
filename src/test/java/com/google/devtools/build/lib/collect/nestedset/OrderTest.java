@@ -29,7 +29,7 @@ public class OrderTest {
   @Test
   public void testParsing() throws Exception {
     for (Order current : Order.values()) {
-      assertThat(Order.parse(current.getSkylarkName())).isEqualTo(current);
+      assertThat(Order.parse(current.getStarlarkName())).isEqualTo(current);
     }
   }
 

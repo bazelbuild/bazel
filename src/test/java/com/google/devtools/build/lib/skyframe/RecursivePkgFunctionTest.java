@@ -98,7 +98,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     scratch.file(root2 + "/WORKSPACE");
     scratch.file(root1 + "/a/BUILD");
     scratch.file(root2 + "/a/b/BUILD");
-    setPackageCacheOptions("--package_path=" + "root1" + ":" + "root2");
+    setPackageOptions("--package_path=" + "root1" + ":" + "root2");
 
     RecursivePkgValue valueForRoot1 = buildRecursivePkgValue(root1, PathFragment.create("a"));
     String root1Pkg = valueForRoot1.getPackages().getSingleton();

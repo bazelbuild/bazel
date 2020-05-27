@@ -20,11 +20,11 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.android.desugar.langmodel.LangModelHelper.visitPushInstr;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.desugar.langmodel.ClassMemberUse;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberUseCounter;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.LangModelHelper;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import java.util.Arrays;
 import org.objectweb.asm.ClassVisitor;
@@ -36,35 +36,42 @@ import org.objectweb.asm.Type;
 /** Desugars indy string concatenations by replacement with string builders. */
 public final class IndyStringConcatDesugaring extends ClassVisitor {
 
-  public static final ClassMemberUse INVOKE_JDK11_STRING_CONCAT =
-      ClassMemberUse.create(
-          MethodKey.create(
-              ClassName.create("java/lang/invoke/StringConcatFactory"),
-              "makeConcatWithConstants",
-              "(Ljava/lang/invoke/MethodHandles$Lookup;"
-                  + "Ljava/lang/String;"
-                  + "Ljava/lang/invoke/MethodType;"
-                  + "Ljava/lang/String;"
-                  + "[Ljava/lang/Object;)"
-                  + "Ljava/lang/invoke/CallSite;"),
-          MemberUseKind.INVOKEDYNAMIC);
+  public static final MethodInvocationSite INVOKE_JDK11_STRING_CONCAT =
+      MethodInvocationSite.builder()
+          .setInvocationKind(MemberUseKind.INVOKEDYNAMIC)
+          .setMethod(
+              MethodKey.create(
+                  ClassName.create("java/lang/invoke/StringConcatFactory"),
+                  "makeConcatWithConstants",
+                  "(Ljava/lang/invoke/MethodHandles$Lookup;"
+                      + "Ljava/lang/String;"
+                      + "Ljava/lang/invoke/MethodType;"
+                      + "Ljava/lang/String;"
+                      + "[Ljava/lang/Object;)"
+                      + "Ljava/lang/invoke/CallSite;"))
+          .setIsInterface(false)
+          .build();
 
-  private static final ClassMemberUse INVOKE_STRING_CONCAT_REPLACEMENT_METHOD =
-      ClassMemberUse.create(
-          MethodKey.create(
-              ClassName.create("com/google/devtools/build/android/desugar/runtime/StringConcats"),
-              "concat",
-              "([Ljava/lang/Object;"
-                  + "Ljava/lang/String;"
-                  + "[Ljava/lang/Object;)"
-                  + "Ljava/lang/String;"),
-          MemberUseKind.INVOKESTATIC);
+  private static final MethodInvocationSite INVOKE_STRING_CONCAT_REPLACEMENT_METHOD =
+      MethodInvocationSite.builder()
+          .setInvocationKind(MemberUseKind.INVOKESTATIC)
+          .setMethod(
+              MethodKey.create(
+                  ClassName.create(
+                      "com/google/devtools/build/android/desugar/runtime/StringConcats"),
+                  "concat",
+                  "([Ljava/lang/Object;"
+                      + "Ljava/lang/String;"
+                      + "[Ljava/lang/Object;)"
+                      + "Ljava/lang/String;"))
+          .setIsInterface(false)
+          .build();
 
   private final ClassMemberUseCounter classMemberUseCounter;
 
   public IndyStringConcatDesugaring(
       ClassMemberUseCounter classMemberUseCounter, ClassVisitor classVisitor) {
-    super(Opcodes.ASM7, classVisitor);
+    super(Opcodes.ASM8, classVisitor);
     this.classMemberUseCounter = classMemberUseCounter;
   }
 
@@ -93,13 +100,16 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
         String descriptor,
         Handle bootstrapMethodHandle,
         Object... bootstrapMethodArguments) {
-      ClassMemberUse bootstrapMethodInvocation =
-          ClassMemberUse.create(
-              MethodKey.create(
-                  ClassName.create(bootstrapMethodHandle.getOwner()),
-                  bootstrapMethodHandle.getName(),
-                  bootstrapMethodHandle.getDesc()),
-              MemberUseKind.INVOKEDYNAMIC);
+      MethodInvocationSite bootstrapMethodInvocation =
+          MethodInvocationSite.builder()
+              .setInvocationKind(MemberUseKind.INVOKEDYNAMIC)
+              .setMethod(
+                  MethodKey.create(
+                      ClassName.create(bootstrapMethodHandle.getOwner()),
+                      bootstrapMethodHandle.getName(),
+                      bootstrapMethodHandle.getDesc()))
+              .setIsInterface(false)
+              .build();
       if (INVOKE_JDK11_STRING_CONCAT.equals(bootstrapMethodInvocation)) {
         // Increment the counter for the bootstrap method invocation of
         // StringConcatFactory#makeConcatWithConstants
@@ -125,7 +135,7 @@ public final class IndyStringConcatDesugaring extends ClassVisitor {
           visitInsn(Opcodes.AASTORE);
         }
 
-        INVOKE_STRING_CONCAT_REPLACEMENT_METHOD.acceptClassMethodInsn(this);
+        INVOKE_STRING_CONCAT_REPLACEMENT_METHOD.accept(mv);
         return;
       }
       super.visitInvokeDynamicInsn(

@@ -148,7 +148,7 @@ function test_shell() {
 }
 
 #
-# Skylark rules
+# Starlark rules
 #
 function test_python() {
   assert_build "//examples/py:bin"

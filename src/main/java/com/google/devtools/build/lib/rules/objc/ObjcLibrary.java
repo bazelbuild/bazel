@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -50,8 +50,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
         .setCompilationArtifacts(CompilationSupport.compilationArtifacts(ruleContext))
-        .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET))
-        .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET))
+        .addDeps(
+            ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", TransitionMode.TARGET))
+        .addRuntimeDeps(ruleContext.getPrerequisites("runtime_deps", TransitionMode.TARGET))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
         .setHasModuleMap()
@@ -85,11 +86,16 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getImplicitOutputArtifact(CompilationSupport.FULLY_LINKED_LIB))
         .validateAttributes();
 
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
-    J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
-      .addTransitive(ruleContext.getPrerequisites("deps", Mode.TARGET,
-          J2ObjcEntryClassProvider.class)).build();
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
+        J2ObjcMappingFileProvider.union(
+            ruleContext.getPrerequisites(
+                "deps", TransitionMode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider =
+        new J2ObjcEntryClassProvider.Builder()
+            .addTransitive(
+                ruleContext.getPrerequisites(
+                    "deps", TransitionMode.TARGET, J2ObjcEntryClassProvider.class))
+            .build();
     ObjcProvider objcProvider = compilationSupport.getObjcProvider();
     CcCompilationContext ccCompilationContext = objcProvider.getCcCompilationContext();
     CcLinkingContext ccLinkingContext =
@@ -98,7 +104,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
     return ObjcRuleClasses.ruleConfiguredTarget(ruleContext, filesToBuild.build())
         .addNativeDeclaredProvider(objcProvider)
-        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
+        .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(

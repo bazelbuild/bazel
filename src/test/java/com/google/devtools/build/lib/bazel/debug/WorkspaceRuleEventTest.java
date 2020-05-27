@@ -37,7 +37,7 @@ public final class WorkspaceRuleEventTest {
 
   @Test
   public void newExecuteEvent_expectedResult() {
-    // Set up arguments, as a combination of String and SkylarkPath
+    // Set up arguments, as a combination of String and StarlarkPath
     ArrayList<String> arguments = new ArrayList<>();
     arguments.add("argument 1");
     arguments.add("dummy string");

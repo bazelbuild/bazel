@@ -42,8 +42,17 @@ public interface ActionConstructionContext {
   /** Returns the internal directory (used for middlemen) for constructed actions. */
   ArtifactRoot getMiddlemanDirectory();
 
-  /** Returns the action owner that should be used for actions. */
+  /**
+   * Returns the action owner that should be used for the default execution group's execution
+   * platform.
+   */
   ActionOwner getActionOwner();
+
+  /**
+   * Returns the action owner that should be used for actions with the given exec group's execution
+   * platform. If an invalid exec group is given, throws a runtime exception.
+   */
+  ActionOwner getActionOwner(String execGroup);
 
   /** Returns the action key context. */
   ActionKeyContext getActionKeyContext();
@@ -158,9 +167,16 @@ public interface ActionConstructionContext {
    */
   Artifact getPackageRelativeArtifact(PathFragment relative, ArtifactRoot root);
 
-  /** Returns the {@link PlatformInfo} describing the execution platform this action should use. */
+  /** Returns the {@link PlatformInfo} describing the target's default execution platform. */
   @Nullable
   PlatformInfo getExecutionPlatform();
+
+  /**
+   * Returns the {@link PlatformInfo} describing the given exec group's execution platform. Returns
+   * null if a nonexistent {@code execGroup} name is given.
+   */
+  @Nullable
+  PlatformInfo getExecutionPlatform(String execGroup);
 
   /**
    * Returns the {@link com.google.devtools.build.lib.packages.RuleErrorConsumer} for reporting rule

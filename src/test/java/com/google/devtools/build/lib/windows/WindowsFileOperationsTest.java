@@ -66,6 +66,38 @@ public class WindowsFileOperationsTest {
   }
 
   @Test
+  public void testSymlinkCreation() throws Exception {
+    File helloFile = testUtil.scratchFile("file.txt", "hello").toFile();
+    File symlinkFile = new File(scratchRoot, "symlink");
+    testUtil.createSymlinks(ImmutableMap.of("symlink", "file.txt"));
+
+    assertThat(WindowsFileOperations.isSymlinkOrJunction(symlinkFile.toString())).isTrue();
+    assertThat(symlinkFile.exists()).isTrue();
+
+    // Assert deleting the symlink does not remove the target file.
+    assertThat(WindowsFileOperations.deletePath(symlinkFile.toString())).isTrue();
+    assertThat(helloFile.exists()).isTrue();
+    try {
+      WindowsFileOperations.isSymlinkOrJunction(symlinkFile.toString());
+      fail("Expected to throw: Symlink should no longer exist.");
+    } catch (IOException e) {
+      assertThat(e).hasMessageThat().contains("path does not exist");
+    }
+  }
+
+  @Test
+  public void testSymlinkCreationFailsForDirectory() throws Exception {
+    testUtil.scratchDir("dir").toFile();
+
+    try {
+      testUtil.createSymlinks(ImmutableMap.of("symlink", "dir"));
+      fail("Expected to throw: Symlinks to a directory should fail.");
+    } catch (IOException e) {
+      assertThat(e).hasMessageThat().contains("target is a directory");
+    }
+  }
+
+  @Test
   public void testIsJunction() throws Exception {
     final Map<String, String> junctions = new HashMap<>();
     junctions.put("shrtpath/a", "shrttrgt");

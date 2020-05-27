@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Type;
@@ -50,7 +50,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
             .setAlwayslink(ruleContext.attributes().get("alwayslink", Type.BOOLEAN))
             .setHasModuleMap()
             .addExtraImportLibraries(
-                ruleContext.getPrerequisiteArtifacts("archives", Mode.TARGET).list())
+                ruleContext.getPrerequisiteArtifacts("archives", TransitionMode.TARGET).list())
             .build();
 
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.stableOrder();
@@ -72,7 +72,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
             CcInfo.builder()
                 .setCcCompilationContext(objcProvider.getCcCompilationContext())
                 .build())
-        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
+        .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .build();
   }
 }

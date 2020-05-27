@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -35,7 +36,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -376,7 +376,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     // TODO(bazel-team): delete all of these.
     result.put("CROSSTOOLTOP", crosstoolTopPathFragment.getPathString());
 
-    // TODO(kmensah): Remove when skylark dependencies can be updated to rely on
+    // TODO(kmensah): Remove when Starlark dependencies can be updated to rely on
     // CcToolchainProvider.
     result.putAll(getAdditionalMakeVariables());
 
@@ -870,8 +870,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainIdentifier.contains("llvm");
   }
 
-  // Not all of CcToolchainProvider is exposed to Skylark, which makes implementing deep equality
-  // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
+  // Not all of CcToolchainProvider is exposed to Starlark, which makes implementing deep equality
+  // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
   @Override
   public boolean equals(Object other) {

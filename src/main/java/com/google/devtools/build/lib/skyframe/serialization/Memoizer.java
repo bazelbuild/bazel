@@ -43,12 +43,12 @@ import javax.annotation.Nullable;
  * </ul>
  *
  * <p>Cyclic data structures can occur either naturally in complex types, or as a result of a
- * pathological Skylark program. An example of the former is how a user-defined Skylark function
+ * pathological Starlark program. An example of the former is how a user-defined Starlark function
  * implicitly refers to its global frame, which in turn refers to the functions defined in that
  * frame. An example of the latter is a list that the user mutates to contain itself as an element.
- * Such pathological values in Skylark are technically allowed, but they are not useful since
- * Skylark prohibits recursive function calls. They can also expose implementation bugs in code that
- * is not expecting them (b/30310522).
+ * Such pathological values in Starlark are technically allowed, but they are not useful since
+ * Starlark prohibits recursive function calls. They can also expose implementation bugs in code
+ * that is not expecting them (b/30310522).
  *
  * <p>Ideally, to handle cyclic data structures, the serializer should add the value to the memo
  * table <em>before</em> actually performing the serialization. For example, to handle the recursive

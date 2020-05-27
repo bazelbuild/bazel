@@ -52,7 +52,7 @@ public class AnalysisFailedCause implements Cause {
 
   @Override
   public BuildEventStreamProtos.BuildEventId getIdProto() {
-    // This needs to match VisibilityErrorEvent.
+    // This needs to match AnalysisRootCauseEvent.
     if (configuration == null) {
       return BuildEventStreamProtos.BuildEventId.newBuilder()
           .setUnconfiguredLabel(

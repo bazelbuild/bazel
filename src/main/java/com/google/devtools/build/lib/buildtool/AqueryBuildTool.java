@@ -33,13 +33,15 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
-import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.Factory.CommandLineException;
+import com.google.devtools.build.lib.runtime.QueryRuntimeHelper.QueryRuntimeHelperException;
+import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
+import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.protobuf.TextFormat;
@@ -106,19 +108,27 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
         } else if (OutputType.TEXT.formatName().equals(aqueryOptions.outputFormat)) {
           TextFormat.printer().print(actionGraphContainer, printStream);
         } else {
-          throw new IllegalStateException(
-              "Unsupported output format "
-                  + aqueryOptions.outputFormat
-                  + ": --skyframe_state must be used with --output=proto or --output=textproto.");
+          String message =
+              String.format(
+                  "Unsupported output format %s: --skyframe_state must be used with --output=proto"
+                      + " or --output=textproto.",
+                  aqueryOptions.outputFormat);
+          env.getReporter().handle(Event.error(message));
+          return getFailureResult(message, Code.SKYFRAME_STATE_PREREQ_UNMET);
         }
       }
-      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
-    } catch (CommandLineExpansionException | CommandLineException e) {
-      env.getReporter().handle(Event.error("Error while parsing command: " + e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      return BlazeCommandResult.success();
+    } catch (CommandLineExpansionException e) {
+      String message = "Error while parsing command: " + e.getMessage();
+      env.getReporter().handle(Event.error(message));
+      return getFailureResult(message, Code.COMMAND_LINE_EXPANSION_FAILURE);
     } catch (IOException e) {
+      String message = "Error while emitting output: " + e.getMessage();
+      env.getReporter().handle(Event.error(message));
+      return getFailureResult(message, Code.OUTPUT_FAILURE);
+    } catch (QueryRuntimeHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
   }
 
@@ -227,5 +237,13 @@ public final class AqueryBuildTool extends PostAnalysisQueryBuildTool<Configured
     AqueryActionFilterException(String message) {
       super(message);
     }
+  }
+
+  private static BlazeCommandResult getFailureResult(String message, Code detailedCode) {
+    return BlazeCommandResult.failureDetail(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setActionQuery(ActionQuery.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

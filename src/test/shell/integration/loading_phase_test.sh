@@ -104,11 +104,11 @@ function test_query_buildfiles_with_load() {
     printf "//$pkg/y:rules.bzl\0//$pkg/y:BUILD\0//$pkg/x:BUILD\0" >$pkg/null.ref.log
     cmp $pkg/null.ref.log $pkg/null.log || fail "Expected match"
 
-    # Missing skylark file:
+    # Missing Starlark file:
     rm -f $pkg/y/rules.bzl
     bazel query --noshow_progress "buildfiles(//$pkg/x)" 2>$TEST_log &&
         fail "Expected error"
-    expect_log "Unable to load file '//$pkg/y:rules.bzl'"
+    expect_log "cannot load '//$pkg/y:rules.bzl'"
 }
 
 # Regression test for:

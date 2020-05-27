@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -178,8 +178,8 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
-      return original.getSkylarkSemantics();
+    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+      return original.getStarlarkSemantics();
     }
 
     @Override
@@ -381,7 +381,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
       return null;
     }
 

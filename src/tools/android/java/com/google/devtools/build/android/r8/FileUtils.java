@@ -16,7 +16,8 @@ package com.google.devtools.build.android.r8;
 import com.google.common.base.Ascii;
 import java.nio.file.Path;
 
-class FileUtils {
+/** File related utilities */
+public class FileUtils {
   public static final String AAR_EXTENSION = ".aar";
   public static final String APK_EXTENSION = ".apk";
   public static final String CLASS_EXTENSION = ".class";
@@ -34,11 +35,11 @@ class FileUtils {
     return hasExtension(path.getFileName().toString(), extension);
   }
 
-  static boolean isDexFile(Path path) {
+  public static boolean isDexFile(Path path) {
     return hasExtension(path, DEX_EXTENSION);
   }
 
-  static boolean isClassFile(String name) {
+  public static boolean isClassFile(String name) {
     name = Ascii.toLowerCase(name);
     // Android does not support Java 9 module, thus skip module-info.
     if (name.equals(MODULE_INFO_CLASS)) {
@@ -50,43 +51,43 @@ class FileUtils {
     return name.endsWith(CLASS_EXTENSION);
   }
 
-  static boolean isClassFile(Path path) {
+  public static boolean isClassFile(Path path) {
     return isClassFile(path.getFileName().toString());
   }
 
-  static boolean isJarFile(String name) {
+  public static boolean isJarFile(String name) {
     return hasExtension(name, JAR_EXTENSION);
   }
 
-  static boolean isJarFile(Path path) {
+  public static boolean isJarFile(Path path) {
     return hasExtension(path, JAR_EXTENSION);
   }
 
-  static boolean isZipFile(String name) {
+  public static boolean isZipFile(String name) {
     return hasExtension(name, ZIP_EXTENSION);
   }
 
-  static boolean isZipFile(Path path) {
+  public static boolean isZipFile(Path path) {
     return hasExtension(path, ZIP_EXTENSION);
   }
 
-  static boolean isApkFile(String name) {
+  public static boolean isApkFile(String name) {
     return hasExtension(name, APK_EXTENSION);
   }
 
-  static boolean isApkFile(Path path) {
+  public static boolean isApkFile(Path path) {
     return hasExtension(path, APK_EXTENSION);
   }
 
-  static boolean isAarFile(String name) {
+  public static boolean isAarFile(String name) {
     return hasExtension(name, AAR_EXTENSION);
   }
 
-  static boolean isAarFile(Path path) {
+  public static boolean isAarFile(Path path) {
     return hasExtension(path, AAR_EXTENSION);
   }
 
-  static boolean isArchive(Path path) {
+  public static boolean isArchive(Path path) {
     return isApkFile(path) || isJarFile(path) || isZipFile(path) || isAarFile(path);
   }
 

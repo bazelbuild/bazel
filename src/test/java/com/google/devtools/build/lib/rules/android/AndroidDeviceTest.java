@@ -69,7 +69,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         "        'android_21/x86/userdata.img.tar.gz'",
         "    ],",
         ")");
-    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
+    setStarlarkSemanticsOptions("--experimental_google_legacy_api");
   }
 
   private FilesToRunProvider getToolDependency(String label) throws Exception {
@@ -112,7 +112,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         .containsExactly("nexus_6", "userdata_images.dat", "emulator-meta-data.pb");
 
     Runfiles runfiles = getDefaultRunfiles(target);
-    assertThat(ActionsTestUtil.execPaths(runfiles.getUnconditionalArtifacts()))
+    assertThat(ActionsTestUtil.execPaths(runfiles.getArtifacts()))
         .containsAtLeast(
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
@@ -622,7 +622,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAndroidDeviceBrokerInfoExposedToSkylark() throws Exception {
+  public void testAndroidDeviceBrokerInfoExposedToStarlark() throws Exception {
     scratch.file(
         "tools/android/emulated_device/BUILD",
         "android_device(",

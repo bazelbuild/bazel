@@ -185,7 +185,7 @@ EOF
 genrule(name = "x", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
 EOF
 
-  MARKER="<== skylark flag test ==>"
+  MARKER="<== Starlark flag test ==>"
 
   # Sanity check.
   bazel build //:x &>"$TEST_log" \

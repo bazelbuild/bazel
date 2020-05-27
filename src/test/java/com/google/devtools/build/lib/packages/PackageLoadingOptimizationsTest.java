@@ -89,7 +89,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void skylarkProviderIdentifierIsDedupedAcrossRuleClasses() throws Exception {
+  public void starlarkProviderIdentifierIsDedupedAcrossRuleClasses() throws Exception {
     scratch.file("foo/provider.bzl", "foo_provider = provider()");
     scratch.file(
         "foo/foo.bzl",
@@ -114,15 +114,15 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
         getPackageManager()
             .getPackage(NullEventHandler.INSTANCE, PackageIdentifier.createInMainRepo("foo"));
 
-    ImmutableList.Builder<ImmutableList<SkylarkProviderIdentifier>> allListsBuilder =
+    ImmutableList.Builder<ImmutableList<StarlarkProviderIdentifier>> allListsBuilder =
         ImmutableList.builder();
     for (Rule ruleInstance : fooPkg.getTargets(Rule.class)) {
       RuleClass ruleClass = ruleInstance.getRuleClassObject();
-      allListsBuilder.add(ruleClass.getAdvertisedProviders().getSkylarkProviders().asList());
+      allListsBuilder.add(ruleClass.getAdvertisedProviders().getStarlarkProviders().asList());
     }
-    ImmutableList<ImmutableList<SkylarkProviderIdentifier>> allLists = allListsBuilder.build();
+    ImmutableList<ImmutableList<StarlarkProviderIdentifier>> allLists = allListsBuilder.build();
     assertThat(allLists).hasSize(2);
-    ImmutableList<SkylarkProviderIdentifier> firstList = allLists.get(0);
+    ImmutableList<StarlarkProviderIdentifier> firstList = allLists.get(0);
     for (int i = 1; i < allLists.size(); i++) {
       assertThat(allLists.get(i).get(0)).isSameInstanceAs(firstList.get(0));
     }

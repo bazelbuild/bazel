@@ -87,7 +87,7 @@ list_source_repository(name = "local_bazel_source_list")
 # load("//tools/build_defs/repo:maven_rules.bzl", "maven_dependency_plugin")
 # maven_dependency_plugin()
 
-# This allows rules written in skylark to locate apple build tools.
+# This allows rules written in Starlark to locate apple build tools.
 bind(
     name = "xcrunwrapper",
     actual = "@bazel_tools//tools/objc:xcrunwrapper",
@@ -96,9 +96,9 @@ bind(
 http_archive(
     name = "com_google_protobuf",
     patch_args = ["-p1"],
-    patches = ["@io_bazel//third_party/protobuf:3.11.3.patch"],
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    patches = ["//third_party/protobuf:3.11.3.patch"],
     sha256 = "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
     strip_prefix = "protobuf-3.11.3",
     urls = [
@@ -150,8 +150,11 @@ distdir_tar(
         "java_tools_javac11_windows-v8.0.zip",
         "java_tools_javac11_darwin-v8.0.zip",
         "coverage_output_generator-v2.1.zip",
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        # bazelbuid/stardoc
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+        # rules_sass
         "1.25.0.zip",
+        # rules_nodejs
         "rules_nodejs-1.3.0.tar.gz",
         "android_tools_pkg-0.16.0.tar.gz",
         # bazelbuild/bazel-skylib
@@ -163,7 +166,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         # bazelbuild/bazel-toolchains
-        "2.1.0.tar.gz",
+        "3.1.0.tar.gz",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz",
         # bazelbuild/rules_proto
@@ -178,7 +181,8 @@ distdir_tar(
         "java_tools_javac11_windows-v8.0.zip": "444c391977e50af4e10549a28d021069d2ca7745a0e7b9b968a7b153fe3ea430",
         "java_tools_javac11_darwin-v8.0.zip": "e0291e8956ac295143da4a673ca50727f7376665ee82b649a4ee810b64ff76c1",
         "coverage_output_generator-v2.1.zip": "96ac6bc9b9fbc67b532bcae562da1642409791e6a4b8e522f04946ee5cc3ff8e",
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
+        # bazelbuild/stardoc
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
         # rules_sass
         "1.25.0.zip": "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
         # rules_nodejs
@@ -193,7 +197,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip": "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
         # bazelbuild/bazel-toolchains
-        "2.1.0.tar.gz": "4d348abfaddbcee0c077fc51bb1177065c3663191588ab3d958f027cbfe1818b",
+        "3.1.0.tar.gz": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
         # bazelbuild/rules_proto
@@ -218,17 +222,17 @@ distdir_tar(
         "coverage_output_generator-v2.1.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.1.zip",
         ],
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
-            "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+            "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         ],
         "1.25.0.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
             "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
         ],
         "rules_nodejs-1.3.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/archive/rules_nodejs-1.3.0.tar.gz",
-            "https://github.com/bazelbuild/rules_nodejs/archive/rules_nodejs-1.3.0.tar.gz",
+            "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
+            "https://github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
         ],
         "android_tools_pkg-0.16.0.tar.gz": [
             "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",
@@ -254,9 +258,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         ],
         # bazelbuild/bazel-toolchains
-        "2.1.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/2.1.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/releases/download/2.1.0/bazel-toolchains-2.1.0.tar.gz",
+        "3.1.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/3.1.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
         ],
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz": [
@@ -365,11 +369,11 @@ http_archive(
     name = "bazel_toolchains",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "4d348abfaddbcee0c077fc51bb1177065c3663191588ab3d958f027cbfe1818b",
-    strip_prefix = "bazel-toolchains-2.1.0",
+    sha256 = "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
+    strip_prefix = "bazel-toolchains-3.1.0",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/2.1.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/releases/download/2.1.0/bazel-toolchains-2.1.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/3.1.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
     ],
 )
 
@@ -420,15 +424,17 @@ http_archive(
     ],
 )
 
-# Note that skydoc depends on being called io_bazel_skydoc (and not just skydoc)
+# Note that stardoc depends on being called io_bazel_skydoc
 # to work without being patched, as it hard-codes this name in its sources.
+# TODO(wyv): Is the above still true? Try a different name and see if it works.
+#   If it does, can we rename the workspace in bazelbuild/stardoc?
 http_archive(
     name = "io_bazel_skydoc",
-    sha256 = "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
-    strip_prefix = "skydoc-c7bbde2950769aac9a99364b0926230060a3ce04",
+    sha256 = "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
+    strip_prefix = "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
-        "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+        "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
     ],
 )
 
@@ -567,13 +573,29 @@ distdir_tar(
 
 load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
 
+# Load versioned documentation tarballs from GCS
 [http_file(
-    name = "jekyll_tree_%s" % DOC_VERSION["version"].replace(".", "_"),
+    # Split on "-" to get the version without cherrypick commits.
+    name = "jekyll_tree_%s" % DOC_VERSION["version"].split("-")[0].replace(".", "_"),
     sha256 = DOC_VERSION["sha256"],
     urls = ["https://mirror.bazel.build/bazel_versioned_docs/jekyll-tree-%s.tar" % DOC_VERSION["version"]],
 ) for DOC_VERSION in DOC_VERSIONS]
 
-# Skydoc recommends declaring its dependencies via "*_dependencies" functions.
+# Load shared base CSS theme from bazelbuild/bazel-website
+http_archive(
+    name = "bazel_website",
+    urls = ["https://github.com/bazelbuild/bazel-website/archive/c174fa288aa079b68416d2ce2cc97268fa172f42.tar.gz"],
+    strip_prefix = "bazel-website-c174fa288aa079b68416d2ce2cc97268fa172f42",
+    sha256 = "a5f531dd1d62e6947dcfc279656ffc2fdf6f447c163914c5eabf7961b4cb6eb4",
+    # TODO(https://github.com/bazelbuild/bazel/issues/10793)
+    # - Export files from bazel-website's BUILD, instead of doing it here.
+    # - Share more common stylesheets, like footer and navbar.
+    build_file_content = """
+exports_files(["_sass/style.scss"])
+"""
+)
+
+# Stardoc recommends declaring its dependencies via "*_dependencies" functions.
 # This requires that the repositories these functions come from need to be
 # fetched unconditionally for everything (including just building bazel!), so
 # provide them as http_archives that can be shiped in the distdir, to keep the
@@ -581,11 +603,11 @@ load("//scripts/docs:doc_versions.bzl", "DOC_VERSIONS")
 http_archive(
     name = "io_bazel_rules_sass",
     sha256 = "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
+    strip_prefix = "rules_sass-1.25.0",
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
         "https://github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
     ],
-    strip_prefix = "rules_sass-1.25.0",
 )
 
 http_archive(
@@ -628,7 +650,7 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    sha256 = "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
     url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",
 )
 
@@ -859,9 +881,9 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-win_x64.zip"],
 )
 
-load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")
+load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 
-skydoc_repositories()
+stardoc_repositories()
 
 load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
 
@@ -903,3 +925,6 @@ load("@local_config_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains"
 register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
+
+load("//tools/distributions/debian:deps.bzl", "debian_deps")
+debian_deps()

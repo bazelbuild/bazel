@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.TOOLCHAIN_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -20,8 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
+import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionResolver;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -48,7 +55,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -63,89 +69,6 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-
-  /**
-   * A kind of dependency.
-   *
-   * <p>Usually an attribute, but other special-cased kinds exist, for example, for visibility or
-   * toolchains.
-   */
-  public interface DependencyKind {
-
-    /**
-     * The attribute through which a dependency arises.
-     *
-     * <p>Returns {@code null} for visibility, the dependency pointing from an output file to its
-     * generating rule and toolchain dependencies.
-     */
-    @Nullable
-    Attribute getAttribute();
-
-    /**
-     * The aspect owning the attribute through which the dependency arises.
-     *
-     * <p>Should only be called for dependency kinds representing an attribute.
-     */
-    @Nullable
-    AspectClass getOwningAspect();
-  }
-
-  /** A dependency caused by something that's not an attribute. Special cases enumerated below. */
-  private static final class NonAttributeDependencyKind implements DependencyKind {
-    private final String name;
-
-    private NonAttributeDependencyKind(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public Attribute getAttribute() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public AspectClass getOwningAspect() {
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public String toString() {
-      return String.format("%s(%s)", getClass().getSimpleName(), this.name);
-    }
-  }
-
-  /** A dependency for visibility. */
-  public static final DependencyKind VISIBILITY_DEPENDENCY =
-      new NonAttributeDependencyKind("VISIBILITY");
-
-  /** The dependency on the rule that creates a given output file. */
-  public static final DependencyKind OUTPUT_FILE_RULE_DEPENDENCY =
-      new NonAttributeDependencyKind("OUTPUT_FILE");
-
-  /** A dependency on a resolved toolchain. */
-  public static final DependencyKind TOOLCHAIN_DEPENDENCY =
-      new NonAttributeDependencyKind("TOOLCHAIN");
-
-  /** A dependency through an attribute, either that of an aspect or the rule itself. */
-  @AutoValue
-  public abstract static class AttributeDependencyKind implements DependencyKind {
-    @Override
-    public abstract Attribute getAttribute();
-
-    @Override
-    @Nullable
-    public abstract AspectClass getOwningAspect();
-
-    public static AttributeDependencyKind forRule(Attribute attribute) {
-      return new AutoValue_DependencyResolver_AttributeDependencyKind(attribute, null);
-    }
-
-    public static AttributeDependencyKind forAspect(Attribute attribute, AspectClass owningAspect) {
-      return new AutoValue_DependencyResolver_AttributeDependencyKind(
-          attribute, Preconditions.checkNotNull(owningAspect));
-    }
-  }
 
   /**
    * What we know about a dependency edge after factoring in the properties of the configured target
@@ -194,7 +117,7 @@ public abstract class DependencyResolver {
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
@@ -203,7 +126,7 @@ public abstract class DependencyResolver {
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
+    OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
         dependentNodeMap(
             node,
             hostConfig,
@@ -249,7 +172,7 @@ public abstract class DependencyResolver {
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
@@ -286,7 +209,7 @@ public abstract class DependencyResolver {
       throw new IllegalStateException(target.getLabel().toString());
     }
 
-    Map<Label, Target> targetMap = getTargets(outgoingLabels, target, rootCauses);
+    Map<Label, Target> targetMap = getTargets(outgoingLabels, node, rootCauses);
     if (targetMap == null) {
       // Dependencies could not be resolved. Try again when they are loaded by Skyframe.
       return OrderedSetMultimap.create();
@@ -296,7 +219,7 @@ public abstract class DependencyResolver {
         partiallyResolveDependencies(
             outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
 
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
+    OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
         fullyResolveDependencies(
             partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
 
@@ -317,7 +240,8 @@ public abstract class DependencyResolver {
           @Nullable Rule fromRule,
           ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
-          Iterable<Aspect> aspects) {
+          Iterable<Aspect> aspects)
+          throws EvalException {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         OrderedSetMultimap.create();
 
@@ -361,13 +285,28 @@ public abstract class DependencyResolver {
           aspects, attribute.getName(), entry.getKey().getOwningAspect(), propagatingAspects);
 
       Label executionPlatformLabel = null;
-      // TODO(b/151742236): support transitions to other ({@link ExecGroup defined}) execution
-      // platforms
-      if (toolchainContexts != null
-          && toolchainContexts.getDefaultToolchainContext().executionPlatform() != null) {
-        executionPlatformLabel =
-            toolchainContexts.getDefaultToolchainContext().executionPlatform().label();
+      if (toolchainContexts != null) {
+        if (attribute.getTransitionFactory() instanceof ExecutionTransitionFactory) {
+          String execGroup =
+              ((ExecutionTransitionFactory) attribute.getTransitionFactory()).getExecGroup();
+          if (!toolchainContexts.hasToolchainContext(execGroup)) {
+            String error =
+                String.format(
+                    "Attr '%s' declares a transition for non-existent exec group '%s'",
+                    attribute.getName(), execGroup);
+            if (fromRule != null) {
+              throw new EvalException(fromRule.getLocation(), error);
+            } else {
+              throw new EvalException(error);
+            }
+          }
+          if (toolchainContexts.getToolchainContext(execGroup).executionPlatform() != null) {
+            executionPlatformLabel =
+                toolchainContexts.getToolchainContext(execGroup).executionPlatform().label();
+          }
+        }
       }
+
       AttributeTransitionData attributeTransitionData =
           AttributeTransitionData.builder()
               .attributes(attributeMap)
@@ -392,13 +331,13 @@ public abstract class DependencyResolver {
    * being calculated as an argument or its attributes and it should <b>NOT</b> do anything with the
    * keys of {@code partiallyResolvedDeps} other than passing them on to the output map.
    */
-  private OrderedSetMultimap<DependencyKind, Dependency> fullyResolveDependencies(
+  private OrderedSetMultimap<DependencyKind, DependencyKey> fullyResolveDependencies(
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
       Map<Label, Target> targetMap,
       BuildConfiguration originalConfiguration,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws InconsistentAspectOrderException {
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges = OrderedSetMultimap.create();
+    OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges = OrderedSetMultimap.create();
 
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
         partiallyResolvedDeps.entries()) {
@@ -420,7 +359,11 @@ public abstract class DependencyResolver {
 
       outgoingEdges.put(
           entry.getKey(),
-          Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
+          DependencyKey.builder()
+              .setLabel(dep.getLabel())
+              .setTransition(transition)
+              .setAspects(requiredAspects)
+              .build());
     }
     return outgoingEdges;
   }
@@ -592,9 +535,7 @@ public abstract class DependencyResolver {
     }
     @SuppressWarnings("unchecked")
     FragmentT fragment =
-        fragmentClass.cast(
-            attributeConfig.getFragment(
-                (Class<? extends BuildConfiguration.Fragment>) fragmentClass));
+        fragmentClass.cast(attributeConfig.getFragment((Class<? extends Fragment>) fragmentClass));
     if (fragment == null) {
       return null;
     }
@@ -714,15 +655,6 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * Hook for the error case when an invalid package group reference is found.
-   *
-   * @param node the package group node with the includes attribute
-   * @param label the invalid reference
-   */
-  protected abstract void invalidPackageGroupReferenceHook(TargetAndConfiguration node,
-      Label label);
-
-  /**
    * Returns the targets for the given labels.
    *
    * <p>Returns null if any targets are not ready to be returned at this moment because of missing
@@ -733,26 +665,7 @@ public abstract class DependencyResolver {
    */
   protected abstract Map<Label, Target> getTargets(
       OrderedSetMultimap<DependencyKind, Label> labelMap,
-      Target fromTarget,
+      TargetAndConfiguration fromNode,
       NestedSetBuilder<Cause> rootCauses)
       throws InterruptedException;
-
-  /**
-   * Signals an inconsistency on aspect path: an aspect occurs twice on the path and
-   * the second occurrence sees a different set of aspects.
-   *
-   * {@see AspectCycleOnPathException}
-   */
-  public class InconsistentAspectOrderException extends Exception {
-    private final Location location;
-
-    public InconsistentAspectOrderException(Target target, AspectCycleOnPathException e) {
-      super(String.format("%s (when propagating to %s)", e.getMessage(), target.getLabel()));
-      this.location = target.getLocation();
-    }
-
-    public Location getLocation() {
-      return location;
-    }
-  }
 }

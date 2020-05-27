@@ -31,12 +31,12 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public class ConstraintSettingInfo extends NativeInfo implements ConstraintSettingInfoApi {
-  /** Name used in Skylark for accessing this provider. */
-  public static final String SKYLARK_NAME = "ConstraintSettingInfo";
+  /** Name used in Starlark for accessing this provider. */
+  public static final String STARLARK_NAME = "ConstraintSettingInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<ConstraintSettingInfo> PROVIDER =
-      new BuiltinProvider<ConstraintSettingInfo>(SKYLARK_NAME, ConstraintSettingInfo.class) {};
+      new BuiltinProvider<ConstraintSettingInfo>(STARLARK_NAME, ConstraintSettingInfo.class) {};
 
   private final Label label;
   @Nullable private final Label defaultConstraintValueLabel;

@@ -14,26 +14,26 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Interface for a value representing a version with multiple components, separated by periods, such
  * as "1.2.3.4".
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "DottedVersion",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A value representing a version with multiple components, separated by periods, such as "
             + "1.2.3.4.")
 public interface DottedVersionApi<SelfT extends DottedVersionApi<?>>
     extends StarlarkValue, Comparable<SelfT> {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compare_to",
       doc =
           "Compares based on most signifigant (first) not-matching version component. "

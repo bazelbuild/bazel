@@ -17,18 +17,18 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * An interface for a provider that exposes the use of <a
  * href="https://developer.android.com/topic/libraries/data-binding/index.html">data binding</a>.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "UsesDataBindingInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -43,11 +43,11 @@ public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi
    * Returns the metadata outputs from this rule's annotation processing that describe how it
    * applies data binding. See {@link DataBinding#getMetadataOutputs} for details.
    */
-  @SkylarkCallable(name = "metadata_outputs", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "metadata_outputs", structField = true, doc = "", documented = false)
   ImmutableList<T> getMetadataOutputs();
 
   /** The provider implementing this can construct the UsesDataBindingInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -55,7 +55,7 @@ public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>UsesDataBindingInfo</code> constructor.",
         documented = false,
@@ -69,7 +69,7 @@ public interface UsesDataBindingProviderApi<T extends FileApi> extends StructApi
               generic1 = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = UsesDataBindingProviderApi.class)
+    @StarlarkConstructor(objectType = UsesDataBindingProviderApi.class)
     UsesDataBindingProviderApi<FileT> createInfo(Sequence<?> metadataOutputs /* <FileT> */)
         throws EvalException;
   }

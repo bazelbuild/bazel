@@ -393,7 +393,7 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
             "build group1: phony a b c",
             "build group2: phony d e",
             "build inputs_alias: phony group1 group2",
-            "build hello.txt: echo inputs_alias",
+            "build hello.txt: cat inputs_alias",
             "build alias: phony hello.txt");
 
     context()
@@ -607,5 +607,98 @@ public class NinjaBlackBoxTest extends AbstractBlackBoxTest {
     Path rspFile = context().resolveExecRootPath(bazel, "build_dir/first.txt.rsp");
     assertThat(Files.exists(rspFile)).isTrue();
     assertThat(Files.readAllLines(rspFile)).containsExactly("../input.txt");
+  }
+
+  @Test
+  public void testOrderOnlyInputsDoNotCauseRebuild() throws Exception {
+    context().write("input.txt", "abc");
+    context().write("order-only-input.txt", "123");
+    context()
+        .write(
+            "build_dir/build.ninja",
+            "rule cat",
+            "  command = cat ${in} ${order_only_input} > ${out}",
+            "build output.txt: cat ../input.txt || ../order-only-input.txt",
+            "  order_only_input = ../order-only-input.txt");
+
+    context()
+        .write(
+            "BUILD",
+            "ninja_graph(name = 'graph', output_root = 'build_dir',",
+            " working_directory = 'build_dir',",
+            " main = 'build_dir/build.ninja')",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups = {'main': ['output.txt']})");
+
+    BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");
+
+    assertConfigured(bazel.build("//:ninja_target"));
+    Path outputPath = context().resolveExecRootPath(bazel, "build_dir/output.txt");
+    assertThat(outputPath.toFile().exists()).isTrue();
+    assertThat(Files.readAllLines(outputPath)).containsExactly("abc", "123");
+
+    // Change the order-only input...
+    context().write("order-only-input.txt", "456");
+    // ...but nothing should rerun....
+    assertNothingConfigured(bazel.build("//:ninja_target"));
+    // ...and the output should remain the same.
+    assertThat(Files.readAllLines(outputPath)).containsExactly("abc", "123");
+
+    // Change the main input...
+    context().write("input.txt", "xyz");
+    bazel.build("//:ninja_target");
+    // ...and the output should have the new content from the order-only input.
+    assertThat(Files.readAllLines(outputPath)).containsExactly("xyz", "456");
+  }
+
+  @Test
+  public void testOrderOnlyInputsInDepFileCauseRebuild() throws Exception {
+    context().write("build_dir/in.txt", "abc");
+    context().write("build_dir/order-only-input1.txt", "123");
+    context().write("build_dir/order-only-input2.txt", "456");
+    context()
+        .write(
+            "build_dir/build.ninja",
+            "rule cat",
+            "  command = cat ${in} ${order_only_input1} ${order_only_input2} > ${out} ; "
+                // TODO(b/156961649): Having to put "build_dir/" in front of ${order_only_input2}
+                // might be a bug
+                + "echo \"${out} : build_dir/${order_only_input2}\" > ${depfile}",
+            "  depfile = df",
+            "build output.txt: cat in.txt || order-only-input1.txt order-only-input2.txt",
+            "  order_only_input1 = order-only-input1.txt",
+            "  order_only_input2 = order-only-input2.txt");
+
+    context()
+        .write(
+            "BUILD",
+            "ninja_graph(name = 'graph', output_root = 'build_dir',",
+            " working_directory = 'build_dir',",
+            " main = 'build_dir/build.ninja',",
+            " output_root_inputs = ['in.txt', 'order-only-input1.txt', 'order-only-input2.txt'],)",
+            "ninja_build(name = 'ninja_target', ninja_graph = 'graph',",
+            " output_groups = {'main': ['output.txt']})");
+
+    BuilderRunner bazel = context().bazel().withFlags("--experimental_ninja_actions");
+
+    ProcessResult pr = bazel.build("//:ninja_target");
+    System.out.println(pr.outString());
+    assertConfigured(pr);
+    Path outputPath = context().resolveExecRootPath(bazel, "build_dir/output.txt");
+    assertThat(outputPath.toFile().exists()).isTrue();
+    assertThat(Files.readAllLines(outputPath)).containsExactly("abc", "123", "456");
+
+    // Change the order-only input...
+    context().write("build_dir/order-only-input1.txt", "789");
+    // ...but nothing should rerun....
+    assertNothingConfigured(bazel.build("//:ninja_target"));
+    // ...and the output should remain the same.
+    assertThat(Files.readAllLines(outputPath)).containsExactly("abc", "123", "456");
+
+    // But change the order-only input that's listed in the depfile...
+    context().write("build_dir/order-only-input2.txt", "xyz");
+    bazel.build("//:ninja_target");
+    // ...and the output should have the new content from both order-only inputs.
+    assertThat(Files.readAllLines(outputPath)).containsExactly("abc", "789", "xyz");
   }
 }

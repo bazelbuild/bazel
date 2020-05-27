@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -106,17 +106,17 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
       StarlarkSemanticsOptions starlarkSemanticsOptions, Path... roots) {
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
+            packageOptions,
             starlarkSemanticsOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
@@ -432,17 +432,17 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
     getSkyframeExecutor().resetEvaluator();
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
+            packageOptions,
             Options.getDefaults(StarlarkSemanticsOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
@@ -564,7 +564,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTransitiveSkylarkDepsStoredInPackage() throws Exception {
+  public void testTransitiveStarlarkDepsStoredInPackage() throws Exception {
     scratch.file("foo/BUILD", "load('//bar:ext.bzl', 'a')");
     scratch.file("bar/BUILD");
     scratch.file("bar/ext.bzl", "load('//baz:ext.bzl', 'b')", "a = b");
@@ -577,7 +577,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     Package pkg = validPackageWithoutErrors(skyKey);
-    assertThat(pkg.getSkylarkFileDependencies())
+    assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
             Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
             Label.parseAbsolute("//baz:ext.bzl", ImmutableMap.of()));
@@ -590,14 +590,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
 
     pkg = validPackageWithoutErrors(skyKey);
-    assertThat(pkg.getSkylarkFileDependencies())
+    assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
             Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
             Label.parseAbsolute("//qux:ext.bzl", ImmutableMap.of()));
   }
 
   @Test
-  public void testNonExistingSkylarkExtension() throws Exception {
+  public void testNonExistingStarlarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/skylark/BUILD",
@@ -615,12 +615,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
     ErrorInfo errorInfo = result.getError(skyKey);
     String expectedMsg =
         "error loading package 'test/skylark': "
-            + "Unable to load file '//test/skylark:bad_extension.bzl': file doesn't exist";
+            + "cannot load '//test/skylark:bad_extension.bzl': no such file";
     assertThat(errorInfo.getException()).hasMessageThat().isEqualTo(expectedMsg);
   }
 
   @Test
-  public void testNonExistingSkylarkExtensionFromExtension() throws Exception {
+  public void testNonExistingStarlarkExtensionFromExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/skylark/extension.bzl",
@@ -645,11 +645,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/skylark': "
                 + "in /workspace/test/skylark/extension.bzl: "
-                + "Unable to load file '//test/skylark:bad_extension.bzl': file doesn't exist");
+                + "cannot load '//test/skylark:bad_extension.bzl': no such file");
   }
 
   @Test
-  public void testSymlinkCycleWithSkylarkExtension() throws Exception {
+  public void testSymlinkCycleWithStarlarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path extensionFilePath = scratch.resolve("/workspace/test/skylark/extension.bzl");
     FileSystemUtils.ensureSymbolicLink(extensionFilePath, PathFragment.create("extension.bzl"));

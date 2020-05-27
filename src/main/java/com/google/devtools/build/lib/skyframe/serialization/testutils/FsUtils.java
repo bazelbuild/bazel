@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 /** Common FileSystem related items for serialization tests. */
 public class FsUtils {
 
-  public static final FileSystem TEST_FILESYSTEM = new InMemoryFileSystem();
+  public static final InMemoryFileSystem TEST_FILESYSTEM = new InMemoryFileSystem();
 
   private static final Root TEST_ROOT =
       Root.fromPath(TEST_FILESYSTEM.getPath(PathFragment.create("/anywhere/at/all")));

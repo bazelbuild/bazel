@@ -25,8 +25,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
@@ -121,9 +121,8 @@ public class WorkspaceFactoryHelper {
       throws EvalException, LabelSyntaxException {
     Object repoMapping = kwargs.get("repo_mapping");
     if (repoMapping != null) {
-      Map<String, String> map =
-          SkylarkType.castMap(repoMapping, String.class, String.class, "repo_mapping");
-      for (Map.Entry<String, String> e : map.entrySet()) {
+      for (Map.Entry<String, String> e :
+          Dict.cast(repoMapping, String.class, String.class, "repo_mapping").entrySet()) {
         // Create repository names with validation; may throw LabelSyntaxException.
         builder.addRepositoryMappingEntry(
             RepositoryName.create("@" + externalRepoName),

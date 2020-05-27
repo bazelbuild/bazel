@@ -37,6 +37,7 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Command-line options for C++. */
 public class CppOptions extends FragmentOptions {
@@ -167,6 +168,7 @@ public class CppOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
       help = "The minimum OS version which your compilation targets.")
+  @Nullable
   public String minimumOsVersion;
 
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
@@ -943,6 +945,22 @@ public class CppOptions extends FragmentOptions {
               + "the Starlark rules instead https://github.com/bazelbuild/rules_cc")
   public boolean loadCcRulesFromBzl;
 
+  @Option(
+      name = "apple_generate_dsym",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Whether to generate debug symbol(.dSYM) file(s).")
+  public boolean appleGenerateDsym;
+
+  @Option(
+      name = "apple_enable_auto_dsym_dbg",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.ACTION_COMMAND_LINES},
+      help = "Whether to force enable generating debug symbol(.dSYM) file(s) for dbg builds.")
+  public boolean appleEnableAutoDsymDbg;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
@@ -1014,6 +1032,8 @@ public class CppOptions extends FragmentOptions {
     host.disableNoCopts = disableNoCopts;
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
     host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
+    host.appleGenerateDsym = appleGenerateDsym;
+    host.appleEnableAutoDsymDbg = appleEnableAutoDsymDbg;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;

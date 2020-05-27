@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -40,6 +42,7 @@ import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
@@ -70,6 +73,8 @@ public class FunctionTransitionUtil {
       StructImpl attrObject,
       EventHandler eventHandler)
       throws EvalException, InterruptedException {
+    checkForBlacklistedOptions(starlarkTransition);
+
     // TODO(waltl): consider building this once and use it across different split
     // transitions.
     Map<String, OptionInfo> optionInfoMap = buildOptionInfo(buildOptions);
@@ -87,6 +92,16 @@ public class FunctionTransitionUtil {
       splitBuildOptions.put(entry.getKey(), transitionedOptions);
     }
     return splitBuildOptions.build();
+  }
+
+  private static void checkForBlacklistedOptions(StarlarkDefinedConfigTransition transition)
+      throws EvalException {
+    if (transition.getOutputs().contains("//command_line_option:define")) {
+      throw new EvalException(
+          transition.getLocationForErrorReporting(),
+          "Starlark transition on --define not supported - try using build settings"
+              + " (https://docs.bazel.build/skylark/config.html#user-defined-build-settings).");
+    }
   }
 
   /**
@@ -141,13 +156,13 @@ public class FunctionTransitionUtil {
   }
 
   /**
-   * Enter the options in buildOptions into a skylark dictionary, and return the dictionary.
+   * Enter the options in buildOptions into a Starlark dictionary, and return the dictionary.
    *
    * @throws IllegalArgumentException If the method is unable to look up the value in buildOptions
    *     corresponding to an entry in optionInfoMap
    * @throws RuntimeException If the field corresponding to an option value in buildOptions is
    *     inaccessible due to Java language access control, or if an option name is an invalid key to
-   *     the Skylark dictionary
+   *     the Starlark dictionary
    * @throws EvalException if any of the specified transition inputs do not correspond to a valid
    *     build setting
    */
@@ -257,18 +272,41 @@ public class FunctionTransitionUtil {
           OptionDefinition def = optionInfo.getDefinition();
           Field field = def.getField();
           FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-          if (optionValue == null || def.getType().isInstance(optionValue)) {
-            field.set(options, optionValue);
-            convertedNewValues.put(entry.getKey(), optionValue);
+          // TODO(b/153867317): check for crashing options types in this logic.
+          Object convertedValue;
+          if (def.getType() == List.class && optionValue instanceof List && !def.allowsMultiple()) {
+            // This is possible with Starlark code like "{ //command_line_option:foo: ["a", "b"] }".
+            // In that case def.getType() == List.class while optionValue.type == StarlarkList.
+            // Unfortunately we can't check the *element* types because OptionDefinition won't tell
+            // us that about def (def.getConverter() returns LabelListConverter but nowhere does it
+            // mention Label.class). Worse, def.getConverter().convert takes a String input. This
+            // forces us to serialize optionValue back to a scalar string to convert. There's no
+            // generically safe way to do this. We convert its elements with .toString() with a ","
+            // separator, which happens to work for most implementations. But that's not universally
+            // guaranteed.
+            // TODO(b/153867317): support allowMultiple options too. This is subtle: see the
+            // description of allowMultiple in Option.java. allowMultiple converts have the choice
+            // of returning either a scalar or list.
+            List<?> optionValueAsList = (List<?>) optionValue;
+            if (optionValueAsList.isEmpty()) {
+              convertedValue = def.getDefaultValue();
+            } else {
+              convertedValue =
+                  def.getConverter()
+                      .convert(
+                          optionValueAsList.stream().map(Object::toString).collect(joining(",")));
+            }
+          } else if (optionValue == null || def.getType().isInstance(optionValue)) {
+            convertedValue = optionValue;
           } else if (optionValue instanceof String) {
-            Object convertedValue = def.getConverter().convert((String) optionValue);
-            field.set(options, convertedValue);
-            convertedNewValues.put(entry.getKey(), convertedValue);
+            convertedValue = def.getConverter().convert((String) optionValue);
           } else {
             throw new EvalException(
                 starlarkTransition.getLocationForErrorReporting(),
                 "Invalid value type for option '" + optionName + "'");
           }
+          field.set(options, convertedValue);
+          convertedNewValues.put(entry.getKey(), convertedValue);
         } catch (IllegalArgumentException e) {
           throw new EvalException(
               starlarkTransition.getLocationForErrorReporting(),

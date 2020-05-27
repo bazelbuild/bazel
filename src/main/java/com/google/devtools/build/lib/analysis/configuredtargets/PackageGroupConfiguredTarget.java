@@ -40,7 +40,7 @@ import java.util.Optional;
  * not really first-class Targets.
  */
 @AutoCodec
-@Immutable // (and Starlark-hashable)
+@Immutable
 public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
     implements PackageSpecificationProvider {
   private static final FileProvider NO_FILES = new FileProvider(
@@ -107,12 +107,12 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return null;
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }
 }

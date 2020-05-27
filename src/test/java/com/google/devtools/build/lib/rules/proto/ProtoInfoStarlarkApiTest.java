@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoCommonApi;
@@ -34,7 +34,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class ProtoInfoStarlarkApiTest extends BuildViewTestCase /*SkylarkTestCase*/ {
+public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
@@ -50,7 +50,7 @@ public class ProtoInfoStarlarkApiTest extends BuildViewTestCase /*SkylarkTestCas
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//myinfo:myinfo.bzl", ImmutableMap.of()), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }

@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -40,6 +42,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
 
@@ -78,15 +81,15 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    Iterable<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
+    ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts = treeArtifactValue.getChildren();
     GeneratingActions generatingActions;
     try {
       // Expand the action template using the list of expanded input TreeFileArtifacts.
       // TODO(rduan): Add a check to verify the inputs of expanded actions are subsets of inputs
       // of the ActionTemplate.
-      generatingActions =
-          checkActionAndArtifactConflicts(
-              actionTemplate.generateActionForInputArtifacts(inputTreeFileArtifacts, key), key);
+      ImmutableList<? extends Action> actions =
+          generateAndValidateActionsFromTemplate(actionTemplate, inputTreeFileArtifacts, key);
+      generatingActions = checkActionAndArtifactConflicts(actions, key);
     } catch (ActionConflictException e) {
       e.reportTo(env.getListener());
       throw new ActionTemplateExpansionFunctionException(e);
@@ -116,12 +119,49 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
     }
   }
 
+  private static ImmutableList<? extends Action> generateAndValidateActionsFromTemplate(
+      ActionTemplate<?> actionTemplate,
+      ImmutableSet<TreeFileArtifact> inputTreeFileArtifacts,
+      ActionTemplateExpansionKey key)
+      throws ActionTemplateExpansionException {
+    Set<Artifact> outputs = actionTemplate.getOutputs();
+    for (Artifact output : outputs) {
+      Preconditions.checkState(
+          output.isTreeArtifact(),
+          "%s declares an output which is not a tree artifact: %s",
+          actionTemplate,
+          output);
+    }
+    ImmutableList<? extends Action> actions =
+        actionTemplate.generateActionsForInputArtifacts(inputTreeFileArtifacts, key);
+    for (Action action : actions) {
+      for (Artifact output : action.getOutputs()) {
+        Preconditions.checkState(
+            output.getArtifactOwner().equals(key),
+            "%s generated an action with an output owned by the wrong owner: %s",
+            actionTemplate,
+            action);
+        Preconditions.checkState(
+            output.hasParent(),
+            "%s generated an action which outputs a non-TreeFileArtifact: %s",
+            actionTemplate,
+            action);
+        Preconditions.checkState(
+            outputs.contains(output.getParent()),
+            "%s generated an action with an output under an undeclared tree: %s",
+            actionTemplate,
+            action);
+      }
+    }
+    return actions;
+  }
+
   private GeneratingActions checkActionAndArtifactConflicts(
-      Iterable<? extends Action> actions, ActionLookupValue.ActionLookupKey actionLookupKey)
+      ImmutableList<? extends Action> actions, ActionTemplateExpansionKey key)
       throws ActionConflictException, ArtifactPrefixConflictException {
     GeneratingActions generatingActions =
         Actions.assignOwnersAndFindAndThrowActionConflict(
-            actionKeyContext, ImmutableList.copyOf(actions), actionLookupKey);
+            actionKeyContext, ImmutableList.copyOf(actions), key);
     Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> artifactPrefixConflictMap =
         findArtifactPrefixConflicts(getMapForConsistencyCheck(generatingActions.getActions()));
 

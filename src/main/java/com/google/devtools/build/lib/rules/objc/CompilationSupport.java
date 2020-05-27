@@ -57,11 +57,11 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -185,18 +185,6 @@ public class CompilationSupport {
    */
   private static final String IS_NOT_TEST_TARGET_FEATURE_NAME = "is_not_test_target";
 
-  /** Enabled if this target generates debug symbols in a dSYM file. */
-  private static final String GENERATE_DSYM_FILE_FEATURE_NAME = "generate_dsym_file";
-
-  /**
-   * Enabled if this target does not generate debug symbols.
-   *
-   * <p>Note that the crosstool does not support feature negation in FlagSet.with_feature, which is
-   * the mechanism used to condition linker arguments here. Therefore, we expose
-   * "no_generate_debug_symbols" in addition to "generate_dsym_file"
-   */
-  private static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
-
   private static final String GENERATE_LINKMAP_FEATURE_NAME = "generate_linkmap";
 
   private static final String XCODE_VERSION_FEATURE_NAME_PREFIX = "xcode_";
@@ -222,12 +210,13 @@ public class CompilationSupport {
 
   /** Returns the location of the xcrunwrapper tool. */
   public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
-    return ruleContext.getExecutablePrerequisite("$xcrunwrapper", Mode.HOST);
+    return ruleContext.getExecutablePrerequisite("$xcrunwrapper", TransitionMode.HOST);
   }
 
   /** Returns the location of the libtool tool. */
   public static final FilesToRunProvider libtool(RuleContext ruleContext) {
-    return ruleContext.getExecutablePrerequisite(ObjcRuleClasses.LIBTOOL_ATTRIBUTE, Mode.HOST);
+    return ruleContext.getExecutablePrerequisite(
+        ObjcRuleClasses.LIBTOOL_ATTRIBUTE, TransitionMode.HOST);
   }
 
   /**
@@ -444,7 +433,8 @@ public class CompilationSupport {
             .setTestOrTestOnlyTarget(ruleContext.isTestTarget() || ruleContext.isTestOnlyTarget())
             .addCcLinkingContexts(
                 CppHelper.getLinkingContextsFromDeps(
-                    ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET))))
+                    ImmutableList.copyOf(
+                        ruleContext.getPrerequisites("deps", TransitionMode.TARGET))))
             .setLinkedArtifactNameSuffix(intermediateArtifacts.archiveFileNameSuffix())
             .setNeverLink(true)
             .addVariableExtension(extensionBuilder.build());
@@ -460,10 +450,13 @@ public class CompilationSupport {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
+    // Do a re-exporting merge of the ARC and non-ARC contexts so that the direct headers are
+    // preserved in the unified context.
     ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
         Arrays.asList(
             objcArcCompilationInfo.getCcCompilationContext(),
-            nonObjcArcCompilationInfo.getCcCompilationContext()));
+            nonObjcArcCompilationInfo.getCcCompilationContext()),
+        ImmutableList.of());
     ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
 
@@ -562,10 +555,10 @@ public class CompilationSupport {
     if (!isTestRule) {
       activatedCrosstoolSelectables.add(IS_NOT_TEST_TARGET_FEATURE_NAME);
     }
-    if (configuration.getFragment(ObjcConfiguration.class).generateDsym()) {
-      activatedCrosstoolSelectables.add(GENERATE_DSYM_FILE_FEATURE_NAME);
+    if (objcConfiguration.generateDsym()) {
+      activatedCrosstoolSelectables.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
     } else {
-      activatedCrosstoolSelectables.add(NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
+      activatedCrosstoolSelectables.add(CppRuleClasses.NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
     }
     if (configuration.getFragment(ObjcConfiguration.class).generateLinkmap()) {
       activatedCrosstoolSelectables.add(GENERATE_LINKMAP_FEATURE_NAME);
@@ -648,12 +641,14 @@ public class CompilationSupport {
   static CompilationArtifacts compilationArtifacts(
       RuleContext ruleContext, IntermediateArtifacts intermediateArtifacts) {
     PrerequisiteArtifacts srcs =
-        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).errorsForNonMatching(SRCS_TYPE);
+        ruleContext
+            .getPrerequisiteArtifacts("srcs", TransitionMode.TARGET)
+            .errorsForNonMatching(SRCS_TYPE);
     return new CompilationArtifacts.Builder()
         .addSrcs(srcs.filter(COMPILABLE_SRCS_TYPE).list())
         .addNonArcSrcs(
             ruleContext
-                .getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET)
+                .getPrerequisiteArtifacts("non_arc_srcs", TransitionMode.TARGET)
                 .errorsForNonMatching(NON_ARC_SRCS_TYPE)
                 .list())
         .addPrivateHdrs(srcs.filter(HEADERS).list())
@@ -908,7 +903,8 @@ public class CompilationSupport {
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
       ImmutableSet<Artifact> hdrsSet = attributes.hdrs().toSet();
       ImmutableSet<Artifact> srcsSet =
-          ImmutableSet.copyOf(ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list());
+          ImmutableSet.copyOf(
+              ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list());
 
       // Check for overlap between srcs and hdrs.
       for (Artifact header : Sets.intersection(hdrsSet, srcsSet)) {
@@ -920,7 +916,7 @@ public class CompilationSupport {
       // Check for overlap between srcs and non_arc_srcs.
       ImmutableSet<Artifact> nonArcSrcsSet =
           ImmutableSet.copyOf(
-              ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET).list());
+              ruleContext.getPrerequisiteArtifacts("non_arc_srcs", TransitionMode.TARGET).list());
       for (Artifact conflict : Sets.intersection(nonArcSrcsSet, srcsSet)) {
         String path = conflict.getRootRelativePath().toString();
         ruleContext.attributeError(
@@ -1290,8 +1286,7 @@ public class CompilationSupport {
             treeObjFiles.build(),
             objList,
             objFilesToLinkParam.build(),
-            ParameterFile.ParameterFileType.UNQUOTED,
-            ISO_8859_1));
+            ParameterFile.ParameterFileType.UNQUOTED));
     return this;
   }
 
@@ -1419,7 +1414,8 @@ public class CompilationSupport {
       J2ObjcMappingFileProvider j2ObjcMappingFileProvider,
       J2ObjcEntryClassProvider j2ObjcEntryClassProvider) {
     NestedSet<String> entryClasses = j2ObjcEntryClassProvider.getEntryClasses();
-    Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner", Mode.HOST);
+    Artifact pruner =
+        ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner", TransitionMode.HOST);
     NestedSet<Artifact> j2ObjcDependencyMappingFiles =
         j2ObjcMappingFileProvider.getDependencyMappingFiles();
     NestedSet<Artifact> j2ObjcHeaderMappingFiles =
@@ -1431,7 +1427,8 @@ public class CompilationSupport {
       Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
       Artifact dummyArchive =
           ruleContext
-              .getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR)
+              .getPrerequisite(
+                  "$dummy_lib", TransitionMode.TARGET, ObjcProvider.STARLARK_CONSTRUCTOR)
               .get(LIBRARY)
               .getSingleton();
 
@@ -1598,7 +1595,7 @@ public class CompilationSupport {
     }
     Artifact pchHdr = null;
     if (ruleContext.attributes().has("pch", BuildType.LABEL)) {
-      pchHdr = ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET);
+      pchHdr = ruleContext.getPrerequisiteArtifact("pch", TransitionMode.TARGET);
     }
     return Optional.fromNullable(pchHdr);
   }
@@ -1689,7 +1686,8 @@ public class CompilationSupport {
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {
     if (ruleContext.attributes().has("module_map", BuildType.LABEL)) {
-      return Optional.fromNullable(ruleContext.getPrerequisiteArtifact("module_map", Mode.TARGET));
+      return Optional.fromNullable(
+          ruleContext.getPrerequisiteArtifact("module_map", TransitionMode.TARGET));
     }
     return Optional.absent();
   }

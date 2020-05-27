@@ -34,13 +34,15 @@ public final class MetadataCollector implements DependencyCollector {
     this.tolerateMissingDeps = tolerateMissingDeps;
   }
 
+  private static boolean isInterfaceCompanionClass(String name) {
+    return name.endsWith(INTERFACE_COMPANION_SUFFIX)
+        || name.endsWith(D8_INTERFACE_COMPANION_SUFFIX);
+  }
+
   @Override
   public void assumeCompanionClass(String origin, String target) {
     checkArgument(
-        target.endsWith(INTERFACE_COMPANION_SUFFIX),
-        "target not a companion: %s -> %s",
-        origin,
-        target);
+        isInterfaceCompanionClass(target), "target not a companion: %s -> %s", origin, target);
     info.addAssumePresent(
         Dependency.newBuilder().setOrigin(wrapType(origin)).setTarget(wrapType(target)));
   }
@@ -48,7 +50,7 @@ public final class MetadataCollector implements DependencyCollector {
   @Override
   public void missingImplementedInterface(String origin, String target) {
     checkArgument(
-        !target.endsWith(INTERFACE_COMPANION_SUFFIX),
+        !isInterfaceCompanionClass(target),
         "target seems to be a companion: %s -> %s",
         origin,
         target);
@@ -74,8 +76,7 @@ public final class MetadataCollector implements DependencyCollector {
 
   @Override
   public void recordDefaultMethods(String origin, int count) {
-    checkArgument(
-        !origin.endsWith(INTERFACE_COMPANION_SUFFIX), "seems to be a companion: %s", origin);
+    checkArgument(!isInterfaceCompanionClass(origin), "seems to be a companion: %s", origin);
     info.addInterfaceWithCompanion(
         InterfaceWithCompanion.newBuilder()
             .setOrigin(wrapType(origin))

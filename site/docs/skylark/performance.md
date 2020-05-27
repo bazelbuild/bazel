@@ -206,7 +206,7 @@ This profiling method consists of two steps, first you have to execute your
 build/test with the `--profile` flag, for example
 
 ```
-$ bazel build --nobuild --profile=/tmp/prof //path/to:target
+$ bazel build --profile=/tmp/prof //path/to:target
 ```
 
 The file generated (in this case `/tmp/prof`) is a binary file, which can be
@@ -414,7 +414,7 @@ And finally let's have a look at where the memory is going by producing a
 
 ```
 $ bazel $(STARTUP_FLAGS) dump --skylark_memory=$HOME/prof.gz
-> Dumping skylark heap to: /usr/local/google/home/$USER/prof.gz
+> Dumping Starlark heap to: /usr/local/google/home/$USER/prof.gz
 ```
 
 Next, we use the `pprof` tool to investigate the heap. A good starting point is

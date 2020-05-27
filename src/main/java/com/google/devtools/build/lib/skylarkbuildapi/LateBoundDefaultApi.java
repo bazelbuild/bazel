@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/** The interface for late bound defaults in Skylark. */
-@SkylarkModule(
+/** The interface for late bound defaults in Starlark. */
+@StarlarkBuiltin(
     name = "LateBoundDefault",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "Represents a late-bound default attribute value of type 'Label'. The value of a"
             + " LateBoundDefault is only resolvable in the context of a rule implementation"

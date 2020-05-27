@@ -25,6 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -50,6 +51,7 @@ import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -63,10 +65,13 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
-import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
@@ -74,15 +79,18 @@ import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
+import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import com.google.devtools.build.lib.util.LogHandlerQuerier;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
@@ -126,7 +134,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.logging.Handler;
-import java.util.logging.Level;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -144,7 +151,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static final Pattern suppressFromLog =
       Pattern.compile("--client_env=([^=]*(?:auth|pass|cookie)[^=]*)=", Pattern.CASE_INSENSITIVE);
 
-  private static final Logger logger = Logger.getLogger(BlazeRuntime.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final FileSystem fileSystem;
   private final Iterable<BlazeModule> blazeModules;
@@ -161,7 +168,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private final ImmutableList<QueryFunction> queryFunctions;
   private final ImmutableList<OutputFormatter> queryOutputFormatters;
 
-  private final AtomicReference<ExitCode> storedExitCode = new AtomicReference<>();
+  private final AtomicReference<DetailedExitCode> storedExitCode = new AtomicReference<>();
 
   // We pass this through here to make it available to the MasterLogWriter.
   private final OptionsParsingResult startupOptionsProvider;
@@ -250,7 +257,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return workspace;
   }
 
-  @Nullable public CoverageReportActionFactory getCoverageReportActionFactory(
+  @Nullable
+  public CoverageReportActionFactory getCoverageReportActionFactory(
       OptionsProvider commandOptions) {
     CoverageReportActionFactory firstFactory = null;
     for (BlazeModule module : blazeModules) {
@@ -345,8 +353,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           if (!profilerTask.isVfs()
               // CRITICAL_PATH corresponds to writing the file.
               && profilerTask != ProfilerTask.CRITICAL_PATH
-              && profilerTask != ProfilerTask.SKYFUNCTION
-              && !profilerTask.isStarlark()) {
+              && profilerTask != ProfilerTask.SKYFUNCTION) {
             profiledTasksBuilder.add(profilerTask);
           }
         }
@@ -438,10 +445,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return actionKeyContext;
   }
 
-  /**
-   * The directory in which blaze stores the server state - that is, the socket
-   * file and a log.
-   */
+  /** The directory in which blaze stores the server state - that is, the socket file and a log. */
   private Path getServerDirectory() {
     return getWorkspace().getDirectories().getOutputBase().getChild("server");
   }
@@ -463,16 +467,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return queryOutputFormatters;
   }
 
-  /**
-   * Returns the package factory.
-   */
+  /** Returns the package factory. */
   public PackageFactory getPackageFactory() {
     return packageFactory;
   }
 
-  /**
-   * Returns the rule class provider.
-   */
+  /** Returns the rule class provider. */
   public ConfiguredRuleClassProvider getRuleClassProvider() {
     return ruleClassProvider;
   }
@@ -551,18 +551,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       try {
         MemoryProfiler.instance().start(memoryProfilePath.getOutputStream());
       } catch (IOException e) {
-        env.getReporter().handle(
-            Event.error("Error while creating memory profile file: " + e.getMessage()));
+        env.getReporter()
+            .handle(Event.error("Error while creating memory profile file: " + e.getMessage()));
       }
     }
-
-    // Initialize exit code to dummy value for afterCommand.
-    storedExitCode.set(ExitCode.RESERVED);
   }
 
   @Override
   public void cleanUpForCrash(DetailedExitCode exitCode) {
-    if (declareExitCode(exitCode.getExitCode())) {
+    if (declareExitCode(exitCode)) {
       // Only try to publish events if we won the exit code race. Otherwise someone else is already
       // exiting for us.
       EventBus eventBus = workspace.getSkyframeExecutor().getEventBus();
@@ -588,20 +585,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     shutDownModulesOnCrash();
   }
 
-  private boolean declareExitCode(ExitCode exitCode) {
-    return storedExitCode.compareAndSet(ExitCode.RESERVED, exitCode);
+  private boolean declareExitCode(DetailedExitCode detailedExitCode) {
+    return storedExitCode.compareAndSet(null, detailedExitCode);
   }
 
   /**
    * Posts the {@link CommandCompleteEvent}, so that listeners can tidy up. Called by {@link
    * #afterCommand}, and by BugReport when crashing from an exception in an async thread.
    *
-   * <p>Returns null if {@code exitCode} was registered as the exit code, and the {@link ExitCode}
-   * to use if another thread already registered an exit code.
+   * <p>Returns null if {@code exitCode} was registered as the exit code, and the {@link
+   * DetailedExitCode} to use if another thread already registered an exit code.
    */
   @Nullable
-  private ExitCode notifyCommandComplete(DetailedExitCode exitCode) {
-    if (!declareExitCode(exitCode.getExitCode())) {
+  private DetailedExitCode notifyCommandComplete(DetailedExitCode exitCode) {
+    if (!declareExitCode(exitCode)) {
       // This command has already been called, presumably because there is a race between the main
       // thread and a worker thread that crashed. Don't try to arbitrate the dispute. If the main
       // thread won the race (unlikely, but possible), this may be incorrectly logged as a success.
@@ -628,7 +625,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         env.getReporter().handle(Event.error(e.getMessage()));
         // It's not ideal but we can only return one exit code, so we just pick the code of the
         // last exception.
-        afterCommandResult = BlazeCommandResult.exitCode(e.getExitCode());
+        afterCommandResult = BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
       }
     }
 
@@ -649,7 +646,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     try {
       workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
     } catch (InterruptedException e) {
-      afterCommandResult = BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+      logger.atInfo().withCause(e).log("Interrupted in afterCommand");
+      afterCommandResult =
+          BlazeCommandResult.detailedExitCode(
+              InterruptedFailureDetails.detailedExitCode(
+                  "executor completion interrupted", Code.EXECUTOR_COMPLETION));
       Thread.currentThread().interrupt();
     }
 
@@ -659,10 +660,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } else {
       finalCommandResult = commandResult;
     }
-    ExitCode otherThreadWonExitCode =
+    DetailedExitCode otherThreadWonExitCode =
         notifyCommandComplete(finalCommandResult.getDetailedExitCode());
     if (otherThreadWonExitCode != null) {
-      finalCommandResult = BlazeCommandResult.exitCode(otherThreadWonExitCode);
+      finalCommandResult = BlazeCommandResult.detailedExitCode(otherThreadWonExitCode);
     }
     env.getBlazeWorkspace().clearEventBus();
 
@@ -681,66 +682,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     env.getReporter().clearEventBus();
     actionKeyContext.clear();
-    flushServerLog();
+    DebugLoggerConfigurator.flushServerLog();
+    storedExitCode.set(null);
     return finalCommandResult;
   }
 
   /**
-   * Returns the path to the Blaze server INFO log.
-   *
-   * @return the path to the log or empty if the log is not yet open
-   * @throws IOException if the log location cannot be determined
-   */
-  public Optional<Path> getServerLogPath() throws IOException {
-    LogHandlerQuerier logHandlerQuerier;
-    try {
-      logHandlerQuerier = LogHandlerQuerier.getConfiguredInstance();
-    } catch (IllegalStateException e) {
-      throw new IOException("Could not find a querier for server log location", e);
-    }
-
-    Optional<java.nio.file.Path> loggerFilePath;
-    try {
-      loggerFilePath = logHandlerQuerier.getLoggerFilePath(logger);
-    } catch (IllegalArgumentException e) {
-      throw new IOException("Could not query server log location", e);
-    }
-
-    return loggerFilePath.map((p) -> fileSystem.getPath(p.toAbsolutePath().toString()));
-  }
-
-  // Make sure we keep a strong reference to this logger, so that the
-  // configuration isn't lost when the gc kicks in.
-  private static Logger templateLogger = Logger.getLogger("com.google.devtools.build");
-
-  /**
-   * Configures "com.google.devtools.build.*" loggers to the given
-   *  {@code level}. Note: This code relies on static state.
-   */
-  public static void setupLogging(Level level) {
-    templateLogger.setLevel(level);
-    templateLogger.info("Log level: " + templateLogger.getLevel());
-  }
-
-  private void flushServerLog() {
-    for (Logger logger = templateLogger; logger != null; logger = logger.getParent()) {
-      for (Handler handler : logger.getHandlers()) {
-        if (handler != null) {
-          handler.flush();
-        }
-      }
-    }
-  }
-
-  /**
-   * Returns the Clock-instance used for the entire build. Before,
-   * individual classes (such as Profiler) used to specify the type
-   * of clock (e.g. EpochClock) they wanted to use. This made it
-   * difficult to get Blaze working on Windows as some of the clocks
-   * available for Linux aren't (directly) available on Windows.
-   * Setting the Blaze-wide clock upon construction of BlazeRuntime
-   * allows injecting whatever Clock instance should be used from
-   * BlazeMain.
+   * Returns the Clock-instance used for the entire build. Before, individual classes (such as
+   * Profiler) used to specify the type of clock (e.g. EpochClock) they wanted to use. This made it
+   * difficult to get Blaze working on Windows as some of the clocks available for Linux aren't
+   * (directly) available on Windows. Setting the Blaze-wide clock upon construction of BlazeRuntime
+   * allows injecting whatever Clock instance should be used from BlazeMain.
    *
    * @return The Blaze-wide clock
    */
@@ -772,7 +724,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         module.blazeShutdown();
       }
     } finally {
-      flushServerLog();
+      DebugLoggerConfigurator.flushServerLog();
     }
   }
 
@@ -789,20 +741,18 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         module.blazeShutdownOnCrash();
       }
     } finally {
-      flushServerLog();
+      DebugLoggerConfigurator.flushServerLog();
     }
   }
 
-  /**
-   * Creates a BuildOptions class for the given options taken from an optionsProvider.
-   */
+  /** Creates a BuildOptions class for the given options taken from an optionsProvider. */
   public BuildOptions createBuildOptions(OptionsProvider optionsProvider) {
     return ruleClassProvider.createBuildOptions(optionsProvider);
   }
 
   /**
-   * Main method for the Blaze server startup. Note: This method logs
-   * exceptions to remote servers. Do not add this to a unittest.
+   * Main method for the Blaze server startup. Note: This method logs exceptions to remote servers.
+   * Do not add this to a unittest.
    */
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
     setupUncaughtHandlerAtStartup(args);
@@ -812,14 +762,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       // Run Blaze in batch mode.
       System.exit(batchMain(modules, args));
     }
-    logger.info(
-        "Starting Bazel server with " + maybeGetPidString() + "args " + Arrays.toString(args));
+    logger.atInfo().log(
+        "Starting Bazel server with %s, args %s", maybeGetPidString(), Arrays.toString(args));
     try {
       // Run Blaze in server mode.
       System.exit(serverMain(modules, OutErr.SYSTEM_OUT_ERR, args));
     } catch (RuntimeException | Error e) { // A definite bug...
       BugReport.printBug(OutErr.SYSTEM_OUT_ERR, e, /* oomMessage = */ null);
       BugReport.sendBugReport(e, Arrays.asList(args));
+      CustomFailureDetailPublisher.maybeWriteFailureDetailFile(CrashFailureDetails.forThrowable(e));
       System.exit(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
       throw e; // Shouldn't get here.
     }
@@ -869,9 +820,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return buf.toString();
   }
 
-  /**
-   * Command line options split in to two parts: startup options and everything else.
-   */
+  /** Command line options split in to two parts: startup options and everything else. */
   @VisibleForTesting
   static class CommandLineOptions {
     private final ImmutableList<String> startupArgs;
@@ -895,17 +844,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * Splits given options into two lists - arguments matching options defined in this class and
    * everything else, while preserving order in each list.
    *
-   * <p>Note that this method relies on the startup options always being in the
-   * <code>--flag=ARG</code> form (instead of <code>--flag ARG</code>). This is enforced by
-   * <code>GetArgumentArray()</code> in <code>blaze.cc</code> by reconstructing the startup
-   * options from their parsed versions instead of using <code>argv</code> verbatim.
+   * <p>Note that this method relies on the startup options always being in the <code>--flag=ARG
+   * </code> form (instead of <code>--flag ARG</code>). This is enforced by <code>GetArgumentArray()
+   * </code> in <code>blaze.cc</code> by reconstructing the startup options from their parsed
+   * versions instead of using <code>argv</code> verbatim.
    */
-  static CommandLineOptions splitStartupOptions(
-      Iterable<BlazeModule> modules, String... args) {
+  static CommandLineOptions splitStartupOptions(Iterable<BlazeModule> modules, String... args) {
     List<String> prefixes = new ArrayList<>();
     List<OptionDefinition> startupOptions = Lists.newArrayList();
-    for (Class<? extends OptionsBase> defaultOptions
-      : BlazeCommandUtils.getStartupOptions(modules)) {
+    for (Class<? extends OptionsBase> defaultOptions :
+        BlazeCommandUtils.getStartupOptions(modules)) {
       startupOptions.addAll(OptionsParser.getOptionDefinitions(defaultOptions));
     }
 
@@ -923,7 +871,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     for (Iterator<String> argi = otherArgs.iterator(); argi.hasNext(); ) {
       String arg = argi.next();
       if (!arg.startsWith("--")) {
-        break;  // stop at command - all startup options would be specified before it.
+        break; // stop at command - all startup options would be specified before it.
       }
       for (String prefix : prefixes) {
         if (arg.startsWith(prefix)) {
@@ -948,7 +896,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           while (true) {
             count++;
             Uninterruptibles.sleepUninterruptibly(10, TimeUnit.SECONDS);
-            logger.warning("Slow interrupt number " + count + " in batch mode");
+            logger.atWarning().log("Slow interrupt number %d in batch mode", count);
             ThreadUtils.warnAboutSlowInterrupt();
           }
         };
@@ -956,7 +904,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return new InterruptSignalHandler() {
       @Override
       public void run() {
-        logger.info("User interrupt");
+        logger.atInfo().log("User interrupt");
         OutErr.SYSTEM_OUT_ERR.printErrLn("Bazel received an interrupt");
         mainThread.interrupt();
 
@@ -966,7 +914,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           interruptWatcherThread.setDaemon(true);
           interruptWatcherThread.start();
         } else if (curNumInterrupts == 2) {
-          logger.warning("Second --batch interrupt: Reverting to JVM SIGINT handler");
+          logger.atWarning().log("Second --batch interrupt: Reverting to JVM SIGINT handler");
           uninstall();
         }
       }
@@ -980,19 +928,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private static int batchMain(Iterable<BlazeModule> modules, String[] args) {
     InterruptSignalHandler signalHandler = captureSigint();
     CommandLineOptions commandLineOptions = splitStartupOptions(modules, args);
-    logger.info(
-        "Running Bazel in batch mode with "
-            + maybeGetPidString()
-            + "startup args "
-            + commandLineOptions.getStartupArgs());
+    logger.atInfo().log(
+        "Running Bazel in batch mode with %s, startup args %s",
+        maybeGetPidString(), commandLineOptions.getStartupArgs());
 
     BlazeRuntime runtime;
     InvocationPolicy policy;
     try {
       runtime = newRuntime(modules, commandLineOptions.getStartupArgs(), null);
-      policy = InvocationPolicyParser.parsePolicy(
-          runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class)
-              .invocationPolicy);
+      policy =
+          InvocationPolicyParser.parsePolicy(
+              runtime
+                  .getStartupOptionsProvider()
+                  .getOptions(BlazeServerStartupOptions.class)
+                  .invocationPolicy);
     } catch (OptionsParsingException e) {
       OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
@@ -1011,15 +960,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     boolean shutdownDone = false;
 
     try {
-      logger.info(getRequestLogString(commandLineOptions.getOtherArgs()));
-      BlazeCommandResult result = dispatcher.exec(
-          policy,
-          commandLineOptions.getOtherArgs(),
-          OutErr.SYSTEM_OUT_ERR,
-          LockingMode.ERROR_OUT,
-          "batch client",
-          runtime.getClock().currentTimeMillis(),
-          Optional.of(startupOptionsFromCommandLine.build()));
+      logger.atInfo().log(getRequestLogString(commandLineOptions.getOtherArgs()));
+      BlazeCommandResult result =
+          dispatcher.exec(
+              policy,
+              commandLineOptions.getOtherArgs(),
+              OutErr.SYSTEM_OUT_ERR,
+              LockingMode.ERROR_OUT,
+              "batch client",
+              runtime.getClock().currentTimeMillis(),
+              Optional.of(startupOptionsFromCommandLine.build()));
       if (result.getExecRequest() == null) {
         // Simple case: we are given an exit code
         return result.getExitCode().getNumericExitCode();
@@ -1043,22 +993,23 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       String workingDirectory = request.getWorkingDirectory().toString(StandardCharsets.ISO_8859_1);
       try {
-        ProcessBuilder process = new ProcessBuilder()
-            .command(argv)
-            .directory(new File(workingDirectory))
-            .inheritIO();
+        ProcessBuilder process =
+            new ProcessBuilder().command(argv).directory(new File(workingDirectory)).inheritIO();
 
-        for (int i = 0;  i < request.getEnvironmentVariableCount(); i++) {
+        for (int i = 0; i < request.getEnvironmentVariableCount(); i++) {
           EnvironmentVariable variable = request.getEnvironmentVariable(i);
-          process.environment().put(variable.getName().toString(StandardCharsets.ISO_8859_1),
-              variable.getValue().toString(StandardCharsets.ISO_8859_1));
+          process
+              .environment()
+              .put(
+                  variable.getName().toString(StandardCharsets.ISO_8859_1),
+                  variable.getValue().toString(StandardCharsets.ISO_8859_1));
         }
 
         return process.start().waitFor();
       } catch (IOException e) {
         // We are in batch mode, thus, stdout/stderr are the same as that of the client.
         System.err.println("Cannot execute process for 'run' command: " + e.getMessage());
-        logger.log(Level.SEVERE, "Exception while executing binary from 'run' command", e);
+        logger.atSevere().withCause(e).log("Exception while executing binary from 'run' command");
         return ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode();
       }
     } catch (InterruptedException e) {
@@ -1088,8 +1039,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       try {
         // This is necessary so that Bazel kind of works during bootstrapping, at which time the
         // gRPC server is not compiled in so that we don't need gRPC for bootstrapping.
-        Class<?> factoryClass = Class.forName(
-            "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
+        Class<?> factoryClass =
+            Class.forName("com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
         RPCServer.Factory factory = (RPCServer.Factory) factoryClass.getConstructor().newInstance();
         rpcServer[0] =
             factory.create(
@@ -1102,7 +1053,15 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                 startupOptions.idleServerTasks);
       } catch (ReflectiveOperationException | IllegalArgumentException e) {
         throw new AbruptExitException(
-            "gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR, e);
+            DetailedExitCode.of(
+                ExitCode.BLAZE_INTERNAL_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage("gRPC server not compiled in")
+                    .setGrpcServer(
+                        GrpcServer.newBuilder()
+                            .setCode(GrpcServer.Code.GRPC_SERVER_NOT_COMPILED_IN))
+                    .build()),
+            e);
       }
 
       // Register the signal handler.
@@ -1110,7 +1069,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           new InterruptSignalHandler() {
             @Override
             public void run() {
-              logger.severe("User interrupt");
+              logger.atSevere().log("User interrupt");
               rpcServer[0].interrupt();
             }
           };
@@ -1122,12 +1081,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (OptionsParsingException e) {
       outErr.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
-    } catch (IOException e) {
-      outErr.printErrLn("I/O Error: " + e.getMessage());
-      return ExitCode.BUILD_FAILURE.getNumericExitCode();
     } catch (AbruptExitException e) {
       outErr.printErrLn(e.getMessage());
       e.printStackTrace(new PrintStream(outErr.getErrorStream(), true));
+      FailureDetail failureDetail = e.getDetailedExitCode().getFailureDetail();
+      if (failureDetail != null) {
+        CustomFailureDetailPublisher.maybeWriteFailureDetailFile(failureDetail);
+      }
       return e.getExitCode().getNumericExitCode();
     } finally {
       if (sigintHandler != null) {
@@ -1136,14 +1096,18 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     }
   }
 
-  private static FileSystem defaultFileSystemImplementation()
-      throws DefaultHashFunctionNotSetException {
+  private static FileSystem defaultFileSystemImplementation(
+      BlazeServerStartupOptions startupOptions) throws DefaultHashFunctionNotSetException {
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
-      return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new JavaIoFileSystem();
+      return OS.getCurrent() == OS.WINDOWS
+          ? new WindowsFileSystem(startupOptions.enableWindowsSymlinks)
+          : new JavaIoFileSystem();
     }
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem();
+    return OS.getCurrent() == OS.WINDOWS
+        ? new WindowsFileSystem(startupOptions.enableWindowsSymlinks)
+        : new UnixFileSystem();
   }
 
   private static SubprocessFactory subprocessFactoryImplementation() {
@@ -1194,20 +1158,29 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    * main method of the Blaze program.
    *
    * @param args Blaze startup options.
-   *
    * @return a new BlazeRuntime instance initialized with the given filesystem and directories, and
-   *         an error string that, if not null, describes a fatal initialization failure that makes
-   *         this runtime unsuitable for real commands
+   *     an error string that, if not null, describes a fatal initialization failure that makes this
+   *     runtime unsuitable for real commands
    */
-  private static BlazeRuntime newRuntime(Iterable<BlazeModule> blazeModules, List<String> args,
-      Runnable abruptShutdownHandler)
+  private static BlazeRuntime newRuntime(
+      Iterable<BlazeModule> blazeModules, List<String> args, Runnable abruptShutdownHandler)
       throws AbruptExitException, OptionsParsingException {
     OptionsParsingResult options = parseStartupOptions(blazeModules, args);
+    BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
+
+    // Set up the failure detail path first, so that it can communicate problems with other flags
+    // and module initialization.
+    PathFragment failureDetailOut = startupOptions.failureDetailOut;
+    if (failureDetailOut == null || !failureDetailOut.isAbsolute()) { // (includes "" default case)
+      throw new IllegalArgumentException(
+          "Bad --failure_detail_out option specified: '" + failureDetailOut + "'");
+    }
+    CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
+
     for (BlazeModule module : blazeModules) {
       module.globalInit(options);
     }
 
-    BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
     String productName = startupOptions.productName.toLowerCase(Locale.US);
 
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
@@ -1215,20 +1188,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     PathFragment outputUserRoot = startupOptions.outputUserRoot;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;
-    PathFragment failureDetailOut = startupOptions.failureDetailOut;
 
     maybeForceJNIByGettingPid(installBase); // Must be before first use of JNI.
 
     // From the point of view of the Java program --install_base, --output_base, --output_user_root,
     // and --failure_detail_out are mandatory options, despite the comment in their declarations.
-
-    // Set up the failure detail path first, so that it can communicate problems with the other
-    // flags.
-    if (failureDetailOut == null || !failureDetailOut.isAbsolute()) { // (includes "" default case)
-      throw new IllegalArgumentException(
-          "Bad --failure_detail_out option specified: '" + failureDetailOut + "'");
-    }
-    CustomFailureDetailPublisher.setFailureDetailFilePath(failureDetailOut.getPathString());
 
     if (installBase == null || !installBase.isAbsolute()) { // (includes "" default case)
       throw new IllegalArgumentException(
@@ -1257,11 +1221,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
 
       if (fs == null) {
-        fs = defaultFileSystemImplementation();
+        fs = defaultFileSystemImplementation(startupOptions);
       }
     } catch (DefaultHashFunctionNotSetException e) {
-      throw new AbruptExitException(
-          "No module set the default hash function.", ExitCode.BLAZE_INTERNAL_ERROR, e);
+      throw createFilesystemExitException(
+          "No module set the default hash function.",
+          ExitCode.BLAZE_INTERNAL_ERROR,
+          Filesystem.Code.DEFAULT_DIGEST_HASH_FUNCTION_NOT_SET,
+          e);
     }
 
     SubscriberExceptionHandler currentHandlerValue = null;
@@ -1328,8 +1295,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .setAbruptShutdownHandler(abruptShutdownHandler)
             .setEventBusExceptionHandler(subscriberExceptionHandler);
 
-    if (System.getenv("TEST_TMPDIR") != null
-        && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
+    if (TestType.isInTest() && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
       LoggingUtil.installRemoteLogger(getTestCrashLogger());
     }
 
@@ -1349,13 +1315,27 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     try {
       binTools = BinTools.forProduction(directories);
     } catch (IOException e) {
-      throw new AbruptExitException(
+      throw createFilesystemExitException(
           "Cannot enumerate embedded binaries: " + e.getMessage(),
-          ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+          ExitCode.LOCAL_ENVIRONMENTAL_ERROR,
+          Filesystem.Code.EMBEDDED_BINARIES_ENUMERATION_FAILURE,
+          e);
     }
     // Keep this line last in this method, so that all other initialization is available to it.
     runtime.initWorkspace(directories, binTools);
     return runtime;
+  }
+
+  private static AbruptExitException createFilesystemExitException(
+      String message, ExitCode exitCode, Filesystem.Code detailedCode, Exception e) {
+    return new AbruptExitException(
+        DetailedExitCode.of(
+            exitCode,
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setFilesystem(Filesystem.newBuilder().setCode(detailedCode))
+                .build()),
+        e);
   }
 
   private static String maybeGetPidString() {
@@ -1404,10 +1384,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           @Override
           public void publish(LogRecord record) {
             System.err.println("Remote logging disabled for testing, forcing abrupt shutdown.");
-            System.err.printf("%s#%s: %s\n",
-                record.getSourceClassName(),
-                record.getSourceMethodName(),
-                record.getMessage());
+            System.err.printf(
+                "%s#%s: %s\n",
+                record.getSourceClassName(), record.getSourceMethodName(), record.getMessage());
 
             Throwable e = record.getThrown();
             if (e != null) {
@@ -1490,7 +1469,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       ActionKeyContext actionKeyContext =
           this.actionKeyContext != null ? this.actionKeyContext : new ActionKeyContext();
       Clock clock = (this.clock == null) ? BlazeClock.instance() : this.clock;
-      UUID instanceId =  (this.instanceId == null) ? UUID.randomUUID() : this.instanceId;
+      UUID instanceId = (this.instanceId == null) ? UUID.randomUUID() : this.instanceId;
 
       Preconditions.checkNotNull(clock);
 
@@ -1536,10 +1515,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
-        Package.Builder.Helper candidateHelper =
-            module.getPackageBuilderHelper(ruleClassProvider, fileSystem);
+        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper();
         if (candidateHelper != null) {
-          Preconditions.checkState(packageBuilderHelper == null,
+          Preconditions.checkState(
+              packageBuilderHelper == null,
               "more than one module defines a package builder helper");
           packageBuilderHelper = candidateHelper;
         }
@@ -1554,14 +1533,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper,
-              getPackageValidator(blazeModules));
+              getPackageValidator(blazeModules),
+              getPackageLoadingListener(
+                  blazeModules, packageBuilderHelper, ruleClassProvider, fileSystem));
 
       ProjectFile.Provider projectFileProvider = null;
       for (BlazeModule module : blazeModules) {
         ProjectFile.Provider candidate = module.createProjectFileProvider();
         if (candidate != null) {
-          Preconditions.checkState(projectFileProvider == null,
-              "more than one module defines a project file provider");
+          Preconditions.checkState(
+              projectFileProvider == null, "more than one module defines a project file provider");
           projectFileProvider = candidate;
         }
       }
@@ -1678,5 +1659,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           packageValidators.size() <= 1, "more than one module defined a PackageValidator");
       return Iterables.getFirst(packageValidators, PackageValidator.NOOP_VALIDATOR);
     }
+  }
+
+  private static PackageLoadingListener getPackageLoadingListener(
+      List<BlazeModule> blazeModules,
+      Package.Builder.Helper packageBuilderHelper,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      FileSystem fs) {
+    ImmutableList<PackageLoadingListener> listeners =
+        blazeModules.stream()
+            .map(
+                module ->
+                    module.getPackageLoadingListener(packageBuilderHelper, ruleClassProvider, fs))
+            .filter(validator -> validator != null)
+            .collect(toImmutableList());
+    return PackageLoadingListener.create(listeners);
   }
 }

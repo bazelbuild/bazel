@@ -273,6 +273,10 @@ class StartupOptions {
   // See https://github.com/bazelbuild/bazel/issues/7935
   bool incompatible_enable_execution_transition;
 
+  // Whether to create symbolic links on Windows for files. Requires
+  // developer mode to be enabled.
+  bool windows_enable_symlinks;
+
  protected:
   // Constructor for subclasses only so that site-specific extensions of this
   // class can override the product name.  The product_name must be the

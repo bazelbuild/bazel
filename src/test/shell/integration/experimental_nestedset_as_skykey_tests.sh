@@ -238,6 +238,66 @@ EOF
   true  # reset the last exit code so the test won't be considered failed
 }
 
+# Regression test for b/154716911.
+function test_experimental_nested_set_as_skykey_missing_file() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+genrule(
+    name = "foo",
+    outs = ["file.o"],
+    cmd = ("touch $@"),
+    tools = [":bar"],
+)
 
+cc_binary(
+    name = "bar",
+    srcs = [
+        "bar.cc",
+        "missing.a",
+    ],
+)
+EOF
+  touch foo/bar.cc
+
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
+    &> "$TEST_log" && fail "Expected failure"
+
+  exit_code=$?
+  [[ $exit_code -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+
+  true  # reset the last exit code so the test won't be considered failed
+}
+
+# Regression test for b/155850727.
+function test_experimental_nested_set_as_skykey_incremental_err_reporting() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+genrule(
+    name = "foo",
+    outs = ["file.o"],
+    cmd = ("touch $@"),
+    tools = [":bar"],
+)
+
+java_library(
+    name = "bar",
+    srcs = [
+        "bar.java",
+    ],
+)
+EOF
+  echo "randomstuffs" > foo/bar.java
+
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
+    &> "$TEST_log" && fail "Expected failure"
+
+  # Verify that the incremental run prints the expected failure message.
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
+    &> "$TEST_log" && fail "Expected failure"
+
+
+  expect_log "ERROR"
+  expect_log "randomstuffs"
+}
 
 run_suite "Integration tests of ${PRODUCT_NAME} with NestedSet as SkyKey."

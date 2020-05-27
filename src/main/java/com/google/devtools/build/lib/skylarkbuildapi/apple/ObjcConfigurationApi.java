@@ -15,36 +15,36 @@
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A configuration fragment for Objective C. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "objc",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT,
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT,
     doc = "A configuration fragment for Objective-C.")
 public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ios_simulator_device",
       structField = true,
       allowReturnNones = true,
       doc = "The type of device (e.g. 'iPhone 6') to use when running on the simulator.")
   String getIosSimulatorDevice();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ios_simulator_version",
       structField = true,
       allowReturnNones = true,
       doc = "The SDK version of the iOS simulator to use when running on the simulator.")
   DottedVersionApi<?> getIosSimulatorVersion();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "simulator_device_for_platform_type",
       allowReturnNones = true,
       doc = "The type of device (e.g., 'iPhone 6' to simulate when running on the simulator.",
@@ -58,7 +58,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       })
   String getSimulatorDeviceForPlatformType(ApplePlatformTypeApiT platformType);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "simulator_version_for_platform_type",
       allowReturnNones = true,
       doc = "The SDK version of the simulator to use when running on the simulator.",
@@ -72,25 +72,25 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
       })
   DottedVersionApi<?> getSimulatorVersionForPlatformType(ApplePlatformTypeApiT platformType);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "generate_dsym",
       doc = "Whether to generate debug symbol(.dSYM) artifacts.",
       structField = true)
   boolean generateDsym();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "generate_linkmap",
       doc = "Whether to generate linkmap artifacts.",
       structField = true)
   boolean generateLinkmap();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "run_memleaks",
       structField = true,
       doc = "Returns a boolean indicating whether memleaks should be run during tests or not.")
   boolean runMemleaks();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "copts_for_current_compilation_mode",
       structField = true,
       doc =
@@ -98,7 +98,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
               + "mode.")
   ImmutableList<String> getCoptsForCompilationMode();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "copts",
       structField = true,
       doc =
@@ -107,7 +107,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
               + " rule.")
   ImmutableList<String> getCopts();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "signing_certificate_name",
       structField = true,
       allowReturnNones = true,
@@ -117,7 +117,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
   @Nullable
   String getSigningCertName();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "uses_device_debug_entitlements",
       structField = true,
       doc =
@@ -125,7 +125,7 @@ public interface ObjcConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfor
               + "application.")
   boolean useDeviceDebugEntitlements();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "enable_apple_binary_native_protos",
       structField = true,
       doc = "Returns whether apple_binary should generate and link protos natively.")

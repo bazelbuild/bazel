@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -266,15 +267,19 @@ public class CircularDependencyTest extends BuildViewTestCase {
                       new TransitionFactory<AttributeTransitionData>() {
                         @Override
                         public SplitTransition create(AttributeTransitionData data) {
-                          return (BuildOptions options, EventHandler eventHandler) -> {
-                            String define = data.attributes().get("define", STRING);
-                            BuildOptions newOptions = options.clone();
-                            CoreOptions optionsFragment = newOptions.get(CoreOptions.class);
-                            optionsFragment.commandLineBuildVariables =
-                                optionsFragment.commandLineBuildVariables.stream()
-                                    .filter((pair) -> !pair.getKey().equals(define))
-                                    .collect(toImmutableList());
-                            return ImmutableMap.of("define_cleaner", newOptions);
+                          return new SplitTransition() {
+                            @Override
+                            public Map<String, BuildOptions> split(
+                                BuildOptions options, EventHandler eventHandler) {
+                              String define = data.attributes().get("define", STRING);
+                              BuildOptions newOptions = options.clone();
+                              CoreOptions optionsFragment = newOptions.get(CoreOptions.class);
+                              optionsFragment.commandLineBuildVariables =
+                                  optionsFragment.commandLineBuildVariables.stream()
+                                      .filter((pair) -> !pair.getKey().equals(define))
+                                      .collect(toImmutableList());
+                              return ImmutableMap.of("define_cleaner", newOptions);
+                            }
                           };
                         }
 

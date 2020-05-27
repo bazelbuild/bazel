@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
  *     produced by during the build. Not every file produced during the build has a corresponding
  *     output file target.
  * <li>Rules. These describe things a build actually does. Each rule has a class (e.g. <code>
- *     cc_binary</code>). Rule classes can be defined either in Skylark using the <code>rule()
+ *     cc_binary</code>). Rule classes can be defined either in Starlark using the <code>rule()
  *     </code> function or in Java code by implementing {@link
  *     com.google.devtools.build.lib.analysis.RuleDefinition}.
  *

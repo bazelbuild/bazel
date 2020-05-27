@@ -15,16 +15,14 @@ SKYFRAME_OBJECT_SRCS = [
     "SkyFunctionName.java",
     "SkyKey.java",
     "SkyValue.java",
+    "Version.java",
 ]
 
 java_library(
     name = "skyframe-objects",
     srcs = SKYFRAME_OBJECT_SRCS,
     visibility = ["//visibility:public"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
@@ -36,7 +34,7 @@ java_library(
     deps = [
         ":graph_inconsistency_java_proto",
         ":skyframe-objects",
-        "//src/main/java/com/google/devtools/build/lib:bug-report",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",  # keep
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",

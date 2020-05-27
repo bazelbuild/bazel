@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.rules.android.AndroidSkylarkData.fromNoneable;
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -100,7 +100,8 @@ public final class AndroidSdkProvider extends NativeInfo
    * not specified.
    */
   public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(":android_sdk", Mode.TARGET, AndroidSdkProvider.PROVIDER);
+    return ruleContext.getPrerequisite(
+        ":android_sdk", TransitionMode.TARGET, AndroidSdkProvider.PROVIDER);
   }
 
   /** Throws an error if the Android SDK cannot be found. */

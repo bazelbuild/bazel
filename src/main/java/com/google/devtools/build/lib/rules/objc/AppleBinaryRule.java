@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransi
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagProvider;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTransitionFactory;
@@ -128,8 +128,8 @@ public class AppleBinaryRule implements RuleDefinition {
                 .direct_compile_time_input()
                 .mandatoryProviders(
                     ImmutableList.of(
-                        SkylarkProviderIdentifier.forKey(
-                            AppleExecutableBinaryInfo.SKYLARK_CONSTRUCTOR.getKey())))
+                        StarlarkProviderIdentifier.forKey(
+                            AppleExecutableBinaryInfo.STARLARK_CONSTRUCTOR.getKey())))
                 .allowedFileTypes()
                 .singleArtifact()
                 .aspect(objcProtoAspect))

@@ -28,7 +28,7 @@ public class RepositoryResolvedOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
-          "If non-empty, write a Skylark value with the resolved information of all Starlark"
+          "If non-empty, write a Starlark value with the resolved information of all Starlark"
               + " repository rules that were executed.")
   public String repositoryResolvedFile;
 }

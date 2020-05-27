@@ -71,6 +71,12 @@ java_library(
 )
 
 java_library(
+    name = "debug-logger-configurator",
+    srcs = ["DebugLoggerConfigurator.java"],
+    deps = [":util"],
+)
+
+java_library(
     name = "command",
     srcs = [
         "CommandBuilder.java",
@@ -152,6 +158,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:checker_framework_annotations",
         "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -169,6 +176,11 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "TestType",
+    srcs = ["TestType.java"],
 )
 
 java_library(
@@ -263,5 +275,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "interrupted_failure_details",
+    srcs = ["InterruptedFailureDetails.java"],
+    deps = [
+        ":abrupt_exit_exception",
+        ":detailed_exit_code",
+        ":exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )

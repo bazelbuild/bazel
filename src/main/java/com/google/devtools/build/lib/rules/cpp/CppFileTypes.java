@@ -49,7 +49,8 @@ public final class CppFileTypes {
 
   public static final FileType CPP_HEADER =
       FileType.of(
-          ".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H");
+          ".h", ".hh", ".hpp", ".ipp", ".hxx", ".h++", ".inc", ".inl", ".tlh", ".tli", ".H",
+          ".tcc");
   public static final FileType PCH = FileType.of(".pch");
   public static final FileTypeSet OBJC_HEADER = FileTypeSet.of(CPP_HEADER, PCH);
 
@@ -177,15 +178,15 @@ public final class CppFileTypes {
   // Matches shared libraries with version names in the extension, i.e.
   // libmylib.so.2 or libmylib.so.2.10 or libmylib.so.1a_b35.
   private static final Pattern VERSIONED_SHARED_LIBRARY_PATTERN =
-      Pattern.compile("^.+\\.so(\\.\\d\\w*)+$");
+      Pattern.compile("^.+\\.((so)|(dylib))(\\.\\d\\w*)+$");
   public static final FileType VERSIONED_SHARED_LIBRARY =
       new FileType() {
         @Override
         public boolean apply(String path) {
-          // Because regex matching can be slow, we first do a quick check for ".so."
+          // Because regex matching can be slow, we first do a quick check for ".so." and ".dylib."
           // substring before risking the full-on regex match. This should eliminate the performance
           // hit on practically every non-qualifying file type.
-          if (!path.contains(".so.")) {
+          if (!path.contains(".so.") && !path.contains(".dylib.")) {
             return false;
           }
           return VERSIONED_SHARED_LIBRARY_PATTERN.matcher(path).matches();

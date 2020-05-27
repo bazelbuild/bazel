@@ -14,26 +14,26 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * An interface for an info type that provides all compiling and linking information in the
  * transitive closure of its deps that are needed for building Objective-C rules.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ObjcProvider",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "A provider for compilation and linking of objc.")
 public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "define",
       structField = true,
       doc =
@@ -41,7 +41,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "all invocations of the compiler for this target and all depending targets.")
   Depset /*<String>*/ defineForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dynamic_framework_file",
       structField = true,
       doc =
@@ -49,13 +49,13 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "framework.")
   Depset /*<FileApiT>*/ dynamicFrameworkFileForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exported_debug_artifacts",
       structField = true,
       doc = "Debug files that should be exported by the top-level target.")
   Depset /*<FileApiT>*/ exportedDebugArtifacts();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "framework_search_path_only",
       structField = true,
       doc =
@@ -63,19 +63,19 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "in search paths, but not to link.")
   Depset /*<String>*/ frameworkIncludeForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "force_load_library",
       structField = true,
       doc = "Libraries to load with -force_load.")
   Depset /*<FileApiT>*/ forceLoadLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "header",
       structField = true,
       doc = "All header files. These may be either public or private headers.")
   Depset /*<FileApiT>*/ headerForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "direct_headers",
       structField = true,
       doc =
@@ -83,13 +83,13 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "These may be either public or private headers.")
   Sequence<FileApiT> directHeaders();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "imported_library",
       structField = true,
       doc = "Imported precompiled static libraries (.a files) to be linked into the binary.")
   Depset /*<FileApiT>*/ importedLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "include",
       structField = true,
       doc =
@@ -97,7 +97,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "header search paths (and distinct from <em>user</em> header search paths).")
   Depset includeForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "strict_include",
       structField = true,
       doc =
@@ -105,37 +105,37 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "as header search paths (and distinct from <em>user</em> header search paths).")
   Depset strictIncludeForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "include_system",
       structField = true,
       doc = "System include search paths (typically specified with -isystem).")
   Depset systemIncludeForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "iquote",
       structField = true,
       doc = "User header search paths (typically specified with -iquote).")
   Depset quoteIncludeForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "j2objc_library",
       structField = true,
       doc = "Static libraries that are built from J2ObjC-translated Java code.")
   Depset /*<FileApiT>*/ j2objcLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "jre_library",
       structField = true,
       doc = "J2ObjC JRE emulation libraries and their dependencies.")
   Depset /*<FileApiT>*/ jreLibrary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "library",
       structField = true,
       doc = "Library (.a) files compiled by dependencies of the current target.")
   Depset /*<FileApiT>*/ library();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "link_inputs",
       structField = true,
       doc =
@@ -145,7 +145,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + " add the necessary linker flags to 'linkopt'.")
   Depset /*<FileApiT>*/ linkInputs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "linked_binary",
       structField = true,
       doc =
@@ -153,16 +153,16 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "binary.")
   Depset /*<FileApiT>*/ linkedBinary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "linkmap_file",
       structField = true,
       doc = "Single-architecture link map for a binary.")
   Depset /*<FileApiT>*/ linkmapFile();
 
-  @SkylarkCallable(name = "linkopt", structField = true, doc = "Linking options.")
+  @StarlarkMethod(name = "linkopt", structField = true, doc = "Linking options.")
   Depset /*<String>*/ linkopt();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge_zip",
       structField = true,
       doc =
@@ -171,13 +171,13 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "include the bundle root path (e.g. 'Foo.app').")
   Depset /*<FileApiT>*/ mergeZip();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "module_map",
       structField = true,
       doc = "Clang module maps, used to enforce proper use of private header files.")
   Depset /*<FileApiT>*/ moduleMap();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "direct_module_maps",
       structField = true,
       doc =
@@ -185,52 +185,52 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "Used to enforce proper use of private header files and for Swift compilation.")
   Sequence<FileApiT> directModuleMaps();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "multi_arch_dynamic_libraries",
       structField = true,
       doc = "Combined-architecture dynamic libraries to include in the final bundle.")
   Depset /*<FileApiT>*/ multiArchDynamicLibraries();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "multi_arch_linked_archives",
       structField = true,
       doc = "Combined-architecture archives to include in the final bundle.")
   Depset /*<FileApiT>*/ multiArchLinkedArchives();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "multi_arch_linked_binaries",
       structField = true,
       doc = "Combined-architecture binaries to include in the final bundle.")
   Depset /*<FileApiT>*/ multiArchLinkedBinaries();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "sdk_dylib",
       structField = true,
       doc = "Names of SDK .dylib libraries to link with. For instance, 'libz' or 'libarchive'.")
   Depset /*<String>*/ sdkDylib();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "sdk_framework",
       structField = true,
       doc = "Names of SDK frameworks to link with (e.g. 'AddressBook', 'QuartzCore').")
   Depset sdkFramework();
 
-  @SkylarkCallable(name = "source", structField = true, doc = "All transitive source files.")
+  @StarlarkMethod(name = "source", structField = true, doc = "All transitive source files.")
   Depset /*<FileApiT>*/ sourceForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "direct_sources",
       structField = true,
       doc = "All direct source files from this target (no transitive files).")
   Sequence<FileApiT> directSources();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "static_framework_file",
       structField = true,
       doc = "The library files in .framework directories that should be statically linked.")
   Depset /*<FileApiT>*/ staticFrameworkFileForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "umbrella_header",
       structField = true,
       doc =
@@ -238,7 +238,7 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "compatible with J2ObjC segmented headers.")
   Depset /*<FileApiT>*/ umbrellaHeader();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "weak_sdk_framework",
       structField = true,
       doc =
@@ -247,31 +247,31 @@ public interface ObjcProviderApi<FileApiT extends FileApi> extends StarlarkValue
               + "frameworks do not cause an error if they are not present at runtime.")
   Depset weakSdkFramework();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dynamic_framework_names",
       structField = true,
       doc = "Returns all names of dynamic frameworks in this provider.")
   Depset /*<String>*/ dynamicFrameworkNamesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dynamic_framework_paths",
       structField = true,
       doc = "Returns all framework paths to dynamic frameworks in this provider.")
   Depset /*<String>*/ dynamicFrameworkPathsForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "static_framework_names",
       structField = true,
       doc = "Returns all names of static frameworks in this provider.")
   Depset /*<String>*/ staticFrameworkNamesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "static_framework_paths",
       structField = true,
       doc = "Returns all framework paths to static frameworks in this provider.")
   Depset /*<String>*/ staticFrameworkPathsForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compilation_context",
       doc =
           "Returns the embedded <code>CcCompilationContext</code> that contains the"

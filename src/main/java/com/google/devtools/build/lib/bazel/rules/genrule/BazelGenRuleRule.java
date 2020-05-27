@@ -153,9 +153,9 @@ public final class BazelGenRuleRule implements RuleDefinition {
   <li>Do use <code>$(location)</code> extensively, for outputs, tools and sources. Due to the
     segregation of output files for different configurations, genrules cannot rely on hard-coded
     and/or absolute paths.</li>
-  <li>Do write a common Skylark macro in case the same or very similar genrules are used in multiple
-    places. If the genrule is complex, consider implementing it in a script or as a Skylark rule.
-    This improves readability as well as testability.</li>
+  <li>Do write a common Starlark macro in case the same or very similar genrules are used in
+    multiple places. If the genrule is complex, consider implementing it in a script or as a
+    Starlark rule. This improves readability as well as testability.</li>
   <li>Do make sure that the exit code correctly indicates success or failure of the genrule.</li>
   <li>Do not write informational messages to stdout or stderr. While useful for debugging, this can
     easily become noise; a successful genrule should be silent. On the other hand, a failing genrule

@@ -101,7 +101,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         prefix is added.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("import_prefix", STRING))
-        .advertiseSkylarkProvider(ProtoInfo.PROVIDER.id())
+        .advertiseStarlarkProvider(ProtoInfo.PROVIDER.id())
         .build();
   }
 
@@ -136,7 +136,7 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
 <p>It only contains information about the <code>.proto</code> files directly mentioned by a
 <code>proto_library</code> rule; the collection of transitive descriptor sets is available through
-the <code>[ProtoInfo].transitive_descriptor_sets</code> Skylark provider.
+the <code>[ProtoInfo].transitive_descriptor_sets</code> Starlark provider.
 See documentation in <code>ProtoInfo.java</code>.</p>
 
 <p>Recommended code organization:</p>

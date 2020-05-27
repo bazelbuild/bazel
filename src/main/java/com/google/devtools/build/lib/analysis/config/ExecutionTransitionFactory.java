@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
@@ -22,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionFacto
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
 import javax.annotation.Nullable;
 
 /**
@@ -29,31 +32,38 @@ import javax.annotation.Nullable;
  * transition to a configuration suitable for building dependencies for the execution platform of
  * the depending target.
  */
-public class ExecutionTransitionFactory implements TransitionFactory<AttributeTransitionData> {
+public class ExecutionTransitionFactory
+    implements TransitionFactory<AttributeTransitionData>, ExecTransitionFactoryApi {
 
-  private ExecutionTransitionFactory() {}
+  private final String execGroup;
 
-  /** Returns a new {@link ExecutionTransitionFactory}. */
-  public static ExecutionTransitionFactory create() {
-    return new ExecutionTransitionFactory();
+  private ExecutionTransitionFactory(String execGroup) {
+    this.execGroup = execGroup;
   }
 
   /**
-   * Returns either a new {@link ExecutionTransitionFactory} or a factory for the {@link
-   * HostTransition}, depending on the value of {@code enableExecutionTransition}.
+   * Returns a new {@link ExecutionTransitionFactory} for the default {@link
+   * com.google.devtools.build.lib.packages.ExecGroup}.
    */
-  public static TransitionFactory<AttributeTransitionData> create(
-      boolean enableExecutionTransition) {
-    if (enableExecutionTransition) {
-      return create();
-    } else {
-      return HostTransition.createFactory();
-    }
+  public static ExecutionTransitionFactory create() {
+    return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  /**
+   * Returns a new {@link ExecutionTransitionFactory} for the given {@link
+   * com.google.devtools.build.lib.packages.ExecGroup}.
+   */
+  public static ExecutionTransitionFactory create(String execGroup) {
+    return new ExecutionTransitionFactory(execGroup);
   }
 
   @Override
   public PatchTransition create(AttributeTransitionData data) {
     return new ExecutionTransition(data.executionPlatform());
+  }
+
+  public String getExecGroup() {
+    return execGroup;
   }
 
   @Override

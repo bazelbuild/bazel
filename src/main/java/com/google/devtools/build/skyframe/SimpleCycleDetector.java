@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
@@ -39,7 +40,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
  * completed with at least one root unfinished.
  */
 public class SimpleCycleDetector implements CycleDetector {
-  private static final Logger logger = Logger.getLogger(SimpleCycleDetector.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final Duration MIN_LOGGING = Duration.ofMillis(10);
 
   @Override
@@ -193,7 +193,7 @@ public class SimpleCycleDetector implements CycleDetector {
         // Found a cycle!
         cyclesFound++;
         Iterable<SkyKey> cycle = graphPath.subList(cycleStart, graphPath.size());
-        logger.info("Found cycle : " + cycle + " from " + graphPath);
+        logger.atInfo().log("Found cycle : %s from %s", cycle, graphPath);
         // Put this node into a consistent state for building if it is dirty.
         if (entry.isDirty()) {
           // If this loop runs more than once, we are in the peculiar position of entry not needing
@@ -285,19 +285,14 @@ public class SimpleCycleDetector implements CycleDetector {
         ImmutableSet<SkyKey> childrenSet = ImmutableSet.copyOf(children);
         Set<SkyKey> missingChildren = Sets.difference(childrenSet, childrenNodes.keySet());
         if (missingChildren.isEmpty()) {
-          logger.warning(
-              "Mismatch for children?? "
-                  + childrenNodes.size()
-                  + ", "
-                  + temporaryDirectDeps.numElements()
-                  + ", "
-                  + childrenSet
-                  + ", "
-                  + childrenNodes
-                  + ", "
-                  + key
-                  + ", "
-                  + entry);
+          logger.atWarning().log(
+              "Mismatch for children?? %d, %d, %s, %s, %s, %s",
+              childrenNodes.size(),
+              temporaryDirectDeps.numElements(),
+              childrenSet,
+              childrenNodes,
+              key,
+              entry);
         } else {
           evaluatorContext
               .getGraphInconsistencyReceiver()
@@ -554,7 +549,7 @@ public class SimpleCycleDetector implements CycleDetector {
   }
 
   /**
-   * If child is not done, removes {@param inProgressParent} from {@param child}'s reverse deps.
+   * If child is not done, removes {@code inProgressParent} from {@code child}'s reverse deps.
    * Returns whether child should be removed from inProgressParent's entry's direct deps.
    */
   private static boolean removeIncompleteChildForCycle(

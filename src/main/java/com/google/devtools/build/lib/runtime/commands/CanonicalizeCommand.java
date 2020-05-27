@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
@@ -25,8 +25,15 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags;
+import com.google.devtools.build.lib.server.FailureDetails.CanonicalizeFlags.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.InvocationPolicyParser;
 import com.google.devtools.common.options.Option;
@@ -44,7 +51,7 @@ import java.util.logging.Level;
 /** The 'blaze canonicalize-flags' command. */
 @Command(
     name = "canonicalize-flags",
-    options = {CanonicalizeCommand.Options.class, PackageCacheOptions.class},
+    options = {CanonicalizeCommand.Options.class, PackageOptions.class},
     // inherits from query to get proper package loading options.
     inherits = {QueryCommand.class},
     allowResidue = true,
@@ -138,44 +145,79 @@ public final class CanonicalizeCommand implements BlazeCommand {
     String commandName = canonicalizeOptions.forCommand;
     BlazeCommand command = runtime.getCommandMap().get(commandName);
     if (command == null) {
-      env.getReporter().handle(Event.error("Not a valid command: '" + commandName
-          + "' (should be one of " + Joiner.on(", ").join(runtime.getCommandMap().keySet()) + ")"));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String message =
+          String.format(
+              "Not a valid command: '%s' (should be one of %s)",
+              commandName, Joiner.on(", ").join(runtime.getCommandMap().keySet()));
+      env.getReporter().handle(Event.error(message));
+      return BlazeCommandResult.detailedExitCode(
+          DetailedExitCode.of(
+              ExitCode.COMMAND_LINE_ERROR,
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setCanonicalizeFlags(
+                      CanonicalizeFlags.newBuilder().setCode(Code.FOR_COMMAND_INVALID))
+                  .build()));
     }
     Collection<Class<? extends OptionsBase>> optionsClasses =
         ImmutableList.<Class<? extends OptionsBase>>builder()
-            .addAll(BlazeCommandUtils.getOptions(
-                command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()))
+            .addAll(
+                BlazeCommandUtils.getOptions(
+                    command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider()))
             .add(FlagClashCanaryOptions.class)
             .build();
 
-    // set up the package cache for starlark options parsing
+    // set up the command environment for starlark options parsing
     try {
-      env.setupPackageCache(options);
+      env.syncPackageLoading(options);
     } catch (InterruptedException e) {
-      env.getReporter().handle(Event.error("canonicalization interrupted"));
-      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+      String message = "canonicalization interrupted";
+      env.getReporter().handle(Event.error(message));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(
+              message, Interrupted.Code.PACKAGE_LOADING_SYNC));
     } catch (AbruptExitException e) {
       env.getReporter().handle(Event.error(null, "Unknown error: " + e.getMessage()));
-      return BlazeCommandResult.exitCode(e.getExitCode());
+      return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
+    }
+
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(optionsClasses)
+            .skipStarlarkOptionPrefixes()
+            .allowResidue(true)
+            .build();
+
+    try {
+      parser.parse(options.getResidue());
+    } catch (OptionsParsingException e) {
+      return reportAndCreateCommandFailure(
+          env, e.getMessage(), FailureDetails.Command.Code.OPTIONS_PARSE_FAILURE);
     }
 
     try {
-      OptionsParser parser =
-          OptionsParser.builder()
-              .optionsClasses(optionsClasses)
-              .skipStarlarkOptionPrefixes()
-              .allowResidue(true)
-              .build();
-      parser.parse(options.getResidue());
       StarlarkOptionsParser.newStarlarkOptionsParser(env, parser).parse(env.getReporter());
-      if (!parser.getResidue().isEmpty()) {
-        String errorMsg = "Unrecognized arguments: " + Joiner.on(' ').join(parser.getResidue());
-        throw new OptionsParsingException(errorMsg);
-      }
+    } catch (OptionsParsingException e) {
+      return reportAndCreateCommandFailure(
+          env, e.getMessage(), FailureDetails.Command.Code.STARLARK_OPTIONS_PARSE_FAILURE);
+    }
 
-      InvocationPolicy policy =
-          InvocationPolicyParser.parsePolicy(canonicalizeOptions.invocationPolicy);
+    if (!parser.getResidue().isEmpty()) {
+      return reportAndCreateCommandFailure(
+          env,
+          "Unrecognized arguments: " + Joiner.on(' ').join(parser.getResidue()),
+          FailureDetails.Command.Code.ARGUMENTS_NOT_RECOGNIZED);
+    }
+
+    InvocationPolicy policy;
+    try {
+      policy = InvocationPolicyParser.parsePolicy(canonicalizeOptions.invocationPolicy);
+    } catch (OptionsParsingException e) {
+      return reportAndCreateCommandFailure(
+          env, e.getMessage(), FailureDetails.Command.Code.INVOCATION_POLICY_PARSE_FAILURE);
+    }
+
+    try {
       InvocationPolicyEnforcer invocationPolicyEnforcer =
           new InvocationPolicyEnforcer(policy, Level.INFO);
       invocationPolicyEnforcer.enforce(parser, commandName);
@@ -204,9 +246,22 @@ public final class CanonicalizeCommand implements BlazeCommand {
         }
       }
     } catch (OptionsParsingException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      return reportAndCreateCommandFailure(
+          env, e.getMessage(), FailureDetails.Command.Code.INVOCATION_POLICY_INVALID);
     }
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+
+    return BlazeCommandResult.success();
+  }
+
+  private static BlazeCommandResult reportAndCreateCommandFailure(
+      CommandEnvironment env, String message, FailureDetails.Command.Code detailedCode) {
+    env.getReporter().handle(Event.error(message));
+    return BlazeCommandResult.detailedExitCode(
+        DetailedExitCode.of(
+            ExitCode.COMMAND_LINE_ERROR,
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setCommand(FailureDetails.Command.newBuilder().setCode(detailedCode))
+                .build()));
   }
 }

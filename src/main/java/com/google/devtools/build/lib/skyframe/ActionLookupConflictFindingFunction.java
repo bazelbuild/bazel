@@ -13,14 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
+import com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ConflictException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -37,19 +40,23 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions =
-        SkyframeActionExecutor.BAD_ACTIONS.get(env);
+    ImmutableMap<ActionAnalysisMetadata, ConflictException> actionConflicts =
+        ACTION_CONFLICTS.get(env);
     ActionLookupValue alValue =
         (ActionLookupValue)
             env.getValue(((ActionLookupConflictFindingValue.Key) skyKey).argument());
     if (env.valuesMissing()) {
+      BugReport.sendBugReport(
+          new IllegalStateException(
+              "b/147589880: unexpected missing action lookup value during action conflict finding: "
+                  + skyKey));
       return null;
     }
 
     Set<ActionLookupConflictFindingValue.Key> depKeys = CompactHashSet.create();
     for (ActionAnalysisMetadata action : alValue.getActions()) {
-      if (badActions.containsKey(action)) {
-        throw new ActionConflictFunctionException(badActions.get(action));
+      if (actionConflicts.containsKey(action)) {
+        throw new ActionConflictFunctionException(actionConflicts.get(action));
       }
       convertArtifacts(action.getInputs()).forEach(depKeys::add);
     }
@@ -64,11 +71,7 @@ public class ActionLookupConflictFindingFunction implements SkyFunction {
       NestedSet<Artifact> artifacts) {
     return artifacts.toList().stream()
         .filter(a -> !a.isSourceArtifact())
-        .map(a -> (Artifact.DerivedArtifact) a)
-        .map(
-            a ->
-                ActionLookupConflictFindingValue.key(
-                    a.getGeneratingActionKey().getActionLookupKey()));
+        .map(ActionLookupConflictFindingValue::key);
   }
 
   @Nullable

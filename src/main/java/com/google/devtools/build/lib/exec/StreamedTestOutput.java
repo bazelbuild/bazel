@@ -27,7 +27,7 @@ import java.io.InputStream;
 import java.util.concurrent.TimeUnit;
 
 /** Implements the --test_output=streamed option. */
-class StreamedTestOutput implements Closeable {
+public class StreamedTestOutput implements Closeable {
   private static final int JOIN_ON_INTERRUPT_GRACE_PERIOD_SECONDS = 30;
 
   private final TestLogHelper.FilterTestHeaderOutputStream headerFilter;
@@ -35,7 +35,7 @@ class StreamedTestOutput implements Closeable {
   private final Path testLogPath;
   private final OutErr outErr;
 
-  StreamedTestOutput(OutErr outErr, Path testLogPath) throws IOException {
+  public StreamedTestOutput(OutErr outErr, Path testLogPath) throws IOException {
     this.testLogPath = testLogPath;
     this.outErr = outErr;
     this.headerFilter = TestLogHelper.getHeaderFilteringOutputStream(outErr.getOutputStream());

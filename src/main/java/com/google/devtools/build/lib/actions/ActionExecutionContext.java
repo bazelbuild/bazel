@@ -57,6 +57,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
   private final ActionInputPrefetcher actionInputPrefetcher;
   private final ActionKeyContext actionKeyContext;
   private final MetadataHandler metadataHandler;
+  private final boolean rewindingEnabled;
   private final LostInputsCheck lostInputsCheck;
   private final FileOutErr fileOutErr;
   private final ExtendedEventHandler eventHandler;
@@ -79,6 +80,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
+      boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
@@ -93,6 +95,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     this.actionInputPrefetcher = actionInputPrefetcher;
     this.actionKeyContext = actionKeyContext;
     this.metadataHandler = metadataHandler;
+    this.rewindingEnabled = rewindingEnabled;
     this.lostInputsCheck = lostInputsCheck;
     this.fileOutErr = fileOutErr;
     this.eventHandler = eventHandler;
@@ -115,6 +118,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
+      boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
@@ -130,6 +134,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
+        rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
         eventHandler,
@@ -148,6 +153,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
       ActionInputPrefetcher actionInputPrefetcher,
       ActionKeyContext actionKeyContext,
       MetadataHandler metadataHandler,
+      boolean rewindingEnabled,
       LostInputsCheck lostInputsCheck,
       FileOutErr fileOutErr,
       ExtendedEventHandler eventHandler,
@@ -161,6 +167,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
+        rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
         eventHandler,
@@ -203,6 +210,10 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return actionFileSystem;
   }
 
+  public boolean isRewindingEnabled() {
+    return rewindingEnabled;
+  }
+
   public void checkForLostInputs() throws LostInputsActionExecutionException {
     lostInputsCheck.checkForLostInputs();
   }
@@ -228,11 +239,9 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return pathResolver;
   }
 
-  /**
-   * Returns whether failures should have verbose error messages.
-   */
-  public boolean getVerboseFailures() {
-    return executor.getVerboseFailures();
+  /** Returns whether failures for {@code failedLabel} should have verbose error messages. */
+  public boolean showVerboseFailures(Label failedLabel) {
+    return executor.getVerboseFailuresPredicate().test(failedLabel);
   }
 
   /**
@@ -356,6 +365,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
+        rewindingEnabled,
         lostInputsCheck,
         fileOutErr,
         eventHandler,

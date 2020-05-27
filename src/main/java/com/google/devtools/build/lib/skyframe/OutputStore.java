@@ -13,11 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import java.util.Set;
@@ -28,10 +26,9 @@ import javax.annotation.Nullable;
 /**
  * Storage layer for data associated with outputs of an action.
  *
- * <p>Data is mainly stored in three maps, {@link #artifactData}, {@link #treeArtifactData} and
- * {@link #treeArtifactContents}, all of which are keyed on an {@link Artifact}. For each of these
- * maps, this class exposes standard methods such as {@code get}, {@code put}, {@code add}, and
- * {@code getAll}.
+ * <p>Data is mainly stored in two maps, {@link #artifactData} and {@link #treeArtifactData}, both
+ * of which are keyed on an {@link Artifact}. For each of these maps, this class exposes standard
+ * methods such as {@code get}, {@code put}, {@code add}, and {@code getAll}.
  *
  * <p>This implementation aggressively stores all data. Subclasses may override mutating methods to
  * avoid storing unnecessary data.
@@ -42,9 +39,6 @@ class OutputStore {
   private final ConcurrentMap<Artifact, FileArtifactValue> artifactData = new ConcurrentHashMap<>();
 
   private final ConcurrentMap<Artifact, TreeArtifactValue> treeArtifactData =
-      new ConcurrentHashMap<>();
-
-  private final ConcurrentMap<Artifact, Set<TreeFileArtifact>> treeArtifactContents =
       new ConcurrentHashMap<>();
 
   private final Set<Artifact> injectedFiles = Sets.newConcurrentHashSet();
@@ -79,27 +73,6 @@ class OutputStore {
     return ImmutableMap.copyOf(treeArtifactData);
   }
 
-  /**
-   * Returns a set of the given tree artifact's contents.
-   *
-   * <p>If the return value is {@code null}, this means nothing was injected, and the output
-   * TreeArtifact is to have its values read from disk instead.
-   */
-  @Nullable
-  final Set<TreeFileArtifact> getTreeArtifactContents(Artifact artifact) {
-    return treeArtifactContents.get(artifact);
-  }
-
-  void addTreeArtifactContents(Artifact artifact, TreeFileArtifact contents) {
-    Preconditions.checkArgument(artifact.isTreeArtifact(), artifact);
-    treeArtifactContents.computeIfAbsent(artifact, a -> Sets.newConcurrentHashSet()).add(contents);
-  }
-
-  void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
-    injectOutputData(
-        output, new FileArtifactValue.RemoteFileArtifactValue(digest, size, locationIndex));
-  }
-
   final void injectOutputData(Artifact output, FileArtifactValue artifactValue) {
     injectedFiles.add(output);
     artifactData.put(output, artifactValue);
@@ -114,7 +87,6 @@ class OutputStore {
   final void clear() {
     artifactData.clear();
     treeArtifactData.clear();
-    treeArtifactContents.clear();
     injectedFiles.clear();
   }
 
@@ -122,7 +94,6 @@ class OutputStore {
   final void remove(Artifact artifact) {
     artifactData.remove(artifact);
     treeArtifactData.remove(artifact);
-    treeArtifactContents.remove(artifact);
     injectedFiles.remove(artifact);
   }
 }

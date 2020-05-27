@@ -62,18 +62,15 @@ public class StarlarkCallbackHelper {
   }
 
   public ImmutableList<String> getParameterNames() {
-    return callback.getSignature().getParameterNames();
+    return callback.getParameterNames();
   }
 
   // TODO(adonovan): opt: all current callers are forced to construct a temporary ClassObject.
   // Instead, make them supply a map.
   public Object call(EventHandler eventHandler, ClassObject ctx, Object... arguments)
       throws EvalException, InterruptedException {
-    try (Mutability mutability = Mutability.create("callback", callback)) {
-      StarlarkThread thread =
-          StarlarkThread.builder(mutability)
-              .setSemantics(starlarkSemantics)
-              .build();
+    try (Mutability mu = Mutability.create("callback", callback)) {
+      StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
       context.storeInThread(thread);
       return Starlark.call(

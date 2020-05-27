@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.cpp.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
@@ -108,7 +108,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
     ProtoInfo protoInfo = checkNotNull(ctadBase.getConfiguredTarget().get(ProtoInfo.PROVIDER));
 
     try {
-      ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(this, parameters, ruleContext);
+      ConfiguredAspect.Builder result = new ConfiguredAspect.Builder(ruleContext);
       new Impl(ruleContext, protoInfo, cppSemantics, ccToolchainType).addProviders(result);
       return result.build();
     } catch (RuleErrorException e) {
@@ -123,7 +123,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
         new AspectDefinition.Builder(this)
             .propagateAlongAttribute("deps")
             .requiresConfigurationFragments(CppConfiguration.class, ProtoConfiguration.class)
-            .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
+            .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
             .addRequiredToolchains(ccToolchainType)
             .add(
                 attr(PROTO_TOOLCHAIN_ATTR, LABEL)
@@ -357,7 +357,7 @@ public abstract class CcProtoAspect extends NativeAspectClass implements Configu
               .getExecPath(
                   ruleContext
                       .getAnalysisEnvironment()
-                      .getSkylarkSemantics()
+                      .getStarlarkSemantics()
                       .experimentalSiblingRepositoryLayout());
       if (protoRootFragment.startsWith(repositoryPath)) {
         protoRootFragment = protoRootFragment.relativeTo(repositoryPath);

@@ -19,13 +19,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests Skylark API for Platform configuration fragments. */
+/** Tests Starlark API for Platform configuration fragments. */
 @RunWith(JUnit4.class)
 public class PlatformConfigurationApiTest extends BuildViewTestCase {
 
@@ -54,7 +54,7 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
     Label hostPlatform = (Label) info.getValue("host_platform");
@@ -86,7 +86,7 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new SkylarkKey(
+                new StarlarkProvider.Key(
                     Label.parseAbsolute("//verify:verify.bzl", ImmutableMap.of()), "result"));
 
     Label targetPlatform = (Label) info.getValue("target_platform");

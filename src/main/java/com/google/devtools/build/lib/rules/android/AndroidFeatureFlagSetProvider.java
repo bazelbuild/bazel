@@ -16,11 +16,12 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -101,7 +102,7 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     }
 
     Iterable<? extends TransitiveInfoCollection> actualTargets =
-        ruleContext.getPrerequisites(FEATURE_FLAG_ATTR, Mode.TARGET);
+        ruleContext.getPrerequisites(FEATURE_FLAG_ATTR, TransitionMode.TARGET);
     RuleErrorException exception = null;
     for (TransitiveInfoCollection target : actualTargets) {
       Label label = AliasProvider.getDependencyLabel(target);
@@ -123,6 +124,17 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
       throw exception;
     }
     return Optional.of(ImmutableMap.copyOf(expectedValues));
+  }
+
+  /** Returns the feature flags this rule sets as user-friendly strings. */
+  public static ImmutableSet<String> getFlagNames(RuleContext ruleContext) {
+    return ruleContext
+        .attributes()
+        .get(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR, BuildType.LABEL_KEYED_STRING_DICT)
+        .keySet()
+        .stream()
+        .map(label -> label.toString())
+        .collect(ImmutableSet.toImmutableSet());
   }
 
   /**
@@ -160,7 +172,7 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
     public AndroidFeatureFlagSetProvider create(Dict<?, ?> flags) // <Label, String>
         throws EvalException {
       return new AndroidFeatureFlagSetProvider(
-          Optional.of(Dict.castSkylarkDictOrNoneToDict(flags, Label.class, String.class, "flags")));
+          Optional.of(Dict.noneableCast(flags, Label.class, String.class, "flags")));
     }
   }
 }

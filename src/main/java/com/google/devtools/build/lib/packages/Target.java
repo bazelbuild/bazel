@@ -21,9 +21,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- *  A node in the build dependency graph, identified by a Label.
+ * A node in the build dependency graph, identified by a Label.
  *
- * This SkylarkModule does not contain any documentation since Skylark's Target type refers to
+ * <p>This StarlarkBuiltin does not contain any documentation since Starlark's Target type refers to
  * TransitiveInfoCollection.class, which contains the appropriate documentation.
  */
 public interface Target extends TargetApi {

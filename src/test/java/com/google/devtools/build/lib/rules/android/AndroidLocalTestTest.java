@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -275,6 +276,41 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
     final List<String> aaptArguments = ((SpawnAction) aaptAction).getArguments();
     assertThat(aaptArguments).contains("--resourceConfigs");
     assertThat(aaptArguments).contains("ar_XB");
+  }
+
+  @Test
+  public void featureFlagsSetByAndroidLocalTestAreInRequiredFragments() throws Exception {
+    useConfiguration("--include_config_fragments_provider=direct");
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(",
+        "    name = 'config_feature_flag',",
+        "    packages = ['//java/com/google/android/foo'])");
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "android_binary(",
+        "  name = 'foo_under_test',",
+        "  srcs = ['Test.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        ")",
+        "android_local_test(",
+        "    name = 'local_test',",
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps,",
+        "    feature_flags = {",
+        "      'flag1': 'on',",
+        "    },",
+        "    resource_configuration_filters = ['ar_XB'])");
+
+    ConfiguredTarget ct = getConfiguredTarget("//java/com/google/android/foo:local_test");
+    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getRequiredConfigFragments())
+        .contains("//java/com/google/android/foo:flag1");
   }
 
   @Override

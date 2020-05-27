@@ -16,19 +16,19 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.HasBinary;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /**
  * An attribute value consisting of a concatenation of native types and selects, e.g:
@@ -47,7 +47,7 @@ import java.util.Objects;
  *   )
  * </pre>
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "select",
     doc = "A selector between configuration-dependent entities.",
     documented = false)
@@ -152,9 +152,9 @@ public final class SelectorList implements StarlarkValue, HasBinary {
 
   private static String getTypeName(Object x) {
     if (x instanceof SelectorList) {
-      return "select of " + SkylarkType.of(((SelectorList) x).getType());
+      return "select of " + Depset.ElementType.of(((SelectorList) x).getType());
     } else if (x instanceof SelectorValue) {
-      return "select of " + SkylarkType.of(((SelectorValue) x).getType());
+      return "select of " + Depset.ElementType.of(((SelectorValue) x).getType());
     } else {
       return Starlark.type(x);
     }

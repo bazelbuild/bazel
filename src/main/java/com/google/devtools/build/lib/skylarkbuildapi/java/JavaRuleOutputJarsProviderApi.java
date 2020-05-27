@@ -16,30 +16,30 @@ package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object about outputs of a Java rule. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "java_output_jars",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "Information about outputs of a Java rule.")
 public interface JavaRuleOutputJarsProviderApi<OutputJarT extends OutputJarApi<?>>
     extends StarlarkValue {
 
-  @SkylarkCallable(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
+  @StarlarkMethod(name = "jars", doc = "A list of jars the rule outputs.", structField = true)
   ImmutableList<OutputJarT> getOutputJars();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "jdeps",
       doc = "The jdeps file for rule outputs.",
       structField = true,
       allowReturnNones = true)
   FileApi getJdeps();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "native_headers",
       doc = "An archive of native header files.",
       structField = true,

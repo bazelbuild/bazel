@@ -5,22 +5,22 @@ title: Installing Bazel on Windows
 
 # Installing Bazel on Windows
 
-## Installing
+## Installing Bazel
 
 ### Step 1: Check your system
 
-Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer, enable "Developer Mode".
+Recommended: 64 bit Windows 10, version 1703 (Creators Update) or newer
 
-<!-- Developer mode: for symlink support. -->
+To check your Windows version:
+* Click the Start button.
+* Type `winver` in the search box and press Enter.
+* You should see the About Windows box with your Windows version information.
 
 Also supported:
 
 *   64 bit Windows 7 or newer
 
 *   64 bit Windows Server 2008 R2 or newer
-
-*   Older Windows 10 versions, disabled "Developer Mode" (enabling the mode just lets you use the
-    `--enable_runfiles` Bazel flag)
 
 ### Step 2: Install the prerequisites
 
@@ -31,8 +31,6 @@ Also supported:
 [Download the Bazel binary (<code>bazel-&lt;version&gt;-windows-x86_64.exe</code>) from
  GitHub](https://github.com/bazelbuild/bazel/releases).
 
-Recommended: rename this binary to `bazel.exe` and move it to a directory on the `PATH`.
-
 Alternatively you can:
 
 *   [Download Bazelisk](https://github.com/bazelbuild/bazelisk) instead of Bazel. Bazelisk is a
@@ -41,40 +39,36 @@ Alternatively you can:
 *   [Install Bazel from Scoop](#using-scoop)
 *   [Build Bazel from source](install-compile-source.html)
 
-### Step 4 (optional): Configure output directories
+### Step 4: Set up your environment
 
-**You can skip this step. Bazel can work without configuring the output directories, and will use
-its default values.**
+To make Bazel easily accessible from command prompts or PowerShell by default, you can rename the Bazel binary to `bazel.exe` and add it to your default paths.
 
-By default, Bazel writes to two directories:
+```batch
+set PATH=%PATH%;<path to the Bazel binary>
+```
 
--   The "output user root", configurable with the `--output_user_root` flag.
+You can also change your system `PATH` environment variable to make it permanent. Check out how to [set environment variables](windows.html#setting-environment-variables).
 
-    This is where Bazel extracts from itself its embedded tools, its own runtime, and where it
-    writes some log files and some caches.
+### Step 5: Done
 
-    This is also the default location for the "output base".
+**You have successfully installed Bazel.**
+To check the installation is correct, try to run:
+```batch
+bazel version
+```
 
--   The "output base", configurable with the `--output_base` flag.
+Next, you can check out more tips and guidance here:
 
-    This is where Bazel writes all output files. By default, this is a subdirectory of the "output
-    user root".
+*   [Installing compilers and language runtimes](#installing-compilers-and-language-runtimes)
+*   [Troubleshooting](#troubleshooting)
+*   [Best practices on Windows](windows.html#best-practices)
+*   [Tutorials](getting-started.html#tutorials)
 
-By default, Bazel also writes in the workspace directory:
+---
 
--   The "convenience symlinks", configurable with the `--symlink_prefix` flag.
+## Installing compilers and language runtimes
 
-    These are the "bazel-bin", "bazel-testlogs", and similar directories that Bazel creates in your
-    workspace. These are not really directories but "junctions": they just point to other
-    directories in your filesystem (under the "output root").
-
-    You can tell Bazel not to create these junctions with `--symlink_prefix=/`.
-
-### Step 5 (optional): Install compilers and language runtimes
-
-**You can skip this step. Bazel can work without these programs, but you may need them.**
-
-We recommend installing:
+Depending on which languages you want to build, you will need:
 
 *   [MSYS2 x86_64](https://www.msys2.org/)
 
@@ -88,17 +82,17 @@ We recommend installing:
 *   Common MSYS2 packages
 
     You will likely need these to build and run targets that depend on Bash.  MSYS2 does not install
-    these tools by default, so you need to install them manually.
+    these tools by default, so you need to install them manually. Projects that depend on Bash tools in `PATH` need this step (for example TensorFlow).
 
     Open the MSYS2 terminal and run this command:
 
-    ```
+    ```bash
     pacman -S zip unzip patch diffutils git
     ```
+    Optional: If you want to use Bazel from CMD or Powershell and still be able to use Bash tools, make sure to add `<MSYS2_INSTALL_PATH>/usr/bin` to your `PATH` environment variable.
 
+<a name="install-vc"></a>
 *   [Build Tools for Visual Studio 2019](https://aka.ms/buildtools)
-
-    Make sure you install the C++ build tools with the Windows 10 SDK.
 
     You will need this to build C++ code on Windows.
 
@@ -108,26 +102,19 @@ We recommend installing:
 
     *   Visual C++ Build Tools 2015 (or newer) and Windows 10 SDK
 
-*   Java SE Development Kit 10 (JDK) for Windows x64
+<a name="install-jdk"></a>
+*   [Java SE Development Kit 11 (JDK) for Windows x64](https://www.oracle.com/java/technologies/javase-jdk11-downloads.html)
 
     You will need this to build Java code on Windows.
 
-    Also supported: Java 8 and 9
+    Also supported: Java 8, 9, and 10
 
-*   [Python 2.7 for Windows x86-64](https://www.python.org/downloads/windows/)
+<a name="install-python"></a>
+*   [Python 3.6 for Windows x86-64](https://www.python.org/downloads/windows/)
 
     You will need this to build Python code on Windows.
 
-    Also supported: Python 3 or newer for Windows x86-64
-
-### Step 6: Done
-
-**You have successfully installed Bazel.**
-
-Troubleshooting: see [troubleshooting](#troubleshooting) below.
-
-Tutorials: see [Getting Started with Bazel](getting-started.html) >
-[Tutorials](getting-started.html#tutorials).
+    Also supported: Python 2.7 or newer for Windows x86-64
 
 ---
 

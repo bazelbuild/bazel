@@ -26,11 +26,11 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.skyframe.PackageFunction.StarlarkImportResult;
+import com.google.devtools.build.lib.skyframe.PackageFunction.BzlLoadResult;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -38,9 +38,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /** A SkyFunction to parse the WORKSPACE file at a given path. */
 public class WorkspaceFileFunction implements SkyFunction {
@@ -48,18 +45,18 @@ public class WorkspaceFileFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final RuleClassProvider ruleClassProvider;
-  private final StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining;
+  private final BzlLoadFunction bzlLoadFunctionForInlining;
   private static final PackageIdentifier rootPackage = PackageIdentifier.createInMainRepo("");
 
   public WorkspaceFileFunction(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       BlazeDirectories directories,
-      StarlarkImportLookupFunction starlarkImportLookupFunctionForInlining) {
+      BzlLoadFunction bzlLoadFunctionForInlining) {
     this.packageFactory = packageFactory;
     this.directories = directories;
     this.ruleClassProvider = ruleClassProvider;
-    this.starlarkImportLookupFunctionForInlining = starlarkImportLookupFunctionForInlining;
+    this.bzlLoadFunctionForInlining = bzlLoadFunctionForInlining;
   }
 
   @Override
@@ -86,8 +83,8 @@ public class WorkspaceFileFunction implements SkyFunction {
       try {
         return new WorkspaceFileValue(
             /* pkg = */ builder.build(),
-            /* importMap = */ ImmutableMap.<String, Extension>of(),
-            /* importToChunkMap = */ ImmutableMap.<String, Integer>of(),
+            /* loadedModules = */ ImmutableMap.<String, Module>of(),
+            /* loadToChunkMap = */ ImmutableMap.<String, Integer>of(),
             /* bindings = */ ImmutableMap.<String, Object>of(),
             workspaceFile,
             /* idx = */ 0, // first fragment
@@ -122,22 +119,23 @@ public class WorkspaceFileFunction implements SkyFunction {
         if (prevValue.next() == null) {
           return prevValue;
         }
-        parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
+        parser.setParent(
+            prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
       }
       StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
-      StarlarkImportResult importResult =
-          PackageFunction.fetchImportsFromBuildFile(
+      BzlLoadResult loadResult =
+          PackageFunction.fetchLoadsFromBuildFile(
               workspaceFile,
               rootPackage,
               /*repoMapping=*/ ImmutableMap.of(),
               ast,
               key.getIndex(),
               env,
-              starlarkImportLookupFunctionForInlining);
-      if (importResult == null) {
+              bzlLoadFunctionForInlining);
+      if (loadResult == null) {
         return null;
       }
-      parser.execute(ast, importResult.importMap, key);
+      parser.execute(ast, loadResult.loadedModules, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {
@@ -147,8 +145,8 @@ public class WorkspaceFileFunction implements SkyFunction {
     try {
       return new WorkspaceFileValue(
           builder.build(),
-          parser.getImportMap(),
-          createImportToChunkMap(prevValue, parser, key),
+          parser.getLoadedModules(),
+          createLoadToChunkMap(prevValue, parser, key),
           parser.getVariableBindings(),
           workspaceFile,
           key.getIndex(),
@@ -161,10 +159,11 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   /**
-   * This returns a map from import statement to the chunk the
-   * import statement originated from.
+   * This returns a map from load statement to the chunk the load statement originated from.
    *
-   * For example, if the WORKSPACE file looked like the following:
+   * <p>For example, if the WORKSPACE file looked like the following:
+   *
+   * <pre>
    * load(":a.bzl", "a")
    * x = 0
    * load(":b.bzl", "b")
@@ -172,23 +171,23 @@ public class WorkspaceFileFunction implements SkyFunction {
    * load(":a.bzl", "a1")
    * load(":c.bzl", "c")
    * x = 2
+   * </pre>
    *
-   * Then the map for chunk 0 would be: {@code {":a.bzl" : 0}}
-   * for chunk 1 would be: {@code {":a.bzl" : 0, ":b.bzl" : 1}}
-   * for chunk 2 would be: {@code {":a.bzl" : 0, ":b.bzl" : 1, ":c.bzl" : 2}}
+   * Then the map for chunk 0 would be {@code {":a.bzl" : 0}}, for chunk 1 it'd be: {@code {":a.bzl"
+   * : 0, ":b.bzl" : 1}}, and for chunk 2 it'd be: {@code {":a.bzl" : 0, ":b.bzl" : 1, ":c.bzl" :
+   * 2}}
    */
-  private ImmutableMap<String, Integer> createImportToChunkMap(
+  private static ImmutableMap<String, Integer> createLoadToChunkMap(
       WorkspaceFileValue prevValue, WorkspaceFactory parser, WorkspaceFileKey key) {
     ImmutableMap.Builder<String, Integer> builder = new ImmutableMap.Builder<String, Integer>();
     if (prevValue == null) {
-      Map<String, Integer> map =
-          parser.getImportMap().keySet().stream()
-              .collect(Collectors.toMap(Function.identity(), s -> key.getIndex()));
-      builder.putAll(map);
+      for (String loadString : parser.getLoadedModules().keySet()) {
+        builder.put(loadString, key.getIndex());
+      }
     } else {
-      builder.putAll(prevValue.getImportToChunkMap());
-      for (String label : parser.getImportMap().keySet()) {
-        if (!prevValue.getImportToChunkMap().containsKey(label)) {
+      builder.putAll(prevValue.getLoadToChunkMap());
+      for (String label : parser.getLoadedModules().keySet()) {
+        if (!prevValue.getLoadToChunkMap().containsKey(label)) {
           builder.put(label, key.getIndex());
         }
       }

@@ -16,29 +16,29 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Additional layer of configurability for c++ rules through features and actions. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "CcToolchainConfigInfo",
     namespace = true,
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc =
         "Additional layer of configurability for C++ rules. Encapsulates platform-dependent "
             + "specifics of C++ actions through features and action configs. It is used to "
             + "configure the C++ toolchain, and later on for command line construction. "
             + "Replaces the functionality of CROSSTOOL file.")
 public interface CcToolchainConfigInfoApi extends StructApi {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "proto",
       doc = "Returns CToolchain text proto from the CcToolchainConfigInfo data.",
       structField = true)
   String getProto();
 
   /** Provider class for {@link CcToolchainConfigInfoApi} objects. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       // This object is documented via the CcInfo documentation and the docuemntation of its
       // callable function.

@@ -372,6 +372,7 @@ class TestBase(unittest.TestCase):
     self._worker_proc = subprocess.Popen(
         [
             worker_exe,
+            '--singlejar',
             '--listen_port=' + str(port),
             # This path has to be extremely short to avoid Windows path
             # length restrictions.

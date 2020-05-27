@@ -1902,11 +1902,10 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
             getPredecessorByInputName(linkAction, "pkg/bin.lto/pkg/_objs/bin/binfile.o");
 
     String expectedCompilerFlag =
-        "-Xclang-only=-prefetch-hints-file="
+        "-prefetch-hints-file="
             + (asLabel ? ".*/prefetch.afdo" : "(blaze|bazel)-out/.*/fdo/.*/prefetch.afdo");
     assertThat(Joiner.on(" ").join(backendAction.getArguments()))
-        .containsMatch(
-            "-Xclang-only=-mllvm " + expectedCompilerFlag);
+        .containsMatch("-mllvm " + expectedCompilerFlag);
 
     assertThat(ActionsTestUtil.baseArtifactNames(backendAction.getInputs()))
         .contains("prefetch.afdo");

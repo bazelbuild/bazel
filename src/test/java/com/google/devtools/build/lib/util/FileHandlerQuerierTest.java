@@ -108,7 +108,7 @@ public class FileHandlerQuerierTest {
     logger.addHandler(
         SimpleLogHandler.builder().setPrefix(tmp.getRoot() + File.separator + "hello.log").build());
 
-    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+    assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
   }
 
   @Test
@@ -116,6 +116,6 @@ public class FileHandlerQuerierTest {
     FileHandlerQuerier handlerQuerier = new FileHandlerQuerier();
     Logger logger = Logger.getAnonymousLogger();
 
-    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+    assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
   }
 }

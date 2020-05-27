@@ -18,10 +18,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.runtime.commands.ProjectFileSupport;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -45,6 +45,8 @@ import java.util.logging.Level;
  * <p>This class manages rc options, configs, default options, and invocation policy.
  */
 public final class BlazeOptionHandler {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   // Keep in sync with options added in OptionProcessor::AddRcfileArgsAndOptions()
   private static final ImmutableSet<String> INTERNAL_COMMAND_OPTIONS =
       ImmutableSet.of(
@@ -242,6 +244,7 @@ public final class BlazeOptionHandler {
       StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
     } catch (OptionsParsingException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
+      logger.atInfo().withCause(e).log("Error parsing options");
       return ExitCode.PARSING_FAILURE;
     }
     return ExitCode.SUCCESS;
@@ -304,6 +307,7 @@ public final class BlazeOptionHandler {
       }
     } catch (OptionsParsingException e) {
       eventHandler.handle(Event.error(e.getMessage()));
+      logger.atInfo().withCause(e).log("Error parsing options");
       return ExitCode.COMMAND_LINE_ERROR;
     }
     return ExitCode.SUCCESS;

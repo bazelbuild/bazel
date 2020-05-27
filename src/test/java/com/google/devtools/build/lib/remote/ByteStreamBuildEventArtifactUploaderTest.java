@@ -360,7 +360,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     byte[] b = contents.getBytes(StandardCharsets.UTF_8);
     HashCode h = HashCode.fromString(DIGEST_UTIL.compute(b).getHash());
     FileArtifactValue f =
-        new RemoteFileArtifactValue(h.asBytes(), b.length, /* locationIndex= */ 1);
+        new RemoteFileArtifactValue(h.asBytes(), b.length, /* locationIndex= */ 1, "action-id");
     inputs.putWithNoDepOwner(a, f);
     return a;
   }

@@ -13,6 +13,7 @@ java_library(
     name = "concurrent",
     srcs = glob(["*.java"]),
     deps = [
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

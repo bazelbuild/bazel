@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 
 /** A ConfiguredTarget for an OutputFile. */
 @AutoCodec
-@Immutable // (and Starlark-hashable)
+@Immutable
 public class OutputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final Artifact artifact;
@@ -74,7 +74,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
         artifact,
         instrumentedFilesInfo(generatingRule),
         generatingRule.getProvider(RequiredConfigFragmentsProvider.class),
-        Preconditions.checkNotNull(generatingRule).get(OutputGroupInfo.SKYLARK_CONSTRUCTOR));
+        Preconditions.checkNotNull(generatingRule).get(OutputGroupInfo.STARLARK_CONSTRUCTOR));
 
     this.artifact = artifact;
     this.generatingRule = Preconditions.checkNotNull(generatingRule);
@@ -83,7 +83,7 @@ public class OutputFileConfiguredTarget extends FileConfiguredTarget {
   private static InstrumentedFilesInfo instrumentedFilesInfo(
       TransitiveInfoCollection generatingRule) {
     Preconditions.checkNotNull(generatingRule);
-    InstrumentedFilesInfo provider = generatingRule.get(InstrumentedFilesInfo.SKYLARK_CONSTRUCTOR);
+    InstrumentedFilesInfo provider = generatingRule.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     return provider == null ? InstrumentedFilesInfo.EMPTY : provider;
   }
 

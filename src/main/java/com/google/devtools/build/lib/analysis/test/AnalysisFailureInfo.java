@@ -13,12 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * Implementation of {@link AnalysisFailureInfoApi}.
@@ -27,10 +27,8 @@ import com.google.devtools.build.lib.syntax.Depset;
  */
 public final class AnalysisFailureInfo implements Info, AnalysisFailureInfoApi<AnalysisFailure> {
 
-  /**
-   * Singleton provider instance for {@link AnalysisFailureInfo}.
-   */
-  public static final AnalysisFailureInfoProvider SKYLARK_CONSTRUCTOR =
+  /** Singleton provider instance for {@link AnalysisFailureInfo}. */
+  public static final AnalysisFailureInfoProvider STARLARK_CONSTRUCTOR =
       new AnalysisFailureInfoProvider();
 
   private final NestedSet<AnalysisFailure> causes;
@@ -41,7 +39,7 @@ public final class AnalysisFailureInfo implements Info, AnalysisFailureInfoApi<A
 
   @Override
   public AnalysisFailureInfoProvider getProvider() {
-    return SKYLARK_CONSTRUCTOR;
+    return STARLARK_CONSTRUCTOR;
   }
 
   /**

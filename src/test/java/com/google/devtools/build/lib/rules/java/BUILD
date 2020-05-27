@@ -13,16 +13,15 @@ filegroup(
 )
 
 java_test(
-    name = "JavaInfoSkylarkApiTest",
-    srcs = ["JavaInfoSkylarkApiTest.java"],
+    name = "JavaInfoStarlarkApiTest",
+    srcs = ["JavaInfoStarlarkApiTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
@@ -56,12 +55,12 @@ java_test(
 )
 
 java_test(
-    name = "JavaSkylarkApiTest",
-    srcs = ["JavaSkylarkApiTest.java"],
+    name = "JavaStarlarkApiTest",
+    srcs = ["JavaStarlarkApiTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -71,7 +70,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
-        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:junit4",
@@ -108,7 +106,7 @@ java_library(
     srcs = ["JavaCompileActionTestHelper.java"],
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:optionsparser",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//third_party:guava",
     ],

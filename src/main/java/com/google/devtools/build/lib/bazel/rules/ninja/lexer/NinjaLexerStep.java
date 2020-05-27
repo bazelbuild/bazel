@@ -46,9 +46,14 @@ import java.util.function.Predicate;
 public class NinjaLexerStep {
   private static final ImmutableSortedSet<Byte> IDENTIFIER_SYMBOLS =
       createByteSet("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-");
-  private static final ImmutableSortedSet<Byte> TEXT_STOPPERS = createByteSet("\n\r \t$:\u0000");
+  private static final byte[] TEXT_STOPPERS = createByteArray("\n\r \t$:\u0000");
   // We allow # symbol in the path, so the comment on the line with path can only start with space.
-  private static final ImmutableSortedSet<Byte> PATH_STOPPERS = createByteSet("\n\r \t$:|\u0000");
+  private static final byte[] PATH_STOPPERS = createByteArray("\n\r \t$:|\u0000");
+
+  private static byte[] createByteArray(String variants) {
+    byte[] bytes = variants.getBytes(StandardCharsets.ISO_8859_1);
+    return bytes;
+  }
 
   private static ImmutableSortedSet<Byte> createByteSet(String variants) {
     ImmutableSortedSet.Builder<Byte> builder = ImmutableSortedSet.naturalOrder();
@@ -242,11 +247,57 @@ public class NinjaLexerStep {
   }
 
   public void readText() {
-    end = eatSequence(position, TEXT_STOPPERS::contains);
+    int i = position;
+    for (; i < fragment.length(); i++) {
+      byte b = fragment.byteAt(i);
+      if (0 == b) {
+        seenZero = true;
+        end = i;
+        return;
+      }
+      if (isTextStopper(b)) {
+        break;
+      }
+    }
+    end = i;
   }
 
   public void readPath() {
-    end = eatSequence(position, PATH_STOPPERS::contains);
+    int i = position;
+    for (; i < fragment.length(); i++) {
+      byte b = fragment.byteAt(i);
+      if (0 == b) {
+        seenZero = true;
+        end = i;
+        return;
+      }
+      if (isPathStopper(b)) {
+        break;
+      }
+    }
+    end = i;
+  }
+
+  // Optimized, since this is run for each byte in the ninja file. (This has better performance
+  // than lookup in a java Set, since TEXT_STOPPERS is small.
+  private static boolean isTextStopper(byte b) {
+    for (int i = 0; i < TEXT_STOPPERS.length; i++) {
+      if (b == TEXT_STOPPERS[i]) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Optimized, since this is run for each byte in the ninja file. (This has better performance
+  // than lookup in a java Set, since PATH_STOPPERS is small.
+  private static boolean isPathStopper(byte b) {
+    for (int i = 0; i < PATH_STOPPERS.length; i++) {
+      if (b == PATH_STOPPERS[i]) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private int readIdentifier(int startFrom, boolean withDot) {

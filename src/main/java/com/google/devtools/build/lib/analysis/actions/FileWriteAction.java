@@ -48,19 +48,6 @@ import java.util.zip.GZIPOutputStream;
 @Immutable // if fileContents is immutable
 public final class FileWriteAction extends AbstractFileWriteAction {
 
-  /** Whether or not transparent compression is possible. */
-  public static enum Compression {
-    /** No compression, ever. */
-    DISALLOW,
-    /** May compress. */
-    ALLOW;
-
-    /** Maps true/false to allow/disallow respectively. */
-    public static Compression fromBoolean(boolean allow) {
-      return allow ? ALLOW : DISALLOW;
-    }
-  }
-
   private static final String GUID = "332877c7-ca9f-4731-b387-54f620408522";
 
   /**
@@ -235,7 +222,7 @@ public final class FileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public String getSkylarkContent() {
+  public String getStarlarkContent() {
     return getFileContents();
   }
 

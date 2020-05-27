@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -33,15 +34,13 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * This event is fired during the build, when an action is executed. It contains information about
  * the action: the Action itself, and the output file names its stdout and stderr are recorded in.
  */
 public class ActionExecutedEvent implements BuildEventWithConfiguration, ProgressLike {
-  private static final Logger logger = Logger.getLogger(ActionExecutedEvent.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final PathFragment actionId;
   private final Action action;
@@ -225,7 +224,7 @@ public class ActionExecutedEvent implements BuildEventWithConfiguration, Progres
       }
     } catch (CommandLineExpansionException e) {
       // Command-line not available, so just not report it
-      logger.log(Level.INFO, "Could no compute commandline of reported action", e);
+      logger.atInfo().withCause(e).log("Could not compute commandline of reported action");
     }
     return GenericBuildEvent.protoChaining(this).setAction(actionBuilder.build()).build();
   }

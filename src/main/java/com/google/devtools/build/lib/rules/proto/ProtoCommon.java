@@ -25,9 +25,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -275,7 +275,7 @@ public class ProtoCommon {
     PathFragment importPrefix;
 
     StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
+        ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
     boolean siblingRepositoryLayout = starlarkSemantics.experimentalSiblingRepositoryLayout();
     if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
       if (stripImportPrefixAttribute == null) {
@@ -434,12 +434,13 @@ public class ProtoCommon {
       RuleContext ruleContext, boolean generatedProtosInVirtualImports)
       throws InterruptedException {
     ImmutableList<Artifact> originalDirectProtoSources =
-        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list();
     ImmutableList<ProtoInfo> deps =
-        ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET, ProtoInfo.PROVIDER));
+        ImmutableList.copyOf(
+            ruleContext.getPrerequisites("deps", TransitionMode.TARGET, ProtoInfo.PROVIDER));
     ImmutableList<ProtoInfo> exports =
         ImmutableList.copyOf(
-            ruleContext.getPrerequisites("exports", Mode.TARGET, ProtoInfo.PROVIDER));
+            ruleContext.getPrerequisites("exports", TransitionMode.TARGET, ProtoInfo.PROVIDER));
 
     Library library =
         createLibraryWithVirtualSourceRootMaybe(
@@ -457,7 +458,7 @@ public class ProtoCommon {
               .getExecPath(
                   ruleContext
                       .getAnalysisEnvironment()
-                      .getSkylarkSemantics()
+                      .getStarlarkSemantics()
                       .experimentalSiblingRepositoryLayout());
       library =
           createLibraryWithoutVirtualSourceRoot(contextProtoSourceRoot, originalDirectProtoSources);

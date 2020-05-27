@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
@@ -63,7 +63,7 @@ public abstract class PyExecutable implements RuleConfiguredTargetFactory {
     }
 
     CcInfo ccInfo =
-        semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps", Mode.TARGET));
+        semantics.buildCcInfoProvider(ruleContext.getPrerequisites("deps", TransitionMode.TARGET));
 
     Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics, ccInfo);
 

@@ -253,7 +253,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
     OptionsParser optionsParser = runtimeWrapper.createOptionsParser();
     Command command = QueryCommand.class.getAnnotation(Command.class);
     CommandEnvironment env =
-        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>());
+        getBlazeWorkspace().initCommand(command, optionsParser, new ArrayList<>(), 0L, 0L);
     for (BlazeModule module : getRuntime().getBlazeModules()) {
       module.beforeCommand(env);
     }
@@ -278,7 +278,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
       // Ignored, as we know the test deviates from normal calling order.
     }
 
-    env.setupPackageCache(optionsParser);
+    env.syncPackageLoading(optionsParser);
 
     OutputFormatter formatter =
         OutputFormatters.getFormatter(

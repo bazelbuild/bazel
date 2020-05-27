@@ -13,35 +13,35 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Streams.stream;
+import static com.google.common.base.Preconditions.checkArgument;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
  * A marker for an {@link ActionLookupValue} which is known to be transitively error-free from
  * action conflict issues.
  */
-class ActionLookupConflictFindingValue implements SkyValue {
+public class ActionLookupConflictFindingValue implements SkyValue {
   @AutoCodec
   static final ActionLookupConflictFindingValue INSTANCE = new ActionLookupConflictFindingValue();
 
   private ActionLookupConflictFindingValue() {}
 
-  public static ImmutableList<SkyKey> keys(Iterable<ActionLookupValue.ActionLookupKey> lookupKeys) {
-    return stream(lookupKeys).map(Key::create).collect(toImmutableList());
-  }
-
   public static Key key(ActionLookupValue.ActionLookupKey lookupKey) {
     return Key.create(lookupKey);
+  }
+
+  public static Key key(Artifact artifact) {
+    checkArgument(artifact instanceof Artifact.DerivedArtifact, artifact);
+    return ActionLookupConflictFindingValue.key(
+        ((Artifact.DerivedArtifact) artifact).getGeneratingActionKey().getActionLookupKey());
   }
 
   @AutoCodec.VisibleForSerialization

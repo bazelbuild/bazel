@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -65,7 +65,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
   }
 
@@ -86,7 +86,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
     assertThat(Artifact.asExecPaths(objcProtoProvider.getProtobufHeaders()))
         .containsExactly(TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/include/header.h");
@@ -122,7 +122,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  srcs = ['A.m'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNull();
   }
 
@@ -157,7 +157,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
     assertThat(Artifact.asExecPaths(Iterables.concat(objcProtoProvider.getProtoFiles().toList())))
@@ -189,7 +189,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  deps = [':protos'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
     assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
@@ -232,7 +232,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  deps = [':protos'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
     assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
@@ -243,7 +243,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcProtoAspectPropagatesProviderThroughSkylarkRule() throws Exception {
+  public void testObjcProtoAspectPropagatesProviderThroughStarlarkRule() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("x/data_filter.pbascii");
     scratch.file("test_skylark/BUILD");
@@ -288,12 +288,12 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ConfiguredTarget topTarget = getConfiguredTarget("//bin:link_target");
 
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//test_skylark:top_level_stub.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl info = (StructImpl) topTarget.get(key);
 
     ConfiguredTarget depTarget = (ConfiguredTarget) info.getValue("dep");
-    ObjcProtoProvider objcProtoProvider = depTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = depTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
 
     assertThat(objcProtoProvider).isNotNull();
   }

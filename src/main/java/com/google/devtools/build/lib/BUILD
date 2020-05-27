@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load(":merge_licenses.bzl", "merge_licenses")
 
 ########################################################################
 # Description:
@@ -35,12 +34,10 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/docgen:srcs",
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis:srcs",
         "//src/main/java/com/google/devtools/build/lib/authandtls:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bugreport:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice/client:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventservice:srcs",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:srcs",
@@ -56,11 +53,12 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/concurrent:srcs",
         "//src/main/java/com/google/devtools/build/lib/dynamic:srcs",
         "//src/main/java/com/google/devtools/build/lib/events:srcs",
-        "//src/main/java/com/google/devtools/build/lib/exec/local:srcs",
+        "//src/main/java/com/google/devtools/build/lib/exec:srcs",
         "//src/main/java/com/google/devtools/build/lib/graph:srcs",
         "//src/main/java/com/google/devtools/build/lib/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/network:srcs",
         "//src/main/java/com/google/devtools/build/lib/packages:srcs",
+        "//src/main/java/com/google/devtools/build/lib/packages/metrics:srcs",
         "//src/main/java/com/google/devtools/build/lib/pkgcache:srcs",
         "//src/main/java/com/google/devtools/build/lib/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/profiler/callcounts:srcs",
@@ -73,32 +71,21 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/query2/query/output:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/android:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/swift:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/config:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/python:srcs",
+        "//src/main/java/com/google/devtools/build/lib/repository:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules:srcs",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands:srcs",
+        "//src/main/java/com/google/devtools/build/lib/runtime/events:srcs",
+        "//src/main/java/com/google/devtools/build/lib/runtime/mobileinstall:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
+        "//src/main/java/com/google/devtools/build/lib/server:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/packages:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:srcs",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/module:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/server:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface/processor:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/server:srcs",
+        "//src/main/java/net/starlark/java/annot/processor:srcs",
+        "//src/main/java/net/starlark/java/annot:srcs",
         "//src/main/java/com/google/devtools/build/lib/ssd:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/supplier:srcs",
@@ -140,7 +127,7 @@ java_library(
     ],
 )
 
-# Skylark language for configuration files.
+# Starlark language for configuration files.
 #
 # IMPORTANT:  NOT A PUBLIC INTERFACE. TARGETS SHOULDN'T DEPEND ON THIS.
 #
@@ -157,30 +144,6 @@ java_library(
     ],
 )
 
-# Provides core configuration transition abstractions and Blaze-common (i.e not
-# rule-specific) transitions.
-java_library(
-    name = "config-transitions",
-    srcs = glob([
-        "analysis/config/transitions/*.java",
-    ]) + [
-        "analysis/config/BuildOptions.java",
-        "analysis/config/FragmentOptions.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:trimmed_configuration_cache",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
 java_library(
     name = "syntax",
     srcs = [],
@@ -191,261 +154,11 @@ java_library(
     ],
 )
 
-java_library(
-    name = "transitive-info-provider",
-    srcs = ["analysis/TransitiveInfoProvider.java"],
-)
-
-java_library(
-    name = "config-matching-provider",
-    srcs = ["analysis/config/ConfigMatchingProvider.java"],
-    deps = [
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "provider-collection",
-    srcs = [
-        "analysis/ProviderCollection.java",
-    ],
-    deps = [
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "build-configuration-option-details",
-    srcs = ["analysis/config/BuildConfigurationOptionDetails.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib/rules/config:__pkg__",
-    ],
-    deps = [
-        ":build-base",
-    ],
-)
-
-java_library(
-    name = "build-base",
-    srcs = glob(
-        [
-            "analysis/*.java",
-            "analysis/actions/*.java",
-            "analysis/buildinfo/*.java",
-            "analysis/config/*.java",
-            "analysis/config/transitions/*.java",
-            "analysis/configuredtargets/*.java",
-            "analysis/constraints/*.java",
-            "analysis/extra/*.java",
-            "analysis/fileset/*.java",
-            "analysis/skylark/*.java",
-            "analysis/test/*.java",
-            "exec/*.java",
-            "repository/*.java",
-            "rules/*.java",
-            "rules/extra/*.java",
-            "rules/filegroup/*.java",
-            "rules/fileset/*.java",
-            "rules/repository/*.java",
-            "skyframe/*.java",
-            "skyframe/actiongraph/*.java",
-            "skyframe/actiongraph/v2/*.java",
-        ],
-        allow_empty = True,
-        exclude = [
-            "analysis/BuildInfo.java",
-            "analysis/BuildVersionInfo.java",
-            "analysis/ProviderCollection.java",
-            "analysis/TransitiveInfoProvider.java",
-            "analysis/config/BuildConfigurationOptionDetails.java",
-            "rules/repository/CoreWorkspaceRules.java",
-            "skyframe/SaneAnalysisException.java",
-        ],
-    ) + [
-        "runtime/BlazeServerStartupOptions.java",
-        "runtime/BuildEventStreamerUtils.java",
-    ],
-    exports = [
-        ":rule-definition-context",
-        ":sane_analysis_exception",
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
-    ],
-    deps = [
-        ":bug-report",
-        ":build-request-options",
-        ":keep-going-option",
-        ":provider-collection",
-        ":sane_analysis_exception",
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
-        "//src/main/java/com/google/devtools/build/lib/actionsketch:action_sketch",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_utils",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations",
-        "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/causes",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/graph",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
-        "//src/main/java/com/google/devtools/build/lib/pkgcache",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
-        "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
-        "//src/main/java/com/google/devtools/build/lib/remote/options",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp:cpp_interface",
-        "//src/main/java/com/google/devtools/build/lib/shell",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:action_rewind_event_java_proto",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/trimming:trimmed_configuration_cache",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/supplier",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/unix/jni",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:command",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:process",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
-        "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
-        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/build/lib/util/io",
-        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:output_service",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:analysis_java_proto",
-        "//src/main/protobuf:analysis_v2_java_proto",
-        "//src/main/protobuf:extra_actions_base_java_proto",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:spawn_java_proto",
-        "//src/main/protobuf:test_status_java_proto",
-        "//src/main/protobuf:xcode_java_proto",
-        "//third_party:auto_value",
-        "//third_party:flogger",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
-        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
-    ],
-)
-
-# Rules
-java_library(
-    name = "nativedeps-rules",
-    srcs = glob(
-        ["rules/nativedeps/*.java"],
-    ),
-    deps = [
-        ":build-base",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "core-rules",
-    srcs = glob(
-        ["rules/core/*.java"],
-    ),
-    deps = [
-        ":build-base",
-        "//third_party:guava",
-    ],
-)
-
-# TODO(bazel-team): Include in the srcs the implementations of the rules inside
-# CoreWorkspaceRules.java once they can be extracted from the "build-base" target. They can't be
-# extracted currently because of non-trivial inter-package dependencies.
-java_library(
-    name = "core-workspace-rules",
-    srcs = [
-        "rules/repository/CoreWorkspaceRules.java",
-    ],
-    deps = [
-        ":build-base",
-        ":core-rules",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "testing-support-rules",
-    srcs = glob(
-        ["rules/test/*.java"],
-    ),
-    deps = [
-        ":build-base",
-        ":core-rules",
-        ":transitive-info-provider",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_proto",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
-        "//src/main/java/com/google/devtools/build/lib/packages:type",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
-        "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/protobuf:test_status_java_proto",
-        "//third_party:guava",
-    ],
-)
-
+# Deprecated: This target has been moved. Depend on the actual target instead.
 java_library(
     name = "shared-base-rules",
     exports = [
-        ":nativedeps-rules",
+        "//src/main/java/com/google/devtools/build/lib/rules:nativedeps",
         "//src/main/java/com/google/devtools/build/lib/rules/android",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
         "//src/main/java/com/google/devtools/build/lib/rules/java:java-rules",
@@ -463,8 +176,21 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "runtime/blaze_server_startup_options",
+    srcs = ["runtime/BlazeServerStartupOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
@@ -479,59 +205,49 @@ java_library(
     srcs = ["runtime/LoadingPhaseThreadsOption.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:flogger",
     ],
 )
 
 java_library(
-    name = "server",
+    name = "runtime/blaze_command_result",
     srcs = [
-        "server/CommandManager.java",
-        "server/GrpcServerImpl.java",
-        "server/IdleServerTasks.java",
-        "server/ServerWatcherRunnable.java",
+        "runtime/BlazeCommandResult.java",
     ],
     deps = [
-        ":bug-report",
-        ":runtime",
-        "//src/main/java/com/google/devtools/build/lib/clock",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
-        "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
-        "//src/main/java/com/google/devtools/build/lib/unix",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:os",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/java/com/google/devtools/common/options:invocation_policy",
-        "//src/main/protobuf:command_server_java_grpc",
-        "//src/main/protobuf:command_server_java_proto",
-        "//src/main/protobuf:failure_details_java_proto",
-        "//src/main/protobuf:invocation_policy_java_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party/grpc:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "bug-report",
-    srcs = glob(["bugreport/*.java"]),
-    deps = [
-        ":blaze-version-info",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
-        "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
-        "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:logging",
-        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:command_server_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "runtime/build_event_streamer_utils",
+    srcs = ["runtime/BuildEventStreamerUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/protobuf:test_status_java_proto",
+    ],
+)
+
+java_library(
+    name = "runtime/command_dispatcher",
+    srcs = [
+        "runtime/CommandDispatcher.java",
+    ],
+    deps = [
+        ":runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
+        "//src/main/protobuf:invocation_policy_java_proto",
     ],
 )
 
@@ -540,34 +256,49 @@ java_library(
     srcs = glob(
         [
             "runtime/*.java",
-            "runtime/commands/*.java",
-            "runtime/mobileinstall/*.java",
             "buildtool/*.java",
             "buildtool/buildevent/*.java",
         ],
         exclude = [
             "buildtool/BuildRequestOptions.java",
+            "runtime/BlazeCommandResult.java",
+            "runtime/CommandDispatcher.java",
             "runtime/KeepGoingOption.java",
             "runtime/LoadingPhaseThreadsOption.java",
         ],
-    ) + [
-        "server/RPCServer.java",
-        "server/signal/InterruptSignalHandler.java",
-    ],
-    resources = glob([
-        "runtime/commands/*.txt",
-        "runtime/mobileinstall/*.txt",
-    ]),
+    ),
     deps = [
-        ":bug-report",
-        ":build-base",
         ":build-request-options",
         ":keep-going-option",
         ":loading-phase-threads-option",
-        ":shared-base-rules",
+        ":runtime/blaze_command_result",
+        ":runtime/command_dispatcher",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_phase_complete_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis:build_info_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:build_view",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:no_build_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:no_build_request_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/coverage_report_action_factory",
+        "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/transports",
@@ -577,6 +308,20 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
+        "//src/main/java/com/google/devtools/build/lib/exec:blaze_executor",
+        "//src/main/java/com/google/devtools/build/lib/exec:check_up_to_date_filter",
+        "//src/main/java/com/google/devtools/build/lib/exec:execution_options",
+        "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
+        "//src/main/java/com/google/devtools/build/lib/exec:executor_lifecycle_listener",
+        "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
+        "//src/main/java/com/google/devtools/build/lib/exec:remote_local_fallback_registry",
+        "//src/main/java/com/google/devtools/build/lib/exec:single_build_file_cache",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_cache",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_resolver",
+        "//src/main/java/com/google/devtools/build/lib/exec:symlink_tree_strategy",
+        "//src/main/java/com/google/devtools/build/lib/exec:test_log_helper",
         "//src/main/java/com/google/devtools/build/lib/exec/local:options",
         "//src/main/java/com/google/devtools/build/lib/metrics:event",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -587,28 +332,52 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/platform:suspend_counter",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
-        "//src/main/java/com/google/devtools/build/lib/profiler:profiler-output",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:allocationtracker",
         "//src/main/java/com/google/devtools/build/lib/query2",
-        "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
+        "//src/main/java/com/google/devtools/build/lib/query2:aquery-utils",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/query2/query/output",
+        "//src/main/java/com/google/devtools/build/lib/rules:alias",
+        "//src/main/java/com/google/devtools/build/lib/runtime/events",
+        "//src/main/java/com/google/devtools/build/lib/server:rpc_server",
+        "//src/main/java/com/google/devtools/build/lib/server/signal",
         "//src/main/java/com/google/devtools/build/lib/shell",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:action_execution_inactivity_watchdog",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:actiongraph/v2/aquery_output_handler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:build_configuration_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configuration_phase_started_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_progress_receiver",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:diff_awareness",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:execution_finished_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:loading_phase_started_event",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_progress_receiver",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_value_dirtiness_checker",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:target_pattern_phase_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:top_down_action_cache",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/unix",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:TestType",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:command",
         "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
         "//src/main/java/com/google/devtools/build/lib/util:custom_exit_code_publisher",
         "//src/main/java/com/google/devtools/build/lib/util:custom_failure_detail_publisher",
+        "//src/main/java/com/google/devtools/build/lib/util:debug-logger-configurator",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:exit_code",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/util:interrupted_failure_details",
+        "//src/main/java/com/google/devtools/build/lib/util:logging",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:process",
-        "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",
         "//src/main/java/com/google/devtools/build/lib/util:string",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/util/io:out-err",
@@ -622,75 +391,34 @@ java_library(
         "//src/main/java/com/google/devtools/common/options:invocation_policy",
         "//src/main/protobuf:action_cache_java_proto",
         "//src/main/protobuf:analysis_java_proto",
-        "//src/main/protobuf:bazel_flags_java_proto",
-        "//src/main/protobuf:build_java_proto",
         "//src/main/protobuf:command_line_java_proto",
         "//src/main/protobuf:command_server_java_proto",
-        "//src/main/protobuf:extra_actions_base_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:option_filters_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
         "//third_party:flogger",
-        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@com_google_protobuf//:protobuf_java",
     ],
-)
-
-java_library(
-    name = "blaze-version-info",
-    srcs = [
-        "analysis/BlazeVersionInfo.java",
-    ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "rule-definition-context",
-    srcs = [
-        "analysis/RuleDefinitionContext.java",
-    ],
-)
-
-merge_licenses(
-    name = "merge_licenses",
-    srcs = [
-        "//:LICENSE",
-        "//third_party:srcs",
-    ],
-    out = "runtime/commands/LICENSE",
 )
 
 java_library(
     name = "all-build-rules",
     exports = [
-        ":build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:legacy_exports",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/graph",
+        "//src/main/java/com/google/devtools/build/lib/rules:legacy_exports",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "build",
-    exports = [
-        ":all-build-rules",
-        ":build-base",
-        ":foundation",
-        ":query2",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/packages",
     ],
 )
 
@@ -734,19 +462,11 @@ filegroup(
 filegroup(
     name = "docs_embedded_in_sources",
     srcs = glob(["**/*.java"]) + [
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis:srcs",
+        "//src/main/java/com/google/devtools/build/lib/exec:srcs",
+        "//src/main/java/com/google/devtools/build/lib/repository:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/config:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp/proto:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/genrule:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/rules/proto:srcs",
     ],
 )
 
@@ -780,6 +500,8 @@ genrule(
     cmd = (
         "cat $(location //site:command-line-reference-prefix.html) > $@ && " +
         "TMP=`mktemp -d /tmp/tmp.XXXXXXXXXX` && " +
+        # TODO(#11179): Remove when the stub template fix is released.
+        "export JARBIN=$(JAVABASE)/bin/jar && " +
         "$(location //src/main/java/com/google/devtools/build/lib/bazel:BazelServer) " +
         "--jvm_flag=-Dio.bazel.EnableJni=0 --batch " +
         "--install_base=$${TMP} --output_base=$${TMP}/output/ --output_user_root=$${TMP} " +
@@ -787,6 +509,7 @@ genrule(
         "help everything-as-html >> $@ 2>/dev/null && " +
         "cat $(location //site:command-line-reference-suffix.html) >> $@"
     ),
+    toolchains = ["@bazel_tools//tools/jdk:current_host_java_runtime"],
     tools = [
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer",
     ],
@@ -801,25 +524,4 @@ genrule(
           " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
     visibility = ["//site:__pkg__"],
-)
-
-########################################################################
-#
-# Miscellaneous targets
-#
-
-# A library for just the BuildInfo class, so it can be used by the external
-# SingleJar implementation.
-
-java_library(
-    name = "build-info",
-    srcs = [
-        "analysis/BuildInfo.java",
-    ],
-)
-
-# TODO(b/144899336): This belongs in skyframe/BUILD once it exists.
-java_library(
-    name = "sane_analysis_exception",
-    srcs = ["skyframe/SaneAnalysisException.java"],
 )

@@ -51,8 +51,8 @@ public class PlatformInfo extends NativeInfo
    */
   public static final String PARENT_REMOTE_EXECUTION_KEY = "{PARENT_REMOTE_EXECUTION_PROPERTIES}";
 
-  /** Name used in Skylark for accessing this provider. */
-  public static final String SKYLARK_NAME = "PlatformInfo";
+  /** Name used in Starlark for accessing this provider. */
+  public static final String STARLARK_NAME = "PlatformInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<PlatformInfo> PROVIDER = new Provider();
@@ -62,7 +62,7 @@ public class PlatformInfo extends NativeInfo
       implements PlatformInfoApi.Provider<
           ConstraintSettingInfo, ConstraintValueInfo, PlatformInfo> {
     private Provider() {
-      super(SKYLARK_NAME, PlatformInfo.class);
+      super(STARLARK_NAME, PlatformInfo.class);
     }
 
     @Override
@@ -80,11 +80,12 @@ public class PlatformInfo extends NativeInfo
       }
       if (!constraintValuesUnchecked.isEmpty()) {
         builder.addConstraints(
-            constraintValuesUnchecked.getContents(ConstraintValueInfo.class, "constraint_values"));
+            Sequence.cast(
+                constraintValuesUnchecked, ConstraintValueInfo.class, "constraint_values"));
       }
       if (execPropertiesUnchecked != null) {
-        Map<String, String> execProperties =
-            Dict.castSkylarkDictOrNoneToDict(
+        Dict<String, String> execProperties =
+            Dict.noneableCast(
                 execPropertiesUnchecked, String.class, String.class, "exec_properties");
         builder.setExecProperties(ImmutableMap.copyOf(execProperties));
       }

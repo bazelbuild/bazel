@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSortedMap;
 import javax.annotation.concurrent.Immutable;
 
@@ -27,8 +26,11 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public final class NinjaRule {
   private final ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables;
+  private final String name;
 
-  public NinjaRule(ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables) {
+  public NinjaRule(
+      String name, ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> variables) {
+    this.name = name;
     this.variables = variables;
   }
 
@@ -37,7 +39,15 @@ public final class NinjaRule {
   }
 
   public String getName() {
-    NinjaVariableValue value = Preconditions.checkNotNull(variables.get(NinjaRuleVariable.NAME));
-    return value.getRawText();
+    return name;
+  }
+
+  /**
+   * Returns the raw description string of the Ninja rule with unexpanded variables. If the rule
+   * does not have a description key, return an empty string instead.
+   */
+  public String getDescription() {
+    NinjaVariableValue value = variables.get(NinjaRuleVariable.DESCRIPTION);
+    return value == null ? "" : value.getRawText();
   }
 }

@@ -14,7 +14,7 @@
 
 """A wrapper on the stardoc rule for convenience of testing."""
 
-load("@io_bazel_skydoc//stardoc:pure_markdown_stardoc.bzl", "pure_markdown_stardoc")
+load("@io_bazel_skydoc//stardoc:html_tables_stardoc.bzl", "html_tables_stardoc")
 load("@io_bazel_skydoc//stardoc:stardoc.bzl", _stardoc = "stardoc")
 
 def stardoc(format = "html_tables", **kwargs):
@@ -25,8 +25,8 @@ def stardoc(format = "html_tables", **kwargs):
             Valid values: "custom", "html_tables", "markdown_tables", or "proto".
             "html_tables" by default.
         **kwargs: Attributes to pass through to the stardoc rule."""
-    if format == "html_tables" or format == "proto" or format == "custom":
-        if format == "html_tables" or format == "custom":
+    if format == "markdown_tables" or format == "proto" or format == "custom":
+        if format == "markdown_tables" or format == "custom":
             # Stardoc's format "markdown" is technically "markdown with html tables",
             # and the user can specify custom templates adhoc if the format is "markdown".
             format_val = "markdown"
@@ -36,8 +36,8 @@ def stardoc(format = "html_tables", **kwargs):
             format = format_val,
             **kwargs
         )
-    elif format == "markdown_tables":
-        pure_markdown_stardoc(**kwargs)
+    elif format == "html_tables":
+        html_tables_stardoc(**kwargs)
     else:
         fail("parameter 'format' must be one of " +
              "['custom', 'html_tables', 'markdown_tables', 'proto'], " +

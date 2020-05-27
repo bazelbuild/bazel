@@ -14,24 +14,21 @@
 
 package com.google.devtools.build.lib.analysis.skylark.annotations.processor.optiontestsources;
 
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.config.Fragment;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 
-/**
- * A test case of SkylarkConfigurationFieldProcessorTest.
- */
-public class NonExposedConfigurationFragment extends BuildConfiguration.Fragment {
+/** A test case of StarlarkConfigurationFieldProcessorTest. */
+public class NonExposedConfigurationFragment extends Fragment {
 
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
    */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "some_field",
       doc = "Documentation ",
       defaultLabel = "defaultLabel",
-      defaultInToolRepository = true
-  )
+      defaultInToolRepository = true)
   public Label getXcodeConfigLabel() {
     return null;
   }

@@ -16,9 +16,9 @@ package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDynamicFrameworkInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkAspect;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeSplitTransitionProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkAspect;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleStaticLibraryInfo.FakeAppleStaticLibraryInfoProvider;
 
@@ -44,7 +44,7 @@ public class FakeAppleCommon
     implements AppleCommonApi<
         FileApi,
         ConstraintValueInfoApi,
-        SkylarkRuleContextApi<ConstraintValueInfoApi>,
+        StarlarkRuleContextApi<ConstraintValueInfoApi>,
         ObjcProviderApi<?>,
         XcodeConfigInfoApi<?, ?>,
         ApplePlatformApi> {
@@ -121,7 +121,7 @@ public class FakeAppleCommon
 
   @Override
   public StructApi linkMultiArchBinary(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       Sequence<?> extraLinkopts,
       Sequence<?> extraLinkInputs,
       StarlarkThread thread) {
@@ -134,8 +134,8 @@ public class FakeAppleCommon
   }
 
   @Override
-  public SkylarkAspectApi getObjcProtoAspect() {
-    return new FakeSkylarkAspect();
+  public StarlarkAspectApi getObjcProtoAspect() {
+    return new FakeStarlarkAspect();
   }
 
   @Override

@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -147,10 +147,10 @@ public interface AnalysisEnvironment extends ActionRegistry {
   SkyFunction.Environment getSkyframeEnv();
 
   /**
-   * Returns the options that affect the Skylark interpreter used for evaluating Skylark rule
+   * Returns the options that affect the Starlark interpreter used for evaluating Starlark rule
    * implementation functions.
    */
-  StarlarkSemantics getSkylarkSemantics() throws InterruptedException;
+  StarlarkSemantics getStarlarkSemantics() throws InterruptedException;
 
   /**
    * Returns the Artifact that is used to hold the non-volatile workspace status for the current

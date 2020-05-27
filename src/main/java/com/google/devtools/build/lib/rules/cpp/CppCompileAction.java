@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableCollection;
@@ -51,17 +52,19 @@ import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
-import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.skylark.Args;
+import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
@@ -189,8 +192,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   /** Used modules that are not transitively used through other topLevelModules. */
   private NestedSet<Artifact> topLevelModules;
 
-  private CcToolchainVariables overwrittenVariables;
-
   private ParamFileActionInput paramFileActionInput;
   private PathFragment paramFilePath;
 
@@ -294,7 +295,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.additionalInputs = null;
     this.usedModules = null;
     this.topLevelModules = null;
-    this.overwrittenVariables = null;
     this.grepIncludes = grepIncludes;
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
       paramFilePath =
@@ -435,9 +435,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         throw new IllegalStateException(e.getCause());
       }
     } catch (ExecException e) {
+      Label label = getOwner().getLabel();
       throw e.toActionExecutionException(
-          "Include scanning of rule '" + getOwner().getLabel() + "'",
-          actionExecutionContext.getVerboseFailures(),
+          "Include scanning of rule '" + label + "'",
+          actionExecutionContext.showVerboseFailures(label),
           this);
     }
   }
@@ -605,7 +606,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       try {
         modules = actionExecutionContext.getNestedSetExpander().toListInterruptibly(transitive);
       } catch (TimeoutException e) {
-        throw handleTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
+        if (actionExecutionContext.isRewindingEnabled()) {
+          throw lostInputsExceptionForTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
+        }
+        BugReport.sendBugReport(e);
+        throw new ActionExecutionException(
+            "Timed out expanding modules", this, /*catastrophe=*/ false);
       }
 
       for (Artifact module : modules) {
@@ -648,7 +654,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * we use the .pcm file's exec path since rewinding only uses the digest to detect multiple
    * rewinds of the same input.
    */
-  private LostInputsActionExecutionException handleTimedOutNestedSetExpansion(
+  private LostInputsActionExecutionException lostInputsExceptionForTimedOutNestedSetExpansion(
       Artifact timedOut,
       Iterator<Map.Entry<Artifact, NestedSet<? extends Artifact>>> remainingModules,
       TimeoutException e) {
@@ -739,13 +745,26 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return result.build();
   }
 
+  private static boolean startsWithIgnoreCase(String s, String prefix) {
+    return s.length() >= prefix.length()
+        && Ascii.equalsIgnoreCase(s.substring(0, prefix.length()), prefix);
+  }
+
   @Override
   public List<PathFragment> getIncludeDirs() {
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
     result.addAll(ccCompilationContext.getIncludeDirs());
     for (String opt : compileCommandLine.getCopts()) {
-      if (opt.startsWith("-I") && opt.length() > 2) {
+      if (opt.startsWith("-I") || opt.startsWith("/I")) {
         // We insist on the combined form "-Idir".
+        String includeDir = opt.substring(2);
+        if (includeDir.isEmpty()) {
+          continue;
+        }
+        if (startsWithIgnoreCase(includeDir, "msvc")) {
+          // This is actually a "-imsvc", a system include dir.
+          continue;
+        }
         result.add(PathFragment.create(opt.substring(2)));
       }
     }
@@ -763,8 +782,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   private List<PathFragment> getSystemIncludeDirs(List<String> compilerOptions) {
-    // TODO(bazel-team): parsing the command line flags here couples us to gcc-style compiler
-    // command lines; use a different way to specify system includes (for example through a
+    // TODO(bazel-team): parsing the command line flags here couples us to gcc- and clang-cl-style
+    // compiler command lines; use a different way to specify system includes (for example through a
     // system_includes attribute in cc_toolchain); note that that would disallow users from
     // specifying system include paths via the copts attribute.
     // Currently, this works together with the include_paths features because getCommandLine() will
@@ -772,15 +791,24 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     ImmutableList.Builder<PathFragment> result = ImmutableList.builder();
     for (int i = 0; i < compilerOptions.size(); i++) {
       String opt = compilerOptions.get(i);
+      String systemIncludeFlag = null;
       if (opt.startsWith("-isystem")) {
-        if (opt.length() > 8) {
-          result.add(PathFragment.create(opt.substring(8).trim()));
-        } else if (i + 1 < compilerOptions.size()) {
-          i++;
-          result.add(PathFragment.create(compilerOptions.get(i)));
-        } else {
-          System.err.println("WARNING: dangling -isystem flag in options for " + prettyPrint());
-        }
+        systemIncludeFlag = "-isystem";
+      } else if (startsWithIgnoreCase(opt, "-imsvc") || startsWithIgnoreCase(opt, "/imsvc")) {
+        systemIncludeFlag = opt.substring(0, 6);
+      }
+      if (systemIncludeFlag == null) {
+        continue;
+      }
+
+      if (opt.length() > systemIncludeFlag.length()) {
+        result.add(PathFragment.create(opt.substring(systemIncludeFlag.length()).trim()));
+      } else if (i + 1 < compilerOptions.size()) {
+        i++;
+        result.add(PathFragment.create(compilerOptions.get(i)));
+      } else {
+        System.err.println(
+            "WARNING: dangling " + systemIncludeFlag + " flag in options for " + prettyPrint());
       }
     }
     return result.build();
@@ -792,6 +820,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       String arg = argi.next();
       if (arg.equals("-include") && argi.hasNext()) {
         cmdlineIncludes.add(argi.next());
+      } else if (arg.startsWith("-FI") || arg.startsWith("/FI")) {
+        if (arg.length() > 3) {
+          cmdlineIncludes.add(arg.substring(3).trim());
+        } else if (argi.hasNext()) {
+          cmdlineIncludes.add(argi.next());
+        }
       }
     }
     return cmdlineIncludes.build();
@@ -860,7 +894,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException {
-    return compileCommandLine.getArguments(paramFilePath, overwrittenVariables);
+    return compileCommandLine.getArguments(paramFilePath, getOverwrittenVariables());
   }
 
   @Override
@@ -890,15 +924,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     CppCompileInfo.Builder info = CppCompileInfo.newBuilder();
     info.setTool(compileCommandLine.getToolPath());
 
-    // For actual extra actions, the shadowed action is fully executed and overwrittenVariables get
-    // computed. However, this function is also used for print_action and there, the action is
-    // retrieved from the cache, the modules are reconstructed via updateInputs and
-    // overwrittenVariables don't get computed.
-    List<String> options =
-        compileCommandLine.getCompilerOptions(
-            overwrittenVariables != null
-                ? overwrittenVariables
-                : getOverwrittenVariables(getInputs()));
+    List<String> options = compileCommandLine.getCompilerOptions(getOverwrittenVariables());
 
     for (String option : options) {
       info.addCompilerOption(option);
@@ -1168,25 +1194,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
   }
 
-  /** Sets module file flags based on the action's inputs. */
-  protected void setModuleFileFlags() {
-    if (useHeaderModules) {
-      // If modules pruning is used, modules will be supplied via topLevelModules, otherwise they
-      // are regular inputs.
-      if (shouldPruneModules) {
-        Preconditions.checkNotNull(this.topLevelModules);
-        overwrittenVariables = getOverwrittenVariables(topLevelModules);
-      } else {
-        overwrittenVariables = getOverwrittenVariables(getInputs());
-      }
-    }
-  }
-
   /**
    * Extracts all module (.pcm) files from potentialModules and returns a Variables object where
    * their exec paths are added to the value "module_files".
    */
-  private static CcToolchainVariables getOverwrittenVariables(
+  private static CcToolchainVariables calculateModuleVariable(
       NestedSet<Artifact> potentialModules) {
     ImmutableList.Builder<String> usedModulePaths = ImmutableList.builder();
     for (Artifact input : potentialModules.toList()) {
@@ -1195,12 +1207,28 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
     }
     CcToolchainVariables.Builder variableBuilder = CcToolchainVariables.builder();
-    variableBuilder.addStringSequenceVariable("module_files", usedModulePaths.build());
+    variableBuilder.addStringSequenceVariable(
+        CompileBuildVariables.MODULE_FILES.getVariableName(), usedModulePaths.build());
     return variableBuilder.build();
   }
 
   public CcToolchainVariables getOverwrittenVariables() {
-    return overwrittenVariables;
+    if (useHeaderModules) {
+      // TODO(cmita): Avoid keeping state in CppCompileAction.
+      // There are two cases for when this method might be called:
+      // 1. After input discovery, after which toplevelModules is set (in discoverInputs()).
+      // 2. After the action is loaded from the local action cache, leaving topLevelModules null.
+      //
+      // Ideally the same thing would be done in both cases, but as is, we just overestimate modules
+      // in the latter case using the inputs from the action cache.
+      // Note that this breaks the invariant that Actions are immutable after the analysis phase.
+      if (shouldPruneModules && topLevelModules != null) {
+        return calculateModuleVariable(topLevelModules);
+      } else {
+        return calculateModuleVariable(getInputs());
+      }
+    }
+    return CcToolchainVariables.builder().build();
   }
 
   @Override
@@ -1351,13 +1379,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public ActionContinuationOrResult beginExecution(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    setModuleFileFlags();
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPIILER_PARAM_FILE)) {
       try {
         paramFileActionInput =
             new ParamFileActionInput(
                 paramFilePath,
-                compileCommandLine.getCompilerOptions(overwrittenVariables),
+                compileCommandLine.getCompilerOptions(getOverwrittenVariables()),
                 // TODO(b/132888308): Support MSVC, which has its own method of escaping strings.
                 ParameterFileType.GCC_QUOTED,
                 StandardCharsets.ISO_8859_1);
@@ -1399,7 +1426,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     }
 
     SpawnContinuation spawnContinuation =
-        actionExecutionContext.getContext(SpawnStrategy.class).beginExecution(spawn, spawnContext);
+        actionExecutionContext
+            .getContext(SpawnStrategyResolver.class)
+            .beginExecution(spawn, spawnContext);
     return new CppCompileActionContinuation(
         actionExecutionContext,
         spawnContext,
@@ -1784,9 +1813,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         dotDContents = getDotDContents(spawnResults.get(0));
       } catch (ExecException e) {
         copyTempOutErrToActionOutErr();
+        Label label = getOwner().getLabel();
         throw e.toActionExecutionException(
-            "C++ compilation of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
+            "C++ compilation of rule '" + label + "'",
+            actionExecutionContext.showVerboseFailures(label),
             CppCompileAction.this);
       } catch (InterruptedException e) {
         copyTempOutErrToActionOutErr();
@@ -1877,7 +1907,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           throw new EnvironmentalExecException(e)
               .toActionExecutionException(
                   getRawProgressMessage(),
-                  actionExecutionContext.getVerboseFailures(),
+                  actionExecutionContext.showVerboseFailures(getOwner().getLabel()),
                   CppCompileAction.this);
         }
       }

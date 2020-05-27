@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRule;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.util.Pair;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -299,14 +300,16 @@ public class NinjaScopeTest {
 
   private static NinjaRule rule(String name, String command) {
     return new NinjaRule(
+        name,
         ImmutableSortedMap.of(
-            NinjaRuleVariable.NAME, NinjaVariableValue.createPlainText(name),
             NinjaRuleVariable.COMMAND, NinjaVariableValue.createPlainText(command)));
   }
 
   private static NinjaVariableValue parseValue(String text) throws Exception {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
     NinjaLexer lexer = new NinjaLexer(new FileFragment(bb, 0, 0, bb.limit()));
-    return new NinjaParserStep(lexer).parseVariableValue();
+    return new NinjaParserStep(
+            lexer, BlazeInterners.newWeakInterner(), BlazeInterners.newWeakInterner())
+        .parseVariableValue();
   }
 }

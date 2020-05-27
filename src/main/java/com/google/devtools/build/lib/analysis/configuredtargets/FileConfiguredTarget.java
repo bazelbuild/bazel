@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
  * A ConfiguredTarget for a source FileTarget. (Generated files use a subclass,
  * OutputFileConfiguredTarget.)
  */
-@Immutable // (and Starlark-hashable)
+@Immutable
 public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
     implements FileType.HasFileType, LicensesProvider {
 
@@ -113,12 +113,12 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return providers.get(providerKey);
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     return providers.get(providerKey);
   }
 }

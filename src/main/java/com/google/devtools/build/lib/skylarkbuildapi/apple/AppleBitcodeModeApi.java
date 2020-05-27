@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * Interface for an enum describing the bitcode mode to use when compiling Objective-C and Swift
  * code on Apple platforms.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "apple_bitcode_mode",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "The Bitcode mode to use when compiling Objective-C and Swift code on Apple platforms. "
             + "Possible values are:<br><ul>"

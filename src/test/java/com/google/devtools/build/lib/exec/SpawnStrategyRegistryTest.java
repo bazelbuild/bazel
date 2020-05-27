@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry.DynamicMode;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.RegexFilter;
 import javax.annotation.Nullable;
 import org.junit.Test;
@@ -286,9 +286,9 @@ public class SpawnStrategyRegistryTest {
   @Test
   public void testMnemonicStrategyNotPresent() {
     NoopStrategy strategy1 = new NoopStrategy("1");
-    ExecutorInitException exception =
+    AbruptExitException exception =
         assertThrows(
-            ExecutorInitException.class,
+            AbruptExitException.class,
             () ->
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
@@ -301,9 +301,9 @@ public class SpawnStrategyRegistryTest {
   @Test
   public void testDescriptionStrategyNotPresent() {
     NoopStrategy strategy1 = new NoopStrategy("1");
-    ExecutorInitException exception =
+    AbruptExitException exception =
         assertThrows(
-            ExecutorInitException.class,
+            AbruptExitException.class,
             () ->
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
@@ -316,9 +316,9 @@ public class SpawnStrategyRegistryTest {
   @Test
   public void testDefaultStrategyNotPresent() {
     NoopStrategy strategy1 = new NoopStrategy("1");
-    ExecutorInitException exception =
+    AbruptExitException exception =
         assertThrows(
-            ExecutorInitException.class,
+            AbruptExitException.class,
             () ->
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
@@ -353,9 +353,9 @@ public class SpawnStrategyRegistryTest {
   @Test
   public void testDynamicStrategyNotPresent() {
     NoopStrategy strategy1 = new NoopSandboxedStrategy("1");
-    ExecutorInitException exception =
+    AbruptExitException exception =
         assertThrows(
-            ExecutorInitException.class,
+            AbruptExitException.class,
             () ->
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
@@ -368,9 +368,9 @@ public class SpawnStrategyRegistryTest {
   @Test
   public void testDynamicStrategyNotSandboxed() {
     NoopStrategy strategy1 = new NoopStrategy("1");
-    ExecutorInitException exception =
+    AbruptExitException exception =
         assertThrows(
-            ExecutorInitException.class,
+            AbruptExitException.class,
             () ->
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
@@ -397,9 +397,9 @@ public class SpawnStrategyRegistryTest {
   @Test
   public void testRemoteLocalFallbackNotPresent() {
     NoopStrategy strategy1 = new NoopStrategy("1");
-    ExecutorInitException exception =
+    AbruptExitException exception =
         assertThrows(
-            ExecutorInitException.class,
+            AbruptExitException.class,
             () ->
                 SpawnStrategyRegistry.builder()
                     .registerStrategy(strategy1, "foo")
@@ -505,7 +505,7 @@ public class SpawnStrategyRegistryTest {
 
   private Spawn createSpawnWithMnemonicAndDescription(String mnemonic, String description) {
     return new SimpleSpawn(
-        new FakeOwner(mnemonic, description),
+        new FakeOwner(mnemonic, description, "//dummy:label"),
         ImmutableList.of(),
         ImmutableMap.of(),
         ImmutableMap.of(),

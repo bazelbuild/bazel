@@ -21,7 +21,7 @@ package com.google.devtools.build.android.desugar.typeadapter.java.util.function
  * java.util.function.Consumer}.
  */
 @SuppressWarnings("AndroidJdkLibsChecker")
-public class ConsumerConverter {
+public abstract class ConsumerConverter {
 
   private ConsumerConverter() {}
 

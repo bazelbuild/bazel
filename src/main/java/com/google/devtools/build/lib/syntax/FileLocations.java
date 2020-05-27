@@ -15,11 +15,11 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.concurrent.BlazeInterners;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Arrays;
 import java.util.Objects;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * FileLocations maps each source offset within a file to a Location. An offset is a (UTF-16) char
@@ -29,7 +29,7 @@ import java.util.Objects;
 @Immutable
 final class FileLocations {
 
-  private static final Interner<FileLocations> INTERNER = BlazeInterners.newWeakInterner();
+  private static final Interner<FileLocations> INTERNER = Interners.newWeakInterner();
 
   private final int[] linestart; // maps line number (line >= 1) to char offset
   private final String file;
@@ -48,6 +48,10 @@ final class FileLocations {
 
   static FileLocations create(char[] buffer, String file) {
     return new FileLocations(computeLinestart(buffer), file, buffer.length);
+  }
+
+  String file() {
+    return file;
   }
 
   private int getLineAt(int offset) {

@@ -114,8 +114,7 @@ function test_default_flag() {
 
   write_build_setting_bzl
 
-  bazel build //$pkg:my_drink --experimental_build_setting_api > output \
-    2>"$TEST_log" || fail "Expected success"
+  bazel build //$pkg:my_drink > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "type=unknown"
 }
@@ -127,8 +126,7 @@ function test_set_flag() {
   write_build_setting_bzl
 
   bazel build //$pkg:my_drink --//$pkg:type="coffee" \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
-    || fail "Expected success"
+    > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "type=coffee"
 }
@@ -140,7 +138,7 @@ function test_starlark_and_native_flag() {
   write_build_setting_bzl
 
   bazel build //$pkg:my_drink --//$pkg:type=coffee --strict_java_deps=off \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
+    > output 2>"$TEST_log" \
     || fail "Expected success"
 
   expect_log "type=coffee"
@@ -154,8 +152,7 @@ function test_dont_parse_flags_after_dash_dash() {
   write_build_setting_bzl
 
   bazel build //$pkg:my_drink --//$pkg:type=coffee \
-    --experimental_build_setting_api -- --//$pkg:temp=iced \
-     > output 2>"$TEST_log" \
+    -- --//$pkg:temp=iced > output 2>"$TEST_log" \
     && fail "Expected failure"
 
   expect_log "invalid package name '-//test_dont_parse_flags_after_dash_dash'"
@@ -168,16 +165,14 @@ function test_multiple_starlark_flags() {
   write_build_setting_bzl
 
   bazel build //$pkg:my_drink --//$pkg:type="coffee" --//$pkg:temp="iced" \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
-    || fail "Expected success"
+    > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "type=coffee"
   expect_log "temp=iced"
 
   # Ensure that order doesn't matter.
   bazel build //$pkg:my_drink --//$pkg:temp="iced" --//$pkg:type="coffee" \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
-    || fail "Expected success"
+    > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "type=coffee"
   expect_log "temp=iced"
@@ -189,8 +184,7 @@ function test_flag_default_change() {
 
   write_build_setting_bzl
 
-  bazel build //$pkg:my_drink --experimental_build_setting_api > output \
-    2>"$TEST_log" || fail "Expected success"
+  bazel build //$pkg:my_drink > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "type=unknown"
 
@@ -204,8 +198,7 @@ drink_attribute(name = 'type', build_setting_default = 'cowabunga')
 drink_attribute(name = 'temp', build_setting_default = 'cowabunga')
 EOF
 
-  bazel build //$pkg:my_drink --experimental_build_setting_api > output \
-    2>"$TEST_log" || fail "Expected success"
+  bazel build //$pkg:my_drink > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "type=cowabunga"
 }
@@ -235,7 +228,7 @@ simple_rule(name = "simple_rule")
 EOF
 
   bazel build //$pkg:simple_rule --//$pkg:my_flag=cowabunga \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
+    > output 2>"$TEST_log" \
     || fail "Expected success"
 
   cat > $pkg/BUILD <<EOF
@@ -245,7 +238,7 @@ simple_rule(name = "simple_rule")
 EOF
 
   bazel build //$pkg:simple_rule --//$pkg:my_flag=cowabunga \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
+    > output 2>"$TEST_log" \
     && fail "Expected failure" || true
 
   expect_log "no such target '//$pkg:my_flag'"
@@ -281,15 +274,13 @@ simple_rule(name = "simple_rule")
 EOF
 
   bazel build //pkg2:simple_rule --//$pkg:my_flag=cowabunga \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
-    || fail "Expected success"
+    > output 2>"$TEST_log" || fail "Expected success"
 
   cat > $pkg/BUILD <<EOF
 EOF
 
   bazel build //pkg2:simple_rule --//$pkg:my_flag=cowabunga \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
-    && fail "Expected failure" || true
+    > output 2>"$TEST_log" && fail "Expected failure" || true
 
   expect_log "no such target '//$pkg:my_flag'"
 }
@@ -318,7 +309,7 @@ load("//$pkg:rules.bzl", "simple_rule")
 simple_rule(name = "simple_rule")
 EOF
 
-  bazel build //$pkg:simple_rule --experimental_build_setting_api \
+  bazel build //$pkg:simple_rule \
     > output 2>"$TEST_log" || fail "Expected success"
 
   cat > $pkg/BUILD <<EOF
@@ -329,8 +320,7 @@ simple_rule(name = "simple_rule")
 EOF
 
   bazel build //$pkg:simple_rule --//$pkg:my_flag=cowabunga \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
-    || fail "Expected success"
+    > output 2>"$TEST_log" || fail "Expected success"
 }
 
 function test_incremental_change_build_setting() {
@@ -365,8 +355,7 @@ simple_rule(name = "simple_rule", flag = ":my_flag")
 EOF
 
   bazel build //$pkg:simple_rule --//$pkg:my_flag=yabadabadoo \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
-    || fail "Expected success"
+    > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "flag = yabadabadoo"
 
@@ -392,8 +381,7 @@ simple_rule = rule(
 EOF
 
   bazel build //$pkg:simple_rule --//$pkg:my_flag=yabadabadoo \
-    --experimental_build_setting_api > output 2>"$TEST_log" \
-    || fail "Expected success"
+    > output 2>"$TEST_log" || fail "Expected success"
 
   expect_log "flag = scoobydoobydoo"
 }

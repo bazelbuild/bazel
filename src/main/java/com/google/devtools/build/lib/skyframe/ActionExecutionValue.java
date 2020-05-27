@@ -19,8 +19,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -118,19 +118,22 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /**
-   * Create {@link FileArtifactValue} for artifact that must be non-middleman non-tree derived
-   * artifact.
+   * Retrieves a {@link FileArtifactValue} for a regular (non-middleman, non-tree) derived artifact.
+   *
+   * <p>The value for the given artifact must be present.
    */
-  static FileArtifactValue createSimpleFileArtifactValue(
-      Artifact.DerivedArtifact artifact, ActionExecutionValue actionValue) {
-    Preconditions.checkState(!artifact.isMiddlemanArtifact(), "%s %s", artifact, actionValue);
-    Preconditions.checkState(!artifact.isTreeArtifact(), "%s %s", artifact, actionValue);
+  FileArtifactValue getExistingFileArtifactValue(DerivedArtifact artifact) {
+    Preconditions.checkState(
+        !artifact.isMiddlemanArtifact() && !artifact.isTreeArtifact(),
+        "Cannot request %s from %s",
+        artifact,
+        this);
     return Preconditions.checkNotNull(
-        actionValue.getArtifactValue(artifact),
-        "%s %s %s",
+        getArtifactValue(artifact),
+        "Missing artifact %s (generating action key %s) in %s",
         artifact,
         artifact.getGeneratingActionKey(),
-        actionValue);
+        this);
   }
 
   /**
@@ -177,7 +180,7 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   @Nullable
-  ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
+  public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
     return outputSymlinks;
   }
 
@@ -282,7 +285,7 @@ public class ActionExecutionValue implements SkyValue {
                 artifact,
                 newArtifactMap);
         transformedArtifact =
-            ActionInputHelper.treeFileArtifact(
+            TreeFileArtifact.createTreeOutput(
                 (Artifact.SpecialArtifact) newParent, artifact.getParentRelativePath());
       }
       result.put(transformedArtifact, entry.getValue());

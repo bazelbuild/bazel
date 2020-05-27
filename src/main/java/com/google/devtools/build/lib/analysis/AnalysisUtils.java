@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -89,15 +88,15 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
-   * set of transitive info collections.
+   * Returns the list of declared providers (native and Starlark) of the specified Starlark key from
+   * a set of transitive info collections.
    */
   public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final NativeProvider<T> skylarkKey) {
+      final NativeProvider<T> starlarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
-      T prerequisiteProvider = prerequisite.get(skylarkKey);
+      T prerequisiteProvider = prerequisite.get(starlarkKey);
       if (prerequisiteProvider != null) {
         result.add(prerequisiteProvider);
       }
@@ -106,15 +105,15 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the list of declared providers (native and Skylark) of the specified Skylark key from a
-   * set of transitive info collections.
+   * Returns the list of declared providers (native and Starlark) of the specified Starlark key from
+   * a set of transitive info collections.
    */
   public static <T extends Info> List<T> getProviders(
       Iterable<? extends TransitiveInfoCollection> prerequisites,
-      final BuiltinProvider<T> skylarkKey) {
+      final BuiltinProvider<T> starlarkKey) {
     ImmutableList.Builder<T> result = ImmutableList.builder();
     for (TransitiveInfoCollection prerequisite : prerequisites) {
-      T prerequisiteProvider = prerequisite.get(skylarkKey);
+      T prerequisiteProvider = prerequisite.get(starlarkKey);
       if (prerequisiteProvider != null) {
         result.add(prerequisiteProvider);
       }
@@ -189,7 +188,7 @@ public final class AnalysisUtils {
       Collection<Target> targets,
       ExtendedEventHandler eventHandler,
       ConfiguredRuleClassProvider ruleClassProvider,
-      SkyframeExecutor skyframeExecutor)
+      ConfigurationsCollector configurationsCollector)
       throws InvalidConfigurationException {
     // We use a hash set here to remove duplicate nodes; this can happen for input files and package
     // groups.
@@ -200,20 +199,18 @@ public final class AnalysisUtils {
       }
     }
 
-    // We'll get the configs from SkyframeExecutor#getConfigurations, which gets configurations
-    // for deps including transitions. So to satisfy its API we resolve transitions and repackage
-    // each target as a Dependency (with a NONE transition if necessary).
-    Multimap<BuildConfiguration, Dependency> asDeps = targetsToDeps(nodes, ruleClassProvider);
+    // We'll get the configs from ConfigurationsCollector#getConfigurations, which gets
+    // configurations for deps including transitions.
+    Multimap<BuildConfiguration, DependencyKey> asDeps = targetsToDeps(nodes, ruleClassProvider);
 
     return ConfigurationResolver.getConfigurationsFromExecutor(
-        nodes, asDeps, eventHandler, skyframeExecutor);
+        nodes, asDeps, eventHandler, configurationsCollector);
   }
 
   @VisibleForTesting
-  public static Multimap<BuildConfiguration, Dependency> targetsToDeps(
+  public static Multimap<BuildConfiguration, DependencyKey> targetsToDeps(
       Collection<TargetAndConfiguration> nodes, ConfiguredRuleClassProvider ruleClassProvider) {
-    Multimap<BuildConfiguration, Dependency> asDeps =
-        ArrayListMultimap.<BuildConfiguration, Dependency>create();
+    Multimap<BuildConfiguration, DependencyKey> asDeps = ArrayListMultimap.create();
     for (TargetAndConfiguration targetAndConfig : nodes) {
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
@@ -222,13 +219,13 @@ public final class AnalysisUtils {
               targetAndConfig.getTarget(),
               ruleClassProvider.getTrimmingTransitionFactory());
       if (targetAndConfig.getConfiguration() != null) {
+        // TODO(bazel-team): support top-level aspects
         asDeps.put(
             targetAndConfig.getConfiguration(),
-            Dependency.withTransitionAndAspects(
-                targetAndConfig.getLabel(),
-                transition,
-                // TODO(bazel-team): support top-level aspects
-                AspectCollection.EMPTY));
+            DependencyKey.builder()
+                .setLabel(targetAndConfig.getLabel())
+                .setTransition(transition)
+                .build());
       }
     }
     return asDeps;

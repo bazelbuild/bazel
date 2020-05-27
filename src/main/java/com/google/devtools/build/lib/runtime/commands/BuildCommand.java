@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
 
@@ -48,7 +47,7 @@ import java.util.List;
       BuildRequestOptions.class,
       ExecutionOptions.class,
       LocalExecutionOptions.class,
-      PackageCacheOptions.class,
+      PackageOptions.class,
       AnalysisOptions.class,
       LoadingOptions.class,
       KeepGoingOption.class,
@@ -70,7 +69,7 @@ public final class BuildCommand implements BlazeCommand {
       targets = TargetPatternsHelper.readFrom(env, options);
     } catch (TargetPatternsHelper.TargetPatternsHelperException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     }
     if (targets.isEmpty()) {
       env.getReporter()

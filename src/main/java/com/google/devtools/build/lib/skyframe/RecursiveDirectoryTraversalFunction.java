@@ -99,7 +99,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
      * the following circumstances:
      *
      * <ol>
-     *   <li>The BUILD file contains a Skylark load statement that is in error
+     *   <li>The BUILD file contains a Starlark load statement that is in error
      *   <li>TODO(mschaller), not yet implemented: The BUILD file is a symlink that points into a
      *       cycle
      * </ol>

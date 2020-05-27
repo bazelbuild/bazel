@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.AnalysisProtos.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
@@ -54,14 +56,17 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Workspaces;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.ExternalDirtinessChecker;
@@ -75,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptio
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -113,7 +119,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -122,7 +127,7 @@ import javax.annotation.Nullable;
  */
 public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
-  private static final Logger logger = Logger.getLogger(SequencedSkyframeExecutor.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * If false, the graph will not store state useful for incremental builds, saving memory but
@@ -165,7 +170,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers,
       SkyFunction blacklistedPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
-      List<BuildFileName> buildFilesByPriority,
+      ImmutableList<BuildFileName> buildFilesByPriority,
+      ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
       MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
@@ -183,6 +189,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         blacklistedPackagePrefixesFunction,
         crossRepositoryLabelViolationStrategy,
         buildFilesByPriority,
+        externalPackageHelper,
         actionOnIOExceptionReadingBuildFile,
         /*shouldUnblockCpuWorkWhenFetchingDeps=*/ false,
         GraphInconsistencyReceiver.THROWING,
@@ -226,7 +233,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   @Override
   public void sync(
       ExtendedEventHandler eventHandler,
-      PackageCacheOptions packageCacheOptions,
+      PackageOptions packageOptions,
       PathPackageLocator packageLocator,
       StarlarkSemanticsOptions starlarkSemanticsOptions,
       UUID commandId,
@@ -246,7 +253,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     super.sync(
         eventHandler,
-        packageCacheOptions,
+        packageOptions,
         packageLocator,
         starlarkSemanticsOptions,
         commandId,
@@ -254,7 +261,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         tsgm,
         options);
     long startTime = System.nanoTime();
-    handleDiffs(eventHandler, packageCacheOptions.checkOutputFiles, options);
+    handleDiffs(eventHandler, packageOptions.checkOutputFiles, options);
     long stopTime = System.nanoTime();
     Profiler.instance().logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "handleDiffs");
     long duration = stopTime - startTime;
@@ -386,7 +393,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * FileStateValues and DirectoryStateValues should be injected.
    */
   private void invalidateCachedWorkspacePathsStates() {
-    logger.info(
+    logger.atInfo().log(
         "Invalidating cached packages and paths states"
             + " because managed directories configuration has changed.");
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
@@ -501,9 +508,9 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                 FileType.OUTPUT)
             : EnumSet.of(
                 FileType.EXTERNAL, FileType.EXTERNAL_REPO, FileType.EXTERNAL_IN_MANAGED_DIRECTORY);
-    logger.info(
-        "About to scan skyframe graph checking for filesystem nodes of types "
-            + Iterables.toString(fileTypesToCheck));
+    logger.atInfo().log(
+        "About to scan skyframe graph checking for filesystem nodes of types %s",
+        Iterables.toString(fileTypesToCheck));
     ImmutableBatchDirtyResult batchDirtyResult;
     try (SilentCloseable c = Profiler.instance().profile("fsvc.getDirtyKeys")) {
       batchDirtyResult =
@@ -596,7 +603,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       }
     }
 
-    logger.info(result.toString());
+    logger.atInfo().log(result.toString());
   }
 
   private static int getNumberOfModifiedFiles(Iterable<SkyKey> modifiedValues) {
@@ -654,7 +661,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     // Now check if it is necessary to wipe the previous state. We do this if either the previous
     // or current incrementalStateRetentionStrategy requires the build to have been isolated.
     if (oldValueOfTrackIncrementalState != trackIncrementalState) {
-      logger.info("Set incremental state to " + trackIncrementalState);
+      logger.atInfo().log("Set incremental state to %b", trackIncrementalState);
       evaluatorNeedsReset = true;
     } else if (!trackIncrementalState) {
       evaluatorNeedsReset = true;
@@ -668,7 +675,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void clearAnalysisCache(
-      Collection<ConfiguredTarget> topLevelTargets, Collection<AspectValue> topLevelAspects) {
+      Collection<ConfiguredTarget> topLevelTargets, ImmutableSet<AspectKey> topLevelAspects) {
     discardPreExecutionCache(
         topLevelTargets,
         topLevelAspects,
@@ -683,10 +690,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff =
-          new FilesystemValueChecker(tsgm, /* lastExecutionTimeRange= */ null, /* numThreads= */ 20)
+          new FilesystemValueChecker(
+                  tsgm, /* lastExecutionTimeRange= */ null, /* numThreads= */ 200)
               .getDirtyKeys(memoizingEvaluator.getValues(), new BasicFilesystemDirtinessChecker());
     } else {
-      diff = getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, /* fsvcThreads= */ 20);
+      diff =
+          getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry, /* fsvcThreads= */ 200);
     }
     syscalls.set(getPerBuildSyscallCache(/*concurrencyLevel=*/ 42));
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());
@@ -722,7 +731,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
     outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
     modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
-    logger.info(String.format("Found %d modified files from last build", modifiedFiles));
+    logger.atInfo().log("Found %d modified files from last build", modifiedFiles);
     long stopTime = System.nanoTime();
     Profiler.instance()
         .logSimpleTask(startTime, stopTime, ProfilerTask.INFO, "detectModifiedOutputFiles");
@@ -805,7 +814,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
           } else if (functionName.equals(SkyFunctions.ASPECT)) {
             AspectValue aspectValue = (AspectValue) skyValue;
-            AspectKey aspectKey = aspectValue.getKey();
+            AspectKey aspectKey = (AspectKey) key;
             ConfiguredTargetValue configuredTargetValue =
                 (ConfiguredTargetValue)
                     memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
@@ -837,7 +846,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
             actionGraphDump.dumpConfiguredTarget((ConfiguredTargetValue) skyValue);
           } else if (functionName.equals(SkyFunctions.ASPECT)) {
             AspectValue aspectValue = (AspectValue) skyValue;
-            AspectKey aspectKey = aspectValue.getKey();
+            AspectKey aspectKey = (AspectKey) key;
             ConfiguredTargetValue configuredTargetValue =
                 (ConfiguredTargetValue)
                     memoizingEvaluator.getExistingValue(aspectKey.getBaseConfiguredTargetKey());
@@ -958,8 +967,18 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         && !newValue.getManagedDirectories().isEmpty()
         && FileStateType.SYMLINK.equals(newFileStateValue.getType())) {
       throw new AbruptExitException(
-          "WORKSPACE file can not be a symlink if incrementally updated directories are used.",
-          ExitCode.PARSING_FAILURE);
+          DetailedExitCode.of(
+              ExitCode.PARSING_FAILURE,
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "WORKSPACE file can not be a symlink if incrementally updated directories"
+                          + " are used.")
+                  .setWorkspaces(
+                      Workspaces.newBuilder()
+                          .setCode(
+                              FailureDetails.Workspaces.Code
+                                  .ILLEGAL_WORKSPACE_FILE_SYMLINK_WITH_MANAGED_DIRECTORIES))
+                  .build()));
     }
     return managedDirectoriesKnowledge.workspaceHeaderReloaded(oldValue, newValue);
   }
@@ -974,7 +993,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     try {
       newWorkspaceFileState = FileStateValue.create(workspacePath, tsgm.get());
     } catch (IOException e) {
-      throw new AbruptExitException("Can not read WORKSPACE file.", ExitCode.PARSING_FAILURE, e);
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              ExitCode.PARSING_FAILURE,
+              FailureDetail.newBuilder()
+                  .setMessage("Can not read WORKSPACE file.")
+                  .setWorkspaces(
+                      Workspaces.newBuilder()
+                          .setCode(
+                              FailureDetails.Workspaces.Code
+                                  .WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES))
+                  .build()));
     }
     if (oldWorkspaceFileState != null && !oldWorkspaceFileState.equals(newWorkspaceFileState)) {
       recordingDiffer.invalidate(ImmutableSet.of(workspaceFileStateKey));
@@ -1011,7 +1040,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     protected ActionKeyContext actionKeyContext;
     protected BuildOptions defaultBuildOptions;
     private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
-    private List<BuildFileName> buildFilesByPriority;
+    private ImmutableList<BuildFileName> buildFilesByPriority;
+    private ExternalPackageHelper externalPackageHelper;
     private ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
     @Nullable private ManagedDirectoriesKnowledge managedDirectoriesKnowledge;
 
@@ -1036,6 +1066,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       Preconditions.checkNotNull(defaultBuildOptions);
       Preconditions.checkNotNull(crossRepositoryLabelViolationStrategy);
       Preconditions.checkNotNull(buildFilesByPriority);
+      Preconditions.checkNotNull(externalPackageHelper);
       Preconditions.checkNotNull(actionOnIOExceptionReadingBuildFile);
       Preconditions.checkNotNull(blacklistedPackagePrefixesFunction);
 
@@ -1054,6 +1085,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               blacklistedPackagePrefixesFunction,
               crossRepositoryLabelViolationStrategy,
               buildFilesByPriority,
+              externalPackageHelper,
               actionOnIOExceptionReadingBuildFile,
               defaultBuildOptions,
               mutableArtifactFactorySupplier,
@@ -1122,8 +1154,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return this;
     }
 
-    public Builder setBuildFilesByPriority(List<BuildFileName> buildFilesByPriority) {
+    public Builder setBuildFilesByPriority(ImmutableList<BuildFileName> buildFilesByPriority) {
       this.buildFilesByPriority = buildFilesByPriority;
+      return this;
+    }
+
+    public Builder setExternalPackageHelper(ExternalPackageHelper externalPackageHelper) {
+      this.externalPackageHelper = externalPackageHelper;
       return this;
     }
 
@@ -1149,17 +1186,5 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
       return this;
     }
-  }
-
-  /**
-   * Listener class to subscribe for WORKSPACE file header refreshes.
-   *
-   * <p>Changes to WORKSPACE file header are computed before the files difference is computed in
-   * {@link #handleDiffs(ExtendedEventHandler, boolean, OptionsProvider)}
-   */
-  public interface WorkspaceFileHeaderListener {
-    boolean workspaceHeaderReloaded(
-        @Nullable WorkspaceFileValue oldValue, @Nullable WorkspaceFileValue newValue)
-        throws AbruptExitException;
   }
 }

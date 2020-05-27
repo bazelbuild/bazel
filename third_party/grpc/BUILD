@@ -65,7 +65,6 @@ java_import(
     ],
     deps = [
         "//third_party:guava",
-        "//third_party:instrumentation",
     ],
 )
 
@@ -1690,5 +1689,13 @@ grpc_cc_library(
     language = "c++",
     deps = [
         "grpc_base",
+    ],
+)
+
+filegroup(
+    name = "embedded_tools_srcs",
+    srcs = [
+        "BUILD.tools",
+        "build_defs.bzl",
     ],
 )

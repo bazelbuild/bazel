@@ -17,7 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -34,8 +34,8 @@ import javax.annotation.Nullable;
 @Immutable
 public class XcodeConfigInfo extends NativeInfo
     implements XcodeConfigInfoApi<ApplePlatform, PlatformType> {
-  /** Skylark name for this provider. */
-  public static final String SKYLARK_NAME = "XcodeVersionConfig";
+  /** Starlark name for this provider. */
+  public static final String STARLARK_NAME = "XcodeVersionConfig";
 
   /** Provider identifier for {@link XcodeConfigInfo}. */
   public static final BuiltinProvider<XcodeConfigInfo> PROVIDER = new XcodeConfigProvider();
@@ -116,7 +116,7 @@ public class XcodeConfigInfo extends NativeInfo
     XcodeConfigInfo xcodeConfigInfo;
 
     private XcodeConfigProvider() {
-      super(SKYLARK_NAME, XcodeConfigInfo.class);
+      super(STARLARK_NAME, XcodeConfigInfo.class);
     }
 
     @Override
@@ -224,6 +224,6 @@ public class XcodeConfigInfo extends NativeInfo
 
   public static XcodeConfigInfo fromRuleContext(RuleContext ruleContext) {
     return ruleContext.getPrerequisite(
-        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, Mode.TARGET, XcodeConfigInfo.PROVIDER);
+        XcodeConfigRule.XCODE_CONFIG_ATTR_NAME, TransitionMode.TARGET, XcodeConfigInfo.PROVIDER);
   }
 }

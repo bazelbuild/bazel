@@ -91,10 +91,7 @@ public class RepositoryMappingValue implements SkyValue {
     return repositoryMapping.toString();
   }
 
-  /**
-   * {@link com/google/devtools/build/lib/skyframe/RepositoryMappingValue.java used only in javadoc:
-   * com.google.devtools.build.skyframe.SkyKey} for {@link RepositoryMappingValue}.
-   */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link RepositoryMappingValue}. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<RepositoryName> {

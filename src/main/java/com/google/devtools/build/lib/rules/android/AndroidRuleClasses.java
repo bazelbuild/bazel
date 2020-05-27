@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
@@ -206,8 +206,8 @@ public final class AndroidRuleClasses {
 
   public static final String NOCOMPRESS_EXTENSIONS_ATTR = "nocompress_extensions";
 
-  public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_INFO_PARAMS =
-      ImmutableList.of(SkylarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()));
+  public static final ImmutableList<StarlarkProviderIdentifier> CONTAINS_CC_INFO_PARAMS =
+      ImmutableList.of(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()));
 
   /** The default label of android_sdk option */
   public static LabelLateBoundDefault<?> getAndroidSdkLabel(Label androidSdk) {
@@ -466,10 +466,10 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:databinding_exec")))
-          .advertiseSkylarkProvider(
-              SkylarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
-          .advertiseSkylarkProvider(
-              SkylarkProviderIdentifier.forKey(AndroidNativeLibsInfo.PROVIDER.getKey()))
+          .advertiseStarlarkProvider(
+              StarlarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
+          .advertiseStarlarkProvider(
+              StarlarkProviderIdentifier.forKey(AndroidNativeLibsInfo.PROVIDER.getKey()))
           .build();
     }
 
@@ -598,8 +598,8 @@ public final class AndroidRuleClasses {
                   .mandatoryProviders(CONTAINS_CC_INFO_PARAMS)
                   .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
                   .mandatoryProviders(
-                      SkylarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()),
-                      SkylarkProviderIdentifier.forKey(AndroidAssetsInfo.PROVIDER.getKey()))
+                      StarlarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()),
+                      StarlarkProviderIdentifier.forKey(AndroidAssetsInfo.PROVIDER.getKey()))
                   .aspect(androidNeverlinkAspect)
                   .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_key) -->
@@ -923,8 +923,8 @@ public final class AndroidRuleClasses {
                   .value(LEGACY_MAIN_DEX_LIST_GENERATOR)
                   .exec())
           .removeAttribute("data")
-          .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))
-          .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+          .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))
+          .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
           .build();
     }
 

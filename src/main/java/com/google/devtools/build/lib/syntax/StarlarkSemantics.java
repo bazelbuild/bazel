@@ -42,7 +42,7 @@ import java.util.List;
 // - incompatibleRestrictStringEscapes, which affects the lexer and is thus
 //   properly one of the FileOptions, but piggybacks on the command-line flag
 //   plumbing of StarlarkSemantics; and
-// - internalSkylarkFlagTestCanary, which is used to test propagation of Bazel
+// - internalStarlarkFlagTestCanary, which is used to test propagation of Bazel
 //   command-line flags to the 'print' built-in, but this could easily be
 //   achieved using some other Bazel-specific built-in.
 // Most of the rest are used generically to disable parameters to built-ins,
@@ -50,7 +50,7 @@ import java.util.List;
 // a generic set-of-feature-strings representation would do.
 // A few could be expressed as Bazel-specific thread state,
 // though several are inspected by the implementations of operations
-// such as SkylarkIndexable, SkylarkQueryable, and SkylarkClassObject.
+// such as StarlarkIndexable, StarlarkQueryable, and StarlarkClassObject.
 // TODO(adonovan): move to lib.packages.BuildLanguageSemantics.
 //
 @AutoValue
@@ -79,11 +79,8 @@ public abstract class StarlarkSemantics {
         "experimental_disable_external_package";
     public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
         "experimental_sibling_repository_layout";
-    public static final String EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION =
-        "experimental_aspect_output_propagation";
     public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =
         "experimental_enable_android_migration_apis";
-    public static final String EXPERIMENTAL_BUILD_SETTING_API = "experimental_build_setting_api";
     public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "experimental_google_legacy_api";
     public static final String EXPERIMENTAL_NINJA_ACTIONS = "experimental_ninja_actions";
     public static final String EXPERIMENTAL_PLATFORM_API = "experimental_platform_api";
@@ -99,8 +96,6 @@ public abstract class StarlarkSemantics {
         "incompatible_disable_depset_inputs";
     public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
         "incompatible_no_rule_outputs_param";
-    public static final String INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP =
-        "incompatible_no_target_output_group";
     public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "incompatible_no_attr_license";
     public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
         "incompatible_allow_tags_propagation";
@@ -126,12 +121,8 @@ public abstract class StarlarkSemantics {
         return experimentalDisableExternalPackage();
       case FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT:
         return experimentalSiblingRepositoryLayout();
-      case FlagIdentifier.EXPERIMENTAL_ASPECT_OUTPUT_PROPAGATION:
-        return experimentalAspectOutputPropagation();
       case FlagIdentifier.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS:
         return experimentalEnableAndroidMigrationApis();
-      case FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API:
-        return experimentalBuildSettingApi();
       case FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API:
         return experimentalGoogleLegacyApi();
       case FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS:
@@ -152,8 +143,6 @@ public abstract class StarlarkSemantics {
         return incompatibleDisableDepsetItems();
       case FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM:
         return incompatibleNoRuleOutputsParam();
-      case FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP:
-        return incompatibleNoTargetOutputGroup();
       case FlagIdentifier.INCOMPATIBLE_NO_ATTR_LICENSE:
         return incompatibleNoAttrLicense();
       case FlagIdentifier.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION:
@@ -211,11 +200,7 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
 
-  public abstract boolean experimentalAspectOutputPropagation();
-
-  public abstract boolean experimentalBuildSettingApi();
-
-  public abstract ImmutableList<String> experimentalCcSkylarkApiEnabledPackages();
+  public abstract ImmutableList<String> experimentalCcStarlarkApiEnabledPackages();
 
   public abstract boolean experimentalEnableAndroidMigrationApis();
 
@@ -265,13 +250,13 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleNoSupportToolsInActionInputs();
 
-  public abstract boolean incompatibleNoTargetOutputGroup();
-
   public abstract boolean incompatibleRunShellCommandString();
+
+  public abstract boolean incompatibleStringReplaceCount();
 
   public abstract boolean incompatibleVisibilityPrivateAttributesAtDefinition();
 
-  public abstract boolean internalSkylarkFlagTestCanary();
+  public abstract boolean internalStarlarkFlagTestCanary();
 
   public abstract boolean incompatibleDoNotSplitLinkingCmdline();
 
@@ -318,18 +303,16 @@ public abstract class StarlarkSemantics {
 
   /** Returns a {@link Builder} initialized with default values for all options. */
   public static Builder builderWithDefaults() {
-    return DEFAULT_SEMANTICS.toBuilder();
+    return DEFAULT.toBuilder();
   }
 
-  public static final StarlarkSemantics DEFAULT_SEMANTICS =
+  public static final StarlarkSemantics DEFAULT =
       builder()
           // <== Add new options here in alphabetic order ==>
           .debugDepsetDepth(false)
-          .experimentalActionArgs(false)
+          .experimentalActionArgs(true)
           .experimentalAllowTagsPropagation(false)
-          .experimentalAspectOutputPropagation(true)
-          .experimentalBuildSettingApi(true)
-          .experimentalCcSkylarkApiEnabledPackages(ImmutableList.of())
+          .experimentalCcStarlarkApiEnabledPackages(ImmutableList.of())
           .experimentalAllowIncrementalRepositoryUpdates(true)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
@@ -355,10 +338,10 @@ public abstract class StarlarkSemantics {
           .incompatibleNoImplicitFileExport(false)
           .incompatibleNoRuleOutputsParam(false)
           .incompatibleNoSupportToolsInActionInputs(true)
-          .incompatibleNoTargetOutputGroup(true)
           .incompatibleRunShellCommandString(false)
+          .incompatibleStringReplaceCount(false)
           .incompatibleVisibilityPrivateAttributesAtDefinition(false)
-          .internalSkylarkFlagTestCanary(false)
+          .internalStarlarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
           .incompatibleRequireLinkerInputCcApi(false)
@@ -382,11 +365,7 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder experimentalAllowTagsPropagation(boolean value);
 
-    public abstract Builder experimentalAspectOutputPropagation(boolean value);
-
-    public abstract Builder experimentalBuildSettingApi(boolean value);
-
-    public abstract Builder experimentalCcSkylarkApiEnabledPackages(List<String> value);
+    public abstract Builder experimentalCcStarlarkApiEnabledPackages(List<String> value);
 
     public abstract Builder experimentalEnableAndroidMigrationApis(boolean value);
 
@@ -436,13 +415,13 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleNoSupportToolsInActionInputs(boolean value);
 
-    public abstract Builder incompatibleNoTargetOutputGroup(boolean value);
-
     public abstract Builder incompatibleRunShellCommandString(boolean value);
+
+    public abstract Builder incompatibleStringReplaceCount(boolean value);
 
     public abstract Builder incompatibleVisibilityPrivateAttributesAtDefinition(boolean value);
 
-    public abstract Builder internalSkylarkFlagTestCanary(boolean value);
+    public abstract Builder internalStarlarkFlagTestCanary(boolean value);
 
     public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
 

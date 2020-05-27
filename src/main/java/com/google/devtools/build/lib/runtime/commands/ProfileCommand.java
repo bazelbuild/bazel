@@ -22,7 +22,9 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.ProfileCommand.Code;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
@@ -106,11 +108,11 @@ public final class ProfileCommand implements BlazeCommand {
       for (String name : options.getResidue()) {
         Path profileFile = env.getWorkingDirectory().getRelative(name);
         if (isOldBinaryProfile(profileFile.getPathFile())) {
-          reporter.handle(
-              Event.error(
-                  "The old binary profile format is deprecated."
-                      + " Use the JSON trace profile instead."));
-          return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
+          String message =
+              "The old binary profile format is deprecated."
+                  + " Use the JSON trace profile instead.";
+          reporter.handle(Event.error(message));
+          return createFailureResult(message, Code.OLD_BINARY_FORMAT_UNSUPPORTED);
         } else {
           try {
             if (dumpMode != null) {
@@ -138,17 +140,26 @@ public final class ProfileCommand implements BlazeCommand {
                     new CriticalPathStatistics(jsonProfile.getTraceEvents()))
                 .print();
           } catch (IOException e) {
-            reporter.handle(Event.error("Failed to analyze profile file(s): " + e.getMessage()));
-            return BlazeCommandResult.exitCode(ExitCode.PARSING_FAILURE);
+            String message = "Failed to analyze profile file(s): " + e.getMessage();
+            reporter.handle(Event.error(message));
+            return createFailureResult(message, Code.FILE_READ_FAILURE);
           }
         }
       }
     }
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 
   private static PrintStream getOutputStream(CommandEnvironment env) {
     return new PrintStream(
         new BufferedOutputStream(env.getReporter().getOutErr().getOutputStream()), false);
+  }
+
+  private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
+    return BlazeCommandResult.failureDetail(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setProfileCommand(FailureDetails.ProfileCommand.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

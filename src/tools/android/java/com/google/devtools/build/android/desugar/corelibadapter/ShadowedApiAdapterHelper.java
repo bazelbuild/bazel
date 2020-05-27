@@ -18,12 +18,17 @@ package com.google.devtools.build.android.desugar.corelibadapter;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.android.desugar.io.BootClassPathDigest;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.MemberUseKind;
+import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
+import com.google.devtools.build.android.desugar.typehierarchy.HierarchicalMethodKey;
+import com.google.devtools.build.android.desugar.typehierarchy.HierarchicalMethodQuery;
+import com.google.devtools.build.android.desugar.typehierarchy.TypeHierarchy;
 import java.util.Optional;
-import java.util.stream.Stream;
 import org.objectweb.asm.Type;
 
 /**
@@ -31,6 +36,8 @@ import org.objectweb.asm.Type;
  * desugared-mirrored counterparts.
  */
 public class ShadowedApiAdapterHelper {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private ShadowedApiAdapterHelper() {}
 
@@ -41,14 +48,48 @@ public class ShadowedApiAdapterHelper {
    *
    * @param verbatimInvocationSite The invocation site parsed directly from the desugar input jar.
    *     No in-process label, such as "__desugar__/", is attached to this invocation site.
+   * @param typeHierarchy The type hierarchy context of for this query API.
+   * @param bootClassPathDigest The boot class path context used for complication.
+   * @param enclosingMethod The method that holds the invocation instruction.
    */
-  static boolean shouldUseInlineTypeConversion(MethodInvocationSite verbatimInvocationSite) {
-    return verbatimInvocationSite.isConstructorInvocation()
-        && verbatimInvocationSite.owner().isInPackageEligibleForTypeAdapter()
-        && Stream.concat(
-                Stream.of(verbatimInvocationSite.returnTypeName()),
-                verbatimInvocationSite.argumentTypeNames().stream())
-            .anyMatch(ClassName::isDesugarShadowedType);
+  static boolean shouldUseInlineTypeConversion(
+      MethodInvocationSite verbatimInvocationSite,
+      TypeHierarchy typeHierarchy,
+      BootClassPathDigest bootClassPathDigest,
+      MethodDeclInfo enclosingMethod) {
+    if (verbatimInvocationSite.invocationKind() != MemberUseKind.INVOKESPECIAL) {
+      return false;
+    }
+
+    // invokespecial on a private method in the the same class.
+    if (verbatimInvocationSite.owner().equals(enclosingMethod.owner())) {
+      return false;
+    }
+
+    // Absent of desugar-shadowed type in the method header.
+    if (verbatimInvocationSite.method().getHeaderTypeNameSet().stream()
+        .noneMatch(ClassName::isDesugarShadowedType)) {
+      return false;
+    }
+
+    if (verbatimInvocationSite.isConstructorInvocation()) {
+      return bootClassPathDigest.containsType(verbatimInvocationSite.owner());
+    }
+
+    // Upon on a super call, trace to the adjusted owner with code.
+    ClassName adjustedGrossOwner = verbatimInvocationSite.owner();
+    HierarchicalMethodQuery verbatimMethod =
+        HierarchicalMethodKey.from(verbatimInvocationSite.method()).inTypeHierarchy(typeHierarchy);
+    if (!verbatimMethod.isPresent()) {
+      HierarchicalMethodKey resolvedMethod = verbatimMethod.getFirstBaseClassMethod();
+      if (resolvedMethod == null) {
+        logger.atSevere().log("Missing base method lookup: %s", verbatimInvocationSite);
+      } else {
+        adjustedGrossOwner = resolvedMethod.owner().type();
+      }
+    }
+    return adjustedGrossOwner.isAndroidDomainType()
+        && bootClassPathDigest.containsType(adjustedGrossOwner);
   }
 
   /**
@@ -58,13 +99,47 @@ public class ShadowedApiAdapterHelper {
    * @param verbatimInvocationSite The invocation site parsed directly from the desugar input jar.
    *     No in-process label, such as "__desugar__/", is attached to this invocation site.
    */
-  static boolean shouldUseApiTypeAdapter(MethodInvocationSite verbatimInvocationSite) {
-    return !verbatimInvocationSite.isConstructorInvocation()
-        && verbatimInvocationSite.owner().isInPackageEligibleForTypeAdapter()
-        && Stream.concat(
-                Stream.of(verbatimInvocationSite.returnTypeName()),
-                verbatimInvocationSite.argumentTypeNames().stream())
+  static boolean shouldUseApiTypeAdapter(
+      MethodInvocationSite verbatimInvocationSite, BootClassPathDigest bootClassPathDigest) {
+    return verbatimInvocationSite.invocationKind() != MemberUseKind.INVOKESPECIAL
+        && verbatimInvocationSite.owner().isAndroidDomainType()
+        && bootClassPathDigest.containsType(verbatimInvocationSite.owner())
+        && verbatimInvocationSite.method().getHeaderTypeNameSet().stream()
             .anyMatch(ClassName::isDesugarShadowedType);
+  }
+
+  /**
+   * Returns {@code true} if the current method overrides a platform API with desugar-shadowed types
+   * and should emit an overriding bridge method for the integrity of method dynamic dispatching.
+   */
+  static boolean shouldEmitApiOverridingBridge(
+      MethodDeclInfo methodDeclInfo,
+      TypeHierarchy typeHierarchy,
+      BootClassPathDigest bootClassPathDigest) {
+    if (bootClassPathDigest.containsType(methodDeclInfo.owner())
+        || methodDeclInfo.methodKey().isConstructor()
+        || methodDeclInfo.isStaticMethod()
+        || methodDeclInfo.isPrivateAccess()
+        || methodDeclInfo.headerTypeNameSet().stream()
+            .noneMatch(ClassName::isDesugarShadowedType)) {
+      return false;
+    }
+
+    HierarchicalMethodKey baseMethod =
+        HierarchicalMethodKey.from(methodDeclInfo.methodKey())
+            .inTypeHierarchy(typeHierarchy)
+            .getFirstBaseClassMethod();
+
+    boolean queryResult =
+        baseMethod != null
+            && baseMethod.owner().type().isAndroidDomainType()
+            && bootClassPathDigest.containsType(baseMethod.owner().type());
+    if (queryResult) {
+      logger.atInfo().log(
+          "----> Shadowed Method Overriding Bridge eligible for %s due to base method %s",
+          methodDeclInfo.methodKey(), baseMethod.toMethodKey());
+    }
+    return queryResult;
   }
 
   /**
@@ -143,7 +218,8 @@ public class ShadowedApiAdapterHelper {
         .setMethod(
             methodInvocationSite
                 .method()
-                .toAdapterMethodForArgsAndReturnTypes(methodInvocationSite.isStaticInvocation()))
+                .toAdapterMethodForArgsAndReturnTypes(
+                    methodInvocationSite.isStaticInvocation(), methodInvocationSite.hashCode()))
         .setIsInterface(false)
         .build();
   }

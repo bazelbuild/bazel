@@ -25,7 +25,7 @@ filegroup(
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
-# The Starlark frontend (syntax, scanner, parser, validator)
+# The Starlark frontend (syntax, scanner, parser, resolver)
 java_library(
     name = "frontend",
     srcs = [
@@ -45,7 +45,6 @@ java_library(
         "FileOptions.java",
         "FlowStatement.java",
         "ForStatement.java",
-        "FunctionSignature.java",
         "Identifier.java",
         "IfStatement.java",
         "IndexExpression.java",
@@ -60,6 +59,7 @@ java_library(
         "Parameter.java",
         "Parser.java",
         "ParserInput.java",
+        "Resolver.java",
         "ReturnStatement.java",
         "SliceExpression.java",
         "StarlarkFile.java",
@@ -68,14 +68,12 @@ java_library(
         "SyntaxError.java",
         "TokenKind.java",
         "UnaryOperatorExpression.java",
-        "ValidationEnvironment.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/starlark/spelling",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -87,14 +85,12 @@ java_library(
 java_library(
     name = "evaluator",
     srcs = [
-        "BaseFunction.java",
         "BuiltinCallable.java",
         "CallUtils.java",
         "ClassObject.java",
         "CpuProfiler.java",
         "Debug.java",
         "Debugger.java",
-        "Depset.java",
         "Dict.java",
         "Eval.java",
         "EvalException.java",
@@ -113,15 +109,13 @@ java_library(
         "Printer.java",
         "RangeList.java",
         "Sequence.java",
-        "SkylarkClassObject.java",
-        "SkylarkIndexable.java",
-        "SkylarkQueryable.java",
-        "SkylarkType.java",
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFunction.java",
+        "StarlarkIndexable.java",
         "StarlarkIterable.java",
         "StarlarkList.java",
+        "StarlarkQueryable.java",
         "StarlarkSemantics.java",
         "StarlarkThread.java",
         "StarlarkValue.java",
@@ -131,14 +125,9 @@ java_library(
     data = [":libcpu_profiler.so"],  # will be loaded dynamically
     deps = [
         ":frontend",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib/util",
-        "//src/main/java/com/google/devtools/build/lib/util:string",
-        "//src/main/java/com/google/devtools/starlark/spelling",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",

@@ -26,9 +26,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -51,7 +51,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
     Map<String, List<String>> outputGroupsMap =
         ruleContext.attributes().get("output_groups", Type.STRING_LIST_DICT);
     NinjaGraphProvider graphProvider =
-        ruleContext.getPrerequisite("ninja_graph", Mode.TARGET, NinjaGraphProvider.class);
+        ruleContext.getPrerequisite("ninja_graph", TransitionMode.TARGET, NinjaGraphProvider.class);
     Preconditions.checkNotNull(graphProvider);
     List<PathFragment> pathsToBuild =
         outputGroupsMap.values().stream()
@@ -182,13 +182,13 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
         NestedSet<Artifact> artifacts = phonyTargetsArtifacts.getPhonyTargetArtifacts(path);
         nestedSetBuilder.addTransitive(artifacts);
       } else {
-        Artifact usualArtifact = artifactsHelper.createOutputArtifact(path);
-        if (usualArtifact == null) {
+        Artifact outputArtifact = artifactsHelper.createOutputArtifact(path);
+        if (outputArtifact == null) {
           ruleContext.ruleError(
               String.format("Required target '%s' is not created in ninja_graph.", path));
           return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
         }
-        nestedSetBuilder.add(usualArtifact);
+        nestedSetBuilder.add(outputArtifact);
       }
     }
     return nestedSetBuilder.build();
@@ -201,7 +201,7 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
       ImmutableSortedMap.Builder<PathFragment, Artifact> symlinksMapBuilder)
       throws InterruptedException {
     FileProvider fileProvider =
-        ruleContext.getPrerequisite("ninja_graph", Mode.TARGET, FileProvider.class);
+        ruleContext.getPrerequisite("ninja_graph", TransitionMode.TARGET, FileProvider.class);
     Preconditions.checkNotNull(fileProvider);
     new NestedSetVisitor<Artifact>(
             a -> {

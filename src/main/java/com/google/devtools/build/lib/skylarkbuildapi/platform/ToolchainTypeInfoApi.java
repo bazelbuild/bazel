@@ -16,20 +16,20 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object representing data about a specific toolchain type. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ToolchainTypeInfo",
     doc =
         "Provides access to data about a specific toolchain type. "
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface ToolchainTypeInfoApi extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "type_label",
       doc = "The label uniquely identifying this toolchain type.",
       structField = true)

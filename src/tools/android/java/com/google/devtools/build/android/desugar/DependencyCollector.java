@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android.desugar;
 
+import com.google.devtools.build.android.r8.R8Utils;
 import javax.annotation.Nullable;
 
 /**
@@ -29,7 +30,9 @@ import javax.annotation.Nullable;
 public interface DependencyCollector {
 
   /** Class name suffix used for interface companion classes. */
-  public String INTERFACE_COMPANION_SUFFIX = "$$CC";
+  String INTERFACE_COMPANION_SUFFIX = "$$CC";
+
+  String D8_INTERFACE_COMPANION_SUFFIX = R8Utils.INTERFACE_COMPANION_SUFFIX;
 
   /**
    * Records that {@code origin} depends on companion class {@code target}. For the resulting binary

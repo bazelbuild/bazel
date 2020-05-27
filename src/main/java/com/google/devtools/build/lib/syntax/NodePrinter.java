@@ -176,11 +176,11 @@ final class NodePrinter {
         {
           ForStatement stmt = (ForStatement) s;
           buf.append("for ");
-          printExpr(stmt.getLHS());
+          printExpr(stmt.getVars());
           buf.append(" in ");
           printExpr(stmt.getCollection());
           buf.append(":\n");
-          printSuite(stmt.getBlock());
+          printSuite(stmt.getBody());
           break;
         }
 
@@ -189,7 +189,7 @@ final class NodePrinter {
           DefStatement stmt = (DefStatement) s;
           printDefSignature(stmt);
           buf.append('\n');
-          printSuite(stmt.getStatements());
+          printSuite(stmt.getBody());
           break;
         }
 
@@ -243,9 +243,9 @@ final class NodePrinter {
         {
           ReturnStatement stmt = (ReturnStatement) s;
           buf.append("return");
-          if (stmt.getReturnExpression() != null) {
+          if (stmt.getResult() != null) {
             buf.append(' ');
-            printExpr(stmt.getReturnExpression());
+            printExpr(stmt.getResult());
           }
           buf.append('\n');
           break;

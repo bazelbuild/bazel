@@ -15,7 +15,7 @@
 
 # This script constructs the final Jekyll tree by combining the static Jekyll
 # site files with generated documentation, such as the Build Encyclopedia and
-# Skylark Library. It then constructs the site directory structure for
+# Starlark Library. It then constructs the site directory structure for
 # Bazel documentation at HEAD by moving all documentation into the
 # /versions/master directory and adding redirects from the root of the site.
 # This way, URLs of the form https://docs.bazel.build/foo.html will be
@@ -61,7 +61,7 @@ function setup {
   unzip -qq "$BE_ZIP" -d "$be_dir"
   mv "$be_dir/be-nav.html" "$OUT_DIR/_includes"
 
-  # Unpack the Skylark Library into versions/master/skylark/lib
+  # Unpack the Starlark Library into versions/master/skylark/lib
   local sl_dir="$VERSION_DIR/skylark/lib"
   mkdir -p "$sl_dir"
   unzip -qq "$SL_ZIP" -d "$sl_dir"
@@ -76,7 +76,7 @@ function setup {
   cp "$CLR_HTML" "$VERSION_DIR"
 }
 
-# Helper function for copying a Skylark rule doc.
+# Helper function for copying a Starlark rule doc.
 function copy_skylark_rule_doc {
   local rule_family=$1
   local rule_family_name=$2
@@ -91,7 +91,7 @@ EOF
     cat "$TMP/skylark/$rule_family/README.md"; ) > "$be_dir/${rule_family}.md"
 }
 
-# Copies the READMEs for Skylark rules bundled with Bazel.
+# Copies the READMEs for Starlark rules bundled with Bazel.
 function unpack_skylark_rule_docs {
   local tmp_dir=$TMP/skylark
   mkdir -p $tmp_dir

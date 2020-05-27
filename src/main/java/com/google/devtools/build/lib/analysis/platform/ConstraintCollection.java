@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintCollectionApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -108,6 +107,11 @@ public abstract class ConstraintCollection
     return builder().parent(parent).addConstraints(constraints).build();
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * Returns the parent {@link ConstraintCollection} for this instance, or {@code null} if none
    * exists.
@@ -172,7 +176,7 @@ public abstract class ConstraintCollection
     if (!(key instanceof ConstraintSettingInfo)) {
       throw Starlark.errorf(
           "Constraint names must be platform_common.ConstraintSettingInfo, got %s instead",
-          EvalUtils.getDataTypeName(key));
+          Starlark.type(key));
     }
 
     return (ConstraintSettingInfo) key;

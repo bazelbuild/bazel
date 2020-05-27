@@ -17,17 +17,15 @@ package com.google.devtools.build.skydoc.fakebuildapi.repository;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDescriptor;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi.AttributeNameComparator;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkRuleFunctionsApi.AttributeNameComparator;
 import com.google.devtools.build.skydoc.rendering.RuleInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
@@ -43,6 +41,20 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
       new FakeDescriptor(
           AttributeType.NAME, "A unique name for this repository.", true, ImmutableList.of(), "");
 
+  private static final FakeDescriptor IMPLICIT_REPO_MAPPING_ATTRIBUTE_DESCRIPTOR =
+      new FakeDescriptor(
+          AttributeType.STRING_DICT,
+          "A dictionary from local repository name to global repository name. "
+              + "This allows controls over workspace dependency resolution for dependencies of "
+              + "this repository."
+              + "<p>For example, an entry `\"@foo\": \"@bar\"` declares that, for any time "
+              + "this repository depends on `@foo` (such as a dependency on "
+              + "`@foo//some:target`, it should actually resolve that dependency within "
+              + "globally-declared `@bar` (`@bar//some:target`).",
+          true,
+          ImmutableList.of(),
+          "");
+
   private final List<RuleInfoWrapper> ruleInfoList;
 
   public FakeRepositoryModule(List<RuleInfoWrapper> ruleInfoList) {
@@ -50,8 +62,8 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   }
 
   @Override
-  public BaseFunction repositoryRule(
-      StarlarkFunction implementation,
+  public StarlarkCallable repositoryRule(
+      StarlarkCallable implementation,
       Object attrs,
       Boolean local,
       Sequence<?> environ, // <String> expected
@@ -63,11 +75,11 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     List<AttributeInfo> attrInfos;
     ImmutableMap.Builder<String, FakeDescriptor> attrsMapBuilder = ImmutableMap.builder();
     if (attrs != null && attrs != Starlark.NONE) {
-      Dict<?, ?> attrsDict = (Dict<?, ?>) attrs;
-      attrsMapBuilder.putAll(attrsDict.getContents(String.class, FakeDescriptor.class, "attrs"));
+      attrsMapBuilder.putAll(Dict.cast(attrs, String.class, FakeDescriptor.class, "attrs"));
     }
 
     attrsMapBuilder.put("name", IMPLICIT_NAME_ATTRIBUTE_DESCRIPTOR);
+    attrsMapBuilder.put("repo_mapping", IMPLICIT_REPO_MAPPING_ATTRIBUTE_DESCRIPTOR);
     attrInfos =
         attrsMapBuilder.build().entrySet().stream()
             .filter(entry -> !entry.getKey().startsWith("_"))
@@ -87,13 +99,13 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   }
 
   /**
-   * A fake {@link BaseFunction} implementation which serves as an identifier for a rule definition.
-   * A skylark invocation of 'rule()' should spawn a unique instance of this class and return it.
-   * Thus, skylark code such as 'foo = rule()' will result in 'foo' being assigned to a unique
-   * identifier, which can later be matched to a registered rule() invocation saved by the fake
-   * build API implementation.
+   * A fake {@link StarlarkCallable} implementation which serves as an identifier for a rule
+   * definition. A Starlark invocation of 'rule()' should spawn a unique instance of this class and
+   * return it. Thus, Starlark code such as 'foo = rule()' will result in 'foo' being assigned to a
+   * unique identifier, which can later be matched to a registered rule() invocation saved by the
+   * fake build API implementation.
    */
-  private static class RepositoryRuleDefinitionIdentifier extends BaseFunction {
+  private static class RepositoryRuleDefinitionIdentifier implements StarlarkCallable {
 
     private static int idCounter = 0;
     private final String name = "RepositoryRuleDefinitionIdentifier" + idCounter++;
@@ -101,11 +113,6 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
     @Override
     public String getName() {
       return name;
-    }
-
-    @Override
-    public FunctionSignature getSignature() {
-      return FunctionSignature.KWARGS;
     }
   }
 

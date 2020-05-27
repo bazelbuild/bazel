@@ -114,17 +114,20 @@ public class WindowsSubprocess implements Subprocess {
   }
 
   private static final AtomicInteger THREAD_SEQUENCE_NUMBER = new AtomicInteger(1);
-  private static final ExecutorService WAITER_POOL = Executors.newCachedThreadPool(
-      new ThreadFactory() {
-        @Override
-        public Thread newThread(Runnable runnable) {
-          Thread thread = new Thread(null, runnable,
-              "Windows-Process-Waiter-Thread-" + THREAD_SEQUENCE_NUMBER.getAndIncrement(),
-              16 * 1024);
-          thread.setDaemon(true);
-          return thread;
-        }
-      });
+  private static final ExecutorService WAITER_POOL =
+      Executors.newCachedThreadPool(
+          new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable runnable) {
+              Thread thread =
+                  new Thread(
+                      null,
+                      runnable,
+                      "Windows-Process-Waiter-Thread-" + THREAD_SEQUENCE_NUMBER.getAndIncrement());
+              thread.setDaemon(true);
+              return thread;
+            }
+          });
 
   private volatile long nativeProcess;
   private final OutputStream stdinStream;

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileCompression;
@@ -25,11 +26,11 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /** Event reporting on statistics about the build. */
 public class BuildToolLogs implements BuildEventWithOrderConstraint {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /** These values are posted as byte strings to the BEP. */
   private final Collection<Pair<String, ByteString>> directValues;
   /** These values are posted as Future URIs to the BEP. */
@@ -39,8 +40,6 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
    * process.
    */
   private final Collection<LogFileEntry> logFiles;
-
-  private static final Logger logger = Logger.getLogger(BuildToolLogs.class.getName());
 
   public BuildToolLogs(
       Collection<Pair<String, ByteString>> directValues,
@@ -106,7 +105,7 @@ public class BuildToolLogs implements BuildEventWithOrderConstraint {
                   .build());
         }
       } catch (ExecutionException e) {
-        logger.log(Level.WARNING, "Skipping build tool log upload " + name, e);
+        logger.atWarning().withCause(e).log("Skipping build tool log upload %s", name);
       }
     }
     for (LogFileEntry logFile : logFiles) {

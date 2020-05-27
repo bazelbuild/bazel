@@ -17,25 +17,34 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
 
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
-public class ObjcConfiguration extends BuildConfiguration.Fragment
-    implements ObjcConfigurationApi<PlatformType> {
+public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<PlatformType> {
+  @VisibleForTesting
+  static final ImmutableList<String> DBG_COPTS =
+      ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
+
   @VisibleForTesting
   static final ImmutableList<String> GLIBCXX_DBG_COPTS =
       ImmutableList.of(
           "-D_GLIBCXX_DEBUG", "-D_GLIBCXX_DEBUG_PEDANTIC", "-D_GLIBCPP_CONCEPT_CHECKS");
+
+  @VisibleForTesting
+  static final ImmutableList<String> OPT_COPTS =
+      ImmutableList.of(
+          "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
@@ -60,7 +69,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
   private final Label appleSdk;
   private final boolean compileInfoMigration;
 
-  ObjcConfiguration(ObjcCommandLineOptions objcOptions, CoreOptions options) {
+  ObjcConfiguration(
+      CppOptions cppOptions, ObjcCommandLineOptions objcOptions, CoreOptions options) {
     this.iosSimulatorDevice = objcOptions.iosSimulatorDevice;
     this.iosSimulatorVersion = DottedVersion.maybeUnwrap(objcOptions.iosSimulatorVersion);
     this.watchosSimulatorDevice = objcOptions.watchosSimulatorDevice;
@@ -72,8 +82,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.generateDsym =
-        objcOptions.appleGenerateDsym
-            || (objcOptions.appleEnableAutoDsymDbg && this.compilationMode == CompilationMode.DBG);
+        cppOptions.appleGenerateDsym
+            || (cppOptions.appleEnableAutoDsymDbg && this.compilationMode == CompilationMode.DBG);
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
@@ -171,14 +181,17 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment
     switch (compilationMode) {
       case DBG:
         if (this.debugWithGlibcxx) {
-          return GLIBCXX_DBG_COPTS;
+          return ImmutableList.<String>builder()
+              .addAll(DBG_COPTS)
+              .addAll(GLIBCXX_DBG_COPTS)
+              .build();
         } else {
-          return ImmutableList.of();
+          return DBG_COPTS;
         }
       case FASTBUILD:
         return fastbuildOptions;
       case OPT:
-        return ImmutableList.of();
+        return OPT_COPTS;
       default:
         throw new AssertionError();
     }

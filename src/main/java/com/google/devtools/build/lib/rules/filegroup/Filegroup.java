@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -65,9 +65,9 @@ public class Filegroup implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild =
         outputGroupName.isEmpty()
-            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET)
+            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", TransitionMode.TARGET)
             : getArtifactsForOutputGroup(
-                outputGroupName, ruleContext.getPrerequisites("srcs", Mode.TARGET));
+                outputGroupName, ruleContext.getPrerequisites("srcs", TransitionMode.TARGET));
 
     InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.collectTransitive(

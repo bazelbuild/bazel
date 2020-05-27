@@ -3,11 +3,11 @@
 #   (but not the implementation of that API). Ultimately, this package
 #   may be broken out of the Bazel package hierarchy to be standalone.
 #   Thus, this package should not depend on Bazel-specific packages (only
-#   those which contain pure-Skylark concepts, such as the interpreter or
+#   those which contain pure-Starlark concepts, such as the interpreter or
 #   annotation interfaces).
 #
 # This package contains specific files for Bazel concepts, such as
-# SkylarkRuleClassApi and FileApi. Only add it as a dependency if you require
+# StarlarkRuleClassApi and FileApi. Only add it as a dependency if you require
 # those APIs.
 
 load("@rules_java//java:defs.bzl", "java_library")
@@ -40,8 +40,9 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//third_party:guava",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         # TODO(cparsons): Remove dependency on Label implementation.
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",

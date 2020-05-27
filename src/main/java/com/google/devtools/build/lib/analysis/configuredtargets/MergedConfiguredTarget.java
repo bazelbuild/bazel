@@ -43,7 +43,7 @@ import java.util.function.Consumer;
  * <p>This is an ephemeral object created only for the analysis of a single configured target. After
  * that configured target is analyzed, this is thrown away.
  */
-@Immutable // (and Starlark-hashable)
+@Immutable
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   private final ConfiguredTarget base;
   private final ImmutableList<ConfiguredAspect> aspects;
@@ -78,9 +78,9 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected void addExtraSkylarkKeys(Consumer<String> result) {
+  protected void addExtraStarlarkKeys(Consumer<String> result) {
     if (base instanceof AbstractConfiguredTarget) {
-      ((AbstractConfiguredTarget) base).addExtraSkylarkKeys(result);
+      ((AbstractConfiguredTarget) base).addExtraStarlarkKeys(result);
     }
     for (int i = 0; i < nonBaseProviders.getProviderCount(); i++) {
       Object classAt = nonBaseProviders.getProviderKeyAt(i);
@@ -92,7 +92,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     Info provider = nonBaseProviders.get(providerKey);
     if (provider == null) {
       provider = base.get(providerKey);
@@ -101,10 +101,10 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     if (providerKey.equals(AbstractConfiguredTarget.ACTIONS_FIELD_NAME)) {
       ImmutableList.Builder<ActionAnalysisMetadata> actions = ImmutableList.builder();
-      // Only expose actions which are SkylarkValues.
+      // Only expose actions which are StarlarkValues.
       // TODO(cparsons): Expose all actions to Starlark.
       for (ConfiguredAspect aspect : aspects) {
         actions.addAll(
@@ -159,7 +159,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       TransitiveInfoProviderMap providers = aspect.getProviders();
       for (int i = 0; i < providers.getProviderCount(); ++i) {
         Object providerKey = providers.getProviderKeyAt(i);
-        if (OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey().equals(providerKey)
+        if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
             || ExtraActionArtifactsProvider.class.equals(providerKey)
             || RequiredConfigFragmentsProvider.class.equals(providerKey)) {
           continue;

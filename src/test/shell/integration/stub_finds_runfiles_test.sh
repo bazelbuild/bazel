@@ -38,10 +38,10 @@ function set_up() {
   mkdir -p pkg pkg/java
   cat > pkg/BUILD << 'EOF'
 java_binary(name = "javabin",
-            main_class = "ExitZero",
+            main_class = "test.ExitZero",
             srcs = [ "java/ExitZero.java", ])
 java_test(name = "javatest",
-          main_class = "ExitZero",
+          main_class = "test.ExitZero",
           use_testrunner = 0,
           srcs = [ "java/ExitZero.java", ])
 py_binary(name = "pybin",
@@ -70,6 +70,7 @@ genrule(name = "genrule_runs_pybin",
         cmd = "$(location :pybin) && $(location :sh_runs_pybin) && >$@")
 EOF
   cat > pkg/java/ExitZero.java << 'EOF'
+package test;
 public class ExitZero {
   public static void main(String[] args) { }
 }

@@ -21,6 +21,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestLength.DigestLengthImpl;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -158,8 +159,7 @@ public class DigestHashFunction {
       return getDefault();
     } catch (DefaultHashFunctionNotSetException e) {
       // Some tests use this class without calling GoogleUnixFileSystemModule.globalInit().
-      Preconditions.checkState(
-          System.getenv("TEST_TMPDIR") != null, "Default hash function has not been set");
+      Preconditions.checkState(TestType.isInTest(), "Default hash function has not been set");
       return DigestHashFunction.SHA256;
     }
   }

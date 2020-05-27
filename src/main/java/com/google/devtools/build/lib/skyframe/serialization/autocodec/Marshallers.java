@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.Marshaller;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationCodeGenerator.PrimitiveValueSerializationCodeGenerator;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationProcessorUtil.SerializationProcessingFailedException;
-import com.google.devtools.build.lib.skyframe.serialization.strings.StringCodecs;
 import com.squareup.javapoet.TypeName;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.TypeElement;
@@ -267,18 +266,12 @@ class Marshallers {
 
         @Override
         public void addSerializationCode(Context context) {
-          context.builder.addStatement(
-              "$T.asciiOptimized().serialize(context, $L.toString(), codedOut)",
-              StringCodecs.class,
-              context.name);
+          context.builder.addStatement("context.serialize($L.toString(), codedOut)", context.name);
         }
 
         @Override
         public void addDeserializationCode(Context context) {
-          context.builder.addStatement(
-              "$L = $T.asciiOptimized().deserialize(context, codedIn)",
-              context.name,
-              StringCodecs.class);
+          context.builder.addStatement("$L = context.deserialize(codedIn)", context.name);
         }
       };
 

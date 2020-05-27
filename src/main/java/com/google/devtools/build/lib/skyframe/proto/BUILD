@@ -11,7 +11,7 @@ proto_library(
 
 java_proto_library(
     name = "action_rewind_event_java_proto",
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
     deps = [":action_rewind_event"],
 )
 
@@ -23,5 +23,5 @@ java_library_srcs(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
 )

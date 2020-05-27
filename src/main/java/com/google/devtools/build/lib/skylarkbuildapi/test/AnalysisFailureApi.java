@@ -15,14 +15,14 @@
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AnalysisFailure",
     doc =
         "Encapsulates information about an analysis-phase error which would have occurred during "
@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
     documented = false)
 public interface AnalysisFailureApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label",
       doc =
           "The label of the target that exhibited an analysis-phase error. This is the label "
@@ -43,7 +43,7 @@ public interface AnalysisFailureApi extends StarlarkValue {
       structField = true)
   Label getLabel();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "message",
       doc = "A string representation of the analysis-phase error which occurred.",
       documented = false,

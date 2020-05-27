@@ -261,9 +261,9 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     scratch.file(
         "a/BUILD",
         "load(':skylark.bzl', 'skylark_rule')",
-        // ensure that all Skylark rules get the TestConfiguration fragment
+        // ensure that all Starlark rules get the TestConfiguration fragment
         "test_base(name = 'base')",
-        // skylark rules get trimmed
+        // Starlark rules get trimmed
         "skylark_rule(name = 'skylark_solo', deps = [':base'])",
         // native rules get trimmed; top-level targets get trimmed after the rule-class transition
         "add_test_arg_for_self(name = 'test_arg_on_self')",
@@ -358,9 +358,9 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     scratch.file(
         "a/BUILD",
         "load(':skylark.bzl', 'skylark_rule')",
-        // ensure that all Skylark rules get the TestConfiguration fragment
+        // ensure that all Starlark rules get the TestConfiguration fragment
         "test_base(name = 'base')",
-        // skylark rules get trimmed
+        // Starlark rules get trimmed
         "skylark_rule(name = 'skylark_solo', deps = [':base'])");
 
     ConfiguredTarget configuredTarget;
@@ -567,17 +567,20 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
    * prefix + "2"}.
    */
   private static SplitTransition newSplitTransition(final String prefix) {
-    return (buildOptions, eventHandler) -> {
-      ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
-      for (int index = 1; index <= 2; index++) {
-        BuildOptions toOptions = buildOptions.clone();
-        TestConfiguration.TestOptions baseOptions =
-            toOptions.get(TestConfiguration.TestOptions.class);
-        baseOptions.testFilter =
-            (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
-        result.put(prefix + index, toOptions);
+    return new SplitTransition() {
+      @Override
+      public Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
+        ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
+        for (int index = 1; index <= 2; index++) {
+          BuildOptions toOptions = buildOptions.clone();
+          TestConfiguration.TestOptions baseOptions =
+              toOptions.get(TestConfiguration.TestOptions.class);
+          baseOptions.testFilter =
+              (baseOptions.testFilter == null ? "" : baseOptions.testFilter) + prefix + index;
+          result.put(prefix + index, toOptions);
+        }
+        return result.build();
       }
-      return result.build();
     };
   }
 

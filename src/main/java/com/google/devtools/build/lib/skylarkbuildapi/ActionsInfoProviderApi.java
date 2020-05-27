@@ -15,15 +15,14 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/**
- * Provider for structs containing actions created during the analysis of a rule.
- */
-@SkylarkModule(name = "Actions",
+/** Provider for structs containing actions created during the analysis of a rule. */
+@StarlarkBuiltin(
+    name = "Actions",
     doc = "<b>Deprecated and subject to imminent removal. Please do not use.</b>",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 // TODO(cparsons): Deprecate and remove this API.
 public interface ActionsInfoProviderApi extends ProviderApi {}

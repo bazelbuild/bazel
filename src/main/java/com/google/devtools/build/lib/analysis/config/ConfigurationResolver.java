@@ -16,22 +16,28 @@ package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.ConfigurationsCollector;
+import com.google.devtools.build.lib.analysis.ConfigurationsResult;
 import com.google.devtools.build.lib.analysis.Dependency;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKey;
+import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionUtil;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -40,15 +46,13 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PlatformMappingValue;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.ConfigurationsResult;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetKey;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetValue;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -96,16 +100,17 @@ public final class ConfigurationResolver {
    * contain the fragments needed by the dep and its transitive closure. Else they unconditionally
    * include all fragments.
    *
-   * <p>This method is heavily performance-optimized. Because {@link ConfiguredTargetFunction} calls
-   * it over every edge in the configured target graph, small inefficiencies can have observable
-   * impact on analysis time. Keep this in mind when making modifications and performance-test any
-   * changes you make.
+   * <p>This method is heavily performance-optimized. Because {@link
+   * com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction} calls it over every edge in
+   * the configured target graph, small inefficiencies can have observable impact on analysis time.
+   * Keep this in mind when making modifications and performance-test any changes you make.
    *
    * @param env Skyframe evaluation environment
    * @param ctgValue the label and configuration of the source target
-   * @param originalDeps the transition requests for each dep and each dependency kind
+   * @param dependencyKeys the transition requests for each dep and each dependency kind
    * @param hostConfiguration the host configuration
-   * @param ruleClassProvider provider for determining the right configuration fragments for deps
+   * @param defaultBuildOptions default build options to diff options against for optimization
+   * @param configConditions {@link ConfigMatchingProvider} map for the rule
    * @return a mapping from each dependency kind in the source target to the {@link
    *     BuildConfiguration}s and {@link Label}s for the deps under that dependency kind . Returns
    *     null if not all Skyframe dependencies are available.
@@ -114,17 +119,17 @@ public final class ConfigurationResolver {
   public static OrderedSetMultimap<DependencyKind, Dependency> resolveConfigurations(
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
-      OrderedSetMultimap<DependencyKind, Dependency> originalDeps,
+      OrderedSetMultimap<DependencyKind, DependencyKey> dependencyKeys,
       BuildConfiguration hostConfiguration,
-      RuleClassProvider ruleClassProvider,
-      BuildOptions defaultBuildOptions)
+      BuildOptions defaultBuildOptions,
+      ImmutableMap<Label, ConfigMatchingProvider> configConditions)
       throws DependencyEvaluationException, InterruptedException {
 
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
     // configuration paired with a transition key corresponding to the BuildConfiguration. For cases
     // where Skyframe isn't needed to get the configuration (e.g. when we just re-used the original
     // rule's configuration), we should skip this outright.
-    Multimap<SkyKey, Pair<Map.Entry<DependencyKind, Dependency>, String>> keysToEntries =
+    Multimap<SkyKey, Pair<Map.Entry<DependencyKind, DependencyKey>, String>> keysToEntries =
         LinkedListMultimap.create();
 
     // Stores the result of applying a transition to the current configuration using a
@@ -138,13 +143,13 @@ public final class ConfigurationResolver {
     BuildConfiguration currentConfiguration = ctgValue.getConfiguration();
 
     // Stores the configuration-resolved versions of each dependency. This method must preserve the
-    // original label ordering of each attribute. For example, if originalDeps.get("data") is
+    // original label ordering of each attribute. For example, if dependencyKeys.get("data") is
     // [":a", ":b"], the resolved variant must also be [":a", ":b"] in the same order. Because we
     // may not actualize the results in order (some results need Skyframe-evaluated configurations
     // while others can be computed trivially), we dump them all into this map, then as a final step
     // iterate through the original list and pluck out values from here for the final value.
     //
-    // For split transitions, originaldeps.get("data") = [":a", ":b"] can produce the output
+    // For split transitions, dependencyKeys.get("data") = [":a", ":b"] can produce the output
     // [":a"<config1>, ":a"<config2>, ..., ":b"<config1>, ":b"<config2>, ...]. All instances of ":a"
     // still appear before all instances of ":b". But the [":a"<config1>, ":a"<config2>"] subset may
     // be in any (deterministic) order. In particular, this may not be the same order as
@@ -155,18 +160,17 @@ public final class ConfigurationResolver {
     // This map is used heavily by all builds. Inserts and gets should be as fast as possible.
     Multimap<DependencyEdge, Dependency> resolvedDeps = LinkedHashMultimap.create();
 
-    // Performance optimization: This method iterates over originalDeps twice. By storing
+    // Performance optimization: This method iterates over dependencyKeys twice. By storing
     // DependencyEdge instances in this list, we avoid having to recreate them the second time
     // (particularly avoid recomputing their hash codes). Profiling shows this shaves 25% off this
     // method's execution time (at the time of this comment).
-    ArrayList<DependencyEdge> attributesAndLabels = new ArrayList<>(originalDeps.size());
+    ArrayList<DependencyEdge> attributesAndLabels = new ArrayList<>(dependencyKeys.size());
 
-    for (Map.Entry<DependencyKind, Dependency> depsEntry : originalDeps.entries()) {
-      Dependency dep = depsEntry.getValue();
-      DependencyEdge dependencyEdge = new DependencyEdge(depsEntry.getKey(), dep.getLabel());
+    for (Map.Entry<DependencyKind, DependencyKey> depsEntry : dependencyKeys.entries()) {
+      DependencyKey dep = depsEntry.getValue();
+      DependencyKind depKind = depsEntry.getKey();
+      DependencyEdge dependencyEdge = new DependencyEdge(depKind, dep.getLabel());
       attributesAndLabels.add(dependencyEdge);
-      // DependencyResolver should never emit a Dependency with an explicit configuration
-      Preconditions.checkState(!dep.hasExplicitConfiguration());
 
       // The null configuration can be trivially computed (it's, well, null), so special-case that
       // transition here and skip the rest of the logic. A *lot* of targets have null deps, so
@@ -174,13 +178,57 @@ public final class ConfigurationResolver {
       // total analysis phase time.
       ConfigurationTransition transition = dep.getTransition();
       if (transition == NullTransition.INSTANCE) {
-        putOnlyEntry(
-            resolvedDeps, dependencyEdge, Dependency.withNullConfiguration(dep.getLabel()));
+        Dependency finalDependency =
+            Dependency.builder().withNullConfiguration().setLabel(dep.getLabel()).build();
+        // If the base transition is a split transition, execute the transition and store returned
+        // transition keys along with the null configuration dependency, so that other code relying
+        // on stored transition keys doesn't have to implement special handling logic just for this
+        // kind of cases.
+        if (depKind.getAttribute() != null) {
+          TransitionFactory<AttributeTransitionData> transitionFactory =
+              depKind.getAttribute().getTransitionFactory();
+          if (transitionFactory.isSplit()) {
+            AttributeTransitionData transitionData =
+                AttributeTransitionData.builder()
+                    .attributes(
+                        ConfiguredAttributeMapper.of(
+                            ctgValue.getTarget().getAssociatedRule(), configConditions))
+                    .build();
+            ConfigurationTransition baseTransition = transitionFactory.create(transitionData);
+            Map<String, BuildOptions> toOptions;
+            try {
+              // TODO(jungjw): See if we can dedup getBuildSettingPackages implementations and put
+              //  this in applyTransition.
+              HashMap<PackageValue.Key, PackageValue> buildSettingPackages =
+                  StarlarkTransition.getBuildSettingPackages(env, baseTransition);
+              if (buildSettingPackages == null) {
+                return null;
+              }
+              toOptions =
+                  applyTransition(
+                      currentConfiguration.getOptions(),
+                      baseTransition,
+                      buildSettingPackages,
+                      env.getListener());
+            } catch (TransitionException e) {
+              throw new DependencyEvaluationException(e);
+            }
+            if (!SplitTransition.equals(currentConfiguration.getOptions(), toOptions.values())) {
+              finalDependency =
+                  Dependency.builder()
+                      .setLabel(dep.getLabel())
+                      .withNullConfiguration()
+                      .setTransitionKeys(ImmutableList.copyOf(toOptions.keySet()))
+                      .build();
+            }
+          }
+        }
+        putOnlyEntry(resolvedDeps, dependencyEdge, finalDependency);
         continue;
       }
 
       // Figure out the required fragments for this dep and its transitive closure.
-      Set<Class<? extends BuildConfiguration.Fragment>> depFragments =
+      Set<Class<? extends Fragment>> depFragments =
           getTransitiveFragments(env, dep.getLabel(), ctgValue.getConfiguration());
       if (depFragments == null) {
         return null;
@@ -213,8 +261,11 @@ public final class ConfigurationResolver {
           putOnlyEntry(
               resolvedDeps,
               dependencyEdge,
-              Dependency.withConfigurationAndAspects(
-                  dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
+              Dependency.builder()
+                  .setLabel(dep.getLabel())
+                  .setConfiguration(ctgValue.getConfiguration())
+                  .setAspects(dep.getAspects())
+                  .build());
           continue;
         } else if (transition.isHostTransition()) {
           // The current rule's host configuration can also be used for the dep. We short-circuit
@@ -234,8 +285,11 @@ public final class ConfigurationResolver {
           putOnlyEntry(
               resolvedDeps,
               dependencyEdge,
-              Dependency.withConfigurationAndAspects(
-                  dep.getLabel(), hostConfiguration, dep.getAspects()));
+              Dependency.builder()
+                  .setLabel(dep.getLabel())
+                  .setConfiguration(hostConfiguration)
+                  .setAspects(dep.getAspects())
+                  .build());
           continue;
         }
       }
@@ -280,8 +334,14 @@ public final class ConfigurationResolver {
         putOnlyEntry(
             resolvedDeps,
             dependencyEdge,
-            Dependency.withConfigurationAspectsAndTransitionKey(
-                dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects(), null));
+            Dependency.builder()
+                .setLabel(dep.getLabel())
+                .setConfiguration(ctgValue.getConfiguration())
+                .setAspects(dep.getAspects())
+                // Explicitly do not set the transition key, since there is only one configuration
+                // and it matches the current one. This ignores the transition key set if this
+                // was a split transition.
+                .build());
         continue;
       }
 
@@ -354,8 +414,8 @@ public final class ConfigurationResolver {
         }
         BuildConfiguration trimmedConfig =
             ((BuildConfigurationValue) valueOrException.get()).getConfiguration();
-        for (Pair<Map.Entry<DependencyKind, Dependency>, String> info : keysToEntries.get(key)) {
-          Dependency originalDep = info.first.getValue();
+        for (Pair<Map.Entry<DependencyKind, DependencyKey>, String> info : keysToEntries.get(key)) {
+          DependencyKey originalDep = info.first.getValue();
           if (trimmedConfig.trimConfigurationsRetroactively()
               && !originalDep.getAspects().isEmpty()) {
             String message =
@@ -368,8 +428,12 @@ public final class ConfigurationResolver {
           }
           DependencyEdge attr = new DependencyEdge(info.first.getKey(), originalDep.getLabel());
           Dependency resolvedDep =
-              Dependency.withConfigurationAspectsAndTransitionKey(
-                  originalDep.getLabel(), trimmedConfig, originalDep.getAspects(), info.second);
+              Dependency.builder()
+                  .setLabel(originalDep.getLabel())
+                  .setConfiguration(trimmedConfig)
+                  .setAspects(originalDep.getAspects())
+                  .setTransitionKey(info.second)
+                  .build();
           Attribute attribute = attr.dependencyKind.getAttribute();
           if (attribute != null && attribute.getTransitionFactory().isSplit()) {
             resolvedDeps.put(attr, resolvedDep);
@@ -382,7 +446,7 @@ public final class ConfigurationResolver {
       throw new DependencyEvaluationException(e);
     }
 
-    return sortResolvedDeps(originalDeps, resolvedDeps, attributesAndLabels);
+    return sortResolvedDeps(dependencyKeys, resolvedDeps, attributesAndLabels);
   }
 
   /**
@@ -393,12 +457,12 @@ public final class ConfigurationResolver {
   private static final class FragmentsAndTransition {
     // Treat this as immutable. The only reason this isn't an ImmutableSet is because it
     // gets bound to a NestedSet.toSet() reference, which returns a Set interface.
-    final Set<Class<? extends BuildConfiguration.Fragment>> fragments;
+    final Set<Class<? extends Fragment>> fragments;
     final ConfigurationTransition transition;
     private final int hashCode;
 
-    FragmentsAndTransition(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
-        ConfigurationTransition transition) {
+    FragmentsAndTransition(
+        Set<Class<? extends Fragment>> fragments, ConfigurationTransition transition) {
       this.fragments = fragments;
       this.transition = transition;
       hashCode = Objects.hash(this.fragments, this.transition);
@@ -488,17 +552,16 @@ public final class ConfigurationResolver {
     map.put(key, value);
   }
 
-
   /**
-   * Returns the configuration fragments required by a dep and its transitive closure.
-   * Returns null if Skyframe dependencies aren't yet available.
+   * Returns the configuration fragments required by a dep and its transitive closure. Returns null
+   * if Skyframe dependencies aren't yet available.
    *
    * @param env Skyframe evaluation environment
    * @param dep label of the dep to check
    * @param parentConfig configuration of the rule depending on the dep
    */
   @Nullable
-  private static Set<Class<? extends BuildConfiguration.Fragment>> getTransitiveFragments(
+  private static Set<Class<? extends Fragment>> getTransitiveFragments(
       SkyFunction.Environment env, Label dep, BuildConfiguration parentConfig)
       throws InterruptedException {
     if (!parentConfig.trimConfigurations()) {
@@ -543,7 +606,8 @@ public final class ConfigurationResolver {
 
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
     StoredEventHandler handlerWithErrorStatus = new StoredEventHandler();
-    Map<String, BuildOptions> result = transition.apply(fromOptions, handlerWithErrorStatus);
+    Map<String, BuildOptions> result =
+        transition.apply(TransitionUtil.restrict(transition, fromOptions), handlerWithErrorStatus);
 
     if (doesStarlarkTransition) {
       // We use a temporary StoredEventHandler instead of the caller's event handler because
@@ -585,17 +649,16 @@ public final class ConfigurationResolver {
       SkyFunction.Environment env,
       TargetAndConfiguration ctgValue,
       Attribute attribute,
-      Dependency dep,
-      Set<Class<? extends BuildConfiguration.Fragment>> expectedDepFragments)
+      DependencyKey dep,
+      Set<Class<? extends Fragment>> expectedDepFragments)
       throws DependencyEvaluationException {
     Set<String> ctgFragmentNames = new HashSet<>();
-    for (BuildConfiguration.Fragment fragment :
-        ctgValue.getConfiguration().getFragmentsMap().values()) {
+    for (Fragment fragment : ctgValue.getConfiguration().getFragmentsMap().values()) {
       ctgFragmentNames.add(fragment.getClass().getSimpleName());
     }
     Set<String> depFragmentNames = new HashSet<>();
-    for (Class<? extends BuildConfiguration.Fragment> fragmentClass : expectedDepFragments) {
-     depFragmentNames.add(fragmentClass.getSimpleName());
+    for (Class<? extends Fragment> fragmentClass : expectedDepFragments) {
+      depFragmentNames.add(fragmentClass.getSimpleName());
     }
     Set<String> missing = Sets.difference(depFragmentNames, ctgFragmentNames);
     if (!missing.isEmpty()) {
@@ -627,23 +690,20 @@ public final class ConfigurationResolver {
   /**
    * Returns a copy of the output deps using the same key and value ordering as the input deps.
    *
-   * @param originalDeps the input deps with the ordering to preserve
+   * @param dependencyKeys the input deps with the ordering to preserve
    * @param resolvedDeps the unordered output deps
    * @param attributesAndLabels collection of <attribute, depLabel> pairs guaranteed to match the
-   *     ordering of originalDeps.entries(). This is a performance optimization: see {@link
+   *     ordering of dependencyKeys.entries(). This is a performance optimization: see {@link
    *     #resolveConfigurations#attributesAndLabels} for details.
    */
   private static OrderedSetMultimap<DependencyKind, Dependency> sortResolvedDeps(
-      OrderedSetMultimap<DependencyKind, Dependency> originalDeps,
+      OrderedSetMultimap<DependencyKind, DependencyKey> dependencyKeys,
       Multimap<DependencyEdge, Dependency> resolvedDeps,
       ArrayList<DependencyEdge> attributesAndLabels) {
     Iterator<DependencyEdge> iterator = attributesAndLabels.iterator();
     OrderedSetMultimap<DependencyKind, Dependency> result = OrderedSetMultimap.create();
-    for (Map.Entry<DependencyKind, Dependency> depsEntry : originalDeps.entries()) {
+    for (Map.Entry<DependencyKind, DependencyKey> depsEntry : dependencyKeys.entries()) {
       DependencyEdge edge = iterator.next();
-      if (depsEntry.getValue().hasExplicitConfiguration()) {
-        result.put(edge.dependencyKind, depsEntry.getValue());
-      } else {
         Collection<Dependency> resolvedDepWithSplit = resolvedDeps.get(edge);
         Verify.verify(!resolvedDepWithSplit.isEmpty());
         if (resolvedDepWithSplit.size() > 1) {
@@ -652,7 +712,6 @@ public final class ConfigurationResolver {
           resolvedDepWithSplit = sortedSplitList;
         }
         result.putAll(depsEntry.getKey(), resolvedDepWithSplit);
-      }
     }
     return result;
   }
@@ -691,7 +750,7 @@ public final class ConfigurationResolver {
    * @param targetsToEvaluate the inputs repackaged as dependencies, including rule-specific
    *     transitions
    * @param eventHandler the error event handler
-   * @param skyframeExecutor the executor used for resolving Skyframe keys
+   * @param configurationsCollector the collector which finds configurations for dependencies
    */
   // TODO(bazel-team): error out early for targets that fail - failed configuration evaluations
   //   should never make it through analysis (and especially not seed ConfiguredTargetValues)
@@ -700,9 +759,9 @@ public final class ConfigurationResolver {
   // Keep this in sync with {@link PrepareAnalysisPhaseFunction#resolveConfigurations}.
   public static TopLevelTargetsAndConfigsResult getConfigurationsFromExecutor(
       Iterable<TargetAndConfiguration> defaultContext,
-      Multimap<BuildConfiguration, Dependency> targetsToEvaluate,
+      Multimap<BuildConfiguration, DependencyKey> targetsToEvaluate,
       ExtendedEventHandler eventHandler,
-      SkyframeExecutor skyframeExecutor)
+      ConfigurationsCollector configurationsCollector)
       throws InvalidConfigurationException {
 
     Map<Label, Target> labelsToTargets = new HashMap<>();
@@ -718,10 +777,10 @@ public final class ConfigurationResolver {
     if (!targetsToEvaluate.isEmpty()) {
       for (BuildConfiguration fromConfig : targetsToEvaluate.keySet()) {
         ConfigurationsResult configurationsResult =
-            skyframeExecutor.getConfigurations(
+            configurationsCollector.getConfigurations(
                 eventHandler, fromConfig.getOptions(), targetsToEvaluate.get(fromConfig));
         hasError |= configurationsResult.hasError();
-        for (Map.Entry<Dependency, BuildConfiguration> evaluatedTarget :
+        for (Map.Entry<DependencyKey, BuildConfiguration> evaluatedTarget :
             configurationsResult.getConfigurationMap().entries()) {
           Target target = labelsToTargets.get(evaluatedTarget.getKey().getLabel());
           successfullyEvaluatedTargets.put(

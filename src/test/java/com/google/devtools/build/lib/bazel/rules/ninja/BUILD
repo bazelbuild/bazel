@@ -16,8 +16,10 @@ java_library(
     name = "NinjaTests_lib",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/symlink_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/file",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/ninja/lexer",

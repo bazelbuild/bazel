@@ -21,12 +21,12 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
@@ -38,8 +38,7 @@ import javax.annotation.Nullable;
 
 /** A configuration containing flags required for Apple platforms and tools. */
 @Immutable
-public class AppleConfiguration extends BuildConfiguration.Fragment
-    implements AppleConfigurationApi<PlatformType> {
+public class AppleConfiguration extends Fragment implements AppleConfigurationApi<PlatformType> {
   /**
    * Environment variable name for the xcode version. The value of this environment variable should
    * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
@@ -308,7 +307,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
    * context. For effective platform for bundling actions, see {@link
    * #getMultiArchPlatform(PlatformType)}.
    */
-  // TODO(b/28754442): Deprecate for more general skylark-exposed platform retrieval.
+  // TODO(b/28754442): Deprecate for more general Starlark-exposed platform retrieval.
   @Override
   public ApplePlatform getIosCpuPlatform() {
     return ApplePlatform.forTarget(PlatformType.IOS, iosCpu);
@@ -368,12 +367,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
    */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "xcode_config_label",
       doc = "Returns the target denoted by the value of the --xcode_version_config flag",
       defaultLabel = AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL,
-      defaultInToolRepository = true
-  )
+      defaultInToolRepository = true)
   public Label getXcodeConfigLabel() {
     return xcodeConfigLabel;
   }
@@ -447,7 +445,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return AppleConfiguration.class;
     }
 

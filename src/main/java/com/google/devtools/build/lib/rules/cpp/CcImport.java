@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
@@ -78,10 +78,12 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
     FeatureConfiguration featureConfiguration =
         CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain, semantics);
 
-    Artifact staticLibrary = ruleContext.getPrerequisiteArtifact("static_library", Mode.TARGET);
-    Artifact sharedLibrary = ruleContext.getPrerequisiteArtifact("shared_library", Mode.TARGET);
+    Artifact staticLibrary =
+        ruleContext.getPrerequisiteArtifact("static_library", TransitionMode.TARGET);
+    Artifact sharedLibrary =
+        ruleContext.getPrerequisiteArtifact("shared_library", TransitionMode.TARGET);
     Artifact interfaceLibrary =
-        ruleContext.getPrerequisiteArtifact("interface_library", Mode.TARGET);
+        ruleContext.getPrerequisiteArtifact("interface_library", TransitionMode.TARGET);
     performErrorChecks(ruleContext, systemProvided, sharedLibrary, interfaceLibrary);
 
     Artifact resolvedSymlinkDynamicLibrary = null;
@@ -184,7 +186,7 @@ public abstract class CcImport implements RuleConfiguredTargetFactory {
             .addOutputGroups(outputGroups)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
-    CcSkylarkApiProvider.maybeAdd(ruleContext, result);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, result);
     return result.build();
   }
 

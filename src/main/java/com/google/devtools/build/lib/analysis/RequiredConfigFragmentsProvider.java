@@ -17,12 +17,13 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import java.util.List;
 
 /**
  * Provides a user-friendly list of the
- * {@link com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment}s and
+ * {@link Fragment}s and
  * {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} required by this target
  * and its transitive dependencies.
  *

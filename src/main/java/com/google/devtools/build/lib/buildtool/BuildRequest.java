@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.UiOptions;
@@ -75,7 +75,7 @@ public class BuildRequest implements OptionsProvider {
   private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
       ImmutableList.of(
           BuildRequestOptions.class,
-          PackageCacheOptions.class,
+          PackageOptions.class,
           StarlarkSemanticsOptions.class,
           LoadingOptions.class,
           AnalysisOptions.class,
@@ -201,11 +201,9 @@ public class BuildRequest implements OptionsProvider {
     return getOptions(BuildRequestOptions.class);
   }
 
-  /**
-   * Returns the set of options related to the loading phase.
-   */
-  public PackageCacheOptions getPackageCacheOptions() {
-    return getOptions(PackageCacheOptions.class);
+  /** Returns the set of options related to the loading phase. */
+  public PackageOptions getPackageOptions() {
+    return getOptions(PackageOptions.class);
   }
 
   /**

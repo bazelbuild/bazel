@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules; // a bad dependency
+import com.google.devtools.build.lib.analysis.skylark.StarlarkModules; // a bad dependency
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
@@ -36,73 +36,54 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import org.junit.Before;
 
-/**
- * Base class for test cases that use parsing and evaluation services.
- */
+/** Helper class for tests that evaluate Starlark code. */
+// TODO(adonovan): stop extending this class. Prefer composition over inheritance.
+// Rename it to EvaluationApparatus for consistency.
+//
+// TODO(adonovan): make predeclared env + semantics more like normal parameters.
+// The main challenge is when are the Thread and Module created?
+// They should have a consistent semantics, and the predeclared environment
+// cannot be changed after the Module is created.
+// Also, the fact that exec/eval/update/lookup can be used directly
+// or through a Scenario complicates the question of when we commit to
+// predeclared env + semantics.
+// For the most part, the predeclared env doesn't vary across a suite,
+// so it could be a constructor parameter.
+//
+// TODO(adonovan): this helper class might be somewhat handy for testing core Starlark, but its
+// widespread use in tests of Bazel features greatly hinders the improvement of Bazel's loading
+// phase. The existence of tests based on this class forces Bazel to continue support scenarios in
+// which the test creates the environment, the threads, and so on, when these should be
+// implemenation details of the loading phase. Instead, the lib.packages should present an API in
+// which the client provides files, flags, and arguments like a command-line tool, and all our tests
+// should be ported to use that API.
 public class EvaluationTestCase {
   private EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
 
-  private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
-  private final Map<String, Object> extraPredeclared = new HashMap<>();
-  private StarlarkThread thread;
-
-  @Before
-  public final void initialize() {
-    // TODO(adonovan): clean up the lazy initialization of thread when we disentangle
-    // Module from it. Only the module need exist early; the thread can be created
-    // immediately before execution
-    thread = newStarlarkThread();
-  }
-
-  // Adds a binding to the predeclared environment.
-  protected final void predeclare(String name, Object value) {
-    extraPredeclared.put(name, value);
-  }
+  private StarlarkSemantics semantics = StarlarkSemantics.DEFAULT;
+  private StarlarkThread thread = null; // created lazily by getStarlarkThread
+  private Module module = null; // created lazily by getModule
 
   /**
-   * Returns a new thread using the semantics set by setSemantics(), the predeclared environment of
-   * SkylarkModules and prior calls to predeclared(), and a new mutability. Overridden by
-   * subclasses.
+   * Parses the semantics flags and updates the semantics used to filter predeclared bindings, and
+   * carried by subsequently created threads. Causes a new StarlarkThread and Module to be created
+   * when next needed.
    */
-  public StarlarkThread newStarlarkThread() {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder); // TODO(adonovan): break bad dependency
-    envBuilder.putAll(extraPredeclared);
-
-    StarlarkThread thread =
-        StarlarkThread.builder(Mutability.create("test"))
-            .setGlobals(Module.createForBuiltins(envBuilder.build()))
-            .setSemantics(semantics)
-            .build();
-    thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
-    return thread;
-  }
-
-  /**
-   * Parses the semantics flags and updates the semantics used for subsequent evaluations. Also
-   * reinitializes the thread.
-   */
-  protected final void setSemantics(String... options) throws OptionsParsingException {
+  public final void setSemantics(String... options) throws OptionsParsingException {
     this.semantics =
-        Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toSkylarkSemantics();
+        Options.parse(StarlarkSemanticsOptions.class, options).getOptions().toStarlarkSemantics();
 
-    // Re-initialize the thread with the new semantics. See note at initialize.
-    thread = newStarlarkThread();
+    // Re-initialize the thread and module with the new semantics when needed.
+    this.thread = null;
+    this.module = null;
   }
 
   public ExtendedEventHandler getEventHandler() {
     return eventCollectionApparatus.reporter();
-  }
-
-  public StarlarkThread getStarlarkThread() {
-    return thread;
   }
 
   // TODO(adonovan): don't let subclasses inherit vaguely specified "helpers".
@@ -114,28 +95,65 @@ public class EvaluationTestCase {
     return Expression.parse(ParserInput.fromLines(lines));
   }
 
-  /** Updates a binding in the module associated with the thread. */
+  /** Updates a global binding in the module. */
+  // TODO(adonovan): rename setGlobal.
   public EvaluationTestCase update(String varname, Object value) throws Exception {
-    thread.getGlobals().put(varname, value);
+    getModule().setGlobal(varname, value);
     return this;
   }
 
-  /** Returns the value of a binding in the module associated with the thread. */
+  /** Returns the value of a global binding in the module. */
+  // TODO(adonovan): rename getGlobal.
   public Object lookup(String varname) throws Exception {
-    return thread.getGlobals().lookup(varname);
+    return getModule().getGlobal(varname);
   }
 
   /** Joins the lines, parses them as an expression, and evaluates it. */
   public final Object eval(String... lines) throws Exception {
     ParserInput input = ParserInput.fromLines(lines);
-    return EvalUtils.eval(input, FileOptions.DEFAULT, thread.getGlobals(), thread);
+    return EvalUtils.eval(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
   }
 
   /** Joins the lines, parses them as a file, and executes it. */
   public final void exec(String... lines)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     ParserInput input = ParserInput.fromLines(lines);
-    EvalUtils.exec(input, FileOptions.DEFAULT, thread.getGlobals(), thread);
+    EvalUtils.exec(input, FileOptions.DEFAULT, getModule(), getStarlarkThread());
+  }
+
+  // A hook for subclasses to alter a newly created thread,
+  // e.g. by inserting thread-local values.
+  protected void newThreadHook(StarlarkThread thread) {}
+
+  // A hook for subclasses to alter the created module.
+  // Implementations may add to the predeclared environment,
+  // and return the module's client data value.
+  protected Object newModuleHook(ImmutableMap.Builder<String, Object> predeclared) {
+    StarlarkModules.addStarlarkGlobalsToBuilder(
+        predeclared); // TODO(adonovan): break bad dependency
+    return null; // no client data
+  }
+
+  public StarlarkThread getStarlarkThread() {
+    if (this.thread == null) {
+      Mutability mu = Mutability.create("test");
+      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      thread.setPrintHandler(Event.makeDebugPrintHandler(getEventHandler()));
+      newThreadHook(thread);
+      this.thread = thread;
+    }
+    return this.thread;
+  }
+
+  public Module getModule() {
+    if (this.module == null) {
+      ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
+      Object clientData = newModuleHook(predeclared);
+      Module module = Module.withPredeclared(semantics, predeclared.build());
+      module.setClientData(clientData);
+      this.module = module;
+    }
+    return this.module;
   }
 
   public void checkEvalError(String msg, String... input) throws Exception {
@@ -207,14 +225,14 @@ public class EvaluationTestCase {
    */
   public final class Scenario {
     private final SetupActions setup = new SetupActions();
-    private final String[] skylarkOptions;
+    private final String[] starlarkOptions;
 
-    public Scenario(String... skylarkOptions) {
-      this.skylarkOptions = skylarkOptions;
+    public Scenario(String... starlarkOptions) {
+      this.starlarkOptions = starlarkOptions;
     }
 
     private void run(Testable testable) throws Exception {
-      setSemantics(skylarkOptions);
+      setSemantics(starlarkOptions);
       testable.run();
     }
 
@@ -285,7 +303,7 @@ public class EvaluationTestCase {
      *
      * @param exactMatch whether the error message must be identical to the expected error.
      */
-    protected Testable errorTestable(
+    private Testable errorTestable(
         final boolean exactMatch, final String error, final String... lines) {
       return new Testable() {
         @Override
@@ -303,7 +321,7 @@ public class EvaluationTestCase {
      * Creates a Testable that checks whether the value of the expression is a sequence containing
      * the expected elements.
      */
-    protected Testable collectionTestable(final String src, final Object... expected) {
+    private Testable collectionTestable(final String src, final Object... expected) {
       return new Testable() {
         @Override
         public void run() throws Exception {
@@ -321,7 +339,7 @@ public class EvaluationTestCase {
      * @param expectedIsExpression Signals whether {@code expected} is an object or an expression
      * @return An instance of Testable that runs the comparison
      */
-    protected Testable createComparisonTestable(
+    private Testable createComparisonTestable(
         final String src, final Object expected, final boolean expectedIsExpression) {
       return new Testable() {
         @Override
@@ -343,11 +361,12 @@ public class EvaluationTestCase {
     /**
      * Creates a Testable that looks up the given variable and compares its value to the expected
      * value
+     *
      * @param name
      * @param expected
      * @return An instance of Testable that does both lookup and comparison
      */
-    protected Testable createLookUpTestable(final String name, final Object expected) {
+    private Testable createLookUpTestable(final String name, final Object expected) {
       return new Testable() {
         @Override
         public void run() throws Exception {

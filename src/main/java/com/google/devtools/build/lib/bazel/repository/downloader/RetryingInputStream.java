@@ -45,7 +45,6 @@ class RetryingInputStream extends InputStream {
             throws IOException;
   }
 
-  volatile boolean disabled;
   private volatile InputStream delegate;
   private final Reconnector reconnector;
   private final AtomicLong toto = new AtomicLong();
@@ -98,9 +97,6 @@ class RetryingInputStream extends InputStream {
   }
 
   private void tryAgainIfPossible(IOException cause) throws IOException {
-    if (disabled) {
-      throw cause;
-    }
     if (cause instanceof InterruptedIOException && !(cause instanceof SocketTimeoutException)) {
       throw cause;
     }

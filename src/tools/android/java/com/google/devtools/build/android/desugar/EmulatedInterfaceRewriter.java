@@ -33,7 +33,7 @@ public class EmulatedInterfaceRewriter extends ClassVisitor {
   private final CoreLibrarySupport support;
 
   public EmulatedInterfaceRewriter(ClassVisitor dest, CoreLibrarySupport support) {
-    super(Opcodes.ASM7, dest);
+    super(Opcodes.ASM8, dest);
     this.support = support;
   }
 

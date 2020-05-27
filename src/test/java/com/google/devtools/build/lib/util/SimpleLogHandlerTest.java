@@ -486,7 +486,7 @@ public final class SimpleLogHandlerTest {
     Logger logger = Logger.getAnonymousLogger();
     logger.addHandler(unsupportedHandler);
 
-    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+    assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
 
     unsupportedHandler.close();
   }
@@ -496,6 +496,6 @@ public final class SimpleLogHandlerTest {
     HandlerQuerier handlerQuerier = new HandlerQuerier();
     Logger logger = Logger.getAnonymousLogger();
 
-    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+    assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
   }
 }

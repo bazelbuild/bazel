@@ -20,11 +20,9 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.protobuf.TextFormat;
 import java.util.ArrayList;
@@ -40,7 +38,7 @@ import javax.annotation.Nullable;
  *
  * <p>StructImpl does not specify how the fields are represented; subclasses must define {@code
  * getValue} and {@code getFieldNames}. For example, {@code NativeInfo} supplies fields from the
- * subclass's {@code SkylarkCallable(structField=true)} annotations, and {@code SkylarkInfo}
+ * subclass's {@code StarlarkMethod(structField=true)} annotations, and {@code StarlarkInfo}
  * supplies fields from the map provided at its construction.
  *
  * <p>Two StructImpls are equivalent if they have the same provider and, for each field name
@@ -56,7 +54,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
    * Constructs an {@link StructImpl}.
    *
    * @param provider the provider describing the type of this instance
-   * @param location the Skylark location where this instance is created. If null, defaults to
+   * @param location the Starlark location where this instance is created. If null, defaults to
    *     {@link Location#BUILTIN}.
    */
   protected StructImpl(Provider provider, @Nullable Location location) {
@@ -83,8 +81,14 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
     if (obj == null) {
       return null;
     }
-    SkylarkType.checkType(obj, type, key);
-    return type.cast(obj);
+    try {
+      return type.cast(obj);
+    } catch (
+        @SuppressWarnings("UnusedException")
+        ClassCastException unused) {
+      throw Starlark.errorf(
+          "for %s field, got %s, want %s", key, Starlark.type(obj), Starlark.classType(type));
+    }
   }
 
   /**
@@ -141,8 +145,8 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
   }
 
   /**
-   * Convert the object to string using Skylark syntax. The output tries to be reversible (but there
-   * is no guarantee, it depends on the actual values).
+   * Convert the object to string using Starlark syntax. The output tries to be reversible (but
+   * there is no guarantee, it depends on the actual values).
    */
   @Override
   public void repr(Printer printer) {
@@ -214,7 +218,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       throw Starlark.errorf(
           "Invalid text format, expected a struct, a dict, a string, a bool, or an int but got a"
               + " %s for %s '%s'",
-          EvalUtils.getDataTypeName(value), container, key);
+          Starlark.type(value), container, key);
     }
   }
 
@@ -284,9 +288,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
         if (!(entry.getKey() instanceof String)) {
           throw Starlark.errorf(
               "Keys must be a string but got a %s for %s%s",
-              EvalUtils.getDataTypeName(entry.getKey()),
-              container,
-              key != null ? " '" + key + "'" : "");
+              Starlark.type(entry.getKey()), container, key != null ? " '" + key + "'" : "");
         }
         appendJSONStringLiteral(sb, (String) entry.getKey());
         sb.append(':');
@@ -310,7 +312,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       throw Starlark.errorf(
           "Invalid text format, expected a struct, a string, a bool, or an int but got a %s for"
               + " %s%s",
-          EvalUtils.getDataTypeName(value), container, key != null ? " '" + key + "'" : "");
+          Starlark.type(value), container, key != null ? " '" + key + "'" : "");
     }
   }
 

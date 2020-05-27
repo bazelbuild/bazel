@@ -20,7 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.NO_EXTERNAL_BINDINGS;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
@@ -39,7 +39,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -100,7 +99,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
           new StarlarkThread.CallStackEntry("bar", Location.fromFileLineColumn("bar.bzl", 42, 1)),
           new StarlarkThread.CallStackEntry("rule", Location.BUILTIN));
 
-  private static final class DummyFragment extends BuildConfiguration.Fragment {}
+  private static final class DummyFragment extends Fragment {}
 
   private static final ImmutableList<StarlarkThread.CallStackEntry> NO_STACK = ImmutableList.of();
 
@@ -124,7 +123,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -162,7 +160,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -269,7 +266,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .newPackageBuilder(
             PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME),
             "TESTING",
-            StarlarkSemantics.DEFAULT_SEMANTICS)
+            StarlarkSemantics.DEFAULT)
         .setFilename(RootedPath.toRootedPath(root, testBuildfilePath));
   }
 
@@ -293,7 +290,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -341,7 +337,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -441,7 +436,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -483,7 +477,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true);
@@ -520,7 +513,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -690,7 +682,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -734,7 +725,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             AdvertisedProviderSet.EMPTY,
             null,
             NO_EXTERNAL_BINDINGS,
-            null,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -893,21 +883,16 @@ public class RuleClassTest extends PackageLoadingTestCase {
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      @Nullable StarlarkThread ruleDefinitionStarlarkThread,
       Set<Class<?>> allowedConfigurationFragments,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
       Attribute... attributes) {
-    String ruleDefinitionStarlarkThreadHashCode =
-        ruleDefinitionStarlarkThread == null
-            ? null
-            : ruleDefinitionStarlarkThread.getTransitiveContentHashCode();
     return new RuleClass(
         name,
         DUMMY_STACK,
         /*key=*/ name,
         RuleClassType.NORMAL,
-        /*isSkylark=*/ skylarkExecutable,
+        /*isStarlark=*/ skylarkExecutable,
         /*skylarkTestable=*/ false,
         documented,
         publicByDefault,
@@ -927,12 +912,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         configuredTargetFunction,
         externalBindingsFunction,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
-        ruleDefinitionStarlarkThread == null
-            ? null
-            : (Label)
-                Module.ofInnermostEnclosingStarlarkFunction(ruleDefinitionStarlarkThread)
-                    .getLabel(),
-        ruleDefinitionStarlarkThreadHashCode,
+        /*ruleDefinitionEnvironmentLabel=*/ null,
+        /*ruleDefinitionEnvironmentDigest=*/ null,
         new ConfigurationFragmentPolicy.Builder()
             .requiresConfigurationFragments(allowedConfigurationFragments)
             .setMissingFragmentPolicy(missingFragmentPolicy)
@@ -966,7 +947,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         AdvertisedProviderSet.EMPTY,
         null,
         NO_EXTERNAL_BINDINGS,
-        null,
         ImmutableSet.<Class<?>>of(DummyFragment.class),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -1190,8 +1170,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .setBuildSetting(new BuildSetting(false, STRING))
             .build();
 
-    assertThat(labelFlag.hasAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isTrue();
-    assertThat(stringSetting.hasAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, STRING)).isTrue();
+    assertThat(labelFlag.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isTrue();
+    assertThat(stringSetting.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, STRING)).isTrue();
   }
 
   @Test
@@ -1202,7 +1182,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST))
             .build();
 
-    assertThat(stringSetting.hasAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isFalse();
+    assertThat(stringSetting.hasAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME, LABEL)).isFalse();
   }
 
   @Test

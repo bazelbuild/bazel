@@ -92,7 +92,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
         "  ],",
         ")");
     setupTargetDevice();
-    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
+    setStarlarkSemanticsOptions("--experimental_google_legacy_api");
   }
 
   // TODO(ajmichael): Share this with AndroidDeviceTest.java
@@ -233,7 +233,7 @@ public class AndroidInstrumentationTestTest extends AndroidBuildViewTestCase {
   }
 
   @Test
-  public void testAndroidInstrumentationTestWithSkylarkDevice() throws Exception {
+  public void testAndroidInstrumentationTestWithStarlarkDevice() throws Exception {
     scratch.file(
         "javatests/com/app/skylarkdevice/local_adb_device.bzl",
         "def _impl(ctx):",

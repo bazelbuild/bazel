@@ -1,3 +1,70 @@
+## Release 3.1.0 (2020-04-21)
+
+```
+Baseline: 17ebbf15bea3733c0c21e0376fb5906e391edb49
+
+Cherry picks:
+
+   + 71fb56b4bb669a419f473598c8722e125dbb5c9e:
+     Suppress last-ditch download exceptions w/cleanup
+   + fd60614c38da0db22431d91a793423904dff801f:
+     In repo rules, don't warn about generator_* attributes being
+     non-canonical
+   + 2a372792f5cc09bd0e8389d5fc4bbfdd2f5d6e37:
+     Refactor configureFeatures and prevent NPE
+   + 777a6ee6ed95cae4ddb949d52b63ee8a66024f03:
+     Automated rollback of commit
+     0bbe38176e15d891a4e4cab2d8425e292de6cc5f.
+   + 2ee53c9267eb6de8eae109950ca8f3953bf1ae66:
+     Guard parseActionResultMetadata with bulk wrapper
+```
+
+Incompatible changes:
+
+  - The deprecated startup options
+    --experimental_oom_more_eagerly(_threshold) are removed.
+
+Important changes:
+
+  - Remove flag
+    --incompatible_load_proto_toolchain_for_javalite_from_com_google_p
+    rotobuf which has been flipped in Bazel 3.0.
+  - Allow assembly file sources in cc_common.compile.
+  - Set default .netrc file on Windows to %USERPROFILE%
+  - A maximum 150 attributes per RuleClass is enforced
+  - Increase max targets per rule class limit to 200
+  - ctx.split_attr now includes attributes with Starlark split
+    transitions.
+  - The --max_computation_steps flag bounds the computation done by a
+    BUILD file.
+  - Native patch can handle file permission properly
+  - Aspects may now propagate through dependencies on rule outputs by
+    being defined with `apply_to_generating_rules = True`.
+  - 'query --output=build' now shows where rule classes (not just
+    rules) are created.
+  - The flag `incompatible_bzl_disallow_load_after_statement` is
+    removed.
+  - ctx.split_attr now includes attributes with Starlark split
+    transitions.
+  - The flag `incompatible_no_output_attr_default` is removed.
+  - Fix wall-time of the SpawnResult in WorkerSpawnRunner
+  - Add stamp parameter for cc_common.link to enable including build
+    info
+  - The flag `--incompatible_restrict_named_params` is removed.
+  - The flag `--incompatible_depset_union` is removed.
+  - Bazel uses fewer compiler flags by default when building
+    Objective-C. In
+    particular, Bazel no longer sets `-O0`, `-DDEBUG=1`,
+    `-fstack-protector`, `-fstack-protector-all`, or `-g` in dbg
+    mode, and
+    Bazel no longer sets `-Os`, `-DNDEBUG=1`, `-Wno-unused-variable`,
+    `-Winit-self`, or `-Wno-extra` in opt mode. If you want to apply
+    these
+    flags to your project, you can reenable them in your CROSSTOOL.
+  - A maximum attribute name length is 128 is enforced
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Benjamin Peterson, Benjamin Romano, Bor Kae Hwang, Chris Heisterkamp, Cristian Hancila, Dmitri G, Douglas Parker, George Gensure, Gregor Jasny, John Millikin, Keith Smiley, Leo, Mike Fourie, Patrick Balestra, Robbert Van Ginkel, Ryota, Samuel Giddins, Ulf Adams, Ulf Adams, Vertexwahn, Xavier Bonaventura, Yannic Bonenberger.
+
 ## Release 3.0.0 (2020-04-06)
 
 ```

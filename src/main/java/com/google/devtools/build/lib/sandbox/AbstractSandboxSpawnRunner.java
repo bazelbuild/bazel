@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
@@ -56,7 +58,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
 
   private final SandboxOptions sandboxOptions;
-  private final boolean verboseFailures;
+  private final Predicate<Label> verboseFailures;
   private final ImmutableSet<Path> inaccessiblePaths;
   protected final BinTools binTools;
   private final Path execRoot;
@@ -64,7 +66,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
-    this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
+    this.verboseFailures =
+        cmdEnv.getOptions().getOptions(ExecutionOptions.class).getVerboseFailuresPredicate();
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
@@ -90,6 +93,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   @Override
   public boolean canExec(Spawn spawn) {
     return Spawns.mayBeSandboxed(spawn);
+  }
+
+  @Override
+  public boolean handlesCaching() {
+    return false;
   }
 
   protected abstract SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
@@ -139,7 +147,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           null);
     } else {
       return CommandFailureUtils.describeCommandFailure(
-              verboseFailures,
+              verboseFailures.test(originalSpawn.getResourceOwner().getOwner().getLabel()),
               originalSpawn.getArguments(),
               originalSpawn.getEnvironment(),
               sandbox.getSandboxExecRoot().getPathString(),

@@ -14,34 +14,34 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Information about the Java runtime being used. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "JavaRuntimeInfo",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "Information about the Java runtime being used.")
 public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_home",
       doc = "Returns the execpath of the root of the Java installation.",
       structField = true)
   String javaHome();
 
   /** The execpath of the Java binary. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_executable_exec_path",
       doc = "Returns the execpath of the Java executable.",
       structField = true)
   String javaBinaryExecPath();
 
   /** The runfiles path of the JDK. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_home_runfiles_path",
       doc =
           "Returns the path of the Java installation in runfiles trees. This should only be used "
@@ -52,7 +52,7 @@ public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
   String javaHomeRunfilesPath();
 
   /** The runfiles path of the Java binary. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_executable_runfiles_path",
       doc =
           "Returns the path of the Java executable in runfiles trees. This should only be used "
@@ -63,9 +63,9 @@ public interface JavaRuntimeInfoApi extends ToolchainInfoApi {
   String javaBinaryRunfilesPath();
 
   /** The files in the Java runtime. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "files",
       doc = "Returns the files in the Java runtime.",
       structField = true)
-  Depset skylarkJavaBaseInputs();
+  Depset starlarkJavaBaseInputs();
 }

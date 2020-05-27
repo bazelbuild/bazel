@@ -16,18 +16,18 @@ package com.google.devtools.build.lib.skylarkbuildapi.go;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Information about the transitive closure of a target that is relevant to Go compilation. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "GoContextInfo",
     doc = "",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface GoContextInfoApi extends StructApi {
 
   /** Provider for GoContextInfo objects. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   public interface Provider extends ProviderApi {}
 }

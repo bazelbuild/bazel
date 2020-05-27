@@ -20,15 +20,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for StarlarkFile. */
-// TODO(adonovan): move tests of parser into ParserTest
-// and tests of evaluator into Starlark scripts.
+/** Tests of StarlarkFile parsing. */
+// TODO(adonovan): move tests of parsing into ParserTest.
 @RunWith(JUnit4.class)
 public class StarlarkFileTest {
-
-  private static StarlarkThread newThread() {
-    return StarlarkThread.builder(Mutability.create("test")).useDefaultSemantics().build();
-  }
 
   /**
    * Parses the contents of the specified string (using 'foo.star' as the apparent filename) and
@@ -38,40 +33,6 @@ public class StarlarkFileTest {
     String src = Joiner.on("\n").join(lines);
     ParserInput input = ParserInput.create(src, "foo.star");
     return StarlarkFile.parse(input);
-  }
-
-  @Test
-  public void testExecuteBuildFileOK() throws Exception {
-    StarlarkFile file =
-        parseFile(
-            "# a file in the build language",
-            "",
-            "x = [1,2,'foo',4] + [1,2, \"%s%d\" % ('foo', 1)]");
-    StarlarkThread thread = newThread();
-    Module module = thread.getGlobals();
-    EvalUtils.exec(file, module, thread);
-
-    // Test final environment is correctly modified:
-    //
-    // input1.BUILD contains:
-    // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
-    assertThat(thread.getGlobals().lookup("x"))
-        .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, "foo", 4, 1, 2, "foo1"));
-  }
-
-  @Test
-  public void testExecException() throws Exception {
-    StarlarkFile file = parseFile("x = 1", "y = [2,3]", "", "z = x + y");
-
-    StarlarkThread thread = newThread();
-    Module module = thread.getGlobals();
-    try {
-      EvalUtils.exec(file, module, thread);
-      throw new AssertionError("execution succeeded unexpectedly");
-    } catch (EvalException ex) {
-      assertThat(ex.getMessage()).contains("unsupported binary operation: int + list");
-      assertThat(ex.getLocation().line()).isEqualTo(4);
-    }
   }
 
   @Test

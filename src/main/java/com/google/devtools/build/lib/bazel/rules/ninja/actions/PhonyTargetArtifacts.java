@@ -26,9 +26,9 @@ import java.util.Map;
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
- * Helper class for caching computation of transitive inclusion of usual targets into phony. (We can
- * not compute all artifacts for all phony targets because some of them may not be created by a
- * subgraph of required actions.)
+ * Helper class for caching computation of transitive inclusion of non-phony targets into phony
+ * ones. We cannot compute all artifacts for all phony targets because some of them may not be
+ * created by a subgraph of required actions.
  */
 @ThreadSafe
 public class PhonyTargetArtifacts {
@@ -52,7 +52,7 @@ public class PhonyTargetArtifacts {
     PhonyTarget phonyTarget = phonyTargetsMap.get(name);
     Preconditions.checkNotNull(phonyTarget);
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (PathFragment input : phonyTarget.getDirectUsualInputs()) {
+    for (PathFragment input : phonyTarget.getDirectExplicitInputs()) {
       builder.add(artifactsHelper.getInputArtifact(input));
     }
     for (PathFragment phonyName : phonyTarget.getPhonyNames()) {

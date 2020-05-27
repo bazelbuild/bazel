@@ -16,29 +16,29 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
- * A provider containing the executable binary output that was built using an apple_binary
- * target with the 'dylib' type.
+ * A provider containing the executable binary output that was built using an apple_binary target
+ * with the 'dylib' type.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AppleDylibBinary",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing the executable binary output that was built using an apple_binary "
-        + "target with the 'dylib' type."
-)
+    category = StarlarkDocumentationCategory.PROVIDER,
+    doc =
+        "A provider containing the executable binary output that was built using an apple_binary "
+            + "target with the 'dylib' type.")
 public interface AppleDylibBinaryApi extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "binary",
       structField = true,
       doc = "The dylib file output by apple_binary.")
   FileApi getAppleDylibBinary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "objc",
       structField = true,
       doc =

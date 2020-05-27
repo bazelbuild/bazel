@@ -15,30 +15,30 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A provider for targets that create Android instrumentations. Consumed by Android testing rules.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidInstrumentationInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Android instrumentation and target APKs to run in a test",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> extends StructApi {
 
   /** Name of this info object. */
   String NAME = "AndroidInstrumentationInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "target",
       doc = "Returns the target ApkInfo of the instrumentation test.",
       documented = false,
@@ -47,7 +47,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
   ApkT getTarget();
 
   /** Provider for {@link AndroidInstrumentationInfoApi}. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -55,7 +55,7 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
       documented = false)
   interface AndroidInstrumentationInfoApiProvider<ApkT extends ApkInfoApi<?>> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidInstrumentationInfo",
         doc = "The <code>AndroidInstrumentationInfo</code> constructor.",
         documented = false,
@@ -67,7 +67,9 @@ public interface AndroidInstrumentationInfoApi<ApkT extends ApkInfoApi<?>> exten
               doc = "The target ApkInfo of the instrumentation test.")
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidInstrumentationInfoApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor(
+        objectType = AndroidInstrumentationInfoApi.class,
+        receiverNameForDoc = NAME)
     AndroidInstrumentationInfoApi<ApkT> createInfo(ApkT target) throws EvalException;
   }
 }

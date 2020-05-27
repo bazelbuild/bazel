@@ -226,15 +226,17 @@ public class TopLevelConstraintSemantics {
     }
     SupportedEnvironmentsProvider provider =
         Verify.verifyNotNull(asProvider.getProvider(SupportedEnvironmentsProvider.class));
-    return ConstraintSemantics
-        .getUnsupportedEnvironments(provider.getRefinedEnvironments(), expectedEnvironments)
+    return RuleContextConstraintSemantics.getUnsupportedEnvironments(
+            provider.getRefinedEnvironments(), expectedEnvironments)
         .stream()
         // We apply this filter because the target might also not support default environments in
         // other environment groups. We don't care about those. We only care about the environments
         // explicitly referenced.
         .filter(Predicates.in(expectedEnvironmentLabels))
-        .map(environment ->
-            new MissingEnvironment(environment, provider.getRemovedEnvironmentCulprit(environment)))
+        .map(
+            environment ->
+                new MissingEnvironment(
+                    environment, provider.getRemovedEnvironmentCulprit(environment)))
         .collect(Collectors.toSet());
   }
 
@@ -271,7 +273,7 @@ public class TopLevelConstraintSemantics {
             msg.add(" "); // Pretty-format for clarity.
           }
           msg.add(
-              ConstraintSemantics.getMissingEnvironmentCulpritMessage(
+              RuleContextConstraintSemantics.getMissingEnvironmentCulpritMessage(
                   missingEnvironment.environment, missingEnvironment.culprit));
           lastEntryWasMultiline = true;
         }

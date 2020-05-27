@@ -21,13 +21,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import java.util.ArrayList;
@@ -40,39 +41,62 @@ import java.util.logging.Level;
 import javax.annotation.Nullable;
 
 /**
- *  <p>Root of Type symbol hierarchy for values in the build language.</p>
+ * Root of Type symbol hierarchy for values in the build language.
  *
- *  <p>Type symbols are primarily used for their <code>convert</code> method,
- *  which is a kind of cast operator enabling conversion from untyped (Object)
- *  references to values in the build language, to typed references.</p>
+ * <p>Type symbols are primarily used for their <code>convert</code> method, which is a kind of cast
+ * operator enabling conversion from untyped (Object) references to values in the build language, to
+ * typed references.
  *
- *  <p>For example, this code type-converts a value <code>x</code> returned by
- *  the evaluator, to a list of strings:</p>
+ * <p>For example, this code type-converts a value <code>x</code> returned by the evaluator, to a
+ * list of strings:
  *
- *  <pre>
+ * <pre>
  *  Object x = expr.eval(env);
  *  List&lt;String&gt; s = Type.STRING_LIST.convert(x);
  *  </pre>
+ *
+ * <p><b>BEFORE YOU ADD A NEW TYPE:</b>
+ *
+ * <p>We frequently get requests to create a new kind of attribute type whenever a use case doesn't
+ * seem to fit into one of the existing types. This is almost always a bad idea. The most complex
+ * type we currently have is probably STRING_LIST_DICT or maybe LABEL_KEYED_STRING_DICT. But no
+ * matter what you support, someone will always want to add another layer of structure. It's even
+ * been suggested to allow JSON or arbitrary Starlark values in attributes.
+ *
+ * <p>Adding a new type has implications for many different systems. The whole of the loading phase
+ * needs to know about the type -- how to serialize it, how to format it for `bazel query`, how to
+ * traverse label dependencies embedded within it. Then you need to think about how to represent
+ * attribute values of that type in Starlark within a rule implementation function, and come up with
+ * a good name for that type in the Starlark `attr` module. All of the tooling for formatting,
+ * linting, and analyzing BUILD files may need to be updated.
+ *
+ * <p>It's usually possible to accomplish the end goal without making the target attribute grammar
+ * more expressive. If it's not, that may be a sign that attributes are not the right mechanism to
+ * use, and perhaps instead you should use opaque string identifiers, or labels to sub-targets with
+ * more structure (think toolchains, platforms, config_setting).
+ *
+ * <p>Any new attribute type should be general-purpose and meet a high bar of usefulness (unlikely
+ * since we seem to be doing fine so far without it), and not overly complicate BUILD files or rule
+ * implementation functions.
  */
 public abstract class Type<T> {
 
   protected Type() {}
 
   /**
-   * Converts untyped Object x resulting from the evaluation of an expression in the build language,
-   * into a typed object of type T.
+   * Converts a legal Starlark value x into an Java value of type T.
    *
-   * <p>x must be *directly* convertible to this type. This therefore disqualifies "selector
+   * <p>x must be directly convertible to this type. This therefore disqualifies "selector
    * expressions" of the form "{ config1: 'value1_of_orig_type', config2: 'value2_of_orig_type; }"
-   * (which support configurable attributes). To handle those expressions, see
-   * {@link com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
+   * (which support configurable attributes). To handle those expressions, see {@link
+   * com.google.devtools.build.lib.packages.BuildType#selectableConvert}.
    *
-   * @param x the build-interpreter value to convert.
-   * @param what an object having a toString describing what x is for; should be included in
-   *    any exception thrown.  Grammatically, must produce a string describe a syntactic
-   *    construct, e.g. "attribute 'srcs' of rule foo".
+   * @param x The Starlark value to convert.
+   * @param what An object whose toString method returns a description of the purpose of x.
+   *     Typically it is the name of a function parameter or struct field. The method is called only
+   *     in case of error.
    * @param context the label of the current BUILD rule; must be non-null if resolution of
-   *    package-relative label strings is required
+   *     package-relative label strings is required
    * @throws ConversionException if there was a problem performing the type conversion
    */
   public abstract T convert(Object x, Object what, @Nullable Object context)
@@ -248,7 +272,7 @@ public abstract class Type<T> {
       }
       printer.append(", but got ");
       printer.repr(value);
-      printer.append(" (").append(EvalUtils.getDataTypeName(value)).append(")");
+      printer.append(" (").append(Starlark.type(value)).append(")");
       return printer.toString();
     }
 
@@ -589,7 +613,7 @@ public abstract class Type<T> {
         iterable = (Iterable<?>) x;
       } else if (x instanceof Depset) {
         try {
-          iterable = ((Depset) x).toCollection();
+          iterable = ((Depset) x).toList();
         } catch (NestedSetDepthException exception) {
           throw new ConversionException(
               "depset exceeded maximum depth "

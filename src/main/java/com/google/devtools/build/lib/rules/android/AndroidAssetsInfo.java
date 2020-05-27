@@ -13,18 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.rules.android.AndroidSkylarkData.fromNoneable;
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidAssetsInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -200,7 +200,7 @@ public final class AndroidAssetsInfo extends NativeInfo
     private static <T> NestedSet<T> nestedSet(Depset from, Class<T> with, String fieldName)
         throws EvalException {
       return NestedSetBuilder.<T>naiveLinkOrder()
-          .addTransitive(from.getSetFromParam(with, fieldName))
+          .addTransitive(Depset.cast(from, with, fieldName))
           .build();
     }
   }

@@ -81,7 +81,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcIncludeScanningRule());
     builder.addRuleDefinition(new FdoProfileRule());
     builder.addRuleDefinition(new FdoPrefetchHintsRule());
-    builder.addSkylarkBootstrap(
+    builder.addStarlarkBootstrap(
         new CcBootstrap(
             new BazelCcModule(),
             CcInfo.PROVIDER,

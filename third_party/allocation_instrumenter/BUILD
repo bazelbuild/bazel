@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_import")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -9,7 +9,8 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-java_import(
+distrib_java_import(
     name = "allocation_instrumenter",
     jars = ["java-allocation-instrumenter-3.0.1.jar"],
+    enable_distributions = ["debian"],
 )

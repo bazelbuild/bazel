@@ -405,7 +405,7 @@ public abstract class BuildIntegrationTestCase {
     runtimeWrapper.resetOptions();
   }
 
-  protected void addOptions(String... args) throws Exception {
+  protected void addOptions(String... args) {
     runtimeWrapper.addOptions(args);
   }
 

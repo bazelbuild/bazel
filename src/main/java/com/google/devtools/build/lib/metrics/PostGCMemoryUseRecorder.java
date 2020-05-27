@@ -17,14 +17,15 @@ package com.google.devtools.build.lib.metrics;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.ServerBuilder;
-import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -37,7 +38,6 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryUsage;
 import java.util.Map;
 import java.util.Optional;
-import java.util.logging.Logger;
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
 import javax.management.NotificationListener;
@@ -67,7 +67,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     return instance;
   }
 
-  private static final Logger logger = Logger.getLogger(PostGCMemoryUseRecorder.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   // Protected by PostGCMemoryUseRecorder's lock.
   private Optional<Long> peakPostGCHeapMemoryUsed = Optional.empty();
@@ -83,7 +83,7 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
       if ("Copy".equals(mxBean.getName())) {
         continue;
       }
-      logger.info("Listening for notifications from GC: " + mxBean.getName());
+      logger.atInfo().log("Listening for notifications from GC: %s", mxBean.getName());
       ((NotificationEmitter) mxBean).addNotificationListener(this, null, null);
     }
   }
@@ -148,13 +148,11 @@ public final class PostGCMemoryUseRecorder implements NotificationListener {
     }
     updatePostGCHeapMemoryUsed(used);
     if (used > 0) {
-      logger.info("Memory use after full GC: " + used);
+      logger.atInfo().log("Memory use after full GC: %d", used);
     } else {
-      logger.info(
-          "Amount of memory used after GC incorrectly reported as "
-              + used
-              + " by JVM with values "
-              + mem);
+      logger.atInfo().log(
+          "Amount of memory used after GC incorrectly reported as %d by JVM with values %s",
+          used, mem);
       updateMemoryUsageReportedZero(true);
     }
   }

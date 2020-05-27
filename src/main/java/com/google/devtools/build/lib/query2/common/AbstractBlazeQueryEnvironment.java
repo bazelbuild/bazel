@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
@@ -44,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 
 /**
  * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much of
@@ -62,8 +62,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   protected final Set<Setting> settings;
   protected final List<QueryFunction> extraFunctions;
 
-  private static final Logger logger =
-      Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   protected AbstractBlazeQueryEnvironment(
       boolean keepGoing,
@@ -166,7 +165,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
     }
     long elapsedTime = System.currentTimeMillis() - startTime;
     if (elapsedTime > 1) {
-      logger.info("Spent " + elapsedTime + " milliseconds evaluating query");
+      logger.atInfo().log("Spent %d milliseconds evaluating query", elapsedTime);
     }
 
     if (eventHandler.hasErrors()) {

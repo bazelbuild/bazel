@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 /**
  * The rule that parses the Ninja graph and symlinks inputs into output_root.
  *
- * <p>The rule exposes {@link NinjaGraphProvider} with maps of usual and phony {@link
+ * <p>The rule exposes {@link NinjaGraphProvider} with maps of both non-phony and phony {@link
  * com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget} for {@link NinjaBuildRule} to
  * use for action creation.
  *

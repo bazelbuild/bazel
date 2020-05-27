@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /**
  * Wraps common tools and settings used for working with Android assets, resources, and manifests.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidDataContext",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "

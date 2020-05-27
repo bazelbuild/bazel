@@ -237,7 +237,7 @@ public class ActionGraphQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTargetValue getHostConfiguredTarget(Label label) throws InterruptedException {
-    return this.getConfiguredTargetValue(ConfiguredTargetValue.key(label, hostConfiguration));
+    return this.getConfiguredTargetValue(ConfiguredTargetKey.of(label, hostConfiguration));
   }
 
   @Nullable
@@ -246,12 +246,12 @@ public class ActionGraphQueryEnvironment
       throws InterruptedException {
     if (topLevelConfigurations.isTopLevelTarget(label)) {
       return this.getConfiguredTargetValue(
-          ConfiguredTargetValue.key(
+          ConfiguredTargetKey.of(
               label, topLevelConfigurations.getConfigurationForTopLevelTarget(label)));
     } else {
       ConfiguredTargetValue toReturn;
       for (BuildConfiguration configuration : topLevelConfigurations.getConfigurations()) {
-        toReturn = this.getConfiguredTargetValue(ConfiguredTargetValue.key(label, configuration));
+        toReturn = this.getConfiguredTargetValue(ConfiguredTargetKey.of(label, configuration));
         if (toReturn != null) {
           return toReturn;
         }
@@ -263,8 +263,7 @@ public class ActionGraphQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTargetValue getNullConfiguredTarget(Label label) throws InterruptedException {
-    return this.getConfiguredTargetValue(
-        ConfiguredTargetValue.key(label, /* configuration= */ null));
+    return this.getConfiguredTargetValue(ConfiguredTargetKey.of(label, /* configuration= */ null));
   }
 
   @Nullable

@@ -14,13 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.rules.ninja.pipeline;
 
-
+import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaFileParseResult.NinjaPromise;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaScope;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaVariableValue;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /**
@@ -47,4 +48,14 @@ public interface NinjaPipeline {
   NinjaPromise<NinjaFileParseResult> createChildFileParsingPromise(
       NinjaVariableValue value, long offset, String parentNinjaFileName)
       throws GenericParsingException, IOException;
+
+  /**
+   * An interner for {@link PathFragment} instances for the inputs and outputs of {@link
+   * NinjaTarget}.
+   */
+  Interner<PathFragment> getPathFragmentInterner();
+
+  /** An String interner for rule and build statements' variable names. */
+  Interner<String> getNameInterner();
 }
+

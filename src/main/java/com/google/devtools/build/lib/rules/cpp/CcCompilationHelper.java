@@ -14,12 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static java.util.stream.Collectors.toCollection;
-
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,12 +25,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -186,10 +182,6 @@ public final class CcCompilationHelper {
       return sourceTypeSet;
     }
   }
-
-  /** Function for extracting module maps from CppCompilationDependencies. */
-  private static final Function<CcCompilationContext, CppModuleMap> CPP_DEPS_TO_MODULES =
-      ccCompilationContext -> ccCompilationContext.getCppModuleMap();
 
   /**
    * Contains the providers as well as the {@code CcCompilationOutputs} and the {@code
@@ -950,7 +942,7 @@ public final class CcCompilationHelper {
     boolean siblingRepositoryLayout =
         actionConstructionContext
             .getAnalysisEnvironment()
-            .getSkylarkSemantics()
+            .getStarlarkSemantics()
             .experimentalSiblingRepositoryLayout();
     PathFragment repositoryPath =
         label.getPackageIdentifier().getRepository().getExecPath(siblingRepositoryLayout);
@@ -994,8 +986,8 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(privateHeaders);
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(additionalInputs);
     ccCompilationContextBuilder.addNonCodeInputs(additionalInputs);
-    ccCompilationContextBuilder.addModularHdrs(publicHeaders.getHeaders());
-    ccCompilationContextBuilder.addModularHdrs(privateHeaders);
+    ccCompilationContextBuilder.addModularPublicHdrs(publicHeaders.getHeaders());
+    ccCompilationContextBuilder.addModularPrivateHdrs(privateHeaders);
     ccCompilationContextBuilder.addTextualHdrs(publicTextualHeaders);
 
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
@@ -1074,7 +1066,8 @@ public final class CcCompilationHelper {
       CcCompilationOutputs ccCompilationOutputs) {
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+        ruleContext.getPrerequisites(
+            "deps", TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
     }
     if (cppConfiguration.processHeadersInDependencies()) {
@@ -1140,7 +1133,7 @@ public final class CcCompilationHelper {
 
   public static CcCompilationContext getStlCcCompilationContext(RuleContext ruleContext) {
     if (ruleContext.attributes().has("$stl", BuildType.LABEL)) {
-      CcInfo ccInfo = ruleContext.getPrerequisite("$stl", Mode.TARGET, CcInfo.PROVIDER);
+      CcInfo ccInfo = ruleContext.getPrerequisite("$stl", TransitionMode.TARGET, CcInfo.PROVIDER);
       if (ccInfo != null) {
         return ccInfo.getCcCompilationContext();
       } else {
@@ -1152,26 +1145,30 @@ public final class CcCompilationHelper {
   }
 
   private List<CppModuleMap> collectModuleMaps() {
-    // Cpp module maps may be null for some rules.
-    List<CppModuleMap> result =
-        ccCompilationContexts.stream()
-            .map(CPP_DEPS_TO_MODULES)
-            .filter(Predicates.notNull())
-            .collect(toCollection(ArrayList::new));
+    ImmutableList.Builder<CppModuleMap> builder = ImmutableList.<CppModuleMap>builder();
+    for (CcCompilationContext ccCompilationContext : ccCompilationContexts) {
+      CppModuleMap moduleMap = ccCompilationContext.getCppModuleMap();
+      // Cpp module maps may be null for some rules.
+      if (moduleMap != null) {
+        builder.add(moduleMap);
+      }
+      // These can't be null which is enforced before adding to exportingModuleMaps.
+      builder.addAll(ccCompilationContext.getExportingModuleMaps());
+    }
 
     if (ccToolchain != null) {
       CppModuleMap toolchainModuleMap =
           ccToolchain.getCcInfo().getCcCompilationContext().getCppModuleMap();
       if (toolchainModuleMap != null) {
-        result.add(toolchainModuleMap);
+        builder.add(toolchainModuleMap);
       }
     }
     for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
       // These can't be null which is enforced before adding to additionalCppModuleMaps.
-      result.add(additionalCppModuleMap);
+      builder.add(additionalCppModuleMap);
     }
 
-    return result;
+    return builder.build();
   }
 
   /** @return whether this target needs to generate a pic header module. */
@@ -2047,7 +2044,8 @@ public final class CcCompilationHelper {
       // b) Traversing the transitive closure for each C++ compile action would require more complex
       //    implementation (with caching results of this method) to avoid O(N^2) slowdown.
       if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
-        for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+        for (TransitiveInfoCollection dep :
+            ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
           if (ccInfo != null
               && InstrumentedFilesCollector.shouldIncludeLocalSources(configuration, dep)) {

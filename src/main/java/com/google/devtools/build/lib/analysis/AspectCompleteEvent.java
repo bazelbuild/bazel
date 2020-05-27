@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 
@@ -110,7 +109,7 @@ public class AspectCompleteEvent
   @Override
   public BuildEventId getEventId() {
     return BuildEventIdUtil.aspectCompleted(
-        aspectValue.getLabel(),
+        aspectValue.getKey().getLabel(),
         configurationEventId,
         aspectValue.getAspect().getDescriptor().getDescription());
   }

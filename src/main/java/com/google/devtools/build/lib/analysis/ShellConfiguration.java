@@ -15,10 +15,9 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils.PathFragmentConverter;
@@ -31,7 +30,7 @@ import java.io.Serializable;
 import javax.annotation.Nullable;
 
 /** A configuration fragment that tells where the shell is. */
-public class ShellConfiguration extends BuildConfiguration.Fragment {
+public class ShellConfiguration extends Fragment {
   private static final ImmutableMap<OS, PathFragment> OS_SPECIFIC_SHELL =
       ImmutableMap.<OS, PathFragment>builder()
           .put(OS.WINDOWS, PathFragment.create("c:/tools/msys64/usr/bin/bash.exe"))

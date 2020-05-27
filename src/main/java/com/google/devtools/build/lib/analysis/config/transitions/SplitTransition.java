@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.Collection;
@@ -35,16 +36,38 @@ import java.util.Map;
  * way (e.g. for determining which CPU corresponds to which dep for a multi-arch split dependency).
  */
 @ThreadSafety.Immutable
-@FunctionalInterface
 public interface SplitTransition extends ConfigurationTransition {
   /**
    * Returns the map of {@code BuildOptions} after splitting, or the original options if this split
    * is a noop. The key values are used as dict keys in ctx.split_attr, so human-readable strings
    * are recommended.
    *
+   * <p>This method is being deprecated (https://github.com/bazelbuild/bazel/issues/11258). Please
+   * use {@link #split(BuildOptionsView, EventHandler)} for new uses.
+   *
    * <p>Returning an empty or null list triggers a {@link RuntimeException}.
    */
-  Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler);
+  default Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
+    throw new UnsupportedOperationException(
+        "Either this or patch(RestrictedBuildOptions) must be overriden");
+  }
+
+  /**
+   * Returns the map of {@code BuildOptions} after splitting, or the original options if this split
+   * is a noop. The key values are used as dict keys in ctx.split_attr, so human-readable strings
+   * are recommended.
+   *
+   * <p>Blaze throws an {@link IllegalArgumentException} if this method reads any options fragment
+   * not declard in {@link ConfigurationTransition#requiresOptionFragments}.
+   *
+   * <p>Returning an empty or null list triggers a {@link RuntimeException}.
+   */
+  default Map<String, BuildOptions> split(
+      BuildOptionsView buildOptions, EventHandler eventHandler) {
+    // Escape hatch for implementers of the BuildOptions method: provide uninhibited access. When
+    // all implementers use this variation we'll remove this default implementation.
+    return split(buildOptions.underlying(), eventHandler);
+  }
 
   /**
    * Returns true iff {@code option} and {@code splitOptions} are equal.
@@ -56,7 +79,8 @@ public interface SplitTransition extends ConfigurationTransition {
   }
 
   @Override
-  default Map<String, BuildOptions> apply(BuildOptions buildOptions, EventHandler eventHandler) {
+  default Map<String, BuildOptions> apply(
+      BuildOptionsView buildOptions, EventHandler eventHandler) {
     Map<String, BuildOptions> splitOptions = split(buildOptions, eventHandler);
     Verify.verifyNotNull(splitOptions, "Split transition output may not be null");
     Verify.verify(!splitOptions.isEmpty(), "Split transition output may not be empty");

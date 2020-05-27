@@ -42,8 +42,8 @@ import java.util.Map;
 public class BlazeServerStartupOptions extends OptionsBase {
   /**
    * Converter for the <code>option_sources</code> option. Takes a string in the form of
-   * "option_name1:source1:option_name2:source2:.." and converts it into an option name to
-   * source map.
+   * "option_name1:source1:option_name2:source2:.." and converts it into an option name to source
+   * map.
    */
   public static class OptionSourcesConverter implements Converter<Map<String, String>> {
     private String unescape(String input) {
@@ -83,14 +83,13 @@ public class BlazeServerStartupOptions extends OptionsBase {
    * necessary.
    */
   @Option(
-    name = "install_base",
-    defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    help = "This launcher option is intended for use only by tests."
-  )
+      name = "install_base",
+      defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help = "This launcher option is intended for use only by tests.")
   public PathFragment installBase;
 
   /*
@@ -98,13 +97,12 @@ public class BlazeServerStartupOptions extends OptionsBase {
    * any other embedded binaries - anything that ends up in the install_base).
    */
   @Option(
-    name = "install_md5",
-    defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BAZEL_MONITORING},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "This launcher option is intended for use only by tests."
-  )
+      name = "install_md5",
+      defaultValue = "", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "This launcher option is intended for use only by tests.")
   public String installMD5;
 
   /* Note: The help string in this option applies to the client code; not
@@ -132,17 +130,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public PathFragment outputBase;
 
   @Option(
-    name = "output_user_root",
-    defaultValue = "null", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    valueHelp = "<path>",
-    help =
-        "The user-specific directory beneath which all build outputs are written; by default, "
-            + "this is a function of $USER, but by specifying a constant, build outputs can be "
-            + "shared between collaborating users."
-  )
+      name = "output_user_root",
+      defaultValue = "null", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      valueHelp = "<path>",
+      help =
+          "The user-specific directory beneath which all build outputs are written; by default, "
+              + "this is a function of $USER, but by specifying a constant, build outputs can be "
+              + "shared between collaborating users.")
   public PathFragment outputUserRoot;
 
   /**
@@ -151,16 +148,15 @@ public class BlazeServerStartupOptions extends OptionsBase {
    * code.
    */
   @Option(
-    name = "server_jvm_out",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    valueHelp = "<path>",
-    help =
-        "The location to write the server's JVM's output. If unset then defaults to a location "
-            + "in output_base."
-  )
+      name = "server_jvm_out",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      valueHelp = "<path>",
+      help =
+          "The location to write the server's JVM's output. If unset then defaults to a location "
+              + "in output_base.")
   public PathFragment serverJvmOut;
 
   // Note: The help string in this option applies to the client code; not the server code. The
@@ -204,17 +200,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public PathFragment defaultSystemJavabase;
 
   @Option(
-    name = "max_idle_secs",
-    // NOTE: default value only used for documentation, value is always passed by the client when
-    // not in --batch mode.
-    defaultValue = "" + (3 * 3600),
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    valueHelp = "<integer>",
-    help =
-        "The number of seconds the build server will wait idling before shutting down. Zero "
-            + "means that the server will never shutdown."
-  )
+      name = "max_idle_secs",
+      // NOTE: default value only used for documentation, value is always passed by the client when
+      // not in --batch mode.
+      defaultValue = "" + (3 * 3600),
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      valueHelp = "<integer>",
+      help =
+          "The number of seconds the build server will wait idling before shutting down. Zero "
+              + "means that the server will never shutdown.")
   public int maxIdleSeconds;
 
   @Option(
@@ -244,14 +239,13 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean batch;
 
   @Option(
-    name = "deep_execroot",
-    defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EXECUTION},
-    help =
-        "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
-            + "$OUTPUT_BASE."
-  )
+      name = "deep_execroot",
+      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.EXECUTION},
+      help =
+          "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
+              + "$OUTPUT_BASE.")
   public boolean deepExecRoot;
 
   @Option(
@@ -305,96 +299,89 @@ public class BlazeServerStartupOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       deprecationWarning = "Will be enabled by default and removed soon",
-      help = "Whether or not to exit if an exception is thrown by an internal EventBus handler.")
+      help = "No-op: please use --fatal_event_bus_exceptions_exclusions instead")
   public boolean fatalEventBusExceptions;
 
   @Option(
-    name = "option_sources",
-    converter = OptionSourcesConverter.class,
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = ""
-  )
+      name = "option_sources",
+      converter = OptionSourcesConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "")
   public Map<String, String> optionSources;
 
   // TODO(bazel-team): In order to make it easier to have local watchers in open source Bazel,
   // turn this into a non-startup option.
   @Option(
-    name = "watchfs",
-    defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    metadataTags = OptionMetadataTag.DEPRECATED,
-    help =
-        "If true, %{product} tries to use the operating system's file watch service for local "
-            + "changes instead of scanning every file for a change."
-  )
+      name = "watchfs",
+      defaultValue = "false", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      metadataTags = OptionMetadataTag.DEPRECATED,
+      help =
+          "If true, %{product} tries to use the operating system's file watch service for local "
+              + "changes instead of scanning every file for a change.")
   public boolean watchFS;
 
   // This option is only passed in --batch mode. The value is otherwise passed as part of the
   // server request.
   @Option(
-    name = "invocation_policy",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    help =
-        "A base64-encoded-binary-serialized or text-formated "
-            + "invocation_policy.InvocationPolicy proto. Unlike other options, it is an error to "
-            + "specify --invocation_policy multiple times."
-  )
+      name = "invocation_policy",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "A base64-encoded-binary-serialized or text-formated "
+              + "invocation_policy.InvocationPolicy proto. Unlike other options, it is an error to "
+              + "specify --invocation_policy multiple times.")
   public String invocationPolicy;
 
   @Option(
-    name = "command_port",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {
-      OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
-    },
-    help = "Port to start up the gRPC command server on. If 0, let the kernel choose."
-  )
+      name = "command_port",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION
+      },
+      help = "Port to start up the gRPC command server on. If 0, let the kernel choose.")
   public int commandPort;
 
   @Option(
-    name = "product_name",
-    defaultValue = "bazel", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {
-      OptionEffectTag.LOSES_INCREMENTAL_STATE,
-      OptionEffectTag.AFFECTS_OUTPUTS,
-      OptionEffectTag.BAZEL_MONITORING
-    },
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help =
-        "The name of the build system. It is used as part of the name of the generated "
-            + "directories (e.g. productName-bin for binaries) as well as for printing error "
-            + "messages and logging"
-  )
+      name = "product_name",
+      defaultValue = "bazel", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        OptionEffectTag.AFFECTS_OUTPUTS,
+        OptionEffectTag.BAZEL_MONITORING
+      },
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help =
+          "The name of the build system. It is used as part of the name of the generated "
+              + "directories (e.g. productName-bin for binaries) as well as for printing error "
+              + "messages and logging")
   public String productName;
 
   // TODO(ulfjack): Make this a command option.
   @Option(
-    name = "write_command_log",
-    defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
-    help = "Whether or not to write the command.log file"
-  )
+      name = "write_command_log",
+      defaultValue = "true", // NOTE: only for documentation, value is always passed by the client.
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help = "Whether or not to write the command.log file")
   public boolean writeCommandLog;
 
   @Option(
-    name = "client_debug",
-    defaultValue = "false", // NOTE: only for documentation, value is set and used by the client.
-    documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    help =
-        "If true, log debug information from the client to stderr. Changing this option will not "
-            + "cause the server to restart."
-  )
+      name = "client_debug",
+      defaultValue = "false", // NOTE: only for documentation, value is set and used by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true, log debug information from the client to stderr. Changing this option will not "
+              + "cause the server to restart.")
   public boolean clientDebug;
 
   @Option(
@@ -449,12 +436,13 @@ public class BlazeServerStartupOptions extends OptionsBase {
       defaultValue = "false", // NOTE: purely decorative, rc files are read by the client.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {
-          OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
       },
-      help = "Raises the soft coredump limit to the hard limit to make coredumps of the server"
-          + " (including the JVM) and the client possible under common conditions. Stick this"
-          + " flag in your bazelrc once and forget about it so that you get coredumps when you"
-          + " actually encounter a condition that triggers them.")
+      help =
+          "Raises the soft coredump limit to the hard limit to make coredumps of the server"
+              + " (including the JVM) and the client possible under common conditions. Stick this"
+              + " flag in your bazelrc once and forget about it so that you get coredumps when you"
+              + " actually encounter a condition that triggers them.")
   public boolean unlimitCoredumps;
 
   @Option(
@@ -482,4 +470,15 @@ public class BlazeServerStartupOptions extends OptionsBase {
       },
       help = "If false, the execution transition behaves like the host transition.")
   public boolean enableExecutionTransition;
+
+  @Option(
+      name = "windows_enable_symlinks",
+      defaultValue = "false", // Only for documentation; value is set by the client.
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If true, real symbolic links will be created on Windows instead of file copying. "
+              + "Requires Windows developer mode to be enabled and Windows 10 version 1703 or "
+              + "greater.")
+  public boolean enableWindowsSymlinks;
 }

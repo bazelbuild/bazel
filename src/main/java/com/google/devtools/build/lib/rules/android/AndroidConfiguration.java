@@ -18,15 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Whitelist;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
@@ -44,8 +43,7 @@ import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @Immutable
-public class AndroidConfiguration extends BuildConfiguration.Fragment
-    implements AndroidConfigurationApi {
+public class AndroidConfiguration extends Fragment implements AndroidConfigurationApi {
 
   /**
    * Converter for {@link
@@ -896,6 +894,16 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
                 + " dex when compiling legacy multidex.")
     public Label legacyMainDexListGenerator;
 
+    @Option(
+        name = "experimental_disable_instrumentation_manifest_merge",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "Disables manifest merging when an android_binary has instruments set (i.e. is used "
+                + "for instrumentation testing).")
+    public boolean disableInstrumentationManifestMerging;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -993,6 +1001,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
   private final Label legacyMainDexListGenerator;
+  private final boolean disableInstrumentationManifestMerging;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -1047,6 +1056,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
+    this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
 
     if (options.androidAaptVersion != AndroidAaptVersion.AAPT2) {
       throw new InvalidConfigurationException(
@@ -1073,7 +1083,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return cpu;
   }
 
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "android_sdk_label",
       doc = "Returns the target denoted by the value of the --android_sdk flag",
       defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
@@ -1299,9 +1309,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return useRTxtFromMergedResources;
   }
 
+  public boolean disableInstrumentationManifestMerging() {
+    return disableInstrumentationManifestMerging;
+  }
+
   /** Returns the label provided with --legacy_main_dex_list_generator, if any. */
   // TODO(b/147692286): Move R8's main dex list tool into tool repository.
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "legacy_main_dex_list_generator",
       doc = "Returns the label provided with --legacy_main_dex_list_generator, if any.")
   @Nullable

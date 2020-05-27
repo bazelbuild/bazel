@@ -276,11 +276,59 @@ public class GlobTest {
     FileSystemUtils.createDirectoryAndParents(tmpPath2);
     Path aDotB = tmpPath2.getChild("a.b");
     FileSystemUtils.createEmptyFile(aDotB);
+    Path aPlusB = tmpPath2.getChild("a+b");
+    FileSystemUtils.createEmptyFile(aPlusB);
+    Path aWordCharacterB = tmpPath2.getChild("a\\wb");
+    FileSystemUtils.createEmptyFile(aWordCharacterB);
+    Path disjunctionsAndBrackets = tmpPath2.getChild("aab|a{1,2}[ab]");
+    FileSystemUtils.createEmptyFile(disjunctionsAndBrackets);
+    Path lineNoise = tmpPath2.getChild("\\|}[{[].+");
+    FileSystemUtils.createEmptyFile(lineNoise);
     FileSystemUtils.createEmptyFile(tmpPath2.getChild("aab"));
-    // Note: this contains two asterisks because otherwise a RE is not built,
+    // Note: these contain two asterisks because otherwise a RE is not built,
     // as an optimization.
-    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*a.b*").globInterruptible()).containsExactly(
-        aDotB);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*a.b*").globInterruptible())
+        .containsExactly(aDotB);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*a+b*").globInterruptible())
+        .containsExactly(aPlusB);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*a\\wb*").globInterruptible())
+        .containsExactly(aWordCharacterB);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*aab|a{1,2}[ab]*").globInterruptible())
+        .containsExactly(disjunctionsAndBrackets);
+    assertThat(UnixGlob.forPath(tmpPath2).addPattern("*\\|}[{[].+*").globInterruptible())
+        .containsExactly(lineNoise);
+  }
+
+  /**
+   * Test that '(' and ')' in glob patterns are ignored if the glob is compiled to regexp.
+   *
+   * <p>TODO(b/154003471) Change the behavior and start treating '(' and ')' as literal characters
+   * in glob patterns. This will require an incompatible flag.
+   */
+  @Test
+  public void testParenthesesInRegex() throws Exception {
+    Path tmpPath3 = fs.getPath("/globtmp3");
+    FileSystemUtils.createDirectoryAndParents(tmpPath3);
+    Path fooBar = tmpPath3.getChild("foo bar");
+    FileSystemUtils.createEmptyFile(fooBar);
+    Path fooBarInParentheses = tmpPath3.getChild("foo (bar)");
+    FileSystemUtils.createEmptyFile(fooBarInParentheses);
+    // Note: these contain two asterisks because otherwise a RE is not built,
+    // as an optimization.
+    assertThat(UnixGlob.forPath(tmpPath3).addPattern("*foo (bar)*").globInterruptible())
+        .containsExactly(fooBar);
+    assertThat(UnixGlob.forPath(tmpPath3).addPattern("(*foo bar*)").globInterruptible())
+        .containsExactly(fooBar);
+    assertThat(UnixGlob.forPath(tmpPath3).addPattern("*)((foo ))bar(*").globInterruptible())
+        .containsExactly(fooBar);
+    assertThat(UnixGlob.forPath(tmpPath3).addPattern("*foo (bar*").globInterruptible())
+        .containsExactly(fooBar);
+    assertThat(UnixGlob.forPath(tmpPath3).addPattern("*foo bar*)").globInterruptible())
+        .containsExactly(fooBar);
+    // Note: the following glob pattern doesn't contain asterisks, and a RE wouldn't be expected to
+    // be built.
+    assertThat(UnixGlob.forPath(tmpPath3).addPattern("foo (bar)").globInterruptible())
+        .containsExactly(fooBarInParentheses);
   }
 
   @Test
