@@ -164,7 +164,10 @@ public abstract class CcModule
       buildOptions = ruleContext.getConfiguration().getOptions();
       getSemantics()
           .validateLayeringCheckFeatures(
-              ruleContext.getRuleContext(), toolchain, unsupportedFeaturesSet);
+              ruleContext.getRuleContext(),
+              ruleContext.getAspectDescriptor(),
+              toolchain,
+              unsupportedFeaturesSet);
     }
     return FeatureConfigurationForStarlark.from(
         CcCommon.configureFeaturesOrThrowEvalException(

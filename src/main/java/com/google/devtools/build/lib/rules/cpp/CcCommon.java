@@ -840,7 +840,8 @@ public final class CcCommon {
       ImmutableSet<String> unsupportedFeatures,
       CcToolchainProvider toolchain,
       CppSemantics cppSemantics) {
-    cppSemantics.validateLayeringCheckFeatures(ruleContext, toolchain, ImmutableSet.of());
+    cppSemantics.validateLayeringCheckFeatures(
+        ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
     try {
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,
