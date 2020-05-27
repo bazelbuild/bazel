@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.Options;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -42,7 +43,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,8 +52,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link MacOSXFsEventsDiffAwareness} */
 @RunWith(JUnit4.class)
 public class MacOSXFsEventsDiffAwarenessTest {
-
-  private static Logger logger = Logger.getLogger(MacOSXFsEventsDiffAwarenessTest.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static void rmdirs(Path directory) throws IOException {
     Files.walkFileTree(
@@ -154,7 +153,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
       if (attempts == 600) {
         throw new AssertionError("Paths " + pathsYetToBeSeen + " not found as modified");
       }
-      logger.info("Still have to see " + pathsYetToBeSeen.size() + " paths");
+      logger.atInfo().log("Still have to see %d paths", pathsYetToBeSeen.size());
       Thread.sleep(100);
       attempts++;
       view1 = view2; // getDiff requires views to be sequential if we want to get meaningful data.
@@ -198,7 +197,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
     // which then may result in our own callback in fsevents.cc not being able to keep up.
     // There is no guarantee that we'll trigger this condition, but on 2020-02-28 on a Mac Pro
     // 2013, this happened pretty predictably with the settings below.
-    logger.info("Starting file creation under " + watchedPath);
+    logger.atInfo().log("Starting file creation under %s", watchedPath);
     ExecutorService executor = Executors.newCachedThreadPool();
     int nThreads = 100;
     int nFilesPerThread = 100;
