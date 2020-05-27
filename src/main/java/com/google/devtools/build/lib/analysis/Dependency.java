@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import javax.annotation.Nullable;
 
 /**
@@ -67,6 +68,10 @@ public abstract class Dependency {
 
     /** Sets the keys of a configuration transition. */
     public abstract Builder setTransitionKeys(ImmutableList<String> keys);
+
+    /** Sets the {@link ToolchainContextKey} that this dependency should use for toolchain resolution. */
+    @Nullable
+    public abstract Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey);
 
     // Not public.
     abstract Dependency autoBuild();
@@ -141,11 +146,19 @@ public abstract class Dependency {
    */
   public abstract ImmutableList<String> getTransitionKeys();
 
+  /** Returns the {@link ToolchainContextKey} that this dependency should use for toolchain resolution. */
+  @Nullable
+  public abstract ToolchainContextKey getToolchainContextKey();
+
   /** Returns the ConfiguredTargetKey needed to fetch this dependency. */
   public ConfiguredTargetKey getConfiguredTargetKey() {
-    return ConfiguredTargetKey.builder()
+    ConfiguredTargetKey.Builder configuredTargetKeyBuilder = ConfiguredTargetKey.builder()
         .setLabel(getLabel())
-        .setConfiguration(getConfiguration())
+        .setConfiguration(getConfiguration());
+    if (getToolchainContextKey() != null) {
+      configuredTargetKeyBuilder.setToolchainContextKey(getToolchainContextKey());
+    }
+    return configuredTargetKeyBuilder
         .build();
   }
 }
