@@ -77,7 +77,6 @@ class LcovPrinter {
     printFNFLine(sourceFile);
     printFNHLine(sourceFile);
     printBRDALines(sourceFile);
-    printBALines(sourceFile);
     printBRFLine(sourceFile);
     printBRHLine(sourceFile);
     printDALines(sourceFile);
@@ -132,16 +131,12 @@ class LcovPrinter {
   // BRDA:<line number>,<block number>,<branch number>,<taken>
   private void printBRDALines(SourceFileCoverage sourceFile) throws IOException {
     for (BranchCoverage branch : sourceFile.getAllBranches()) {
-      if (branch.blockNumber().isEmpty() || branch.branchNumber().isEmpty()) {
-        // We skip printing this as a BRDA line and print it later as a BA line.
-        continue;
-      }
       bufferedWriter.write(Constants.BRDA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(branch.blockNumber());
+      bufferedWriter.write(branch.blockNumber().isEmpty() ? "0" : branch.blockNumber());
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(branch.branchNumber());
+      bufferedWriter.write(branch.branchNumber().isEmpty() ? "0" : branch.branchNumber());
       bufferedWriter.write(Constants.DELIMITER);
       if (branch.wasExecuted()) {
         bufferedWriter.write(Integer.toString(branch.nrOfExecutions()));
