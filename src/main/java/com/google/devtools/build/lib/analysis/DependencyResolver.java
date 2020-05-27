@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
@@ -83,6 +84,9 @@ public abstract class DependencyResolver {
 
     abstract ImmutableList<Aspect> getPropagatingAspects();
 
+    @Nullable
+    abstract ToolchainContextKey getToolchainContextKey();
+
     /** A Builder to create instances of PartiallyResolvedDependency. */
     @AutoValue.Builder
     abstract static class Builder {
@@ -91,6 +95,9 @@ public abstract class DependencyResolver {
       abstract Builder setTransition(ConfigurationTransition transition);
 
       abstract Builder setPropagatingAspects(List<Aspect> propagatingAspects);
+
+      @Nullable
+      abstract Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey);
 
       abstract PartiallyResolvedDependency build();
     }
@@ -102,7 +109,8 @@ public abstract class DependencyResolver {
 
     public DependencyKey.Builder getDependencyKeyBuilder() {
       return DependencyKey.builder()
-          .setLabel(getLabel());
+          .setLabel(getLabel())
+          .setToolchainContextKey(getToolchainContextKey());
     }
   }
 
@@ -274,8 +282,9 @@ public abstract class DependencyResolver {
             TOOLCHAIN_DEPENDENCY,
             PartiallyResolvedDependency.builder()
                 .setLabel(toLabel)
-                // TODO(jcater): Replace this with a proper transition for the execution platform.
+                // TODO(#10523): Replace this with a proper transition for the execution platform.
                 .setTransition(HostTransition.INSTANCE)
+                // TODO(#10523): Set the toolchainContextKey from ToolchainCollection.
                 .setPropagatingAspects(ImmutableList.of())
                 .build());
         continue;

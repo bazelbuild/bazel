@@ -408,6 +408,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sane_analysis_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:transitive_target_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:workspace_status_value",
@@ -701,6 +702,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -715,7 +717,9 @@ java_library(
         ":config/transitions/configuration_transition",
         ":dependency",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//third_party:auto_value",
+        "//third_party:jsr305",
     ],
 )
 
