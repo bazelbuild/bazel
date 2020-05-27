@@ -108,6 +108,27 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "ctx.build_setting_value.")
   public boolean experimentalBuildSettingApi;
 
+  // TODO(#11437): Implement the flag values listed in the below help string; delete the special
+  // empty string value so that it's on unconditionally.
+  @Option(
+      name = "experimental_builtins_bzl_path",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "This flag tells Bazel how to find the \"@builtins\" .bzl files that govern how "
+              + "predeclared symbols for BUILD and .bzl files are defined. This flag is only "
+              + "intended for Bazel developers, to help when writing @builtins .bzl code. "
+              + "Ordinarily this value is set to \"%install_base%\", which means to use the "
+              + "builtins_bzl/ directory located in the install base. However, it can be set to "
+              + "the path to the root of a Bazel source tree workspace, in which case the bzl "
+              + "sources underneath that workspace are used. If the value is literally "
+              + "\"%workspace%\", the root of the current workspace is used; this should only be "
+              + "set when running Bazel within its own source tree. Finally, a value of the empty "
+              + "string (\"\") disables the builtins injection mechanism entirely.")
+  public String experimentalBuiltinsBzlPath;
+
   @Option(
       name = "experimental_cc_skylark_api_enabled_packages",
       converter = CommaSeparatedOptionListConverter.class,
@@ -638,6 +659,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalAllowIncrementalRepositoryUpdates(
                 experimentalAllowIncrementalRepositoryUpdates)
             .experimentalAllowTagsPropagation(experimentalAllowTagsPropagation)
+            .experimentalBuiltinsBzlPath(experimentalBuiltinsBzlPath)
             .experimentalCcStarlarkApiEnabledPackages(experimentalCcStarlarkApiEnabledPackages)
             .experimentalEnableAndroidMigrationApis(experimentalEnableAndroidMigrationApis)
             .experimentalGoogleLegacyApi(experimentalGoogleLegacyApi)
