@@ -49,8 +49,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
-import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
@@ -1927,15 +1925,6 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         .containsExactly("bar.m");
     assertThat(Artifact.toRootRelativePaths(dependerProvider.getDirect(ObjcProvider.MODULE_MAP)))
         .containsExactly("x/bar.modulemaps/module.modulemap");
-
-    ConfiguredTarget target = getConfiguredTarget("//x:bar");
-    CcCompilationContext ccCompilationContext =
-        target.get(CcInfo.PROVIDER).getCcCompilationContext();
-    assertThat(baseArtifactNames(ccCompilationContext.getDirectPublicHdrs()))
-        .containsExactly("bar.h");
-    assertThat(baseArtifactNames(ccCompilationContext.getDirectPrivateHdrs()))
-        .containsExactly("bar_impl.h");
-    assertThat(baseArtifactNames(ccCompilationContext.getTextualHdrs())).containsExactly("bar.inc");
   }
 
   @Test
