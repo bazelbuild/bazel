@@ -280,7 +280,7 @@ class LcovParser {
 
       boolean wasExecuted = false;
       int executionCount = 0;
-      if (taken.equals(TAKEN)) {
+      if (!taken.equals(TAKEN)) {
         executionCount = Integer.parseInt(taken);
         wasExecuted = true;
       }
