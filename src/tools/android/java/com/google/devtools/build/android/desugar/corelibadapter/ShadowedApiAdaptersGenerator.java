@@ -48,7 +48,7 @@ import org.objectweb.asm.Type;
 public final class ShadowedApiAdaptersGenerator {
 
   private static final int TYPE_ADAPTER_CLASS_ACCESS = ACC_PUBLIC | ACC_ABSTRACT | ACC_SYNTHETIC;
-  private static final int TYPE_CONVERSION_METHOD_ACCESS = ACC_PUBLIC | ACC_STATIC;
+  private static final int TYPE_CONVERSION_METHOD_ACCESS = ACC_PUBLIC | ACC_STATIC | ACC_SYNTHETIC;
 
   /** A pre-collected record that tracks the adapter method requests from invocation sites. */
   private final InvocationSiteTransformationRecord invocationAdapterSites;
