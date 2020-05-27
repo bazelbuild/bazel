@@ -228,7 +228,7 @@ public class StarlarkOptionsParser {
     ImmutableList.Builder<String> keep = ImmutableList.builder();
     ImmutableList.Builder<String> remove = ImmutableList.builder();
     for (String name : list) {
-      ((name.startsWith("--//") || name.startsWith("--no//")) ? remove : keep).add(name);
+      (name.matches("--@?.*//.*") ? remove : keep).add(name);
     }
     return Pair.of(remove.build(), keep.build());
   }

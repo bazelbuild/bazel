@@ -17,14 +17,19 @@ package com.google.devtools.build.lib.skylark;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.skylark.util.StarlarkOptionsTestCase;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit test for the {@code StarlarkOptionsParser}. */
+/**
+ * Unit test for the {@code StarlarkOptionsParser}.
+ */
 @RunWith(JUnit4.class)
 public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
 
@@ -313,5 +318,17 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     OptionsParsingResult result = parseStarlarkOptions("--//test:my_int_setting=15");
 
     assertThat(result.getStarlarkOptions().get("//test:my_int_setting")).isEqualTo(15);
+  }
+
+  @Test
+  public void testRemoveStarlarkOptionsWorks() throws Exception {
+    Pair<ImmutableList<String>, ImmutableList<String>> residueAndStarlarkOptions = StarlarkOptionsParser
+        .removeStarlarkOptions(ImmutableList
+            .of("--//local/starlark/option", "--@some_repo//external/starlark/option",
+                "some-random-residue", "--mangled//external/starlark/option"));
+    assertThat(residueAndStarlarkOptions.first())
+        .containsExactly("--//local/starlark/option", "--@some_repo//external/starlark/option");
+    assertThat(residueAndStarlarkOptions.second())
+        .containsExactly("some-random-residue", "--mangled//external/starlark/option");
   }
 }
