@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.TRACEFILE1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.TRACEFILE1_DIFFERENT_NAME;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution1;
+import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createBranchExecution1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
 
 import com.google.common.base.Splitter;
@@ -41,10 +42,10 @@ public class LcovPrinterTest {
 
   @Before
   public void init() {
-    sourceFileCoverage1 = createSourceFile1(createLinesExecution1());
+    sourceFileCoverage1 = createSourceFile1(createLinesExecution1(), createBranchExecution1());
     sourceFileCoverage2 =
         LcovMergerTestUtils.createSourceFile1(
-            TRACEFILE1_DIFFERENT_NAME.get(0).substring(3), createLinesExecution1());
+            TRACEFILE1_DIFFERENT_NAME.get(0).substring(3), createLinesExecution1(), createBranchExecution1());
     byteOutputStream = new ByteArrayOutputStream();
     coverage = new Coverage();
   }

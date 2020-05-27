@@ -54,6 +54,11 @@ public class LcovMergerTestUtils {
           "FNDA:0,file1-func3",
           "FNF:3",
           "FNH:2",
+          "BRDA:10,0,0,1",
+          "BRDA:15,0,0,5",
+          "BRDA:19,0,0,-",
+          "BRF:3",
+          "BRH:2",
           "DA:10,3",
           "DA:11,3",
           "DA:12,30",
@@ -83,6 +88,11 @@ public class LcovMergerTestUtils {
           "FNDA:0,file1-func3",
           "FNF:3",
           "FNH:2",
+          "BRDA:10,0,0,1",
+          "BRDA:15,0,0,5",
+          "BRDA:19,0,0,-",
+          "BRF:3",
+          "BRH:2",
           "DA:10,3",
           "DA:11,3",
           "DA:12,30",
@@ -185,6 +195,9 @@ public class LcovMergerTestUtils {
   static final int NR_LINES_HIT_TRACEFILE1 = 10;
   static final int NR_LINES_HIT_TRACEFILE2 = 13;
 
+  static final int NR_BRANCHES_FOUND = 3;
+  static final int NR_BRANCHES_HIT_TRACEFILE1 = 2;
+
   static final int MAX_LINES_IN_FILE = 27;
 
   static int[] createLinesExecution1() {
@@ -210,6 +223,18 @@ public class LcovMergerTestUtils {
     return lineExecutionCountForTracefile;
   }
 
+  static int[] createBranchExecution1() {
+    int[] branchExecutionCountForTracefile = new int[MAX_LINES_IN_FILE];
+    for (int i = 0; i < MAX_LINES_IN_FILE; ++i) {
+      branchExecutionCountForTracefile[i] = -1; // no corresponding BRDA line for line i
+    }
+
+    branchExecutionCountForTracefile[10] = 1; // BRDA:10,0,0,1
+    branchExecutionCountForTracefile[15] = 5; // BRDA:15,0,0,5
+    branchExecutionCountForTracefile[19] = 0; // BRDA:19,0,0,-
+    return branchExecutionCountForTracefile;
+  }
+
   static int[] createLinesExecution2() {
     int[] lineExecutionCountForTracefile = new int[MAX_LINES_IN_FILE];
     for (int i = 0; i < MAX_LINES_IN_FILE; ++i) {
@@ -233,12 +258,12 @@ public class LcovMergerTestUtils {
     return lineExecutionCountForTracefile;
   }
 
-  static SourceFileCoverage createSourceFile1(int[] lineExecutionCountForTracefile) {
-    return createSourceFile1(SOURCE_FILENAME, lineExecutionCountForTracefile);
+  static SourceFileCoverage createSourceFile1(int[] lineExecutionCountForTracefile, int[] branchExecutionCountForTracefile) {
+    return createSourceFile1(SOURCE_FILENAME, lineExecutionCountForTracefile, branchExecutionCountForTracefile);
   }
 
   // Create source file coverage data, excluding branch coverage
-  static SourceFileCoverage createSourceFile1(String sourceFilename, int[] lineExecutionCount) {
+  static SourceFileCoverage createSourceFile1(String sourceFilename, int[] lineExecutionCount, int[] branchExecutionCount) {
     SourceFileCoverage sourceFile = new SourceFileCoverage(sourceFilename);
 
     sourceFile.addLineNumber(FUNC_1, FUNC_1_LINE_NR);
@@ -253,6 +278,12 @@ public class LcovMergerTestUtils {
     for (int line = FUNC_1_LINE_NR; line < MAX_LINES_IN_FILE; line++) {
       if (lineExecutionCount[line] >= 0) {
         sourceFile.addLine(line, LineCoverage.create(line, lineExecutionCount[line], null));
+      }
+    }
+
+    for (int line = FUNC_1_LINE_NR; line < MAX_LINES_IN_FILE; line++) {
+      if (branchExecutionCount[line] >= 0) {
+        sourceFile.addBranch(line, BranchCoverage.create(line, branchExecutionCount[line]));
       }
     }
 
@@ -295,6 +326,23 @@ public class LcovMergerTestUtils {
     }
   }
 
+  private static void assertBranchExecution_tracefile1(Map<Integer, BranchCoverage> branches) {
+    int[] branchExecution = createBranchExecution1();
+
+    assertThat(branches.size()).isEqualTo(NR_BRANCHES_FOUND);
+
+    for (int line = 10; line < branchExecution.length; line++) {
+      if (branchExecution[line] >= 0) {
+        BranchCoverage branchCoverage = branches.get(line);
+        assertThat(branchCoverage.nrOfExecutions()).isEqualTo(branchExecution[line]);
+        assertThat(branchCoverage.lineNumber()).isEqualTo(line);
+        assertThat(branchCoverage.blockNumber()).isEqualTo("0"); // ?
+        assertThat(branchCoverage.branchNumber()).isEqualTo("0");
+        assertThat(branchCoverage.wasExecuted()).isEqualTo(branchExecution[line] > 0);
+      }
+    }
+  }
+
   private static void assertLines_tracefile2(Map<Integer, LineCoverage> lines) {
     int[] lineExecution = createLinesExecution2();
 
@@ -326,6 +374,7 @@ public class LcovMergerTestUtils {
     assertThat(functionsExecution.get(FUNC_3)).isEqualTo(FUNC_3_NR_EXECUTED_LINES_TRACEFILE1);
 
     assertLinesExecution_tracefile1(sourceFile.getLines());
+    assertBranchExecution_tracefile1(sourceFile.getBranches());
 
     assertThat(sourceFile.nrOfInstrumentedLines()).isEqualTo(14);
     assertThat(sourceFile.nrOfLinesWithNonZeroExecution()).isEqualTo(10);

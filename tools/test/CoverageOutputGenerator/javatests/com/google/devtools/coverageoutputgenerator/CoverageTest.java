@@ -19,6 +19,7 @@ import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.as
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertTracefile1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution2;
+import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createBranchExecution1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile2;
 
@@ -46,7 +47,7 @@ public class CoverageTest {
 
   @Test
   public void testOneTracefile() {
-    SourceFileCoverage sourceFileCoverage = createSourceFile1(createLinesExecution1());
+    SourceFileCoverage sourceFileCoverage = createSourceFile1(createLinesExecution1(), createBranchExecution1());
     coverage.add(sourceFileCoverage);
     assertThat(coverage.getAllSourceFiles()).hasSize(1);
     assertTracefile1(Iterables.get(coverage.getAllSourceFiles(), 0));
@@ -56,7 +57,7 @@ public class CoverageTest {
   public void testTwoOverlappingTracefiles() {
     int[] linesExecution1 = createLinesExecution1();
     int[] linesExecution2 = createLinesExecution2();
-    SourceFileCoverage sourceFileCoverage1 = createSourceFile1(linesExecution1);
+    SourceFileCoverage sourceFileCoverage1 = createSourceFile1(linesExecution1, createBranchExecution1());
     SourceFileCoverage sourceFileCoverage2 = createSourceFile2(linesExecution2);
 
     coverage.add(sourceFileCoverage1);
@@ -69,9 +70,9 @@ public class CoverageTest {
 
   @Test
   public void testTwoTracefiles() {
-    SourceFileCoverage sourceFileCoverage1 = createSourceFile1(createLinesExecution1());
+    SourceFileCoverage sourceFileCoverage1 = createSourceFile1(createLinesExecution1(), createBranchExecution1());
     SourceFileCoverage sourceFileCoverage2 =
-        createSourceFile1("SOME_OTHER_FILENAME", createLinesExecution1());
+        createSourceFile1("SOME_OTHER_FILENAME", createLinesExecution1(), createBranchExecution1());
 
     coverage.add(sourceFileCoverage1);
     coverage.add(sourceFileCoverage2);

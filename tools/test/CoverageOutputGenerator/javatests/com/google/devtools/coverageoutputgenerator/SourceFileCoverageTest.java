@@ -21,6 +21,7 @@ import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.as
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertTracefile1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution2;
+import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createBranchExecution1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile2;
 
@@ -35,6 +36,7 @@ public class SourceFileCoverageTest {
 
   private int[] linesExecution1;
   private int[] linesExecution2;
+  private int[] branchExecution1;
   private SourceFileCoverage sourceFile1;
   private SourceFileCoverage sourceFile2;
 
@@ -42,8 +44,9 @@ public class SourceFileCoverageTest {
   public void initializeExecutionCountTracefiles() {
     linesExecution1 = createLinesExecution1();
     linesExecution2 = createLinesExecution2();
+    branchExecution1 = createBranchExecution1();
 
-    sourceFile1 = createSourceFile1(linesExecution1);
+    sourceFile1 = createSourceFile1(linesExecution1, branchExecution1);
     sourceFile2 = createSourceFile2(linesExecution2);
   }
 

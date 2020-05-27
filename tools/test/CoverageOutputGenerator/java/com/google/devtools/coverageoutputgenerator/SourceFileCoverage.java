@@ -203,6 +203,11 @@ class SourceFileCoverage {
   }
 
   @VisibleForTesting
+  Map<Integer, BranchCoverage> getBranches() {
+    return branches;
+  }
+
+  @VisibleForTesting
   Map<Integer, LineCoverage> getLines() {
     return lines;
   }
