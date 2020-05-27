@@ -122,7 +122,6 @@ public class LocalSpawnRunner implements SpawnRunner {
     runfilesTreeUpdater.updateRunfilesDirectory(
         execRoot,
         spawn.getRunfilesSupplier(),
-        context.getPathResolver(),
         binTools,
         spawn.getEnvironment(),
         context.getFileOutErr());

@@ -112,7 +112,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         .containsExactly("nexus_6", "userdata_images.dat", "emulator-meta-data.pb");
 
     Runfiles runfiles = getDefaultRunfiles(target);
-    assertThat(ActionsTestUtil.execPaths(runfiles.getUnconditionalArtifacts()))
+    assertThat(ActionsTestUtil.execPaths(runfiles.getArtifacts()))
         .containsAtLeast(
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
