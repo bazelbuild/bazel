@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
@@ -26,14 +27,17 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
 import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,54 +53,55 @@ import java.util.logging.LogManager;
 
 /** Implements 'blaze clean'. */
 @Command(
-  name = "clean",
-  builds = true, // Does not, but people expect build options to be there
-  writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
-  options = {CleanCommand.Options.class},
-  help = "resource:clean.txt",
-  shortDescription = "Removes output files and optionally stops the server.",
-  // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
-  inherits = {BuildCommand.class}
+    name = "clean",
+    builds = true, // Does not, but people expect build options to be there
+    allowResidue = true, // Does not, but need to allow so we can ignore Starlark options.
+    writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
+    options = {CleanCommand.Options.class},
+    help = "resource:clean.txt",
+    shortDescription = "Removes output files and optionally stops the server.",
+    // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
+    inherits = {BuildCommand.class}
 )
 public final class CleanCommand implements BlazeCommand {
   /** An interface for special options for the clean command. */
   public static class Options extends OptionsBase {
     @Option(
-      name = "expunge",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If true, clean removes the entire working tree for this %{product} instance, "
-              + "which includes all %{product}-created temporary and build output files, "
-              + "and stops the %{product} server if it is running."
+        name = "expunge",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If true, clean removes the entire working tree for this %{product} instance, "
+                + "which includes all %{product}-created temporary and build output files, "
+                + "and stops the %{product} server if it is running."
     )
     public boolean expunge;
 
     @Option(
-      name = "expunge_async",
-      defaultValue = "null",
-      expansion = {"--expunge", "--async"},
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If specified, clean asynchronously removes the entire working tree for "
-              + "this %{product} instance, which includes all %{product}-created temporary and "
-              + "build output files, and stops the %{product} server if it is running. When "
-              + "this command completes, it will be safe to execute new commands in the same "
-              + "client, even though the deletion may continue in the background."
+        name = "expunge_async",
+        defaultValue = "null",
+        expansion = {"--expunge", "--async"},
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If specified, clean asynchronously removes the entire working tree for "
+                + "this %{product} instance, which includes all %{product}-created temporary and "
+                + "build output files, and stops the %{product} server if it is running. When "
+                + "this command completes, it will be safe to execute new commands in the same "
+                + "client, even though the deletion may continue in the background."
     )
     public Void expungeAsync;
 
     @Option(
-      name = "async",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-      effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
-      help =
-          "If true, output cleaning is asynchronous. When this command completes, it will be safe "
-              + "to execute new commands in the same client, even though the deletion may continue "
-              + "in the background."
+        name = "async",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS},
+        help =
+            "If true, output cleaning is asynchronous. When this command completes, it will be safe "
+                + "to execute new commands in the same client, even though the deletion may continue "
+                + "in the background."
     )
     public boolean async;
   }
@@ -116,6 +121,24 @@ public final class CleanCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    // Assert that the only residue is starlark options and ignore them.
+    Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
+        StarlarkOptionsParser.removeStarlarkOptions(options.getResidue());
+    ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
+    ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
+    if (!removedStarlarkOptions.isEmpty()) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Blaze clean does not support starlark options. Ignoring options: "
+                      + removedStarlarkOptions));
+    }
+    if (!residue.isEmpty()) {
+      String message = "Unknown arguments" + residue;
+      env.getReporter().handle(Event.error(message));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    }
+
     Options cleanOptions = options.getOptions(Options.class);
     boolean async = cleanOptions.async;
     env.getEventBus().post(new NoBuildEvent());
