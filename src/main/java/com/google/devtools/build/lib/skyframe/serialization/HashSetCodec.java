@@ -18,20 +18,19 @@ import com.google.common.collect.Sets;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 
-/** {@link ObjectCodec} for {@link LinkedHashSet}. */
-class LinkedHashSetCodec<E> implements ObjectCodec<LinkedHashSet<E>> {
-
+/** {@link ObjectCodec} for {@link HashSet} that returns {@link LinkedHashSet} for determinism. */
+final class HashSetCodec<E> implements ObjectCodec<HashSet<E>> {
   @SuppressWarnings("unchecked")
   @Override
-  public Class<LinkedHashSet<E>> getEncodedClass() {
-    return (Class<LinkedHashSet<E>>) (Class<?>) LinkedHashSet.class;
+  public Class<HashSet<E>> getEncodedClass() {
+    return (Class<HashSet<E>>) (Class<?>) HashSet.class;
   }
 
   @Override
-  public void serialize(
-      SerializationContext context, LinkedHashSet<E> obj, CodedOutputStream codedOut)
+  public void serialize(SerializationContext context, HashSet<E> obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
     codedOut.writeInt32NoTag(obj.size());
     for (Object object : obj) {
@@ -45,7 +44,7 @@ class LinkedHashSetCodec<E> implements ObjectCodec<LinkedHashSet<E>> {
     int size = codedIn.readInt32();
     LinkedHashSet<E> set = Sets.newLinkedHashSetWithExpectedSize(size);
     for (int i = 0; i < size; i++) {
-      set.add(context.<E>deserialize(codedIn));
+      set.add(context.deserialize(codedIn));
     }
     return set;
   }

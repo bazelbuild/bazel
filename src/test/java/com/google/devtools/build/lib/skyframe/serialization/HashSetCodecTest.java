@@ -18,15 +18,15 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester.VerificationFunction;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link LinkedHashSetCodec}. */
+/** Tests for {@link HashSetCodec}. */
 @RunWith(JUnit4.class)
-public class LinkedHashSetCodecTest {
-
+public final class HashSetCodecTest {
   @Test
   public void smokeTest() throws Exception {
     LinkedHashSet<String> subjectTwo = new LinkedHashSet<>();
@@ -38,9 +38,13 @@ public class LinkedHashSetCodecTest {
     LinkedHashSet<String> mixedSet = new LinkedHashSet<>();
     mixedSet.add(null);
     mixedSet.add("memberOne");
-    new SerializationTester(new LinkedHashSet<String>(), subjectTwo, nullSet, mixedSet)
+    HashSet<String> plainHashSet = new HashSet<>();
+    plainHashSet.add("maybeFirst");
+    plainHashSet.add("maybeSecond");
+    new SerializationTester(
+            new LinkedHashSet<String>(), subjectTwo, nullSet, mixedSet, plainHashSet)
         .setVerificationFunction(
-            (VerificationFunction<LinkedHashSet<String>>)
+            (VerificationFunction<HashSet<String>>)
                 (deserialized, subject) -> {
                   assertThat(deserialized).isEqualTo(subject);
                   assertThat(deserialized.size()).isEqualTo(subject.size());

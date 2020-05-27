@@ -26,9 +26,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link MapCodec}. */
+/** Tests for {@link UnmodifiableMapCodec}. */
 @RunWith(JUnit4.class)
-public class MapCodecTest {
+public final class UnmodifiableMapCodecTest {
   @Test
   public void smoke() throws Exception {
     HashMap<String, String> map1 = new HashMap<>();
@@ -37,7 +37,7 @@ public class MapCodecTest {
     LinkedHashMap<String, String> map2 = new LinkedHashMap<>();
     map2.put("c", null);
     map2.put("a", "second");
-    new SerializationTester(map1, map2, Collections.unmodifiableMap(map1))
+    new SerializationTester(Collections.unmodifiableMap(map1), Collections.unmodifiableMap(map2))
         .setVerificationFunction(
             (VerificationFunction<Map<String, String>>)
                 (original, deserialized) ->
