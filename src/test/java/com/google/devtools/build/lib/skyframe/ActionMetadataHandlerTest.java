@@ -400,6 +400,48 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
+  public void injectRemoteTreeFileArtifactMetadata() throws Exception {
+    scratch.file("/output/bin/foo/bar/child1", "child1");
+    scratch.file("/output/bin/foo/bar/child2", "child2");
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("bin/foo/bar"));
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "child2");
+    assertThat(child1.getPath().exists()).isTrue();
+    assertThat(child2.getPath().exists()).isTrue();
+
+    OutputStore store = new OutputStore();
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            /*inputArtifactData=*/ new ActionInputMap(1),
+            ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableList.of(treeArtifact),
+            /*tsgm=*/ null,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+    handler.discardOutputMetadata();
+
+    RemoteFileArtifactValue child1Value = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
+    RemoteFileArtifactValue child2Value = new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1);
+
+    handler.injectRemoteFile(child1, child1Value);
+    handler.injectRemoteFile(child2, child2Value);
+
+    FileArtifactValue treeMetadata = handler.getMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = handler.getMetadata(child1);
+    FileArtifactValue child2Metadata = handler.getMetadata(child2);
+    TreeArtifactValue tree = store.getTreeArtifactData(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getAllArtifactData()).isEmpty(); // All data should be in treeArtifactData.
+  }
+
+  @Test
   public void injectRemoteTreeArtifactMetadata() throws Exception {
     PathFragment path = PathFragment.create("bin/dir");
     SpecialArtifact treeArtifact =
