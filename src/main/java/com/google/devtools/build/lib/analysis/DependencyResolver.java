@@ -76,16 +76,27 @@ public abstract class DependencyResolver {
    */
   @AutoValue
   abstract static class PartiallyResolvedDependency {
-    public abstract Label getLabel();
+    abstract Label getLabel();
 
-    public abstract ConfigurationTransition getTransition();
+    abstract ConfigurationTransition getTransition();
 
-    public abstract ImmutableList<Aspect> getPropagatingAspects();
+    abstract ImmutableList<Aspect> getPropagatingAspects();
 
-    static PartiallyResolvedDependency of(
-        Label label, ConfigurationTransition transition, ImmutableList<Aspect> propagatingAspects) {
-      return new AutoValue_DependencyResolver_PartiallyResolvedDependency(
-          label, transition, propagatingAspects);
+    /** A Builder to create instances of PartiallyResolvedDependency. */
+    @AutoValue.Builder
+    static abstract class Builder {
+      abstract Builder setLabel(Label label);
+
+      abstract Builder setTransition(ConfigurationTransition transition);
+
+      abstract Builder setPropagatingAspects(List<Aspect> propagatingAspects);
+
+      abstract PartiallyResolvedDependency build();
+    }
+
+    static Builder builder() {
+      return new AutoValue_DependencyResolver_PartiallyResolvedDependency.Builder()
+          .setPropagatingAspects(ImmutableList.of());
     }
   }
 
@@ -256,25 +267,34 @@ public abstract class DependencyResolver {
         // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
         partiallyResolvedDeps.put(
             TOOLCHAIN_DEPENDENCY,
-            PartiallyResolvedDependency.of(
-                toLabel,
+            PartiallyResolvedDependency.builder()
+                .setLabel(toLabel)
                 // TODO(jcater): Replace this with a proper transition for the execution platform.
-                HostTransition.INSTANCE,
-                ImmutableList.of()));
+                .setTransition(HostTransition.INSTANCE)
+                .setPropagatingAspects(ImmutableList.of())
+                .build());
         continue;
       }
 
       if (entry.getKey() == VISIBILITY_DEPENDENCY) {
         partiallyResolvedDeps.put(
             VISIBILITY_DEPENDENCY,
-            PartiallyResolvedDependency.of(toLabel, NullTransition.INSTANCE, ImmutableList.of()));
+            PartiallyResolvedDependency.builder()
+                .setLabel(toLabel)
+                .setTransition(NullTransition.INSTANCE)
+                .setPropagatingAspects(ImmutableList.of())
+                .build());
         continue;
       }
 
       if (entry.getKey() == OUTPUT_FILE_RULE_DEPENDENCY) {
         partiallyResolvedDeps.put(
             OUTPUT_FILE_RULE_DEPENDENCY,
-            PartiallyResolvedDependency.of(toLabel, NoTransition.INSTANCE, ImmutableList.of()));
+            PartiallyResolvedDependency.builder()
+                .setLabel(toLabel)
+                .setTransition(NoTransition.INSTANCE)
+                .setPropagatingAspects(ImmutableList.of())
+                .build());
         continue;
       }
 
@@ -316,7 +336,11 @@ public abstract class DependencyResolver {
           attribute.getTransitionFactory().create(attributeTransitionData);
       partiallyResolvedDeps.put(
           entry.getKey(),
-          PartiallyResolvedDependency.of(toLabel, attributeTransition, propagatingAspects.build()));
+          PartiallyResolvedDependency.builder()
+              .setLabel(toLabel)
+              .setTransition(attributeTransition)
+              .setPropagatingAspects(propagatingAspects.build())
+              .build());
     }
     return partiallyResolvedDeps;
   }
