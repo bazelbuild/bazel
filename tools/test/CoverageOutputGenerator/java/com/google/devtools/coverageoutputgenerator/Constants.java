@@ -29,7 +29,6 @@ class Constants {
   static final String FNF_MARKER = "FNF:";
   static final String FNH_MARKER = "FNH:";
   static final String BRDA_MARKER = "BRDA:";
-  static final String BA_MARKER = "BA:";
   static final String BRF_MARKER = "BRF:";
   static final String BRH_MARKER = "BRH:";
   static final String DA_MARKER = "DA:";

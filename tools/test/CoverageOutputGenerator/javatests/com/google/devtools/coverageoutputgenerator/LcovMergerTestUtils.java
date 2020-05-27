@@ -415,7 +415,7 @@ public class LcovMergerTestUtils {
       lines.add("FNF:0");
       lines.add("FNH:0");
       for (int srcLineNum = 1; srcLineNum <= numLinesPerSourceFile; srcLineNum += 4) {
-        lines.add(String.format("BA:%s,2", srcLineNum));
+        lines.add(String.format("BRDA:%s,0,0,2", srcLineNum));
       }
       lines.add("BRF:" + numLinesPerSourceFile / 4);
       lines.add("BRH:" + numLinesPerSourceFile / 4);

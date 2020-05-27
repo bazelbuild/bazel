@@ -14,7 +14,6 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
-import static com.google.devtools.coverageoutputgenerator.Constants.BA_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.BRDA_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.BRF_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.BRH_MARKER;
@@ -114,9 +113,6 @@ class LcovParser {
     }
     if (line.startsWith(BRDA_MARKER)) {
       return parseBRDALine(line);
-    }
-    if (line.startsWith(BA_MARKER)) {
-      return parseBALine(line);
     }
     if (line.startsWith(BRF_MARKER)) {
       return parseBRFLine(line);
@@ -225,34 +221,6 @@ class LcovParser {
     } catch (NumberFormatException e) {
       logger.log(
           Level.WARNING, "Tracefile contains invalid number of functions hit on FNH line " + line);
-      return false;
-    }
-    return true;
-  }
-
-  // BA:<line number>,<taken>
-  private boolean parseBALine(String line) {
-    String lineContent = line.substring(BA_MARKER.length());
-    String[] lineData = lineContent.split(DELIMITER, -1);
-    if (lineData.length != 2) {
-      logger.log(Level.WARNING, "Tracefile contains invalid BRDA line " + line);
-      return false;
-    }
-    for (String data : lineData) {
-      if (data.isEmpty()) {
-        logger.log(Level.WARNING, "Tracefile contains invalid BRDA line " + line);
-        return false;
-      }
-    }
-    try {
-      int lineNumber = Integer.parseInt(lineData[0]);
-      int taken = Integer.parseInt(lineData[1]);
-
-      BranchCoverage branchCoverage = BranchCoverage.create(lineNumber, taken);
-
-      currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
-    } catch (NumberFormatException e) {
-      logger.log(Level.WARNING, "Tracefile contains an invalid number BA line " + line);
       return false;
     }
     return true;

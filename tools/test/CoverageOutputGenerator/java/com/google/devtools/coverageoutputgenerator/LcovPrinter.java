@@ -147,24 +147,6 @@ class LcovPrinter {
     }
   }
 
-  // BA:<line number>,<taken>
-  private void printBALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
-      if (!branch.blockNumber().isEmpty() && !branch.branchNumber().isEmpty()) {
-        // This branch was already printed with more information as a BRDA line.
-        continue;
-      }
-      bufferedWriter.write(Constants.BA_MARKER);
-      bufferedWriter.write(Integer.toString(branch.lineNumber()));
-      bufferedWriter.write(Constants.DELIMITER);
-      // 0 = branch was not executed
-      // 1 = branch was executed but not taken
-      // 2 = branch was executed and taken
-      bufferedWriter.write(branch.wasExecuted() ? "2" : "0");
-      bufferedWriter.newLine();
-    }
-  }
-
   // BRF:<number of branches found>
   private void printBRFLine(SourceFileCoverage sourceFile) throws IOException {
     if (sourceFile.nrBranchesFound() > 0) {
