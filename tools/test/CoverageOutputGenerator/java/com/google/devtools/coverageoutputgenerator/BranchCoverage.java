@@ -22,7 +22,7 @@ abstract class BranchCoverage {
 
   static BranchCoverage create(int lineNumber, int nrOfExecutions) {
     return new AutoValue_BranchCoverage(
-        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", nrOfExecutions);
+        lineNumber, /*blockNumber=*/ "0", /*branchNumber=*/ "0", nrOfExecutions);
   }
 
   static BranchCoverage createWithBlockAndBranch(

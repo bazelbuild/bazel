@@ -134,9 +134,9 @@ class LcovPrinter {
       bufferedWriter.write(Constants.BRDA_MARKER);
       bufferedWriter.write(Integer.toString(branch.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(branch.blockNumber().isEmpty() ? "0" : branch.blockNumber());
+      bufferedWriter.write(branch.blockNumber());
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(branch.branchNumber().isEmpty() ? "0" : branch.branchNumber());
+      bufferedWriter.write(branch.branchNumber());
       bufferedWriter.write(Constants.DELIMITER);
       if (branch.wasExecuted()) {
         bufferedWriter.write(Integer.toString(branch.nrOfExecutions()));
