@@ -314,7 +314,6 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private static class CleanException extends Exception {
-
     private final FailureDetails.CleanCommand.Code detailedCode;
 
     private CleanException(FailureDetails.CleanCommand.Code detailedCode, Exception e) {
