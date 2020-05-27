@@ -1,8 +1,8 @@
 py_binary(
     name = "ctexplain",
     srcs = ["ctexplain.py"],
-    deps = [":bazel_api"],
     python_version = "PY3",
+    deps = [":bazel_api"],
 )
 
 py_library(
@@ -17,8 +17,8 @@ py_test(
     size = "small",
     srcs = ["bazel_api_test.py"],
     deps = [
-        "//src/test/py/bazel:test_base",
         ":bazel_api",
+        "//src/test/py/bazel:test_base",
     ],
 )
 

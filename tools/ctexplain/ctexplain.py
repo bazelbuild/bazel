@@ -12,7 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""ctexplain main entry point.
 
+Currently a stump.
+"""
 from tools.ctexplain.bazel_api import BazelApi
 
 bazel_api = BazelApi()

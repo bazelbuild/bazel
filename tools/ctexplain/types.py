@@ -12,21 +12,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """The core data types ctexplain manipulates."""
 
-from dataclasses import dataclass
-from dataclasses import field
 from typing import Dict
 from typing import Optional
 from typing import Tuple
+from dataclasses import dataclass
+from dataclasses import field
+
 
 @dataclass(frozen=True)
 class Configuration():
   """Stores a build configuration as a collection of fragments and options."""
   # BuildConfiguration.Fragments in this configuration, as base names without
   # packages. For example: ["PlatformConfiguration", ...].
-  fragments: Tuple[str,...]
+  fragments: Tuple[str, ...]
   # Dict of FragmentOptions to option key/value pairs. For example:
   # {"CoreOptions": {"action_env": "[]", "cpu": "x86", ...}, ...}.
   #
@@ -42,6 +42,7 @@ class Configuration():
       items_to_hash.append(tuple(sorted(self.options[fragment_option])))
     return hash(tuple(items_to_hash))
 
+
 @dataclass(frozen=True)
 class ConfiguredTarget():
   """Encapsulates a target + configuration + required fragments."""
@@ -54,7 +55,8 @@ class ConfiguredTarget():
   # Fragments required by this configured target and its transitive
   # dependencies. Stored as base names without packages. For example:
   # "PlatformOptions".
-  transitive_fragments: Tuple[str,...]
+  transitive_fragments: Tuple[str, ...]
+
 
 @dataclass(frozen=True)
 class HostConfiguration(Configuration):
@@ -70,8 +72,9 @@ class HostConfiguration(Configuration):
   aren't "special" compared to normal configurations.
   """
   # We don't currently read the host config's fragments or option values.
-  fragments: Tuple[str,...] = ()
+  fragments: Tuple[str, ...] = ()
   options: Dict[str, Dict[str, str]] = field(default_factory=lambda: {})
+
 
 @dataclass(frozen=True)
 class NullConfiguration(Configuration):
@@ -79,5 +82,5 @@ class NullConfiguration(Configuration):
 
   By definition this has no fragments or options.
   """
-  fragments: Tuple[str,...] = ()
+  fragments: Tuple[str, ...] = ()
   options: Dict[str, Dict[str, str]] = field(default_factory=lambda: {})
