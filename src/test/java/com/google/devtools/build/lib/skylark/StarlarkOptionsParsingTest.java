@@ -326,9 +326,9 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         .removeStarlarkOptions(ImmutableList
             .of("--//local/starlark/option", "--@some_repo//external/starlark/option",
                 "some-random-residue", "--mangled//external/starlark/option"));
-    assertThat(residueAndStarlarkOptions.first())
+    assertThat(residueAndStarlarkOptions.getFirst())
         .containsExactly("--//local/starlark/option", "--@some_repo//external/starlark/option");
-    assertThat(residueAndStarlarkOptions.second())
+    assertThat(residueAndStarlarkOptions.getSecond())
         .containsExactly("some-random-residue", "--mangled//external/starlark/option");
   }
 }
