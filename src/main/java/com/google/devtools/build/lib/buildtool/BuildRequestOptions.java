@@ -415,6 +415,17 @@ public class BuildRequestOptions extends OptionsBase {
   public int nestedSetAsSkyKeyThreshold;
 
   @Option(
+      name = "experimental_nsos_eval_keys_as_one_group",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If set, evaluate direct and transitive keys of an ArtifactNestedSetKey"
+              + "in one single Skyframe call.")
+  public boolean nsosEvalKeysAsOneGroup;
+
+  @Option(
       name = "experimental_use_fork_join_pool",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
