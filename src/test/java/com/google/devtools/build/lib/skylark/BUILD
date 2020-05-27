@@ -24,6 +24,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
