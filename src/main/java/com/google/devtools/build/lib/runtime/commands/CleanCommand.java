@@ -51,7 +51,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.logging.LogManager;
 
-/** Implements 'blaze clean'. */
+/**
+ * Implements 'blaze clean'.
+ */
 @Command(
     name = "clean",
     builds = true, // Does not, but people expect build options to be there
@@ -64,8 +66,12 @@ import java.util.logging.LogManager;
     inherits = {BuildCommand.class}
 )
 public final class CleanCommand implements BlazeCommand {
-  /** An interface for special options for the clean command. */
+
+  /**
+   * An interface for special options for the clean command.
+   */
   public static class Options extends OptionsBase {
+
     @Option(
         name = "expunge",
         defaultValue = "false",
@@ -314,6 +320,7 @@ public final class CleanCommand implements BlazeCommand {
   }
 
   private static class CleanException extends Exception {
+
     private final FailureDetails.CleanCommand.Code detailedCode;
 
     private CleanException(FailureDetails.CleanCommand.Code detailedCode, Exception e) {
