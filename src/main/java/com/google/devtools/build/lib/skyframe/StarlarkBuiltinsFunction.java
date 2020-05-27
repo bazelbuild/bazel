@@ -26,10 +26,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
-// TODO(brandjon): Determine places where we need to teach Skyframe about this Skyfunction. Look for
+// TODO(#11437): Determine places where we need to teach Skyframe about this Skyfunction. Look for
 // special treatment of BzlLoadFunction or ASTFileLookupFunction in existing code.
 
-// TODO(brandjon): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
+// TODO(#11437): Add support to StarlarkModuleCycleReporter to pretty-print cycles involving
 // @builtins. Blocked on us actually loading files from @builtins.
 
 /**
@@ -56,6 +56,17 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   private static final Location EXPORTS_ENTRYPOINT_LOC =
       new Location(EXPORTS_ENTRYPOINT.getCanonicalForm(), /*line=*/ 0, /*column=*/ 0);
 
+  /**
+   * Key for loading exports.bzl. {@code keyForBuiltins} (as opposed to {@code keyForBuild} ensures
+   * that 1) we can resolve the {@code @builtins} name appropriately, and 2) loading it does not
+   * trigger a cyclic call back into {@code StarlarkBuiltinsFunction}.
+   */
+  private static final SkyKey EXPORTS_ENTRYPOINT_KEY =
+      BzlLoadValue.keyForBuiltins(
+          // TODO(#11437): Replace by EXPORTS_ENTRYPOINT once BzlLoadFunction can resolve the
+          // @builtins namespace.
+          Label.parseAbsoluteUnchecked("//tools/builtins_staging:exports.bzl"));
+
   StarlarkBuiltinsFunction() {}
 
   @Override
@@ -63,12 +74,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       throws StarlarkBuiltinsFunctionException, InterruptedException {
     // skyKey is a singleton, unused.
 
-    // TODO(brandjon): Replace by @builtins//:exports once BzlLoadFunction can resolve the @builtins
-    // namespace.
-    SkyKey exportsKey =
-        BzlLoadValue.keyForBuild(
-            Label.parseAbsoluteUnchecked("//tools/builtins_staging:exports.bzl"));
-    BzlLoadValue exportsValue = (BzlLoadValue) env.getValue(exportsKey);
+    BzlLoadValue exportsValue = (BzlLoadValue) env.getValue(EXPORTS_ENTRYPOINT_KEY);
     if (exportsValue == null) {
       return null;
     }

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -29,11 +28,12 @@ public final class BzlLoadKeyCodecTest {
   public void testCodec() throws Exception {
     SerializationTester serializationTester =
         new SerializationTester(
-            BzlLoadValue.keyForBuild(Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of())),
+            BzlLoadValue.keyForBuild(Label.parseAbsoluteUnchecked("//foo/bar:baz")),
             BzlLoadValue.keyForWorkspace(
-                Label.parseAbsolute("//foo/bar:baz", ImmutableMap.of()),
+                Label.parseAbsoluteUnchecked("//foo/bar:baz"),
                 /*workspaceChunk=*/ 4,
-                /*workspacePath=*/ FsUtils.TEST_ROOTED_PATH));
+                /*workspacePath=*/ FsUtils.TEST_ROOTED_PATH),
+            BzlLoadValue.keyForBuiltins(Label.parseAbsoluteUnchecked("//foo/bar:baz")));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
   }
