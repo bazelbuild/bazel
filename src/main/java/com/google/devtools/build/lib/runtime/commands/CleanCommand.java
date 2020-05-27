@@ -134,7 +134,7 @@ public final class CleanCommand implements BlazeCommand {
                       + removedStarlarkOptions));
     }
     if (!residue.isEmpty()) {
-      String message = "Unknown arguments" + residue;
+      String message = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
       env.getReporter().handle(Event.error(message));
       return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
     }
