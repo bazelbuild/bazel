@@ -943,7 +943,7 @@ java_library(
 
 java_library(
     name = "cached_bzl_load_value_and_deps",
-    srcs = ["CachedBzlLoadValueAndDeps.java"],
+    srcs = ["CachedBzlLoadData.java"],
     deps = [
         ":bzl_load_value",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
@@ -954,7 +954,7 @@ java_library(
 
 java_library(
     name = "cached_bzl_load_value_and_deps_builder_factory",
-    srcs = ["CachedBzlLoadValueAndDepsBuilderFactory.java"],
+    srcs = ["CachedBzlLoadDataBuilderFactory.java"],
     deps = [
         ":cached_bzl_load_value_and_deps",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

@@ -61,7 +61,7 @@ public class BzlLoadValue implements SkyValue {
     return transitiveDigest;
   }
 
-  /** Returns the immediate Starlark file dependency corresponding to this load value. */
+  /** Returns the root of a DAG whose structure mirrors the transitive loads of this file. */
   public StarlarkFileDependency getDependency() {
     return dependency;
   }

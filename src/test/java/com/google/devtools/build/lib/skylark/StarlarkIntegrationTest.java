@@ -2953,9 +2953,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
           ((InMemoryMemoizingEvaluator) getSkyframeExecutor().getEvaluatorForTesting())
               .getSkyFunctionsForTesting();
       BzlLoadFunction bzlLoadFunction =
-          BzlLoadFunction.createForInliningSelfForPackageAndWorkspaceNodes(
+          BzlLoadFunction.createForInlining(
               this.getRuleClassProvider(), this.getPackageFactory(), /*bzlLoadValueCacheSize=*/ 2);
-      bzlLoadFunction.resetSelfInliningCache();
+      bzlLoadFunction.resetInliningCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
           .setBzlLoadFunctionForInliningForTesting(bzlLoadFunction);
     }

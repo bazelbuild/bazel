@@ -679,14 +679,12 @@ public class PackageFunction implements SkyFunction {
     // .bzl is loaded only once, regardless of diamond dependencies. (Multiple loads of the same
     // .bzl would screw up identity equality of some Starlark symbols -- see comments in
     // BzlLoadFunction.)
-    Map<BzlLoadValue.Key, CachedBzlLoadValueAndDeps> visitedDepsInToplevelLoad = new HashMap<>();
+    Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls = new HashMap<>();
     for (BzlLoadValue.Key key : keys) {
       SkyValue skyValue;
       try {
-        // Will complete right away if it's already cached in visitedDepsInToplevelLoad.
-        skyValue =
-            bzlLoadFunctionForInlining.computeWithSelfInlineCallsForPackageAndWorkspaceNodes(
-                key, env, visitedDepsInToplevelLoad);
+        // Will complete right away if it's already cached in visitedBzls.
+        skyValue = bzlLoadFunctionForInlining.computeInline(key, env, visitedBzls);
       } catch (BzlLoadFailedException | InconsistentFilesystemException e) {
         // For determinism's sake while inlining, preserve the first exception and continue to run
         // subsequently listed loads to completion/exception, loading all transitive deps anyway.

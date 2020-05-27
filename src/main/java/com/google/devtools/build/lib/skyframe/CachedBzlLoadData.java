@@ -25,35 +25,48 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-class CachedBzlLoadValueAndDeps {
+/**
+ * A saved {@link BzlLoadFunction} computation, used when inlining that Skyfunction.
+ *
+ * <p>This holds a requested key, its computed value, and the direct and transitive Skyframe
+ * dependencies that are needed to compute it from scratch (i.e. if it weren't cached). Here
+ * "transitive" means "underneath another {@code BzlLoadFunction} computation"; we split them into
+ * other {@code CachedBzlLoadData} objects so they can be shared by other requesting bzls.
+ */
+class CachedBzlLoadData {
   private final BzlLoadValue.Key key;
   private final BzlLoadValue value;
   private final ImmutableList<Iterable<SkyKey>> directDeps;
-  private final ImmutableList<CachedBzlLoadValueAndDeps> transitiveDeps;
+  private final ImmutableList<CachedBzlLoadData> transitiveDeps;
 
-  private CachedBzlLoadValueAndDeps(
+  private CachedBzlLoadData(
       BzlLoadValue.Key key,
       BzlLoadValue value,
       ImmutableList<Iterable<SkyKey>> directDeps,
-      ImmutableList<CachedBzlLoadValueAndDeps> transitiveDeps) {
+      ImmutableList<CachedBzlLoadData> transitiveDeps) {
     this.key = key;
     this.value = value;
     this.directDeps = directDeps;
     this.transitiveDeps = transitiveDeps;
   }
 
+  /**
+   * Adds all deps (direct and transitive) of this value to the {@code visitedDeps} set and passes
+   * them to the consumer (with unspecified order and grouping). The traversal does not include
+   * nodes already contained in {@code visitedDeps}.
+   */
   void traverse(
-      DepGroupConsumer depGroupConsumer,
-      Map<BzlLoadValue.Key, CachedBzlLoadValueAndDeps> visitedDeps)
+      DepGroupConsumer depGroupConsumer, Map<BzlLoadValue.Key, CachedBzlLoadData> visitedDeps)
       throws InterruptedException {
+    if (visitedDeps.putIfAbsent(key, this) != null) {
+      return;
+    }
+
     for (Iterable<SkyKey> directDepGroup : directDeps) {
       depGroupConsumer.accept(directDepGroup);
     }
-    for (CachedBzlLoadValueAndDeps indirectDeps : transitiveDeps) {
-      if (!visitedDeps.containsKey(indirectDeps.key)) {
-        visitedDeps.put(indirectDeps.key, indirectDeps);
-        indirectDeps.traverse(depGroupConsumer, visitedDeps);
-      }
+    for (CachedBzlLoadData indirectDeps : transitiveDeps) {
+      indirectDeps.traverse(depGroupConsumer, visitedDeps);
     }
   }
 
@@ -63,10 +76,10 @@ class CachedBzlLoadValueAndDeps {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof CachedBzlLoadValueAndDeps) {
+    if (obj instanceof CachedBzlLoadData) {
       // With the interner, force there to be exactly one cached value per key at any given point
       // in time.
-      return this.key.equals(((CachedBzlLoadValueAndDeps) obj).key);
+      return this.key.equals(((CachedBzlLoadData) obj).key);
     }
     return false;
   }
@@ -82,13 +95,13 @@ class CachedBzlLoadValueAndDeps {
   }
 
   static class Builder {
-    Builder(Interner<CachedBzlLoadValueAndDeps> interner) {
+    Builder(Interner<CachedBzlLoadData> interner) {
       this.interner = interner;
     }
 
-    private final Interner<CachedBzlLoadValueAndDeps> interner;
+    private final Interner<CachedBzlLoadData> interner;
     private final List<Iterable<SkyKey>> directDeps = new ArrayList<>();
-    private final List<CachedBzlLoadValueAndDeps> transitiveDeps = new ArrayList<>();
+    private final List<CachedBzlLoadData> transitiveDeps = new ArrayList<>();
     private final AtomicReference<Exception> exceptionSeen = new AtomicReference<>(null);
     private BzlLoadValue value;
     private BzlLoadValue.Key key;
@@ -116,7 +129,7 @@ class CachedBzlLoadValueAndDeps {
     }
 
     @CanIgnoreReturnValue
-    Builder addTransitiveDeps(CachedBzlLoadValueAndDeps transitiveDeps) {
+    Builder addTransitiveDeps(CachedBzlLoadData transitiveDeps) {
       this.transitiveDeps.add(transitiveDeps);
       return this;
     }
@@ -133,19 +146,19 @@ class CachedBzlLoadValueAndDeps {
       return this;
     }
 
-    CachedBzlLoadValueAndDeps build() {
+    CachedBzlLoadData build() {
       // We expect that we don't handle any exceptions in BzlLoadFunction directly.
       Preconditions.checkState(exceptionSeen.get() == null, "Caching a value in error?: %s", this);
       Preconditions.checkNotNull(value, "Expected value to be set: %s", this);
       Preconditions.checkNotNull(key, "Expected key to be set: %s", this);
       return interner.intern(
-          new CachedBzlLoadValueAndDeps(
+          new CachedBzlLoadData(
               key, value, ImmutableList.copyOf(directDeps), ImmutableList.copyOf(transitiveDeps)));
     }
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(CachedBzlLoadValueAndDeps.Builder.class)
+      return MoreObjects.toStringHelper(CachedBzlLoadData.Builder.class)
           .add("key", key)
           .add("value", value)
           .add("directDeps", directDeps)

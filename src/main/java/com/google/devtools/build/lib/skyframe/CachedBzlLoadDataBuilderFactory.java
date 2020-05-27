@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 
-/** Factory class for producing CachedBzlLoadValueAndDeps. */
-public class CachedBzlLoadValueAndDepsBuilderFactory {
-  private final Interner<CachedBzlLoadValueAndDeps> interner = BlazeInterners.newWeakInterner();
+/** Factory class for producing a builder for {@link CachedBzlLoadData}. */
+// TODO(bazel-team): It's unclear why this needs to be public and whether we need it at all. Maybe
+// we can just inline it into BzlLoadFunction.
+public class CachedBzlLoadDataBuilderFactory {
+  private final Interner<CachedBzlLoadData> interner = BlazeInterners.newWeakInterner();
 
-  CachedBzlLoadValueAndDeps.Builder newCachedBzlLoadValueAndDepsBuilder() {
-    return new CachedBzlLoadValueAndDeps.Builder(interner);
+  CachedBzlLoadData.Builder newCachedBzlLoadDataBuilder() {
+    return new CachedBzlLoadData.Builder(interner);
   }
 }

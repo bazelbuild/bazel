@@ -28,9 +28,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link CachedBzlLoadValueAndDeps}. */
+/** Tests for {@link CachedBzlLoadData}. */
 @RunWith(JUnit4.class)
-public class CachedBzlLoadValueAndDepsTest {
+public class CachedBzlLoadDataTest {
   @Test
   public void testDepsAreNotVisitedMultipleTimesForDiamondDependencies() throws Exception {
     // Graph structure of BzlLoadValues:
@@ -42,16 +42,16 @@ public class CachedBzlLoadValueAndDepsTest {
     //    gc
 
     BzlLoadValue dummyValue = mock(BzlLoadValue.class);
-    CachedBzlLoadValueAndDepsBuilderFactory cachedBzlLoadValueAndDepsBuilderFactory =
-        new CachedBzlLoadValueAndDepsBuilderFactory();
+    CachedBzlLoadDataBuilderFactory cachedBzlLoadDataBuilderFactory =
+        new CachedBzlLoadDataBuilderFactory();
 
     BzlLoadValue.Key gcKey = createStarlarkKey("//gc");
     SkyKey gcKey1 = createKey("gc key1");
     SkyKey gcKey2 = createKey("gc key2");
     SkyKey gcKey3 = createKey("gc key3");
-    CachedBzlLoadValueAndDeps gc =
-        cachedBzlLoadValueAndDepsBuilderFactory
-            .newCachedBzlLoadValueAndDepsBuilder()
+    CachedBzlLoadData gc =
+        cachedBzlLoadDataBuilderFactory
+            .newCachedBzlLoadDataBuilder()
             .addDep(gcKey1)
             .addDeps(ImmutableList.of(gcKey2, gcKey3))
             .setKey(gcKey)
@@ -60,9 +60,9 @@ public class CachedBzlLoadValueAndDepsTest {
 
     BzlLoadValue.Key c1Key = createStarlarkKey("//c1");
     SkyKey c1Key1 = createKey("c1 key1");
-    CachedBzlLoadValueAndDeps c1 =
-        cachedBzlLoadValueAndDepsBuilderFactory
-            .newCachedBzlLoadValueAndDepsBuilder()
+    CachedBzlLoadData c1 =
+        cachedBzlLoadDataBuilderFactory
+            .newCachedBzlLoadDataBuilder()
             .addDep(c1Key1)
             .addTransitiveDeps(gc)
             .setValue(dummyValue)
@@ -72,9 +72,9 @@ public class CachedBzlLoadValueAndDepsTest {
     BzlLoadValue.Key c2Key = createStarlarkKey("//c2");
     SkyKey c2Key1 = createKey("c2 key1");
     SkyKey c2Key2 = createKey("c2 key2");
-    CachedBzlLoadValueAndDeps c2 =
-        cachedBzlLoadValueAndDepsBuilderFactory
-            .newCachedBzlLoadValueAndDepsBuilder()
+    CachedBzlLoadData c2 =
+        cachedBzlLoadDataBuilderFactory
+            .newCachedBzlLoadDataBuilder()
             .addDeps(ImmutableList.of(c2Key1, c2Key2))
             .addTransitiveDeps(gc)
             .setValue(dummyValue)
@@ -83,9 +83,9 @@ public class CachedBzlLoadValueAndDepsTest {
 
     BzlLoadValue.Key pKey = createStarlarkKey("//p");
     SkyKey pKey1 = createKey("p key1");
-    CachedBzlLoadValueAndDeps p =
-        cachedBzlLoadValueAndDepsBuilderFactory
-            .newCachedBzlLoadValueAndDepsBuilder()
+    CachedBzlLoadData p =
+        cachedBzlLoadDataBuilderFactory
+            .newCachedBzlLoadDataBuilder()
             .addDep(pKey1)
             .addTransitiveDeps(c1)
             .addTransitiveDeps(c2)
@@ -94,8 +94,8 @@ public class CachedBzlLoadValueAndDepsTest {
             .build();
 
     List<Iterable<SkyKey>> registeredDeps = new ArrayList<>();
-    Map<BzlLoadValue.Key, CachedBzlLoadValueAndDeps> visitedDepsInToplevelLoad = new HashMap<>();
-    p.traverse(registeredDeps::add, visitedDepsInToplevelLoad);
+    Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls = new HashMap<>();
+    p.traverse(registeredDeps::add, visitedBzls);
 
     assertThat(registeredDeps)
         .containsExactly(
@@ -106,8 +106,7 @@ public class CachedBzlLoadValueAndDepsTest {
             ImmutableList.of(c2Key1, c2Key2))
         .inOrder();
 
-    // Note that (pKey, p) is expected to be added separately.
-    assertThat(visitedDepsInToplevelLoad).containsExactly(c1Key, c1, c2Key, c2, gcKey, gc);
+    assertThat(visitedBzls).containsExactly(pKey, p, c1Key, c1, c2Key, c2, gcKey, gc);
   }
 
   private static SkyKey createKey(String name) {
