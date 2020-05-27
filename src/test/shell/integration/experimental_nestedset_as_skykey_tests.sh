@@ -152,11 +152,12 @@ foo_binary(
 EOF
   touch foo/1.a foo/1.b foo/c.foo
 
-  bazel build //foo:c || fail "build failed"
+  bazel build //foo:c &> "$TEST_log"|| fail "build failed"
   regular=$(bazel dump --skyframe summary)
   bazel clean
 
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c || fail "build failed"
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c \
+    &> "$TEST_log"|| fail "build failed"
   with_flag=$(bazel dump --skyframe summary)
 
   [[ regular != $with_flag ]] || fail "number of nodes and edges on skyframe should be different"
@@ -230,10 +231,12 @@ foo_binary(
 EOF
   touch foo/1.a foo/1.b foo/c.foo
 
-  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c || fail "build failed"
+  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c \
+    &> "$TEST_log" || fail "build failed"
   # Deliberately breaking the file.
   echo omgomgomg >> foo/foocc.py
-  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c && fail "Expected failure"
+  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c \
+    &> "$TEST_log" && fail "Expected failure"
 
   true  # reset the last exit code so the test won't be considered failed
 }
