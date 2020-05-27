@@ -1,3 +1,34 @@
+## Release 3.2.0 (2020-05-27)
+
+```
+Baseline: 1d93d26d9900328dcba0026bf21cb45cc37a4596
+```
+
+Important changes:
+
+  - Renamed --experimental_slim_json_profile to --slim_profile.
+  - Expose ctx.attr.write Args content for analysistest when possible
+  - Added aquery_differ_v2 that works with the new aquery proto
+    output format.
+  - Add new flag, 'experimental_no_product_name_out_symlink', to omit
+    creating '<product>-out' symlink if user specifies
+    '--symlink_prefix' option.
+  - --ram_utilization_factor is removed (as is
+    --incompatible_remove_ram_utilization_factor). Please use
+    --local_ram_resources.
+  - Improve include scanner support for cl.exe and clang-cl command
+    lines
+  - ctx.split_attr now includes attributes with Starlark split
+    transitions.
+  - Added --incompatible_string_replace_count, to make
+    string.replace() behave as in Python.
+  - Bazel can now recursively delete non-executable but readable
+    directories.
+  - Restore case-sensitivity to -I and /I include scanning detection
+    to avoid conflicts.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Antoine Eiche, Beebs, Brian Silverman, George Gensure, Gerhard Pretorius, Gibson Fahnestock, Greg, Gregor Jasny, Gustav Westling, hannometer, Jin, Jonathan Gerrish, Josh Smith, Justin Y Wei, Laurent Le Brun, Links, liubang, Lszl Csomor, Matt Mackay, Moritz Krger, Ryan Beasley, Siddhartha Bagaria, Yannic Bonenberger, Yannic, Zhongpeng Lin.
+
 ## Release 3.1.0 (2020-04-21)
 
 ```
