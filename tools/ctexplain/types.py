@@ -36,10 +36,17 @@ class Configuration():
   options: Dict[str, Dict[str, str]]
 
   def __hash__(self):
-    sorted_fragment_options = sorted(self.options.keys())
-    items_to_hash = [self.fragments, (tuple(sorted_fragment_options))]
-    for fragment_option in sorted_fragment_options:
-      items_to_hash.append(tuple(sorted(self.options[fragment_option])))
+    return self._hash_value()
+
+  def __eq__(self, other):
+    return other._hash_value() == self._hash_value()
+
+  def _hash_value(self):
+    """Explicitly specified because dict isn't hashable."""
+    items_to_hash = list(self.fragments)
+    for item in sorted(self.options.items()):
+      items_to_hash.append(item[0])
+      items_to_hash.append(tuple(sorted(item[1].items())))
     return hash(tuple(items_to_hash))
 
 
