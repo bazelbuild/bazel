@@ -84,14 +84,6 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     return interner.intern(new ConfiguredTargetKey(label, configurationKey));
   }
 
-  // TODO(katre): Remove this.
-  static KeyAndHost keyFromConfiguration(@Nullable BuildConfiguration configuration) {
-    return configuration == null
-        ? KeyAndHost.NULL_INSTANCE
-        : new KeyAndHost(
-            BuildConfigurationValue.key(configuration), configuration.isHostConfiguration());
-  }
-
   @Override
   public Label getLabel() {
     return label;
@@ -164,21 +156,5 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   @Override
   public String toString() {
     return String.format("%s %s", label, configurationKey);
-  }
-
-  /**
-   * Simple wrapper class for turning a {@link BuildConfiguration} into a {@link
-   * BuildConfigurationValue.Key} and boolean isHost.
-   */
-  public static class KeyAndHost {
-    private static final KeyAndHost NULL_INSTANCE = new KeyAndHost(null, false);
-
-    @Nullable public final BuildConfigurationValue.Key key;
-    final boolean isHost;
-
-    private KeyAndHost(@Nullable BuildConfigurationValue.Key key, boolean isHost) {
-      this.key = key;
-      this.isHost = isHost;
-    }
   }
 }
