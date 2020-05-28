@@ -309,11 +309,10 @@ public final class RuleConfiguredTargetBuilder {
 
       Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
 
-      // Validation actions in the host configuration, or for tools, or from implicit deps should
+      // Validation actions for tools, or from implicit deps should
       // not fail the overall build, since those dependencies should have their own builds
       // and tests that should surface any failing validations.
-      if (!attribute.getTransitionFactory().isHost()
-          && !attribute.getTransitionFactory().isTool()
+      if (!attribute.getTransitionFactory().isTool()
           && !attribute.isImplicit()
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 
