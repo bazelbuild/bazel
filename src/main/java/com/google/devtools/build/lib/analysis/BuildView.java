@@ -287,12 +287,7 @@ public class BuildView {
 
     List<ConfiguredTargetKey> topLevelCtKeys =
         topLevelTargetsWithConfigs.stream()
-            .map(
-                node ->
-                    ConfiguredTargetKey.builder()
-                        .setLabel(node.getLabel())
-                        .setConfiguration(node.getConfiguration())
-                        .build())
+            .map(TargetAndConfiguration::getConfiguredTargetKey)
             .collect(Collectors.toList());
 
     Multimap<Pair<Label, String>, BuildConfiguration> aspectConfigurations =
