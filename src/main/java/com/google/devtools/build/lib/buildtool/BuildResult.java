@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -51,8 +52,7 @@ public final class BuildResult {
   private Throwable crash = null;
   private boolean catastrophe = false;
   private boolean stopOnFirstFailure;
-  private DetailedExitCode detailedExitCode =
-      DetailedExitCode.justExitCode(ExitCode.BLAZE_INTERNAL_ERROR);
+  @Nullable private DetailedExitCode detailedExitCode;
 
   private BuildConfigurationCollection configurations;
   private Collection<ConfiguredTarget> actualTargets;
@@ -110,7 +110,7 @@ public final class BuildResult {
 
   /** True iff the build request has been successfully completed. */
   public boolean getSuccess() {
-    return detailedExitCode.isSuccess();
+    return detailedExitCode != null && detailedExitCode.isSuccess();
   }
 
   /**
@@ -118,15 +118,17 @@ public final class BuildResult {
    * to complete the command with.
    */
   public DetailedExitCode getDetailedExitCode() {
-    return detailedExitCode;
+    if (detailedExitCode != null) {
+      return detailedExitCode;
+    }
+    return CrashFailureDetails.detailedExitCodeForThrowable(
+        new IllegalStateException("Unspecified DetailedExitCode"));
   }
 
-  /**
-   * Sets the RuntimeException / Error that induced a Blaze crash.
-   */
+  /** Sets the RuntimeException / Error that induced a Blaze crash. */
   public void setUnhandledThrowable(Throwable crash) {
-    Preconditions.checkState(crash == null ||
-        ((crash instanceof RuntimeException) || (crash instanceof Error)));
+    Preconditions.checkState(
+        crash == null || ((crash instanceof RuntimeException) || (crash instanceof Error)));
     this.crash = crash;
   }
 
