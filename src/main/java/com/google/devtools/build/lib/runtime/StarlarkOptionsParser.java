@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -228,7 +230,21 @@ public class StarlarkOptionsParser {
     ImmutableList.Builder<String> keep = ImmutableList.builder();
     ImmutableList.Builder<String> remove = ImmutableList.builder();
     for (String name : list) {
-      (name.matches("--(no)?(@.*)?//.*") ? remove : keep).add(name);
+      if (!name.startsWith("--")) {
+        keep.add(name);
+        continue;
+      }
+
+      String potentialStarlarkFlag = name.substring(2);
+      if (name.startsWith("no")) {
+        potentialStarlarkFlag = potentialStarlarkFlag.substring(2);
+      }
+      try {
+        LabelValidator.validateAbsoluteLabel(potentialStarlarkFlag);
+        remove.add(name);
+      } catch (BadLabelException e) {
+        keep.add(name);
+      }
     }
     return Pair.of(remove.build(), keep.build());
   }

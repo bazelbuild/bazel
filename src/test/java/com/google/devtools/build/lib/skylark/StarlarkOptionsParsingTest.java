@@ -322,12 +322,17 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
 
   @Test
   public void testRemoveStarlarkOptionsWorks() throws Exception {
-    Pair<ImmutableList<String>, ImmutableList<String>> residueAndStarlarkOptions = StarlarkOptionsParser
-        .removeStarlarkOptions(ImmutableList
-            .of("--//local/starlark/option", "--@some_repo//external/starlark/option",
-                "some-random-residue", "--mangled//external/starlark/option"));
+    Pair<ImmutableList<String>, ImmutableList<String>> residueAndStarlarkOptions =
+        StarlarkOptionsParser.removeStarlarkOptions(
+            ImmutableList.of(
+                "--//local/starlark/option", "--@some_repo//external/starlark/option",
+                "--@//main/repo/option", "some-random-residue",
+                "--mangled//external/starlark/option"));
     assertThat(residueAndStarlarkOptions.getFirst())
-        .containsExactly("--//local/starlark/option", "--@some_repo//external/starlark/option");
+        .containsExactly(
+            "--//local/starlark/option",
+            "--@some_repo//external/starlark/option",
+            "--@//main/repo/option");
     assertThat(residueAndStarlarkOptions.getSecond())
         .containsExactly("some-random-residue", "--mangled//external/starlark/option");
   }
