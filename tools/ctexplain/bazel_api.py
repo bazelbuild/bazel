@@ -44,10 +44,11 @@ def run_bazel_in_client(args):
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
       check=True)
-  return [
+  return (
       result.returncode,
-      result.stdout.decode("utf-8").split(os.linesep), result.stderr
-  ]
+      result.stdout.decode("utf-8").split(os.linesep),
+      result.stderr
+  )
 
 
 class BazelApi():
