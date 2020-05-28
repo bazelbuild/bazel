@@ -34,6 +34,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",

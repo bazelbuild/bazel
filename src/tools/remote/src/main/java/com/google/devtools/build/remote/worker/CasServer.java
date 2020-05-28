@@ -15,7 +15,6 @@
 package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static java.util.logging.Level.WARNING;
 
 import build.bazel.remote.execution.v2.BatchUpdateBlobsRequest;
 import build.bazel.remote.execution.v2.BatchUpdateBlobsResponse;
@@ -27,6 +26,7 @@ import build.bazel.remote.execution.v2.FindMissingBlobsRequest;
 import build.bazel.remote.execution.v2.FindMissingBlobsResponse;
 import build.bazel.remote.execution.v2.GetTreeRequest;
 import build.bazel.remote.execution.v2.GetTreeResponse;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.rpc.Code;
@@ -35,11 +35,10 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /** A basic implementation of a {@link ContentAddressableStorageImplBase} service. */
 final class CasServer extends ContentAddressableStorageImplBase {
-  private static final Logger logger = Logger.getLogger(CasServer.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   static final long MAX_BATCH_SIZE_BYTES = 1024 * 1024 * 4;
   private final OnDiskBlobStoreCache cache;
 
@@ -106,7 +105,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
         responseObserver.onError(StatusUtils.interruptedError(digest));
         return;
       } catch (Exception e) {
-        logger.log(WARNING, "Read request failed.", e);
+        logger.atWarning().withCause(e).log("Read request failed");
         responseObserver.onError(StatusUtils.internalError(e));
         return;
       }
@@ -114,7 +113,7 @@ final class CasServer extends ContentAddressableStorageImplBase {
       try {
         directory = Directory.parseFrom(directoryBytes);
       } catch (InvalidProtocolBufferException e) {
-        logger.log(WARNING, "Failed to parse directory in tree.", e);
+        logger.atWarning().withCause(e).log("Failed to parse directory in tree");
         responseObserver.onError(StatusUtils.internalError(e));
         return;
       }
