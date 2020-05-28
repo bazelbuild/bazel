@@ -25,7 +25,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:turbine",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -37,7 +36,6 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -48,7 +46,6 @@ java_library(
         ":formatted_diagnostic",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -66,7 +63,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jimfs",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -79,7 +75,6 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -91,7 +86,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:turbine",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -100,7 +94,6 @@ java_library(
     srcs = ["ZipUtil.java"],
     deps = [
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -110,16 +103,12 @@ java_library(
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
 java_library(
     name = "formatted_diagnostic",
     srcs = ["FormattedDiagnostic.java"],
-    deps = [
-        "//third_party/java/jdk/langtools:javac",
-    ],
 )
 
 filegroup(

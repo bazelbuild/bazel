@@ -13,7 +13,6 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:invalid_command_line_exception",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//third_party:guava",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -28,7 +27,6 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:tomcat_annotations_api",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -41,7 +39,6 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/statistics",
         "//third_party:error_prone",
         "//third_party:guava",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -52,7 +49,6 @@ java_library(
         ":plugins",
         "//src/main/protobuf:java_compilation_java_proto",
         "//third_party:guava",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 

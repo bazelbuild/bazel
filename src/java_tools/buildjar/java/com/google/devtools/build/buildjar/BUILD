@@ -55,7 +55,6 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -96,7 +95,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jacoco:core",
-        "//third_party/java/jdk/langtools:javac",
     ],
 )
 
@@ -167,7 +165,6 @@ bootstrap_java_library(
         "//third_party/grpc:bootstrap-grpc-jars",
         "//third_party:tomcat_annotations_api-jars",
     ],
-    neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
     tags = ["manual"],
 )
 
