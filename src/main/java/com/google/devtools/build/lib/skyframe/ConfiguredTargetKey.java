@@ -42,48 +42,6 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     this.configurationKey = configurationKey;
   }
 
-  // TODO(jcater): Remove as part of converting to Builders.
-  public static ConfiguredTargetKey of(
-      ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
-    return of(configuredTarget.getOriginalLabel(), buildConfiguration);
-  }
-
-  // TODO(jcater): Remove as part of converting to Builders.
-  public static ConfiguredTargetKey of(
-      ConfiguredTarget configuredTarget,
-      BuildConfigurationValue.Key configurationKey,
-      boolean ignored) {
-    return of(configuredTarget.getOriginalLabel(), configurationKey);
-  }
-
-  // TODO(jcater): Remove as part of converting to Builders.
-  public static ConfiguredTargetKey inTargetConfig(ConfiguredTarget configuredTarget) {
-    return of(configuredTarget.getOriginalLabel(), configuredTarget.getConfigurationKey());
-  }
-
-  /**
-   * Caches so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
-   * not {@code O(edges between configured targets)}.
-   */
-  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
-
-  public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
-    return of(
-        label, configuration == null ? null : BuildConfigurationValue.key(configuration), false);
-  }
-
-  // TODO(jcater): Remove as part of converting to Builders.
-  public static ConfiguredTargetKey of(
-      Label label, @Nullable BuildConfigurationValue.Key configurationKey, boolean ignored) {
-    return of(label, configurationKey);
-  }
-
-  @AutoCodec.Instantiator
-  public static ConfiguredTargetKey of(
-      Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
-    return interner.intern(new ConfiguredTargetKey(label, configurationKey));
-  }
-
   @Override
   public Label getLabel() {
     return label;
@@ -156,5 +114,102 @@ public class ConfiguredTargetKey extends ActionLookupKey {
   @Override
   public String toString() {
     return String.format("%s %s", label, configurationKey);
+  }
+
+  public static ConfiguredTargetKey of(
+      ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
+    return builder()
+        .setConfiguredTarget(configuredTarget)
+        .setConfiguration(buildConfiguration)
+        .build();
+  }
+
+  public static ConfiguredTargetKey of(
+      ConfiguredTarget configuredTarget,
+      BuildConfigurationValue.Key configurationKey,
+      boolean unused) {
+    return builder()
+        .setConfiguredTarget(configuredTarget)
+        .setConfigurationKey(configurationKey)
+        .build();
+  }
+
+  public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
+    return builder().setLabel(label).setConfiguration(configuration).build();
+  }
+
+  public static ConfiguredTargetKey of(
+      Label label, @Nullable BuildConfigurationValue.Key configurationKey, boolean unused) {
+    return builder().setLabel(label).setConfigurationKey(configurationKey).build();
+  }
+
+  @AutoCodec.Instantiator
+  public static ConfiguredTargetKey of(
+      Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
+    return builder().setLabel(label).setConfigurationKey(configurationKey).build();
+  }
+
+  public static ConfiguredTargetKey inTargetConfig(ConfiguredTarget configuredTarget) {
+    return builder()
+        .setConfiguredTarget(configuredTarget)
+        .setConfigurationKey(configuredTarget.getConfigurationKey())
+        .build();
+  }
+
+  /** Returns a new {@link Builder} to create instances of {@link ConfiguredTargetKey}. */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /**
+   * Caches so that the number of ConfiguredTargetKey instances is {@code O(configured targets)} and
+   * not {@code O(edges between configured targets)}.
+   */
+  private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
+
+  /** A helper class to create instances of {@link ConfiguredTargetKey}. */
+  public static class Builder {
+
+    private Label label = null;
+    private BuildConfigurationValue.Key configurationKey = null;
+
+    /** Sets the label for the target. */
+    public Builder setLabel(Label label) {
+      this.label = label;
+      return this;
+    }
+
+    /**
+     * Sets the {@link ConfiguredTarget} that we want a key for.
+     *
+     * <p>This sets both the label and configurationKey data.
+     */
+    public Builder setConfiguredTarget(ConfiguredTarget configuredTarget) {
+      setLabel(configuredTarget.getOriginalLabel());
+      if (this.configurationKey == null) {
+        setConfigurationKey(configuredTarget.getConfigurationKey());
+      }
+      return this;
+    }
+
+    /** Sets the {@link BuildConfiguration} for the configured target. */
+    public Builder setConfiguration(@Nullable BuildConfiguration buildConfiguration) {
+      if (buildConfiguration == null) {
+        return setConfigurationKey(null);
+      } else {
+        return setConfigurationKey(BuildConfigurationValue.key(buildConfiguration));
+      }
+    }
+
+    /** Sets the configuration key for the configured target. */
+    public Builder setConfigurationKey(@Nullable BuildConfigurationValue.Key configurationKey) {
+      this.configurationKey = configurationKey;
+      return this;
+    }
+
+    /** Builds a new {@link ConfiguredTargetKey} based on the supplied data. */
+    public ConfiguredTargetKey build() {
+      return interner.intern(new ConfiguredTargetKey(label, configurationKey));
+    }
   }
 }

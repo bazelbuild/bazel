@@ -267,7 +267,10 @@ public abstract class AspectValueKey extends ActionLookupKey {
       }
 
       return createAspectKey(
-          ConfiguredTargetKey.of(label, baseConfiguredTargetKey.getConfigurationKey()),
+          ConfiguredTargetKey.builder()
+              .setLabel(label)
+              .setConfigurationKey(baseConfiguredTargetKey.getConfigurationKey())
+              .build(),
           newBaseKeys.build(),
           aspectDescriptor,
           aspectConfigurationKey);
