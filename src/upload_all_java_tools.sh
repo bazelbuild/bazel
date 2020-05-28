@@ -50,7 +50,7 @@ bazel_version=$(bazel info release | cut -d' ' -f2)
 # uploaded on GCS with the same identifier.
 for java_version in 11 12; do
 
-    bazel build //src:java_tools_java${java_version}_zip
+    bazel build --javabase=@bazel_tools//tools/jdk:remote_jdk11 //src:java_tools_java${java_version}_zip
     zip_path=${PWD}/bazel-bin/src/java_tools_java${java_version}.zip
 
     if "$is_windows"; then
@@ -65,12 +65,14 @@ for java_version in 11 12; do
       --define=LOCAL_JAVA_TOOLS_ZIP_URL="${file_url}"
 
     bazel run //src:upload_java_tools_java${java_version} -- \
+        --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
         --java_tools_zip src/java_tools_java${java_version}.zip \
         --commit_hash ${commit_hash} \
         --timestamp ${timestamp} \
         --bazel_version ${bazel_version}
 
     bazel run //src:upload_java_tools_dist_java${java_version} -- \
+        --javabase=@bazel_tools//tools/jdk:remote_jdk11 \
         --commit_hash ${commit_hash} \
         --timestamp ${timestamp} \
         --bazel_version ${bazel_version}
