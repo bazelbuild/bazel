@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * The "config" module of the Build API.
@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * <p>This exposes methods to describe what kind of build setting (if any) a starlark rule is using
  * the {@code build_setting} attr of the {@code rule(...)} function.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "config",
     namespace = true,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "Note: This API is experimental and may change at any time."
             + ""
@@ -52,7 +52,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
   String FLAG_ARG = "flag";
   String FLAG_ARG_DOC = "Whether or not this build setting is callable on the command line.";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "int",
       doc = "An integer-typed build setting",
       parameters = {
@@ -66,7 +66,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
       })
   BuildSettingApi intSetting(Boolean flag);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bool",
       doc = "A bool-typed build setting",
       parameters = {
@@ -80,7 +80,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
       })
   BuildSettingApi boolSetting(Boolean flag);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "string",
       doc = "A string-typed build setting",
       parameters = {
@@ -94,7 +94,7 @@ public interface StarlarkConfigApi extends StarlarkValue {
       })
   BuildSettingApi stringSetting(Boolean flag);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "string_list",
       doc = "A string list-typed build setting",
       parameters = {
@@ -109,16 +109,16 @@ public interface StarlarkConfigApi extends StarlarkValue {
   BuildSettingApi stringListSetting(Boolean flag);
 
   /** The API for build setting descriptors. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "BuildSetting",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc =
           "The descriptor for a single piece of configuration information. If configuration is a "
               + "key-value map of settings like {'cpu': 'ppc', 'copt': '-DFoo'}, this describes a "
               + "single entry in that map.")
   interface BuildSettingApi extends StarlarkValue {}
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exec",
       doc = "<i>experimental</i> Creates an execution transition.",
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
@@ -137,9 +137,9 @@ public interface StarlarkConfigApi extends StarlarkValue {
   ExecTransitionFactoryApi exec(Object execGroupUnchecked);
 
   /** The api for exec transitions. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "ExecTransitionFactory",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc = "<i>experimental</i> an execution transition.")
   interface ExecTransitionFactoryApi extends StarlarkValue {}
 }

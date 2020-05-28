@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -87,6 +87,11 @@ public final class JavaGenJarsProvider
     this.processorClassNames = processorClassNames;
     this.transitiveGenClassJars = transitiveGenClassJars;
     this.transitiveGenSourceJars = transitiveGenSourceJars;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Override

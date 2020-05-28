@@ -22,10 +22,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider.Key;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -40,7 +40,7 @@ import org.junit.runners.JUnit4;
 public class ObjcProviderTest {
 
   private static ObjcProvider.StarlarkBuilder objcProviderBuilder() {
-    return new ObjcProvider.StarlarkBuilder(StarlarkSemantics.DEFAULT_SEMANTICS);
+    return new ObjcProvider.StarlarkBuilder(StarlarkSemantics.DEFAULT);
   }
 
   private static ImmutableList<ObjcProvider.Key<?>> getAllKeys() throws Exception {
@@ -110,14 +110,14 @@ public class ObjcProviderTest {
   }
 
   @Test
-  public void directFieldsAddFromSkylark() throws Exception {
+  public void directFieldsAddFromStarlark() throws Exception {
     ImmutableList<Artifact> artifacts =
         ImmutableList.of(createArtifact("/foo"), createArtifact("/bar"));
     Depset set = Depset.of(Artifact.TYPE, NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
     ObjcProvider.StarlarkBuilder builder = objcProviderBuilder();
-    builder.addElementsFromSkylark(ObjcProvider.SOURCE, set);
-    builder.addElementsFromSkylark(ObjcProvider.HEADER, set);
-    builder.addElementsFromSkylark(ObjcProvider.MODULE_MAP, set);
+    builder.addElementsFromStarlark(ObjcProvider.SOURCE, set);
+    builder.addElementsFromStarlark(ObjcProvider.HEADER, set);
+    builder.addElementsFromStarlark(ObjcProvider.MODULE_MAP, set);
     ObjcProvider provider = builder.build();
     assertThat(provider.getDirect(ObjcProvider.SOURCE)).containsExactlyElementsIn(artifacts);
     assertThat(provider.getDirect(ObjcProvider.HEADER)).containsExactlyElementsIn(artifacts);
@@ -133,16 +133,17 @@ public class ObjcProviderTest {
   }
 
   @Test
-  public void keysExportedToSkylark() throws Exception {
-    ImmutableSet<Key<?>> allRegisteredKeys = ImmutableSet.<Key<?>>builder()
-        .addAll(ObjcProvider.KEYS_FOR_SKYLARK)
-        .addAll(ObjcProvider.KEYS_NOT_IN_SKYLARK)
-        .build();
+  public void keysExportedToStarlark() throws Exception {
+    ImmutableSet<Key<?>> allRegisteredKeys =
+        ImmutableSet.<Key<?>>builder()
+            .addAll(ObjcProvider.KEYS_FOR_STARLARK)
+            .addAll(ObjcProvider.KEYS_NOT_IN_STARLARK)
+            .build();
 
     for (ObjcProvider.Key<?> key : getAllKeys()) {
       assertWithMessage(
               "Key %s must either be exposed to Starlark or explicitly blacklisted",
-              key.getSkylarkKeyName())
+              key.getStarlarkKeyName())
           .that(allRegisteredKeys)
           .contains(key);
     }

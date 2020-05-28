@@ -15,11 +15,6 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -27,6 +22,11 @@ import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * The "attr" module of the Build API.
@@ -34,10 +34,10 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
  * <p>It exposes functions (for example, 'attr.string', 'attr.label_list', etc.) to Starlark users
  * for creating attribute definitions.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "attr",
     namespace = true,
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+    category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
     doc =
         "This is a top-level module for defining the attribute schemas of a rule or aspect. Each "
             + "function returns an object representing the schema of a single attribute. These "
@@ -52,8 +52,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   // dependency and output attributes
   String LABEL_PARAGRAPH =
-      "<p>This attribute contains <a href='Label.html'><code>Label</code></a> values. If a string "
-          + "is supplied in place of a <code>Label</code>, it will be converted using the "
+      "<p>This attribute contains unique <a href='Label.html'><code>Label</code></a> values. If a "
+          + "string is supplied in place of a <code>Label</code>, it will be converted using the "
           + "<a href='Label.html#Label'>label constructor</a>. The relative parts of the label "
           + "path, including the (possibly renamed) repository, are resolved with respect to the "
           + "instantiated target's package.";
@@ -142,7 +142,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       "The list of allowed values for the attribute. An error is raised if any other "
           + "value is given.";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "int",
       doc = "Creates a schema for an integer attribute.",
       parameters = {
@@ -185,7 +185,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "string",
       doc = "Creates a schema for a string attribute.",
       parameters = {
@@ -221,14 +221,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringAttribute(
-      String defaultValue,
-      String doc,
-      Boolean mandatory,
-      Sequence<?> values,
-      StarlarkThread thread)
+      String defaultValue, String doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label",
       doc =
           "Creates a schema for a label attribute. This is a dependency attribute."
@@ -348,7 +344,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(
             name = ASPECTS_ARG,
             type = Sequence.class,
-            generic1 = SkylarkAspectApi.class,
+            generic1 = StarlarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -370,7 +366,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "string_list",
       doc = "Creates a schema for a list-of-strings attribute.",
       parameters = {
@@ -418,7 +414,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "int_list",
       doc = "Creates a schema for a list-of-integers attribute.",
       parameters = {
@@ -466,7 +462,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label_list",
       doc =
           "Creates a schema for a list-of-labels attribute. This is a dependency attribute."
@@ -556,7 +552,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(
             name = ASPECTS_ARG,
             type = Sequence.class,
-            generic1 = SkylarkAspectApi.class,
+            generic1 = StarlarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -578,7 +574,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label_keyed_string_dict",
       doc =
           "Creates a schema for an attribute holding a dictionary, where the keys are labels and "
@@ -670,7 +666,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
         @Param(
             name = ASPECTS_ARG,
             type = Sequence.class,
-            generic1 = SkylarkAspectApi.class,
+            generic1 = StarlarkAspectApi.class,
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -692,7 +688,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bool",
       doc = "Creates a schema for a boolean attribute.",
       parameters = {
@@ -723,7 +719,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Boolean defaultValue, String doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "output",
       doc = "Creates a schema for an output (label) attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
@@ -746,7 +742,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor outputAttribute(String doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "output_list",
       doc = "Creates a schema for a list-of-outputs attribute." + OUTPUT_ATTR_TEXT,
       parameters = {
@@ -780,14 +776,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor outputListAttribute(
-      Boolean allowEmpty,
-      String doc,
-      Boolean mandatory,
-      Boolean nonEmpty,
-      StarlarkThread thread)
+      Boolean allowEmpty, String doc, Boolean mandatory, Boolean nonEmpty, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "string_dict",
       doc =
           "Creates a schema for an attribute holding a dictionary, where the keys and values are "
@@ -838,7 +830,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "string_list_dict",
       doc =
           "Creates a schema for an attribute holding a dictionary, where the keys are strings and "
@@ -889,7 +881,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "license",
       doc = "Creates a schema for a license attribute.",
       // TODO(bazel-team): Implement proper license support for Starlark.
@@ -924,9 +916,9 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       throws EvalException;
 
   /** An attribute descriptor. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Attribute",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc =
           "Representation of a definition of an attribute. Use the <a href=\"attr.html\">attr</a> "
               + "module to create an Attribute. They are only for use with a "

@@ -14,15 +14,15 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /**
  * Interface for protocol buffers support in Bazel.
  *
  * <p>Currently just a placeholder so that we have a {@code proto_common} symbol.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "proto_common",
     doc =
         "Utilities for protocol buffers. "

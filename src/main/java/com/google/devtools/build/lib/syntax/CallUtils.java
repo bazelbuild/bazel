@@ -19,8 +19,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -28,6 +26,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Helper functions for implementing function calls. */
 // TODO(adonovan): make this class private. Logically it is part of EvalUtils, and the public
@@ -72,7 +72,7 @@ public final class CallUtils {
     }
   }
 
-  // Information derived from a SkylarkCallable-annotated class and a StarlarkSemantics.
+  // Information derived from a StarlarkMethod-annotated class and a StarlarkSemantics.
   // methods is a superset of fields.
   private static class CacheValue {
     @Nullable MethodDescriptor selfCall;
@@ -80,7 +80,7 @@ public final class CallUtils {
     ImmutableMap<String, MethodDescriptor> methods; // sorted by Java method name
   }
 
-  // A cache of information derived from a SkylarkCallable-annotated class and a StarlarkSemantics.
+  // A cache of information derived from a StarlarkMethod-annotated class and a StarlarkSemantics.
   private static final LoadingCache<Key, CacheValue> cache =
       CacheBuilder.newBuilder()
           .build(
@@ -101,7 +101,7 @@ public final class CallUtils {
                     }
 
                     // annotated?
-                    SkylarkCallable callable = SkylarkInterfaceUtils.getSkylarkCallable(method);
+                    StarlarkMethod callable = StarlarkInterfaceUtils.getStarlarkMethod(method);
                     if (callable == null) {
                       continue;
                     }
@@ -149,16 +149,16 @@ public final class CallUtils {
               });
 
   /**
-   * Returns a map of methods and corresponding SkylarkCallable annotations of the methods of the
+   * Returns a map of methods and corresponding StarlarkMethod annotations of the methods of the
    * objClass class reachable from Starlark. Elements are sorted by Java method name (which is not
    * necessarily the same as Starlark attribute name).
    */
   // TODO(adonovan): eliminate sole use in skydoc.
-  public static ImmutableMap<Method, SkylarkCallable> collectSkylarkMethodsWithAnnotation(
+  public static ImmutableMap<Method, StarlarkMethod> collectStarlarkMethodsWithAnnotation(
       Class<?> objClass) {
-    ImmutableMap.Builder<Method, SkylarkCallable> result = ImmutableMap.builder();
+    ImmutableMap.Builder<Method, StarlarkMethod> result = ImmutableMap.builder();
     for (MethodDescriptor desc :
-        getCacheValue(objClass, StarlarkSemantics.DEFAULT_SEMANTICS).methods.values()) {
+        getCacheValue(objClass, StarlarkSemantics.DEFAULT).methods.values()) {
       result.put(desc.getMethod(), desc.getAnnotation());
     }
     return result.build();
@@ -166,14 +166,13 @@ public final class CallUtils {
 
   /**
    * Returns the value of the Starlark field of {@code x}, implemented by a Java method with a
-   * {@code SkylarkCallable(structField=true)} annotation.
+   * {@code StarlarkMethod(structField=true)} annotation.
    */
   public static Object getField(StarlarkSemantics semantics, Object x, String fieldName)
       throws EvalException, InterruptedException {
     MethodDescriptor desc = getCacheValue(x.getClass(), semantics).fields.get(fieldName);
     if (desc == null) {
-      throw Starlark.errorf(
-          "value of type %s has no .%s field", EvalUtils.getDataTypeName(x), fieldName);
+      throw Starlark.errorf("value of type %s has no .%s field", Starlark.type(x), fieldName);
     }
     return desc.callField(x, semantics, /*mu=*/ null);
   }
@@ -183,7 +182,7 @@ public final class CallUtils {
     return getCacheValue(x.getClass(), semantics).fields.keySet();
   }
 
-  /** Returns the SkylarkCallable-annotated method of objClass with the given name. */
+  /** Returns the StarlarkMethod-annotated method of objClass with the given name. */
   static MethodDescriptor getMethod(
       StarlarkSemantics semantics, Class<?> objClass, String methodName) {
     return getCacheValue(objClass, semantics).methods.get(methodName);
@@ -199,8 +198,8 @@ public final class CallUtils {
 
   /**
    * Returns a {@link MethodDescriptor} object representing a function which calls the selfCall java
-   * method of the given object (the {@link SkylarkCallable} method with {@link
-   * SkylarkCallable#selfCall()} set to true). Returns null if no such method exists.
+   * method of the given object (the {@link StarlarkMethod} method with {@link
+   * StarlarkMethod#selfCall()} set to true). Returns null if no such method exists.
    */
   @Nullable
   static MethodDescriptor getSelfCallMethodDescriptor(

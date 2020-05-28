@@ -82,11 +82,11 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
     return forNative(nativeAspectClass, AspectParameters.EMPTY);
   }
 
-  public static Aspect forSkylark(
-      SkylarkAspectClass skylarkAspectClass,
+  public static Aspect forStarlark(
+      StarlarkAspectClass starlarkAspectClass,
       AspectDefinition aspectDefinition,
       AspectParameters parameters) {
-    return new Aspect(skylarkAspectClass, aspectDefinition, parameters);
+    return new Aspect(starlarkAspectClass, aspectDefinition, parameters);
   }
 
   /**
@@ -150,8 +150,8 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
             aspectDescriptor.getParameters());
       } else {
         AspectDefinition aspectDefinition = context.deserialize(codedIn);
-        return forSkylark(
-            (SkylarkAspectClass) aspectDescriptor.getAspectClass(),
+        return forStarlark(
+            (StarlarkAspectClass) aspectDescriptor.getAspectClass(),
             aspectDefinition,
             aspectDescriptor.getParameters());
       }

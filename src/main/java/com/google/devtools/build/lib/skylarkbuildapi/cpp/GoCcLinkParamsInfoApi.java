@@ -17,27 +17,27 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A target that provides C++ libraries to be linked into Go targets. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "GoCcLinkParamsInfo",
     doc = "",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface GoCcLinkParamsInfoApi extends StructApi {
 
   /** Provider for GoContextInfo objects. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   public interface Provider<
           FileT extends FileApi, CcLinkingContextT extends CcLinkingContextApi<FileT>>
       extends ProviderApi {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "GoCcLinkParamsInfo",
         doc = "The <code>GoCcLinkParamsInfo</code> constructor.",
         parameters = {
@@ -49,7 +49,7 @@ public interface GoCcLinkParamsInfoApi extends StructApi {
               type = CcLinkingContextApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(
+    @StarlarkConstructor(
         objectType = GoCcLinkParamsInfoApi.class,
         receiverNameForDoc = "GoCcLinkParamsInfo")
     public GoCcLinkParamsInfoApi createInfo(CcLinkingContextT ccLinkingContext)

@@ -38,12 +38,14 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -65,7 +67,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
@@ -181,13 +182,13 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    public Builder setSkylarkSemantics(StarlarkSemantics semantics) {
+    public Builder setStarlarkSemantics(StarlarkSemantics semantics) {
       this.starlarkSemantics = semantics;
       return this;
     }
 
-    public Builder useDefaultSkylarkSemantics() {
-      this.starlarkSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+    public Builder useDefaultStarlarkSemantics() {
+      this.starlarkSemantics = StarlarkSemantics.DEFAULT;
       return this;
     }
 
@@ -231,7 +232,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected void validate() {
       if (starlarkSemantics == null) {
         throw new IllegalArgumentException(
-            "must call either setSkylarkSemantics or useDefaultSkylarkSemantics");
+            "must call either setStarlarkSemantics or useDefaultStarlarkSemantics");
       }
     }
 
@@ -276,7 +277,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             getEnvironmentExtensions(),
             "PackageLoader",
             Package.Builder.DefaultHelper.INSTANCE,
-            PackageValidator.NOOP_VALIDATOR);
+            PackageValidator.NOOP_VALIDATOR,
+            PackageLoadingListener.NOOP_LISTENER);
   }
 
   private static ImmutableDiff makePreinjectedDiff(
@@ -442,8 +444,8 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             SkyFunctions.AST_FILE_LOOKUP,
             new ASTFileLookupFunction(ruleClassProvider, digestHashFunction))
         .put(
-            SkyFunctions.STARLARK_IMPORTS_LOOKUP,
-            StarlarkImportLookupFunction.create(
+            SkyFunctions.BZL_LOAD,
+            BzlLoadFunction.create(
                 ruleClassProvider,
                 pkgFactory,
                 digestHashFunction,
@@ -453,10 +455,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             WorkspaceFileValue.WORKSPACE_FILE,
             new WorkspaceFileFunction(
-                ruleClassProvider,
-                pkgFactory,
-                directories,
-                /*starlarkImportLookupFunctionForInlining=*/ null))
+                ruleClassProvider, pkgFactory, directories, /*bzlLoadFunctionForInlining=*/ null))
         .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(getExternalPackageHelper()))
         .put(SkyFunctions.REPOSITORY_MAPPING, new RepositoryMappingFunction())
         .put(
@@ -468,7 +467,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 packageFunctionCache,
                 astCache,
                 /*numPackagesLoaded=*/ new AtomicInteger(0),
-                /*starlarkImportLookupFunctionForInlining=*/ null,
+                /*bzlLoadFunctionForInlining=*/ null,
                 /*packageProgress=*/ null,
                 getActionOnIOExceptionReadingBuildFile(),
                 // Tell PackageFunction to optimize for our use-case of no incrementality.

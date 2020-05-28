@@ -102,6 +102,7 @@ nav: docs
                   <li><a href="/versions/{{ current_version }}/external.html">External dependencies</a></li>
                   <li><a href="/versions/{{ current_version }}/configurable-attributes.html">Configurable attributes</a></li>
                   <li><a href="/versions/master/platforms-intro.html">Platforms and toolchains</a></li>
+                  <li><a href="/versions/master/visibility.html">Visibility</a></li>
                 </ul>
               </li>
 
@@ -284,9 +285,10 @@ nav: docs
            <h3>Reference</h3>
            <ul class="sidebar-nav">
              <li><a href="/versions/{{ current_version }}/user-manual.html">Commands and options</a></li>
-
-             <!-- TODO(jingwen): version this when the page is in a versioned docset. -->
-             <li><a href="/versions/master/glossary.html">Glossary</a></li>
+             <li><a href="/versions/{{ current_version }}/glossary.html">Glossary</a></li>
+             <li><a href="/versions/{{ current_version }}/be/overview.html">Build encyclopedia</a></li>
+             <li><a href="/versions/{{ current_version }}/test-encyclopedia.html">Test encyclopedia</a></li>
+             <li><a href="/versions/{{ current_version }}/command-line-reference.html">Command line reference</a></li>
 
              <li>
                 <a class="sidebar-nav-heading" data-toggle="collapse"
@@ -302,8 +304,6 @@ nav: docs
                 </ul>
              </li>
 
-             <li><a href="/versions/{{ current_version }}/command-line-reference.html">Command line reference</a></li>
-             <li><a href="/versions/{{ current_version }}/test-encyclopedia.html">Writing tests</a></li>
              <li><a href="/versions/{{ current_version }}/build-event-protocol.html">Build Event Protocol</a></li>
              <li><a href="/versions/{{ current_version }}/output_directories.html">Output directory layout</a></li>
              <li><a href="/versions/{{ current_version }}/platforms.html">Platforms</a></li>
@@ -378,7 +378,8 @@ nav: docs
                      && window.location.pathname.match(versionDocsURLRegex)
                      && window.location.pathname.lastIndexOf('/be/') == -1
                      && window.location.pathname.lastIndexOf('/repo/') == -1
-                     && window.location.pathname.lastIndexOf('/skylark/lib/') == -1) {
+                     && window.location.pathname.lastIndexOf('/skylark/lib/') == -1
+                     && window.location.pathname.lastIndexOf('/command-line-reference.html') == -1) {
                      var docFile = window.location.pathname.match(versionDocsURLRegex)[1];
                      // some pages are not using markdown :(
                      if (docFile !== 'user-manual.html'

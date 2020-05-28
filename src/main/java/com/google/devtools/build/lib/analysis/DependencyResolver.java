@@ -13,6 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.TOOLCHAIN_DEPENDENCY;
+import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -20,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
+import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -64,63 +69,6 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-
-  /** A dependency caused by something that's not an attribute. Special cases enumerated below. */
-  private static final class NonAttributeDependencyKind implements DependencyKind {
-    private final String name;
-
-    private NonAttributeDependencyKind(String name) {
-      this.name = name;
-    }
-
-    @Override
-    public Attribute getAttribute() {
-      return null;
-    }
-
-    @Nullable
-    @Override
-    public AspectClass getOwningAspect() {
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public String toString() {
-      return String.format("%s(%s)", getClass().getSimpleName(), this.name);
-    }
-  }
-
-  /** A dependency for visibility. */
-  public static final DependencyKind VISIBILITY_DEPENDENCY =
-      new NonAttributeDependencyKind("VISIBILITY");
-
-  /** The dependency on the rule that creates a given output file. */
-  public static final DependencyKind OUTPUT_FILE_RULE_DEPENDENCY =
-      new NonAttributeDependencyKind("OUTPUT_FILE");
-
-  /** A dependency on a resolved toolchain. */
-  public static final DependencyKind TOOLCHAIN_DEPENDENCY =
-      new NonAttributeDependencyKind("TOOLCHAIN");
-
-  /** A dependency through an attribute, either that of an aspect or the rule itself. */
-  @AutoValue
-  public abstract static class AttributeDependencyKind implements DependencyKind {
-    @Override
-    public abstract Attribute getAttribute();
-
-    @Override
-    @Nullable
-    public abstract AspectClass getOwningAspect();
-
-    public static AttributeDependencyKind forRule(Attribute attribute) {
-      return new AutoValue_DependencyResolver_AttributeDependencyKind(attribute, null);
-    }
-
-    public static AttributeDependencyKind forAspect(Attribute attribute, AspectClass owningAspect) {
-      return new AutoValue_DependencyResolver_AttributeDependencyKind(
-          attribute, Preconditions.checkNotNull(owningAspect));
-    }
-  }
 
   /**
    * What we know about a dependency edge after factoring in the properties of the configured target
@@ -169,7 +117,7 @@ public abstract class DependencyResolver {
    *     temporary feature; see the corresponding methods in ConfiguredRuleClassProvider)
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       @Nullable Aspect aspect,
@@ -178,7 +126,7 @@ public abstract class DependencyResolver {
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
+    OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
         dependentNodeMap(
             node,
             hostConfig,
@@ -224,7 +172,7 @@ public abstract class DependencyResolver {
    * @param rootCauses collector for dep labels that can't be (loading phase) loaded
    * @return a mapping of each attribute in this rule or aspects to its dependent nodes
    */
-  public final OrderedSetMultimap<DependencyKind, Dependency> dependentNodeMap(
+  public final OrderedSetMultimap<DependencyKind, DependencyKey> dependentNodeMap(
       TargetAndConfiguration node,
       BuildConfiguration hostConfig,
       Iterable<Aspect> aspects,
@@ -271,7 +219,7 @@ public abstract class DependencyResolver {
         partiallyResolveDependencies(
             outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
 
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges =
+    OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
         fullyResolveDependencies(
             partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
 
@@ -383,13 +331,13 @@ public abstract class DependencyResolver {
    * being calculated as an argument or its attributes and it should <b>NOT</b> do anything with the
    * keys of {@code partiallyResolvedDeps} other than passing them on to the output map.
    */
-  private OrderedSetMultimap<DependencyKind, Dependency> fullyResolveDependencies(
+  private OrderedSetMultimap<DependencyKind, DependencyKey> fullyResolveDependencies(
       OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps,
       Map<Label, Target> targetMap,
       BuildConfiguration originalConfiguration,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws InconsistentAspectOrderException {
-    OrderedSetMultimap<DependencyKind, Dependency> outgoingEdges = OrderedSetMultimap.create();
+    OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges = OrderedSetMultimap.create();
 
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
         partiallyResolvedDeps.entries()) {
@@ -411,7 +359,11 @@ public abstract class DependencyResolver {
 
       outgoingEdges.put(
           entry.getKey(),
-          Dependency.withTransitionAndAspects(dep.getLabel(), transition, requiredAspects));
+          DependencyKey.builder()
+              .setLabel(dep.getLabel())
+              .setTransition(transition)
+              .setAspects(requiredAspects)
+              .build());
     }
     return outgoingEdges;
   }

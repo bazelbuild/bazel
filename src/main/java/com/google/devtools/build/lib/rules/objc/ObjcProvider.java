@@ -27,22 +27,22 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.NativeProvider.WithLegacySkylarkName;
+import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -78,7 +78,7 @@ import java.util.Map;
 public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   /** Starlark name for the ObjcProvider. */
-  public static final String SKYLARK_NAME = "objc";
+  public static final String STARLARK_NAME = "objc";
 
   /** Expected suffix for a framework-containing directory. */
   public static final String FRAMEWORK_SUFFIX = ".framework";
@@ -90,18 +90,18 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Immutable
   public static class Key<E> {
     private final Order order;
-    private final String skylarkKeyName;
+    private final String starlarkKeyName;
     private final Class<E> type;
 
-    private Key(Order order, String skylarkKeyName, Class<E> type) {
+    private Key(Order order, String starlarkKeyName, Class<E> type) {
       this.order = Preconditions.checkNotNull(order);
-      this.skylarkKeyName = skylarkKeyName;
+      this.starlarkKeyName = starlarkKeyName;
       this.type = type;
     }
 
     /** Returns the name of the collection represented by this key in the Starlark provider. */
-    public String getSkylarkKeyName() {
-      return skylarkKeyName;
+    public String getStarlarkKeyName() {
+      return starlarkKeyName;
     }
 
     /**
@@ -324,7 +324,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           DEFINE, FRAMEWORK_SEARCH_PATHS, HEADER, INCLUDE, INCLUDE_SYSTEM, IQUOTE);
 
   /** All keys in ObjcProvider that will be passed in the corresponding Starlark provider. */
-  static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
+  static final ImmutableList<Key<?>> KEYS_FOR_STARLARK =
       ImmutableList.<Key<?>>of(
           DEFINE,
           DYNAMIC_FRAMEWORK_FILE,
@@ -377,7 +377,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset /*<String>*/ defineForStarlark() {
-    return getCcCompilationContext().getSkylarkDefines();
+    return getCcCompilationContext().getStarlarkDefines();
   }
 
   public NestedSet<String> define() {
@@ -473,7 +473,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset systemIncludeForStarlark() {
-    return getCcCompilationContext().getSkylarkSystemIncludeDirs();
+    return getCcCompilationContext().getStarlarkSystemIncludeDirs();
   }
 
   public ImmutableList<PathFragment> systemInclude() {
@@ -482,7 +482,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   @Override
   public Depset quoteIncludeForStarlark() {
-    return getCcCompilationContext().getSkylarkQuoteIncludeDirs();
+    return getCcCompilationContext().getStarlarkQuoteIncludeDirs();
   }
 
   public ImmutableList<PathFragment> quoteInclude() {
@@ -562,7 +562,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Override
   public Depset sdkFramework() {
     return (Depset)
-        ObjcProviderSkylarkConverters.convertToSkylark(SDK_FRAMEWORK, get(SDK_FRAMEWORK));
+        ObjcProviderStarlarkConverters.convertToStarlark(SDK_FRAMEWORK, get(SDK_FRAMEWORK));
   }
 
   @Override
@@ -596,7 +596,8 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   @Override
   public Depset weakSdkFramework() {
     return (Depset)
-        ObjcProviderSkylarkConverters.convertToSkylark(WEAK_SDK_FRAMEWORK, get(WEAK_SDK_FRAMEWORK));
+        ObjcProviderStarlarkConverters.convertToStarlark(
+            WEAK_SDK_FRAMEWORK, get(WEAK_SDK_FRAMEWORK));
   }
 
   @Override
@@ -611,7 +612,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * should follow each such case.
    */
   @VisibleForTesting
-  static final ImmutableList<Key<?>> KEYS_NOT_IN_SKYLARK =
+  static final ImmutableList<Key<?>> KEYS_NOT_IN_STARLARK =
       ImmutableList.<Key<?>>of(
           // LibraryToLink not exposed to Starlark.
           CC_LIBRARY,
@@ -650,9 +651,9 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
    * Returns the Starlark key for the given string, or null if no such key exists or is available to
    * Starlark.
    */
-  static Key<?> getSkylarkKeyForString(String keyName) {
-    for (Key<?> candidateKey : KEYS_FOR_SKYLARK) {
-      if (candidateKey.getSkylarkKeyName().equals(keyName)) {
+  static Key<?> getStarlarkKeyForString(String keyName) {
+    for (Key<?> candidateKey : KEYS_FOR_STARLARK) {
+      if (candidateKey.getStarlarkKeyName().equals(keyName)) {
         return candidateKey;
       }
     }
@@ -660,7 +661,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   /** Starlark constructor and identifier for ObjcProvider. */
-  public static final BuiltinProvider<ObjcProvider> SKYLARK_CONSTRUCTOR = new Constructor();
+  public static final BuiltinProvider<ObjcProvider> STARLARK_CONSTRUCTOR = new Constructor();
 
   private ObjcProvider(
       StarlarkSemantics semantics,
@@ -676,8 +677,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  @Override
   public BuiltinProvider<ObjcProvider> getProvider() {
-    return SKYLARK_CONSTRUCTOR;
+    return STARLARK_CONSTRUCTOR;
   }
 
   /**
@@ -1052,7 +1058,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       return new EvalException(
           null,
           String.format(
-              AppleSkylarkCommon.BAD_DIRECT_DEPENDENCY_KEY_ERROR, key.getSkylarkKeyName()));
+              AppleStarlarkCommon.BAD_DIRECT_DEPENDENCY_KEY_ERROR, key.getStarlarkKeyName()));
     }
 
     /**
@@ -1177,14 +1183,14 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      * Add elements in toAdd with the given key from Starlark. An error is thrown if toAdd is not an
      * appropriate Depset.
      */
-    void addElementsFromSkylark(Key<?> key, Object skylarkToAdd) throws EvalException {
-      NestedSet<?> toAdd = ObjcProviderSkylarkConverters.convertToJava(key, skylarkToAdd);
+    void addElementsFromStarlark(Key<?> key, Object starlarkToAdd) throws EvalException {
+      NestedSet<?> toAdd = ObjcProviderStarlarkConverters.convertToJava(key, starlarkToAdd);
       if (KEYS_FOR_COMPILE_INFO.contains(key)) {
-        String keyName = key.getSkylarkKeyName();
+        String keyName = key.getStarlarkKeyName();
 
         if (key == DEFINE) {
           ccCompilationContextBuilder.addDefines(
-              Depset.noneableCast(skylarkToAdd, String.class, keyName));
+              Depset.noneableCast(starlarkToAdd, String.class, keyName));
         } else if (key == FRAMEWORK_SEARCH_PATHS) {
           // Due to legacy reasons, There is a mismatch between the starlark interface for the
           // framework search path, and the internal representation.  The interface specifies that
@@ -1193,7 +1199,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           // this ugly conversion.
 
           ImmutableList<PathFragment> frameworks =
-              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList());
 
@@ -1201,29 +1207,29 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
           for (PathFragment framework : frameworks) {
             if (!framework.getSafePathString().endsWith(FRAMEWORK_SUFFIX)) {
               throw new EvalException(
-                  null, String.format(AppleSkylarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework));
+                  null, String.format(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework));
             }
             frameworkSearchPaths.add(framework.getParentDirectory());
           }
           ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkSearchPaths.build());
         } else if (key == HEADER) {
           ImmutableList<Artifact> hdrs =
-              Depset.noneableCast(skylarkToAdd, Artifact.class, keyName).toList();
+              Depset.noneableCast(starlarkToAdd, Artifact.class, keyName).toList();
           ccCompilationContextBuilder.addDeclaredIncludeSrcs(hdrs);
           ccCompilationContextBuilder.addTextualHdrs(hdrs);
         } else if (key == INCLUDE) {
           ccCompilationContextBuilder.addIncludeDirs(
-              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         } else if (key == INCLUDE_SYSTEM) {
           ccCompilationContextBuilder.addSystemIncludeDirs(
-              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         } else if (key == IQUOTE) {
           ccCompilationContextBuilder.addQuoteIncludeDirs(
-              Depset.noneableCast(skylarkToAdd, String.class, keyName).toList().stream()
+              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
                   .map(x -> PathFragment.create(x))
                   .collect(ImmutableList.toImmutableList()));
         }
@@ -1241,12 +1247,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      * ObjcProvider instances.
      */
     @SuppressWarnings("unchecked")
-    void addProvidersFromSkylark(Object toAdd) throws EvalException {
+    void addProvidersFromStarlark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
         throw new EvalException(
             null,
-            String.format(
-                AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
+            String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
@@ -1254,8 +1259,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
             throw new EvalException(
                 null,
                 String.format(
-                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
-                    EvalUtils.getDataTypeName(toAddObject)));
+                    AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
           } else {
             ObjcProvider objcProvider = (ObjcProvider) toAddObject;
             this.addTransitiveAndPropagate(objcProvider);
@@ -1271,12 +1275,11 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      * direct dependers. An error is thrown if toAdd is not an iterable of ObjcProvider instances.
      */
     @SuppressWarnings("unchecked")
-    void addDirectDepProvidersFromSkylark(Object toAdd) throws EvalException {
+    void addDirectDepProvidersFromStarlark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
         throw new EvalException(
             null,
-            String.format(
-                AppleSkylarkCommon.BAD_PROVIDERS_ITER_ERROR, EvalUtils.getDataTypeName(toAdd)));
+            String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
@@ -1284,8 +1287,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
             throw new EvalException(
                 null,
                 String.format(
-                    AppleSkylarkCommon.BAD_PROVIDERS_ELEM_ERROR,
-                    EvalUtils.getDataTypeName(toAddObject)));
+                    AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
           } else {
             this.addAsDirectDeps((ObjcProvider) toAddObject);
           }
@@ -1294,14 +1296,14 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     }
 
     /**
-     * Adds the given strict include paths from Starlark. An error is thrown if skylarkToAdd is not
+     * Adds the given strict include paths from Starlark. An error is thrown if starlarkToAdd is not
      * an appropriate Depset.
      */
     @SuppressWarnings("unchecked")
-    void addStrictIncludeFromSkylark(Object skylarkToAdd) throws EvalException {
+    void addStrictIncludeFromStarlark(Object starlarkToAdd) throws EvalException {
       NestedSet<PathFragment> toAdd =
           (NestedSet<PathFragment>)
-              ObjcProviderSkylarkConverters.convertToJava(INCLUDE, skylarkToAdd);
+              ObjcProviderStarlarkConverters.convertToJava(INCLUDE, starlarkToAdd);
 
       addStrictDependencyIncludes(toAdd.toList());
     }
@@ -1313,14 +1315,14 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
   }
 
   private static class Constructor extends BuiltinProvider<ObjcProvider>
-      implements WithLegacySkylarkName {
+      implements WithLegacyStarlarkName {
     public Constructor() {
-      super(ObjcProvider.SKYLARK_NAME, ObjcProvider.class);
+      super(ObjcProvider.STARLARK_NAME, ObjcProvider.class);
     }
 
     @Override
-    public String getSkylarkName() {
-      return SKYLARK_NAME;
+    public String getStarlarkName() {
+      return STARLARK_NAME;
     }
 
     @Override

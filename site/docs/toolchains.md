@@ -188,6 +188,25 @@ Bazel's procedure for resolving toolchains to targets is described
 made a dependency of the `bar_binary` target, not the whole space of candidate
 toolchains.
 
+### Writing aspects that use toolchains
+
+Aspects have access to the same toolchain API as rules: you can define required
+toolchain types, access toolchains via the context, and use them to generate new
+actions using the toolchain.
+
+```py
+bar_aspect = aspect(
+    implementation = _bar_aspect_impl,
+    attrs = {},
+    toolchains = ['//bar_tools:toolchain_type'],
+)
+
+def _bar_aspect_impl(target, ctx):
+  toolchain = ctx.toolchains['//bar_tools:toolchain_type']
+  # Use the toolchain provider like in a rule.
+  return []
+```
+
 ## Defining toolchains
 
 To define some toolchains for a given toolchain type, we need three things:
@@ -350,8 +369,9 @@ This will end up building `//bar_tools:barc_linux` but not
 
 ## Toolchain resolution
 
-**Note:** [Some Bazel rules](platforms-intro.html#status) do not yet support
-toolchain resolution.
+**Note:**
+[Some Bazel rules](platforms-intro.html#status)
+do not yet support toolchain resolution.
 
 For each target that uses toolchains, Bazel's toolchain resolution procedure
 determines the target's concrete toolchain dependencies. The procedure takes as input a

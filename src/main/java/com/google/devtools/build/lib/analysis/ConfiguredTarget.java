@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /**
@@ -32,7 +31,7 @@ import javax.annotation.Nullable;
  * their direct dependencies, only the corresponding {@link TransitiveInfoCollection}s. Also, {@link
  * ConfiguredTarget} objects should not be accessible from the action graph.
  */
-public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject, StarlarkValue {
+public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject {
 
   /** All <code>ConfiguredTarget</code>s have a "label" field. */
   String LABEL_FIELD = "label";

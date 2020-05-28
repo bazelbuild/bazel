@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryDebugModule;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import java.io.IOException;
@@ -49,7 +50,7 @@ public final class Bazel {
           com.google.devtools.build.lib.bazel.BazelDiffAwarenessModule.class,
           com.google.devtools.build.lib.remote.RemoteModule.class,
           com.google.devtools.build.lib.bazel.BazelRepositoryModule.class,
-          com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryDebugModule.class,
+          StarlarkRepositoryDebugModule.class,
           com.google.devtools.build.lib.bazel.debug.WorkspaceRuleModule.class,
           com.google.devtools.build.lib.bazel.coverage.BazelCoverageReportModule.class,
           com.google.devtools.build.lib.collect.nestedset.NestedSetOptionsModule.class,

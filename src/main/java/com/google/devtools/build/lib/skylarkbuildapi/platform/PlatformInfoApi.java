@@ -17,42 +17,44 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object representing data about a specific platform. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "PlatformInfo",
     doc =
-        "Provides access to data about a specific platform. "
+        "Provides access to data about a specific platform. See "
+            + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
+            + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface PlatformInfoApi<
         ConstraintSettingInfoT extends ConstraintSettingInfoApi,
         ConstraintValueInfoT extends ConstraintValueInfoApi>
     extends StructApi {
 
   String EXPERIMENTAL_WARNING =
-      "<i>Note: This API is experimental and may change at any time. It is disabled by default, "
-          + "but may be enabled with <code>--experimental_platforms_api</code></i>";
+      "<br/><i>Note: This API is experimental and may change at any time. It is disabled by"
+          + " default, but may be enabled with <code>--experimental_platforms_api</code></i>";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label",
       doc = "The label of the target that created this platform.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   Label label();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "constraints",
       doc =
           "The <a href=\"ConstraintValueInfo.html\">ConstraintValueInfo</a> instances that define "
@@ -61,14 +63,14 @@ public interface PlatformInfoApi<
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   ConstraintCollectionApi<ConstraintSettingInfoT, ConstraintValueInfoT> constraints();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "remoteExecutionProperties",
       doc = "Properties that are available for the use of remote execution.",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   String remoteExecutionProperties();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exec_properties",
       doc = "Properties to configure a remote execution platform.",
       structField = true,
@@ -76,14 +78,14 @@ public interface PlatformInfoApi<
   Map<String, String> execProperties();
 
   /** Provider for {@link PlatformInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider<
           ConstraintSettingInfoT extends ConstraintSettingInfoApi,
           ConstraintValueInfoT extends ConstraintValueInfoApi,
           PlatformInfoT extends PlatformInfoApi<ConstraintSettingInfoT, ConstraintValueInfoT>>
       extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "PlatformInfo",
         doc = "The <code>PlatformInfo</code> constructor.",
         documented = false,
@@ -122,7 +124,7 @@ public interface PlatformInfoApi<
         selfCall = true,
         useStarlarkThread = true,
         enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
-    @SkylarkConstructor(objectType = PlatformInfoApi.class, receiverNameForDoc = "PlatformInfo")
+    @StarlarkConstructor(objectType = PlatformInfoApi.class, receiverNameForDoc = "PlatformInfo")
     PlatformInfoT platformInfo(
         Label label,
         Object parent,

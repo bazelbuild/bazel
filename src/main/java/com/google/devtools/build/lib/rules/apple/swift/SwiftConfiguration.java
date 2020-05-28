@@ -36,6 +36,11 @@ public class SwiftConfiguration extends Fragment implements SwiftConfigurationAp
     this.copts = ImmutableList.copyOf(options.copts);
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /** Returns a list of options to use for compiling Swift. */
   @Override
   public ImmutableList<String> getCopts() {

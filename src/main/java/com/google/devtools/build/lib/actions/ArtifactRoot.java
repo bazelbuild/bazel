@@ -115,6 +115,11 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
     this.rootType = rootType;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   public Root getRoot() {
     return root;
   }

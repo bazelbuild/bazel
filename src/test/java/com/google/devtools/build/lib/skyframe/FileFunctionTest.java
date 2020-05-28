@@ -186,7 +186,7 @@ public class FileFunctionTest {
                             .builder(directories)
                             .build(ruleClassProvider, fs),
                         directories,
-                        /*starlarkImportLookupFunctionForInlining=*/ null))
+                        /*bzlLoadFunctionForInlining=*/ null))
                 .put(
                     SkyFunctions.EXTERNAL_PACKAGE,
                     new ExternalPackageFunction(
@@ -200,7 +200,7 @@ public class FileFunctionTest {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.absent());
     return new SequentialBuildDriver(evaluator);

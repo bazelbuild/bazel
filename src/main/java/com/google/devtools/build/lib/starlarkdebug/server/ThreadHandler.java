@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -299,8 +300,12 @@ final class ThreadHandler {
     try {
       servicingEvalRequest.set(true);
 
+      // TODO(adonovan): opt: don't parse and resolve the expression every time we hit a breakpoint
+      // (!).
       ParserInput input = ParserInput.create(content, "<debug eval>");
-      return EvalUtils.exec(input, FileOptions.DEFAULT, thread.getGlobals(), thread);
+      // TODO(adonovan): the module or call frame should be a parameter.
+      Module module = Module.ofInnermostEnclosingStarlarkFunction(thread);
+      return EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
     } finally {
       servicingEvalRequest.set(false);
     }

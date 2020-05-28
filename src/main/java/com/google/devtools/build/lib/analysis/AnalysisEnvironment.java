@@ -150,7 +150,7 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * Returns the options that affect the Starlark interpreter used for evaluating Starlark rule
    * implementation functions.
    */
-  StarlarkSemantics getSkylarkSemantics() throws InterruptedException;
+  StarlarkSemantics getStarlarkSemantics() throws InterruptedException;
 
   /**
    * Returns the Artifact that is used to hold the non-volatile workspace status for the current

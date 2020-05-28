@@ -16,29 +16,31 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object representing data about a specific toolchain. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ToolchainInfo",
     doc =
-        "Provider which allows rule-specific toolchains to communicate data back to the actual"
-            + " rule implementation. Read more about <a"
-            + " href='../../toolchains.$DOC_EXT'>toolchains</a> for more information.",
-    category = SkylarkModuleCategory.PROVIDER)
+        "Provider returned by <a href=\"../../toolchains.html#defining-toolchains\">toolchain "
+            + "rules</a> to share data with "
+            + "<a href=\"../../toolchains.html#writing-rules-that-use-toolchains\">rules which "
+            + "depend on toolchains</a>. Read about <a href='../../toolchains.html'>"
+            + "toolchains</a> for more information.",
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface ToolchainInfoApi extends StructApi {
 
   /** Provider for {@link ToolchainInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "ToolchainInfo",
         doc = "The <code>ToolchainInfo</code> constructor.",
         documented = false,

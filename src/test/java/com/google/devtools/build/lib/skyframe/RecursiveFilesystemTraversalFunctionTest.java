@@ -32,7 +32,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -174,7 +173,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fileSystem),
             directories,
-            /*starlarkImportLookupFunctionForInlining=*/ null));
+            /*bzlLoadFunctionForInlining=*/ null));
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -191,7 +190,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // case of a generated directory, which we have test coverage for.
     skyFunctions.put(Artifact.ARTIFACT, new ArtifactFakeFunction());
     artifactFunction = new NonHermeticArtifactFakeFunction();
-    skyFunctions.put(ActionLookupData.NAME, new ActionFakeFunction());
+    skyFunctions.put(SkyFunctions.ACTION_EXECUTION, new ActionFakeFunction());
     skyFunctions.put(NONHERMETIC_ARTIFACT, artifactFunction);
 
     progressReceiver = new RecordingEvaluationProgressReceiver();
@@ -200,7 +199,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
   }
 
   private Artifact sourceArtifact(String path) {
@@ -214,20 +213,13 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private SpecialArtifact treeArtifact(String path) {
-    SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            ArtifactRoot.asDerivedRoot(rootDirectory, "out"),
-            PathFragment.create("out/" + path),
-            ActionsTestUtil.NULL_ARTIFACT_OWNER,
-            SpecialArtifactType.TREE);
-    assertThat(treeArtifact.isTreeArtifact()).isTrue();
-    return treeArtifact;
+    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        ArtifactRoot.asDerivedRoot(rootDirectory, "out"), PathFragment.create("out/" + path));
   }
 
   private void addNewTreeFileArtifact(SpecialArtifact parent, String relatedPath)
       throws IOException {
-    TreeFileArtifact treeFileArtifact =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(parent, relatedPath);
+    TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(parent, relatedPath);
     artifactFunction.addNewTreeFileArtifact(treeFileArtifact);
   }
 

@@ -221,48 +221,8 @@ title: Make Variables
   (see the explanation of <i>output files</i> below).
 </p>
 
-<p>Example:</p>
-
-<p>
-  <pre>
-$ cat testapp/BUILD
-cc_binary(
-  name = "app",
-  srcs = ["app.cc"]
-)
-
-genrule(
-  name = "show_app_output",
-  srcs = ["empty.source"],
-  outs = ["app_output"],
-  cmd = """cat &lt;&lt;EOF &gt; $@
-:app output paths
- execpath: $(execpath :app)
- runfiles: $(rootpath :app)
- location: $(location :app)
-
-source file paths
- execpath: $(execpath empty.source)
- runfiles: $(rootpath empty.source)
- location: $(location empty.source)
-EOF""",
-  tools = [":app"])
-
-$ bazel build //testapp:show_app_output && cat bazel-genfiles/testapp/app_output
-Target //testapp:show_app_output up-to-date:
-  bazel-genfiles/testapp/app_output
-INFO: Build completed successfully, 1 total action
-:app output paths
-  execpath: bazel-out/host/bin/testapp/app
-  runfiles: testapp/app
-  location: bazel-out/host/bin/testapp/app
-
-source file paths
-  execpath: testapp/empty.source
-  runfiles: testapp/empty.source
-  location: testapp/empty.source
-  </pre>
-</p>
+<p><a href="https://github.com/bazelbuild/examples/tree/master/make-variables">
+  See an example of predefined variables</a>.</p>
 
 <ul>
   <li>
@@ -466,44 +426,8 @@ source file paths
   <code>toolchains</code> attribute can then read their values:
 </p>
 
-<p>
-  <pre>
-$ cat testapp/defs.bzl
-def _var_providing_rule_impl(ctx):
-  return [
-    platform_common.TemplateVariableInfo({
-      "FOO": ctx.attr.var_value
-    })
-  ]
-
-var_providing_rule = rule(
-  implementation = _var_providing_rule_impl,
-  attrs = { "var_value": attr.string() }
-)
-
-$ cat testapp/BUILD
-load("//testapp:defs.bzl", "var_providing_rule")
-
-var_providing_rule(
-  name = "set_foo_to_bar",
-  var_value = "bar"
-)
-
-genrule(
-  name = "g",
-  srcs = [],
-  outs = ["g.out"],
-  cmd = "echo FOO is equal to $(FOO)! > $@",
-  toolchains = [":set_foo_to_bar"]
-)
-
-$ bazel build //testapp:g && cat bazel-genfiles/testapp/g.out
-Target //testapp:g up-to-date:
-  bazel-genfiles/testapp/g.out
-INFO: Build completed successfully, 1 total action
-FOO is equal to bar!
-  </pre>
-</p>
+<p><a href="https://github.com/bazelbuild/examples/tree/master/make-variables">
+  See an example of Starlark-defined variables</a>.</p>
 
 #if (!$singlePage)
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")

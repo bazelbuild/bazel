@@ -33,4 +33,10 @@ public class MyCuboidInflater extends CuboidInflater {
     // Simulates the invocation of Android SDK constructor API.
     super(w * l * h < 64 ? new Cuboid(2, 4, 8) : new Cuboid(w, l, h));
   }
+
+  @Override
+  public Cuboid onCombine(long tag, Cuboid other) {
+    Cuboid cuboid = super.onCombine(tag, other);
+    return new Cuboid(tag + cuboid.getWidth(), tag + cuboid.getLength(), tag + cuboid.getHeight());
+  }
 }

@@ -226,7 +226,7 @@ public final class RuleConfiguredTargetBuilder {
       // If the target is an analysis test that returned AnalysisTestResultInfo, register a
       // test pass/fail action on behalf of the target.
       AnalysisTestResultInfo testResultInfo =
-          providers.get(AnalysisTestResultInfo.SKYLARK_CONSTRUCTOR);
+          providers.get(AnalysisTestResultInfo.STARLARK_CONSTRUCTOR);
 
       if (testResultInfo == null) {
         ruleContext.ruleError(
@@ -309,17 +309,16 @@ public final class RuleConfiguredTargetBuilder {
 
       Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
 
-      // Validation actions in the host configuration, or for tools, or from implicit deps should
+      // Validation actions for tools, or from implicit deps should
       // not fail the overall build, since those dependencies should have their own builds
       // and tests that should surface any failing validations.
-      if (!attribute.getTransitionFactory().isHost()
-          && !attribute.getTransitionFactory().isTool()
+      if (!attribute.getTransitionFactory().isTool()
           && !attribute.isImplicit()
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 
         for (OutputGroupInfo outputGroup :
             ruleContext.getPrerequisites(
-                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+                attributeName, TransitionMode.DONT_CHECK, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
 
           NestedSet<Artifact> validationArtifacts =
               outputGroup.getOutputGroup(OutputGroupInfo.VALIDATION);
@@ -463,7 +462,7 @@ public final class RuleConfiguredTargetBuilder {
    * Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed from
    * these in Starlark using lists, sets, structs or dicts). Otherwise an EvalException is thrown.
    */
-  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(
+  public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(
       String name, Object value, Location loc) throws EvalException {
     providersBuilder.put(name, value);
     return this;
@@ -473,19 +472,19 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in Starlark to the rule. Use this method for declared
    * providers defined in Skyark.
    *
-   * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Skylark
+   * <p>Has special handling for {@link OutputGroupInfo}: that provider is not added from Starlark
    * directly, instead its output groups are added.
    *
    * <p>Use {@link #addNativeDeclaredProvider(Info)} in definitions of native rules.
    */
-  public RuleConfiguredTargetBuilder addSkylarkDeclaredProvider(Info provider)
+  public RuleConfiguredTargetBuilder addStarlarkDeclaredProvider(Info provider)
       throws EvalException {
     Provider constructor = provider.getProvider();
     if (!constructor.isExported()) {
       throw new EvalException(constructor.getLocation(),
           "All providers must be top level values");
     }
-    if (OutputGroupInfo.SKYLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
+    if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(constructor.getKey())) {
       OutputGroupInfo outputGroupInfo = (OutputGroupInfo) provider;
       for (String outputGroup : outputGroupInfo) {
         addOutputGroup(outputGroup, outputGroupInfo.getOutputGroup(outputGroup));
@@ -500,7 +499,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds "declared providers" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Starlark rule implementations.
+   * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProviders(Iterable<Info> providers) {
     for (Info provider : providers) {
@@ -513,7 +512,7 @@ public final class RuleConfiguredTargetBuilder {
    * Adds a "declared provider" defined in native code to the rule. Use this method for declared
    * providers in definitions of native rules.
    *
-   * <p>Use {@link #addSkylarkDeclaredProvider(Info)} for Starlark rule implementations.
+   * <p>Use {@link #addStarlarkDeclaredProvider(Info)} for Starlark rule implementations.
    */
   public RuleConfiguredTargetBuilder addNativeDeclaredProvider(Info provider) {
     Provider constructor = provider.getProvider();
@@ -539,7 +538,7 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /** Add a Starlark transitive info. The provider value must be safe. */
-  public RuleConfiguredTargetBuilder addSkylarkTransitiveInfo(String name, Object value) {
+  public RuleConfiguredTargetBuilder addStarlarkTransitiveInfo(String name, Object value) {
     providersBuilder.put(name, value);
     return this;
   }

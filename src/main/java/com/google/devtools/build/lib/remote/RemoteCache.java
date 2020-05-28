@@ -40,6 +40,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
@@ -528,6 +530,7 @@ public class RemoteCache implements AutoCloseable {
    */
   @Nullable
   public InMemoryOutput downloadMinimal(
+      String actionId,
       ActionResult result,
       Collection<? extends ActionInput> outputs,
       @Nullable PathFragment inMemoryOutputPath,
@@ -570,7 +573,7 @@ public class RemoteCache implements AutoCloseable {
         inMemoryOutput = output;
       }
       if (output instanceof Artifact) {
-        injectRemoteArtifact((Artifact) output, metadata, execRoot, metadataInjector);
+        injectRemoteArtifact((Artifact) output, metadata, execRoot, metadataInjector, actionId);
       }
     }
 
@@ -594,7 +597,8 @@ public class RemoteCache implements AutoCloseable {
       Artifact output,
       ActionResultMetadata metadata,
       Path execRoot,
-      MetadataInjector metadataInjector)
+      MetadataInjector metadataInjector,
+      String actionId)
       throws IOException {
     if (output.isTreeArtifact()) {
       DirectoryMetadata directory =
@@ -609,19 +613,21 @@ public class RemoteCache implements AutoCloseable {
             "Symlinks in action outputs are not yet supported by "
                 + "--experimental_remote_download_outputs=minimal");
       }
-      ImmutableMap.Builder<PathFragment, RemoteFileArtifactValue> childMetadata =
-          ImmutableMap.builder();
+      SpecialArtifact parent = (SpecialArtifact) output;
+      ImmutableMap.Builder<TreeFileArtifact, RemoteFileArtifactValue> childMetadata =
+          ImmutableMap.builderWithExpectedSize(directory.files.size());
       for (FileMetadata file : directory.files()) {
-        PathFragment p = file.path().relativeTo(output.getPath());
-        RemoteFileArtifactValue r =
+        TreeFileArtifact child =
+            TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
+        RemoteFileArtifactValue value =
             new RemoteFileArtifactValue(
                 DigestUtil.toBinaryDigest(file.digest()),
                 file.digest().getSizeBytes(),
-                /* locationIndex= */ 1);
-        childMetadata.put(p, r);
+                /*locationIndex=*/ 1,
+                actionId);
+        childMetadata.put(child, value);
       }
-      metadataInjector.injectRemoteDirectory(
-          (Artifact.SpecialArtifact) output, childMetadata.build());
+      metadataInjector.injectRemoteDirectory(parent, childMetadata.build());
     } else {
       FileMetadata outputMetadata = metadata.file(execRoot.getRelative(output.getExecPathString()));
       if (outputMetadata == null) {
@@ -631,9 +637,11 @@ public class RemoteCache implements AutoCloseable {
       }
       metadataInjector.injectRemoteFile(
           output,
-          DigestUtil.toBinaryDigest(outputMetadata.digest()),
-          outputMetadata.digest().getSizeBytes(),
-          /* locationIndex= */ 1);
+          new RemoteFileArtifactValue(
+              DigestUtil.toBinaryDigest(outputMetadata.digest()),
+              outputMetadata.digest().getSizeBytes(),
+              /*locationIndex=*/ 1,
+              actionId));
     }
   }
 

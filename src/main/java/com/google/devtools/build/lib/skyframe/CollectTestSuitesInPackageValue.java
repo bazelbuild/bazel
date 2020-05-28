@@ -38,8 +38,8 @@ public class CollectTestSuitesInPackageValue implements SkyValue {
   }
 
   /**
-   * {@link com/google/devtools/build/lib/skyframe/CollectTestSuitesInPackageValue.java used only in
-   * javadoc: com.google.devtools.build.skyframe.SkyKey} argument.
+   * A {@link com.google.devtools.build.skyframe.SkyKey} for {@link
+   * CollectTestSuitesInPackageValue}.
    */
   @AutoCodec
   public static class Key extends AbstractSkyKey<PackageIdentifier> {

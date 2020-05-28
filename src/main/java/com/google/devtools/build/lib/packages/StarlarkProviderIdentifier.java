@@ -22,7 +22,7 @@ import javax.annotation.Nullable;
 
 /**
  * A wrapper around Starlark provider identifier, representing either a declared provider ({@see
- * SkylarkProvider}) or a "legacy" string identifier.
+ * StarlarkProvider}) or a "legacy" string identifier.
  */
 public final class StarlarkProviderIdentifier {
   private static final Interner<StarlarkProviderIdentifier> interner =
@@ -32,7 +32,7 @@ public final class StarlarkProviderIdentifier {
   private final String legacyId;
   @Nullable private final Provider.Key key;
 
-  /** Creates an id for a declared provider with a given key ({@see SkylarkProvider}). */
+  /** Creates an id for a declared provider with a given key ({@see StarlarkProvider}). */
   public static StarlarkProviderIdentifier forKey(Provider.Key key) {
     return interner.intern(new StarlarkProviderIdentifier(key));
   }

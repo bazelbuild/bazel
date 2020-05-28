@@ -15,27 +15,26 @@
 package com.google.devtools.build.lib.analysis.skylark.annotations.processor.optiontestsources;
 
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/** A test case of SkylarkConfigurationFieldProcessorTest. */
-@SkylarkModule(
+/** A test case of StarlarkConfigurationFieldProcessorTest. */
+@StarlarkBuiltin(
     name = "module_name",
     doc = "A fake configuration fragment for a test.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public class MethodIsPrivate extends Fragment {
 
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
    */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "some_field",
       doc = "Documentation ",
       defaultLabel = "defaultLabel",
-      defaultInToolRepository = true
-  )
+      defaultInToolRepository = true)
   private Label getXcodeConfigLabel() {
     return null;
   }

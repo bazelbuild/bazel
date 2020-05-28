@@ -55,7 +55,7 @@ public final class TypeMapper extends Remapper {
     return mappableTypes.stream().map(e -> e.acceptTypeMapper(this)).collect(toImmutableSet());
   }
 
-  public <E extends TypeMappable<E>> ConcurrentHashMultiset<E> map(
+  public <E extends TypeMappable<? extends E>> ConcurrentHashMultiset<E> map(
       ConcurrentHashMultiset<E> mappableTypes) {
     return mappableTypes.stream()
         .map(e -> e.acceptTypeMapper(this))

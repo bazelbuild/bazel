@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.CommandCompleteEvent;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
@@ -75,15 +75,14 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   public static boolean isSupported(CommandEnvironment cmdEnv, Path dockerClient) {
     boolean verbose = cmdEnv.getOptions().getOptions(SandboxOptions.class).dockerVerbose;
 
-    if (!ProcessWrapperUtil.isSupported(cmdEnv)) {
+    if (ProcessWrapper.fromCommandEnvironment(cmdEnv) == null) {
       if (verbose) {
         cmdEnv
             .getReporter()
             .handle(
                 Event.error(
-                    "Docker sandboxing is disabled, because ProcessWrapperUtil.isSupported "
-                        + "returned false. This should never happen - is your Bazel binary "
-                        + "corrupted?"));
+                    "Docker sandboxing is disabled because ProcessWrapper is not supported. "
+                        + "This should never happen - is your Bazel binary corrupted?"));
       }
       return false;
     }
@@ -141,11 +140,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path execRoot;
   private final boolean allowNetwork;
   private final Path dockerClient;
-  private final Path processWrapper;
+  private final ProcessWrapper processWrapper;
   private final Path sandboxBase;
   private final String defaultImage;
   private final LocalEnvProvider localEnvProvider;
-  private final Duration timeoutKillDelay;
   private final String commandId;
   private final Reporter reporter;
   private final boolean useCustomizedImages;
@@ -163,7 +161,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param dockerClient path to the `docker` executable
    * @param sandboxBase path to the sandbox base directory
    * @param defaultImage the Docker image to use if the platform doesn't specify one
-   * @param timeoutKillDelay an additional grace period before killing timing out commands
    * @param useCustomizedImages whether to use customized images for execution
    * @param treeDeleter scheduler for tree deletions
    */
@@ -173,7 +170,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       Path dockerClient,
       Path sandboxBase,
       String defaultImage,
-      Duration timeoutKillDelay,
       boolean useCustomizedImages,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
@@ -181,11 +177,10 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     this.execRoot = cmdEnv.getExecRoot();
     this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.dockerClient = dockerClient;
-    this.processWrapper = ProcessWrapperUtil.getProcessWrapper(cmdEnv);
+    this.processWrapper = ProcessWrapper.fromCommandEnvironment(cmdEnv);
     this.sandboxBase = sandboxBase;
     this.defaultImage = defaultImage;
     this.localEnvProvider = LocalEnvProvider.forCurrentOs(cmdEnv.getClientEnv());
-    this.timeoutKillDelay = timeoutKillDelay;
     this.commandId = cmdEnv.getCommandId().toString();
     this.reporter = cmdEnv.getReporter();
     this.useCustomizedImages = useCustomizedImages;
@@ -259,7 +254,6 @@ final class DockerSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
         .setAdditionalMounts(getSandboxOptions().sandboxAdditionalMounts)
         .setPrivileged(getSandboxOptions().dockerPrivileged)
         .setEnvironmentVariables(environment)
-        .setKillDelay(timeoutKillDelay)
         .setCreateNetworkNamespace(
             !(allowNetwork
                 || Spawns.requiresNetwork(spawn, getSandboxOptions().defaultSandboxAllowNetwork)))

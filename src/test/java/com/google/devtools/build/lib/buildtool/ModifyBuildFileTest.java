@@ -17,8 +17,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.buildtool.util.GoogleBuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import org.junit.Test;
@@ -39,9 +39,11 @@ public class ModifyBuildFileTest extends GoogleBuildIntegrationTestCase {
 
   private void updateBuildFileAndSetMtime(long mtime)
       throws IOException {
-    // put an error in the BUILD file (linkshared = 1 requires name to end with ".so").
-    Path buildFile = write("modify_build_file_test/BUILD",
-                           "cc_binary(name = 'foo', linkshared = 1, srcs = ['foo.cc'])");
+    // put an error in the BUILD file.
+    Path buildFile =
+        write(
+            "modify_build_file_test/BUILD",
+            "cc_binary(name = 'foo', doesnotexist = 1, srcs = ['foo.cc'])");
     buildFile.setLastModifiedTime(mtime);
     // other files remain unchanged
   }
@@ -74,8 +76,7 @@ public class ModifyBuildFileTest extends GoogleBuildIntegrationTestCase {
     // this is supposed to fail.
     //
     updateBuildFileAndSetMtime(2000);
-    assertThrows(
-        ViewCreationFailedException.class, () -> buildTarget("//modify_build_file_test:foo"));
+    assertThrows(TargetParsingException.class, () -> buildTarget("//modify_build_file_test:foo"));
 
     //
     // Restore the original contents BUILD file and rebuild;

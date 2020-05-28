@@ -62,10 +62,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
   @Override
   public UnloadedToolchainContext compute(SkyKey skyKey, Environment env)
       throws ToolchainResolutionFunctionException, InterruptedException {
-    UnloadedToolchainContextKey key = (UnloadedToolchainContextKey) skyKey.argument();
+    ToolchainContextKey key = (ToolchainContextKey) skyKey.argument();
 
     try {
-      UnloadedToolchainContextImpl.Builder builder = UnloadedToolchainContextImpl.builder();
+      UnloadedToolchainContextImpl.Builder builder =
+          UnloadedToolchainContextImpl.builder().setKey(key);
 
       // Determine the configuration being used.
       BuildConfigurationValue value =

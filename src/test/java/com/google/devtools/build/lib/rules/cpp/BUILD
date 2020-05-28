@@ -24,7 +24,7 @@ java_library(
             "CcBinaryThinLtoTest.java",
             "CcCompilationHelperTest.java",
             "CcImportBaseConfiguredTargetTest.java",
-            "CppConfigurationSkylarkTest.java",
+            "CppConfigurationStarlarkTest.java",
             "CppSysrootTest.java",
             "LinkCommandLineTest.java",
             "StarlarkCcCommonTestHelper.java",
@@ -37,20 +37,27 @@ java_library(
     ],
     deps = [
         ":CcImportBaseConfiguredTargetTest",
-        ":SkylarkCcCommonTestHelper",
+        ":StarlarkCcCommonTestHelper",
         ":util",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:localhost_capacity",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transition_mode",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/exec:bin_tools",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/util",
@@ -86,8 +93,9 @@ java_library(
         "LinkBuildVariablesTestCase.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:crosstool_config_java_proto",
@@ -101,9 +109,9 @@ java_library(
     name = "CcImportBaseConfiguredTargetTest",
     srcs = ["CcImportBaseConfiguredTargetTest.java"],
     deps = [
-        ":SkylarkCcCommonTestHelper",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        ":StarlarkCcCommonTestHelper",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -115,7 +123,7 @@ java_library(
 )
 
 java_library(
-    name = "SkylarkCcCommonTestHelper",
+    name = "StarlarkCcCommonTestHelper",
     srcs = ["StarlarkCcCommonTestHelper.java"],
 )
 
@@ -132,8 +140,8 @@ java_test(
 )
 
 java_test(
-    name = "CppConfigurationSkylarkTest",
-    srcs = ["CppConfigurationSkylarkTest.java"],
+    name = "CppConfigurationStarlarkTest",
+    srcs = ["CppConfigurationStarlarkTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -147,8 +155,10 @@ java_test(
     srcs = ["CcCompilationHelperTest.java"],
     deps = [
         ":CppRulesTests_lib",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -163,8 +173,8 @@ java_test(
     name = "CcToolchainProviderHelperTest",
     srcs = ["CcToolchainProviderHelperTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -177,7 +187,8 @@ java_test(
     name = "CppSysrootTest",
     srcs = ["CppSysrootTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
@@ -193,10 +204,13 @@ java_test(
     name = "CcBinaryThinLtoTest",
     srcs = ["CcBinaryThinLtoTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -212,8 +226,9 @@ java_test(
     srcs = ["NonWindowsCcBinaryThinLtoTest.java"],
     tags = ["no_windows"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -228,7 +243,7 @@ java_test(
     name = "CcBadDependenciesTest",
     srcs = ["CcBadDependenciesTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
     ],

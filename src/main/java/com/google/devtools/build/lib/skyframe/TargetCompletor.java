@@ -21,34 +21,34 @@ import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsToBuild;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Manages completing builds for configured targets. */
 class TargetCompletor
     implements Completor<ConfiguredTargetValue, TargetCompletionValue, TargetCompletionKey> {
   static SkyFunction targetCompletionFunction(
-      PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
-    return new CompletionFunction<>(pathResolverFactory, new TargetCompletor(), execRootSupplier);
+      PathResolverFactory pathResolverFactory, SkyframeActionExecutor skyframeActionExecutor) {
+    return new CompletionFunction<>(
+        pathResolverFactory, new TargetCompletor(), skyframeActionExecutor);
   }
 
   @Override
   public Event getRootCauseError(
-      ConfiguredTargetValue ctValue, TargetCompletionKey key, Cause rootCause, Environment env)
+      ConfiguredTargetValue ctValue, TargetCompletionKey key, LabelCause rootCause, Environment env)
       throws InterruptedException {
     ConfiguredTargetAndData configuredTargetAndData =
         ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(ctValue.getConfiguredTarget(), env);
     return Event.error(
         configuredTargetAndData == null ? null : configuredTargetAndData.getTarget().getLocation(),
-        String.format("%s: missing input file '%s'", key.actionLookupKey().getLabel(), rootCause));
+        String.format("%s: %s", key.actionLookupKey().getLabel(), rootCause.getMessage()));
   }
 
   @Override

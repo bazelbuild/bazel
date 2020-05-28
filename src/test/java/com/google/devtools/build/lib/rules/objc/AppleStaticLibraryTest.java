@@ -470,8 +470,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
   public void testAppleStaticLibraryInfo() throws Exception {
     RULE_TYPE.scratchTarget(scratch, "platform_type", "'ios'");
     ConfiguredTarget binTarget = getConfiguredTarget("//x:x");
-    AppleStaticLibraryInfo provider =
-        binTarget.get(AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR);
+    AppleStaticLibraryInfo provider = binTarget.get(AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
     assertThat(provider.getMultiArchArchive()).isNotNull();
     assertThat(provider.getDepsObjcProvider()).isNotNull();
@@ -677,8 +676,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
 
     ConfiguredTarget binTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
 
-    AppleStaticLibraryInfo provider =
-        binTarget.get(AppleStaticLibraryInfo.SKYLARK_CONSTRUCTOR);
+    AppleStaticLibraryInfo provider = binTarget.get(AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
     assertThat(provider.getMultiArchArchive()).isNotNull();
     assertThat(provider.getDepsObjcProvider()).isNotNull();

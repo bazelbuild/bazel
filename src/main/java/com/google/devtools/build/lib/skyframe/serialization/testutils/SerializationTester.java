@@ -123,11 +123,33 @@ public class SerializationTester {
     return this;
   }
 
-  public void runTests() throws Exception {
+  private void runTests(boolean verifyStableSerialization) throws Exception {
     ObjectCodecs codecs = this.objectCodecs == null ? createObjectCodecs() : this.objectCodecs;
     testSerializeDeserialize(codecs);
-    testStableSerialization(codecs);
+    if (verifyStableSerialization) {
+      testStableSerialization(codecs);
+    }
     testDeserializeJunkData(codecs);
+  }
+
+  public void runTests() throws Exception {
+    runTests(true);
+  }
+
+  /**
+   * Runs serialization tests without checking for stable serialization ({@code
+   * serialize(deserialize(serialize(x))) == serialize(x)}). Call {@link #runTests()}} instead if
+   * possible.
+   *
+   * <p>To be used only when serialization is not stable for good reasons: please understand the
+   * cause before using this. Typically unstable serialization is the result of non-determinism in
+   * your underlying objects, which can cause problems throughout Blaze by harming incrementality.
+   * Only if you are sure that the non-determinism in your objects is not detectable in its public
+   * interface or behavior (including {@code equals} if implemented) should you use this instead of
+   * {@link #runTests()}.
+   */
+  public void runTestsWithoutStableSerializationCheck() throws Exception {
+    runTests(false);
   }
 
   private ObjectCodecs createObjectCodecs() {

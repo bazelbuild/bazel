@@ -133,10 +133,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
         TestRuleClassProvider.getRuleClassProvider(true);
     workspaceSkyFunc =
         new WorkspaceFileFunction(
-            ruleClassProvider,
-            pkgFactory,
-            directories,
-            /*starlarkImportLookupFunctionForInlining=*/ null);
+            ruleClassProvider, pkgFactory, directories, /*bzlLoadFunctionForInlining=*/ null);
     externalSkyFunc =
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     astSkyFunc = new WorkspaceASTFunction(ruleClassProvider);
@@ -221,7 +218,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
             invocation -> {
               SkyKey key = (SkyKey) invocation.getArguments()[0];
               if (key.equals(PrecomputedValue.STARLARK_SEMANTICS.getKeyForTesting())) {
-                return new PrecomputedValue(StarlarkSemantics.DEFAULT_SEMANTICS);
+                return new PrecomputedValue(StarlarkSemantics.DEFAULT);
               } else if (key.equals(
                   RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE
                       .getKeyForTesting())) {
@@ -246,7 +243,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImportToChunkMapSimple() throws Exception {
+  public void testLoadToChunkMapSimple() throws Exception {
     scratch.file("a.bzl", "a = 'a'");
     scratch.file("b.bzl", "b = 'b'");
     scratch.file("BUILD", "");
@@ -260,17 +257,17 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
     EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
     WorkspaceFileValue value1 = result1.get(key1);
-    assertThat(value1.getImportToChunkMap()).containsEntry("//:a.bzl", 1);
+    assertThat(value1.getLoadToChunkMap()).containsEntry("//:a.bzl", 1);
 
     SkyKey key2 = WorkspaceFileValue.key(workspace, 2);
     EvaluationResult<WorkspaceFileValue> result2 = eval(key2);
     WorkspaceFileValue value2 = result2.get(key2);
-    assertThat(value2.getImportToChunkMap()).containsEntry("//:a.bzl", 1);
-    assertThat(value2.getImportToChunkMap()).containsEntry("//:b.bzl", 2);
+    assertThat(value2.getLoadToChunkMap()).containsEntry("//:a.bzl", 1);
+    assertThat(value2.getLoadToChunkMap()).containsEntry("//:b.bzl", 2);
   }
 
   @Test
-  public void testImportToChunkMapDoesNotOverrideDuplicate() throws Exception {
+  public void testLoadToChunkMapDoesNotOverrideDuplicate() throws Exception {
     scratch.file("a.bzl", "a = 'a'");
     scratch.file("BUILD", "");
     RootedPath workspace =
@@ -283,13 +280,13 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     SkyKey key1 = WorkspaceFileValue.key(workspace, 1);
     EvaluationResult<WorkspaceFileValue> result1 = eval(key1);
     WorkspaceFileValue value1 = result1.get(key1);
-    assertThat(value1.getImportToChunkMap()).containsEntry("//:a.bzl", 1);
+    assertThat(value1.getLoadToChunkMap()).containsEntry("//:a.bzl", 1);
 
     SkyKey key2 = WorkspaceFileValue.key(workspace, 2);
     EvaluationResult<WorkspaceFileValue> result2 = eval(key2);
     WorkspaceFileValue value2 = result2.get(key2);
-    assertThat(value2.getImportToChunkMap()).containsEntry("//:a.bzl", 1);
-    assertThat(value2.getImportToChunkMap()).doesNotContainEntry("//:a.bzl", 2);
+    assertThat(value2.getLoadToChunkMap()).containsEntry("//:a.bzl", 1);
+    assertThat(value2.getLoadToChunkMap()).doesNotContainEntry("//:a.bzl", 2);
   }
 
   @Test

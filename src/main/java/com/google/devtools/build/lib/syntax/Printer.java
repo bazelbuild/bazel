@@ -260,7 +260,7 @@ public abstract class Printer {
     @Override
     public BasePrinter repr(Object o) {
       if (o == null) {
-        // Java null is not a valid Starlark value, but sometimes printers are used on non-Skylark
+        // Java null is not a valid Starlark value, but sometimes printers are used on non-Starlark
         // values such as Locations or ASTs.
         this.append("null");
 
@@ -281,22 +281,22 @@ public abstract class Printer {
 
         // -- non-Starlark values --
 
-      } else if (o instanceof Map<?, ?>) {
+      } else if (o instanceof Map) {
         Map<?, ?> dict = (Map<?, ?>) o;
         this.printList(dict.entrySet(), "{", ", ", "}", null);
 
-      } else if (o instanceof List<?>) {
+      } else if (o instanceof List) {
         List<?> seq = (List<?>) o;
         this.printList(seq, false);
 
-      } else if (o instanceof Map.Entry<?, ?>) {
+      } else if (o instanceof Map.Entry) {
         Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
         this.repr(entry.getKey());
         this.append(": ");
         this.repr(entry.getValue());
 
-      } else if (o instanceof Class<?>) {
-        this.append(EvalUtils.getDataTypeNameFromClass((Class<?>) o));
+      } else if (o instanceof Class) {
+        this.append(Starlark.classType((Class<?>) o));
 
       } else if (o instanceof Node || o instanceof Location) {
         // AST node objects and locations are printed in tracebacks and error messages,
@@ -309,7 +309,7 @@ public abstract class Printer {
         // but Starlark code cannot access values of o that would reach here,
         // and native code is already trusted to be deterministic.
         // TODO(adonovan): replace this with a default behavior of this.append(o),
-        // once we require that all @Skylark-annotated classes implement StarlarkValue.
+        // once we require that all @Starlark-annotated classes implement StarlarkValue.
         // (After all, Java code can call String.format, which also calls toString.)
         this.append("<unknown object " + o.getClass().getName() + ">");
       }

@@ -20,8 +20,8 @@ generate `BUILD` files.
 ## Formatting example
 
 ```python
-# Test code implmenting the Foo controller.
-package(default_testonly = 1)
+# Test code implementing the Foo controller.
+package(default_testonly = True)
 
 py_test(
     name = "foo_test",

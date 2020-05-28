@@ -24,9 +24,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -34,25 +31,28 @@ import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Information about the system APIs for a Java compilation. */
 @AutoCodec
 @Immutable
 public class BootClassPathInfo extends NativeInfo implements StarlarkValue {
 
-  public static final String SKYLARK_NAME = "BootClassPathInfo";
+  public static final String STARLARK_NAME = "BootClassPathInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<BootClassPathInfo> PROVIDER = new Provider();
 
   /** Provider class for {@link BootClassPathInfo} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   public static class Provider extends BuiltinProvider<BootClassPathInfo> implements ProviderApi {
     private Provider() {
-      super(SKYLARK_NAME, BootClassPathInfo.class);
+      super(STARLARK_NAME, BootClassPathInfo.class);
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "BootClassPathInfo",
         doc = "The <code>BootClassPathInfo</code> constructor.",
         documented = false,

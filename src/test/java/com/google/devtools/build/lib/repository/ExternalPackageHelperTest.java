@@ -152,7 +152,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fileSystem),
             directories,
-            /*starlarkImportLookupFunctionForInlining=*/ null));
+            /*bzlLoadFunctionForInlining=*/ null));
     skyFunctions.put(
         SkyFunctions.PACKAGE,
         new PackageFunction(
@@ -181,7 +181,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
     MemoizingEvaluator evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.<RootedPath>absent());
   }

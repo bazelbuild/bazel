@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Type encapsulating build variables. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "Variables",
     documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "Class encapsulating cc_toolchain variables.")
 public interface CcToolchainVariablesApi extends StarlarkValue {}

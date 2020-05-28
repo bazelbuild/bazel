@@ -42,7 +42,7 @@ import java.util.Map;
 public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
 
   /** Name used in Starlark for accessing this provider. */
-  public static final String SKYLARK_NAME = "ToolchainInfo";
+  public static final String STARLARK_NAME = "ToolchainInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<ToolchainInfo> PROVIDER = new Provider();
@@ -51,7 +51,7 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
   private static class Provider extends BuiltinProvider<ToolchainInfo>
       implements ToolchainInfoApi.Provider {
     private Provider() {
-      super(SKYLARK_NAME, ToolchainInfo.class);
+      super(STARLARK_NAME, ToolchainInfo.class);
     }
 
     @Override
@@ -78,7 +78,7 @@ public class ToolchainInfo extends NativeInfo implements ToolchainInfoApi {
   private static ImmutableSortedMap<String, Object> copyValues(Map<String, Object> values) {
     ImmutableSortedMap.Builder<String, Object> builder = ImmutableSortedMap.naturalOrder();
     for (Map.Entry<String, Object> e : values.entrySet()) {
-      builder.put(Attribute.getSkylarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
+      builder.put(Attribute.getStarlarkName(e.getKey()), Starlark.fromJava(e.getValue(), null));
     }
     return builder.build();
   }

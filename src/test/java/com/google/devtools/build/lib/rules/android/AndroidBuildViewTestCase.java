@@ -269,7 +269,9 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
             processingAction.getInputs().toList(),
             (artifact) -> artifact.getExecPath().toString().equals(mergedManifestExecPathString));
     List<String> mergeArgs = getGeneratingSpawnActionArgs(mergedManifest);
-    assertThat(mergeArgs).contains("--mergeeManifests");
+    if (!mergeArgs.contains("--mergeeManifests")) {
+      return ImmutableMap.of();
+    }
     Map<String, String> splitData =
         Splitter.on(",")
             .withKeyValueSeparator(Splitter.onPattern("(?<!\\\\):"))

@@ -1,5 +1,6 @@
 # Bazel - Google's Build System
 
+load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 load("//tools/python:private/defs.bzl", "py_binary")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
@@ -74,12 +75,13 @@ pkg_tar(
     visibility = ["//:__subpackages__"],
 )
 
-filegroup(
+distrib_jar_filegroup(
     name = "bootstrap-derived-java-jars",
     srcs = glob(
         ["derived/jars/**/*.jar"],
         allow_empty = True,
     ),
+    enable_distributions = ["debian"],
     visibility = ["//:__subpackages__"],
 )
 

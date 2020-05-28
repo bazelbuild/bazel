@@ -318,14 +318,19 @@ public class LibrariesToLinkCollector {
     librarySearchDirectories.add(inputArtifact.getExecPath().getParentDirectory().getPathString());
 
     String name = inputArtifact.getFilename();
-    if (CppFileTypes.SHARED_LIBRARY.matches(name)) {
-      // Use normal shared library resolution rules for shared libraries.
+
+    // Use the normal shared library resolution rules if possible, otherwise treat as a versioned
+    // library that must use the exact name. e.g.:
+    // -lfoo -> libfoo.so
+    // -l:foo -> foo.so
+    // -l:libfoo.so.1 -> libfoo.so.1
+    boolean hasCompatibleName =
+        name.startsWith("lib") || (!name.endsWith(".so") && !name.endsWith(".dylib"));
+    if (CppFileTypes.SHARED_LIBRARY.matches(name) && hasCompatibleName) {
       String libName = name.replaceAll("(^lib|\\.(so|dylib)$)", "");
       librariesToLink.addValue(LibraryToLinkValue.forDynamicLibrary(libName));
-    } else if (CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
-      // Versioned shared libraries require the exact library filename, e.g.:
-      // -lfoo -> libfoo.so
-      // -l:libfoo.so.1 -> libfoo.so.1
+    } else if (CppFileTypes.SHARED_LIBRARY.matches(name)
+        || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
       librariesToLink.addValue(LibraryToLinkValue.forVersionedDynamicLibrary(name));
     } else {
       // Interface shared objects have a non-standard extension

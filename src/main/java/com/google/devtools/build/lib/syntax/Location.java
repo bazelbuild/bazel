@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.io.Serializable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * A Location denotes a position within a Starlark file.
@@ -28,7 +28,6 @@ import java.io.Serializable;
  * If the line number is also zero, it too is not displayed; in this case, the location denotes the
  * file as a whole.
  */
-@AutoCodec
 @Immutable
 public final class Location implements Serializable, Comparable<Location> {
 
@@ -114,5 +113,5 @@ public final class Location implements Serializable, Comparable<Location> {
   }
 
   /** A location for built-in functions. */
-  @AutoCodec public static final Location BUILTIN = fromFile("<builtin>");
+  @SerializationConstant public static final Location BUILTIN = fromFile("<builtin>");
 }

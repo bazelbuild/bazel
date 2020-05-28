@@ -14,28 +14,17 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.util.Fingerprint; // TODO(adonovan): break dependency
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * An StarlarkThread represents a Starlark thread.
@@ -53,17 +42,10 @@ import javax.annotation.Nullable;
  * interacting {@code StarlarkThread}s. It is a Starlark-level error to attempt to mutate a frozen
  * {@code StarlarkThread} or its objects, but it is a Java-level error to attempt to mutate an
  * unfrozen {@code StarlarkThread} or its objects from within a different {@code StarlarkThread}.
- *
- * <p>One creates an StarlarkThread using the {@link #builder} function, before evaluating code in
- * it with {@link StarlarkFile#eval}, or with {@link StarlarkFile#exec} (where the AST was obtained
- * by passing a {@link Resolver} constructed from the StarlarkThread to {@link StarlarkFile#parse}.
- * When the computation is over, the frozen StarlarkThread can still be queried with {@link
- * #lookup}.
  */
 public final class StarlarkThread {
 
-  // The mutability of the StarlarkThread comes from its initial module.
-  // TODO(adonovan): not every thread initializes a module.
+  /** The mutability of values created by this thread. */
   private final Mutability mutability;
 
   // profiler state
@@ -142,7 +124,7 @@ public final class StarlarkThread {
     // The locals of this frame, if fn is a StarlarkFunction, otherwise empty.
     Map<String, Object> locals;
 
-    @Nullable private SilentCloseable profileSpan; // current span of walltime profiler
+    @Nullable private Object profileSpan; // current span of walltime call profiler
 
     private Frame(StarlarkThread thread, StarlarkCallable fn) {
       this.thread = thread;
@@ -175,200 +157,14 @@ public final class StarlarkThread {
     }
   }
 
-  /** An Extension to be imported with load() into a BUILD or .bzl file. */
-  @Immutable
-  // TODO(janakr,brandjon): Do Extensions actually have to start their own memoization? Or can we
-  // have a node higher up in the hierarchy inject the mutability?
-  // TODO(adonovan): identify Extension with Module, abolish hash code, and make loading lazy (a
-  // callback not a map) so that clients don't need to preemptively scan the set of load statements.
-  @AutoCodec
-  public static final class Extension {
-
-    private final ImmutableMap<String, Object> bindings;
-
-    /**
-     * Cached hash code for the transitive content of this {@code Extension} and its dependencies.
-     *
-     * <p>Note that "content" refers to the AST content, not the evaluated bindings.
-     */
-    private final String transitiveContentHashCode;
-
-    /** Constructs with the given hash code and bindings. */
-    @AutoCodec.Instantiator
-    public Extension(ImmutableMap<String, Object> bindings, String transitiveContentHashCode) {
-      this.bindings = bindings;
-      this.transitiveContentHashCode = transitiveContentHashCode;
-    }
-
-    /**
-     * Constructs using the bindings from the global definitions of the given {@link
-     * StarlarkThread}, and that {@code StarlarkThread}'s transitive hash code.
-     */
-    public Extension(StarlarkThread thread) {
-      this(
-          ImmutableMap.copyOf(thread.module.getExportedBindings()),
-          thread.getTransitiveContentHashCode());
-    }
-
-    private String getTransitiveContentHashCode() {
-      return transitiveContentHashCode;
-    }
-
-    /** Retrieves all bindings, in a deterministic order. */
-    public ImmutableMap<String, Object> getBindings() {
-      return bindings;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-        return true;
-      }
-      if (!(obj instanceof Extension)) {
-        return false;
-      }
-      Extension other = (Extension) obj;
-      return transitiveContentHashCode.equals(other.getTransitiveContentHashCode())
-          && bindings.equals(other.getBindings());
-    }
-
-    private static boolean skylarkObjectsProbablyEqual(Object obj1, Object obj2) {
-      // TODO(b/76154791): check this more carefully.
-      return obj1.equals(obj2)
-          || (obj1 instanceof StarlarkValue
-              && obj2 instanceof StarlarkValue
-              && Starlark.repr(obj1).equals(Starlark.repr(obj2)));
-    }
-
-    /**
-     * Throws {@link IllegalStateException} if this {@link Extension} is not equal to {@code obj}.
-     *
-     * <p>The exception explains the reason for the inequality, including all unequal bindings.
-     */
-    public void checkStateEquals(Object obj) {
-      if (this == obj) {
-        return;
-      }
-      if (!(obj instanceof Extension)) {
-        throw new IllegalStateException(
-            String.format(
-                "Expected an equal Extension, but got a %s instead of an Extension",
-                obj == null ? "null" : obj.getClass().getName()));
-      }
-      Extension other = (Extension) obj;
-      ImmutableMap<String, Object> otherBindings = other.getBindings();
-
-      Set<String> names = bindings.keySet();
-      Set<String> otherNames = otherBindings.keySet();
-      if (!names.equals(otherNames)) {
-        throw new IllegalStateException(
-            String.format(
-                "Expected Extensions to be equal, but they don't define the same bindings: "
-                    + "in this one but not given one: [%s]; in given one but not this one: [%s]",
-                Joiner.on(", ").join(Sets.difference(names, otherNames)),
-                Joiner.on(", ").join(Sets.difference(otherNames, names))));
-      }
-
-      ArrayList<String> badEntries = new ArrayList<>();
-      for (String name : names) {
-        Object value = bindings.get(name);
-        Object otherValue = otherBindings.get(name);
-        if (value.equals(otherValue)) {
-          continue;
-        }
-        if (value instanceof Depset) {
-          if (otherValue instanceof Depset) {
-            // Widen to Object to avoid static checker warning
-            // about Collection.equals(Collection). We may assume
-            // these collections have the same class, even if we
-            // can't assume its equality is List-like or Set-like.
-            Object x = ((Depset) value).toCollection();
-            Object y = ((Depset) otherValue).toCollection();
-            if (x.equals(y)) {
-              continue;
-            }
-          }
-        } else if (value instanceof Dict) {
-          if (otherValue instanceof Dict) {
-            @SuppressWarnings("unchecked")
-            Dict<Object, Object> thisDict = (Dict<Object, Object>) value;
-            @SuppressWarnings("unchecked")
-            Dict<Object, Object> otherDict = (Dict<Object, Object>) otherValue;
-            if (thisDict.size() == otherDict.size()
-                && thisDict.keySet().equals(otherDict.keySet())) {
-              boolean foundProblem = false;
-              for (Object key : thisDict.keySet()) {
-                if (!skylarkObjectsProbablyEqual(
-                    Preconditions.checkNotNull(thisDict.get(key), key),
-                    Preconditions.checkNotNull(otherDict.get(key), key))) {
-                  foundProblem = true;
-                }
-              }
-              if (!foundProblem) {
-                continue;
-              }
-            }
-          }
-        } else if (skylarkObjectsProbablyEqual(value, otherValue)) {
-          continue;
-        }
-        badEntries.add(
-            String.format(
-                "%s: this one has %s (class %s, %s), but given one has %s (class %s, %s)",
-                name,
-                Starlark.repr(value),
-                value.getClass().getName(),
-                value,
-                Starlark.repr(otherValue),
-                otherValue.getClass().getName(),
-                otherValue));
-      }
-      if (!badEntries.isEmpty()) {
-        throw new IllegalStateException(
-            "Expected Extensions to be equal, but the following bindings are unequal: "
-                + Joiner.on("; ").join(badEntries));
-      }
-
-      if (!transitiveContentHashCode.equals(other.getTransitiveContentHashCode())) {
-        throw new IllegalStateException(
-            String.format(
-                "Expected Extensions to be equal, but transitive content hashes don't match:"
-                    + " %s != %s",
-                transitiveContentHashCode, other.getTransitiveContentHashCode()));
-      }
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(bindings, transitiveContentHashCode);
-    }
-  }
-
-  // The module initialized by this Starlark thread.
-  //
-  // TODO(adonovan): eliminate. First we need to simplify the set-up sequence like so:
-  //
-  //    // Filter predeclaredEnv based on semantics,
-  //    // create a mutability, and retain the semantics:
-  //    Module module = new Module(semantics, predeclaredEnv);
-  //
-  //    // Create a thread that takes its semantics and mutability
-  //    // (and only them) from the Module.
-  //    StarlarkThread thread = StarlarkThread.toInitializeModule(module);
-  //
-  // Then clients that call thread.getGlobals() should use 'module' directly.
-  private final Module module;
-
   /** The semantics options that affect how Starlark code is evaluated. */
   private final StarlarkSemantics semantics;
 
   /** PrintHandler for Starlark print statements. */
   private PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
 
-  /**
-   * For each imported extension, a global Starlark frame from which to load() individual bindings.
-   */
-  private final Map<String, Extension> importedExtensions;
+  /** Loader for Starlark load statements. Null if loading is disallowed. */
+  @Nullable private Loader loader = null;
 
   /** Stack of active function calls. */
   private final ArrayList<Frame> callstack = new ArrayList<>();
@@ -386,23 +182,20 @@ public final class StarlarkThread {
       Debug.threadHook.onPushFirst(this);
     }
 
-    ProfilerTask taskKind;
     if (fn instanceof StarlarkFunction) {
       StarlarkFunction sfn = (StarlarkFunction) fn;
       fr.locals = Maps.newLinkedHashMapWithExpectedSize(sfn.getParameterNames().size());
-      taskKind = ProfilerTask.STARLARK_USER_FN;
     } else {
       // built-in function
       fr.locals = ImmutableMap.of();
-      taskKind = ProfilerTask.STARLARK_BUILTIN_FN;
     }
 
     fr.loc = fn.getLocation();
 
-    // start wall-time profile span
-    // TODO(adonovan): throw this away when we build a CPU profiler.
-    if (Profiler.instance().isActive()) {
-      fr.profileSpan = Profiler.instance().profile(taskKind, fn.getName());
+    // Start wall-time call profile span.
+    CallProfiler callProfiler = StarlarkThread.callProfiler;
+    if (callProfiler != null) {
+      fr.profileSpan = callProfiler.start(fn);
     }
 
     // Poll for newly installed CPU profiler.
@@ -440,9 +233,10 @@ public final class StarlarkThread {
 
     callstack.remove(last); // pop
 
-    // end profile span
-    if (fr.profileSpan != null) {
-      fr.profileSpan.close();
+    // End wall-time profile span.
+    CallProfiler callProfiler = StarlarkThread.callProfiler;
+    if (callProfiler != null && fr.profileSpan != null) {
+      callProfiler.end(fr.profileSpan);
     }
 
     // Notify debug tools of the thread's last pop.
@@ -451,19 +245,9 @@ public final class StarlarkThread {
     }
   }
 
-  private final String transitiveHashCode;
-
+  /** Returns the mutability for values created by this thread. */
   public Mutability mutability() {
     return mutability;
-  }
-
-  /** Returns the module initialized by this StarlarkThread. */
-  // TODO(adonovan): get rid of this. Logically, a thread doesn't have module, but every
-  // Starlark source function does. If you want to know the module of the innermost
-  // enclosing call from a function defined in Starlark source code, use
-  // Module.ofInnermostEnclosingStarlarkFunction.
-  public Module getGlobals() {
-    return module;
   }
 
   /**
@@ -471,6 +255,7 @@ public final class StarlarkThread {
    * the built-in {@code print} function. Its default behavior is to write the message to standard
    * error, preceded by the location of the print statement, {@code thread.getCallerLocation()}.
    */
+  @FunctionalInterface
   public interface PrintHandler {
     void print(StarlarkThread thread, String msg);
   }
@@ -487,6 +272,26 @@ public final class StarlarkThread {
 
   private static void defaultPrintHandler(StarlarkThread thread, String msg) {
     System.err.println(thread.getCallerLocation() + ": " + msg);
+  }
+
+  /**
+   * A Loader determines the behavior of load statements executed by this thread. It returns the
+   * named module, or null if not found.
+   */
+  @FunctionalInterface
+  public interface Loader {
+    @Nullable
+    Module load(String module);
+  }
+
+  /** Returns the loader for Starlark load statements. */
+  Loader getLoader() {
+    return loader;
+  }
+
+  /** Sets the behavior of Starlark load statements executed by this thread. */
+  public void setLoader(Loader loader) {
+    this.loader = Preconditions.checkNotNull(loader);
   }
 
   /** Reports whether {@code fn} has been recursively reentered within this thread. */
@@ -530,140 +335,36 @@ public final class StarlarkThread {
   }
 
   /**
-   * Constructs a StarlarkThread. This is the main, most basic constructor.
+   * Constructs a StarlarkThread.
    *
-   * @param module the module initialized by this StarlarkThread
-   * @param eventHandler an EventHandler for warnings, errors, etc
-   * @param importedExtensions Extensions from which to import bindings with load()
-   * @param fileContentHashCode a hash for the source file being evaluated, if any
+   * @param mu the (non-frozen) mutability of values created by this thread.
+   * @param semantics the StarlarkSemantics for this thread.
    */
-  private StarlarkThread(
-      Module module,
-      StarlarkSemantics semantics,
-      Map<String, Extension> importedExtensions,
-      @Nullable String fileContentHashCode) {
-    this.module = Preconditions.checkNotNull(module);
-    this.mutability = module.mutability();
-    Preconditions.checkArgument(!module.mutability().isFrozen());
+  public StarlarkThread(Mutability mu, StarlarkSemantics semantics) {
+    Preconditions.checkArgument(!mu.isFrozen());
+    this.mutability = mu;
     this.semantics = semantics;
-    this.importedExtensions = importedExtensions;
-    this.transitiveHashCode =
-        computeTransitiveContentHashCode(fileContentHashCode, importedExtensions);
-  }
-
-  /**
-   * A Builder class for StarlarkThread.
-   *
-   * <p>The caller must explicitly set the semantics by calling either {@link #setSemantics} or
-   * {@link #useDefaultSemantics}.
-   */
-  // TODO(adonovan): eliminate the builder:
-  // - replace importedExtensions by a callback
-  // - eliminate fileContentHashCode
-  // - decouple Module from thread.
-  public static class Builder {
-    private final Mutability mutability;
-    @Nullable private Module parent;
-    @Nullable private StarlarkSemantics semantics;
-    @Nullable private Map<String, Extension> importedExtensions;
-    @Nullable private String fileContentHashCode;
-
-    Builder(Mutability mutability) {
-      this.mutability = mutability;
-    }
-
-    /**
-     * Inherits global bindings from the given parent Frame.
-     *
-     * <p>TODO(laurentlb): this should be called setUniverse.
-     */
-    public Builder setGlobals(Module parent) {
-      Preconditions.checkState(this.parent == null);
-      this.parent = parent;
-      return this;
-    }
-
-    public Builder setSemantics(StarlarkSemantics semantics) {
-      this.semantics = semantics;
-      return this;
-    }
-
-    public Builder useDefaultSemantics() {
-      this.semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
-      return this;
-    }
-
-    /** Declares imported extensions for load() statements. */
-    public Builder setImportedExtensions(Map<String, Extension> importMap) {
-      Preconditions.checkState(this.importedExtensions == null);
-      this.importedExtensions = importMap;
-      return this;
-    }
-
-    /** Declares content hash for the source file for this StarlarkThread. */
-    public Builder setFileContentHashCode(String fileContentHashCode) {
-      this.fileContentHashCode = fileContentHashCode;
-      return this;
-    }
-
-    /** Builds the StarlarkThread. */
-    public StarlarkThread build() {
-      Preconditions.checkArgument(!mutability.isFrozen());
-      if (semantics == null) {
-        throw new IllegalArgumentException("must call either setSemantics or useDefaultSemantics");
-      }
-      // Filter out restricted objects from the universe scope. This cannot be done in-place in
-      // creation of the input global universe scope, because this environment's semantics may not
-      // have been available during its creation. Thus, create a new universe scope for this
-      // environment which is equivalent in every way except that restricted bindings are
-      // filtered out.
-      parent = Module.filterOutRestrictedBindings(mutability, parent, semantics);
-
-      Module module = new Module(mutability, parent);
-      if (importedExtensions == null) {
-        importedExtensions = ImmutableMap.of();
-      }
-      return new StarlarkThread(module, semantics, importedExtensions, fileContentHashCode);
-    }
-  }
-
-  public static Builder builder(Mutability mutability) {
-    return new Builder(mutability);
   }
 
   /**
    * Specifies a hook function to be run after each assignment at top level.
    *
    * <p>This is a short-term hack to allow us to consolidate all StarlarkFile execution in one place
-   * even while StarlarkImportLookupFunction implements the old "export" behavior, in which rules,
-   * aspects and providers are "exported" as soon as they are assigned, not at the end of file
-   * execution.
+   * even while BzlLoadFunction implements the old "export" behavior, in which rules, aspects and
+   * providers are "exported" as soon as they are assigned, not at the end of file execution.
    */
   public void setPostAssignHook(PostAssignHook postAssignHook) {
     this.postAssignHook = postAssignHook;
   }
 
   /** A hook for notifications of assignments at top level. */
+  @FunctionalInterface
   public interface PostAssignHook {
     void assign(String name, Object value);
   }
 
   public StarlarkSemantics getSemantics() {
     return semantics;
-  }
-
-  /**
-   * Returns a set of all names of variables that are accessible in this {@code StarlarkThread}, in
-   * a deterministic order.
-   */
-  // TODO(adonovan): eliminate this once we do resolution.
-  Set<String> getVariableNames() {
-    LinkedHashSet<String> vars = new LinkedHashSet<>();
-    if (!callstack.isEmpty()) {
-      vars.addAll(frame(0).locals.keySet());
-    }
-    vars.addAll(module.getTransitiveBindings().keySet());
-    return vars;
   }
 
   // Implementation of Debug.getCallStack.
@@ -777,36 +478,20 @@ public final class StarlarkThread {
 
   @Override
   public String toString() {
-    return String.format("<StarlarkThread%s>", mutability());
+    return String.format("<StarlarkThread%s>", mutability);
   }
 
-  Extension getExtension(String module) {
-    return importedExtensions.get(module);
+  /** CallProfiler records the start and end wall times of function calls. */
+  public interface CallProfiler {
+    Object start(StarlarkCallable fn);
+
+    void end(Object span);
   }
 
-  /**
-   * Computes a deterministic hash for the given base hash code and extension map (the map's order
-   * does not matter).
-   */
-  private static String computeTransitiveContentHashCode(
-      @Nullable String baseHashCode, Map<String, Extension> importedExtensions) {
-    // Calculate a new hash from the hash of the loaded Extensions.
-    Fingerprint fingerprint = new Fingerprint();
-    if (baseHashCode != null) {
-      fingerprint.addString(Preconditions.checkNotNull(baseHashCode));
-    }
-    TreeSet<String> importStrings = new TreeSet<>(importedExtensions.keySet());
-    for (String importString : importStrings) {
-      fingerprint.addString(importedExtensions.get(importString).getTransitiveContentHashCode());
-    }
-    return fingerprint.hexDigestAndReset();
+  /** Installs a global hook that will be notified of function calls. */
+  public static void setCallProfiler(@Nullable CallProfiler p) {
+    callProfiler = p;
   }
 
-  /**
-   * Returns a hash code calculated from the hash code of this StarlarkThread and the transitive
-   * closure of other StarlarkThreads it loads.
-   */
-  public String getTransitiveContentHashCode() {
-    return transitiveHashCode;
-  }
+  @Nullable private static CallProfiler callProfiler = null;
 }

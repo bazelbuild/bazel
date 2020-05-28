@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -53,14 +53,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
@@ -76,6 +69,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * Knows about every rule Blaze supports and the associated configuration options.
@@ -124,8 +119,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
-    private final ImmutableList.Builder<Bootstrap> skylarkBootstraps = ImmutableList.builder();
-    private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
+    private final ImmutableList.Builder<Bootstrap> starlarkBootstraps = ImmutableList.builder();
+    private ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
         ImmutableMap.builder();
     private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
         ImmutableList.builder();
@@ -230,13 +225,13 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       return this;
     }
 
-    public Builder addSkylarkBootstrap(Bootstrap bootstrap) {
-      this.skylarkBootstraps.add(bootstrap);
+    public Builder addStarlarkBootstrap(Bootstrap bootstrap) {
+      this.starlarkBootstraps.add(bootstrap);
       return this;
     }
 
-    public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
-      this.skylarkAccessibleTopLevels.put(name, object);
+    public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
+      this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }
 
@@ -429,8 +424,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
-          skylarkAccessibleTopLevels.build(),
-          skylarkBootstraps.build(),
+          starlarkAccessibleTopLevels.build(),
+          starlarkBootstraps.build(),
           symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
@@ -555,8 +550,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Bootstrap> skylarkBootstraps,
+      ImmutableMap<String, Object> starlarkAccessibleJavaClasses,
+      ImmutableList<Bootstrap> starlarkBootstraps,
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
@@ -579,7 +574,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.environment = createEnvironment(skylarkAccessibleJavaClasses, skylarkBootstraps);
+    this.environment = createEnvironment(starlarkAccessibleJavaClasses, starlarkBootstraps);
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
@@ -731,14 +726,14 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   private static ImmutableMap<String, Object> createEnvironment(
-      ImmutableMap<String, Object> skylarkAccessibleTopLevels,
+      ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
     ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
 
-    // Among other symbols, this step adds the Starlark universe (e.g. None/True/len), for now.
-    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
+    // Add predeclared symbols of the Bazel build language.
+    StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder);
 
-    envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
+    envBuilder.putAll(starlarkAccessibleTopLevels.entrySet());
     for (Bootstrap bootstrap : bootstraps) {
       bootstrap.addBindingsToBuilder(envBuilder);
     }
@@ -751,7 +746,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     ImmutableMap.Builder<String, Class<?>> mapBuilder = ImmutableMap.builder();
     for (ConfigurationFragmentFactory fragmentFactory : configurationFragmentFactories) {
       Class<? extends Fragment> fragmentClass = fragmentFactory.creates();
-      SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+      StarlarkBuiltin fragmentModule = StarlarkInterfaceUtils.getStarlarkBuiltin(fragmentClass);
       if (fragmentModule != null) {
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
@@ -765,37 +760,18 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
   }
 
   @Override
-  public StarlarkThread createRuleClassStarlarkThread(
+  public void setStarlarkThreadContext(
+      StarlarkThread thread,
       Label fileLabel,
-      Mutability mutability,
-      StarlarkSemantics starlarkSemantics,
-      StarlarkThread.PrintHandler printHandler,
-      String astFileContentHashCode,
-      Map<String, Extension> importMap,
-      ClassObject nativeModule,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
-    Map<String, Object> env = new HashMap<>(environment);
-    env.put("native", nativeModule);
-
-    StarlarkThread thread =
-        StarlarkThread.builder(mutability)
-            .setGlobals(Module.createForBuiltins(env).withLabel(fileLabel))
-            .setSemantics(starlarkSemantics)
-            .setFileContentHashCode(astFileContentHashCode)
-            .setImportedExtensions(importMap)
-            .build();
-    thread.setPrintHandler(printHandler);
-
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.LOADING,
             toolsRepository,
             configurationFragmentMap,
             repoMapping,
             new SymbolGenerator<>(fileLabel),
-            /* analysisRuleLabel= */ null)
+            /*analysisRuleLabel=*/ null)
         .storeInThread(thread);
-
-    return thread;
   }
 
   @Override

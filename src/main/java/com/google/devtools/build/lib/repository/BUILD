@@ -8,18 +8,6 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-# TODO(b/144899336): Remove this when all dependers are updated.
-java_library(
-    name = "legacy_exports",
-    exports = [
-        ":external_package_exception",
-        ":external_package_helper",
-        ":external_rule_not_found_exception",
-        ":repository_failed_event",
-        ":request_repository_information_event",
-    ],
-)
-
 java_library(
     name = "external_package_exception",
     srcs = ["ExternalPackageException.java"],

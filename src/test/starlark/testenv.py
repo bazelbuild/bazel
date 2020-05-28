@@ -13,5 +13,5 @@
 # limitations under the License.
 """Test constants for src/test/starlark."""
 
-STARLARK_BINARY_PATH = "src/main/java/com/google/devtools/starlark/cmd/Starlark"
+STARLARK_BINARY_PATH = "src/main/java/net/starlark/java/cmd/Starlark"
 STARLARK_TESTDATA_PATH = "src/test/starlark/"

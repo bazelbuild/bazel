@@ -17,20 +17,20 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ObjectArrays;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.AbstractCollection;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Iterator;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A Starlark tuple, i.e. the value represented by {@code (1, 2, 3)}. Tuples are always immutable
  * (regardless of the {@link StarlarkThread} they are created in).
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "tuple",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "The built-in tuple type. Example tuple expressions:<br>"
             + "<pre class=language-python>x = (1, 2, 3)</pre>"

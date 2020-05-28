@@ -23,37 +23,48 @@ import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.errorprone.annotations.FormatMethod;
 
 /**
  * A value that represents an AST file lookup result. There are two subclasses: one for the case
  * where the file is found, and another for the case where the file is missing (but there are no
  * other errors).
  */
-// In practice, if a ASTFileLookupValue is re-computed (i.e. not changed pruned), then it will
-// almost certainly be unequal to the previous value. This is because of (i) the change-pruning
-// semantics of the PackageLookupValue dep and the FileValue dep; consider the latter: if the
-// FileValue for the bzl file has changed, then the contents of the bzl file probably changed and
-// (ii) we don't currently have Starlark-semantic-equality in StarlarkFile, so two StarlarkFile
-// instances representing two different contents of a bzl file will be different.
-// TODO(bazel-team): Consider doing better here. As a pre-req, we would need
-// Starlark-semantic-equality in StarlarkFile, rather than equality naively based on the contents of
-// the bzl file. For a concrete example, the contents of comment lines do not currently impact
-// Starlark semantics.
+// In practice, almost any change to a .bzl causes the ASTFileLookupValue to be recomputed.
+// We could do better with a finer-grained notion of equality for StarlarkFile than "the source
+// files differ". In particular, a trivial change such as fixing a typo in a comment should not
+// cause invalidation. (Changes that are only slightly more substantial may be semantically
+// significant. For example, inserting a blank line affects subsequent line numbers, which appear
+// in error messages and query output.)
+//
+// Comparing syntax trees for equality is complex and expensive, so the most practical
+// implementation of this optimization will have to wait until Starlark files are compiled,
+// at which point byte-equality of the compiled representation (which is simple to compute)
+// will serve. (At that point, ASTFileLookup should be renamed CompileStarlark.)
+//
 public abstract class ASTFileLookupValue implements NotComparableSkyValue {
+
+  // TODO(adonovan): flatten this hierarchy into a single class.
+  // It would only cost one word per Starlark file.
+  // Eliminate lookupSuccessful; use getAST() != null.
+
   public abstract boolean lookupSuccessful();
 
   public abstract StarlarkFile getAST();
 
-  public abstract String getErrorMsg();
+  public abstract byte[] getDigest();
+
+  public abstract String getError();
 
   /** If the file is found, this class encapsulates the parsed AST. */
   @AutoCodec.VisibleForSerialization
   public static class ASTLookupWithFile extends ASTFileLookupValue {
     private final StarlarkFile ast;
+    private final byte[] digest;
 
-    private ASTLookupWithFile(StarlarkFile ast) {
-      Preconditions.checkNotNull(ast);
-      this.ast = ast;
+    private ASTLookupWithFile(StarlarkFile ast, byte[] digest) {
+      this.ast = Preconditions.checkNotNull(ast);
+      this.digest = Preconditions.checkNotNull(digest);
     }
 
     @Override
@@ -67,7 +78,12 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
     }
 
     @Override
-    public String getErrorMsg() {
+    public byte[] getDigest() {
+      return this.digest;
+    }
+
+    @Override
+    public String getError() {
       throw new IllegalStateException(
           "attempted to retrieve unsuccessful lookup reason for successful lookup");
     }
@@ -93,32 +109,29 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
     }
 
     @Override
-    public String getErrorMsg() {
+    public byte[] getDigest() {
+      throw new IllegalStateException("attempted to retrieve digest for successful lookup");
+    }
+
+    @Override
+    public String getError() {
       return this.errorMsg;
     }
   }
 
-  static ASTFileLookupValue forBadPackage(Label fileLabel, String reason) {
-    return new ASTLookupNoFile(
-        String.format("Unable to load package for '%s': %s", fileLabel, reason));
+  /** Constructs a value from a failure before parsing a file. */
+  @FormatMethod
+  static ASTFileLookupValue noFile(String format, Object... args) {
+    return new ASTLookupNoFile(String.format(format, args));
   }
 
-  static ASTFileLookupValue forMissingFile(Label fileLabel) {
-    return new ASTLookupNoFile(
-        String.format("Unable to load file '%s': file doesn't exist", fileLabel));
+  /** Constructs a value from a parsed file. */
+  public static ASTFileLookupValue withFile(StarlarkFile ast, byte[] digest) {
+    return new ASTLookupWithFile(ast, digest);
   }
 
-  static ASTFileLookupValue forBadFile(Label fileLabel) {
-    return new ASTLookupNoFile(
-        String.format("Unable to load file '%s': it isn't a regular file", fileLabel));
-  }
-
-  public static ASTFileLookupValue withFile(StarlarkFile ast) {
-    return new ASTLookupWithFile(ast);
-  }
-
-  public static Key key(Label astFileLabel) {
-    return ASTFileLookupValue.Key.create(astFileLabel);
+  public static Key key(Label label) {
+    return ASTFileLookupValue.Key.create(label);
   }
 
   @AutoCodec.VisibleForSerialization

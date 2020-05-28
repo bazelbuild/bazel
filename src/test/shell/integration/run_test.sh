@@ -443,4 +443,56 @@ eof
   expect_log "foo=(hallo)"
 }
 
+function test_default_test_tmpdir() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p ${pkg}
+  echo "echo \${TEST_TMPDIR} > ${TEST_TMPDIR}/tmpdir_value" > ${pkg}/write.sh
+  chmod +x ${pkg}/write.sh
+
+  cat > ${pkg}/BUILD <<'EOF'
+sh_test(name="a", srcs=["write.sh"])
+EOF
+
+  bazel run //${pkg}:a
+  local tmpdir_value
+  tmpdir_value="$(cat "${TEST_TMPDIR}/tmpdir_value")"
+  if ${is_windows}; then
+    # Work-around replacing the path with a short DOS path.
+    tmpdir_value="$(cygpath -m -l "${tmpdir_value}")"
+  fi
+  assert_starts_with "${TEST_TMPDIR}/" "${tmpdir_value}"
+}
+
+function test_blaze_run_with_custom_test_tmpdir() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p ${pkg}
+  local tmpdir
+  tmpdir="$(mktemp -d)"
+  if "${is_windows}"; then
+    # Translate from `/*` to a windows path.
+    tmpdir="$(cygpath -m "${tmpdir}")"
+  fi
+  # Sanity check to ensure we execute the intended scenario.
+  if [[ "${tmpdir}" == "${TEST_TMPDIR}"* ]]; then
+    fail "Temp folder potentially overlaps with the exec root"
+  fi
+  echo "echo \${TEST_TMPDIR} > ${TEST_TMPDIR}/tmpdir_value" > ${pkg}/write.sh
+  chmod +x ${pkg}/write.sh
+
+  cat > ${pkg}/BUILD <<'EOF'
+sh_test(name="a", srcs=["write.sh"])
+EOF
+
+  bazel run --test_tmpdir="${tmpdir}/test_bazel_run_with_custom_tmpdir" //${pkg}:a
+  assert_starts_with "${tmpdir}/test_bazel_run_with_custom_tmpdir" "$(cat "${TEST_TMPDIR}/tmpdir_value")"
+}
+
+# Usage: assert_starts_with PREFIX STRING_TO_CHECK.
+# Asserts that `$1` is a prefix of `$2`.
+function assert_starts_with() {
+  if [[ "${2}" != "${1}"* ]]; then
+    fail "${2} does not start with ${1}"
+  fi
+}
+
 run_suite "'${PRODUCT_NAME} run' integration tests"

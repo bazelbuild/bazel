@@ -250,7 +250,7 @@ public final class TargetUtils {
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
    *     actions' execution requirements, for more details {@see
-   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   *     StarlarkSemanticsOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getExecutionInfo(
       Rule rule, boolean allowTagsPropagation) {
@@ -272,7 +272,7 @@ public final class TargetUtils {
    * @param rule a rule instance to get tags from
    * @param allowTagsPropagation if set to true, tags will be propagated from a target to the
    *     actions' execution requirements, for more details {@see
-   *     SkylarkSematicOptions#experimentalAllowTagsPropagation}
+   *     StarlarkSematicOptions#experimentalAllowTagsPropagation}
    */
   public static ImmutableMap<String, String> getFilteredExecutionInfo(
       @Nullable Object executionRequirementsUnchecked, Rule rule, boolean allowTagsPropagation)

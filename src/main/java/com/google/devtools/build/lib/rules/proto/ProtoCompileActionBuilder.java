@@ -268,7 +268,7 @@ public class ProtoCompileActionBuilder {
     boolean siblingRepositoryLayout =
         ruleContext
             .getAnalysisEnvironment()
-            .getSkylarkSemantics()
+            .getStarlarkSemantics()
             .experimentalSiblingRepositoryLayout();
 
     // Add include maps
@@ -470,7 +470,7 @@ public class ProtoCompileActionBuilder {
     boolean siblingRepositoryLayout =
         ruleContext
             .getAnalysisEnvironment()
-            .getSkylarkSemantics()
+            .getStarlarkSemantics()
             .experimentalSiblingRepositoryLayout();
 
     result

@@ -18,7 +18,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
@@ -26,6 +25,11 @@ import com.google.devtools.build.lib.exec.ExecutorLifecycleListener;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,14 +47,19 @@ public class ContextProviderInitializationTest extends BuildIntegrationTestCase 
           new ExecutorLifecycleListener() {
 
             @Override
-            public void executorCreated() throws ExecutorInitException {}
+            public void executorCreated() {}
 
             @Override
             public void executionPhaseStarting(
                 ActionGraph actionGraph,
                 Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToAccountingGroups)
-                throws ExecutorInitException {
-              throw new ExecutorInitException("eek");
+                throws AbruptExitException {
+              throw new AbruptExitException(
+                  DetailedExitCode.of(
+                      FailureDetail.newBuilder()
+                          .setMessage("eek")
+                          .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
+                          .build()));
             }
 
             @Override
@@ -67,7 +76,6 @@ public class ContextProviderInitializationTest extends BuildIntegrationTestCase 
 
   @Test
   public void testContextProviderInitializationFailure() throws Exception {
-    assertThrows(
-        ExecutorInitException.class, () -> runtimeWrapper.executeBuild(ImmutableList.<String>of()));
+    assertThrows(AbruptExitException.class, () -> runtimeWrapper.executeBuild(ImmutableList.of()));
   }
 }

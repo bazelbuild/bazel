@@ -14,26 +14,26 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.python;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Provider instance for the Python rules. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "PyInfo",
     doc = "Encapsulates information provided by the Python rules.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_sources",
       structField = true,
       doc =
@@ -42,7 +42,7 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
               + "<code>deps</code>.")
   Depset getTransitiveSources();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "uses_shared_libraries",
       structField = true,
       doc =
@@ -52,7 +52,7 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
               + "<p>This field is currently unused in Bazel and may go away in the future.")
   boolean getUsesSharedLibraries();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "imports",
       structField = true,
       doc =
@@ -64,23 +64,23 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
               + "is recommended to use <code>default</code> order (the default).")
   Depset getImports();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "has_py2_only_sources",
       structField = true,
       doc = "Whether any of this target's transitive sources requires a Python 2 runtime.")
   boolean getHasPy2OnlySources();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "has_py3_only_sources",
       structField = true,
       doc = "Whether any of this target's transitive sources requires a Python 3 runtime.")
   boolean getHasPy3OnlySources();
 
   /** Provider type for {@link PyInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface PyInfoProviderApi extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "PyInfo",
         doc = "The <code>PyInfo</code> constructor.",
         parameters = {
@@ -123,7 +123,7 @@ public interface PyInfoApi<FileT extends FileApi> extends StarlarkValue {
         },
         selfCall = true,
         useStarlarkThread = true)
-    @SkylarkConstructor(objectType = PyInfoApi.class, receiverNameForDoc = "PyInfo")
+    @StarlarkConstructor(objectType = PyInfoApi.class, receiverNameForDoc = "PyInfo")
     PyInfoApi<?> constructor(
         Depset transitiveSources,
         boolean usesSharedLibraries,

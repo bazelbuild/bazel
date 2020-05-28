@@ -112,6 +112,14 @@ function test_shutdown() {
   local server_pid2=$(bazel info server_pid 2>$TEST_log)
   assert_not_equals "$server_pid1" "$server_pid2"
   expect_not_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_log "Starting local B\\(azel\\|laze\\) server and connecting to it"
+}
+
+function test_shutdown_different_options() {
+  bazel --host_jvm_args=-Di.am.a=teapot info >& $TEST_log || fail "Expected success"
+  bazel shutdown >& $TEST_log || fail "Expected success"
+  expect_log "WARNING.* Running B\\(azel\\|laze\\) server needs to be killed"
+  expect_not_log "Starting local B\\(azel\\|laze\\) server and connecting to it"
 }
 
 function test_server_restart_due_to_startup_options_with_client_debug_information() {

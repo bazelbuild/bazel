@@ -44,8 +44,8 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContextKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.List;
 import java.util.Map;
@@ -229,7 +229,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
         UnloadedToolchainContext context =
             (UnloadedToolchainContext)
                 walkableGraph.getValue(
-                    UnloadedToolchainContextKey.key()
+                    ToolchainContextKey.key()
                         .configurationKey(BuildConfigurationValue.key(config))
                         .requiredToolchainTypeLabels(execGroup.getRequiredToolchains())
                         .execConstraintLabels(execGroup.getExecutionPlatformConstraints())
@@ -242,7 +242,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
       UnloadedToolchainContext defaultContext =
           (UnloadedToolchainContext)
               walkableGraph.getValue(
-                  UnloadedToolchainContextKey.key()
+                  ToolchainContextKey.key()
                       .configurationKey(BuildConfigurationValue.key(config))
                       .requiredToolchainTypeLabels(requiredToolchains)
                       .execConstraintLabels(execConstraintLabels)

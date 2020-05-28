@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -270,9 +270,10 @@ public class AspectDefinitionTest {
   @Test
   public void testRequiresConfigurationFragmentNames_PropagatedToConfigurationFragmentPolicy()
       throws Exception {
-    AspectDefinition requiresFragments = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableList.of("test_fragment"))
-        .build();
+    AspectDefinition requiresFragments =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of("test_fragment"))
+            .build();
     assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
     assertThat(
         requiresFragments.getConfigurationFragmentPolicy()
@@ -285,7 +286,7 @@ public class AspectDefinitionTest {
       throws Exception {
     AspectDefinition requiresFragments =
         ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsBySkylarkModuleName(
+            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
                 ImmutableList.of("test_fragment"))
             .originalBuilder()
             .build();
@@ -297,16 +298,17 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testEmptySkylarkConfigurationFragmentPolicySetup_HasNonNullPolicy() throws Exception {
+  public void testEmptyStarlarkConfigurationFragmentPolicySetup_HasNonNullPolicy()
+      throws Exception {
     AspectDefinition noPolicy =
         ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsBySkylarkModuleName(ImmutableList.<String>of())
+            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.<String>of())
             .originalBuilder()
-            .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableList.<String>of())
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.<String>of())
             .build();
     assertThat(noPolicy.getConfigurationFragmentPolicy()).isNotNull();
   }
 
-  @SkylarkModule(name = "test_fragment", doc = "test fragment")
+  @StarlarkBuiltin(name = "test_fragment", doc = "test fragment")
   private static final class TestFragment implements StarlarkValue {}
 }

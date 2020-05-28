@@ -9,6 +9,7 @@ Install Bazel on macOS using one of the following methods:
 
 *   [Use the binary installer (recommended)](#install-with-installer-mac-os-x)
 *   [Use Homebrew](#install-on-mac-os-x-homebrew)
+*   [Use Bazelisk](install-bazelisk.md)
 *   [Compile Bazel from source](install-compile-source.md)
 
 Bazel comes with two completion scripts. After installing Bazel, you can:
@@ -16,7 +17,7 @@ Bazel comes with two completion scripts. After installing Bazel, you can:
 *   Access the [bash completion script](completion.md#bash)
 *   Install the [zsh completion script](completion.md#zsh)
 
-<h2 id="install-with-installer-mac-os-x">Installing using binary installer</h2>
+<h2 id="install-with-installer-mac-os-x">Installing using the binary installer</h2>
 
 The binary installers are on Bazel's [GitHub releases page](https://github.com/bazelbuild/bazel/releases).
 
@@ -25,9 +26,9 @@ installed for Bazel to work.
 
 ### Step 1: Install Xcode command line tools
 
-Xcode can be downloaded from the [Apple Developer
-Site](https://developer.apple.com/xcode/downloads/) (this link redirects to
-their App Store).
+Download Xcode from the
+[App Store](https://apps.apple.com/us/app/xcode/id497799835) or the
+[Apple Developer site](https://developer.apple.com/download/more/?=xcode).
 
 For `objc_*` and `ios_*` rule support, you must have Xcode 6.1 or later with iOS
 SDK 8.1 installed on your system.
@@ -42,7 +43,7 @@ sudo xcodebuild -license accept
 
 Next, download the Bazel binary installer named `bazel-<version>-installer-darwin-x86_64.sh` from the [Bazel releases page on GitHub](https://github.com/bazelbuild/bazel/releases).
 
-Note: **on MacOS Catalina**, due to Apple's new app notarization requirements,
+Note: **on macOS Catalina**, due to Apple's new app notarization requirements,
 you will need to download the installer from the terminal using `curl`:
 
 ```
@@ -66,7 +67,7 @@ The `--user` flag installs Bazel to the `$HOME/bin` directory on your system and
 sets the `.bazelrc` path to `$HOME/.bazelrc`. Use the `--help` command to see
 additional installation options.
 
-If you are **on MacOS Catalina** and get an error that _**“bazel-real” cannot be
+If you are **on macOS Catalina** and get an error that _**“bazel-real” cannot be
 opened because the developer cannot be verified**_, you will need to re-download
 the installer from the terminal using `curl` as a workaround; see Step 2 above.
 
@@ -96,32 +97,26 @@ To update to a newer release of Bazel, download and install the desired version.
 Install Homebrew (a one-time step):
 
 ```bash
-/usr/bin/ruby -e "$(curl -fsSL \
-https://raw.githubusercontent.com/Homebrew/install/master/install)"
+/bin/bash -c "$(curl -fsSL \
+https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 ```
 
-### Step 2: Install the Bazel Homebrew package
-
-_Please note that if your system has the Bazel package from homebrew core installed you first
-need to uninstall it by typing `brew uninstall bazel`_
+### Step 2: Install Bazel via Homebrew
 
 Install the Bazel package via Homebrew as follows:
 
 ```bash
-brew tap bazelbuild/tap
-brew install bazelbuild/tap/bazel
+$ brew install bazel
 ```
 
 All set! You can confirm Bazel is installed successfully by running the following command:
 
 ```bash
-bazel --version
+$ bazel --version
 ```
 
 Once installed, you can upgrade to a newer version of Bazel using the following command:
 
 ```bash
-brew upgrade bazelbuild/tap/bazel
+$ brew upgrade bazel
 ```
-
-

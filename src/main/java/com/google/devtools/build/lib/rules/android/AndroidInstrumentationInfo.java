@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 public class AndroidInstrumentationInfo extends NativeInfo
     implements AndroidInstrumentationInfoApi<ApkInfo> {
 
-  private static final String SKYLARK_NAME = "AndroidInstrumentationInfo";
+  private static final String STARLARK_NAME = "AndroidInstrumentationInfo";
 
   public static final AndroidInstrumentationInfoProvider PROVIDER =
       new AndroidInstrumentationInfoProvider();
@@ -49,7 +49,7 @@ public class AndroidInstrumentationInfo extends NativeInfo
       implements AndroidInstrumentationInfoApiProvider<ApkInfo> {
 
     private AndroidInstrumentationInfoProvider() {
-      super(SKYLARK_NAME, AndroidInstrumentationInfo.class);
+      super(STARLARK_NAME, AndroidInstrumentationInfo.class);
     }
 
     @Override

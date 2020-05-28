@@ -348,10 +348,10 @@ public class DynamicSpawnStrategy implements SpawnStrategy {
   }
 
   @Override
-  public void usedContext(ActionContext.ActionContextRegistry actionExecutionRegistry) {
-    actionExecutionRegistry
+  public void usedContext(ActionContext.ActionContextRegistry actionContextRegistry) {
+    actionContextRegistry
         .getContext(DynamicStrategyRegistry.class)
-        .notifyUsedDynamic(actionExecutionRegistry);
+        .notifyUsedDynamic(actionContextRegistry);
   }
 
   private static FileOutErr getSuffixedFileOutErr(FileOutErr fileOutErr, String suffix) {

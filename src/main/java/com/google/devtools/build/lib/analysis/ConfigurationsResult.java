@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
  * registers if an error was recorded.
  */
 public class ConfigurationsResult {
-  private final Multimap<Dependency, BuildConfiguration> configurations;
+  private final Multimap<DependencyKey, BuildConfiguration> configurations;
   private final boolean hasError;
 
   private ConfigurationsResult(
-      Multimap<Dependency, BuildConfiguration> configurations, boolean hasError) {
+      Multimap<DependencyKey, BuildConfiguration> configurations, boolean hasError) {
     this.configurations = configurations;
     this.hasError = hasError;
   }
@@ -37,7 +37,7 @@ public class ConfigurationsResult {
     return hasError;
   }
 
-  public Multimap<Dependency, BuildConfiguration> getConfigurationMap() {
+  public Multimap<DependencyKey, BuildConfiguration> getConfigurationMap() {
     return configurations;
   }
 
@@ -47,11 +47,11 @@ public class ConfigurationsResult {
 
   /** Builder for {@link ConfigurationsResult} */
   public static class Builder {
-    private final Multimap<Dependency, BuildConfiguration> configurations =
-        ArrayListMultimap.<Dependency, BuildConfiguration>create();
+    private final Multimap<DependencyKey, BuildConfiguration> configurations =
+        ArrayListMultimap.create();
     private boolean hasError = false;
 
-    public void put(Dependency key, BuildConfiguration value) {
+    public void put(DependencyKey key, BuildConfiguration value) {
       configurations.put(key, value);
     }
 

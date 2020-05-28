@@ -1435,6 +1435,16 @@ EOF
 
   expect_log "1 local"
   expect_not_log "1 remote"
+
+  bazel clean
+
+  bazel build \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || "Failed to build //a:foo"
+
+  expect_log "1 remote cache hit"
+  expect_not_log "1 local"
 }
 
 function test_nobuild_runfile_links() {

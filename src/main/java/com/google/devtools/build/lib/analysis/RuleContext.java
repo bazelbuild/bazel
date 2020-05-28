@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -44,13 +46,11 @@ import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -124,7 +125,7 @@ public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
 
   public boolean isAllowTagsPropagation() throws InterruptedException {
-    return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
+    return this.getAnalysisEnvironment().getStarlarkSemantics().experimentalAllowTagsPropagation();
   }
 
   /** Custom dependency validation logic. */
@@ -203,8 +204,11 @@ public final class RuleContext extends TargetContext
   private final ConstraintSemantics<RuleContext> constraintSemantics;
   private final ImmutableSet<String> requiredConfigFragments;
   private final List<Expander> makeVariableExpanders = new ArrayList<>();
+  private final ImmutableMap<String, ImmutableMap<String, String>> execProperties;
 
-  private ActionOwner actionOwner;
+  /** Map of exec group names to ActionOwners. */
+  private final Map<String, ActionOwner> actionOwners = new HashMap<>();
+
   private final SymbolGenerator<ActionLookupValue.ActionLookupKey> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
@@ -222,7 +226,8 @@ public final class RuleContext extends TargetContext
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ConstraintSemantics<RuleContext> constraintSemantics,
-      ImmutableSet<String> requiredConfigFragments) {
+      ImmutableSet<String> requiredConfigFragments)
+      throws InvalidExecGroupException {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
@@ -253,6 +258,7 @@ public final class RuleContext extends TargetContext
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
     this.toolchainContexts = toolchainContexts;
+    this.execProperties = parseExecProperties();
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
   }
@@ -425,15 +431,26 @@ public final class RuleContext extends TargetContext
 
   @Override
   public ActionOwner getActionOwner() {
-    if (actionOwner == null) {
-      actionOwner =
-          createActionOwner(
-              rule,
-              aspectDescriptors,
-              getConfiguration(),
-              getTargetExecProperties(),
-              getExecutionPlatform());
+    return getActionOwner(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  @Override
+  public ActionOwner getActionOwner(String execGroup) {
+    if (actionOwners.containsKey(execGroup)) {
+      return actionOwners.get(execGroup);
     }
+    Preconditions.checkState(
+        toolchainContexts == null || toolchainContexts.hasToolchainContext(execGroup),
+        "action owner requested for non-existent exec group '%s'.",
+        execGroup);
+    ActionOwner actionOwner =
+        createActionOwner(
+            rule,
+            aspectDescriptors,
+            getConfiguration(),
+            getExecProperties(execGroup, execProperties),
+            getExecutionPlatform(execGroup));
+    actionOwners.put(execGroup, actionOwner);
     return actionOwner;
   }
 
@@ -485,10 +502,10 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public Fragment getSkylarkFragment(String name, ConfigurationTransition transition)
+  public Fragment getStarlarkFragment(String name, ConfigurationTransition transition)
       throws EvalException {
     Class<? extends Fragment> fragmentClass =
-        getConfiguration(transition).getSkylarkFragmentByName(name);
+        getConfiguration(transition).getStarlarkFragmentByName(name);
     if (fragmentClass == null) {
       return null;
     }
@@ -506,8 +523,8 @@ public final class RuleContext extends TargetContext
     }
   }
 
-  public ImmutableCollection<String> getSkylarkFragmentNames(ConfigurationTransition transition) {
-    return getConfiguration(transition).getSkylarkFragmentNames();
+  public ImmutableCollection<String> getStarlarkFragmentNames(ConfigurationTransition transition) {
+    return getConfiguration(transition).getStarlarkFragmentNames();
   }
 
   public <T extends Fragment> boolean isLegalFragment(
@@ -905,40 +922,19 @@ public final class RuleContext extends TargetContext
   public Map<Optional<String>, List<ConfiguredTargetAndData>>
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
     checkAttribute(attributeName, TransitionMode.SPLIT);
-    Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
-    Preconditions.checkState(attributeDefinition.getTransitionFactory().isSplit());
-    SplitTransition transition =
-        (SplitTransition)
-            attributeDefinition
-                .getTransitionFactory()
-                .create(
-                    AttributeTransitionData.builder()
-                        .attributes(ConfiguredAttributeMapper.of(rule, configConditions))
-                        .executionPlatform(getToolchainContext().executionPlatform().label())
-                        .build());
-    BuildOptions fromOptions = getConfiguration().getOptions();
-    Map<String, BuildOptions> splitOptions =
-        transition.split(fromOptions, getAnalysisEnvironment().getEventHandler());
-    List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
-
-    if (SplitTransition.equals(fromOptions, splitOptions.values())) {
-      // The split transition is not active.
-      return ImmutableMap.of(Optional.<String>absent(), deps);
-    }
-
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
     ImmutableListMultimap.Builder<Optional<String>, ConfiguredTargetAndData> result =
         ImmutableListMultimap.builder();
+    List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
     for (ConfiguredTargetAndData t : deps) {
-      if (t.getTransitionKey() == null
-          || t.getTransitionKey().equals(ConfigurationTransition.PATCH_TRANSITION_KEY)) {
-        // The target doesn't have a specific transition key associated. This likely means it's a
-        // non-configurable target, e.g. files, package groups. Pan out to all available keys.
-        for (String key : splitOptions.keySet()) {
-          result.put(Optional.of(key), t);
-        }
-      } else {
-        result.put(Optional.of(t.getTransitionKey()), t);
+      ImmutableList<String> transitionKeys = t.getTransitionKeys();
+      if (transitionKeys.isEmpty()) {
+        // The split transition is not active, i.e. does not change build configurations.
+        // TODO(jungjw): Investigate if we need to do a sanity check here.
+        return ImmutableMap.of(Optional.absent(), deps);
+      }
+      for (String key : transitionKeys) {
+        result.put(Optional.of(key), t);
       }
     }
     return Multimaps.asMap(result.build());
@@ -1230,10 +1226,18 @@ public final class RuleContext extends TargetContext
     return configurationMakeVariableContext;
   }
 
-  // TODO(b/151742236): provide access to other non-default toolchain contexts.
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
     return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
+  }
+
+  @Nullable
+  private ResolvedToolchainContext getToolchainContext(String execGroup) {
+    return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
+  }
+
+  public boolean hasToolchainContext(String execGroup) {
+    return toolchainContexts != null && toolchainContexts.hasToolchainContext(execGroup);
   }
 
   @Nullable
@@ -1280,21 +1284,92 @@ public final class RuleContext extends TargetContext
     return ans.build();
   }
 
-  public Map<String, String> getTargetExecProperties() {
-    if (isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
-      return attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT);
+  private ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties()
+      throws InvalidExecGroupException {
+    if (!isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+      return ImmutableMap.of(DEFAULT_EXEC_GROUP_NAME, ImmutableMap.of());
     } else {
-      return ImmutableMap.of();
+      return parseExecProperties(
+          attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT),
+          toolchainContexts == null ? ImmutableSet.of() : toolchainContexts.getExecGroups());
     }
   }
 
-  @Override
-  @Nullable
-  public PlatformInfo getExecutionPlatform() {
-    if (getToolchainContext() == null) {
-      return null;
+  /**
+   * Parse raw exec properties attribute value into a map of exec group names to their properties.
+   * The raw map can have keys of two forms: (1) 'property' and (2) 'exec_group_name.property'. The
+   * former get parsed into the target's default exec group, the latter get parsed into their
+   * relevant exec groups.
+   */
+  private static ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
+      Map<String, String> rawExecProperties, Set<String> execGroups)
+      throws InvalidExecGroupException {
+    Map<String, Map<String, String>> consolidatedProperties = new HashMap<>();
+    consolidatedProperties.put(DEFAULT_EXEC_GROUP_NAME, new HashMap<>());
+    for (Map.Entry<String, String> execProperty : rawExecProperties.entrySet()) {
+      String rawProperty = execProperty.getKey();
+      int delimiterIndex = rawProperty.indexOf('.');
+      if (delimiterIndex == -1) {
+        consolidatedProperties
+            .get(DEFAULT_EXEC_GROUP_NAME)
+            .put(rawProperty, execProperty.getValue());
+      } else {
+        String execGroup = rawProperty.substring(0, delimiterIndex);
+        String property = rawProperty.substring(delimiterIndex + 1);
+        if (!execGroups.contains(execGroup)) {
+          throw new InvalidExecGroupException(
+              String.format(
+                  "Tried to set exec property '%s' for non-existent exec group '%s'.",
+                  property, execGroup));
+        }
+        consolidatedProperties.putIfAbsent(execGroup, new HashMap<>());
+        consolidatedProperties.get(execGroup).put(property, execProperty.getValue());
+      }
     }
-    return getToolchainContext().executionPlatform();
+
+    // Copy everything to immutable maps.
+    ImmutableMap.Builder<String, ImmutableMap<String, String>> execProperties =
+        new ImmutableMap.Builder<>();
+    for (Map.Entry<String, Map<String, String>> execGroupMap : consolidatedProperties.entrySet()) {
+      execProperties.put(execGroupMap.getKey(), ImmutableMap.copyOf(execGroupMap.getValue()));
+    }
+
+    return execProperties.build();
+  }
+
+  /**
+   * Gets the combined exec properties of the given exec group and the target's exec properties. If
+   * a property is set in both, the exec group properties take precedence. If a non-existent exec
+   * group is passed in, just returns the target's exec properties.
+   *
+   * @param execGroup group whose properties to retrieve
+   * @param execProperties Map of exec group name to map of properties and values
+   */
+  private static ImmutableMap<String, String> getExecProperties(
+      String execGroup, Map<String, ImmutableMap<String, String>> execProperties) {
+    if (!execProperties.containsKey(execGroup) || execGroup.equals(DEFAULT_EXEC_GROUP_NAME)) {
+      return execProperties.get(DEFAULT_EXEC_GROUP_NAME);
+    }
+
+    // Use a HashMap to build here because we expect duplicate keys to happen
+    // (and rewrite previous entries).
+    Map<String, String> targetAndGroupProperties =
+        new HashMap<>(execProperties.get(DEFAULT_EXEC_GROUP_NAME));
+    targetAndGroupProperties.putAll(execProperties.get(execGroup));
+    return ImmutableMap.copyOf(targetAndGroupProperties);
+  }
+
+  /** An error for when the user tries to access an non-existent exec group */
+  public static final class InvalidExecGroupException extends Exception
+      implements SaneAnalysisException {
+    InvalidExecGroupException(String message) {
+      super(message);
+    }
+  }
+
+  @VisibleForTesting
+  public ImmutableMap<String, ImmutableMap<String, String>> getExecPropertiesForTesting() {
+    return execProperties;
   }
 
   private void checkAttribute(String attributeName, TransitionMode mode) {
@@ -1332,6 +1407,25 @@ public final class RuleContext extends TargetContext
             + " is not configured for a split transition");
       }
     }
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform() {
+    if (getToolchainContext() == null) {
+      return null;
+    }
+    return getToolchainContext().executionPlatform();
+  }
+
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform(String execGroup) {
+    if (getToolchainContexts() == null) {
+      return null;
+    }
+    ResolvedToolchainContext toolchainContext = getToolchainContext(execGroup);
+    return toolchainContext == null ? null : toolchainContext.executionPlatform();
   }
 
   /**
@@ -1680,7 +1774,7 @@ public final class RuleContext extends TargetContext
     }
 
     @VisibleForTesting
-    public RuleContext build() {
+    public RuleContext build() throws InvalidExecGroupException {
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
@@ -2020,7 +2114,7 @@ public final class RuleContext extends TargetContext
      * build)
      */
     public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
-      return env.getSkylarkSemantics();
+      return env.getStarlarkSemantics();
     }
 
     /**

@@ -16,11 +16,15 @@ package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * A configuration transition that composes two other transitions in an ordered sequence.
@@ -49,12 +53,23 @@ public class ComposingTransition implements ConfigurationTransition {
   }
 
   @Override
-  public Map<String, BuildOptions> apply(BuildOptions buildOptions, EventHandler eventHandler) {
+  public Set<Class<? extends FragmentOptions>> requiresOptionFragments() {
+    return ImmutableSet.<Class<? extends FragmentOptions>>builder()
+        .addAll(transition1.requiresOptionFragments())
+        .addAll(transition2.requiresOptionFragments())
+        .build();
+  }
+
+  @Override
+  public Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler) {
     ImmutableMap.Builder<String, BuildOptions> toOptions = ImmutableMap.builder();
-    for (Map.Entry<String, BuildOptions> entry1 :
-        transition1.apply(buildOptions, eventHandler).entrySet()) {
-      for (Map.Entry<String, BuildOptions> entry2 :
-          transition2.apply(entry1.getValue(), eventHandler).entrySet()) {
+    Map<String, BuildOptions> transition1Output =
+        transition1.apply(
+            TransitionUtil.restrict(transition1, buildOptions.underlying()), eventHandler);
+    for (Map.Entry<String, BuildOptions> entry1 : transition1Output.entrySet()) {
+      Map<String, BuildOptions> transition2Output =
+          transition2.apply(TransitionUtil.restrict(transition2, entry1.getValue()), eventHandler);
+      for (Map.Entry<String, BuildOptions> entry2 : transition2Output.entrySet()) {
         toOptions.put(composeKeys(entry1.getKey(), entry2.getKey()), entry2.getValue());
       }
     }
@@ -69,6 +84,11 @@ public class ComposingTransition implements ConfigurationTransition {
   @Override
   public String getName() {
     return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+  }
+
+  @Override
+  public boolean isHostTransition() {
+    return transition1.isHostTransition() || transition2.isHostTransition();
   }
 
   // Override to allow recursive visiting.

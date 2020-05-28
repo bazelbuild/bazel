@@ -42,8 +42,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -56,6 +54,8 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Supplier;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * Instances of BuildConfiguration represent a collection of context information which may affect a
@@ -104,7 +104,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
   private final ImmutableSortedMap<Class<? extends Fragment>, Fragment> fragments;
   private final FragmentClassSet fragmentClassSet;
 
-  private final ImmutableMap<String, Class<? extends Fragment>> skylarkVisibleFragments;
+  private final ImmutableMap<String, Class<? extends Fragment>> starlarkVisibleFragments;
   private final RepositoryName mainRepositoryName;
   private final ImmutableSet<String> reservedActionMnemonics;
   private CommandLineLimits commandLineLimits;
@@ -252,7 +252,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
     // this.directories = directories;
     this.fragments = makeFragmentsMap(fragmentsMap);
     this.fragmentClassSet = FragmentClassSet.of(this.fragments.keySet());
-    this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
+    this.starlarkVisibleFragments = buildIndexOfStarlarkVisibleFragments();
     this.buildOptions = buildOptions.clone();
     this.buildOptionsDiff = buildOptionsDiff;
     this.options = buildOptions.get(CoreOptions.class);
@@ -345,11 +345,11 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options;
   }
 
-  private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfSkylarkVisibleFragments() {
+  private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfStarlarkVisibleFragments() {
     ImmutableMap.Builder<String, Class<? extends Fragment>> builder = ImmutableMap.builder();
 
     for (Class<? extends Fragment> fragmentClass : fragments.keySet()) {
-      SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+      StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(fragmentClass);
       if (module != null) {
         builder.put(module.name(), fragmentClass);
       }
@@ -866,12 +866,12 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.autoCpuEnvironmentGroup;
   }
 
-  public Class<? extends Fragment> getSkylarkFragmentByName(String name) {
-    return skylarkVisibleFragments.get(name);
+  public Class<? extends Fragment> getStarlarkFragmentByName(String name) {
+    return starlarkVisibleFragments.get(name);
   }
 
-  public ImmutableCollection<String> getSkylarkFragmentNames() {
-    return skylarkVisibleFragments.keySet();
+  public ImmutableCollection<String> getStarlarkFragmentNames() {
+    return starlarkVisibleFragments.keySet();
   }
 
   public BuildEventId getEventId() {

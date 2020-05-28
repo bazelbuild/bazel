@@ -31,14 +31,17 @@ import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionContextMarker;
 import com.google.devtools.build.lib.actions.DynamicStrategyRegistry;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.ExecutionOptions.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -368,7 +371,7 @@ public final class SpawnActionContextMaps
     }
 
     /** Builds a {@link SpawnActionContextMaps} instance. */
-    public SpawnActionContextMaps build() throws ExecutorInitException {
+    public SpawnActionContextMaps build() throws AbruptExitException {
       StrategyConverter strategyConverter = new StrategyConverter(actionContexts);
 
       ImmutableSortedMap.Builder<String, List<SpawnStrategy>> spawnStrategyMap =
@@ -457,7 +460,7 @@ public final class SpawnActionContextMaps
     private ImmutableMultimap<String, SandboxedSpawnStrategy> toActionContexts(
         StrategyConverter strategyConverter,
         LinkedHashMultimap<String, String> dynamicStrategyByMnemonicMap)
-        throws ExecutorInitException {
+        throws AbruptExitException {
       ImmutableMultimap.Builder<String, SandboxedSpawnStrategy> mnemonicToStrategies =
           ImmutableMultimap.builder();
       for (Entry<String, Collection<String>> mnemonicToIdentifiers :
@@ -474,8 +477,9 @@ public final class SpawnActionContextMaps
                 strategyConverter.getValidValues(SpawnStrategy.class));
           }
           if (!(strategy instanceof SandboxedSpawnStrategy)) {
-            throw new ExecutorInitException(
-                "Requested strategy " + identifier + " exists but does not support sandboxing");
+            throw createExitException(
+                "Requested strategy " + identifier + " exists but does not support sandboxing",
+                Code.REQUESTED_STRATEGY_INCOMPATIBLE_WITH_SANDBOXING);
           }
           mnemonicToStrategies.put(
               mnemonicToIdentifiers.getKey(), (SandboxedSpawnStrategy) strategy);
@@ -485,13 +489,23 @@ public final class SpawnActionContextMaps
     }
   }
 
-  private static ExecutorInitException makeExceptionForInvalidStrategyValue(
+  private static AbruptExitException makeExceptionForInvalidStrategyValue(
       String value, String strategy, String validValues) {
-    return new ExecutorInitException(
+    return createExitException(
         String.format(
             "'%s' is an invalid value for %s strategy. Valid values are: %s",
             value, strategy, validValues),
-        ExitCode.COMMAND_LINE_ERROR);
+        Code.INVALID_STRATEGY);
+  }
+
+  private static AbruptExitException createExitException(String message, Code detailedCode) {
+    return new AbruptExitException(
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setExecutionOptions(
+                    FailureDetails.ExecutionOptions.newBuilder().setCode(detailedCode))
+                .build()));
   }
 
   private static class StrategyConverter {

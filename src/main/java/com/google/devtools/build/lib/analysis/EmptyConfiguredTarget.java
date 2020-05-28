@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import javax.annotation.Nullable;
 
 /** A configured target that is empty. */
-@Immutable // (and Starlark-hashable)
+@Immutable
 public class EmptyConfiguredTarget extends AbstractConfiguredTarget {
   public EmptyConfiguredTarget(Label label, BuildConfigurationValue.Key configurationKey) {
     super(label, configurationKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -33,12 +33,12 @@ public class EmptyConfiguredTarget extends AbstractConfiguredTarget {
 
   @Nullable
   @Override
-  protected Info rawGetSkylarkProvider(Provider.Key providerKey) {
+  protected Info rawGetStarlarkProvider(Provider.Key providerKey) {
     return null;
   }
 
   @Override
-  protected Object rawGetSkylarkProvider(String providerKey) {
+  protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
   }
 

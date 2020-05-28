@@ -15,40 +15,40 @@
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.io.IOException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A structure representing a file to be used inside a repository. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "path",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "A structure representing a file to be used inside a repository.")
 public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<?>>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "basename",
       structField = true,
       doc = "A string giving the basename of the file.")
   String getBasename();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "readdir",
       structField = false,
       doc = "The list of entries in the directory denoted by this path.")
   ImmutableList<RepositoryPathApiT> readdir() throws IOException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dirname",
       structField = true,
       doc = "The parent directory of this file, or None if this file does not have a parent.")
   RepositoryPathApi<?> getDirname();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_child",
       doc = "Append the given path to this path and return the resulted path.",
       parameters = {
@@ -61,13 +61,13 @@ public interface RepositoryPathApi<RepositoryPathApiT extends RepositoryPathApi<
       })
   RepositoryPathApi<?> getChild(String childPath);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exists",
       structField = true,
       doc = "Returns true if the file denoted by this path exists.")
   boolean exists();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "realpath",
       structField = true,
       doc =

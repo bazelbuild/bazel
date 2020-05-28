@@ -205,9 +205,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             Futures.immediateFailedFuture(
                 new IOException(
                     String.format(
-                        "findMissingBlobs(%d) for %s",
+                        "findMissingBlobs(%d) for %s: %s",
                         requestBuilder.getBlobDigestsCount(),
-                        TracingMetadataUtils.fromCurrentContext().getActionId()),
+                        TracingMetadataUtils.fromCurrentContext().getActionId(),
+                        e.getMessage()),
                     e)),
         MoreExecutors.directExecutor());
   }

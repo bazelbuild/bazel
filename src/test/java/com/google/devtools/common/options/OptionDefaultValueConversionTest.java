@@ -14,9 +14,7 @@
 
 package com.google.devtools.common.options;
 
-import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.stream.Collectors.toList;
-import static org.junit.Assume.assumeTrue;
 
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.util.Classpath;
@@ -48,29 +46,6 @@ public class OptionDefaultValueConversionTest {
   @Rule public ExpectedException thrown = ExpectedException.none();
 
   @Parameter public OptionDefinition optionDefinitionUnderTest;
-
-  /**
-   * Regression test for {@code allowMultiple = true} {@link Option#defaultValue()} switch from
-   * {@code ""} to {@code "null"} as a part of enabling default values for {@code allowMultiple =
-   * true} {@link Option}s.
-   */
-  @Test
-  public void allowMultipleOptionsShouldNotHaveEmptyStringDefault() {
-    // apply the test only to allowMultiple = true Options
-    assumeTrue(optionDefinitionUnderTest.allowsMultiple());
-
-    // arrange
-    String assertionMessage =
-        String.format(
-            "\"%s\" option default value is an empty string - use a special \"null\" value for"
-                + " empty multiple options",
-            optionDefinitionUnderTest.getOptionName());
-
-    // assert
-    assertWithMessage(assertionMessage)
-        .that(optionDefinitionUnderTest.getUnparsedDefaultValue())
-        .isNotEmpty();
-  }
 
   @Test
   public void shouldConvertDefaultValue() {

@@ -18,21 +18,21 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import java.text.Collator;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDeprecated;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * A class representing documentation for a Starlark built-in object with its {@link StarlarkModule}
- * annotation and with the {@link SkylarkCallable} methods it documents.
+ * annotation and with the {@link StarlarkMethod} methods it documents.
  */
 public final class StarlarkBuiltinDoc extends StarlarkDoc {
-  private final SkylarkModule module;
+  private final StarlarkBuiltin module;
   private final Class<?> classObject;
   private final Multimap<String, StarlarkJavaMethodDoc> javaMethods;
   private TreeMap<String, StarlarkMethodDoc> methodMap;
@@ -40,9 +40,10 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
   private final boolean deprecated;
   @Nullable private StarlarkConstructorMethodDoc javaConstructor;
 
-  public StarlarkBuiltinDoc(SkylarkModule module, Class<?> classObject) {
-    this.module = Preconditions.checkNotNull(
-        module, "Class has to be annotated with SkylarkModule: %s", classObject);
+  public StarlarkBuiltinDoc(StarlarkBuiltin module, Class<?> classObject) {
+    this.module =
+        Preconditions.checkNotNull(
+            module, "Class has to be annotated with StarlarkBuiltin: %s", classObject);
     this.classObject = classObject;
     this.methodMap = new TreeMap<>(Collator.getInstance(Locale.US));
     this.javaMethods = HashMultimap.<String, StarlarkJavaMethodDoc>create();
@@ -73,7 +74,7 @@ public final class StarlarkBuiltinDoc extends StarlarkDoc {
     return deprecated;
   }
 
-  public SkylarkModule getAnnotation() {
+  public StarlarkBuiltin getAnnotation() {
     return module;
   }
 

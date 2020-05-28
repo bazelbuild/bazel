@@ -15,7 +15,10 @@ cc_library(
 
 cc_library(
     name = "process-tools",
-    srcs = ["process-tools.cc"],
+    srcs = ["process-tools.cc"] + select({
+        "//src/conditions:darwin": ["process-tools-darwin.cc"],
+        "//conditions:default": ["process-tools-linux.cc"],
+    }),
     hdrs = ["process-tools.h"],
     deps = [
         ":logging",

@@ -178,8 +178,8 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
-      return original.getSkylarkSemantics();
+    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+      return original.getStarlarkSemantics();
     }
 
     @Override
@@ -381,7 +381,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
       return null;
     }
 

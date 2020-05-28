@@ -51,6 +51,7 @@ public class ShadowedAndroidApiAdapterTest {
           .addJavacOptions("-source 11", "-target 11")
           .addCommandOptions("core_library", "true")
           .addCommandOptions("desugar_supported_core_libs", "true")
+          .addCommandOptions("auto_desugar_shadowed_api_use", "true")
           .enableIterativeTransformation(2)
           .addCommandOptions("rewrite_core_library_prefix", "javadesugar/testing/")
           .build();
@@ -263,6 +264,42 @@ public class ShadowedAndroidApiAdapterTest {
       throws Throwable {
     long result = (long) method.invoke(2L, 3L, 4L, 10L, 10L, 10L);
     assertThat(result).isEqualTo(24000L);
+  }
+
+  @Test
+  public void executeUserApp_invokeOverridableMethodPreDesugar(
+      @RuntimeMethodHandle(
+              className = "com.app.testing.CuboidCalculator",
+              memberName = "invokeOverridableMethod",
+              round = 0)
+          MethodHandle method)
+      throws Throwable {
+    long result = (long) method.invoke(4L, 5L, 6L);
+    assertThat(result).isEqualTo(8_463_000L);
+  }
+
+  @Test
+  public void executeUserApp_invokeOverridableMethodDesugarOnce(
+      @RuntimeMethodHandle(
+              className = "com.app.testing.CuboidCalculator",
+              memberName = "invokeOverridableMethod",
+              round = 1)
+          MethodHandle method)
+      throws Throwable {
+    long result = (long) method.invoke(4L, 5L, 6L);
+    assertThat(result).isEqualTo(8_463_000L);
+  }
+
+  @Test
+  public void executeUserApp_invokeOverridableMethodDesugarTwice(
+      @RuntimeMethodHandle(
+              className = "com.app.testing.CuboidCalculator",
+              memberName = "invokeOverridableMethod",
+              round = 2)
+          MethodHandle method)
+      throws Throwable {
+    long result = (long) method.invoke(4L, 5L, 6L);
+    assertThat(result).isEqualTo(8_463_000L);
   }
 
   @Test

@@ -25,6 +25,9 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.commands.TargetPatternsHelper.TargetPatternsHelperException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParser;
@@ -96,10 +99,17 @@ public class TargetPatternsHelperTest {
         assertThrows(
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
-    assertThat(expected)
-        .hasMessageThat()
+    String message =
+        "Command-line target pattern and --target_pattern_file cannot both be specified";
+    assertThat(expected).hasMessageThat().isEqualTo(message);
+    assertThat(expected.getFailureDetail())
         .isEqualTo(
-            "Command-line target pattern and --target_pattern_file cannot both be specified");
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setTargetPatterns(
+                    TargetPatterns.newBuilder()
+                        .setCode(Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN))
+                .build());
   }
 
   @Test
@@ -110,8 +120,11 @@ public class TargetPatternsHelperTest {
         assertThrows(
             TargetPatternsHelperException.class, () -> TargetPatternsHelper.readFrom(env, options));
 
-    assertThat(expected)
-        .hasMessageThat()
-        .matches("I/O error reading from .*patterns.txt.*\\(No such file or directory\\)");
+    String regex = "I/O error reading from .*patterns.txt.*\\(No such file or directory\\)";
+    assertThat(expected).hasMessageThat().matches(regex);
+    assertThat(expected.getFailureDetail().getMessage()).matches(regex);
+    assertThat(expected.getFailureDetail().hasTargetPatterns()).isTrue();
+    assertThat(expected.getFailureDetail().getTargetPatterns().getCode())
+        .isEqualTo(Code.TARGET_PATTERN_FILE_READ_FAILURE);
   }
 }

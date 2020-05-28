@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -21,7 +22,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
@@ -91,6 +92,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
   private static ArtifactNestedSetFunction singleton = null;
 
   private static Integer sizeThreshold = null;
+  private static Boolean evalKeysAsOneGroup = null;
 
   private ArtifactNestedSetFunction() {
     artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
@@ -108,11 +110,13 @@ public class ArtifactNestedSetFunction implements SkyFunction {
                 ActionExecutionException.class);
 
     // Evaluate all children.
-    ArrayList<SkyKey> transitiveKeys = new ArrayList<>();
-    for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
-      nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
-      transitiveKeys.add(nestedSetToSkyKey.get(transitive));
+    List<Object> transitiveMembers = artifactNestedSetKey.transitiveMembers();
+    List<SkyKey> transitiveKeys = Lists.newArrayListWithCapacity(transitiveMembers.size());
+    for (Object transitiveMember : transitiveMembers) {
+      transitiveKeys.add(
+          nestedSetToSkyKey.computeIfAbsent(transitiveMember, ArtifactNestedSetKey::new));
     }
+
     env.getValues(transitiveKeys);
 
     if (env.valuesMissing()) {
@@ -164,12 +168,32 @@ public class ArtifactNestedSetFunction implements SkyFunction {
   }
 
   /**
+   * Updates the evalKeysAsOneGroup attr if the existing value differs from the new one.
+   *
+   * @return whether an update was made.
+   */
+  public static boolean evalKeysAsOneGroupUpdated(boolean newEvalKeysAsOneGroup) {
+    // If this is the first time the value is set, it's not considered "updated".
+    if (evalKeysAsOneGroup == null) {
+      evalKeysAsOneGroup = newEvalKeysAsOneGroup;
+      return false;
+    }
+
+    if (evalKeysAsOneGroup != newEvalKeysAsOneGroup) {
+      evalKeysAsOneGroup = newEvalKeysAsOneGroup;
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Updates the sizeThreshold value if the existing value differs from newValue.
    *
    * @param newValue The new value from --experimental_nested_set_as_skykey_threshold.
    * @return whether an update was made.
    */
-  public static boolean sizeThresholdUpdatedTo(int newValue) {
+  public static boolean sizeThresholdUpdated(int newValue) {
     // If this is the first time the value is set, it's not considered "updated".
     if (sizeThreshold == null) {
       sizeThreshold = newValue;

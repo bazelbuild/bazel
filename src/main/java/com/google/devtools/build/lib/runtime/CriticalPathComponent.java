@@ -126,8 +126,8 @@ public class CriticalPathComponent {
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
     if (!this.phaseMaxMetrics.totalTime().isZero()) {
       this.totalSpawnMetrics =
-          SpawnMetrics.aggregateMetrics(
-              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
+          SpawnMetrics.sumDurationsMaxOther(
+              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics));
       this.phaseMaxMetrics = SpawnMetrics.EMPTY;
     }
   }
@@ -200,8 +200,8 @@ public class CriticalPathComponent {
     }
     if (this.phaseChange) {
       this.totalSpawnMetrics =
-          SpawnMetrics.aggregateMetrics(
-              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
+          SpawnMetrics.sumDurationsMaxOther(
+              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics));
       this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
     } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
@@ -288,7 +288,8 @@ public class CriticalPathComponent {
   }
 
   private long getElapsedTimeNanosNoCheck() {
-    return finishNanos - startNanos;
+    // The delta value may be negative, see note in {@link Clock#nanoTime}.
+    return Math.max(0, finishNanos - startNanos);
   }
 
   /**
@@ -338,4 +339,3 @@ public class CriticalPathComponent {
     return sb.toString();
   }
 }
-

@@ -14,11 +14,15 @@
 
 package com.google.devtools.build.lib.runtime.commands;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.ProjectFileSupport;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -34,7 +38,8 @@ final class TargetPatternsHelper {
   /**
    * Reads a list of target patterns, either from the command-line residue or by reading newline
    * delimited target patterns from the --target_pattern_file flag. If --target_pattern_file is
-   * specified and options contain a residue, or file cannot be read it throws an exception instead.
+   * specified and options contain a residue, or if the file cannot be read, throws {@link
+   * TargetPatternsHelperException}.
    */
   public static List<String> readFrom(CommandEnvironment env, OptionsParsingResult options)
       throws TargetPatternsHelperException {
@@ -42,7 +47,8 @@ final class TargetPatternsHelper {
     BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     if (!targets.isEmpty() && !buildRequestOptions.targetPatternFile.isEmpty()) {
       throw new TargetPatternsHelperException(
-          "Command-line target pattern and --target_pattern_file cannot both be specified");
+          "Command-line target pattern and --target_pattern_file cannot both be specified",
+          TargetPatterns.Code.TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN);
     } else if (!buildRequestOptions.targetPatternFile.isEmpty()) {
       // Works for absolute or relative file.
       Path residuePath =
@@ -52,7 +58,8 @@ final class TargetPatternsHelper {
             Lists.newArrayList(FileSystemUtils.readLines(residuePath, StandardCharsets.UTF_8));
       } catch (IOException e) {
         throw new TargetPatternsHelperException(
-            "I/O error reading from " + residuePath.getPathString() + ": " + e.getMessage());
+            "I/O error reading from " + residuePath.getPathString() + ": " + e.getMessage(),
+            TargetPatterns.Code.TARGET_PATTERN_FILE_READ_FAILURE);
       }
     } else {
       try (SilentCloseable closeable =
@@ -63,10 +70,20 @@ final class TargetPatternsHelper {
     return targets;
   }
 
-  /** Thrown when target patterns were incorrectly specified. */
-  public static class TargetPatternsHelperException extends Exception {
-    public TargetPatternsHelperException(String message) {
-      super(message);
+  /** Thrown when target patterns couldn't be read. */
+  static class TargetPatternsHelperException extends Exception {
+    private final TargetPatterns.Code detailedCode;
+
+    private TargetPatternsHelperException(String message, TargetPatterns.Code detailedCode) {
+      super(Preconditions.checkNotNull(message));
+      this.detailedCode = detailedCode;
+    }
+
+    FailureDetail getFailureDetail() {
+      return FailureDetail.newBuilder()
+          .setMessage(getMessage())
+          .setTargetPatterns(TargetPatterns.newBuilder().setCode(detailedCode))
+          .build();
     }
   }
 }

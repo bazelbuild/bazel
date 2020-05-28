@@ -18,14 +18,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCommonApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainSkylarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -39,7 +39,7 @@ public class JavaStarlarkCommon
         JavaToolchainProvider,
         JavaRuntimeInfo,
         ConstraintValueInfo,
-        SkylarkRuleContext,
+        StarlarkRuleContext,
         StarlarkActionFactory> {
   private final JavaSemantics javaSemantics;
 
@@ -54,7 +54,7 @@ public class JavaStarlarkCommon
 
   @Override
   public JavaInfo createJavaCompileAction(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceJars, // <Artifact> expected
       Sequence<?> sourceFiles, // <Artifact> expected
       Artifact outputJar,
@@ -78,7 +78,7 @@ public class JavaStarlarkCommon
 
     return JavaInfoBuildHelper.getInstance()
         .createJavaCompileAction(
-            skylarkRuleContext,
+            starlarkRuleContext,
             Sequence.cast(sourceJars, Artifact.class, "source_jars"),
             Sequence.cast(sourceFiles, Artifact.class, "source_files"),
             outputJar,
@@ -190,7 +190,7 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public boolean isJavaToolchainResolutionEnabled(SkylarkRuleContext ruleContext)
+  public boolean isJavaToolchainResolutionEnabled(StarlarkRuleContext ruleContext)
       throws EvalException {
     return ruleContext
         .getConfiguration()
@@ -236,7 +236,7 @@ public class JavaStarlarkCommon
   }
 
   @Override
-  public Label getJavaToolchainLabel(JavaToolchainSkylarkApiProviderApi toolchain)
+  public Label getJavaToolchainLabel(JavaToolchainStarlarkApiProviderApi toolchain)
       throws EvalException {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.

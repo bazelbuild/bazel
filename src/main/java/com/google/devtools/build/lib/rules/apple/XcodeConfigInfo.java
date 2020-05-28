@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
 public class XcodeConfigInfo extends NativeInfo
     implements XcodeConfigInfoApi<ApplePlatform, PlatformType> {
   /** Starlark name for this provider. */
-  public static final String SKYLARK_NAME = "XcodeVersionConfig";
+  public static final String STARLARK_NAME = "XcodeVersionConfig";
 
   /** Provider identifier for {@link XcodeConfigInfo}. */
   public static final BuiltinProvider<XcodeConfigInfo> PROVIDER = new XcodeConfigProvider();
@@ -116,7 +116,7 @@ public class XcodeConfigInfo extends NativeInfo
     XcodeConfigInfo xcodeConfigInfo;
 
     private XcodeConfigProvider() {
-      super(SKYLARK_NAME, XcodeConfigInfo.class);
+      super(STARLARK_NAME, XcodeConfigInfo.class);
     }
 
     @Override

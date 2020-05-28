@@ -82,6 +82,17 @@ public final class CuboidCalculator {
     return cuboid.getVolume();
   }
 
+  public static long invokeOverridableMethod(long width, long length, long height) {
+    Cuboid base = new Cuboid(width, length, height);
+    Cuboid other = new Cuboid(2 * width, 3 * length, 4 * height);
+
+    // Derived
+    CuboidInflater inflater = new MyCuboidInflater(base);
+    Cuboid combined = inflater.onCombine(10L, other);
+
+    return combined.getVolume();
+  }
+
   private static CuboidInflater createCuboidInflater(long width, long length, long height) {
     return new CuboidInflater(new Cuboid(width, length, height));
   }

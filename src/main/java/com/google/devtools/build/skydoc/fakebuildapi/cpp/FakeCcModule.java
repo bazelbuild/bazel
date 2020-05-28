@@ -16,8 +16,8 @@ package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.BazelCcModuleApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
@@ -47,7 +47,7 @@ public class FakeCcModule
         StarlarkActionFactoryApi,
         FileApi,
         ConstraintValueInfoApi,
-        SkylarkRuleContextApi<ConstraintValueInfoApi>,
+        StarlarkRuleContextApi<ConstraintValueInfoApi>,
         CcToolchainProviderApi<FeatureConfigurationApi>,
         FeatureConfigurationApi,
         CcCompilationContextApi<FileApi>,
@@ -193,7 +193,7 @@ public class FakeCcModule
   }
 
   @Override
-  public CcInfoApi<FileApi> mergeCcInfos(Sequence<?> ccInfos) {
+  public CcInfoApi<FileApi> mergeCcInfos(Sequence<?> directCcInfos, Sequence<?> ccInfos) {
     return null;
   }
 
@@ -218,15 +218,15 @@ public class FakeCcModule
 
   @Override
   public boolean isCcToolchainResolutionEnabled(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> context) {
+      StarlarkRuleContextApi<ConstraintValueInfoApi> context) {
     return false;
   }
 
   @Override
   public Tuple<Object> compile(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
-      FeatureConfigurationApi skylarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
+      FeatureConfigurationApi starlarkFeatureConfiguration,
+      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
       Sequence<?> sources,
       Sequence<?> publicHeaders,
       Sequence<?> privateHeaders,
@@ -250,8 +250,8 @@ public class FakeCcModule
   @Override
   public Tuple<Object> createLinkingContextFromCompilationOutputs(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
-      FeatureConfigurationApi skylarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
+      FeatureConfigurationApi starlarkFeatureConfiguration,
+      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
       CcCompilationOutputsApi<FileApi> compilationOutputs,
       Sequence<?> userLinkFlags,
       Sequence<?> ccLinkingContextApis,
@@ -270,8 +270,8 @@ public class FakeCcModule
   @Override
   public CcLinkingOutputsApi<FileApi> link(
       StarlarkActionFactoryApi starlarkActionFactoryApi,
-      FeatureConfigurationApi skylarkFeatureConfiguration,
-      CcToolchainProviderApi<FeatureConfigurationApi> skylarkCcToolchainProvider,
+      FeatureConfigurationApi starlarkFeatureConfiguration,
+      CcToolchainProviderApi<FeatureConfigurationApi> starlarkCcToolchainProvider,
       Object compilationOutputs,
       Sequence<?> userLinkFlags,
       Sequence<?> linkingContexts,
@@ -288,8 +288,8 @@ public class FakeCcModule
   }
 
   @Override
-  public CcToolchainConfigInfoApi ccToolchainConfigInfoFromSkylark(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+  public CcToolchainConfigInfoApi ccToolchainConfigInfoFromStarlark(
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       Sequence<?> features,
       Sequence<?> actionConfigs,
       Sequence<?> artifactNamePatterns,
@@ -311,13 +311,13 @@ public class FakeCcModule
   }
 
   @Override
-  public CcCompilationOutputsApi<FileApi> createCompilationOutputsFromSkylark(
+  public CcCompilationOutputsApi<FileApi> createCompilationOutputsFromStarlark(
       Object objectsObject, Object picObjectsObject) {
     return null;
   }
 
   @Override
-  public CcCompilationOutputsApi<FileApi> mergeCcCompilationOutputsFromSkylark(
+  public CcCompilationOutputsApi<FileApi> mergeCcCompilationOutputsFromStarlark(
       Sequence<?> compilationOutputs) {
     return null;
   }

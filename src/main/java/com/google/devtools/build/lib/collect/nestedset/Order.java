@@ -109,11 +109,11 @@ public enum Order {
   private static final ImmutableMap<String, Order> VALUES;
   private static final Order[] ORDINALS;
 
-  private final String skylarkName;
+  private final String starlarkName;
   private final NestedSet<?> emptySet;
 
-  private Order(String skylarkName) {
-    this.skylarkName = skylarkName;
+  private Order(String starlarkName) {
+    this.starlarkName = starlarkName;
     this.emptySet = new NestedSet<>(this);
   }
 
@@ -148,8 +148,8 @@ public enum Order {
     return (NestedSet<E>) emptySet;
   }
 
-  public String getSkylarkName() {
-    return skylarkName;
+  public String getStarlarkName() {
+    return starlarkName;
   }
 
   /**
@@ -185,7 +185,7 @@ public enum Order {
     HashMap<String, Order> entries = Maps.newHashMapWithExpectedSize(ORDINALS.length);
 
     for (Order current : ORDINALS) {
-      entries.put(current.getSkylarkName(), current);
+      entries.put(current.getStarlarkName(), current);
     }
 
     VALUES = ImmutableMap.copyOf(entries);

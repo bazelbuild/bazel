@@ -22,10 +22,9 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib:transitive-info-provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
@@ -55,7 +54,7 @@ java_library(
     srcs = UTIL_SRCS,
     deps = [
         ":platform",
-        "//src/main/java/com/google/devtools/build/lib:provider-collection",
+        "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

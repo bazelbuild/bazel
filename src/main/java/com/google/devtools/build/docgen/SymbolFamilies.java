@@ -16,7 +16,7 @@ package com.google.devtools.build.docgen;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.docgen.starlark.StarlarkModuleDoc;
+import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
+import com.google.devtools.build.lib.skylarkbuildapi.stubs.StarlarkAspectStub;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Classpath;
@@ -39,21 +39,21 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeDefaultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeOutputGroupInfo.FakeOutputGroupInfoProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkNativeModuleApi;
-import com.google.devtools.build.skydoc.fakebuildapi.FakeSkylarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkAttrModuleApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkCommandLineApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkNativeModuleApi;
+import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidResourcesInfo.FakeAndroidResourcesInfoProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSkylarkCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
-import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigSkylarkCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcModule;
 import com.google.devtools.build.skydoc.fakebuildapi.cpp.FakeCcToolchainConfigInfo;
@@ -91,7 +91,7 @@ public class SymbolFamilies {
   private static final String MODULES_PACKAGE_PREFIX = "com/google/devtools/build";
 
   private final ImmutableList<RuleDocumentation> nativeRules;
-  private final ImmutableMap<String, StarlarkModuleDoc> types;
+  private final ImmutableMap<String, StarlarkBuiltinDoc> types;
 
   // Mappings between Starlark names and Starlark entities generated from the fakebuildapi.
   private final ImmutableMap<String, Object> globals;
@@ -133,7 +133,7 @@ public class SymbolFamilies {
   }
 
   // Returns a mapping between type names and module/type documentation.
-  public Map<String, StarlarkModuleDoc> getTypes() {
+  public Map<String, StarlarkBuiltinDoc> getTypes() {
     return types;
   }
 
@@ -141,7 +141,7 @@ public class SymbolFamilies {
    * Collects a mapping between type names and module/type documentation that are available both
    * in BZL and BUILD files.
    */
-  private Map<String, StarlarkModuleDoc> collectTypes() throws ClassPathException {
+  private Map<String, StarlarkBuiltinDoc> collectTypes() throws ClassPathException {
     return StarlarkDocumentationCollector.collectModules(
         Classpath.findClasses(MODULES_PACKAGE_PREFIX));
   }
@@ -170,8 +170,8 @@ public class SymbolFamilies {
             new FakeBuildApiGlobals(),
             new FakeStarlarkAttrModuleApi(),
             new FakeStarlarkCommandLineApi(),
-            new FakeSkylarkNativeModuleApi(),
-            new FakeSkylarkRuleFunctionsApi(
+            new FakeStarlarkNativeModuleApi(),
+            new FakeStarlarkRuleFunctionsApi(
                 Lists.newArrayList(), Lists.newArrayList(), Lists.newArrayList()),
             new FakeStructProviderApi(),
             new FakeOutputGroupInfoProvider(),
@@ -179,7 +179,7 @@ public class SymbolFamilies {
             new FakeDefaultInfoProvider());
     AndroidBootstrap androidBootstrap =
         new AndroidBootstrap(
-            new FakeAndroidSkylarkCommon(),
+            new FakeAndroidStarlarkCommon(),
             new FakeApkInfoProvider(),
             new FakeAndroidInstrumentationInfoProvider(),
             new FakeAndroidDeviceBrokerInfoProvider(),
@@ -188,8 +188,8 @@ public class SymbolFamilies {
             new FakeAndroidApplicationResourceInfoProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
-        new ConfigBootstrap(new FakeConfigSkylarkCommon(), new FakeConfigApi(),
-            new FakeConfigGlobalLibrary());
+        new ConfigBootstrap(
+            new FakeConfigStarlarkCommon(), new FakeConfigApi(), new FakeConfigGlobalLibrary());
     CcBootstrap ccBootstrap =
         new CcBootstrap(
             new FakeCcModule(),
@@ -210,7 +210,7 @@ public class SymbolFamilies {
         new ProtoBootstrap(
             new FakeProtoInfoProvider(),
             new FakeProtoCommon(),
-            new SkylarkAspectStub(),
+            new StarlarkAspectStub(),
             new ProviderStub());
     PyBootstrap pyBootstrap =
         new PyBootstrap(

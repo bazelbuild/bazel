@@ -63,8 +63,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
   @Rule
   public final ExpectedException thrown = ExpectedException.none();
 
-  @Rule
-  public final Timeout globalTimeout = new Timeout(10000);
+  @Rule public final Timeout globalTimeout = new Timeout(20000);
 
   private final ExecutorService executor = Executors.newFixedThreadPool(3);
   private final ProxyHelper proxyHelper = mock(ProxyHelper.class);
@@ -73,7 +72,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
   private final Sleeper sleeper = mock(Sleeper.class);
   private final Locale locale = Locale.US;
   private final HttpConnector connector =
-      new HttpConnector(locale, eventHandler, proxyHelper, sleeper, 0.1f);
+      new HttpConnector(locale, eventHandler, proxyHelper, sleeper, 0.15f);
   private final ProgressInputStream.Factory progressInputStreamFactory =
       new ProgressInputStream.Factory(locale, clock, eventHandler);
   private final HttpStream.Factory httpStreamFactory =
@@ -244,7 +243,7 @@ public class HttpConnectorMultiplexerIntegrationTest {
 
   @Test
   public void firstUrlSocketTimeout_secondOk() throws Exception {
-    final Phaser phaser = new Phaser(3);
+
     try (ServerSocket server1 = new ServerSocket(0, 1, InetAddress.getByName(null));
         ServerSocket server2 = new ServerSocket(0, 1, InetAddress.getByName(null))) {
 
@@ -252,7 +251,6 @@ public class HttpConnectorMultiplexerIntegrationTest {
       Future<?> possiblyIgnoredError =
           executor.submit(
               () -> {
-                phaser.arriveAndAwaitAdvance();
                 try (Socket socket = server1.accept()) {
                   // Do nothing to cause SocketTimeoutException on client side.
                 }
@@ -263,7 +261,6 @@ public class HttpConnectorMultiplexerIntegrationTest {
       Future<?> possiblyIgnoredError2 =
           executor.submit(
               () -> {
-                phaser.arriveAndAwaitAdvance();
                 try (Socket socket = server2.accept()) {
                   readHttpRequest(socket.getInputStream());
                   sendLines(
@@ -277,8 +274,6 @@ public class HttpConnectorMultiplexerIntegrationTest {
                 return null;
               });
 
-      phaser.arriveAndAwaitAdvance();
-      phaser.arriveAndDeregister();
       try (HttpStream stream =
           multiplexer.connect(
               ImmutableList.of(

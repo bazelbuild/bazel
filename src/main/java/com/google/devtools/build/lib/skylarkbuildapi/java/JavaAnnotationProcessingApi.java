@@ -15,31 +15,31 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Interface for an info object containing information about jars that are a result of annotation
  * processing for a Java rule.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "java_annotation_processing",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "Information about jars that are a result of annotation processing for a Java rule.")
 public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "enabled",
       structField = true,
       doc = "Returns true if the Java rule uses annotation processing.")
   boolean usesAnnotationProcessing();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "class_jar",
       structField = true,
       allowReturnNones = true,
@@ -47,7 +47,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
   @Nullable
   FileTypeT getGenClassJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "source_jar",
       structField = true,
       allowReturnNones = true,
@@ -55,7 +55,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
   @Nullable
   FileTypeT getGenSourceJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_class_jars",
       structField = true,
       doc =
@@ -63,7 +63,7 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
               + "processing of this rule and its dependencies.")
   Depset /*<FileTypeT>*/ getTransitiveGenClassJarsForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_source_jars",
       structField = true,
       doc =
@@ -71,13 +71,13 @@ public interface JavaAnnotationProcessingApi<FileTypeT extends FileApi> extends 
               + "of this rule and its dependencies.")
   Depset /*<FileTypeT>*/ getTransitiveGenSourceJarsForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "processor_classpath",
       structField = true,
       doc = "Returns a classpath of annotation processors applied to this rule.")
   Depset /*<FileTypeT>*/ getProcessorClasspathForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "processor_classnames",
       structField = true,
       doc = "Returns class names of annotation processors applied to this rule.")

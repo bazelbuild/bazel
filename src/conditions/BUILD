@@ -1,7 +1,10 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/shell/bazel:__pkg__",
+    ],
 )
 
 filegroup(
@@ -15,6 +18,12 @@ filegroup(
 
 config_setting(
     name = "linux_ppc",
+    values = {"cpu": "ppc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "linux_ppc64le",
     values = {"cpu": "ppc"},
     visibility = ["//visibility:public"],
 )
@@ -82,5 +91,13 @@ config_setting(
 config_setting(
     name = "remote",
     values = {"define": "EXECUTOR=remote"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "debian_build",
+    values = {
+        "define": "distribution=debian",
+    },
     visibility = ["//visibility:public"],
 )

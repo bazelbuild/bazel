@@ -63,14 +63,6 @@ public enum FileStateType {
   }
 
   /**
-   * Returns true if this value corresponds to a regular or special file. If so, its parent
-   * directory is guaranteed to exist.
-   */
-  public boolean isRegularOrSpecialFile() {
-    return this == REGULAR_FILE || this == FileStateType.SPECIAL_FILE;
-  }
-
-  /**
    * Returns true if the file is a directory. If so, its parent directory is guaranteed to exist.
    */
   public boolean isDirectory() {

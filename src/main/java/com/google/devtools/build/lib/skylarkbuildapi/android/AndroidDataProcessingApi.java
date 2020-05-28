@@ -18,18 +18,18 @@ import com.google.devtools.build.lib.skylarkbuildapi.FileProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Starlark-visible methods for working with Android data (manifests, resources, and assets). */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "android_data",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -50,7 +50,7 @@ public interface AndroidDataProcessingApi<
         ValidatedAndroidDataT extends ValidatedAndroidDataApi<?, ?>>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "assets_from_deps",
       parameters = {
         @Param(
@@ -83,7 +83,7 @@ public interface AndroidDataProcessingApi<
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resources_from_deps",
       parameters = {
         @Param(
@@ -140,7 +140,7 @@ public interface AndroidDataProcessingApi<
       String customPackage)
       throws InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "stamp_manifest",
       parameters = {
         @Param(
@@ -186,7 +186,7 @@ public interface AndroidDataProcessingApi<
       AndroidDataContextT ctx, Object manifest, Object customPackage, boolean exported)
       throws InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge_assets",
       parameters = {
         @Param(
@@ -250,7 +250,7 @@ public interface AndroidDataProcessingApi<
       boolean neverlink)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge_res",
       parameters = {
         @Param(
@@ -324,7 +324,7 @@ public interface AndroidDataProcessingApi<
       boolean enableDataBinding)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge_resources",
       parameters = {
         @Param(
@@ -397,7 +397,7 @@ public interface AndroidDataProcessingApi<
       boolean enableDataBinding)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "make_aar",
       parameters = {
         @Param(
@@ -471,7 +471,7 @@ public interface AndroidDataProcessingApi<
       boolean neverlink)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "process_aar_import_data",
       parameters = {
         @Param(
@@ -517,7 +517,7 @@ public interface AndroidDataProcessingApi<
       Sequence<?> deps /* <TransitiveInfoCollectionT> */)
       throws InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "process_local_test_data",
       parameters = {
         @Param(
@@ -655,7 +655,7 @@ public interface AndroidDataProcessingApi<
       Sequence<?> densities) // <String>
       throws InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "make_binary_settings",
       parameters = {
         @Param(
@@ -718,7 +718,7 @@ public interface AndroidDataProcessingApi<
       Sequence<?> noCompressExtensions) // <String>
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "process_binary_data",
       parameters = {
         @Param(
@@ -853,7 +853,7 @@ public interface AndroidDataProcessingApi<
       boolean dataBindingEnabled)
       throws InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "shrink_data_apk",
       parameters = {
         @Param(
@@ -936,7 +936,7 @@ public interface AndroidDataProcessingApi<
       Sequence<?> extraProguardSpecs) // <TransitiveInfoCollectionT>
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resources_from_validated_res",
       allowReturnNones = true,
       doc = "Returns an Artifact containing a zip of merged resources.",

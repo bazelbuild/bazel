@@ -168,7 +168,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             semantics);
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
-            .addSkylarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)
+            .addStarlarkTransitiveInfo(JavaToolchainProvider.LEGACY_NAME, provider)
             .addNativeDeclaredProvider(provider)
             .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
             .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build());

@@ -117,7 +117,7 @@ public class Aapt2ConfigOptions extends OptionsBase {
 
   @Option(
       name = "split",
-      defaultValue = "required but ignored due to allowMultiple",
+      defaultValue = "null",
       category = "config",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},

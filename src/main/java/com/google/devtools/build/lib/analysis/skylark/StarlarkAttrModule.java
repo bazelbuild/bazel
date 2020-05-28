@@ -24,17 +24,17 @@ import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransi
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkAspect;
+import com.google.devtools.build.lib.packages.StarlarkAspect;
 import com.google.devtools.build.lib.packages.StarlarkCallbackHelper;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
@@ -126,19 +126,21 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                 (StarlarkFunction) defaultValue,
                 thread.getSemantics(),
                 BazelStarlarkContext.from(thread));
-        // SkylarkComputedDefaultTemplate needs to know the names of all attributes that it depends
+        // StarlarkComputedDefaultTemplate needs to know the names of all attributes that it depends
         // on. However, this method does not know anything about other attributes.
         // We solve this problem by asking the StarlarkCallbackHelper for the parameter names used
         // in the function definition, which must be the names of attributes used by the callback.
         builder.value(
-            new SkylarkComputedDefaultTemplate(type, callback.getParameterNames(), callback));
-      } else if (defaultValue instanceof SkylarkLateBoundDefault) {
-        builder.value((SkylarkLateBoundDefault) defaultValue); // unchecked cast
+            new StarlarkComputedDefaultTemplate(type, callback.getParameterNames(), callback));
+      } else if (defaultValue instanceof StarlarkLateBoundDefault) {
+        builder.value((StarlarkLateBoundDefault) defaultValue); // unchecked cast
       } else {
         builder.defaultValue(
             defaultValue,
             new BuildType.LabelConversionContext(
-                (Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel(),
+                ((BazelModuleContext)
+                        Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
+                    .label(),
                 BazelStarlarkContext.from(thread).getRepoMapping()),
             DEFAULT_ARG);
       }
@@ -249,7 +251,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
           trans instanceof SplitTransition
               || trans instanceof TransitionFactory
               || trans instanceof StarlarkDefinedConfigTransition;
-      if (isSplit && defaultValue instanceof SkylarkLateBoundDefault) {
+      if (isSplit && defaultValue instanceof StarlarkLateBoundDefault) {
         throw new EvalException(
             null, "late-bound attributes must not have a split configuration transition");
       }
@@ -287,7 +289,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
       Object obj = arguments.get(ASPECTS_ARG);
-      for (SkylarkAspect aspect : Sequence.cast(obj, SkylarkAspect.class, "aspects")) {
+      for (StarlarkAspect aspect : Sequence.cast(obj, StarlarkAspect.class, "aspects")) {
         aspect.attachToAttribute(builder);
       }
     }
@@ -363,21 +365,14 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     for (Object o : starlarkList) {
       if (!(o instanceof Sequence)) {
         throw new EvalException(
-            null,
-            String.format(
-                errorMsg,
-                PROVIDERS_ARG,
-                "an element of type " + EvalUtils.getDataTypeName(o, true)));
+            null, String.format(errorMsg, PROVIDERS_ARG, "an element of type " + Starlark.type(o)));
       }
       for (Object value : (Sequence) o) {
         if (!isProvider(value)) {
           throw new EvalException(
               null,
               String.format(
-                  errorMsg,
-                  argumentName,
-                  "list with an element of type "
-                      + EvalUtils.getDataTypeNameFromClass(value.getClass())));
+                  errorMsg, argumentName, "list with an element of type " + Starlark.type(value)));
         }
       }
       providersList.add(getStarlarkProviderIdentifiers((Sequence<?>) o));

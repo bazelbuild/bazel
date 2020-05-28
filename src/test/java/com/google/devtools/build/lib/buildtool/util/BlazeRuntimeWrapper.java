@@ -192,7 +192,7 @@ public class BlazeRuntimeWrapper {
     initializeOptionsParser();
     commandCreated = true;
     if (env != null) {
-      runtime.afterCommand(env, BlazeCommandResult.exitCode(ExitCode.SUCCESS));
+      runtime.afterCommand(env, BlazeCommandResult.success());
     }
 
     if (optionsParser == null) {
@@ -204,7 +204,11 @@ public class BlazeRuntimeWrapper {
         runtime
             .getWorkspace()
             .initCommand(
-                buildCommand.getAnnotation(Command.class), optionsParser, new ArrayList<>());
+                buildCommand.getAnnotation(Command.class),
+                optionsParser,
+                new ArrayList<>(),
+                0L,
+                0L);
     return env;
   }
 
@@ -336,16 +340,7 @@ public class BlazeRuntimeWrapper {
       getSkyframeExecutor().setOutputService(outputService);
       env.setOutputServiceForTesting(outputService);
 
-      env.getEventBus()
-          .post(
-              new CommandStartEvent(
-                  "build",
-                  env.getCommandId(),
-                  env.getBuildRequestId(),
-                  env.getClientEnv(),
-                  env.getWorkingDirectory(),
-                  env.getDirectories(),
-                  0));
+      env.getEventBus().post(new CommandStartEvent());
 
       lastRequest = createRequest("build", targets);
       lastResult = new BuildResult(lastRequest.getStartTime());
@@ -371,7 +366,7 @@ public class BlazeRuntimeWrapper {
             lastResult,
             null,
             success
-                ? DetailedExitCode.justExitCode(ExitCode.SUCCESS)
+                ? DetailedExitCode.success()
                 : DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE),
             /*startSuspendCount=*/ 0);
         getSkyframeExecutor().notifyCommandComplete(env.getReporter());

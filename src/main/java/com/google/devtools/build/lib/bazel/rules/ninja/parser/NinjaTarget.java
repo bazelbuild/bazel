@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Interner;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -80,7 +81,7 @@ public final class NinjaTarget {
       return this;
     }
 
-    public NinjaTarget build() {
+    public NinjaTarget build() throws GenericParsingException {
       Preconditions.checkNotNull(ruleName);
       String internedName = nameInterner.intern(ruleName);
       ImmutableSortedMap<String, String> variables = variablesBuilder.build();
@@ -91,8 +92,8 @@ public final class NinjaTarget {
       } else {
         NinjaRule ninjaRule = scope.findRule(offset, ruleName);
         if (ninjaRule == null) {
-          // TODO(cparsons): This indicates no rule was found, so throw a parse exception instead.
-          ruleVariables = ImmutableSortedMap.of();
+          throw new GenericParsingException(
+              String.format("could not resolve rule '%s'", internedName));
         } else {
           ruleVariables =
               reduceRuleVariables(scope, offset, ninjaRule.getVariables(), variables, nameInterner);
@@ -134,22 +135,25 @@ public final class NinjaTarget {
       ImmutableSortedMap.Builder<NinjaRuleVariable, NinjaVariableValue> builder =
           ImmutableSortedMap.naturalOrder();
 
+      // Description is taken from the "build" statement (instead of the referenced rule)
+      // if it's available.
+      boolean targetHasDescription = false;
+      String targetVariable = targetVariables.get("description");
+      if (targetVariable != null) {
+        builder.put(
+            NinjaRuleVariable.DESCRIPTION, NinjaVariableValue.createPlainText(targetVariable));
+        targetHasDescription = true;
+      }
+
       for (Map.Entry<NinjaRuleVariable, NinjaVariableValue> entry : ruleVariables.entrySet()) {
         NinjaRuleVariable type = entry.getKey();
-        String targetVariable = targetVariables.get(Ascii.toLowerCase(type.name()));
-        NinjaVariableValue reducedValue;
-        if (targetVariable != null) {
-          // Target variable overrides the rule variable.
-          // TODO(cparsons): This only handles overrides. If the rule does not define the rule
-          // variable, but the target does, then the target variable is silently dropped. For
-          // example, if the target defines "description" but the rule does not, then no
-          // "description" is used.
-          reducedValue = NinjaVariableValue.builder().addText(targetVariable).build();
-        } else {
-          reducedValue =
-              scopeWithVariables.getReducedValue(
-                  targetOffset, entry.getValue(), INPUTS_OUTPUTS_VARIABLES, interner);
+        if (type.equals(NinjaRuleVariable.DESCRIPTION) && targetHasDescription) {
+          // Don't use the rule description, as the target defined a specific description.
+          continue;
         }
+        NinjaVariableValue reducedValue =
+            scopeWithVariables.getReducedValue(
+                targetOffset, entry.getValue(), INPUTS_OUTPUTS_VARIABLES, interner);
         builder.put(type, reducedValue);
       }
       return builder.build();
@@ -159,7 +163,7 @@ public final class NinjaTarget {
   /** Enum with possible kinds of inputs. */
   @Immutable
   public enum InputKind implements InputOutputKind {
-    USUAL,
+    EXPLICIT,
     IMPLICIT,
     ORDER_ONLY
   }
@@ -167,7 +171,7 @@ public final class NinjaTarget {
   /** Enum with possible kinds of outputs. */
   @Immutable
   public enum OutputKind implements InputOutputKind {
-    USUAL,
+    EXPLICIT,
     IMPLICIT
   }
 
@@ -189,7 +193,7 @@ public final class NinjaTarget {
    */
   private final ImmutableSortedMap<NinjaRuleVariable, NinjaVariableValue> ruleVariables;
 
-  public NinjaTarget(
+  private NinjaTarget(
       String ruleName,
       ImmutableSortedKeyListMultimap<InputKind, PathFragment> inputs,
       ImmutableSortedKeyListMultimap<OutputKind, PathFragment> outputs,
@@ -207,7 +211,7 @@ public final class NinjaTarget {
   }
 
   public List<PathFragment> getOutputs() {
-    return outputs.get(OutputKind.USUAL);
+    return outputs.get(OutputKind.EXPLICIT);
   }
 
   public List<PathFragment> getImplicitOutputs() {
@@ -222,8 +226,12 @@ public final class NinjaTarget {
     return inputs.values();
   }
 
-  public Collection<PathFragment> getUsualInputs() {
-    return inputs.get(InputKind.USUAL);
+  public Collection<Map.Entry<InputKind, PathFragment>> getAllInputsAndKind() {
+    return inputs.entries();
+  }
+
+  public Collection<PathFragment> getExplicitInputs() {
+    return inputs.get(InputKind.EXPLICIT);
   }
 
   public Collection<PathFragment> getImplicitInputs() {
@@ -248,7 +256,7 @@ public final class NinjaTarget {
         + prettyPrintPaths("\n| ", getImplicitOutputs())
         + "\n: "
         + this.ruleName
-        + prettyPrintPaths("\n", getUsualInputs())
+        + prettyPrintPaths("\n", getExplicitInputs())
         + prettyPrintPaths("\n| ", getImplicitInputs())
         + prettyPrintPaths("\n|| ", getOrderOnlyInputs());
   }
@@ -281,6 +289,8 @@ public final class NinjaTarget {
       fullExpansionVariablesBuilder.put(Ascii.toLowerCase(type.name()), expandedValue);
     }
 
+    // TODO(cparsons): Ensure parsing exception is thrown early if the rule has no command defined.
+    // Otherwise, this throws NPE.
     String expandedCommand =
         ruleVariables
             .get(NinjaRuleVariable.COMMAND)
@@ -292,11 +302,11 @@ public final class NinjaTarget {
   private ImmutableSortedMap<String, String> computeInputOutputVariables() {
     ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
     String inNewline =
-        inputs.get(InputKind.USUAL).stream()
+        inputs.get(InputKind.EXPLICIT).stream()
             .map(PathFragment::getPathString)
             .collect(Collectors.joining("\n"));
     String out =
-        outputs.get(OutputKind.USUAL).stream()
+        outputs.get(OutputKind.EXPLICIT).stream()
             .map(PathFragment::getPathString)
             .collect(Collectors.joining(" "));
     builder.put("in", inNewline.replace('\n', ' '));

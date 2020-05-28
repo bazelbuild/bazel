@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.starlark.spelling.SpellChecker;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.spelling.SpellChecker;
 
 /** A syntax-tree-walking evaluator for StarlarkFunction bodies. */
 final class Eval {
@@ -55,7 +55,7 @@ final class Eval {
         return flow;
       }
 
-      // Hack for StarlarkImportLookupFunction's "export" semantics.
+      // Hack for BzlLoadFunction's "export" semantics.
       // We enable it only for statements outside any function (isToplevelFunction)
       // and outside any if- or for- statements (!indented).
       if (isToplevelFunction && !indented && fr.thread.postAssignHook != null) {
@@ -63,7 +63,7 @@ final class Eval {
           AssignmentStatement assign = (AssignmentStatement) stmt;
           for (Identifier id : Identifier.boundIdentifiers(assign.getLHS())) {
             String name = id.getName();
-            Object value = fn(fr).getModule().lookup(name);
+            Object value = fn(fr).getModule().getGlobal(name);
             fr.thread.postAssignHook.assign(name, value);
           }
         }
@@ -163,23 +163,30 @@ final class Eval {
   }
 
   private static void execLoad(StarlarkThread.Frame fr, LoadStatement node) throws EvalException {
+    // Has the application defined a behavior for load statements in this thread?
+    StarlarkThread.Loader loader = fr.thread.getLoader();
+    if (loader == null) {
+      throw new EvalException(
+          node.getStartLocation(), "load statements may not be executed in this thread");
+    }
+
+    // Load module.
+    String moduleName = node.getImport().getValue();
+    Module module = loader.load(moduleName);
+    if (module == null) {
+      throw new EvalException(
+          node.getStartLocation(),
+          String.format(
+              "file '%s' was not correctly loaded. "
+                  + "Make sure the 'load' statement appears in the global scope in your file",
+              moduleName));
+    }
+    Map<String, Object> globals = module.getExportedGlobals();
+
     for (LoadStatement.Binding binding : node.getBindings()) {
-
-      // Load module.
-      String moduleName = node.getImport().getValue();
-      StarlarkThread.Extension module = fr.thread.getExtension(moduleName);
-      if (module == null) {
-        throw new EvalException(
-            node.getStartLocation(),
-            String.format(
-                "file '%s' was not correctly loaded. "
-                    + "Make sure the 'load' statement appears in the global scope in your file",
-                moduleName));
-      }
-
       // Extract symbol.
       Identifier orig = binding.getOriginalName();
-      Object value = module.getBindings().get(orig.getName());
+      Object value = globals.get(orig.getName());
       if (value == null) {
         throw new EvalException(
             orig.getStartLocation(),
@@ -187,7 +194,7 @@ final class Eval {
                 "file '%s' does not contain symbol '%s'%s",
                 moduleName,
                 orig.getName(),
-                SpellChecker.didYouMean(orig.getName(), module.getBindings().keySet())));
+                SpellChecker.didYouMean(orig.getName(), globals.keySet())));
       }
 
       // Define module-local variable.
@@ -195,13 +202,9 @@ final class Eval {
       // loads bind file-locally. Either way, the resolver should designate
       // the proper scope of binding.getLocalName() and this should become
       // simply assign(binding.getLocalName(), value).
-      // Currently, we update the module but not module.exportedBindings;
+      // Currently, we update the module but not module.exportedGlobals;
       // changing it to fr.locals.put breaks a test. TODO(adonovan): find out why.
-      try {
-        fn(fr).getModule().put(binding.getLocalName().getName(), value);
-      } catch (EvalException ex) {
-        throw new AssertionError(ex);
-      }
+      fn(fr).getModule().setGlobal(binding.getLocalName().getName(), value);
     }
   }
 
@@ -294,7 +297,7 @@ final class Eval {
 
   private static void assignIdentifier(StarlarkThread.Frame fr, Identifier id, Object value)
       throws EvalException {
-    Resolver.Scope scope = id.getScope();
+    Resolver.Binding bind = id.getBinding();
     // Legacy hack for incomplete identifier resolution.
     // In a <toplevel> function, assignments to unresolved identifiers
     // update the module, except for load statements and comprehensions,
@@ -302,29 +305,28 @@ final class Eval {
     // Load statements don't yet use assignIdentifier,
     // so we need consider only comprehensions.
     // In effect, we do the missing resolution using fr.compcount.
-    if (scope == null) {
+    Resolver.Scope scope;
+    if (bind == null) {
       scope =
           fn(fr).isToplevel() && fr.compcount == 0
-              ? Resolver.Scope.Module //
-              : Resolver.Scope.Local;
+              ? Resolver.Scope.GLOBAL //
+              : Resolver.Scope.LOCAL;
+    } else {
+      scope = bind.scope;
     }
 
     String name = id.getName();
     switch (scope) {
-      case Local:
+      case LOCAL:
         fr.locals.put(name, value);
         break;
-      case Module:
+      case GLOBAL:
         // Updates a module binding and sets its 'exported' flag.
         // (Only load bindings are not exported.
-        // But exportedBindings does at run time what should be done in the resolver.)
+        // But exportedGlobals does at run time what should be done in the resolver.)
         Module module = fn(fr).getModule();
-        try {
-          module.put(name, value);
-          module.exportedBindings.add(name);
-        } catch (EvalException ex) {
-          throw new IllegalStateException(ex);
-        }
+        module.setGlobal(name, value);
+        module.exportedGlobals.add(name);
         break;
       default:
         throw new IllegalStateException(scope.toString());
@@ -523,6 +525,17 @@ final class Eval {
 
     Object fn = eval(fr, call.getFunction());
 
+    // Starlark arguments are ordered: positionals < keywords < *args < **kwargs.
+    //
+    // This is stricter than Python2, which doesn't constrain keywords wrt *args,
+    // but this ensures that the effects of evaluation of Starlark arguments occur
+    // in source order.
+    //
+    // Starlark does not support Python3's multiple *args and **kwargs
+    // nor freer ordering, such as f(a, *list, *list, **dict, **dict, b=1).
+    // Supporting it would complicate a compiler, and produce effects out of order.
+    // Also, Python's argument ordering rules are complex and the errors sometimes cryptic.
+
     // StarStar and Star args are guaranteed to be last, if they occur.
     ImmutableList<Argument> arguments = call.getArguments();
     int n = arguments.size();
@@ -608,7 +621,8 @@ final class Eval {
   private static Object evalIdentifier(StarlarkThread.Frame fr, Identifier id)
       throws EvalException, InterruptedException {
     String name = id.getName();
-    if (id.getScope() == null) {
+    Resolver.Binding bind = id.getBinding();
+    if (bind == null) {
       // Legacy behavior, to be removed.
       Object result = fr.locals.get(name);
       if (result != null) {
@@ -632,32 +646,26 @@ final class Eval {
     }
 
     Object result;
-    switch (id.getScope()) {
-      case Local:
+    switch (bind.scope) {
+      case LOCAL:
         result = fr.locals.get(name);
         break;
-      case Module:
-        result = fn(fr).getModule().lookup(name);
+      case GLOBAL:
+        result = fn(fr).getModule().getGlobal(name);
         break;
-      case Universe:
-        // TODO(laurentlb): look only at universe.
+      case PREDECLARED:
+        // TODO(adonovan): call getPredeclared
         result = fn(fr).getModule().get(name);
         break;
       default:
-        throw new IllegalStateException(id.getScope().toString());
+        throw new IllegalStateException(bind.toString());
     }
     if (result == null) {
-      // Since Scope was set, we know that the variable is defined in the scope.
-      // However, the assignment was not yet executed.
-      String error = Resolver.getErrorForObsoleteThreadLocalVars(id.getName());
-      if (error == null) {
-        error =
-            id.getScope().getQualifier()
-                + " variable '"
-                + name
-                + "' is referenced before assignment.";
-      }
-      throw new EvalException(id.getStartLocation(), error);
+      // Since Scope was set, we know that the local/global variable is defined,
+      // but its assignment was not yet executed.
+      throw new EvalException(
+          id.getStartLocation(),
+          String.format("%s variable '%s' is referenced before assignment.", bind.scope, name));
     }
     return result;
   }

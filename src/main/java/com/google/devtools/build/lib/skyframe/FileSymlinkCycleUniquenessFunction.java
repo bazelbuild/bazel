@@ -23,11 +23,10 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
- * A {@link com/google/devtools/build/lib/skyframe/FileSymlinkCycleUniquenessFunction.java used only
- * in javadoc: com.google.devtools.build.skyframe.SkyFunction} that has the side effect of reporting
- * a file symlink cycle. This is achieved by forcing the same key for two logically equivalent
- * cycles (e.g. ['a' -> 'b' -> 'c' -> 'a'] and ['b' -> 'c' -> 'a' -> 'b']), and letting Skyframe do
- * its magic.
+ * A {@link com.google.devtools.build.skyframe.SkyFunction} that has the side effect of reporting a
+ * file symlink cycle. This is achieved by forcing the same key for two logically equivalent cycles
+ * (e.g. {@code ['a' -> 'b' -> 'c' -> 'a']} and {@code ['b' -> 'c' -> 'a' -> 'b']}), and letting
+ * Skyframe do its magic.
  */
 public class FileSymlinkCycleUniquenessFunction
     extends AbstractChainUniquenessFunction<RootedPath> {

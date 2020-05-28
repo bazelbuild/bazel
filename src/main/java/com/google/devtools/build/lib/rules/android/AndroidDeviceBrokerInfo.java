@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 public final class AndroidDeviceBrokerInfo extends NativeInfo
     implements AndroidDeviceBrokerInfoApi {
 
-  private static final String SKYLARK_NAME = "AndroidDeviceBrokerInfo";
+  private static final String STARLARK_NAME = "AndroidDeviceBrokerInfo";
 
   /**
    * Provider instance for {@link AndroidDeviceBrokerInfo}.
@@ -53,7 +53,7 @@ public final class AndroidDeviceBrokerInfo extends NativeInfo
       implements AndroidDeviceBrokerInfoApiProvider {
 
     private AndroidDeviceBrokerInfoProvider() {
-      super(SKYLARK_NAME, AndroidDeviceBrokerInfo.class);
+      super(STARLARK_NAME, AndroidDeviceBrokerInfo.class);
     }
 
     @Override

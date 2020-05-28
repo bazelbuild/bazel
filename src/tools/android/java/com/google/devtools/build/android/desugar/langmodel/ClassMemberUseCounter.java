@@ -23,9 +23,9 @@ import com.google.common.collect.ConcurrentHashMultiset;
 public final class ClassMemberUseCounter implements TypeMappable<ClassMemberUseCounter> {
 
   /** Tracks a class member with its associated count. */
-  private final ConcurrentHashMultiset<ClassMemberUse> memberUseCounter;
+  private final ConcurrentHashMultiset<ClassMemberUse<?, ?, ?>> memberUseCounter;
 
-  public ClassMemberUseCounter(ConcurrentHashMultiset<ClassMemberUse> memberUseCounter) {
+  public ClassMemberUseCounter(ConcurrentHashMultiset<ClassMemberUse<?, ?, ?>> memberUseCounter) {
     this.memberUseCounter = memberUseCounter;
   }
 

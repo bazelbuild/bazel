@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.android.databinding.DataBinding;
+import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.java.ImportDepsCheckActionBuilder;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
+import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -92,8 +94,12 @@ public class AarImport implements RuleConfiguredTargetFactory {
 
     SpecialArtifact resources = createAarTreeArtifact(ruleContext, "resources");
     SpecialArtifact assets = createAarTreeArtifact(ruleContext, "assets");
+    SpecialArtifact databindingBrFiles = createAarTreeArtifact(ruleContext, "data-binding-br");
+    SpecialArtifact databindingSetterStoreFiles =
+        createAarTreeArtifact(ruleContext, "data-binding-setter_store");
     ruleContext.registerAction(
-        createAarResourcesExtractorActions(ruleContext, aar, resources, assets));
+        createAarResourcesExtractorActions(
+            ruleContext, aar, resources, assets, databindingBrFiles, databindingSetterStoreFiles));
 
     AndroidDataContext dataContext = androidSemantics.makeContextForNative(ruleContext);
     StampedAndroidManifest manifest = AndroidManifest.forAarImport(androidManifestArtifact);
@@ -226,17 +232,21 @@ public class AarImport implements RuleConfiguredTargetFactory {
     common.addTransitiveInfoProviders(
         ruleBuilder, javaInfoBuilder, filesToBuild, /*classJar=*/ null);
 
+    DataBindingV2Provider dataBindingV2Provider =
+        createDatabindingProvider(ruleContext, databindingBrFiles, databindingSetterStoreFiles);
+
     resourceApk.addToConfiguredTargetBuilder(
         ruleBuilder,
         ruleContext.getLabel(),
-        /* includeSkylarkApiProvider = */ false,
+        /* includeStarlarkApiProvider = */ false,
         /* isLibrary = */ true);
 
     ruleBuilder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(
+        .addStarlarkTransitiveInfo(
             JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
+        .addNativeDeclaredProvider(dataBindingV2Provider)
         .addNativeDeclaredProvider(
             new AndroidNativeLibsInfo(
                 AndroidCommon.collectTransitiveNativeLibs(ruleContext).add(nativeLibs).build()))
@@ -307,7 +317,13 @@ public class AarImport implements RuleConfiguredTargetFactory {
   }
 
   private static Action[] createAarResourcesExtractorActions(
-      RuleContext ruleContext, Artifact aar, Artifact resourcesDir, Artifact assetsDir) {
+      RuleContext ruleContext,
+      Artifact aar,
+      Artifact resourcesDir,
+      Artifact assetsDir,
+      Artifact databindingBrFiles,
+      Artifact databindingSetterStoreFiles) {
+
     return new SpawnAction.Builder()
         .useDefaultShellEnvironment()
         .setExecutable(
@@ -317,11 +333,15 @@ public class AarImport implements RuleConfiguredTargetFactory {
         .addInput(aar)
         .addOutput(resourcesDir)
         .addOutput(assetsDir)
+        .addOutput(databindingBrFiles)
+        .addOutput(databindingSetterStoreFiles)
         .addCommandLine(
             CustomCommandLine.builder()
                 .addExecPath("--input_aar", aar)
                 .addExecPath("--output_res_dir", resourcesDir)
                 .addExecPath("--output_assets_dir", assetsDir)
+                .addExecPath("--output_databinding_br_dir", databindingBrFiles)
+                .addExecPath("--output_databinding_setter_store_dir", databindingSetterStoreFiles)
                 .build())
         .build(ruleContext);
   }
@@ -387,6 +407,36 @@ public class AarImport implements RuleConfiguredTargetFactory {
                     .addExecPath("--output_zip", outputZip)
                     .build());
     return actionBuilder.build(ruleContext);
+  }
+
+  private static DataBindingV2Provider createDatabindingProvider(
+      RuleContext ruleContext,
+      SpecialArtifact databindingBrFiles,
+      SpecialArtifact databindingSetterStoreFiles) {
+
+    Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromDeps =
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, DataBindingV2Provider.PROVIDER);
+
+    Iterable<? extends DataBindingV2ProviderApi<Artifact>> databindingProvidersFromExports =
+        ruleContext.getPrerequisites(
+            "exports", TransitionMode.TARGET, DataBindingV2Provider.PROVIDER);
+
+    DataBindingV2Provider dataBindingV2Provider =
+        DataBindingV2Provider.createProvider(
+            databindingSetterStoreFiles,
+            /* classInfoFile= */ null,
+            databindingBrFiles,
+            ruleContext.getRule().getLabel().toString(),
+            // TODO: The aar's Java package isn't available during analysis (it's in the manifest
+            // inside the aar, or can maybe be inferred elsewhere). This is mostly used for
+            // constructing  a nice error message if multiple android_library rules try to generate
+            // databinding conflicting classes into the same Java package, so it's not as important
+            // for aars.
+            /* javaPackage= */ null,
+            databindingProvidersFromDeps,
+            databindingProvidersFromExports);
+
+    return dataBindingV2Provider;
   }
 
   private static Artifact createAarArtifact(RuleContext ruleContext, String name) {

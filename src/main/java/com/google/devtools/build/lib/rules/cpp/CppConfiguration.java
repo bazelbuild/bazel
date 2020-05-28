@@ -26,17 +26,17 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfiguration}, including the host
@@ -167,6 +167,8 @@ public final class CppConfiguration extends Fragment
   private final boolean collectCodeCoverage;
   private final boolean isToolConfigurationDoNotUseWillBeRemovedFor129045294;
 
+  private final boolean appleGenerateDsym;
+
   static CppConfiguration create(CpuTransformer cpuTransformer, BuildOptions options)
       throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
@@ -236,7 +238,9 @@ public final class CppConfiguration extends Fragment
                 && compilationMode == CompilationMode.FASTBUILD)),
         compilationMode,
         commonOptions.collectCodeCoverage,
-        commonOptions.isHost || commonOptions.isExec);
+        commonOptions.isHost || commonOptions.isExec,
+        (cppOptions.appleGenerateDsym
+            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG)));
   }
 
   private CppConfiguration(
@@ -255,7 +259,8 @@ public final class CppConfiguration extends Fragment
       boolean stripBinaries,
       CompilationMode compilationMode,
       boolean collectCodeCoverage,
-      boolean isToolConfiguration) {
+      boolean isToolConfiguration,
+      boolean appleGenerateDsym) {
     this.transformedCpuFromOptions = transformedCpuFromOptions;
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
@@ -272,10 +277,11 @@ public final class CppConfiguration extends Fragment
     this.compilationMode = compilationMode;
     this.collectCodeCoverage = collectCodeCoverage;
     this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = isToolConfiguration;
+    this.appleGenerateDsym = appleGenerateDsym;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "cc_toolchain",
       doc = "The label of the target describing the C++ toolchain",
       defaultLabel = "//tools/cpp:crosstool",
@@ -304,7 +310,7 @@ public final class CppConfiguration extends Fragment
     return ltobackendOptions;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "minimum_os_version",
       doc = "The minimum OS version for C/C++ compilation.",
       allowReturnNones = true)
@@ -364,9 +370,11 @@ public final class CppConfiguration extends Fragment
     return ImmutableList.copyOf(cppOptions.perFileLtoBackendOpts);
   }
 
-  /**
-   * Returns the custom malloc library label.
-   */
+  /** Returns the custom malloc library label. */
+  @Override
+  @StarlarkConfigurationField(
+      name = "custom_malloc",
+      doc = "The label specified in --custom_malloc")
   public Label customMalloc() {
     return cppOptions.customMalloc;
   }
@@ -716,5 +724,9 @@ public final class CppConfiguration extends Fragment
 
   public boolean validateTopLevelHeaderInclusions() {
     return cppOptions.validateTopLevelHeaderInclusions;
+  }
+
+  public boolean appleGenerateDsym() {
+    return appleGenerateDsym;
   }
 }

@@ -315,7 +315,6 @@ public interface FilesetTraversalParams {
     ImmutableList<FilesetOutputSymlink> getLinks(
         EventHandler handler,
         Location location,
-        ArtifactPathResolver pathResolver,
         ArtifactExpander artifactExpander,
         MetadataProvider metadataProvider)
         throws IOException;

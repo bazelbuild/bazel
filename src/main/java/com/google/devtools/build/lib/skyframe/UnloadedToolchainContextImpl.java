@@ -37,6 +37,9 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
   /** Builder class to help create the {@link UnloadedToolchainContextImpl}. */
   @AutoValue.Builder
   public interface Builder {
+    /** Sets the key that identifies this context. */
+    Builder setKey(ToolchainContextKey key);
+
     /** Sets the selected execution platform that these toolchains use. */
     Builder setExecutionPlatform(PlatformInfo executionPlatform);
 

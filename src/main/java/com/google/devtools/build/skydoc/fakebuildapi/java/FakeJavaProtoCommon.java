@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaProtoCommonApi;
@@ -27,12 +27,12 @@ public class FakeJavaProtoCommon
     implements JavaProtoCommonApi<
         FileApi,
         ConstraintValueInfoApi,
-        SkylarkRuleContextApi<ConstraintValueInfoApi>,
+        StarlarkRuleContextApi<ConstraintValueInfoApi>,
         TransitiveInfoCollectionApi> {
 
   @Override
   public void createProtoCompileAction(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext,
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext,
       TransitiveInfoCollectionApi target,
       FileApi sourceJar,
       String protoToolchainAttr,
@@ -46,7 +46,7 @@ public class FakeJavaProtoCommon
 
   @Override
   public JavaInfoApi<FileApi> getRuntimeToolchainProvider(
-      SkylarkRuleContextApi<ConstraintValueInfoApi> skylarkRuleContext, String protoToolchainAttr)
+      StarlarkRuleContextApi<ConstraintValueInfoApi> starlarkRuleContext, String protoToolchainAttr)
       throws EvalException {
     return new FakeJavaInfo();
   }

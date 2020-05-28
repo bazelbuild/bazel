@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
-import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
@@ -118,7 +118,7 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
                       BazelRepositoryModule.repositoryRules(),
-                      new SkylarkRepositoryFunction(downloadManager),
+                      new StarlarkRepositoryFunction(downloadManager),
                       isFetch,
                       ImmutableMap::of,
                       directories,

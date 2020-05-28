@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
@@ -33,13 +33,13 @@ public class ProtoBootstrap implements Bootstrap {
 
   private final ProtoInfoProviderApi protoInfoApiProvider;
   private final Object protoCommon;
-  private final SkylarkAspectApi protoRegistryAspect;
+  private final StarlarkAspectApi protoRegistryAspect;
   private final ProviderApi protoRegistryProvider;
 
   public ProtoBootstrap(
       ProtoInfoProviderApi protoInfoApiProvider,
       Object protoCommon,
-      SkylarkAspectApi protoRegistryAspect,
+      StarlarkAspectApi protoRegistryAspect,
       ProviderApi protoRegistryProvider) {
     this.protoInfoApiProvider = protoInfoApiProvider;
     this.protoCommon = protoCommon;

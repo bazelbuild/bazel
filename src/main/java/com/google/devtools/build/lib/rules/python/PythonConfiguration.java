@@ -18,21 +18,21 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * The configuration fragment containing information about the various pieces of infrastructure
  * needed to run Python compilations.
  */
 @Immutable
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "py",
     doc = "A configuration fragment for Python.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final PythonVersion version;
@@ -73,6 +73,11 @@ public class PythonConfiguration extends Fragment implements StarlarkValue {
     this.useToolchains = useToolchains;
     this.loadPythonRulesFromBzl = loadPythonRulesFromBzl;
     this.defaultToExplicitInitPy = defaultToExplicitInitPy;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   /**

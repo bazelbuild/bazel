@@ -661,7 +661,7 @@ public final class Profiler {
           .push(new TaskData(taskId.incrementAndGet(), clock.nanoTime(), type, description));
       return () -> completeTask(type);
     } else {
-      return () -> {};
+      return NOP;
     }
   }
 
@@ -671,7 +671,6 @@ public final class Profiler {
    */
   public SilentCloseable profileAction(
       ProfilerTask type, String description, String primaryOutput) {
-
     Preconditions.checkNotNull(description);
     if (isActive() && isProfiling(type)) {
       taskStack
@@ -681,9 +680,11 @@ public final class Profiler {
                   taskId.incrementAndGet(), clock.nanoTime(), type, description, primaryOutput));
       return () -> completeTask(type);
     } else {
-      return () -> {};
+      return NOP;
     }
   }
+
+  private static final SilentCloseable NOP = () -> {};
 
   /**
    * Records the beginning of a task as specified, and returns a {@link SilentCloseable} instance

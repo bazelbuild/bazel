@@ -269,7 +269,7 @@ public class ProtoCommon {
     PathFragment importPrefix;
 
     StarlarkSemantics starlarkSemantics =
-        ruleContext.getAnalysisEnvironment().getSkylarkSemantics();
+        ruleContext.getAnalysisEnvironment().getStarlarkSemantics();
     boolean siblingRepositoryLayout = starlarkSemantics.experimentalSiblingRepositoryLayout();
     if (stripImportPrefixAttribute != null || importPrefixAttribute != null) {
       if (stripImportPrefixAttribute == null) {
@@ -500,7 +500,7 @@ public class ProtoCommon {
               .getExecPath(
                   ruleContext
                       .getAnalysisEnvironment()
-                      .getSkylarkSemantics()
+                      .getStarlarkSemantics()
                       .experimentalSiblingRepositoryLayout())
               .getPathString();
       library =

@@ -70,7 +70,7 @@ public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
                 + "target //foo:c");
 
     SkyKey starlarkAspectKey =
-        AspectValueKey.createSkylarkAspectKey(
+        AspectValueKey.createStarlarkAspectKey(
             makeLabel("//foo:a"),
             targetConfig,
             targetConfig,

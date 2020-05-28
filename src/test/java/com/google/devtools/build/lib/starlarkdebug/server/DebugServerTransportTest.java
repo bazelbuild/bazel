@@ -23,11 +23,11 @@ import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.D
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugRequest;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.StartDebuggingRequest;
 import java.io.IOException;
-import java.net.BindException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -90,7 +90,7 @@ public class DebugServerTransportTest {
     // and if that fails, try again with IPv4.
     try {
       return new ServerSocket(0, 1, InetAddress.getByName("[::1]"));
-    } catch (BindException e) {
+    } catch (SocketException e) {
       return new ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"));
     }
   }

@@ -54,7 +54,7 @@ public class JavaRuntime implements RuleConfiguredTargetFactory {
     boolean siblingRepositoryLayout =
         ruleContext
             .getAnalysisEnvironment()
-            .getSkylarkSemantics()
+            .getStarlarkSemantics()
             .experimentalSiblingRepositoryLayout();
     PathFragment javaHome = defaultJavaHome(ruleContext.getLabel(), siblingRepositoryLayout);
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("java_home")) {

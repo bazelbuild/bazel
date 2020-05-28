@@ -16,37 +16,49 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-import com.google.auto.value.AutoValue;
-import org.objectweb.asm.MethodVisitor;
+import com.google.devtools.build.android.desugar.langmodel.ClassMemberUse.ClassMemberUseBuilder;
 
 /**
  * Identifies the way a class member (field, method) is used, including method invocation and field
  * access.
  */
-@AutoValue
-public abstract class ClassMemberUse implements TypeMappable<ClassMemberUse> {
+public abstract class ClassMemberUse<
+        K extends ClassMemberKey<K>,
+        B extends ClassMemberUseBuilder<K, B, R>,
+        R extends ClassMemberUse<K, B, R>>
+    implements TypeMappable<ClassMemberUse<K, B, R>>, Comparable<ClassMemberUse<K, B, R>> {
 
-  public abstract ClassMemberKey<?> method();
-
+  /** The invocation kind of a method and get/put operations for a field. */
   public abstract MemberUseKind useKind();
 
-  public static ClassMemberUse create(ClassMemberKey<?> memberKey, MemberUseKind memberUseKind) {
-    return new AutoValue_ClassMemberUse(memberKey, memberUseKind);
-  }
+  /** A field, method or constructor of a class. */
+  public abstract K member();
 
-  // Performs the current member use on the given class visitor.
-  public final void acceptClassMethodInsn(MethodVisitor mv) {
-    ClassMemberKey<?> method = method();
-    mv.visitMethodInsn(
-        useKind().getOpcode(),
-        method.ownerName(),
-        method.name(),
-        method.descriptor(),
-        /* isInterface= */ false);
-  }
+  public abstract B toBuilder();
 
   @Override
-  public ClassMemberUse acceptTypeMapper(TypeMapper typeMapper) {
-    return create(method().acceptTypeMapper(typeMapper), useKind());
+  public abstract ClassMemberUse<K, B, R> acceptTypeMapper(TypeMapper typeMapper);
+
+  @Override
+  public final int compareTo(ClassMemberUse<K, B, R> other) {
+    int methodKeyComparison = member().compareTo(other.member());
+    if (methodKeyComparison != 0) {
+      return methodKeyComparison;
+    }
+
+    return useKind().compareTo(other.useKind());
+  }
+
+  /** The base builder for {@link ClassMemberUse}. */
+  abstract static class ClassMemberUseBuilder<
+      K extends ClassMemberKey<K>,
+      B extends ClassMemberUseBuilder<K, B, R>,
+      R extends ClassMemberUse<K, B, R>> {
+
+    abstract B setUseKind(MemberUseKind value);
+
+    abstract B setMember(K value);
+
+    public abstract R build();
   }
 }

@@ -17,15 +17,17 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ExecGroupCollectionApi;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * A {@link com.google.devtools.build.lib.syntax.SkylarkIndexable} collection of resolved toolchain
- * contexts that can be exposed to starlark.
+ * A {@link StarlarkIndexable} collection of resolved toolchain contexts that can be exposed to
+ * starlark.
  */
 public class ExecGroupCollection extends ToolchainCollection<ResolvedToolchainContext>
     implements ExecGroupCollectionApi {
@@ -37,6 +39,10 @@ public class ExecGroupCollection extends ToolchainCollection<ResolvedToolchainCo
   @VisibleForTesting
   public ImmutableMap<String, ResolvedToolchainContext> getToolchainCollectionForTesting() {
     return getContextMap();
+  }
+
+  public static boolean isValidGroupName(String execGroupName) {
+    return !execGroupName.equals(DEFAULT_EXEC_GROUP_NAME) && Identifier.isValid(execGroupName);
   }
 
   @Override

@@ -298,8 +298,8 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'fdo_profile_path'",
                         "      flag: '-fprofile-use=%{fdo_profile_path}'",
-                        "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'",
-                        "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'",
+                        "      flag: '-Wno-profile-instr-unprofiled'",
+                        "      flag: '-Wno-profile-instr-out-of-date'",
                         "      flag: '-fprofile-correction'",
                         "    }",
                         "  }")));
@@ -341,8 +341,8 @@ public class CppActionConfigs {
                         "    flag_group {",
                         "      expand_if_all_available: 'fdo_profile_path'",
                         "      flag: '-fprofile-use=%{fdo_profile_path}'",
-                        "      flag: '-Xclang-only=-Wno-profile-instr-unprofiled'",
-                        "      flag: '-Xclang-only=-Wno-profile-instr-out-of-date'",
+                        "      flag: '-Wno-profile-instr-unprofiled'",
+                        "      flag: '-Wno-profile-instr-out-of-date'",
                         "      flag: '-fprofile-correction'",
                         "    }",
                         "  }")));

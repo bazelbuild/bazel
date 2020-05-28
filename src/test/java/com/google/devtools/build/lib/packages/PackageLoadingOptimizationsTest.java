@@ -89,7 +89,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void skylarkProviderIdentifierIsDedupedAcrossRuleClasses() throws Exception {
+  public void starlarkProviderIdentifierIsDedupedAcrossRuleClasses() throws Exception {
     scratch.file("foo/provider.bzl", "foo_provider = provider()");
     scratch.file(
         "foo/foo.bzl",
@@ -118,7 +118,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
         ImmutableList.builder();
     for (Rule ruleInstance : fooPkg.getTargets(Rule.class)) {
       RuleClass ruleClass = ruleInstance.getRuleClassObject();
-      allListsBuilder.add(ruleClass.getAdvertisedProviders().getSkylarkProviders().asList());
+      allListsBuilder.add(ruleClass.getAdvertisedProviders().getStarlarkProviders().asList());
     }
     ImmutableList<ImmutableList<StarlarkProviderIdentifier>> allLists = allListsBuilder.build();
     assertThat(allLists).hasSize(2);

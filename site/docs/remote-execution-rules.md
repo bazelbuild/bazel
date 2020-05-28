@@ -6,7 +6,7 @@ title: Adapting Bazel rules for remote execution
 # Adapting Bazel rules for remote execution
 
 Remote execution allows Bazel to execute actions on a separate platform, such as
-a datacenter. A [gRPC protocol](https://github.com/googleapis/googleapis/blob/master/google/devtools/remoteexecution/v1test/remote_execution.proto)
+a datacenter. A [gRPC protocol](https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/execution/v2/remote_execution.proto)
 is currently in development. You can try remote execution with [bazel-buildfarm](https://github.com/bazelbuild/bazel-buildfarm),
 an open-source project that aims to provide a distributed remote execution
 platform. This document is intended for Bazel users writing custom build and

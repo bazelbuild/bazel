@@ -23,16 +23,15 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsTo
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.causes.Cause;
+import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /** Manages completing builds for aspects. */
@@ -40,19 +39,20 @@ class AspectCompletor
     implements Completor<AspectValue, AspectCompletionValue, AspectCompletionKey> {
 
   static SkyFunction aspectCompletionFunction(
-      PathResolverFactory pathResolverFactory, Supplier<Path> execRootSupplier) {
-    return new CompletionFunction<>(pathResolverFactory, new AspectCompletor(), execRootSupplier);
+      PathResolverFactory pathResolverFactory, SkyframeActionExecutor skyframeActionExecutor) {
+    return new CompletionFunction<>(
+        pathResolverFactory, new AspectCompletor(), skyframeActionExecutor);
   }
 
   @Override
   public Event getRootCauseError(
-      AspectValue value, AspectCompletionKey key, Cause rootCause, Environment env) {
+      AspectValue value, AspectCompletionKey key, LabelCause rootCause, Environment env) {
     AspectKey aspectKey = key.actionLookupKey();
     return Event.error(
         value.getLocation(),
         String.format(
-            "%s, aspect %s: missing input file '%s'",
-            aspectKey.getLabel(), aspectKey.getAspectClass().getName(), rootCause));
+            "%s, aspect %s: %s",
+            aspectKey.getLabel(), aspectKey.getAspectClass().getName(), rootCause.getMessage()));
   }
 
   @Override

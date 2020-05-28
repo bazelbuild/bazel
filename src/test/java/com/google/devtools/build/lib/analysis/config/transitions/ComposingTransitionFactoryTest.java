@@ -58,7 +58,10 @@ public class ComposingTransitionFactoryTest {
     assertThat(composed.isSplit()).isFalse();
     ConfigurationTransition transition = composed.create(new StubData());
     Collection<BuildOptions> results =
-        transition.apply(BuildOptions.builder().build(), eventHandler).values();
+        transition
+            .apply(
+                TransitionUtil.restrict(transition, BuildOptions.builder().build()), eventHandler)
+            .values();
     assertThat(results).isNotNull();
     assertThat(results).hasSize(1);
     BuildOptions result = Iterables.getOnlyElement(results);
@@ -78,7 +81,8 @@ public class ComposingTransitionFactoryTest {
     assertThat(composed.isSplit()).isTrue();
     ConfigurationTransition transition = composed.create(new StubData());
     Map<String, BuildOptions> results =
-        transition.apply(BuildOptions.builder().build(), eventHandler);
+        transition.apply(
+            TransitionUtil.restrict(transition, BuildOptions.builder().build()), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 
@@ -105,7 +109,8 @@ public class ComposingTransitionFactoryTest {
     assertThat(composed.isSplit()).isTrue();
     ConfigurationTransition transition = composed.create(new StubData());
     Map<String, BuildOptions> results =
-        transition.apply(BuildOptions.builder().build(), eventHandler);
+        transition.apply(
+            TransitionUtil.restrict(transition, BuildOptions.builder().build()), eventHandler);
     assertThat(results).isNotNull();
     assertThat(results).hasSize(2);
 

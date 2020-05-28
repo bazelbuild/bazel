@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.skylark.Args;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -567,16 +568,17 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
+        Label label = getOwner().getLabel();
         throw e.toActionExecutionException(
-            "Linking of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
+            "Linking of rule '" + label + "'",
+            actionExecutionContext.showVerboseFailures(label),
             CppLinkAction.this);
       }
     }
   }
 
   @Override
-  public Sequence<String> getSkylarkArgv() throws EvalException {
+  public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException exception) {

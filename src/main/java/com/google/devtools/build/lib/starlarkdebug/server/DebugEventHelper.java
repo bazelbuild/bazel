@@ -145,7 +145,7 @@ final class DebugEventHelper {
   private static ImmutableList<Scope> getScopes(ThreadObjectMap objectMap, Debug.Frame frame) {
     Map<String, Object> moduleVars =
         frame.getFunction() instanceof StarlarkFunction
-            ? ((StarlarkFunction) frame.getFunction()).getModule().getTransitiveBindings()
+            ? ((StarlarkFunction) frame.getFunction()).getModule().getGlobals()
             : ImmutableMap.of();
 
     ImmutableMap<String, Object> localVars = frame.getLocals();

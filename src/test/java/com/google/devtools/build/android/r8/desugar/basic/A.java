@@ -13,4 +13,5 @@
 // limitations under the License.
 package com.google.devtools.build.android.r8.desugar.basic;
 
-class A implements I {}
+/** Test class */
+public class A implements I {}

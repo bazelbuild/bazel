@@ -21,6 +21,14 @@ import java.util.List;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
 public final class SpawnMetrics {
+
+  /** Indicates whether the metrics correspond to the remote, local or worker execution. */
+  public static enum ExecKind {
+    REMOTE,
+    LOCAL,
+    WORKER
+  }
+
   /** Any non important stats < than 10% will not be shown in the summary. */
   private static final double STATS_SHOW_THRESHOLD = 0.10;
 
@@ -28,18 +36,23 @@ public final class SpawnMetrics {
   public static final SpawnMetrics EMPTY = new Builder().build();
 
   public static SpawnMetrics forLocalExecution(Duration wallTime) {
-    return new Builder().setTotalTime(wallTime).setExecutionWallTime(wallTime).build();
+    return new Builder()
+        .setExecKind(ExecKind.LOCAL)
+        .setTotalTime(wallTime)
+        .setExecutionWallTime(wallTime)
+        .build();
   }
 
+  private final ExecKind execKind;
   private final Duration totalTime;
   private final Duration parseTime;
   private final Duration fetchTime;
-  private final Duration remoteQueueTime;
+  private final Duration queueTime;
   private final Duration uploadTime;
   private final Duration setupTime;
   private final Duration executionWallTime;
   private final Duration retryTime;
-  private final Duration remoteProcessOutputsTime;
+  private final Duration processOutputsTime;
   private final Duration networkTime;
   private final long inputBytes;
   private final long inputFiles;
@@ -50,44 +63,51 @@ public final class SpawnMetrics {
       Duration parseTime,
       Duration networkTime,
       Duration fetchTime,
-      Duration remoteQueueTime,
+      Duration queueTime,
       Duration setupTime,
       Duration uploadTime,
       Duration executionWallTime,
       Duration retryTime,
-      Duration remoteProcessOutputsTime,
+      Duration processOutputsTime,
       long inputBytes,
       long inputFiles,
       long memoryEstimateBytes) {
+    this.execKind = ExecKind.REMOTE;
     this.totalTime = totalTime;
     this.parseTime = parseTime;
     this.networkTime = networkTime;
     this.fetchTime = fetchTime;
-    this.remoteQueueTime = remoteQueueTime;
+    this.queueTime = queueTime;
     this.setupTime = setupTime;
     this.uploadTime = uploadTime;
     this.executionWallTime = executionWallTime;
     this.retryTime = retryTime;
-    this.remoteProcessOutputsTime = remoteProcessOutputsTime;
+    this.processOutputsTime = processOutputsTime;
     this.inputBytes = inputBytes;
     this.inputFiles = inputFiles;
     this.memoryEstimateBytes = memoryEstimateBytes;
   }
 
   private SpawnMetrics(Builder builder) {
+    this.execKind = builder.execKind;
     this.totalTime = builder.totalTime;
     this.parseTime = builder.parseTime;
     this.networkTime = builder.networkTime;
     this.fetchTime = builder.fetchTime;
-    this.remoteQueueTime = builder.remoteQueueTime;
+    this.queueTime = builder.queueTime;
     this.setupTime = builder.setupTime;
     this.uploadTime = builder.uploadTime;
     this.executionWallTime = builder.executionWallTime;
     this.retryTime = builder.retryTime;
-    this.remoteProcessOutputsTime = builder.remoteProcessOutputsTime;
+    this.processOutputsTime = builder.processOutputsTime;
     this.inputBytes = builder.inputBytes;
     this.inputFiles = builder.inputFiles;
     this.memoryEstimateBytes = builder.memoryEstimateBytes;
+  }
+
+  /** The kind of execution the metrics refer to (remote/local/worker). */
+  public ExecKind execKind() {
+    return execKind;
   }
 
   /**
@@ -107,12 +127,9 @@ public final class SpawnMetrics {
     return networkTime;
   }
 
-  /**
-   * Total time waiting in remote queues. Includes queue time for any failed attempts. This is 0 for
-   * locally executed spawns.
-   */
-  public Duration remoteQueueTime() {
-    return remoteQueueTime;
+  /** Total time waiting in queues. Includes queue time for any failed attempts. */
+  public Duration queueTime() {
+    return queueTime;
   }
 
   /** The time spent transferring files to the backends. This is 0 for locally executed spawns. */
@@ -153,8 +170,8 @@ public final class SpawnMetrics {
   }
 
   /** Time spend by the execution framework on processing outputs. */
-  public Duration remoteProcessOutputsTime() {
-    return remoteProcessOutputsTime;
+  public Duration processOutputsTime() {
+    return processOutputsTime;
   }
 
   /** Any time that is not measured by a more specific component, out of {@code totalTime()}. */
@@ -162,13 +179,13 @@ public final class SpawnMetrics {
     return totalTime
         .minus(parseTime)
         .minus(networkTime)
-        .minus(remoteQueueTime)
+        .minus(queueTime)
         .minus(uploadTime)
         .minus(setupTime)
         .minus(executionWallTime)
         .minus(fetchTime)
         .minus(retryTime)
-        .minus(remoteProcessOutputsTime);
+        .minus(processOutputsTime);
   }
 
   /** Total size in bytes of inputs or 0 if unavailable. */
@@ -199,14 +216,14 @@ public final class SpawnMetrics {
     sb.append(" of the time): [");
     List<String> stats = new ArrayList<>(8);
     addStatToString(stats, "parse", !summary, parseTime, total);
-    addStatToString(stats, "queue", true, remoteQueueTime, total);
+    addStatToString(stats, "queue", true, queueTime, total);
     addStatToString(stats, "network", !summary, networkTime, total);
     addStatToString(stats, "upload", !summary, uploadTime, total);
     addStatToString(stats, "setup", true, setupTime, total);
     addStatToString(stats, "process", true, executionWallTime, total);
     addStatToString(stats, "fetch", !summary, fetchTime, total);
     addStatToString(stats, "retry", !summary, retryTime, total);
-    addStatToString(stats, "processOutputs", !summary, remoteProcessOutputsTime, total);
+    addStatToString(stats, "processOutputs", !summary, processOutputsTime, total);
     addStatToString(stats, "other", !summary, otherTime(), total);
     if (!summary) {
       stats.add("input files: " + inputFiles);
@@ -249,75 +266,43 @@ public final class SpawnMetrics {
   }
 
   /**
-   * Aggregates a the duration and values of a collection of SpawnMetrics called by {@link
-   * CriticalPathComponent#addSpawnResult}
+   * Sums all the metrics (both duration and non-duration ones).
    *
    * @param spawnMetrics - collection of SpawnMetrics to aggregate
-   * @param onlyDuration - if true, only aggregate the Duration fields, otherwise everything
    * @return a single SpawnMetrics object has the total duration (and other values)
    */
-  public static SpawnMetrics aggregateMetrics(
-      ImmutableList<SpawnMetrics> spawnMetrics, boolean onlyDuration) {
-    Duration totalTime = Duration.ZERO;
-    Duration parseTime = Duration.ZERO;
-    Duration networkTime = Duration.ZERO;
-    Duration fetchTime = Duration.ZERO;
-    Duration remoteQueueTime = Duration.ZERO;
-    Duration uploadTime = Duration.ZERO;
-    Duration setupTime = Duration.ZERO;
-    Duration executionWallTime = Duration.ZERO;
-    Duration retryTime = Duration.ZERO;
-    Duration remoteProcessOutputsTime = Duration.ZERO;
-    long inputFiles = 0L;
-    long inputBytes = 0L;
-    long memoryEstimate = 0L;
-
+  public static SpawnMetrics sumAllMetrics(ImmutableList<SpawnMetrics> spawnMetrics) {
+    Builder builder = new Builder();
     for (SpawnMetrics metric : spawnMetrics) {
-      totalTime = totalTime.plus(metric.totalTime());
-      parseTime = parseTime.plus(metric.parseTime());
-      networkTime = networkTime.plus(metric.networkTime());
-      fetchTime = fetchTime.plus(metric.fetchTime());
-      remoteQueueTime = remoteQueueTime.plus(metric.remoteQueueTime());
-      uploadTime = uploadTime.plus(metric.uploadTime());
-      setupTime = setupTime.plus(metric.setupTime());
-      executionWallTime = executionWallTime.plus(metric.executionWallTime());
-      retryTime = retryTime.plus(metric.retryTime());
-      remoteProcessOutputsTime = remoteProcessOutputsTime.plus(metric.remoteProcessOutputsTime());
-      inputFiles = onlyDuration ? metric.inputFiles() : inputFiles + metric.inputFiles();
-      inputBytes = onlyDuration ? metric.inputBytes() : inputBytes + metric.inputBytes();
-      memoryEstimate =
-          onlyDuration ? metric.memoryEstimate() : memoryEstimate + metric.memoryEstimate();
+      builder.addDurations(metric);
+      builder.addNonDurations(metric);
     }
+    return builder.build();
+  }
 
-    return new SpawnMetrics.Builder()
-        .setTotalTime(totalTime)
-        .setParseTime(parseTime)
-        .setNetworkTime(networkTime)
-        .setFetchTime(fetchTime)
-        .setRemoteQueueTime(remoteQueueTime)
-        .setSetupTime(setupTime)
-        .setUploadTime(uploadTime)
-        .setExecutionWallTime(executionWallTime)
-        .setRetryTime(retryTime)
-        .setRemoteProcessOutputsTime(remoteProcessOutputsTime)
-        .setInputBytes(inputBytes)
-        .setInputFiles(inputFiles)
-        .setMemoryEstimateBytes(memoryEstimate)
-        .build();
+  /** Sums all the duration metrics and selects the maximum of the non-duration ones. */
+  public static SpawnMetrics sumDurationsMaxOther(ImmutableList<SpawnMetrics> spawnMetrics) {
+    Builder builder = new Builder();
+    for (SpawnMetrics metric : spawnMetrics) {
+      builder.addDurations(metric);
+      builder.maxNonDurations(metric);
+    }
+    return builder.build();
   }
 
   /** Builder class for SpawnMetrics. */
   public static class Builder {
+    private ExecKind execKind = ExecKind.REMOTE;
     private Duration totalTime = Duration.ZERO;
     private Duration parseTime = Duration.ZERO;
     private Duration networkTime = Duration.ZERO;
     private Duration fetchTime = Duration.ZERO;
-    private Duration remoteQueueTime = Duration.ZERO;
+    private Duration queueTime = Duration.ZERO;
     private Duration setupTime = Duration.ZERO;
     private Duration uploadTime = Duration.ZERO;
     private Duration executionWallTime = Duration.ZERO;
     private Duration retryTime = Duration.ZERO;
-    private Duration remoteProcessOutputsTime = Duration.ZERO;
+    private Duration processOutputsTime = Duration.ZERO;
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
@@ -325,6 +310,11 @@ public final class SpawnMetrics {
     public SpawnMetrics build() {
       // TODO(ulfjack): Add consistency checks here?
       return new SpawnMetrics(this);
+    }
+
+    public Builder setExecKind(ExecKind execKind) {
+      this.execKind = execKind;
+      return this;
     }
 
     public Builder setTotalTime(Duration totalTime) {
@@ -347,8 +337,8 @@ public final class SpawnMetrics {
       return this;
     }
 
-    public Builder setRemoteQueueTime(Duration remoteQueueTime) {
-      this.remoteQueueTime = remoteQueueTime;
+    public Builder setQueueTime(Duration queueTime) {
+      this.queueTime = queueTime;
       return this;
     }
 
@@ -372,8 +362,8 @@ public final class SpawnMetrics {
       return this;
     }
 
-    public Builder setRemoteProcessOutputsTime(Duration remoteProcessOutputsTime) {
-      this.remoteProcessOutputsTime = remoteProcessOutputsTime;
+    public Builder setProcessOutputsTime(Duration processOutputsTime) {
+      this.processOutputsTime = processOutputsTime;
       return this;
     }
 
@@ -389,6 +379,34 @@ public final class SpawnMetrics {
 
     public Builder setMemoryEstimateBytes(long memoryEstimateBytes) {
       this.memoryEstimateBytes = memoryEstimateBytes;
+      return this;
+    }
+
+    public Builder addDurations(SpawnMetrics metric) {
+      totalTime = totalTime.plus(metric.totalTime());
+      parseTime = parseTime.plus(metric.parseTime());
+      networkTime = networkTime.plus(metric.networkTime());
+      fetchTime = fetchTime.plus(metric.fetchTime());
+      queueTime = queueTime.plus(metric.queueTime());
+      uploadTime = uploadTime.plus(metric.uploadTime());
+      setupTime = setupTime.plus(metric.setupTime());
+      executionWallTime = executionWallTime.plus(metric.executionWallTime());
+      retryTime = retryTime.plus(metric.retryTime());
+      processOutputsTime = processOutputsTime.plus(metric.processOutputsTime());
+      return this;
+    }
+
+    public Builder addNonDurations(SpawnMetrics metric) {
+      inputFiles += metric.inputFiles();
+      inputBytes += metric.inputBytes();
+      memoryEstimateBytes += metric.memoryEstimate();
+      return this;
+    }
+
+    public Builder maxNonDurations(SpawnMetrics metric) {
+      inputFiles = Long.max(inputFiles, metric.inputFiles());
+      inputBytes = Long.max(inputBytes, metric.inputBytes());
+      memoryEstimateBytes = Long.max(memoryEstimateBytes, metric.memoryEstimate());
       return this;
     }
   }

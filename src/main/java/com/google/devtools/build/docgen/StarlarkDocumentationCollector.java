@@ -15,14 +15,9 @@ package com.google.devtools.build.docgen;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkJavaMethodDoc;
-import com.google.devtools.build.docgen.starlark.StarlarkModuleDoc;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.CallUtils;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -30,56 +25,62 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkGlobalLibrary;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A helper class that collects Starlark module documentation. */
 final class StarlarkDocumentationCollector {
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "globals",
       title = "Globals",
-      category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+      category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
       doc = "Objects, functions and modules registered in the global environment.")
   private static final class TopLevelModule implements StarlarkValue {}
 
   private StarlarkDocumentationCollector() {}
 
-  /** Returns the SkylarkModule annotation for the top-level Starlark module. */
-  public static SkylarkModule getTopLevelModule() {
-    return TopLevelModule.class.getAnnotation(SkylarkModule.class);
+  /** Returns the StarlarkBuiltin annotation for the top-level Starlark module. */
+  public static StarlarkBuiltin getTopLevelModule() {
+    return TopLevelModule.class.getAnnotation(StarlarkBuiltin.class);
   }
 
   /**
    * Collects the documentation for all Starlark modules comprised of the given classes and returns
    * a map that maps Starlark module name to the module documentation.
    */
-  public static Map<String, StarlarkModuleDoc> collectModules(Iterable<Class<?>> classes) {
-    Map<String, StarlarkModuleDoc> modules = new TreeMap<>();
+  public static Map<String, StarlarkBuiltinDoc> collectModules(Iterable<Class<?>> classes) {
+    Map<String, StarlarkBuiltinDoc> modules = new TreeMap<>();
     // The top level module first.
-    // (This is a special case of {@link StarlarkModuleDoc} as it has no object name).
-    SkylarkModule topLevelModule = getTopLevelModule();
-    modules.put(topLevelModule.name(), new StarlarkModuleDoc(topLevelModule, TopLevelModule.class));
+    // (This is a special case of {@link StarlarkBuiltinDoc} as it has no object name).
+    StarlarkBuiltin topLevelModule = getTopLevelModule();
+    modules.put(
+        topLevelModule.name(), new StarlarkBuiltinDoc(topLevelModule, TopLevelModule.class));
 
     // Creating module documentation is done in three passes.
-    // 1. Add all classes/interfaces annotated with @SkylarkModule with documented = true.
+    // 1. Add all classes/interfaces annotated with @StarlarkBuiltin with documented = true.
     for (Class<?> candidateClass : classes) {
-      if (candidateClass.isAnnotationPresent(SkylarkModule.class)) {
-        collectSkylarkModule(candidateClass, modules);
+      if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)) {
+        collectStarlarkModule(candidateClass, modules);
       }
     }
 
     // 2. Add all object methods and global functions.
     for (Class<?> candidateClass : classes) {
-      if (candidateClass.isAnnotationPresent(SkylarkModule.class)) {
+      if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)) {
         collectModuleMethods(candidateClass, modules);
       }
-      if (candidateClass.isAnnotationPresent(SkylarkGlobalLibrary.class)) {
+      if (candidateClass.isAnnotationPresent(StarlarkGlobalLibrary.class)) {
         collectGlobalLibraryMethods(candidateClass, modules);
       }
     }
 
     // 3. Add all constructors.
     for (Class<?> candidateClass : classes) {
-      if (candidateClass.isAnnotationPresent(SkylarkModule.class)
-          || candidateClass.isAnnotationPresent(SkylarkGlobalLibrary.class)) {
+      if (candidateClass.isAnnotationPresent(StarlarkBuiltin.class)
+          || candidateClass.isAnnotationPresent(StarlarkGlobalLibrary.class)) {
         collectConstructorMethods(candidateClass, modules);
       }
     }
@@ -88,35 +89,35 @@ final class StarlarkDocumentationCollector {
   }
 
   /**
-   * Returns the {@link StarlarkModuleDoc} entry representing the collection of top level functions.
-   * (This is a special case of {@link StarlarkModuleDoc} as it has no object name).
+   * Returns the {@link StarlarkBuiltinDoc} entry representing the collection of top level
+   * functions. (This is a special case of {@link StarlarkBuiltinDoc} as it has no object name).
    */
-  private static StarlarkModuleDoc getTopLevelModuleDoc(Map<String, StarlarkModuleDoc> modules) {
+  private static StarlarkBuiltinDoc getTopLevelModuleDoc(Map<String, StarlarkBuiltinDoc> modules) {
     return modules.get(getTopLevelModule().name());
   }
 
   /**
-   * Adds a single {@link StarlarkModuleDoc} entry to {@code modules} representing the given {@code
+   * Adds a single {@link StarlarkBuiltinDoc} entry to {@code modules} representing the given {@code
    * moduleClass}, if it is a documented module.
    */
-  private static void collectSkylarkModule(
-      Class<?> moduleClass, Map<String, StarlarkModuleDoc> modules) {
+  private static void collectStarlarkModule(
+      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules) {
     if (moduleClass.equals(TopLevelModule.class)) {
       // The top level module doc is a special case and is handled separately.
       return;
     }
 
-    SkylarkModule moduleAnnotation =
-        Preconditions.checkNotNull(moduleClass.getAnnotation(SkylarkModule.class));
+    StarlarkBuiltin moduleAnnotation =
+        Preconditions.checkNotNull(moduleClass.getAnnotation(StarlarkBuiltin.class));
 
     if (moduleAnnotation.documented()) {
-      StarlarkModuleDoc previousModuleDoc = modules.get(moduleAnnotation.name());
+      StarlarkBuiltinDoc previousModuleDoc = modules.get(moduleAnnotation.name());
       if (previousModuleDoc == null) {
-        modules.put(moduleAnnotation.name(), new StarlarkModuleDoc(moduleAnnotation, moduleClass));
+        modules.put(moduleAnnotation.name(), new StarlarkBuiltinDoc(moduleAnnotation, moduleClass));
       } else {
         // Handle a strange corner-case: If moduleClass has a subclass which is also
-        // annotated with @SkylarkModule with the same name, and also has the same module-level
-        // docstring, then the subclass takes precedence.
+        // annotated with {@link StarlarkBuiltin} with the same name, and also has the same
+        // module-level docstring, then the subclass takes precedence.
         // (This is useful if one module is a "common" stable module, and its subclass is
         // an experimental module that also supports all stable methods.)
         validateCompatibleModules(previousModuleDoc.getClassObject(), moduleClass);
@@ -124,7 +125,7 @@ final class StarlarkDocumentationCollector {
         if (previousModuleDoc.getClassObject().isAssignableFrom(moduleClass)) {
           // The new module is a subclass of the old module, so use the subclass.
           modules.put(
-              moduleAnnotation.name(), new StarlarkModuleDoc(moduleAnnotation, moduleClass));
+              moduleAnnotation.name(), new StarlarkBuiltinDoc(moduleAnnotation, moduleClass));
         }
       }
     }
@@ -135,8 +136,8 @@ final class StarlarkDocumentationCollector {
    * co-exist.
    */
   private static void validateCompatibleModules(Class<?> one, Class<?> two) {
-    SkylarkModule moduleOne = one.getAnnotation(SkylarkModule.class);
-    SkylarkModule moduleTwo = two.getAnnotation(SkylarkModule.class);
+    StarlarkBuiltin moduleOne = one.getAnnotation(StarlarkBuiltin.class);
+    StarlarkBuiltin moduleTwo = two.getAnnotation(StarlarkBuiltin.class);
     if (one.isAssignableFrom(two) || two.isAssignableFrom(one)) {
       if (!moduleOne.doc().equals(moduleTwo.doc())) {
         throw new IllegalStateException(
@@ -153,21 +154,21 @@ final class StarlarkDocumentationCollector {
   }
 
   private static void collectModuleMethods(
-      Class<?> moduleClass, Map<String, StarlarkModuleDoc> modules) {
-    SkylarkModule moduleAnnotation =
-        Preconditions.checkNotNull(moduleClass.getAnnotation(SkylarkModule.class));
+      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules) {
+    StarlarkBuiltin moduleAnnotation =
+        Preconditions.checkNotNull(moduleClass.getAnnotation(StarlarkBuiltin.class));
 
     if (moduleAnnotation.documented()) {
-      StarlarkModuleDoc moduleDoc =
+      StarlarkBuiltinDoc moduleDoc =
           Preconditions.checkNotNull(modules.get(moduleAnnotation.name()));
 
       if (moduleClass == moduleDoc.getClassObject()) {
-        ImmutableMap<Method, SkylarkCallable> methods =
-            CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
-        for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
-          // Only collect methods not annotated with @SkylarkConstructor. Methods with
-          // @SkylarkConstructor are added later.
-          if (!entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
+        ImmutableMap<Method, StarlarkMethod> methods =
+            CallUtils.collectStarlarkMethodsWithAnnotation(moduleClass);
+        for (Map.Entry<Method, StarlarkMethod> entry : methods.entrySet()) {
+          // Only collect methods not annotated with @StarlarkConstructor. Methods with
+          // @StarlarkConstructor are added later.
+          if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
             moduleDoc.addMethod(
                 new StarlarkJavaMethodDoc(moduleDoc.getName(), entry.getKey(), entry.getValue()));
           }
@@ -178,9 +179,8 @@ final class StarlarkDocumentationCollector {
 
   @Nullable
   private static Method getSelfCallConstructorMethod(Class<?> objectClass) {
-    Method selfCallMethod =
-        CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT_SEMANTICS, objectClass);
-    if (selfCallMethod != null && selfCallMethod.isAnnotationPresent(SkylarkConstructor.class)) {
+    Method selfCallMethod = CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT, objectClass);
+    if (selfCallMethod != null && selfCallMethod.isAnnotationPresent(StarlarkConstructor.class)) {
       return selfCallMethod;
     }
     return null;
@@ -188,19 +188,19 @@ final class StarlarkDocumentationCollector {
 
   /**
    * Adds {@link StarlarkJavaMethodDoc} entries to the top level module, one for
-   * each @SkylarkCallable method defined in the given @SkylarkGlobalLibrary class {@code
+   * each @StarlarkMethod method defined in the given @StarlarkGlobalLibrary class {@code
    * moduleClass}.
    */
   private static void collectGlobalLibraryMethods(
-      Class<?> moduleClass, Map<String, StarlarkModuleDoc> modules) {
-    Preconditions.checkArgument(moduleClass.isAnnotationPresent(SkylarkGlobalLibrary.class));
-    StarlarkModuleDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
+      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules) {
+    Preconditions.checkArgument(moduleClass.isAnnotationPresent(StarlarkGlobalLibrary.class));
+    StarlarkBuiltinDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
 
-    ImmutableMap<Method, SkylarkCallable> methods =
-        CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
-    for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
+    ImmutableMap<Method, StarlarkMethod> methods =
+        CallUtils.collectStarlarkMethodsWithAnnotation(moduleClass);
+    for (Map.Entry<Method, StarlarkMethod> entry : methods.entrySet()) {
       // Only add non-constructor global library methods. Constructors are added later.
-      if (!entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
+      if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
         topLevelModuleDoc.addMethod(
             new StarlarkJavaMethodDoc("", entry.getKey(), entry.getValue()));
       }
@@ -208,19 +208,19 @@ final class StarlarkDocumentationCollector {
   }
 
   private static void collectConstructor(
-      Map<String, StarlarkModuleDoc> modules, Class<?> moduleClass, Method method) {
-    SkylarkConstructor constructorAnnotation =
-        Preconditions.checkNotNull(method.getAnnotation(SkylarkConstructor.class));
-    SkylarkCallable callable =
-        Preconditions.checkNotNull(method.getAnnotation(SkylarkCallable.class));
+      Map<String, StarlarkBuiltinDoc> modules, Class<?> moduleClass, Method method) {
+    StarlarkConstructor constructorAnnotation =
+        Preconditions.checkNotNull(method.getAnnotation(StarlarkConstructor.class));
+    StarlarkMethod callable =
+        Preconditions.checkNotNull(method.getAnnotation(StarlarkMethod.class));
     Class<?> objectClass = constructorAnnotation.objectType();
-    SkylarkModule objectModule = objectClass.getAnnotation(SkylarkModule.class);
+    StarlarkBuiltin objectModule = objectClass.getAnnotation(StarlarkBuiltin.class);
     if (objectModule == null || !objectModule.documented()) {
       // The class of the constructed object type has no documentation, so no place to add
       // constructor information.
       return;
     }
-    StarlarkModuleDoc module = modules.get(objectModule.name());
+    StarlarkBuiltinDoc module = modules.get(objectModule.name());
 
     String fullyQualifiedName;
     if (!constructorAnnotation.receiverNameForDoc().isEmpty()) {
@@ -236,24 +236,24 @@ final class StarlarkDocumentationCollector {
   /**
    * Collect two types of constructor methods:
    *
-   * <p>1. Methods that are annotated with @SkylarkConstructor.
+   * <p>1. Methods that are annotated with @StarlarkConstructor.
    *
    * <p>2. Structfield methods that return an object which itself has a method with selfCall = true,
-   * and is annotated with @SkylarkConstructor. (For example, suppose Foo has a structfield method
+   * and is annotated with @StarlarkConstructor. (For example, suppose Foo has a structfield method
    * 'bar'. If Foo.bar is itself callable, and is a constructor, then Foo.bar() should be treated
    * like a constructor method.)
    */
   private static void collectConstructorMethods(
-      Class<?> moduleClass, Map<String, StarlarkModuleDoc> modules) {
+      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules) {
     Method selfCallConstructor = getSelfCallConstructorMethod(moduleClass);
     if (selfCallConstructor != null) {
       collectConstructor(modules, moduleClass, selfCallConstructor);
     }
 
-    ImmutableMap<Method, SkylarkCallable> methods =
-        CallUtils.collectSkylarkMethodsWithAnnotation(moduleClass);
-    for (Map.Entry<Method, SkylarkCallable> entry : methods.entrySet()) {
-      if (entry.getKey().isAnnotationPresent(SkylarkConstructor.class)) {
+    ImmutableMap<Method, StarlarkMethod> methods =
+        CallUtils.collectStarlarkMethodsWithAnnotation(moduleClass);
+    for (Map.Entry<Method, StarlarkMethod> entry : methods.entrySet()) {
+      if (entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
         collectConstructor(modules, moduleClass, entry.getKey());
       }
       Class<?> returnClass = entry.getKey().getReturnType();
@@ -265,25 +265,24 @@ final class StarlarkDocumentationCollector {
   }
 
   private static String getModuleNameForConstructorPrefix(
-      Class<?> moduleClass, Map<String, StarlarkModuleDoc> modules) {
-    if (moduleClass.isAnnotationPresent(SkylarkModule.class)) {
-      String moduleName = moduleClass.getAnnotation(SkylarkModule.class).name();
-      StarlarkModuleDoc moduleDoc = Preconditions.checkNotNull(modules.get(moduleName));
+      Class<?> moduleClass, Map<String, StarlarkBuiltinDoc> modules) {
+    if (moduleClass.isAnnotationPresent(StarlarkBuiltin.class)) {
+      String moduleName = moduleClass.getAnnotation(StarlarkBuiltin.class).name();
+      StarlarkBuiltinDoc moduleDoc = Preconditions.checkNotNull(modules.get(moduleName));
 
       if (moduleClass != moduleDoc.getClassObject()) {
         throw new IllegalStateException(
             "Could not determine module name for constructor defined in " + moduleClass);
       }
       return moduleName;
-    } else if (moduleClass.isAnnotationPresent(SkylarkGlobalLibrary.class)) {
+    } else if (moduleClass.isAnnotationPresent(StarlarkGlobalLibrary.class)) {
       return "";
     } else {
       throw new IllegalArgumentException(moduleClass + " has no valid annotation");
     }
   }
 
-  private static String getFullyQualifiedName(
-      String objectName, SkylarkCallable callable) {
+  private static String getFullyQualifiedName(String objectName, StarlarkMethod callable) {
     String objectDotExpressionPrefix = objectName.isEmpty() ? "" : objectName + ".";
     String methodName = callable.name();
     return objectDotExpressionPrefix + methodName;

@@ -70,18 +70,21 @@ public class TracingMetadataUtils {
     Preconditions.checkNotNull(buildRequestId);
     Preconditions.checkNotNull(commandId);
     Preconditions.checkNotNull(actionId);
-    RequestMetadata.Builder metadata =
+    RequestMetadata metadata =
         RequestMetadata.newBuilder()
             .setCorrelatedInvocationsId(buildRequestId)
-            .setToolInvocationId(commandId);
-    metadata.setActionId(actionId);
-    metadata
-        .setToolDetails(
-            ToolDetails.newBuilder()
-                .setToolName("bazel")
-                .setToolVersion(BlazeVersionInfo.instance().getVersion()))
-        .build();
-    return Context.current().withValue(CONTEXT_KEY, metadata.build());
+            .setToolInvocationId(commandId)
+            .setActionId(actionId)
+            .setToolDetails(
+                ToolDetails.newBuilder()
+                    .setToolName("bazel")
+                    .setToolVersion(BlazeVersionInfo.instance().getVersion()))
+            .build();
+    return contextWithMetadata(metadata);
+  }
+
+  public static Context contextWithMetadata(RequestMetadata metadata) {
+    return Context.current().withValue(CONTEXT_KEY, metadata);
   }
 
   /**

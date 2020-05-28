@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.withSettings;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.lang.management.GarbageCollectorMXBean;
 import javax.management.ListenerNotFoundException;
@@ -90,5 +92,25 @@ public class RetainedHeapLimiterTest {
         .addNotificationListener(underTest, null, null);
     Mockito.verify((NotificationEmitter) mockBean, times(1))
         .removeNotificationListener(underTest, null, null);
+  }
+
+  @Test
+  public void noTenuredSpaceFound() throws AbruptExitException {
+    GarbageCollectorMXBean mockUselessBean = Mockito.mock(GarbageCollectorMXBean.class);
+    String[] untenuredPoolNames = {"assistant", "adjunct"};
+    Mockito.when(mockUselessBean.getMemoryPoolNames()).thenReturn(untenuredPoolNames);
+    RetainedHeapLimiter underTest = new RetainedHeapLimiter(ImmutableList.of(mockUselessBean));
+    Mockito.verify(mockUselessBean, Mockito.times(2)).getMemoryPoolNames();
+    underTest.updateThreshold(100);
+    Mockito.verifyNoMoreInteractions(mockUselessBean);
+    AbruptExitException e =
+        assertThrows(AbruptExitException.class, () -> underTest.updateThreshold(80));
+    FailureDetails.FailureDetail failureDetail = e.getDetailedExitCode().getFailureDetail();
+    assertThat(failureDetail.getMessage())
+        .contains("unable to watch for GC events to exit JVM when 80% of heap is used");
+    assertThat(failureDetail.getMemoryOptions().getCode())
+        .isEqualTo(
+            FailureDetails.MemoryOptions.Code
+                .EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND);
   }
 }

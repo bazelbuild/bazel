@@ -25,18 +25,17 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.List;
 import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkGlobalLibrary;
+import net.starlark.java.annot.StarlarkMethod;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -44,22 +43,21 @@ import org.junit.runners.JUnit4;
 /** Tests of Starlark evaluation. */
 // There is no clear distinction between this and EvaluationTest.
 // TODO(adonovan): reorganize.
-@SkylarkGlobalLibrary // required for @SkylarkCallable-annotated methods
+@StarlarkGlobalLibrary // required for @StarlarkMethod-annotated methods
 @RunWith(JUnit4.class)
 public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
-  @Immutable
   static class Bad {
     Bad () {
     }
   }
 
-  @SkylarkCallable(name = "foobar", documented = false)
+  @StarlarkMethod(name = "foobar", documented = false)
   public String foobar() {
     return "foobar";
   }
 
-  @SkylarkCallable(name = "interrupted_function", documented = false)
+  @StarlarkMethod(name = "interrupted_function", documented = false)
   public NoneType interruptedFunction() throws InterruptedException {
     throw new InterruptedException();
   }
@@ -67,42 +65,41 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   private static final NativeProvider<NativeInfoMock> CONSTRUCTOR =
       new NativeProvider<NativeInfoMock>(NativeInfoMock.class, "native_info_mock") {};
 
-  @SkylarkModule(name = "Mock", doc = "")
+  @StarlarkBuiltin(name = "Mock", doc = "")
   class NativeInfoMock extends NativeInfo {
 
     public NativeInfoMock() {
       super(CONSTRUCTOR);
     }
 
-    @SkylarkCallable(name = "callable_string", documented = false, structField = false)
+    @StarlarkMethod(name = "callable_string", documented = false, structField = false)
     public String callableString() {
       return "a";
     }
 
-    @SkylarkCallable(name = "struct_field_string", documented = false, structField = true)
+    @StarlarkMethod(name = "struct_field_string", documented = false, structField = true)
     public String structFieldString() {
       return "a";
     }
 
-    @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
+    @StarlarkMethod(name = "struct_field_callable", documented = false, structField = true)
     public BuiltinCallable structFieldCallable() {
       return new BuiltinCallable(StarlarkEvaluationTest.this, "foobar");
     }
 
-    @SkylarkCallable(
-      name = "struct_field_none",
-      documented = false,
-      structField = true,
-      allowReturnNones = true
-    )
+    @StarlarkMethod(
+        name = "struct_field_none",
+        documented = false,
+        structField = true,
+        allowReturnNones = true)
     public String structFieldNone() {
       return null;
     }
   }
 
-  @SkylarkModule(name = "Mock", doc = "")
+  @StarlarkBuiltin(name = "Mock", doc = "")
   class Mock implements StarlarkValue {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "MockFn",
         selfCall = true,
         documented = false,
@@ -113,30 +110,34 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
       return "I'm a mock named " + myName;
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "value_of",
         parameters = {@Param(name = "str", type = String.class)},
         documented = false)
     public Integer valueOf(String str) {
       return Integer.valueOf(str);
     }
-    @SkylarkCallable(name = "is_empty",
-        parameters = { @Param(name = "str", type = String.class) },
+
+    @StarlarkMethod(
+        name = "is_empty",
+        parameters = {@Param(name = "str", type = String.class)},
         documented = false)
     public Boolean isEmpty(String str) {
       return str.isEmpty();
     }
     public void value() {}
-    @SkylarkCallable(name = "return_bad", documented = false)
+
+    @StarlarkMethod(name = "return_bad", documented = false)
     public Bad returnBad() {
       return new Bad(); // not a legal Starlark value
     }
-    @SkylarkCallable(name = "struct_field", documented = false, structField = true)
+
+    @StarlarkMethod(name = "struct_field", documented = false, structField = true)
     public String structField() {
       return "a";
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "struct_field_with_extra",
         documented = false,
         structField = true,
@@ -147,23 +148,23 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         + ")";
     }
 
-    @SkylarkCallable(name = "struct_field_callable", documented = false, structField = true)
+    @StarlarkMethod(name = "struct_field_callable", documented = false, structField = true)
     public Object structFieldCallable() {
       return new BuiltinCallable(StarlarkEvaluationTest.this, "foobar");
     }
 
-    @SkylarkCallable(name = "interrupted_struct_field", documented = false, structField = true)
+    @StarlarkMethod(name = "interrupted_struct_field", documented = false, structField = true)
     public Object structFieldInterruptedCallable() throws InterruptedException {
       throw new InterruptedException();
     }
 
-    @SkylarkCallable(name = "function", documented = false, structField = false)
+    @StarlarkMethod(name = "function", documented = false, structField = false)
     public String function() {
       return "a";
     }
 
     @SuppressWarnings("unused")
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "nullfunc_failing",
         parameters = {
           @Param(name = "p1", type = String.class),
@@ -175,26 +176,30 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
       return null;
     }
 
-    @SkylarkCallable(name = "nullfunc_working", documented = false, allowReturnNones = true)
+    @StarlarkMethod(name = "nullfunc_working", documented = false, allowReturnNones = true)
     public StarlarkValue nullfuncWorking() {
       return null;
     }
-    @SkylarkCallable(name = "voidfunc", documented = false)
+
+    @StarlarkMethod(name = "voidfunc", documented = false)
     public void voidfunc() {}
-    @SkylarkCallable(name = "string_list", documented = false)
+
+    @StarlarkMethod(name = "string_list", documented = false)
     public ImmutableList<String> stringList() {
       return ImmutableList.<String>of("a", "b");
     }
-    @SkylarkCallable(name = "string", documented = false)
+
+    @StarlarkMethod(name = "string", documented = false)
     public String string() {
       return "a";
     }
-    @SkylarkCallable(name = "string_list_dict", documented = false)
+
+    @StarlarkMethod(name = "string_list_dict", documented = false)
     public Map<String, List<String>> stringListDict() {
       return ImmutableMap.of("a", ImmutableList.of("b", "c"));
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "with_params",
         documented = false,
         parameters = {
@@ -264,12 +269,12 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
           + ")";
     }
 
-    @SkylarkCallable(name = "with_extra", documented = false, useStarlarkThread = true)
+    @StarlarkMethod(name = "with_extra", documented = false, useStarlarkThread = true)
     public String withExtraInterpreterParams(StarlarkThread thread) {
       return "with_extra(" + thread.getCallerLocation().line() + ")";
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "with_params_and_extra",
         documented = false,
         parameters = {
@@ -343,7 +348,8 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
           + ")";
     }
 
-    @SkylarkCallable(name = "proxy_methods_object",
+    @StarlarkMethod(
+        name = "proxy_methods_object",
         doc = "Returns a struct containing all callable method objects of this mock",
         allowReturnNones = true)
     public ClassObject proxyMethodsObject() {
@@ -352,7 +358,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
       return StructProvider.STRUCT.create(builder.build(), "no native callable '%s'");
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "with_args_and_thread",
         documented = false,
         parameters = {
@@ -376,7 +382,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
           + ")";
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "with_kwargs",
         documented = false,
         parameters = {
@@ -396,7 +402,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
       return "with_kwargs(" + pos + ", " + named + ", " + kwargsString + ")";
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "with_args_and_kwargs",
         documented = false,
         parameters = {
@@ -417,7 +423,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
       return "with_args_and_kwargs(" + foo + ", " + argsString + ", " + kwargsString + ")";
     }
 
-    @SkylarkCallable(name = "raise_unchecked_exception", documented = false)
+    @StarlarkMethod(name = "raise_unchecked_exception", documented = false)
     public void raiseUncheckedException() {
       throw new InternalError("buggy code");
     }
@@ -439,15 +445,16 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     return p.append(")").toString();
   }
 
-  @SkylarkModule(name = "MockInterface", doc = "")
+  @StarlarkBuiltin(name = "MockInterface", doc = "")
   static interface MockInterface extends StarlarkValue {
-    @SkylarkCallable(name = "is_empty_interface",
-        parameters = { @Param(name = "str", type = String.class) },
+    @StarlarkMethod(
+        name = "is_empty_interface",
+        parameters = {@Param(name = "str", type = String.class)},
         documented = false)
     public Boolean isEmptyInterface(String str);
   }
 
-  @SkylarkModule(name = "MockSubClass", doc = "")
+  @StarlarkBuiltin(name = "MockSubClass", doc = "")
   final class MockSubClass extends Mock implements MockInterface {
     @Override
     public Boolean isEmpty(String str) {
@@ -459,7 +466,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     }
   }
 
-  @SkylarkModule(name = "MockClassObject", documented = false, doc = "")
+  @StarlarkBuiltin(name = "MockClassObject", documented = false, doc = "")
   static final class MockClassObject implements ClassObject, StarlarkValue {
     @Override
     public Object getValue(String name) {
@@ -482,15 +489,14 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     }
   }
 
-  @SkylarkModule(name = "ParamterizedMock", doc = "")
+  @StarlarkBuiltin(name = "ParamterizedMock", doc = "")
   static interface ParameterizedApi<ObjectT> extends StarlarkValue {
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "method",
         documented = false,
         parameters = {
-            @Param(name = "foo", named = true, positional = true, type = Object.class),
-        }
-    )
+          @Param(name = "foo", named = true, positional = true, type = Object.class),
+        })
     public ObjectT method(ObjectT o);
   }
 
@@ -1005,7 +1011,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testJavaCallsNotSkylarkCallable() throws Exception {
+  public void testJavaCallsNotStarlarkMethod() throws Exception {
     new Scenario()
         .update("mock", new Mock())
         .testIfExactError("'Mock' value has no field or method 'value'", "mock.value()");
@@ -1176,7 +1182,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testNoJavaCallsWithoutSkylark() throws Exception {
+  public void testNoJavaCallsWithoutStarlark() throws Exception {
     new Scenario()
         .testIfExactError("'int' value has no field or method 'to_string'", "s = 3.to_string()");
   }
@@ -1763,7 +1769,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testNoneTrueFalseInSkylark() throws Exception {
+  public void testNoneTrueFalseInStarlark() throws Exception {
     new Scenario()
         .setUp("a = None", "b = True", "c = False")
         .testLookup("a", Starlark.NONE)
@@ -1806,18 +1812,18 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testListAnTupleConcatenationDoesNotWorkInSkylark() throws Exception {
+  public void testListAnTupleConcatenationDoesNotWorkInStarlark() throws Exception {
     new Scenario()
         .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)");
   }
 
   @Test
-  public void testCannotCreateMixedListInSkylark() throws Exception {
+  public void testCannotCreateMixedListInStarlark() throws Exception {
     new Scenario().testExactOrder("['a', 'b', 1, 2]", "a", "b", 1, 2);
   }
 
   @Test
-  public void testCannotConcatListInSkylarkWithDifferentGenericTypes() throws Exception {
+  public void testCannotConcatListInStarlarkWithDifferentGenericTypes() throws Exception {
     new Scenario().testExactOrder("[1, 2] + ['a', 'b']", 1, 2, "a", "b");
   }
 
@@ -1926,10 +1932,10 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         .testExpression("foo(23, 5, 0)", 18);
   }
 
-  // This class extends NativeInfo (which provides @SkylarkCallable-annotated fields)
+  // This class extends NativeInfo (which provides @StarlarkMethod-annotated fields)
   // with additional fields from a map. The only production code that currently
   // does that is ToolchainInfo and its subclasses.
-  @SkylarkModule(name = "StarlarkStructWithStarlarkMethods", doc = "")
+  @StarlarkBuiltin(name = "StarlarkStructWithStarlarkMethods", doc = "")
   private static final class StarlarkStructWithStarlarkMethods extends NativeInfo {
 
     static final NativeProvider<StarlarkStructWithStarlarkMethods> CONSTRUCTOR =
@@ -1979,24 +1985,24 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
           .build();
     }
 
-    @SkylarkCallable(name = "callable_only_field", documented = false, structField = true)
+    @StarlarkMethod(name = "callable_only_field", documented = false, structField = true)
     public String getCallableOnlyField() {
-      return "fromSkylarkCallable";
+      return "fromStarlarkMethod";
     }
 
-    @SkylarkCallable(name = "callable_only_method", documented = false, structField = false)
+    @StarlarkMethod(name = "callable_only_method", documented = false, structField = false)
     public String getCallableOnlyMethod() {
-      return "fromSkylarkCallable";
+      return "fromStarlarkMethod";
     }
 
-    @SkylarkCallable(name = "collision_field", documented = false, structField = true)
+    @StarlarkMethod(name = "collision_field", documented = false, structField = true)
     public String getCollisionField() {
-      return "fromSkylarkCallable";
+      return "fromStarlarkMethod";
     }
 
-    @SkylarkCallable(name = "collision_method", documented = false, structField = false)
+    @StarlarkMethod(name = "collision_method", documented = false, structField = false)
     public String getCollisionMethod() {
-      return "fromSkylarkCallable";
+      return "fromStarlarkMethod";
     }
   }
 
@@ -2017,30 +2023,29 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testStructFieldDefinedOnlyInSkylarkCallable() throws Exception {
+  public void testStructFieldDefinedOnlyInStarlarkMethod() throws Exception {
     new Scenario()
         .update("val", new StarlarkStructWithStarlarkMethods())
         .setUp("v = val.callable_only_field")
-        .testLookup("v", "fromSkylarkCallable");
+        .testLookup("v", "fromStarlarkMethod");
   }
 
   @Test
-  public void testStructMethodDefinedOnlyInSkylarkCallable() throws Exception {
+  public void testStructMethodDefinedOnlyInStarlarkMethod() throws Exception {
     new Scenario()
         .update("val", new StarlarkStructWithStarlarkMethods())
         .setUp("v = val.callable_only_method()")
-        .testLookup("v", "fromSkylarkCallable");
+        .testLookup("v", "fromStarlarkMethod");
   }
 
-
   @Test
-  public void testStructMethodDefinedInValuesAndSkylarkCallable() throws Exception {
-    // This test exercises the resolution of ambiguity between @SkylarkCallable-annotated
+  public void testStructMethodDefinedInValuesAndStarlarkMethod() throws Exception {
+    // This test exercises the resolution of ambiguity between @StarlarkMethod-annotated
     // fields and those reported by ClassObject.getValue.
     new Scenario()
         .update("val", new StarlarkStructWithStarlarkMethods())
         .setUp("v = val.collision_method()")
-        .testLookup("v", "fromSkylarkCallable");
+        .testLookup("v", "fromStarlarkMethod");
   }
 
   @Test

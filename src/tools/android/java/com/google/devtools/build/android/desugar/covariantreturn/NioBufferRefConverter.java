@@ -71,7 +71,7 @@ public final class NioBufferRefConverter extends ClassVisitor {
 
   private NioBufferRefConverter(
       ClassVisitor classVisitor, ImmutableMap<MethodKey, MethodKey> methodInvocationMappings) {
-    super(Opcodes.ASM7, classVisitor);
+    super(Opcodes.ASM8, classVisitor);
     this.methodInvocationMappings = methodInvocationMappings;
   }
 

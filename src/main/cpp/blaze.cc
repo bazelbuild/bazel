@@ -1125,12 +1125,13 @@ static bool AreStartupOptionsDifferent(
 }
 
 // Kills the running Blaze server, if any, if the startup options do not match.
-static void KillRunningServerIfDifferentStartupOptions(
+// Returns true if the server has been killed.
+static bool KillRunningServerIfDifferentStartupOptions(
     const StartupOptions &startup_options,
     const vector<string> &server_exe_args, LoggingInfo *logging_info,
     BlazeServer *server) {
   if (!server->Connected()) {
-    return;
+    return false;
   }
 
   blaze_util::Path cmdline_path =
@@ -1153,7 +1154,9 @@ static void KillRunningServerIfDifferentStartupOptions(
                        << " server needs to be killed, because the startup "
                           "options are different.";
     server->KillRunningServer();
+    return true;
   }
+  return false;
 }
 
 // Kills the old running server if it is not the same version as us,
@@ -1547,8 +1550,11 @@ static void RunLauncher(const string &self_path,
   server_exe_args[0] = server_exe.AsNativePath();
 #endif
 
-  KillRunningServerIfDifferentStartupOptions(startup_options, server_exe_args,
-                                             logging_info, blaze_server);
+  if (KillRunningServerIfDifferentStartupOptions(
+          startup_options, server_exe_args, logging_info, blaze_server) &&
+      "shutdown" == option_processor.GetCommand()) {
+    return;
+  }
 
   const blaze_util::Path server_dir =
       blaze_util::Path(startup_options.output_base).GetRelative("server");

@@ -13,13 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.runtime.UiStateTracker.ProgressMode;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 
 /** Command-line UI options. */
 public class UiOptions extends OptionsBase {
@@ -36,6 +43,58 @@ public class UiOptions extends OptionsBase {
     YES,
     NO,
     AUTO
+  }
+
+  /** Converter for {@link EventKind} filters * */
+  public static class EventFiltersConverter implements Converter<List<EventKind>> {
+
+    /** A converter for event kinds. */
+    public class EventKindConverter extends EnumConverter<EventKind> {
+
+      public EventKindConverter(String typeName) {
+        super(EventKind.class, typeName);
+      }
+    }
+
+    private final CommaSeparatedOptionListConverter delegate;
+
+    public EventFiltersConverter() {
+      this.delegate = new CommaSeparatedOptionListConverter();
+    }
+
+    public List<EventKind> convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        // This method is not called to convert the default value
+        // Empty list means that the user wants to filter all events
+        return new ArrayList<>(EventKind.ALL_EVENTS);
+      }
+      List<String> filters = this.delegate.convert(input);
+      EnumConverter<EventKind> eventKindConverter = new EventKindConverter(input);
+
+      HashSet<EventKind> filteredEvents = new HashSet<>();
+      for (String filter : filters) {
+        if (!filter.startsWith("+") && !filter.startsWith("-")) {
+          filteredEvents.addAll(EventKind.ALL_EVENTS);
+          break;
+        }
+      }
+
+      for (String filter : filters) {
+        if (filter.startsWith("+")) {
+          filteredEvents.remove(eventKindConverter.convert(filter.substring(1)));
+        } else if (filter.startsWith("-")) {
+          filteredEvents.add(eventKindConverter.convert(filter.substring(1)));
+        } else {
+          filteredEvents.remove(eventKindConverter.convert(filter));
+        }
+      }
+      return new ArrayList<>(filteredEvents);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "Convert list of comma separated event kind to list of filters";
+    }
   }
 
   /** Converter for {@link UseColor}. */
@@ -177,6 +236,20 @@ public class UiOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Report all events known to the Bazel UI.")
   public boolean experimentalUiDebugAllEvents;
+
+  @Option(
+      name = "ui_event_filters",
+      converter = EventFiltersConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "Specifies which events to show in the UI. It is possible to add or remove events "
+              + "to the default ones using leading +/-, or override the default "
+              + "set completely with direct assignment. The set of supported event kinds "
+              + "include INFO, DEBUG, ERROR and more.",
+      allowMultiple = true)
+  public List<EventKind> eventFilters;
 
   @Option(
       name = "experimental_ui_mode",

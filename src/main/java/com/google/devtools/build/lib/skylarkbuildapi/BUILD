@@ -7,7 +7,7 @@
 #   annotation interfaces).
 #
 # This package contains specific files for Bazel concepts, such as
-# SkylarkRuleClassApi and FileApi. Only add it as a dependency if you require
+# StarlarkRuleClassApi and FileApi. Only add it as a dependency if you require
 # those APIs.
 
 load("@rules_java//java:defs.bzl", "java_library")
@@ -40,8 +40,9 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//third_party:guava",
-        "//src/main/java/com/google/devtools/build/lib/skylarkinterface",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         # TODO(cparsons): Remove dependency on Label implementation.
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",

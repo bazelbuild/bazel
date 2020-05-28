@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.runtime.ProcessWrapperUtil;
+import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -51,8 +51,6 @@ import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
-import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
@@ -87,63 +85,29 @@ public class LocalSpawnRunner implements SpawnRunner {
 
   private final LocalExecutionOptions localExecutionOptions;
 
-  private final boolean useProcessWrapper;
-  private final Path processWrapper;
+  @Nullable private final ProcessWrapper processWrapper;
 
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
 
   private final RunfilesTreeUpdater runfilesTreeUpdater;
 
-  // TODO(b/62588075): Move this logic to ProcessWrapperUtil?
-  private static Path getProcessWrapper(BinTools binTools, OS localOs) {
-    // We expect binTools to be null only under testing.
-    return binTools == null
-        ? null
-        : binTools.getEmbeddedPath("process-wrapper" + OsUtils.executableExtension(localOs));
-  }
-
-  private static boolean processWrapperExists(BinTools binTools) {
-    Path wrapper = getProcessWrapper(binTools, OS.getCurrent());
-    return wrapper != null && wrapper.exists();
-  }
-
   public LocalSpawnRunner(
       Path execRoot,
       LocalExecutionOptions localExecutionOptions,
       ResourceManager resourceManager,
-      boolean useProcessWrapper,
-      OS localOs,
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
+      ProcessWrapper processWrapper,
       RunfilesTreeUpdater runfilesTreeUpdater) {
     this.execRoot = execRoot;
-    this.processWrapper = getProcessWrapper(binTools, localOs);
+    this.processWrapper = processWrapper;
     this.localExecutionOptions = Preconditions.checkNotNull(localExecutionOptions);
     this.hostName = NetUtil.getCachedShortHostName();
     this.resourceManager = resourceManager;
-    this.useProcessWrapper = useProcessWrapper;
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
-  }
-
-  public LocalSpawnRunner(
-      Path execRoot,
-      LocalExecutionOptions localExecutionOptions,
-      ResourceManager resourceManager,
-      LocalEnvProvider localEnvProvider,
-      BinTools binTools,
-      RunfilesTreeUpdater runfilesTreeUpdater) {
-    this(
-        execRoot,
-        localExecutionOptions,
-        resourceManager,
-        OS.getCurrent() != OS.WINDOWS && processWrapperExists(binTools),
-        OS.getCurrent(),
-        localEnvProvider,
-        binTools,
-        runfilesTreeUpdater);
   }
 
   @Override
@@ -158,7 +122,6 @@ public class LocalSpawnRunner implements SpawnRunner {
     runfilesTreeUpdater.updateRunfilesDirectory(
         execRoot,
         spawn.getRunfilesSupplier(),
-        context.getPathResolver(),
         binTools,
         spawn.getEnvironment(),
         context.getFileOutErr());
@@ -182,6 +145,11 @@ public class LocalSpawnRunner implements SpawnRunner {
   @Override
   public boolean canExec(Spawn spawn) {
     return true;
+  }
+
+  @Override
+  public boolean handlesCaching() {
+    return false;
   }
 
   protected Path createActionTemp(Path execRoot) throws IOException {
@@ -352,15 +320,14 @@ public class LocalSpawnRunner implements SpawnRunner {
         subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
         subprocessBuilder.setEnv(environment);
         ImmutableList<String> args;
-        if (useProcessWrapper) {
+        if (processWrapper != null) {
           // If the process wrapper is enabled, we use its timeout feature, which first interrupts
           // the subprocess and only kills it after a grace period so that the subprocess can output
           // a stack trace, test log or similar, which is incredibly helpful for debugging.
-          ProcessWrapperUtil.CommandLineBuilder commandLineBuilder =
-              ProcessWrapperUtil.commandLineBuilder(
-                      processWrapper.getPathString(), spawn.getArguments())
-                  .setTimeout(context.getTimeout())
-                  .setKillDelay(Duration.ofSeconds(localExecutionOptions.localSigkillGraceSeconds));
+          ProcessWrapper.CommandLineBuilder commandLineBuilder =
+              processWrapper
+                  .commandLineBuilder(spawn.getArguments())
+                  .setTimeout(context.getTimeout());
           if (localExecutionOptions.collectLocalExecutionStatistics) {
             statisticsPath = tmpDir.getRelative("stats.out");
             commandLineBuilder.setStatisticsPath(statisticsPath);
@@ -387,12 +354,12 @@ public class LocalSpawnRunner implements SpawnRunner {
                 .profile(ProfilerTask.PROCESS_TIME, spawn.getResourceOwner().getMnemonic())) {
           needCleanup = true;
           Subprocess subprocess = subprocessBuilder.start();
-          subprocess.getOutputStream().close();
           try {
+            subprocess.getOutputStream().close();
             subprocess.waitFor();
             terminationStatus =
                 new TerminationStatus(subprocess.exitValue(), subprocess.timedout());
-          } catch (InterruptedException e) {
+          } catch (InterruptedException | IOException e) {
             subprocess.destroyAndWait();
             throw e;
           }
@@ -417,7 +384,7 @@ public class LocalSpawnRunner implements SpawnRunner {
         Duration wallTime = Duration.ofMillis(System.currentTimeMillis() - startTime);
         boolean wasTimeout =
             terminationStatus.timedOut()
-                || (useProcessWrapper && wasTimeout(context.getTimeout(), wallTime));
+                || (processWrapper != null && wasTimeout(context.getTimeout(), wallTime));
         int exitCode =
             wasTimeout ? SpawnResult.POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
         Status status =

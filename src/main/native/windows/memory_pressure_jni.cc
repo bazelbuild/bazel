@@ -21,24 +21,24 @@
 #include "src/main/native/jni.h"
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressure
+ * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressureCounter
  * Method:    warningCountJNI
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_MemoryPressure_warningCountJNI(
+Java_com_google_devtools_build_lib_platform_MemoryPressureCounter_warningCountJNI(
     JNIEnv *, jclass) {
   // Currently not implemented.
   return 0;
 }
 
 /*
- * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressure
+ * Class:     Java_com_google_devtools_build_lib_platform_MemoryPressureCounter
  * Method:    criticalCountJNI
  * Signature: ()I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_platform_MemoryPressure_criticalCountJNI(
+Java_com_google_devtools_build_lib_platform_MemoryPressureCounter_criticalCountJNI(
     JNIEnv *, jclass) {
   // Currently not implemented.
   // https://docs.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-creatememoryresourcenotification

@@ -511,6 +511,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
 
     @Override
+    @SuppressWarnings(
+        "UnsafeFinalization") // Finalizer invokes close; close and write are synchronized.
     public synchronized void write(byte[] b, int off, int len) throws IOException {
       if (closed) {
         throw new IOException("attempt to write to a closed Outputstream backed by a native file");

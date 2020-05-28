@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
-import javax.annotation.Nullable;
 
 /**
  * This exception gets thrown if there were errors during the execution phase of the build.
@@ -42,7 +41,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class BuildFailedException extends Exception {
   private final boolean catastrophic;
-  @Nullable private final Action action;
   private final NestedSet<Cause> rootCauses;
   private final boolean errorAlreadyShown;
   private final DetailedExitCode detailedExitCode;
@@ -55,7 +53,6 @@ public class BuildFailedException extends Exception {
     this(
         message,
         /*catastrophic=*/ false,
-        /*action=*/ null,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*errorAlreadyShown=*/ false,
         DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE));
@@ -65,7 +62,6 @@ public class BuildFailedException extends Exception {
     this(
         message,
         /*catastrophic=*/ false,
-        /*action=*/ null,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*errorAlreadyShown=*/ false,
         detailedExitCode);
@@ -75,7 +71,6 @@ public class BuildFailedException extends Exception {
     this(
         message,
         catastrophic,
-        /*action=*/ null,
         NestedSetBuilder.emptySet(Order.STABLE_ORDER),
         /*errorAlreadyShown=*/ false,
         DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE));
@@ -84,25 +79,18 @@ public class BuildFailedException extends Exception {
   public BuildFailedException(
       String message,
       boolean catastrophic,
-      Action action,
       NestedSet<Cause> rootCauses,
       boolean errorAlreadyShown,
       DetailedExitCode detailedExitCode) {
     super(message);
     this.catastrophic = catastrophic;
     this.rootCauses = rootCauses;
-    this.action = action;
     this.errorAlreadyShown = errorAlreadyShown;
     this.detailedExitCode = checkNotNull(detailedExitCode);
   }
 
   public boolean isCatastrophic() {
     return catastrophic;
-  }
-
-  @Nullable
-  public Action getAction() {
-    return action;
   }
 
   public NestedSet<Cause> getRootCauses() {

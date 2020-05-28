@@ -15,32 +15,29 @@
 package com.google.devtools.build.lib.analysis.skylark.annotations.processor.optiontestsources;
 
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/** A test case of SkylarkConfigurationFieldProcessorTest. */
+/** A test case of StarlarkConfigurationFieldProcessorTest. */
 public class GoldenConfigurationFieldThroughApi extends Fragment implements ApiInterface {
 
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
    */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "some_field",
       doc = "Documentation ",
       defaultLabel = "defaultLabel",
-      defaultInToolRepository = true
-  )
+      defaultInToolRepository = true)
   public Label getXcodeConfigLabel() {
     return null;
   }
 }
 
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "module_name",
     doc = "A fake configuration fragment for a test.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT
-)
-interface ApiInterface {
-}
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
+interface ApiInterface {}

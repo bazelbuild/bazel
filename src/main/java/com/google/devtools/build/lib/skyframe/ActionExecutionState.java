@@ -104,16 +104,7 @@ final class ActionExecutionState {
           SettableFuture<Void> dummyFuture = SettableFuture.create();
           env.dependOnFuture(dummyFuture);
           dummyFuture.set(null);
-          return null;
         }
-        // No other thread can modify completionFuture until we exit the synchronized block.
-        Preconditions.checkState(
-            !completionFuture.isDone(),
-            "Completion future modified? %s %s %s %s",
-            this.actionLookupData,
-            actionLookupData,
-            action,
-            completionFuture);
         return null;
       }
       result = state.get();

@@ -63,6 +63,9 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Workspaces;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
@@ -77,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptio
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.ActionGraphDump;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -237,11 +241,16 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       TimestampGranularityMonitor tsgm,
       OptionsProvider options)
       throws InterruptedException, AbruptExitException {
-    // If the nestedSetAsSkykeyThreshold changed between builds, it's necessary to reset the
+    // If the ArtifactNestedSetFunction options changed between builds, it's necessary to reset the
     // evaluator to avoid dependency inconsistencies in Skyframe.
-    // Resetting the evaluator also creates new instances of the SkyFunctions, hence also wiping
+    // Resetting the evaluator creates new instances of the SkyFunctions, hence also wiping
     // various state maps in ActionExecutionFunction and ArtifactNestedSetFunction.
-    if (evaluatorNeedsReset || nestedSetAsSkyKeyThresholdUpdatedAndReset(options)) {
+    boolean nestedSetAsSkyKeyOptionsChanged = nestedSetAsSkyKeyOptionsChanged(options);
+    if (evaluatorNeedsReset || nestedSetAsSkyKeyOptionsChanged) {
+      if (nestedSetAsSkyKeyOptionsChanged) {
+        eventHandler.handle(
+            Event.info("ArtifactNestedSetFunction options changed. Resetting evaluator..."));
+      }
       // Recreate MemoizingEvaluator so that graph is recreated with correct edge-clearing status,
       // or if the graph doesn't have edges, so that a fresh graph can be used.
       resetEvaluator();
@@ -963,8 +972,18 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         && !newValue.getManagedDirectories().isEmpty()
         && FileStateType.SYMLINK.equals(newFileStateValue.getType())) {
       throw new AbruptExitException(
-          "WORKSPACE file can not be a symlink if incrementally updated directories are used.",
-          ExitCode.PARSING_FAILURE);
+          DetailedExitCode.of(
+              ExitCode.PARSING_FAILURE,
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      "WORKSPACE file can not be a symlink if incrementally updated directories"
+                          + " are used.")
+                  .setWorkspaces(
+                      Workspaces.newBuilder()
+                          .setCode(
+                              FailureDetails.Workspaces.Code
+                                  .ILLEGAL_WORKSPACE_FILE_SYMLINK_WITH_MANAGED_DIRECTORIES))
+                  .build()));
     }
     return managedDirectoriesKnowledge.workspaceHeaderReloaded(oldValue, newValue);
   }
@@ -979,7 +998,17 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     try {
       newWorkspaceFileState = FileStateValue.create(workspacePath, tsgm.get());
     } catch (IOException e) {
-      throw new AbruptExitException("Can not read WORKSPACE file.", ExitCode.PARSING_FAILURE, e);
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              ExitCode.PARSING_FAILURE,
+              FailureDetail.newBuilder()
+                  .setMessage("Can not read WORKSPACE file.")
+                  .setWorkspaces(
+                      Workspaces.newBuilder()
+                          .setCode(
+                              FailureDetails.Workspaces.Code
+                                  .WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES))
+                  .build()));
     }
     if (oldWorkspaceFileState != null && !oldWorkspaceFileState.equals(newWorkspaceFileState)) {
       recordingDiffer.invalidate(ImmutableSet.of(workspaceFileStateKey));

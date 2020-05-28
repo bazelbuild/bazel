@@ -104,6 +104,29 @@ message FailureDetail {
     Command command = 122;
     Spawn spawn = 123;
     GrpcServer grpc_server = 124;
+    CanonicalizeFlags canonicalize_flags = 125;
+    BuildConfiguration build_configuration = 126;
+    InfoCommand info_command = 127;
+    MemoryOptions memory_options = 129;
+    Query query = 130;
+    LocalExecution local_execution = 132;
+    ActionCache action_cache = 134;
+    FetchCommand fetch_command = 135;
+    SyncCommand sync_command = 136;
+    Sandbox sandbox = 137;
+    IncludeScanning include_scanning = 139;
+    TestCommand test_command = 140;
+    ActionQuery action_query = 141;
+    TargetPatterns target_patterns = 142;
+    CleanCommand clean_command = 144;
+    ConfigCommand config_command = 145;
+    ConfigurableQuery configurable_query = 146;
+    DumpCommand dump_command = 147;
+    HelpCommand help_command = 148;
+    MobileInstall mobile_install = 150;
+    ProfileCommand profile_command = 151;
+    RunCommand run_command = 152;
+    VersionCommand version_command = 153;
   }
 
   reserved 102; // For internal use
@@ -111,6 +134,12 @@ message FailureDetail {
   reserved 109; // For internal use
   reserved 111 to 113; // For internal use
   reserved 120; // For internal use
+  reserved 128; // For internal use
+  reserved 131; // For internal use
+  reserved 133; // For internal use
+  reserved 138; // For internal use
+  reserved 143; // For internal use
+  reserved 149; // For internal use
 }
 
 message Interrupted {
@@ -119,10 +148,20 @@ message Interrupted {
     INTERRUPTED_UNKNOWN = 0 [(metadata) = { exit_code: 8 }];
     BUILD = 4 [(metadata) = { exit_code: 8 }];
     BUILD_COMPLETION = 5 [(metadata) = { exit_code: 8 }];
-    reserved 1 to 3; // For internal use
     PACKAGE_LOADING_SYNC = 6 [(metadata) = { exit_code: 8 }];
     EXECUTOR_COMPLETION = 7 [(metadata) = { exit_code: 8 }];
     COMMAND_DISPATCH = 8 [(metadata) = { exit_code: 8 }];
+    INFO_ITEM = 9 [(metadata) = { exit_code: 8 }];
+    AFTER_QUERY = 10 [(metadata) = { exit_code: 8 }];
+    FETCH_COMMAND = 17 [(metadata) = { exit_code: 8 }];
+    SYNC_COMMAND = 18 [(metadata) = { exit_code: 8 }];
+    CLEAN_COMMAND = 20 [(metadata) = { exit_code: 8 }];
+    MOBILE_INSTALL_COMMAND = 21 [(metadata) = { exit_code: 8 }];
+    QUERY = 22 [(metadata) = { exit_code: 8 }];
+    RUN_COMMAND = 23 [(metadata) = { exit_code: 8 }];
+    reserved 1 to 3; // For internal use
+    reserved 11 to 16; // For internal use
+    reserved 19; // For internal use
   }
 
   Code code = 1;
@@ -247,6 +286,7 @@ message SymlinkForest {
     SYMLINK_FOREST_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     TOPLEVEL_OUTDIR_PACKAGE_PATH_CONFLICT = 1 [(metadata) = { exit_code: 2 }];
     TOPLEVEL_OUTDIR_USED_AS_SOURCE = 2 [(metadata) = { exit_code: 2 }];
+    CREATION_FAILED = 3 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -293,16 +333,32 @@ message Execution {
     EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     EXECUTION_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     EXECUTION_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+    EXECROOT_CREATION_FAILURE = 3 [(metadata) = { exit_code: 36 }];
+    ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE = 4
+        [(metadata) = { exit_code: 36 }];
+    ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 5
+        [(metadata) = { exit_code: 36 }];
+    PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 6
+        [(metadata) = { exit_code: 36 }];
+    LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE = 7 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
 }
 
+// Failure details about Bazel's WORKSPACE features.
 message Workspaces {
   enum Code {
     WORKSPACES_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     WORKSPACES_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     WORKSPACES_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+
+    // See `managed_directories` in
+    // https://docs.bazel.build/versions/master/skylark/lib/globals.html#workspace.
+    ILLEGAL_WORKSPACE_FILE_SYMLINK_WITH_MANAGED_DIRECTORIES = 3
+        [(metadata) = { exit_code: 1 }];
+    WORKSPACE_FILE_READ_FAILURE_WITH_MANAGED_DIRECTORIES = 4
+        [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -325,14 +381,33 @@ message Filesystem {
     EMBEDDED_BINARIES_ENUMERATION_FAILURE = 3 [(metadata) = { exit_code: 36 }];
     SERVER_PID_TXT_FILE_READ_FAILURE = 4 [(metadata) = { exit_code: 1 }];
     SERVER_FILE_WRITE_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE = 6
+        [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
 }
 
 message ExecutionOptions {
+  // All numerical exit code associations correspond to pre-existing Bazel
+  // behavior. These associations are suspicious:
+  // - REQUESTED_STRATEGY_INCOMPATIBLE_WITH_SANDBOXING (instead: 2?)
+  // - DEPRECATED_LOCAL_RESOURCES_USED (instead: 2?)
+  // TODO(b/138456686): Revise these after the (intentionally non-breaking)
+  //  initial rollout of FailureDetail-based encoding.
   enum Code {
     EXECUTION_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INVALID_STRATEGY = 3 [(metadata) = { exit_code: 2 }];
+    REQUESTED_STRATEGY_INCOMPATIBLE_WITH_SANDBOXING = 4
+        [(metadata) = { exit_code: 36 }];
+    DEPRECATED_LOCAL_RESOURCES_USED = 5 [(metadata) = { exit_code: 36 }];
+    INVALID_CYCLIC_DYNAMIC_STRATEGY = 6 [(metadata) = { exit_code: 36 }];
+    RESTRICTION_UNMATCHED_TO_ACTION_CONTEXT = 7 [(metadata) = { exit_code: 2 }];
+    REMOTE_FALLBACK_STRATEGY_NOT_ABSTRACT_SPAWN = 8
+        [(metadata) = { exit_code: 2 }];
+    STRATEGY_NOT_FOUND = 9 [(metadata) = { exit_code: 2 }];
+    DYNAMIC_STRATEGY_NOT_SANDBOXED = 10 [(metadata) = { exit_code: 2 }];
+
     reserved 1, 2; // For internal use
   }
 
@@ -355,6 +430,10 @@ message Command {
     STARLARK_CPU_PROFILE_FILE_WRITE_FAILURE = 6
         [(metadata) = { exit_code: 36 }];
     INVOCATION_POLICY_PARSE_FAILURE = 7 [(metadata) = { exit_code: 2 }];
+    INVOCATION_POLICY_INVALID = 8 [(metadata) = { exit_code: 2 }];
+    OPTIONS_PARSE_FAILURE = 9 [(metadata) = { exit_code: 2 }];
+    STARLARK_OPTIONS_PARSE_FAILURE = 10 [(metadata) = { exit_code: 2 }];
+    ARGUMENTS_NOT_RECOGNIZED = 11 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -367,6 +446,303 @@ message GrpcServer {
     SERVER_BIND_FAILURE = 2 [(metadata) = { exit_code: 1 }];
     BAD_COOKIE = 3 [(metadata) = { exit_code: 36 }];
     NO_CLIENT_DESCRIPTION = 4 [(metadata) = { exit_code: 36 }];
+    reserved 5; // For internal use
+  }
+
+  Code code = 1;
+}
+
+message CanonicalizeFlags {
+  enum Code {
+    CANONICALIZE_FLAGS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    FOR_COMMAND_INVALID = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+// Failure modes described by this category pertain to the Bazel invocation
+// configuration consumed by Bazel's analysis phase. This category is not
+// intended as a grab-bag for all Bazel flag value constraint violations, which
+// instead generally belong in the category for the subsystem whose flag values
+// participate in the constraint.
+message BuildConfiguration {
+  // TODO(mschaller): many more codes should be added to represent different
+  // configuration-related failure modes. See InvalidConfigurationException.
+  enum Code {
+    BUILD_CONFIGURATION_UNKNOWN = 0 [(metadata) = { exit_code: 2 }];
+    PLATFORM_MAPPING_EVALUATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message InfoCommand {
+  // The distinction between a failure to write a single info item and a failure
+  // to write them all seems sketchy. Why do they have different exit codes?
+  // This reflects current Bazel behavior, but deserves more thought.
+  enum Code {
+    INFO_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    TOO_MANY_KEYS = 1 [(metadata) = { exit_code: 2 }];
+    KEY_NOT_RECOGNIZED = 2 [(metadata) = { exit_code: 2 }];
+    INFO_BLOCK_WRITE_FAILURE = 3 [(metadata) = { exit_code: 7 }];
+    ALL_INFO_WRITE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message MemoryOptions {
+  enum Code {
+    MEMORY_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    EXPERIMENTAL_OOM_MORE_EAGERLY_THRESHOLD_INVALID_VALUE = 1
+        [(metadata) = { exit_code: 2 }];
+    EXPERIMENTAL_OOM_MORE_EAGERLY_NO_TENURED_COLLECTORS_FOUND = 2
+        [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message Query {
+  enum Code {
+    QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    QUERY_FILE_WITH_COMMAND_LINE_EXPRESSION = 1 [(metadata) = { exit_code: 2 }];
+    QUERY_FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    COMMAND_LINE_EXPRESSION_MISSING = 3 [(metadata) = { exit_code: 2 }];
+    OUTPUT_FORMAT_INVALID = 4 [(metadata) = { exit_code: 2 }];
+    GRAPHLESS_PREREQ_UNMET = 5 [(metadata) = { exit_code: 2 }];
+    QUERY_OUTPUT_WRITE_FAILURE = 6 [(metadata) = { exit_code: 36 }];
+    QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
+    ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
+    QUERY_RESULTS_FLUSH_FAILURE = 15 [(metadata) = { exit_code: 36 }];
+
+    reserved 7 to 12; // For internal use
+  }
+
+  Code code = 1;
+}
+
+message LocalExecution {
+  enum Code {
+    LOCAL_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    LOCKFREE_OUTPUT_PREREQ_UNMET = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message ActionCache {
+  enum Code {
+    ACTION_CACHE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message FetchCommand {
+  enum Code {
+    FETCH_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    EXPRESSION_MISSING = 1 [(metadata) = { exit_code: 2 }];
+    OPTIONS_INVALID = 2 [(metadata) = { exit_code: 2 }];
+    QUERY_PARSE_ERROR = 3 [(metadata) = { exit_code: 2 }];
+    QUERY_EVALUATION_ERROR = 4 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message SyncCommand {
+  enum Code {
+    SYNC_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    PACKAGE_LOOKUP_ERROR = 1 [(metadata) = { exit_code: 7 }];
+    WORKSPACE_EVALUATION_ERROR = 2 [(metadata) = { exit_code: 7 }];
+    REPOSITORY_FETCH_ERRORS = 3 [(metadata) = { exit_code: 7 }];
+    REPOSITORY_NAME_INVALID = 4 [(metadata) = { exit_code: 7 }];
+  }
+
+  Code code = 1;
+}
+
+message Sandbox {
+  enum Code {
+    SANDBOX_FAILURE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message IncludeScanning {
+  enum Code {
+    INCLUDE_SCANNING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INITIALIZE_INCLUDE_HINTS_ERROR = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message TestCommand {
+  enum Code {
+    TEST_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NO_TEST_TARGETS = 1 [(metadata) = { exit_code: 4 }];
+    TEST_WITH_NOANALYZE = 2 [(metadata) = { exit_code: 1 }];
+    TESTS_FAILED = 3 [(metadata) = { exit_code: 3 }];
+  }
+
+  Code code = 1;
+}
+
+message ActionQuery {
+  // All numerical exit code associations correspond to pre-existing Bazel
+  // behavior. These associations are suspicious:
+  // - COMMAND_LINE_EXPANSION_FAILURE: this is associated with 2, the numerical
+  //     exit code for "bad Bazel command line", but is generated when an
+  //     action's command line fails to expand, which sounds similar but is
+  //     completely different.
+  // - OUTPUT_FAILURE: this is associated with 6, an undocumented exit code.
+  // - INVALID_AQUERY_EXPRESSION: this is associate with 1, which is not
+  //    documented for (a)query.
+  // TODO(b/138456686): Revise these after the (intentionally non-breaking)
+  //  initial rollout of FailureDetail-based encoding.
+  enum Code {
+    ACTION_QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+    OUTPUT_FAILURE = 2 [(metadata) = { exit_code: 6 }];
+    COMMAND_LINE_EXPRESSION_MISSING = 3 [(metadata) = { exit_code: 2 }];
+    EXPRESSION_PARSE_FAILURE = 4 [(metadata) = { exit_code: 2 }];
+    SKYFRAME_STATE_WITH_COMMAND_LINE_EXPRESSION = 5
+        [(metadata) = { exit_code: 2 }];
+    INVALID_AQUERY_EXPRESSION = 6 [(metadata) = { exit_code: 1 }];
+    SKYFRAME_STATE_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message TargetPatterns {
+  enum Code {
+    TARGET_PATTERNS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN = 1
+        [(metadata) = { exit_code: 2 }];
+    TARGET_PATTERN_FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message CleanCommand {
+  enum Code {
+    CLEAN_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OUTPUT_SERVICE_CLEAN_FAILURE = 1 [(metadata) = { exit_code: 6 }];
+    ACTION_CACHE_CLEAN_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+    OUT_ERR_CLOSE_FAILURE = 3 [(metadata) = { exit_code: 36 }];
+    OUTPUT_BASE_DELETE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    OUTPUT_BASE_TEMP_MOVE_FAILURE = 5 [(metadata) = { exit_code: 36 }];
+    ASYNC_OUTPUT_BASE_DELETE_FAILURE = 6 [(metadata) = { exit_code: 6 }];
+    EXECROOT_DELETE_FAILURE = 7 [(metadata) = { exit_code: 36 }];
+    EXECROOT_TEMP_MOVE_FAILURE = 8 [(metadata) = { exit_code: 36 }];
+    ASYNC_EXECROOT_DELETE_FAILURE = 9 [(metadata) = { exit_code: 6 }];
+  }
+
+  Code code = 1;
+}
+
+message ConfigCommand {
+  enum Code {
+    CONFIG_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    TOO_MANY_CONFIG_IDS = 1 [(metadata) = { exit_code: 2 }];
+    CONFIGURATION_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message ConfigurableQuery {
+  enum Code {
+    CONFIGURABLE_QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    COMMAND_LINE_EXPRESSION_MISSING = 1 [(metadata) = { exit_code: 2 }];
+    EXPRESSION_PARSE_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message DumpCommand {
+  enum Code {
+    DUMP_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NO_OUTPUT_SPECIFIED = 1 [(metadata) = { exit_code: 7 }];
+    ACTION_CACHE_DUMP_FAILED = 2 [(metadata) = { exit_code: 7 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 3 [(metadata) = { exit_code: 7 }];
+    ACTION_GRAPH_DUMP_FAILED = 4 [(metadata) = { exit_code: 7 }];
+    STARLARK_HEAP_DUMP_FAILED = 5 [(metadata) = { exit_code: 8 }];
+  }
+
+  Code code = 1;
+}
+
+message HelpCommand {
+  enum Code {
+    HELP_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MISSING_ARGUMENT = 1 [(metadata) = { exit_code: 2 }];
+    COMMAND_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message MobileInstall {
+  enum Code {
+    MOBILE_INSTALL_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    CLASSIC_UNSUPPORTED = 1 [(metadata) = { exit_code: 2 }];
+    NO_TARGET_SPECIFIED = 2 [(metadata) = { exit_code: 2 }];
+    MULTIPLE_TARGETS_SPECIFIED = 3 [(metadata) = { exit_code: 2 }];
+    TARGET_TYPE_INVALID = 4 [(metadata) = { exit_code: 6 }];
+    NON_ZERO_EXIT = 5 [(metadata) = { exit_code: 6 }];
+    ERROR_RUNNING_PROGRAM = 6 [(metadata) = { exit_code: 6 }];
+  }
+
+  Code code = 1;
+}
+
+message ProfileCommand {
+  enum Code {
+    PROFILE_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    OLD_BINARY_FORMAT_UNSUPPORTED = 1 [(metadata) = { exit_code: 1 }];
+    FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message RunCommand {
+  enum Code {
+    RUN_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NO_TARGET_SPECIFIED = 1 [(metadata) = { exit_code: 2 }];
+    TOO_MANY_TARGETS_SPECIFIED = 2 [(metadata) = { exit_code: 2 }];
+    TARGET_NOT_EXECUTABLE = 3 [(metadata) = { exit_code: 2 }];
+    TARGET_BUILT_BUT_PATH_NOT_EXECUTABLE = 4 [(metadata) = { exit_code: 37 }];
+    TARGET_BUILT_BUT_PATH_VALIDATION_FAILED = 5
+        [(metadata) = { exit_code: 36 }];
+    RUN_UNDER_TARGET_NOT_BUILT = 6 [(metadata) = { exit_code: 2 }];
+    RUN_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
+    TOO_MANY_TEST_SHARDS_OR_RUNS = 8 [(metadata) = { exit_code: 2 }];
+    TEST_ENVIRONMENT_SETUP_FAILURE = 9 [(metadata) = { exit_code: 36 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 10 [(metadata) = { exit_code: 36 }];
+    NO_SHELL_SPECIFIED = 11 [(metadata) = { exit_code: 2 }];
+    SCRIPT_WRITE_FAILURE = 12 [(metadata) = { exit_code: 6 }];
+    RUNFILES_DIRECTORIES_CREATION_FAILURE = 13 [(metadata) = { exit_code: 36 }];
+    RUNFILES_SYMLINKS_CREATION_FAILURE = 14 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message VersionCommand {
+  enum Code {
+    VERSION_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NOT_AVAILABLE = 1 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

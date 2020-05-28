@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -33,11 +33,11 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Helper functions for Starlark to access coverage-related infrastructure. */
-public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, SkylarkRuleContext> {
+public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, StarlarkRuleContext> {
 
   @Override
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
       Sequence<?> dependencyAttributes, // <String>
       Object extensions)
@@ -46,7 +46,7 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
         extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
 
     return createInstrumentedFilesInfo(
-        skylarkRuleContext.getRuleContext(),
+        starlarkRuleContext.getRuleContext(),
         Sequence.cast(sourceAttributes, String.class, "source_attributes"),
         Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
         extensionsList);

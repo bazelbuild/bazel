@@ -21,10 +21,10 @@ import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import java.util.Collection;
 import java.util.Set;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * Policy used to express the set of configuration fragments which are legal for a rule or aspect to
@@ -72,7 +72,7 @@ public final class ConfigurationFragmentPolicy {
         = LinkedHashMultimap.create();
     /**
      * Sets of configuration fragments required by this rule, as defined by their Starlark names
-     * (see {@link SkylarkModule}, a set for each configuration.
+     * (see {@link StarlarkBuiltin}, a set for each configuration.
      *
      * <p>Duplicate entries will automatically be ignored by the SetMultimap.
      */
@@ -114,14 +114,14 @@ public final class ConfigurationFragmentPolicy {
      * be present in this rule's target configuration only.
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(Collection)}, this method takes the
-     * names of fragments (as determined by {@link SkylarkModule}) instead of their classes.
+     * names of fragments (as determined by {@link StarlarkBuiltin}) instead of their classes.
      *
      * <p>The value is inherited by subclasses.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
         Collection<String> configurationFragmentNames) {
 
-      requiresConfigurationFragmentsBySkylarkModuleName(
+      requiresConfigurationFragmentsByStarlarkBuiltinName(
           NoTransition.INSTANCE, configurationFragmentNames);
       return this;
     }
@@ -133,9 +133,9 @@ public final class ConfigurationFragmentPolicy {
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition,
      * Collection)}, this method takes the names of fragments (as determined by {@link
-     * SkylarkModule}) instead of their classes.
+     * StarlarkBuiltin}) instead of their classes.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
       // We can relax this assumption if needed. But it's already sketchy to let a rule see more
       // than its own configuration. So we don't want to casually proliferate this pattern.
@@ -215,7 +215,7 @@ public final class ConfigurationFragmentPolicy {
    * with the naming form seen in the Starlark API.
    *
    * <p>{@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#getSkylarkFragmentByName} can
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#getStarlarkFragmentByName} can
    * be used to convert this to Java fragment instances.
    */
   public Collection<String> getRequiredStarlarkFragments() {
@@ -249,7 +249,8 @@ public final class ConfigurationFragmentPolicy {
    */
   private boolean hasLegalFragmentName(
       Class<?> configurationFragment, ConfigurationTransition transition) {
-    SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(configurationFragment);
+    StarlarkBuiltin fragmentModule =
+        StarlarkInterfaceUtils.getStarlarkBuiltin(configurationFragment);
 
     return fragmentModule != null
         && starlarkRequiredConfigurationFragments.containsEntry(transition, fragmentModule.name());
@@ -260,7 +261,8 @@ public final class ConfigurationFragmentPolicy {
    * configuration.
    */
   private boolean hasLegalFragmentName(Class<?> configurationFragment) {
-    SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(configurationFragment);
+    StarlarkBuiltin fragmentModule =
+        StarlarkInterfaceUtils.getStarlarkBuiltin(configurationFragment);
 
     return fragmentModule != null
         && starlarkRequiredConfigurationFragments.containsValue(fragmentModule.name());

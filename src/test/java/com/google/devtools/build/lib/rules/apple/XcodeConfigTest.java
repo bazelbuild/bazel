@@ -904,7 +904,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testXcodeVersionFromSkylarkByAlias() throws Exception {
+  public void testXcodeVersionFromStarlarkByAlias() throws Exception {
     scratch.file("x/BUILD",
         "load('//x:r.bzl', 'r')",
         "xcode_config_alias(name='a')",
@@ -961,7 +961,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMutualXcodeFromSkylarkByAlias() throws Exception {
+  public void testMutualXcodeFromStarlarkByAlias() throws Exception {
     scratch.file(
         "x/BUILD",
         "load('//x:r.bzl', 'r')",
@@ -1024,7 +1024,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLocalXcodeFromSkylarkByAlias() throws Exception {
+  public void testLocalXcodeFromStarlarkByAlias() throws Exception {
     scratch.file(
         "x/BUILD",
         "load('//x:r.bzl', 'r')",

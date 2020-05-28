@@ -124,6 +124,87 @@ public class LinkBuildVariablesTest extends LinkBuildVariablesTestCase {
   }
 
   @Test
+  public void testLinkSimpleLibName() throws Exception {
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/libbar.so'])");
+    scratch.file("x/some-dir/bar.so");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+
+    CcToolchainVariables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    VariableValue librariesToLinkSequence =
+        variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    Iterable<? extends VariableValue> librariestoLink =
+        librariesToLinkSequence.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    VariableValue nameValue =
+        librariestoLink
+            .iterator()
+            .next()
+            .getFieldValue(
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
+                LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(nameValue).isNotNull();
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(name).isEqualTo("bar");
+  }
+
+  @Test
+  public void testLinkVersionedLibName() throws Exception {
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/libbar.so.1a.2'])");
+    scratch.file("x/some-dir/bar.so");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+
+    CcToolchainVariables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    VariableValue librariesToLinkSequence =
+        variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    Iterable<? extends VariableValue> librariestoLink =
+        librariesToLinkSequence.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    VariableValue nameValue =
+        librariestoLink
+            .iterator()
+            .next()
+            .getFieldValue(
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
+                LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(nameValue).isNotNull();
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(name).isEqualTo("libbar.so.1a.2");
+  }
+
+  @Test
+  public void testLinkUnusualLibName() throws Exception {
+    useConfiguration();
+
+    scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['some-dir/_libbar.so'])");
+    scratch.file("x/some-dir/_libbar.so");
+
+    ConfiguredTarget target = getConfiguredTarget("//x:bin");
+
+    CcToolchainVariables variables = getLinkBuildVariables(target, LinkTargetType.EXECUTABLE);
+    VariableValue librariesToLinkSequence =
+        variables.getVariable(LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    Iterable<? extends VariableValue> librariestoLink =
+        librariesToLinkSequence.getSequenceValue(
+            LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName());
+    VariableValue nameValue =
+        librariestoLink
+            .iterator()
+            .next()
+            .getFieldValue(
+                LinkBuildVariables.LIBRARIES_TO_LINK.getVariableName(),
+                LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(nameValue).isNotNull();
+    String name = nameValue.getStringValue(LibraryToLinkValue.NAME_FIELD_NAME);
+    assertThat(name).isEqualTo("_libbar.so");
+  }
+
+  @Test
   public void testLinkerParamFileIsExported() throws Exception {
     useConfiguration();
 

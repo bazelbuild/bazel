@@ -11,9 +11,7 @@ filegroup(
 java_library(
     name = "extrema",
     srcs = ["Extrema.java"],
-    deps = [
-        "//third_party:guava",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 # Library of collection utilities.

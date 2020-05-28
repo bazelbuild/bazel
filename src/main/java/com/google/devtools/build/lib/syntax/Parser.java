@@ -15,11 +15,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.errorprone.annotations.FormatMethod;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -172,13 +171,20 @@ final class Parser {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
-    List<Statement> statements;
-    try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.STARLARK_PARSER, input.getFile())) {
-      statements = parser.parseFileInput();
+
+    StarlarkFile.ParseProfiler profiler = Parser.profiler;
+    Object span = profiler != null ? profiler.start(input.getFile()) : null;
+    try {
+      List<Statement> statements = parser.parseFileInput();
+      return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
+    } finally {
+      if (profiler != null) {
+        profiler.end(span);
+      }
     }
-    return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
   }
+
+  @Nullable static StarlarkFile.ParseProfiler profiler;
 
   // stmt = simple_stmt
   //      | def_stmt
@@ -202,11 +208,23 @@ final class Parser {
     List<SyntaxError> errors = new ArrayList<>();
     Lexer lexer = new Lexer(input, options, errors);
     Parser parser = new Parser(lexer, errors);
-    Expression result = parser.parseExpression();
-    while (parser.token.kind == TokenKind.NEWLINE) {
-      parser.nextToken();
+    Expression result = null;
+    try {
+      result = parser.parseExpression();
+      while (parser.token.kind == TokenKind.NEWLINE) {
+        parser.nextToken();
+      }
+      parser.expect(TokenKind.EOF);
+    } catch (StackOverflowError ex) {
+      // See rationale at parseFile.
+      parser.reportError(
+          lexer.end,
+          "internal error: stack overflow while parsing Starlark expression <<%s>>. Please report"
+              + " the bug.\n"
+              + "%s",
+          new String(input.getContent()),
+          Throwables.getStackTraceAsString(ex));
     }
-    parser.expect(TokenKind.EOF);
     if (!errors.isEmpty()) {
       throw new SyntaxError.Exception(errors);
     }
@@ -233,22 +251,24 @@ final class Parser {
     return new ListExpression(locs, /*isTuple=*/ true, -1, elems, -1);
   }
 
-  private void reportError(int offset, String message) {
+  @FormatMethod
+  private void reportError(int offset, String format, Object... args) {
     errorsCount++;
     // Limit the number of reported errors to avoid spamming output.
     if (errorsCount <= 5) {
       Location location = locs.getLocation(offset);
-      errors.add(new SyntaxError(location, message));
+      errors.add(new SyntaxError(location, String.format(format, args)));
     }
   }
 
   private void syntaxError(String message) {
     if (!recoveryMode) {
-      String msg =
-          token.kind == TokenKind.INDENT
-              ? "indentation error"
-              : "syntax error at '" + tokenString(token.kind, token.value) + "': " + message;
-      reportError(token.start, msg);
+      if (token.kind == TokenKind.INDENT) {
+        reportError(token.start, "indentation error");
+      } else {
+        reportError(
+            token.start, "syntax error at '%s': %s", tokenString(token.kind, token.value), message);
+      }
       recoveryMode = true;
     }
   }
@@ -348,7 +368,7 @@ final class Parser {
         error = "keyword '" + token.kind + "' not supported";
         break;
     }
-    reportError(token.start, error);
+    reportError(token.start, "%s", error);
   }
 
   private int nextToken() {
@@ -457,85 +477,20 @@ final class Parser {
   //
   // arg_list = ( (arg ',')* arg ','? )?
   private ImmutableList<Argument> parseArguments() {
-    boolean hasArgs = false;
-    boolean hasStarStar = false;
+    boolean seenArg = false;
     ImmutableList.Builder<Argument> list = ImmutableList.builder();
-
     while (token.kind != TokenKind.RPAREN && token.kind != TokenKind.EOF) {
-      if (hasArgs) {
+      if (seenArg) {
         expect(TokenKind.COMMA);
-        // The list may end with a comma.
+        // If nonempty, the list may end with a comma.
         if (token.kind == TokenKind.RPAREN) {
           break;
         }
       }
-      if (hasStarStar) {
-        // TODO(adonovan): move this to validation pass too.
-        reportError(token.start, "unexpected tokens after **kwargs argument");
-        break;
-      }
-      Argument arg = parseArgument();
-      hasArgs = true;
-      if (arg instanceof Argument.StarStar) { // TODO(adonovan): not Star too? verify.
-        hasStarStar = true;
-      }
-      list.add(arg);
+      list.add(parseArgument());
+      seenArg = true;
     }
-    ImmutableList<Argument> args = list.build();
-    validateArguments(args); // TODO(adonovan): move to validation pass.
-    return args;
-  }
-
-  // TODO(adonovan): move all this to validator, since we have to check it again there.
-  private void validateArguments(List<Argument> arguments) {
-    int i = 0;
-    int len = arguments.size();
-
-    while (i < len && arguments.get(i) instanceof Argument.Positional) {
-      i++;
-    }
-
-    while (i < len && arguments.get(i) instanceof Argument.Keyword) {
-      i++;
-    }
-
-    if (i < len && arguments.get(i) instanceof Argument.Star) {
-      i++;
-    }
-
-    if (i < len && arguments.get(i) instanceof Argument.StarStar) {
-      i++;
-    }
-
-    // If there's no argument left, everything is correct.
-    if (i == len) {
-      return;
-    }
-
-    Argument arg = arguments.get(i);
-    if (arg instanceof Argument.Positional) {
-      reportError(
-          arg.getStartOffset(),
-          "positional argument is misplaced (positional arguments come first)");
-      return;
-    }
-
-    if (arg instanceof Argument.Keyword) {
-      reportError(
-          arg.getStartOffset(),
-          "keyword argument is misplaced (keyword arguments must be before any *arg or **kwarg)");
-      return;
-    }
-
-    if (i < len && arg instanceof Argument.Star) {
-      reportError(arg.getStartOffset(), "*arg argument is misplaced");
-      return;
-    }
-
-    if (i < len && arg instanceof Argument.StarStar) {
-      reportError(arg.getStartOffset(), "**kwarg argument is misplaced (there can be only one)");
-      return;
-    }
+    return list.build();
   }
 
   // selector_suffix = '.' IDENTIFIER
@@ -926,8 +881,9 @@ final class Parser {
       if (lastOp != null && operatorPrecedence.get(prec).contains(TokenKind.EQUALS_EQUALS)) {
         reportError(
             token.start,
-            String.format(
-                "Operator '%s' is not associative with operator '%s'. Use parens.", lastOp, op));
+            "Operator '%s' is not associative with operator '%s'. Use parens.",
+            lastOp,
+            op);
       }
 
       int opOffset = nextToken();
@@ -991,17 +947,38 @@ final class Parser {
   // file_input = ('\n' | stmt)* EOF
   private List<Statement> parseFileInput() {
     List<Statement> list =  new ArrayList<>();
-    while (token.kind != TokenKind.EOF) {
-      if (token.kind == TokenKind.NEWLINE) {
-        expectAndRecover(TokenKind.NEWLINE);
-      } else if (recoveryMode) {
-        // If there was a parse error, we want to recover here
-        // before starting a new top-level statement.
-        syncTo(STATEMENT_TERMINATOR_SET);
-        recoveryMode = false;
-      } else {
-        parseStatement(list);
+    try {
+      while (token.kind != TokenKind.EOF) {
+        if (token.kind == TokenKind.NEWLINE) {
+          expectAndRecover(TokenKind.NEWLINE);
+        } else if (recoveryMode) {
+          // If there was a parse error, we want to recover here
+          // before starting a new top-level statement.
+          syncTo(STATEMENT_TERMINATOR_SET);
+          recoveryMode = false;
+        } else {
+          parseStatement(list);
+        }
       }
+    } catch (StackOverflowError ex) {
+      // JVM threads have very limited stack, and deeply nested inputs can
+      // easily cause the parser to consume all available stack. It is hard
+      // to anticipate all the possible recursions in the parser, especially
+      // when considering error recovery. Consider a long list of dicts:
+      // even if the intended parse tree has a depth of only two,
+      // if each dict contains a syntax error, the parser will go into recovery
+      // and may discard each dict's closing '}', turning a shallow tree
+      // into a deep one (see b/157470754).
+      //
+      // So, for robustness, the parser treats StackOverflowError as a parse
+      // error, exhorting the user to report a bug.
+      reportError(
+          token.end,
+          "internal error: stack overflow in Starlark parser. Please report the bug and include"
+              + " the text of %s.\n"
+              + "%s",
+          locs.file(),
+          Throwables.getStackTraceAsString(ex));
     }
     return list;
   }

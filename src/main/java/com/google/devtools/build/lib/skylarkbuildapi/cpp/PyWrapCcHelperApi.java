@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.RunfilesApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Helper class for the C++ aspects of {py,java,go}_wrap_cc. Provides methods to create the swig and
@@ -33,15 +33,15 @@ import com.google.devtools.build.lib.syntax.Sequence;
  * creates C++ wrapper code that gets compiled and linked into a library that is interfacing between
  * the Java and Python wrappers and the actual wrapped APIs.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "py_wrap_cc_helper_do_not_use",
     documented = false,
     doc = "",
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE)
+    category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE)
 public interface PyWrapCcHelperApi<
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcInfoT extends CcInfoApi<FileT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
@@ -51,58 +51,59 @@ public interface PyWrapCcHelperApi<
     extends WrapCcHelperApi<
         FeatureConfigurationT,
         ConstraintValueT,
-        SkylarkRuleContextT,
+        StarlarkRuleContextT,
         CcToolchainProviderT,
         CompilationInfoT,
         FileT,
         CcCompilationContextT,
         WrapCcIncludeProviderT> {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "py_extension_linkopts",
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
       })
   // TODO(plf): PyExtension is not in Starlark.
-  public Sequence<String> getPyExtensionLinkopts(SkylarkRuleContextT skylarkRuleContext)
+  public Sequence<String> getPyExtensionLinkopts(StarlarkRuleContextT starlarkRuleContext)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_transitive_python_sources",
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
         @Param(name = "py_file", positional = false, named = true, type = FileApi.class),
       })
   // TODO(plf): Not written in Starlark because of PyCommon.
-  public Depset getTransitivePythonSources(SkylarkRuleContextT skylarkRuleContext, FileT pyFile)
+  public Depset getTransitivePythonSources(StarlarkRuleContextT starlarkRuleContext, FileT pyFile)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_python_runfiles",
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
         @Param(name = "files_to_build", positional = false, named = true, type = Depset.class),
       })
   // TODO(plf): Not written in Starlark because of PythonRunfilesProvider.
-  public RunfilesApi getPythonRunfiles(SkylarkRuleContextT skylarkRuleContext, Depset filesToBuild)
+  public RunfilesApi getPythonRunfiles(
+      StarlarkRuleContextT starlarkRuleContext, Depset filesToBuild)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "py_wrap_cc_info",
       doc = "",
       documented = false,
       parameters = {
-        @Param(name = "ctx", positional = false, named = true, type = SkylarkRuleContextApi.class),
+        @Param(name = "ctx", positional = false, named = true, type = StarlarkRuleContextApi.class),
         @Param(name = "cc_info", positional = false, named = true, type = CcInfoApi.class),
       })
   // TODO(plf): PyWrapCcInfo is not written in Starlark because several native rules use it.
   public PyWrapCcInfoApi<FileT> getPyWrapCcInfo(
-      SkylarkRuleContextT skylarkRuleContext, CcInfoT ccInfo)
+      StarlarkRuleContextT starlarkRuleContext, CcInfoT ccInfo)
       throws EvalException, InterruptedException;
 }

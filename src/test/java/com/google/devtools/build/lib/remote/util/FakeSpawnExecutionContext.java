@@ -19,23 +19,19 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.SpawnInputExpander;
 import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.util.io.FileOutErr;
-import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Collection;
-import java.util.Map;
 import java.util.SortedMap;
 
 /** Execution context for tests */
@@ -119,8 +115,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   public SortedMap<PathFragment, ActionInput> getInputMapping(boolean expandTreeArtifactsInRunfiles)
       throws IOException {
     return new SpawnInputExpander(execRoot, /*strict*/ false)
-        .getInputMapping(
-            spawn, this::artifactExpander, ArtifactPathResolver.IDENTITY, metadataProvider, true);
+        .getInputMapping(spawn, this::artifactExpander, metadataProvider, true);
   }
 
   @Override
@@ -130,33 +125,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
 
   @Override
   public MetadataInjector getMetadataInjector() {
-    return new MetadataInjector() {
-      @Override
-      public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void injectRemoteDirectory(
-          Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void markOmitted(ActionInput output) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void addExpandedTreeOutput(TreeFileArtifact output) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
-        throw new UnsupportedOperationException();
-      }
-    };
+    return ActionsTestUtil.THROWING_METADATA_HANDLER;
   }
 
   @Override

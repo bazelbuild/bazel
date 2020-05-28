@@ -22,3 +22,13 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]),
 )
+
+filegroup(
+    name = "embedded_tools_srcs",
+    srcs = [
+        "BUILD.tools",
+        "cc_grpc_library.bzl",
+        "generate_cc.bzl",
+        "protobuf.bzl",
+    ],
+)

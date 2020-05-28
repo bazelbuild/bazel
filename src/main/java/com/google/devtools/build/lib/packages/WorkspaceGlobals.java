@@ -235,10 +235,11 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     return label.getPackageIdentifier().getRepository();
   }
 
-  private static List<String> renamePatterns(
+  private static ImmutableList<String> renamePatterns(
       List<String> patterns, Package.Builder builder, StarlarkThread thread) {
-    RepositoryName myName =
-        getRepositoryName((Label) Module.ofInnermostEnclosingStarlarkFunction(thread).getLabel());
+    BazelModuleContext bzlModule =
+        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
+    RepositoryName myName = getRepositoryName((bzlModule != null ? bzlModule.label() : null));
     Map<RepositoryName, RepositoryName> renaming = builder.getRepositoryMappingFor(myName);
     return patterns.stream()
         .map(patternEntry -> TargetPattern.renameRepository(patternEntry, renaming))

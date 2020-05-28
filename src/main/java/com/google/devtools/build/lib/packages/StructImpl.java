@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -39,7 +38,7 @@ import javax.annotation.Nullable;
  *
  * <p>StructImpl does not specify how the fields are represented; subclasses must define {@code
  * getValue} and {@code getFieldNames}. For example, {@code NativeInfo} supplies fields from the
- * subclass's {@code SkylarkCallable(structField=true)} annotations, and {@code SkylarkInfo}
+ * subclass's {@code StarlarkMethod(structField=true)} annotations, and {@code StarlarkInfo}
  * supplies fields from the map provided at its construction.
  *
  * <p>Two StructImpls are equivalent if they have the same provider and, for each field name
@@ -88,8 +87,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
         @SuppressWarnings("UnusedException")
         ClassCastException unused) {
       throw Starlark.errorf(
-          "for %s field, got %s, want %s",
-          key, Starlark.type(obj), EvalUtils.getDataTypeNameFromClass(type));
+          "for %s field, got %s, want %s", key, Starlark.type(obj), Starlark.classType(type));
     }
   }
 
@@ -220,7 +218,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       throw Starlark.errorf(
           "Invalid text format, expected a struct, a dict, a string, a bool, or an int but got a"
               + " %s for %s '%s'",
-          EvalUtils.getDataTypeName(value), container, key);
+          Starlark.type(value), container, key);
     }
   }
 
@@ -290,9 +288,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
         if (!(entry.getKey() instanceof String)) {
           throw Starlark.errorf(
               "Keys must be a string but got a %s for %s%s",
-              EvalUtils.getDataTypeName(entry.getKey()),
-              container,
-              key != null ? " '" + key + "'" : "");
+              Starlark.type(entry.getKey()), container, key != null ? " '" + key + "'" : "");
         }
         appendJSONStringLiteral(sb, (String) entry.getKey());
         sb.append(':');
@@ -316,7 +312,7 @@ public abstract class StructImpl implements Info, ClassObject, StructApi {
       throw Starlark.errorf(
           "Invalid text format, expected a struct, a string, a bool, or an int but got a %s for"
               + " %s%s",
-          EvalUtils.getDataTypeName(value), container, key != null ? " '" + key + "'" : "");
+          Starlark.type(value), container, key != null ? " '" + key + "'" : "");
     }
   }
 

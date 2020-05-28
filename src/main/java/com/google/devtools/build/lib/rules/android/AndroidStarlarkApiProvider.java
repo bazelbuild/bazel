@@ -19,14 +19,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkApiProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSkylarkApiProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidStarlarkApiProviderApi;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -36,7 +36,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public class AndroidStarlarkApiProvider extends StarlarkApiProvider
-    implements AndroidSkylarkApiProviderApi<Artifact> {
+    implements AndroidStarlarkApiProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */
   public static final String NAME = "android";
 
@@ -45,6 +45,11 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
 
   public AndroidStarlarkApiProvider(AndroidResourcesInfo resourceInfo) {
     this.resourceInfo = resourceInfo;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Override
@@ -73,7 +78,7 @@ public class AndroidStarlarkApiProvider extends StarlarkApiProvider
 
   @Override
   public ImmutableMap<String, Depset> getNativeLibs() {
-    return getIdeInfoProvider().getNativeLibsSkylark();
+    return getIdeInfoProvider().getNativeLibsStarlark();
   }
 
   @Override

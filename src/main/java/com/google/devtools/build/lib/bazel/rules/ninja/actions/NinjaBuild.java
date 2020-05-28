@@ -182,13 +182,13 @@ public class NinjaBuild implements RuleConfiguredTargetFactory {
         NestedSet<Artifact> artifacts = phonyTargetsArtifacts.getPhonyTargetArtifacts(path);
         nestedSetBuilder.addTransitive(artifacts);
       } else {
-        Artifact usualArtifact = artifactsHelper.createOutputArtifact(path);
-        if (usualArtifact == null) {
+        Artifact outputArtifact = artifactsHelper.createOutputArtifact(path);
+        if (outputArtifact == null) {
           ruleContext.ruleError(
               String.format("Required target '%s' is not created in ninja_graph.", path));
           return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
         }
-        nestedSetBuilder.add(usualArtifact);
+        nestedSetBuilder.add(outputArtifact);
       }
     }
     return nestedSetBuilder.build();

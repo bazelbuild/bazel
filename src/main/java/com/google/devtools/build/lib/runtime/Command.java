@@ -33,8 +33,7 @@ public @interface Command {
 
   /**
    * Options processed by the command, indicated by options interfaces. These interfaces must
-   * contain methods annotated with {@link com/google/devtools/build/lib/runtime/Command.java used
-   * only in javadoc: com.google.devtools.common.options.Option}.
+   * contain methods annotated with {@link com.google.devtools.common.options.Option}.
    */
   Class<? extends OptionsBase>[] options() default {};
 

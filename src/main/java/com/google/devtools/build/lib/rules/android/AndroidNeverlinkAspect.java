@@ -95,8 +95,8 @@ public class AndroidNeverlinkAspect extends NativeAspectClass implements Configu
     }
 
     return builder
-        .requireSkylarkProviders(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .requireSkylarkProviders(
+        .requireStarlarkProviders(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .requireStarlarkProviders(
             StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()),
             StarlarkProviderIdentifier.forKey(
                 AndroidLibraryResourceClassJarProvider.PROVIDER.getKey()))

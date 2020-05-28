@@ -15,34 +15,34 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A tuple of a java classes jar and its associated source and interface archives. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "java_output",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "Java classes jar, together with their associated source and interface archives.")
 public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "class_jar",
       doc = "A classes jar file.",
       allowReturnNones = true,
       structField = true)
   FileT getClassJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ijar",
       doc = "A interface jar file.",
       allowReturnNones = true,
       structField = true)
   FileT getIJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "manifest_proto",
       doc =
           "A manifest proto file. The protobuf file containing the manifest generated from "
@@ -51,7 +51,7 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
       structField = true)
   FileT getManifestProto();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "source_jar",
       doc =
           "A sources archive file. Deprecated. Kept for migration reasons. "
@@ -61,10 +61,10 @@ public interface OutputJarApi<FileT extends FileApi> extends StarlarkValue {
   @Deprecated
   FileT getSrcJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "source_jars",
       doc = "A list of sources archive files.",
       allowReturnNones = true,
       structField = true)
-  Sequence<FileT> getSrcJarsSkylark();
+  Sequence<FileT> getSrcJarsStarlark();
 }

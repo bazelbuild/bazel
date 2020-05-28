@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -219,9 +218,8 @@ public class ActionMetadataHandlerTest {
   public void withUnknownOutputArtifactMissingAllowedTreeArtifact() throws Exception {
     PathFragment path = PathFragment.create("bin/foo/bar");
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ActionsTestUtil.NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
-    Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, path);
+    Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
@@ -241,9 +239,8 @@ public class ActionMetadataHandlerTest {
     scratch.file("/output/bin/foo/bar/baz", "not empty");
     PathFragment path = PathFragment.create("bin/foo/bar");
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ActionsTestUtil.NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
-    Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, path);
+    Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     assertThat(artifact.getPath().exists()).isTrue();
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler =
@@ -260,12 +257,11 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
-  public void withUnknownOutputArtifactMissingDisallowedTreeArtifact() throws Exception {
+  public void withUnknownOutputArtifactMissingDisallowedTreeArtifact() {
     PathFragment path = PathFragment.create("bin/foo/bar");
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ActionsTestUtil.NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
-    Artifact artifact = new TreeFileArtifact(treeArtifact, PathFragment.create("baz"));
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, path);
+    Artifact artifact = TreeFileArtifact.createTreeOutput(treeArtifact, "baz");
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
@@ -278,6 +274,41 @@ public class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
+  }
+
+  @Test
+  public void createsTreeArtifactValueFromFilesystem() throws Exception {
+    scratch.file("/output/bin/foo/bar/child1", "child1");
+    scratch.file("/output/bin/foo/bar/child2", "child2");
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("bin/foo/bar"));
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "child2");
+    assertThat(child1.getPath().exists()).isTrue();
+    assertThat(child2.getPath().exists()).isTrue();
+
+    OutputStore store = new OutputStore();
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            new ActionInputMap(1),
+            /*expandedFilesets=*/ ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableList.of(treeArtifact),
+            /*tsgm=*/ null,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+
+    FileArtifactValue treeMetadata = handler.getMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = handler.getMetadata(child1);
+    FileArtifactValue child2Metadata = handler.getMetadata(child2);
+    TreeArtifactValue tree = store.getTreeArtifactData(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getAllArtifactData()).isEmpty(); // All data should be in treeArtifactData.
   }
 
   @Test
@@ -332,7 +363,8 @@ public class ActionMetadataHandlerTest {
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
 
     // Inject a remote file of size 42.
-    handler.injectRemoteFile(artifact, new byte[] {1, 2, 3}, 42, 0);
+    handler.injectRemoteFile(
+        artifact, new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 42, 0, "ultimate-answer"));
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(42);
 
     // Reset this output, which will make the handler stat the file again.
@@ -358,7 +390,8 @@ public class ActionMetadataHandlerTest {
 
     byte[] digest = new byte[] {1, 2, 3};
     int size = 10;
-    handler.injectRemoteFile(artifact, digest, size, /* locationIndex= */ 1);
+    handler.injectRemoteFile(
+        artifact, new RemoteFileArtifactValue(digest, size, /*locationIndex=*/ 1, "action-id"));
 
     FileArtifactValue v = handler.getMetadata(artifact);
     assertThat(v).isNotNull();
@@ -367,12 +400,52 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
+  public void injectRemoteTreeFileArtifactMetadata() throws Exception {
+    scratch.file("/output/bin/foo/bar/child1", "child1");
+    scratch.file("/output/bin/foo/bar/child2", "child2");
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("bin/foo/bar"));
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "child2");
+    assertThat(child1.getPath().exists()).isTrue();
+    assertThat(child2.getPath().exists()).isTrue();
+
+    OutputStore store = new OutputStore();
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            /*inputArtifactData=*/ new ActionInputMap(1),
+            ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableList.of(treeArtifact),
+            /*tsgm=*/ null,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+    handler.discardOutputMetadata();
+
+    RemoteFileArtifactValue child1Value = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
+    RemoteFileArtifactValue child2Value = new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1);
+
+    handler.injectRemoteFile(child1, child1Value);
+    handler.injectRemoteFile(child2, child2Value);
+
+    FileArtifactValue treeMetadata = handler.getMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = handler.getMetadata(child1);
+    FileArtifactValue child2Metadata = handler.getMetadata(child2);
+    TreeArtifactValue tree = store.getTreeArtifactData(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getAllArtifactData()).isEmpty(); // All data should be in treeArtifactData.
+  }
+
+  @Test
   public void injectRemoteTreeArtifactMetadata() throws Exception {
     PathFragment path = PathFragment.create("bin/dir");
     SpecialArtifact treeArtifact =
-        new SpecialArtifact(
-            outputRoot, path, ActionsTestUtil.NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
-    treeArtifact.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputRoot, path);
     OutputStore store = new OutputStore();
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
@@ -386,13 +459,14 @@ public class ActionMetadataHandlerTest {
             outputRoot.getRoot().asPath());
     handler.discardOutputMetadata();
 
-    RemoteFileArtifactValue fooValue = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
-    RemoteFileArtifactValue barValue = new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1);
-    Map<PathFragment, RemoteFileArtifactValue> children =
-        ImmutableMap.<PathFragment, RemoteFileArtifactValue>builder()
-            .put(PathFragment.create("foo"), fooValue)
-            .put(PathFragment.create("bar"), barValue)
-            .build();
+    RemoteFileArtifactValue fooValue =
+        new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1, "foo");
+    RemoteFileArtifactValue barValue =
+        new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1, "bar");
+    Map<TreeFileArtifact, RemoteFileArtifactValue> children =
+        ImmutableMap.of(
+            TreeFileArtifact.createTreeOutput(treeArtifact, "foo"), fooValue,
+            TreeFileArtifact.createTreeOutput(treeArtifact, "bar"), barValue);
 
     handler.injectRemoteDirectory(treeArtifact, children);
 

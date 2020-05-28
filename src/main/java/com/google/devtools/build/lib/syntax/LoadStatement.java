@@ -22,6 +22,7 @@ public final class LoadStatement extends Statement {
    * Binding represents a binding in a load statement. load("...", local = "orig")
    *
    * <p>If there's no alias, a single Identifier can be used for both local and orig.
+   * TODO(adonovan): don't do that; be faithful to source.
    */
   public static final class Binding {
     private final Identifier local;

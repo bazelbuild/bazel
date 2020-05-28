@@ -15,16 +15,16 @@
 package com.google.devtools.build.lib.syntax;
 
 /**
- * Wrapper on a value that controls its accessibility in Starlark based on the value of a
- * semantic flag.
+ * Wrapper on a value in the predeclared lexical block that controls its accessibility to Starlark
+ * based on the value of a semantic flag.
  *
- * <p>For example, this could control whether symbol "Foo" exists in the Starlark
- * global frame: such a symbol might only be accessible if --experimental_foo is set to true.
- * In order to create this control, an instance of this class should be added to the global
- * frame under "Foo". This flag guard will throw a descriptive {@link EvalException} when
- * "Foo" would be accessed without the proper flag.
+ * <p>For example, this could control whether symbol "Foo" exists in the Starlark global frame: such
+ * a symbol might only be accessible if --experimental_foo is set to true. In order to create this
+ * control, an instance of this class should be added to the global frame under "Foo". This flag
+ * guard will throw a descriptive {@link EvalException} when "Foo" would be accessed without the
+ * proper flag.
  */
-public class FlagGuardedValue {
+public final class FlagGuardedValue {
   private final Object obj;
   private final String flag;
   private final FlagType flagType;

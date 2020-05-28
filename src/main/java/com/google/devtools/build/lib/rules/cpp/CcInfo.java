@@ -62,21 +62,36 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
   }
 
   public static CcInfo merge(Collection<CcInfo> ccInfos) {
+    return merge(ImmutableList.of(), ccInfos);
+  }
+
+  public static CcInfo merge(Collection<CcInfo> directCcInfos, Collection<CcInfo> ccInfos) {
+    ImmutableList.Builder<CcCompilationContext> directCcCompilationContexts =
+        ImmutableList.builder();
     ImmutableList.Builder<CcCompilationContext> ccCompilationContexts = ImmutableList.builder();
     ImmutableList.Builder<CcLinkingContext> ccLinkingContexts = ImmutableList.builder();
     ImmutableList.Builder<CcDebugInfoContext> ccDebugInfoContexts = ImmutableList.builder();
 
+    for (CcInfo ccInfo : directCcInfos) {
+      directCcCompilationContexts.add(ccInfo.getCcCompilationContext());
+      ccLinkingContexts.add(ccInfo.getCcLinkingContext());
+      ccDebugInfoContexts.add(ccInfo.getCcDebugInfoContext());
+    }
     for (CcInfo ccInfo : ccInfos) {
       ccCompilationContexts.add(ccInfo.getCcCompilationContext());
       ccLinkingContexts.add(ccInfo.getCcLinkingContext());
       ccDebugInfoContexts.add(ccInfo.getCcDebugInfoContext());
     }
+
     CcCompilationContext.Builder builder =
         CcCompilationContext.builder(
             /* actionConstructionContext= */ null, /* configuration= */ null, /* label= */ null);
 
     return new CcInfo(
-        builder.mergeDependentCcCompilationContexts(ccCompilationContexts.build()).build(),
+        builder
+            .mergeDependentCcCompilationContexts(
+                directCcCompilationContexts.build(), ccCompilationContexts.build())
+            .build(),
         CcLinkingContext.merge(ccLinkingContexts.build()),
         CcDebugInfoContext.merge(ccDebugInfoContexts.build()));
   }
@@ -157,12 +172,12 @@ public final class CcInfo extends NativeInfo implements CcInfoApi<Artifact> {
 
     @Override
     public CcInfoApi<Artifact> createInfo(
-        Object skylarkCcCompilationContext, Object skylarkCcLinkingInfo) throws EvalException {
+        Object starlarkCcCompilationContext, Object starlarkCcLinkingInfo) throws EvalException {
       CcCompilationContext ccCompilationContext =
-          nullIfNone(skylarkCcCompilationContext, CcCompilationContext.class);
+          nullIfNone(starlarkCcCompilationContext, CcCompilationContext.class);
       // TODO(b/118663806): Eventually only CcLinkingContext will be allowed, this is for
       // backwards compatibility.
-      CcLinkingContext ccLinkingContext = nullIfNone(skylarkCcLinkingInfo, CcLinkingContext.class);
+      CcLinkingContext ccLinkingContext = nullIfNone(starlarkCcLinkingInfo, CcLinkingContext.class);
       CcInfo.Builder ccInfoBuilder = CcInfo.builder();
       if (ccCompilationContext != null) {
         ccInfoBuilder.setCcCompilationContext(ccCompilationContext);

@@ -21,33 +21,28 @@ import java.lang.annotation.Target;
 
 /**
  * Define some standard attributes for documenting thread safety properties.
- *<p>
- * The names used here are adapted from those used in Joshua Bloch's book
- * "Effective Java", which are also described at
- * <http://www.ibm.com/developerworks/java/library/j-jtp09263/>.
- *<p>
- * These attributes are just documentation.  They don't have any run-time
- * effect.  The main aim is mainly just to standardize the terminology.
- * (However, if this catches on, I can also imagine in the future having
- * a presubmit check that checks that all new classes have thread safety
- * annotations :)
- *<p>
- * See ThreadSafetyTest for examples of how these attributes should be used.
+ *
+ * <p>The names used here are adapted from those used in Joshua Bloch's book "Effective Java", which
+ * are also described at <http://www.ibm.com/developerworks/java/library/j-jtp09263/>.
+ *
+ * <p>These attributes are just documentation. They don't have any run-time effect. The main aim is
+ * mainly just to standardize the terminology.
+ *
+ * <p>See ThreadSafetyTest for examples of how these attributes should be used.
  */
+// TODO(adonovan): prefer javax.annotation.concurrent.Immutable et al.
 public class ThreadSafety {
   /**
-   * The Immutable attribute indicates that instances of the class are
-   * immutable, or at least appear that way are far as their external API
-   * is concerned.  Immutable classes are usually also ThreadSafe,
-   * but can be ThreadHostile if they perform unsynchronized access to
-   * mutable static data.  (We deviate from Bloch's nomenclature by
-   * not assuming that Immutable implies ThreadSafe; developers should
-   * explicitly annotate classes as both Immutable and ThreadSafe when
+   * The Immutable attribute indicates that instances of the class are immutable, or at least appear
+   * that way are far as their external API is concerned. Immutable classes are usually also
+   * ThreadSafe, but can be ThreadHostile if they perform unsynchronized access to mutable static
+   * data. (We deviate from Bloch's nomenclature by not assuming that Immutable implies ThreadSafe;
+   * developers should explicitly annotate classes as both Immutable and ThreadSafe when
    * appropriate.)
    */
   @Documented
   @Target(value = {ElementType.TYPE})
-  @Retention(RetentionPolicy.RUNTIME)
+  @Retention(RetentionPolicy.SOURCE)
   public @interface Immutable {}
 
   /**

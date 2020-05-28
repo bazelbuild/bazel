@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import static org.junit.Assume.assumeFalse;
 
+import com.google.common.base.Charsets;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.Options;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -41,9 +43,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -51,8 +53,7 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link MacOSXFsEventsDiffAwareness} */
 @RunWith(JUnit4.class)
 public class MacOSXFsEventsDiffAwarenessTest {
-
-  private static Logger logger = Logger.getLogger(MacOSXFsEventsDiffAwarenessTest.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static void rmdirs(Path directory) throws IOException {
     Files.walkFileTree(
@@ -97,9 +98,13 @@ public class MacOSXFsEventsDiffAwarenessTest {
     p.toFile().mkdirs();
   }
 
-  private void scratchFile(String path) throws IOException {
+  private void scratchFile(String path, String contents) throws IOException {
     Path p = watchedPath.resolve(path);
-    com.google.common.io.Files.write(new byte[] {}, p.toFile());
+    com.google.common.io.Files.write(contents.getBytes(Charsets.UTF_8), p.toFile());
+  }
+
+  private void scratchFile(String path) throws IOException {
+    scratchFile(path, "");
   }
 
   /**
@@ -112,10 +117,11 @@ public class MacOSXFsEventsDiffAwarenessTest {
    */
   private View assertDiff(View view1, Iterable<String> rawPaths)
       throws IncompatibleViewException, BrokenDiffAwarenessException, InterruptedException {
-    Set<PathFragment> pathsYetToBeSeen = new HashSet<>();
+    Set<PathFragment> allPaths = new HashSet<>();
     for (String path : rawPaths) {
-      pathsYetToBeSeen.add(PathFragment.create(path));
+      allPaths.add(PathFragment.create(path));
     }
+    Set<PathFragment> pathsYetToBeSeen = new HashSet<>(allPaths);
 
     // fsevents may be delayed (especially under machine load), which means that we may not notice
     // all file system changes in one go. Try enough times (multiple seconds) for the events to be
@@ -134,16 +140,21 @@ public class MacOSXFsEventsDiffAwarenessTest {
       assumeFalse("Lost events; diff unknown", diff.equals(ModifiedFileSet.EVERYTHING_MODIFIED));
 
       ImmutableSet<PathFragment> modifiedSourceFiles = diff.modifiedSourceFiles();
+      allPaths.removeAll(modifiedSourceFiles);
       pathsYetToBeSeen.removeAll(modifiedSourceFiles);
       if (pathsYetToBeSeen.isEmpty()) {
-        // Found all paths that we wanted to see as modified.
+        // Found all paths that we wanted to see as modified so now check that we didn't get any
+        // extra paths we did not expect.
+        if (!allPaths.isEmpty()) {
+          throw new AssertionError("Paths " + allPaths + " unexpectedly reported as modified");
+        }
         return view2;
       }
 
       if (attempts == 600) {
         throw new AssertionError("Paths " + pathsYetToBeSeen + " not found as modified");
       }
-      logger.info("Still have to see " + pathsYetToBeSeen.size() + " paths");
+      logger.atInfo().log("Still have to see %d paths", pathsYetToBeSeen.size());
       Thread.sleep(100);
       attempts++;
       view1 = view2; // getDiff requires views to be sequential if we want to get meaningful data.
@@ -151,6 +162,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testSimple() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
 
@@ -166,6 +178,22 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
+  public void testRenameDirectory() throws Exception {
+    scratchDir("dir1");
+    scratchFile("dir1/file.c", "first");
+    scratchDir("dir2");
+    scratchFile("dir2/file.c", "second");
+    View view1 = underTest.getCurrentView(watchFsEnabledProvider);
+
+    Files.move(watchedPath.resolve("dir1"), watchedPath.resolve("dir3"));
+    Files.move(watchedPath.resolve("dir2"), watchedPath.resolve("dir1"));
+    assertDiff(
+        view1, Arrays.asList("dir1", "dir1/file.c", "dir2", "dir2/file.c", "dir3", "dir3/file.c"));
+  }
+
+  @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testStress() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
 
@@ -173,7 +201,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
     // which then may result in our own callback in fsevents.cc not being able to keep up.
     // There is no guarantee that we'll trigger this condition, but on 2020-02-28 on a Mac Pro
     // 2013, this happened pretty predictably with the settings below.
-    logger.info("Starting file creation under " + watchedPath);
+    logger.atInfo().log("Starting file creation under %s", watchedPath);
     ExecutorService executor = Executors.newCachedThreadPool();
     int nThreads = 100;
     int nFilesPerThread = 100;

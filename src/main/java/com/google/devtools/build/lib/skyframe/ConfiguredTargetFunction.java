@@ -24,6 +24,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Actions.GeneratingActions;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.AnalysisRootCauseEvent;
 import com.google.devtools.build.lib.analysis.AspectResolver;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment.MissingDepException;
@@ -31,13 +32,14 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
+import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
+import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
@@ -332,7 +334,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                   target.getPackage().getRepositoryMapping(),
                   unloadedContext.getValue(),
                   targetDescription,
-                  depValueMap.get(DependencyResolver.TOOLCHAIN_DEPENDENCY)));
+                  depValueMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY)));
         }
         toolchainContexts = contextsBuilder.build();
       }
@@ -484,11 +486,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             configuration.getFragmentsMap().keySet(),
             BuildOptions.diffForReconstruction(defaultBuildOptions, toolchainOptions));
 
-    Map<String, UnloadedToolchainContextKey> unloadedToolchainContextKeys = new HashMap<>();
+    Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
-    unloadedToolchainContextKeys.put(
+    toolchainContextKeys.put(
         targetUnloadedToolchainContext,
-        UnloadedToolchainContextKey.key()
+        ToolchainContextKey.key()
             .configurationKey(toolchainConfig)
             .requiredToolchainTypeLabels(requiredDefaultToolchains)
             .execConstraintLabels(defaultExecConstraintLabels)
@@ -496,9 +498,9 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             .build());
     for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
       ExecGroup execGroup = group.getValue();
-      unloadedToolchainContextKeys.put(
+      toolchainContextKeys.put(
           group.getKey(),
-          UnloadedToolchainContextKey.key()
+          ToolchainContextKey.key()
               .configurationKey(toolchainConfig)
               .requiredToolchainTypeLabels(execGroup.getRequiredToolchains())
               .execConstraintLabels(execGroup.getExecutionPlatformConstraints())
@@ -507,14 +509,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     Map<SkyKey, ValueOrException<ToolchainException>> values =
-        env.getValuesOrThrow(unloadedToolchainContextKeys.values(), ToolchainException.class);
+        env.getValuesOrThrow(toolchainContextKeys.values(), ToolchainException.class);
 
     boolean valuesMissing = env.valuesMissing();
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
         valuesMissing ? null : new ToolchainCollection.Builder<>();
-    for (Map.Entry<String, UnloadedToolchainContextKey> unloadedToolchainContextKey :
-        unloadedToolchainContextKeys.entrySet()) {
+    for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
+        toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
       if (!valuesMissing) {
@@ -589,10 +591,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       BuildOptions defaultBuildOptions)
       throws DependencyEvaluationException, ConfiguredTargetFunctionException,
           AspectCreationException, InterruptedException {
-    // Create the map from attributes to set of (target, configuration) pairs.
-    OrderedSetMultimap<DependencyKind, Dependency> depValueNames;
+    // Create the map from attributes to set of (target, transition) pairs.
+    OrderedSetMultimap<DependencyKind, DependencyKey> initialDependencies;
+    BuildConfiguration configuration = ctgValue.getConfiguration();
+    Label label = ctgValue.getLabel();
     try {
-      depValueNames =
+      initialDependencies =
           resolver.dependentNodeMap(
               ctgValue,
               hostConfiguration,
@@ -604,23 +608,23 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Starlark attributes in the current rule.
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
+      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(
-              e.print(), ctgValue.getLabel(), ctgValue.getConfiguration()));
+          new ConfiguredValueCreationException(e.print(), label, configuration));
     } catch (InconsistentAspectOrderException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);
     }
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
-    depValueNames =
+    OrderedSetMultimap<DependencyKind, Dependency> depValueNames =
         ConfigurationResolver.resolveConfigurations(
             env,
             ctgValue,
-            depValueNames,
+            initialDependencies,
             hostConfiguration,
-            ruleClassProvider,
-            defaultBuildOptions);
+            defaultBuildOptions,
+            configConditions);
 
     // Return early in case packages were not loaded yet. In theory, we could start configuring
     // dependent targets in loaded packages. However, that creates an artificial sync boundary
@@ -658,8 +662,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           Event.error(ctgValue.getTarget().getLocation(), e.getMessage()));
 
       throw new ConfiguredTargetFunctionException(
-          new ConfiguredValueCreationException(
-              e.getMessage(), ctgValue.getLabel(), ctgValue.getConfiguration()));
+          new ConfiguredValueCreationException(e.getMessage(), label, configuration));
     }
   }
 
@@ -711,7 +714,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     ImmutableList.Builder<Dependency> depsBuilder = ImmutableList.builder();
     for (Label configurabilityLabel : configLabels) {
       Dependency configurabilityDependency =
-          Dependency.withConfiguration(configurabilityLabel, ctgValue.getConfiguration());
+          Dependency.builder()
+              .setLabel(configurabilityLabel)
+              .setConfiguration(ctgValue.getConfiguration())
+              .build();
       depsBuilder.add(configurabilityDependency);
     }
 
@@ -791,8 +797,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // to do a potential second pass, in which we fetch all the Packages for AliasConfiguredTargets.
     Iterable<SkyKey> depKeys =
         Iterables.concat(
-            Iterables.transform(
-                deps, input -> ConfiguredTargetKey.of(input.getLabel(), input.getConfiguration())),
+            Iterables.transform(deps, Dependency::getConfiguredTargetKey),
             Iterables.transform(
                 deps, input -> PackageValue.key(input.getLabel().getPackageIdentifier())));
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
@@ -804,7 +809,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     Collection<Dependency> depsToProcess = deps;
     for (int i = 0; i < 2; i++) {
       for (Dependency dep : depsToProcess) {
-        SkyKey key = ConfiguredTargetKey.of(dep.getLabel(), dep.getConfiguration());
+        SkyKey key = dep.getConfiguredTargetKey();
         try {
           ConfiguredTargetValue depValue =
               (ConfiguredTargetValue) depValuesOrExceptions.get(key).get();
@@ -872,7 +877,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                       depValue.getConfiguredTarget(),
                       pkgValue.getPackage().getTarget(depLabel.getName()),
                       depConfiguration,
-                      dep.getTransitionKey()));
+                      dep.getTransitionKeys()));
             } catch (NoSuchTargetException e) {
               throw new IllegalStateException("Target already verified for " + dep, e);
             }
@@ -949,6 +954,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       return null;
     } catch (ActionConflictException e) {
       throw new ConfiguredTargetFunctionException(e);
+    } catch (InvalidExecGroupException e) {
+      throw new ConfiguredTargetFunctionException(e);
     }
 
     events.replayOn(env.getListener());
@@ -1021,6 +1028,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     private ConfiguredTargetFunctionException(ActionConflictException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    private ConfiguredTargetFunctionException(InvalidExecGroupException e) {
       super(e, Transience.PERSISTENT);
     }
   }

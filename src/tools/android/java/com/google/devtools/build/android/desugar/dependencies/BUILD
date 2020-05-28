@@ -8,6 +8,7 @@ package(
     default_visibility = [
         "//src/test/java/com/google/devtools/build/android/desugar:__subpackages__",
         "//src/tools/android/java/com/google/devtools/build/android/desugar:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:__pkg__",
     ],
 )
 

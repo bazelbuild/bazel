@@ -210,7 +210,7 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean enableCcToolchainConfigInfoFromSkylark;
+    public boolean enableCcToolchainConfigInfoFromStarlark;
 
     @Option(
         name = "output_symbol_counts",
@@ -307,7 +307,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help = "Obsolete, no effect.")
-    public boolean enableLegacyToolchainSkylarkApi;
+    public boolean enableLegacyToolchainStarlarkApi;
 
     @Option(
         name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
@@ -320,7 +320,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help = "Obsolete, no effect.")
-    public boolean disableLegacyToolchainSkylarkApi;
+    public boolean disableLegacyToolchainStarlarkApi;
 
     @Option(
         name = "incompatible_cc_coverage",

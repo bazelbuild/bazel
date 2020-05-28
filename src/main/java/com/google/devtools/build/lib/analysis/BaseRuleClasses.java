@@ -265,7 +265,7 @@ public class BaseRuleClasses {
   public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 
   /** Share common attributes across both base and Starlark base rules. */
-  public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
+  public static RuleClass.Builder commonCoreAndStarlarkAttributes(RuleClass.Builder builder) {
     return builder
         // The visibility attribute is special: it is a nodep label, and loading the
         // necessary package groups is handled by {@link LabelVisitor#visitTargetVisibility}.
@@ -376,7 +376,7 @@ public class BaseRuleClasses {
   public static final class BaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return commonCoreAndSkylarkAttributes(builder)
+      return commonCoreAndStarlarkAttributes(builder)
           .add(
               attr("licenses", LICENSE)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))

@@ -9,7 +9,7 @@ A list of all modules and globals that are available:
 <h2>
 
 
-  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Functions</a>
+  <a href="${global_name}.html">Global Functions</a>
 
 
 </h2>
@@ -21,7 +21,7 @@ A list of all modules and globals that are available:
     <li>
 
 
-      <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html#${name}">${name}</a>
+      <a href="${global_name}.html#${name}">${name}</a>
 
 
     </li>
@@ -33,7 +33,7 @@ A list of all modules and globals that are available:
 <h2>
 
 
-  <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html">Global Constants</a>
+  <a href="${global_name}.html">Global Constants</a>
 
 
 </h2>
@@ -45,7 +45,7 @@ A list of all modules and globals that are available:
     <li>
 
 
-      <a href="/versions/{{ site.version }}/skylark/lib/${global_name}.html#${name}">${name}</a>
+      <a href="${global_name}.html#${name}">${name}</a>
 
 
     </li>
@@ -65,7 +65,7 @@ A list of all modules and globals that are available:
     <li>
 
 
-      <a href="/versions/{{ site.version }}/skylark/lib/${module.name}.html">${module.name}</a>
+      <a href="${module.name}.html">${module.name}</a>
 
 
     #if (${module.deprecated})
@@ -82,7 +82,7 @@ A list of all modules and globals that are available:
 <h2>
 
 
-  <a href="/versions/{{ site.version }}/skylark/lib/skylark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
+  <a href="skylark-${entry.key.templateIdentifier}.html">${entry.key.title}</a>
 
 
 </h2>
@@ -93,7 +93,7 @@ A list of all modules and globals that are available:
     <li>
 
 
-      <a href="/versions/{{ site.version }}/skylark/lib/${module.name}.html">${module.title}</a>
+      <a href="${module.name}.html">${module.title}</a>
 
       #if (${module.deprecated})
       (Deprecated)

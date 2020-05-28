@@ -165,7 +165,7 @@ public class CoreLibraryRewriter {
     private String finalClassName;
 
     UnprefixingClassWriter(int flags) {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       this.writer = new ClassWriter(flags);
       this.cv = this.writer;
       if (!prefix.isEmpty()) {

@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -84,19 +85,19 @@ public class CommandEnvironment {
   private final Map<String, String> clientEnv;
   private final Set<String> visibleActionEnv = new TreeSet<>();
   private final Set<String> visibleTestEnv = new TreeSet<>();
-  private final Map<String, String> actionClientEnv = new TreeMap<>();
   private final Map<String, String> repoEnv = new TreeMap<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
   private final Thread commandThread;
   private final Command command;
   private final OptionsParsingResult options;
   private final PathPackageLocator packageLocator;
+  private final Path workingDirectory;
+  private final PathFragment relativeWorkingDirectory;
+  private final Duration waitTime;
+  private final long commandStartTime;
 
-  private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
-  private long commandStartTime;
   private OutputService outputService;
   private TopDownActionCache topDownActionCache;
-  private Path workingDirectory;
   private String workspaceName;
   private boolean hasSyncedPackageLoading = false;
 
@@ -148,7 +149,9 @@ public class CommandEnvironment {
       Thread commandThread,
       Command command,
       OptionsParsingResult options,
-      List<String> warnings) {
+      List<String> warnings,
+      long waitTimeInMs,
+      long commandStartTime) {
     this.runtime = runtime;
     this.workspace = workspace;
     this.directories = workspace.getDirectories();
@@ -165,12 +168,30 @@ public class CommandEnvironment {
     // the command's execution.
     timestampGranularityMonitor.setCommandStartTime();
 
-    // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
-    // in syncPackageLoading(). This leads to NPE if we don't set it here.
+    CommonCommandOptions commandOptions =
+        Preconditions.checkNotNull(
+            options.getOptions(CommonCommandOptions.class),
+            "CommandEnvironment needs its options provider to have CommonCommandOptions loaded.");
     Path workspacePath = directories.getWorkspace();
-    this.setWorkingDirectory(workspacePath);
+    Path workingDirectory;
+    try {
+      workingDirectory = computeWorkingDirectory(commandOptions);
+    } catch (AbruptExitException e) {
+      // We'll exit very soon, but set the working directory to something reasonable so remainder of
+      // setup can finish.
+      this.blazeModuleEnvironment.exit(e);
+      workingDirectory = workspacePath;
+    }
+    this.workingDirectory = workingDirectory;
+    if (getWorkspace() != null) {
+      this.relativeWorkingDirectory = workingDirectory.relativeTo(getWorkspace());
+    } else {
+      this.relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
+    }
     this.workspaceName = null;
 
+    this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
+    this.commandStartTime = commandStartTime - commandOptions.startupTime;
     // If this command supports --package_path we initialize the package locator scoped
     // to the command environment
     if (commandHasPackageOptions(command) && workspacePath != null) {
@@ -189,17 +210,11 @@ public class CommandEnvironment {
             options.getOptions(ClientOptions.class),
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
-    CommonCommandOptions commandOptions =
-        Preconditions.checkNotNull(
-            options.getOptions(CommonCommandOptions.class),
-            "CommandEnvironment needs its options provider to have CommonCommandOptions loaded.");
     this.clientEnv = makeMapFromMapEntries(clientOptions.clientEnv);
     this.commandId = computeCommandId(commandOptions.invocationId, warnings);
     this.buildRequestId = computeBuildRequestId(commandOptions.buildRequestId, warnings);
 
-    // actionClientEnv contains the environment where values from actionEnvironment are overridden.
-    actionClientEnv.putAll(clientEnv);
-
+    this.repoEnv.putAll(clientEnv);
     if (command.builds()) {
       // Compute the set of environment variables that are whitelisted on the commandline
       // for inheritance.
@@ -209,7 +224,7 @@ public class CommandEnvironment {
           visibleActionEnv.add(entry.getKey());
         } else {
           visibleActionEnv.remove(entry.getKey());
-          actionClientEnv.put(entry.getKey(), entry.getValue());
+          repoEnv.put(entry.getKey(), entry.getValue());
         }
       }
       for (Map.Entry<String, String> entry :
@@ -220,13 +235,51 @@ public class CommandEnvironment {
       }
     }
 
-    repoEnv.putAll(actionClientEnv);
     CoreOptions configOpts = options.getOptions(CoreOptions.class);
     if (configOpts != null) {
       for (Map.Entry<String, String> entry : configOpts.repositoryEnvironment) {
         repoEnv.put(entry.getKey(), entry.getValue());
       }
     }
+  }
+
+  private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
+      throws AbruptExitException {
+    Path workspace = getWorkspace();
+    Path workingDirectory;
+    if (inWorkspace()) {
+      PathFragment clientCwd = commandOptions.clientCwd;
+      if (clientCwd.containsUplevelReferences()) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                ExitCode.COMMAND_LINE_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage("Client cwd '" + clientCwd + "' contains uplevel references")
+                    .setClientEnvironment(
+                        FailureDetails.ClientEnvironment.newBuilder()
+                            .setCode(FailureDetails.ClientEnvironment.Code.CLIENT_CWD_MALFORMED)
+                            .build())
+                    .build()));
+      }
+      if (clientCwd.isAbsolute() && !clientCwd.startsWith(workspace.asFragment())) {
+        throw new AbruptExitException(
+            DetailedExitCode.of(
+                ExitCode.COMMAND_LINE_ERROR,
+                FailureDetail.newBuilder()
+                    .setMessage(
+                        String.format(
+                            "Client cwd '%s' is not inside workspace '%s'", clientCwd, workspace))
+                    .setClientEnvironment(
+                        FailureDetails.ClientEnvironment.newBuilder()
+                            .setCode(FailureDetails.ClientEnvironment.Code.CLIENT_CWD_MALFORMED)
+                            .build())
+                    .build()));
+      }
+      workingDirectory = workspace.getRelative(clientCwd);
+    } else {
+      workingDirectory = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
+    }
+    return workingDirectory;
   }
 
   // Returns whether the given command supports --package_path
@@ -391,6 +444,10 @@ public class CommandEnvironment {
     return relativeWorkingDirectory;
   }
 
+  public Duration getWaitTime() {
+    return waitTime;
+  }
+
   List<OutErr> getOutputListeners() {
     List<OutErr> result = new ArrayList<>();
     for (BlazeModule module : runtime.getBlazeModules()) {
@@ -522,13 +579,13 @@ public class CommandEnvironment {
   }
 
   /**
-   * Prevents any further interruption of this command by modules, and returns the final exit code
-   * from modules, or null if no modules requested an abrupt exit.
+   * Prevents any further interruption of this command by modules, and returns the final {@link
+   * DetailedExitCode} from modules, or null if no modules requested an abrupt exit.
    *
    * <p>Always returns the same value on subsequent calls.
    */
   @Nullable
-  private ExitCode finalizeExitCode() {
+  private DetailedExitCode finalizeDetailedExitCode() {
     // Set the pending exception so that further calls to exit(AbruptExitException) don't lead to
     // unwanted thread interrupts.
     if (pendingException.compareAndSet(null, Optional.empty())) {
@@ -541,29 +598,32 @@ public class CommandEnvironment {
       Thread.interrupted();
     }
     // Extract the exit code (it can be null if someone has already called finalizeExitCode()).
-    return getPendingExitCode();
+    return getPendingDetailedExitCode();
   }
 
   /**
-   * Hook method called by the BlazeCommandDispatcher right before the dispatch
-   * of each command ends (while its outcome can still be modified).
+   * Hook method called by the BlazeCommandDispatcher right before the dispatch of each command ends
+   * (while its outcome can still be modified).
    */
-  ExitCode precompleteCommand(ExitCode originalExit) {
-    eventBus.post(new CommandPrecompleteEvent(originalExit));
-    return finalizeExitCode();
+  DetailedExitCode precompleteCommand(DetailedExitCode originalExit) {
+    // TODO(b/138456686): this event is deprecated but is used in several places. Instead of lifting
+    //  the ExitCode to a DetailedExitCode, see if it can be deleted.
+    eventBus.post(new CommandPrecompleteEvent(originalExit.getExitCode()));
+    return finalizeDetailedExitCode();
   }
 
   /** Returns the current exit code requested by modules, or null if no exit has been requested. */
   @Nullable
-  private ExitCode getPendingExitCode() {
+  private DetailedExitCode getPendingDetailedExitCode() {
     AbruptExitException exception = getPendingException();
-    return exception == null ? null : exception.getExitCode();
+    return exception == null ? null : exception.getDetailedExitCode();
   }
 
   /**
    * Retrieves the exception currently queued by a Blaze module.
    *
-   * <p>Prefer getPendingExitCode or throwPendingException where appropriate.
+   * <p>Prefer {@link #getPendingDetailedExitCode} or {@link #throwPendingException} where
+   * appropriate.
    */
   @Nullable
   public AbruptExitException getPendingException() {
@@ -619,24 +679,8 @@ public class CommandEnvironment {
     workspace.recordLastExecutionTime(getCommandStartTime());
   }
 
-  public void recordCommandStartTime(long commandStartTime) {
-    this.commandStartTime = commandStartTime;
-  }
-
   public long getCommandStartTime() {
     return commandStartTime;
-  }
-
-  @VisibleForTesting
-  public void setWorkingDirectoryForTesting(Path workingDirectory) {
-    setWorkingDirectory(workingDirectory);
-  }
-
-  private void setWorkingDirectory(Path workingDirectory) {
-    this.workingDirectory = workingDirectory;
-    if (getWorkspace() != null) {
-      this.relativeWorkingDirectory = workingDirectory.relativeTo(getWorkspace());
-    }
   }
 
   /**
@@ -644,10 +688,8 @@ public class CommandEnvironment {
    *
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(long waitTimeInMs, InvocationPolicy invocationPolicy)
-      throws AbruptExitException {
+  void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
-    commandStartTime -= commonOptions.startupTime;
     eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.buildMetadata)));
     eventBus.post(
         new GotOptionsEvent(runtime.getStartupOptionsProvider(), options, invocationPolicy));
@@ -689,29 +731,6 @@ public class CommandEnvironment {
     skyframeExecutor.setOutputService(outputService);
     skyframeExecutor.noteCommandStart();
 
-    // Ensure that the working directory will be under the workspace directory.
-    Path workspace = getWorkspace();
-    Path workingDirectory;
-    if (inWorkspace()) {
-      if (commonOptions.clientCwd.containsUplevelReferences()) {
-        throw new AbruptExitException(
-            DetailedExitCode.of(
-                ExitCode.COMMAND_LINE_ERROR,
-                FailureDetail.newBuilder()
-                    .setMessage("Client cwd contains uplevel references")
-                    .setClientEnvironment(
-                        FailureDetails.ClientEnvironment.newBuilder()
-                            .setCode(FailureDetails.ClientEnvironment.Code.CLIENT_CWD_MALFORMED)
-                            .build())
-                    .build()));
-      }
-      workingDirectory = workspace.getRelative(commonOptions.clientCwd);
-    } else {
-      workspace = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
-      workingDirectory = workspace;
-    }
-    this.setWorkingDirectory(workingDirectory);
-
     // Fail fast in the case where a Blaze command forgets to install the package path correctly.
     skyframeExecutor.setActive(false);
     // Let skyframe figure out how much incremental state it will be keeping.
@@ -725,17 +744,9 @@ public class CommandEnvironment {
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, commonOptions);
 
-    eventBus.post(
-        new CommandStartEvent(
-            command.name(),
-            getCommandId(),
-            getBuildRequestId(),
-            getClientEnv(),
-            workingDirectory,
-            getDirectories(),
-            waitTimeInMs + commonOptions.waitTime));
+    eventBus.post(new CommandStartEvent());
 
-    // Modules that are subscribed to CommandStartEvents may create pending exceptions.
+    // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
   }
 
@@ -751,13 +762,6 @@ public class CommandEnvironment {
       }
     }
     return workspace.getOutputBaseFilesystemTypeName();
-  }
-
-  /**
-   * Returns the client environment combined with all fixed env var settings from --action_env.
-   */
-  public Map<String, String> getActionClientEnv() {
-    return Collections.unmodifiableMap(actionClientEnv);
   }
 
   /** Returns the client environment with all settings from --action_env and --repo_env. */

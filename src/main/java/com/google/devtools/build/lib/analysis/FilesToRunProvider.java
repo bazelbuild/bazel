@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 public final class FilesToRunProvider
     implements TransitiveInfoProvider, FilesToRunProviderApi<Artifact> {
   /** The name of the field in Starlark used to access this class. */
-  public static final String SKYLARK_NAME = "files_to_run";
+  public static final String STARLARK_NAME = "files_to_run";
 
   public static final FilesToRunProvider EMPTY =
       new FilesToRunProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER), null, null);
@@ -55,6 +55,11 @@ public final class FilesToRunProvider
   public static FilesToRunProvider fromSingleExecutableArtifact(Artifact artifact) {
     return new FilesToRunProvider(
         NestedSetBuilder.create(Order.STABLE_ORDER, artifact), null, artifact);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   /** Returns artifacts needed to run the executable for this target. */

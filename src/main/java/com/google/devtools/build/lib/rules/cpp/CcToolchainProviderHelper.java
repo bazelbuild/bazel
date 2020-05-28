@@ -78,7 +78,7 @@ public class CcToolchainProviderHelper {
             ruleContext.getLabel(),
             ruleContext
                 .getAnalysisEnvironment()
-                .getSkylarkSemantics()
+                .getStarlarkSemantics()
                 .experimentalSiblingRepositoryLayout());
     try {
       toolPaths = computeToolPaths(toolchainConfigInfo, toolsDirectory);
@@ -188,7 +188,7 @@ public class CcToolchainProviderHelper {
         attributes.getWhitelistForLayeringCheck();
 
     return new CcToolchainProvider(
-        getToolchainForSkylark(toolPaths),
+        getToolchainForStarlark(toolPaths),
         cppConfiguration,
         toolchainFeatures,
         toolsDirectory,
@@ -374,23 +374,23 @@ public class CcToolchainProviderHelper {
     return pathPrefix.getRelative(path);
   }
 
-  private static String getSkylarkValueForTool(
+  private static String getStarlarkValueForTool(
       Tool tool, ImmutableMap<String, PathFragment> toolPaths) {
     PathFragment toolPath = getToolPathFragment(toolPaths, tool);
     return toolPath != null ? toolPath.getPathString() : "";
   }
 
-  private static ImmutableMap<String, Object> getToolchainForSkylark(
+  private static ImmutableMap<String, Object> getToolchainForStarlark(
       ImmutableMap<String, PathFragment> toolPaths) {
     return ImmutableMap.<String, Object>builder()
-        .put("objcopy_executable", getSkylarkValueForTool(Tool.OBJCOPY, toolPaths))
-        .put("compiler_executable", getSkylarkValueForTool(Tool.GCC, toolPaths))
-        .put("preprocessor_executable", getSkylarkValueForTool(Tool.CPP, toolPaths))
-        .put("nm_executable", getSkylarkValueForTool(Tool.NM, toolPaths))
-        .put("objdump_executable", getSkylarkValueForTool(Tool.OBJDUMP, toolPaths))
-        .put("ar_executable", getSkylarkValueForTool(Tool.AR, toolPaths))
-        .put("strip_executable", getSkylarkValueForTool(Tool.STRIP, toolPaths))
-        .put("ld_executable", getSkylarkValueForTool(Tool.LD, toolPaths))
+        .put("objcopy_executable", getStarlarkValueForTool(Tool.OBJCOPY, toolPaths))
+        .put("compiler_executable", getStarlarkValueForTool(Tool.GCC, toolPaths))
+        .put("preprocessor_executable", getStarlarkValueForTool(Tool.CPP, toolPaths))
+        .put("nm_executable", getStarlarkValueForTool(Tool.NM, toolPaths))
+        .put("objdump_executable", getStarlarkValueForTool(Tool.OBJDUMP, toolPaths))
+        .put("ar_executable", getStarlarkValueForTool(Tool.AR, toolPaths))
+        .put("strip_executable", getStarlarkValueForTool(Tool.STRIP, toolPaths))
+        .put("ld_executable", getStarlarkValueForTool(Tool.LD, toolPaths))
         .build();
   }
 

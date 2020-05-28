@@ -206,7 +206,7 @@ This profiling method consists of two steps, first you have to execute your
 build/test with the `--profile` flag, for example
 
 ```
-$ bazel build --nobuild --profile=/tmp/prof //path/to:target
+$ bazel build --profile=/tmp/prof //path/to:target
 ```
 
 The file generated (in this case `/tmp/prof`) is a binary file, which can be

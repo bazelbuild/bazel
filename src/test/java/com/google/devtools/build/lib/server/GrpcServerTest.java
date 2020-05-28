@@ -29,11 +29,11 @@ import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
 import com.google.devtools.build.lib.server.FailureDetails.Command;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -123,7 +123,7 @@ public class GrpcServerTest {
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
             argsReceived.set(args);
-            return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+            return BlazeCommandResult.success();
           }
         };
     createServer(dispatcher);
@@ -166,7 +166,10 @@ public class GrpcServerTest {
             }
             // The only way this can happen is if the current thread is interrupted.
             done.countDown();
-            return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+            return BlazeCommandResult.failureDetail(
+                FailureDetail.newBuilder()
+                    .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED_UNKNOWN))
+                    .build());
           }
         };
     createServer(dispatcher);
@@ -212,7 +215,7 @@ public class GrpcServerTest {
             } catch (IOException e) {
               throw new IllegalStateException(e);
             }
-            return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+            return BlazeCommandResult.success();
           }
         };
     createServer(dispatcher);
@@ -330,7 +333,11 @@ public class GrpcServerTest {
             try {
               while (true) {
                 if (Thread.interrupted()) {
-                  return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+                  return BlazeCommandResult.failureDetail(
+                      FailureDetail.newBuilder()
+                          .setInterrupted(
+                              Interrupted.newBuilder().setCode(Code.INTERRUPTED_UNKNOWN))
+                          .build());
                 }
                 out.write(new byte[1024]);
               }

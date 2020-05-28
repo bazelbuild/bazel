@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.MemoryProfiler;
@@ -64,14 +65,12 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
-import com.google.devtools.build.lib.runtime.commands.InfoItem;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
@@ -86,10 +85,12 @@ import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
@@ -554,9 +555,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .handle(Event.error("Error while creating memory profile file: " + e.getMessage()));
       }
     }
-
-    // Initialize exit code to dummy value for afterCommand.
-    storedExitCode.set(null);
   }
 
   @Override
@@ -648,14 +646,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     try {
       workspace.getSkyframeExecutor().notifyCommandComplete(env.getReporter());
     } catch (InterruptedException e) {
+      logger.atInfo().withCause(e).log("Interrupted in afterCommand");
       afterCommandResult =
           BlazeCommandResult.detailedExitCode(
-              DetailedExitCode.of(
-                  ExitCode.INTERRUPTED,
-                  FailureDetail.newBuilder()
-                      .setMessage("executor completion interrupted")
-                      .setInterrupted(Interrupted.newBuilder().setCode(Code.EXECUTOR_COMPLETION))
-                      .build()));
+              InterruptedFailureDetails.detailedExitCode(
+                  "executor completion interrupted", Code.EXECUTOR_COMPLETION));
       Thread.currentThread().interrupt();
     }
 
@@ -688,6 +683,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     env.getReporter().clearEventBus();
     actionKeyContext.clear();
     DebugLoggerConfigurator.flushServerLog();
+    storedExitCode.set(null);
     return finalCommandResult;
   }
 
@@ -1299,8 +1295,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             .setAbruptShutdownHandler(abruptShutdownHandler)
             .setEventBusExceptionHandler(subscriberExceptionHandler);
 
-    if (System.getenv("TEST_TMPDIR") != null
-        && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
+    if (TestType.isInTest() && System.getenv("NO_CRASH_ON_LOGGING_IN_TEST") == null) {
       LoggingUtil.installRemoteLogger(getTestCrashLogger());
     }
 
@@ -1520,8 +1515,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       Package.Builder.Helper packageBuilderHelper = null;
       for (BlazeModule module : blazeModules) {
-        Package.Builder.Helper candidateHelper =
-            module.getPackageBuilderHelper(ruleClassProvider, fileSystem);
+        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper();
         if (candidateHelper != null) {
           Preconditions.checkState(
               packageBuilderHelper == null,
@@ -1539,7 +1533,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
               packageBuilderHelper,
-              getPackageValidator(blazeModules));
+              getPackageValidator(blazeModules),
+              getPackageLoadingListener(
+                  blazeModules, packageBuilderHelper, ruleClassProvider, fileSystem));
 
       ProjectFile.Provider projectFileProvider = null;
       for (BlazeModule module : blazeModules) {
@@ -1663,5 +1659,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           packageValidators.size() <= 1, "more than one module defined a PackageValidator");
       return Iterables.getFirst(packageValidators, PackageValidator.NOOP_VALIDATOR);
     }
+  }
+
+  private static PackageLoadingListener getPackageLoadingListener(
+      List<BlazeModule> blazeModules,
+      Package.Builder.Helper packageBuilderHelper,
+      ConfiguredRuleClassProvider ruleClassProvider,
+      FileSystem fs) {
+    ImmutableList<PackageLoadingListener> listeners =
+        blazeModules.stream()
+            .map(
+                module ->
+                    module.getPackageLoadingListener(packageBuilderHelper, ruleClassProvider, fs))
+            .filter(validator -> validator != null)
+            .collect(toImmutableList());
+    return PackageLoadingListener.create(listeners);
   }
 }

@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -130,7 +131,6 @@ public class FakeCppCompileAction extends CppCompileAction {
   @ThreadCompatible
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    setModuleFileFlags();
     List<SpawnResult> spawnResults;
     // First, do a normal compilation, to generate the ".d" file. The generated object file is built
     // to a temporary location (tempOutputFile) and ignored afterwards.
@@ -144,9 +144,10 @@ public class FakeCppCompileAction extends CppCompileAction {
       // The SpawnActionContext guarantees that the first list entry is the successful one.
       dotDContents = getDotDContents(spawnResults.get(0));
     } catch (ExecException e) {
+      Label label = getOwner().getLabel();
       throw e.toActionExecutionException(
-          "C++ compilation of rule '" + getOwner().getLabel() + "'",
-          actionExecutionContext.getVerboseFailures(),
+          "C++ compilation of rule '" + label + "'",
+          actionExecutionContext.showVerboseFailures(label),
           this);
     } finally {
       clearAdditionalInputs();

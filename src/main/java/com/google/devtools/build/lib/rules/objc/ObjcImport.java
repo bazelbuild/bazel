@@ -72,7 +72,7 @@ public class ObjcImport implements RuleConfiguredTargetFactory {
             CcInfo.builder()
                 .setCcCompilationContext(objcProvider.getCcCompilationContext())
                 .build())
-        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
+        .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .build();
   }
 }

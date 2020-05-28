@@ -42,6 +42,7 @@ filegroup(
         "testing_server.py",
         ":langtools-copy",
         "//examples:srcs",
+        "//src/conditions:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/main/tools:linux-sandbox",
@@ -63,14 +64,13 @@ filegroup(
 )
 
 sh_test(
-    name = "bazel_unresolved_symlink_test",
+    name = "bazel_symlink_test",
     size = "medium",
-    srcs = ["bazel_unresolved_symlink_test.sh"],
+    srcs = ["bazel_symlink_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
 )
 
 sh_test(
@@ -124,9 +124,9 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_embedded_skylark_test",
+    name = "bazel_embedded_starlark_test",
     size = "medium",
-    srcs = ["bazel_embedded_skylark_test.sh"],
+    srcs = ["bazel_embedded_starlark_test.sh"],
     data = [":test-deps"],
     tags = [
         "no_windows",  # TODO(laszlocsomor): make this run on Windows
@@ -550,6 +550,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_layering_check_test",
+    srcs = ["bazel_layering_check_test.sh"],
+    data = [":test-deps"],
+    tags = [
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_localtest_test",
     srcs = ["bazel_localtest_test.sh"],
     data = [":test-deps"],
@@ -603,9 +612,9 @@ sh_test(
 )
 
 sh_test(
-    name = "external_skylark_execute_test",
+    name = "external_starlark_execute_test",
     size = "large",
-    srcs = ["external_skylark_execute_test.sh"],
+    srcs = ["external_starlark_execute_test.sh"],
     data = [":test-deps"],
     shard_count = 2,
     tags = ["no_windows"],
@@ -666,9 +675,9 @@ sh_test(
 )
 
 sh_test(
-    name = "skylark_git_repository_test",
+    name = "starlark_git_repository_test",
     size = "large",
-    srcs = ["skylark_git_repository_test.sh"],
+    srcs = ["starlark_git_repository_test.sh"],
     data = [
         ":test-deps",
         "//src/test/shell/bazel/testdata:git-repos",
@@ -695,16 +704,16 @@ sh_test(
 )
 
 sh_test(
-    name = "skylark_prefetching_test",
-    srcs = ["skylark_prefetching_test.sh"],
+    name = "starlark_prefetching_test",
+    srcs = ["starlark_prefetching_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )
 
 sh_test(
-    name = "external_skylark_load_test",
+    name = "external_starlark_load_test",
     size = "large",
-    srcs = ["external_skylark_load_test.sh"],
+    srcs = ["external_starlark_load_test.sh"],
     data = [":test-deps"],
     shard_count = 6,
     tags = ["no_windows"],
@@ -721,9 +730,9 @@ sh_test(
 )
 
 sh_test(
-    name = "skylark_repository_test",
+    name = "starlark_repository_test",
     size = "large",
-    srcs = ["skylark_repository_test.sh"],
+    srcs = ["starlark_repository_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -735,9 +744,9 @@ sh_test(
 )
 
 sh_test(
-    name = "skylark_rule_test",
+    name = "starlark_rule_test",
     size = "large",
-    srcs = ["skylark_rule_test.sh"],
+    srcs = ["starlark_rule_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )
@@ -751,9 +760,9 @@ sh_test(
 )
 
 sh_test(
-    name = "tags_propagation_skylark_test",
+    name = "tags_propagation_starlark_test",
     size = "large",
-    srcs = ["tags_propagation_skylark_test.sh"],
+    srcs = ["tags_propagation_starlark_test.sh"],
     data = [":test-deps"],
     tags = ["no_windows"],
 )
@@ -799,9 +808,9 @@ sh_test(
 # To run this test, ensure that maven_dependency_plugin() and
 # android_repositories() in WORKSPACE are uncommented.
 sh_test(
-    name = "maven_skylark_test",
+    name = "maven_starlark_test",
     size = "medium",
-    srcs = ["maven_skylark_test.sh"],
+    srcs = ["maven_starlark_test.sh"],
     data = [
         ":test-deps",
         "//external:android_sdk_for_testing",

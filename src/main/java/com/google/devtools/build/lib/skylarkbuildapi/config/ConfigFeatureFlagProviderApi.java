@@ -15,25 +15,25 @@
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** An info object for config_feature_flag rules. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "FeatureFlagInfo",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "A provider used to access information about config_feature_flag rules.")
 public interface ConfigFeatureFlagProviderApi extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "value",
       doc = "The current value of the flag in the flag's current configuration.",
       structField = true)
   String getFlagValue();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "is_valid_value",
       doc = "The value of the flag in the configuration used by the flag rule.",
       parameters = {

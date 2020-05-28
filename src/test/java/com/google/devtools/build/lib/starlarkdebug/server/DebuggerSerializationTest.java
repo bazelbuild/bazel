@@ -19,13 +19,11 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
-import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -33,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import net.starlark.java.annot.StarlarkMethod;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -202,7 +201,7 @@ public final class DebuggerSerializationTest {
   }
 
   @Test
-  public void testUnrecognizedObjectOrSkylarkPrimitiveHasNoChildren() {
+  public void testUnrecognizedObjectOrStarlarkPrimitiveHasNoChildren() {
     assertThat(getValueProto("name", 1).getHasChildren()).isFalse();
     assertThat(getValueProto("name", "string").getHasChildren()).isFalse();
     assertThat(getValueProto("name", new Object()).getHasChildren()).isFalse();
@@ -223,7 +222,7 @@ public final class DebuggerSerializationTest {
       printer.append("DummyType");
     }
 
-    @SkylarkCallable(name = "bool", doc = "Returns True", structField = true)
+    @StarlarkMethod(name = "bool", doc = "Returns True", structField = true)
     public boolean bool() {
       return true;
     }
@@ -234,7 +233,7 @@ public final class DebuggerSerializationTest {
   }
 
   @Test
-  public void testSkipSkylarkCallableThrowingException() {
+  public void testSkipStarlarkCallableThrowingException() {
     DummyTypeWithException dummy = new DummyTypeWithException();
 
     Value value = getValueProto("name", dummy);
@@ -248,12 +247,12 @@ public final class DebuggerSerializationTest {
       printer.append("DummyTypeWithException");
     }
 
-    @SkylarkCallable(name = "bool", doc = "Returns True", structField = true)
+    @StarlarkMethod(name = "bool", doc = "Returns True", structField = true)
     public boolean bool() {
       return true;
     }
 
-    @SkylarkCallable(name = "invalid", doc = "Throws exception!", structField = true)
+    @StarlarkMethod(name = "invalid", doc = "Throws exception!", structField = true)
     public boolean invalid() {
       throw new IllegalArgumentException();
     }
@@ -264,7 +263,7 @@ public final class DebuggerSerializationTest {
   }
 
   private static void assertTypeAndDescription(Object object, Value value) {
-    assertThat(value.getType()).isEqualTo(EvalUtils.getDataTypeName(object));
+    assertThat(value.getType()).isEqualTo(Starlark.type(object));
     assertThat(value.getDescription()).isEqualTo(Starlark.repr(object));
   }
 

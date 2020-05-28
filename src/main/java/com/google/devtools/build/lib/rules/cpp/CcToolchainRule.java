@@ -400,4 +400,8 @@ public final class CcToolchainRule implements RuleDefinition {
     page
   </a> for elaborate C++ toolchain configuration and toolchain selection documentation.
 </p>
+<p>
+  Use <code>tags = ["manual"]</code> in order to prevent toolchains from being built and configured
+  unnecessarily when invoking <code>bazel build //...</code>
+</p>
 <!-- #END_BLAZE_RULE -->*/

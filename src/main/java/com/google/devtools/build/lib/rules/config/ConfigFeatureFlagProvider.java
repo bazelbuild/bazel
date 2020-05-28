@@ -24,11 +24,11 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Provider for exporting value and valid value predicate of feature flags to consuming targets. */
 // TODO(adonovan): rename this to *Info and its constructor to *Provider.
@@ -36,22 +36,22 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatureFlagProviderApi {
 
   /** Name used in Starlark for accessing ConfigFeatureFlagProvider. */
-  static final String SKYLARK_NAME = "FeatureFlagInfo";
+  static final String STARLARK_NAME = "FeatureFlagInfo";
 
   /**
    * Constructor and identifier for ConfigFeatureFlagProvider. This is the value of {@code
    * config_common.FeatureFlagInfo}.
    */
-  static final NativeProvider<ConfigFeatureFlagProvider> SKYLARK_CONSTRUCTOR = new Constructor();
+  static final NativeProvider<ConfigFeatureFlagProvider> STARLARK_CONSTRUCTOR = new Constructor();
 
   static final RequiredProviders REQUIRE_CONFIG_FEATURE_FLAG_PROVIDER =
-      RequiredProviders.acceptAnyBuilder().addSkylarkSet(ImmutableSet.of(id())).build();
+      RequiredProviders.acceptAnyBuilder().addStarlarkSet(ImmutableSet.of(id())).build();
 
   private final String value;
   private final Predicate<String> validityPredicate;
 
   private ConfigFeatureFlagProvider(String value, Predicate<String> validityPredicate) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
 
     this.value = value;
     this.validityPredicate = validityPredicate;
@@ -66,16 +66,16 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
    * A constructor callable from Starlark for OutputGroupInfo: {@code
    * config_common.FeatureFlagInfo(value="...")}
    */
-  @SkylarkModule(name = "FeatureFlagInfo", documented = false)
+  @StarlarkBuiltin(name = "FeatureFlagInfo", documented = false)
   @Immutable
   private static final class Constructor extends NativeProvider<ConfigFeatureFlagProvider>
       implements StarlarkValue {
 
     Constructor() {
-      super(ConfigFeatureFlagProvider.class, SKYLARK_NAME);
+      super(ConfigFeatureFlagProvider.class, STARLARK_NAME);
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "FeatureFlagInfo",
         documented = false,
         parameters = {@Param(name = "value", named = true, type = String.class)},
@@ -91,12 +91,12 @@ public class ConfigFeatureFlagProvider extends NativeInfo implements ConfigFeatu
   }
 
   public static StarlarkProviderIdentifier id() {
-    return SKYLARK_CONSTRUCTOR.id();
+    return STARLARK_CONSTRUCTOR.id();
   }
 
   /** Retrieves and casts the provider from the given target. */
   public static ConfigFeatureFlagProvider fromTarget(TransitiveInfoCollection target) {
-    return target.get(SKYLARK_CONSTRUCTOR);
+    return target.get(STARLARK_CONSTRUCTOR);
   }
 
   /** Gets the current value of the flag in the flag's current configuration. */

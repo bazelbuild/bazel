@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.List;
 import java.util.RandomAccess;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A Sequence is a finite iterable sequence of Starlark values, such as a list or tuple.
@@ -33,13 +33,13 @@ import java.util.RandomAccess;
  * but there appears to be little demand, and doing so carries some risk of obscuring unintended
  * mutations to Starlark values that would currently cause the program to crash.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "sequence",
     documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "common type of lists and tuples.")
 public interface Sequence<E>
-    extends StarlarkValue, List<E>, RandomAccess, SkylarkIndexable, StarlarkIterable<E> {
+    extends StarlarkValue, List<E>, RandomAccess, StarlarkIndexable, StarlarkIterable<E> {
 
   @Override
   default boolean truth() {
@@ -87,7 +87,7 @@ public interface Sequence<E>
       if (!elemType.isAssignableFrom(elem.getClass())) {
         throw Starlark.errorf(
             "at index %d of %s, got element of type %s, want %s",
-            i, what, Starlark.type(elem), EvalUtils.getDataTypeNameFromClass(elemType));
+            i, what, Starlark.type(elem), Starlark.classType(elemType));
       }
     }
     @SuppressWarnings("unchecked") // safe

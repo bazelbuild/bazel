@@ -21,13 +21,13 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionTemplate.ActionTemplateExpansionException;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionTemplate;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
@@ -85,7 +86,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   private void testJ2ObjCInformationExportedFromJ2ObjcLibrary() throws Exception {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
@@ -142,7 +143,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getConfiguredTarget("//java/com/google/test:transpile");
-    ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     String genfilesFragment = getConfiguration(target).getGenfilesFragment().toString();
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
@@ -192,7 +193,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test/proto:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
@@ -308,7 +309,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getGenfilesArtifact("test.clsmap.properties", test, getJ2ObjcAspect());
     assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
 
-    ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     Artifact headerFile = getGenfilesArtifact("test.j2objc.pb.h", test, getJ2ObjcAspect());
     Artifact sourceFile = getGenfilesArtifact("test.j2objc.pb.m", test, getJ2ObjcAspect());
     assertThat(objcProvider.header().toList()).contains(headerFile);
@@ -356,7 +357,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getGenfilesArtifact("../external/bla/foo/test.clsmap.properties", test, getJ2ObjcAspect());
     assertThat(provider.getClassMappingFiles().toList()).containsExactly(classMappingFile);
 
-    ObjcProvider objcProvider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider objcProvider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
 
     Artifact headerFile =
         getGenfilesArtifact("../external/bla/foo/test.j2objc.pb.h", test, getJ2ObjcAspect());
@@ -428,7 +429,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testExplicitJreDeps() throws Exception {
     ConfiguredTarget j2objcLibraryTarget = getConfiguredTarget(
         "//java/com/google/dummy/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     // jre_io_lib and jre_emul_lib should be excluded.
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
@@ -454,7 +455,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         ")");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
-    ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     Artifact srcJarSources = getFirstArtifactEndingWith(
         provider.get(ObjcProvider.SOURCE), "source_files");
     Artifact srcJarHeaders = getFirstArtifactEndingWith(provider.header(), "header_files");
@@ -472,7 +473,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     Artifact headers = getFirstArtifactEndingWith(provider.header(), "header_files");
     Artifact sources =
         getFirstArtifactEndingWith(provider.get(ObjcProvider.SOURCE), "source_files");
@@ -615,7 +616,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   protected Artifact j2objcArchive(String j2objcLibraryTarget, String javaTargetName)
       throws Exception {
     ConfiguredTarget target = getConfiguredTarget(j2objcLibraryTarget);
-    ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     String archiveName = String.format("lib%s_j2objc.a", javaTargetName);
     return getFirstArtifactEndingWith(provider.get(ObjcProvider.LIBRARY), archiveName);
   }
@@ -634,7 +635,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
-    ObjcProvider provider = objcTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
@@ -680,7 +681,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//app:lib");
 
-    ObjcProvider provider = objcTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
@@ -776,7 +777,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//java/com/google/transpile:dummy");
 
-    ObjcProvider provider = target.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = target.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     Artifact moduleMap =
         getFirstArtifactEndingWith(
             provider.get(ObjcProvider.MODULE_MAP), "dummy.modulemaps/module.modulemap");
@@ -826,7 +827,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/app/test:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     Artifact moduleMap =
         getFirstArtifactEndingWith(
             provider.get(ObjcProvider.MODULE_MAP), "test.modulemaps/module.modulemap");
@@ -956,7 +957,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   // Tests that a j2objc library can acquire java library information from a Starlark rule target.
   @Test
-  public void testJ2ObjcLibraryDepThroughSkylarkRule() throws Exception {
+  public void testJ2ObjcLibraryDepThroughStarlarkRule() throws Exception {
     scratch.file("examples/inner.java");
     scratch.file("examples/outer.java");
     scratch.file(
@@ -1001,7 +1002,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget objcTarget = getConfiguredTarget("//examples:lib");
 
-    ObjcProvider provider = objcTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = objcTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
 
     // The only way that //examples:lib can see inner's archive is through the Starlark rule.
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
@@ -1103,7 +1104,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     ConfiguredTarget j2objcLibraryTarget =
         getConfiguredTarget("//java/com/google/dummy/test/proto:transpile");
-    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProvider provider = j2objcLibraryTarget.get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(Artifact.toRootRelativePaths(provider.get(ObjcProvider.LIBRARY)))
         .containsExactly(
             TestConstants.TOOLS_REPOSITORY_PATH_PREFIX
@@ -1174,16 +1175,13 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   }
 
   /** Returns the actions created by the action template corresponding to given artifact. */
-  protected Iterable<CommandAction> getActionsForInputsOfGeneratingActionTemplate(
+  protected ImmutableList<CppCompileAction> getActionsForInputsOfGeneratingActionTemplate(
       Artifact artifact, TreeFileArtifact treeFileArtifact)
       throws ActionTemplateExpansionException {
     CppCompileActionTemplate template =
         (CppCompileActionTemplate) getActionGraph().getGeneratingAction(artifact);
-    return ImmutableList.<CommandAction>builder()
-        .addAll(
-            template.generateActionForInputArtifacts(
-                ImmutableList.of(treeFileArtifact), ActionsTestUtil.NULL_ARTIFACT_OWNER))
-        .build();
+    return template.generateActionsForInputArtifacts(
+        ImmutableSet.of(treeFileArtifact), ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
   }
 
   @Test
@@ -1214,10 +1212,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
     // Therefore we need to fake some files inside them to test the action template in this
     // analysis-time test.
     TreeFileArtifact oneSourceFileFromGenJar =
-        ActionInputHelper.treeFileArtifact((SpecialArtifact) sourceFilesFromGenJar, "children1.m");
+        TreeFileArtifact.createTreeOutput((SpecialArtifact) sourceFilesFromGenJar, "children1.m");
     TreeFileArtifact oneObjFileFromGenJar =
-        ActionInputHelper.treeFileArtifact((SpecialArtifact) objectFilesFromGenJar, "children1.o");
-    Iterable<CommandAction> compileActions =
+        TreeFileArtifact.createTreeOutput((SpecialArtifact) objectFilesFromGenJar, "children1.o");
+    Iterable<CppCompileAction> compileActions =
         getActionsForInputsOfGeneratingActionTemplate(
             objectFilesFromGenJar, oneSourceFileFromGenJar);
     CommandAction compileAction = Iterables.getOnlyElement(compileActions);

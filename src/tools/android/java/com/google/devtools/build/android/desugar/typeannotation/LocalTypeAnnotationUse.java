@@ -24,7 +24,7 @@ import org.objectweb.asm.TypePath;
 public class LocalTypeAnnotationUse extends ClassVisitor {
 
   public LocalTypeAnnotationUse(ClassVisitor classVisitor) {
-    super(Opcodes.ASM7, classVisitor);
+    super(Opcodes.ASM8, classVisitor);
   }
 
   @Override

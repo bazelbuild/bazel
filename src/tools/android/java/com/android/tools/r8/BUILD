@@ -16,20 +16,23 @@ filegroup(
     ],
 )
 
+# Expose this as a separate target because Bazel requires all java_libraries that aren't pure exports to have sources.
+java_library(
+    name = "compat_dx_support",
+    srcs = ["CompatDxSupport.java"],
+    deps = ["//external:android/d8_jar_import"],
+)
+
 java_library(
     name = "r8_support",
-    srcs = select({
-        "//external:has_androidsdk": glob(
-            ["*.java"],
-        ),
-        "//conditions:default": [],
-    }),
     visibility = [
         "//src/test/java/com/google/devtools/build/android/r8:__pkg__",
         "//src/tools/android/java/com/google/devtools/build/android/r8:__pkg__",
     ],
-    deps = select({
-        "//external:has_androidsdk": ["//external:android/d8_jar_import"],
+    exports = select({
+        "//external:has_androidsdk": [
+            ":compat_dx_support",
+        ],
         "//conditions:default": [],
     }),
 )

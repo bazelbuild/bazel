@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android.r8.desugar.basic;
 
-class TestClass {
+/** Test class */
+public class TestClass {
 
   public static void main(String[] args) {
     Runnable runnable =
@@ -23,6 +24,7 @@ class TestClass {
     runnable.run();
 
     new A().foo();
+    new B().foo();
   }
 
   private TestClass() {}

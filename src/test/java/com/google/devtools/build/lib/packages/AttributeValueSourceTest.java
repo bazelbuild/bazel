@@ -32,23 +32,23 @@ import org.junit.runners.JUnit4;
 public class AttributeValueSourceTest {
 
   @Test
-  public void testValidateSkylarkName() throws Exception {
+  public void testValidateStarlarkName() throws Exception {
     // Success means "no exception is being thrown".
-    AttributeValueSource.COMPUTED_DEFAULT.validateSkylarkName("_name");
-    AttributeValueSource.LATE_BOUND.validateSkylarkName("_name");
-    AttributeValueSource.DIRECT.validateSkylarkName("_name");
-    AttributeValueSource.DIRECT.validateSkylarkName("name");
+    AttributeValueSource.COMPUTED_DEFAULT.validateStarlarkName("_name");
+    AttributeValueSource.LATE_BOUND.validateStarlarkName("_name");
+    AttributeValueSource.DIRECT.validateStarlarkName("_name");
+    AttributeValueSource.DIRECT.validateStarlarkName("name");
   }
 
   @Test
-  public void testValidateSkylarkName_EmptyName() throws Exception {
+  public void testValidateStarlarkName_EmptyName() throws Exception {
     for (AttributeValueSource source : AttributeValueSource.values()) {
       assertNameIsNotValid(source, "", "Attribute name must not be empty.");
     }
   }
 
   @Test
-  public void testValidateSkylarkName_MissingPrefix() throws Exception {
+  public void testValidateStarlarkName_MissingPrefix() throws Exception {
     String msg =
         "When an attribute value is a function, the attribute must be private "
             + "(i.e. start with '_'). Found 'my_name'";
@@ -58,7 +58,7 @@ public class AttributeValueSourceTest {
 
   private void assertNameIsNotValid(
       AttributeValueSource source, String name, String expectedExceptionMessage) throws Exception {
-    EvalException ex = assertThrows(EvalException.class, () -> source.validateSkylarkName(name));
+    EvalException ex = assertThrows(EvalException.class, () -> source.validateStarlarkName(name));
     assertThat(ex).hasMessageThat().isEqualTo(expectedExceptionMessage);
   }
 
@@ -71,8 +71,9 @@ public class AttributeValueSourceTest {
   }
 
   private void assertConvertsToCorrectNativeName(
-      AttributeValueSource source, String skylarkName, String expectedNativeName) throws Exception {
-    assertThat(source.convertToNativeName(skylarkName)).isEqualTo(expectedNativeName);
+      AttributeValueSource source, String starlarkName, String expectedNativeName)
+      throws Exception {
+    assertThat(source.convertToNativeName(starlarkName)).isEqualTo(expectedNativeName);
   }
 
   @Test

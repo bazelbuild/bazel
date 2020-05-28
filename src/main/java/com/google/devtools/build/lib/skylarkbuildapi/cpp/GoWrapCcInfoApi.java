@@ -17,9 +17,9 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Provider returned by go_wrap_cc rules that encapsulates C++ information.
@@ -29,17 +29,17 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
  * should be able to do so. Therefore, we wrap the C++ providers in a different provider which C++
  * rules do not recognize.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "GoWrapCcInfo",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "")
 public interface GoWrapCcInfoApi<FileT extends FileApi> extends StructApi {
 
-  @SkylarkCallable(name = "cc_info", structField = true, documented = false, doc = "")
+  @StarlarkMethod(name = "cc_info", structField = true, documented = false, doc = "")
   CcInfoApi<FileT> getCcInfo();
 
   /** Provider for GoWrapCcInfo objects. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   public interface Provider extends ProviderApi {}
 }

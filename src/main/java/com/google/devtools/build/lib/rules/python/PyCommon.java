@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -188,7 +188,7 @@ public final class PyCommon {
   private static String getOrderErrorMessage(String fieldName, Order expected, Order actual) {
     return String.format(
         "Incompatible order for %s: expected 'default' or '%s', got '%s'",
-        fieldName, expected.getSkylarkName(), actual.getSkylarkName());
+        fieldName, expected.getStarlarkName(), actual.getStarlarkName());
   }
 
   public PyCommon(RuleContext ruleContext, PythonSemantics semantics) {
@@ -407,7 +407,7 @@ public final class PyCommon {
           String.format(
               "Error parsing the Python toolchain's ToolchainInfo: Expected a PyRuntimeInfo in "
                   + "field '%s', but got '%s'",
-              field, EvalUtils.getDataTypeName(fieldValue)));
+              field, Starlark.type(fieldValue)));
       return null;
     }
     PyRuntimeInfo pyRuntimeInfo = (PyRuntimeInfo) fieldValue;
@@ -594,7 +594,8 @@ public final class PyCommon {
             + ": "
             + "This target is being built for Python %s but (transitively) includes Python %s-only "
             + "sources. You can get diagnostic information about which dependencies introduce this "
-            + "version requirement by running the `find_requirements` aspect. For more info see "
+            + "version requirement by running the `find_requirements` aspect. If this is used in a "
+            + "genrule, you may need to migrate from tools to exec_tools. For more info see "
             + "the documentation for the `srcs_version` attribute: "
             + semantics.getSrcsVersionDocURL();
 

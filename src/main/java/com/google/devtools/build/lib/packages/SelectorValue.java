@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.HasBinary;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.syntax.TokenKind;
 import java.util.Map;
+import net.starlark.java.annot.StarlarkBuiltin;
 
 /**
  * The value returned by a call to {@code select({...})}, for example:
@@ -38,7 +38,7 @@ import java.util.Map;
  *       })
  * </pre>
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "selector",
     doc = "A selector between configuration-dependent values.",
     documented = false)

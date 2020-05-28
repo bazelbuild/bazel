@@ -277,11 +277,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     private Object evalFunction(
         StarlarkCallable function, ImmutableList<Object> args, EventHandler eventHandler)
         throws InterruptedException, EvalException {
-      try (Mutability mutability = Mutability.create("eval_transition_function")) {
-        StarlarkThread thread =
-            StarlarkThread.builder(mutability)
-                .setSemantics(semantics)
-                .build();
+      try (Mutability mu = Mutability.create("eval_transition_function")) {
+        StarlarkThread thread = new StarlarkThread(mu, semantics);
         thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
         starlarkContext.storeInThread(thread);
         return Starlark.call(thread, function, args, /*kwargs=*/ ImmutableMap.of());

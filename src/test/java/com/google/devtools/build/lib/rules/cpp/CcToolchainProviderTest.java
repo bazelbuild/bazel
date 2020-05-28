@@ -39,7 +39,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CcToolchainProviderTest extends BuildViewTestCase {
   @Test
-  public void testSkylarkCallables() throws Exception {
+  public void testStarlarkCallables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(

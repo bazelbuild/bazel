@@ -15,18 +15,18 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.Tuple;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Abstract class for containing documentation for a Starlark syntactic entity. */
 abstract class StarlarkDoc {
@@ -68,21 +68,21 @@ abstract class StarlarkDoc {
       return "<a class=\"anchor\" href=\"" + TOP_LEVEL_ID + ".html#None\">None</a>";
     } else if (type.equals(NestedSet.class)) {
       return "<a class=\"anchor\" href=\"depset.html\">depset</a>";
-    } else if (SkylarkInterfaceUtils.getSkylarkModule(type) != null) {
-      SkylarkModule module = SkylarkInterfaceUtils.getSkylarkModule(type);
+    } else if (StarlarkInterfaceUtils.getStarlarkBuiltin(type) != null) {
+      StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(type);
       if (module.documented()) {
         return String.format("<a class=\"anchor\" href=\"%1$s.html\">%1$s</a>",
                              module.name());
       }
     }
-    return EvalUtils.getDataTypeNameFromClass(type);
+    return Starlark.classType(type);
   }
 
   // Omit self parameter from parameters in class methods.
-  protected static Param[] withoutSelfParam(SkylarkCallable annotation, Method method) {
+  protected static Param[] withoutSelfParam(StarlarkMethod annotation, Method method) {
     Param[] params = annotation.parameters();
     if (params.length > 0) {
-      SkylarkModule module = method.getDeclaringClass().getAnnotation(SkylarkModule.class);
+      StarlarkBuiltin module = method.getDeclaringClass().getAnnotation(StarlarkBuiltin.class);
       if (module != null && module.name().equals("string")) {
         // Skip the self parameter, which is the first mandatory
         // positional parameter in each method of the "string" module.

@@ -18,20 +18,20 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Info object propagating information about protocol buffer sources. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "JsModuleInfo",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc =
         "Encapsulates information provided by js_module, a unit of JavaScript code that is part of"
             + " a bigger whole (a js_module_binary), but is not necessarily loaded at start-up.")
@@ -39,14 +39,14 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
   /** Name of this info object. */
   String NAME = "JsModuleInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label",
       doc = "Returns the label of the target which created this object",
       structField = true,
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
   Label getLabel();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_js_info",
       doc =
           "Returns the 'js' provider that contains information about this module and all of its"
@@ -56,10 +56,10 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
   StarlarkValue getFullPintoSources();
 
   /** Provider class for {@link JsModuleInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface JsModuleInfoProviderApi extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>JsModuleInfo</code> constructor.",
         parameters = {
@@ -100,7 +100,7 @@ public interface JsModuleInfoApi<FileT extends FileApi> extends StructApi {
         },
         selfCall = true,
         enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
-    @SkylarkConstructor(objectType = JsModuleInfoApi.class, receiverNameForDoc = "JsModuleInfo")
+    @StarlarkConstructor(objectType = JsModuleInfoApi.class, receiverNameForDoc = "JsModuleInfo")
     JsModuleInfoApi<?> jsModuleInfo(
         Label label,
         String wrapper,

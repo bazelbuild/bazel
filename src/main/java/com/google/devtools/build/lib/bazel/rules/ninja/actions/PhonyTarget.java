@@ -30,25 +30,25 @@ import java.util.function.Consumer;
  * the flag whether this phony target is always dirty, i.e. must be rebuild each time.
  *
  * <p>Always-dirty phony targets are those which do not have any inputs: "build alias: phony". All
- * usual direct dependants of those actions automatically also always-dirty (but not the transitive
- * dependants: they should check whether their computed inputs have changed). As phony targets are
- * not performing any actions, <b>all phony transitive dependants of always-dirty phony targets are
- * themselves always-dirty.</b> That is why we can compute the always-dirty flag for the phony
- * targets, and use it for marking their direct non-phony dependants as actions to be executed
+ * non-phony direct dependants of those actions automatically also always-dirty (but not the
+ * transitive dependants: they should check whether their computed inputs have changed). As phony
+ * targets are not performing any actions, <b>all phony transitive dependants of always-dirty phony
+ * targets are themselves always-dirty.</b> That is why we can compute the always-dirty flag for the
+ * phony targets, and use it for marking their direct non-phony dependants as actions to be executed
  * unconditionally.
  */
 @Immutable
 public final class PhonyTarget {
   private final ImmutableList<PathFragment> phonyNames;
-  private final ImmutableList<PathFragment> directUsualInputs;
+  private final ImmutableList<PathFragment> directExplicitInputs;
   private final boolean isAlwaysDirty;
 
   public PhonyTarget(
       ImmutableList<PathFragment> phonyNames,
-      ImmutableList<PathFragment> directUsualInputs,
+      ImmutableList<PathFragment> directExplicitInputs,
       boolean isAlwaysDirty) {
     this.phonyNames = phonyNames;
-    this.directUsualInputs = directUsualInputs;
+    this.directExplicitInputs = directExplicitInputs;
     this.isAlwaysDirty = isAlwaysDirty;
   }
 
@@ -56,18 +56,18 @@ public final class PhonyTarget {
     return phonyNames;
   }
 
-  public ImmutableList<PathFragment> getDirectUsualInputs() {
-    return directUsualInputs;
+  public ImmutableList<PathFragment> getDirectExplicitInputs() {
+    return directExplicitInputs;
   }
 
   public boolean isAlwaysDirty() {
     return isAlwaysDirty;
   }
 
-  public void visitUsualInputs(
+  public void visitExplicitInputs(
       ImmutableSortedMap<PathFragment, PhonyTarget> phonyTargetsMap,
       Consumer<ImmutableList<PathFragment>> consumer) {
-    consumer.accept(directUsualInputs);
+    consumer.accept(directExplicitInputs);
 
     ArrayDeque<PathFragment> queue = new ArrayDeque<>(phonyNames);
     Set<PathFragment> visited = Sets.newHashSet();
@@ -75,7 +75,7 @@ public final class PhonyTarget {
       PathFragment fragment = queue.remove();
       if (visited.add(fragment)) {
         PhonyTarget phonyTarget = Preconditions.checkNotNull(phonyTargetsMap.get(fragment));
-        consumer.accept(phonyTarget.getDirectUsualInputs());
+        consumer.accept(phonyTarget.getDirectExplicitInputs());
         queue.addAll(phonyTarget.getPhonyNames());
       }
     }

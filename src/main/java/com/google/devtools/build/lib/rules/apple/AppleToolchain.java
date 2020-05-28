@@ -136,6 +136,11 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
             (rule, attributes, appleConfig) -> appleConfig.getXcodeConfigLabel());
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * Returns the platform directory inside of Xcode for a given configuration.
    */

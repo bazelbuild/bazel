@@ -19,13 +19,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -63,9 +62,13 @@ public class ActionExecutionValue implements SkyValue {
       @Nullable ImmutableList<FilesetOutputSymlink> outputSymlinks,
       @Nullable NestedSet<Artifact> discoveredModules) {
     for (Map.Entry<Artifact, FileArtifactValue> entry : artifactData.entrySet()) {
-      if (entry.getValue().getType() == FileStateType.REGULAR_FILE) {
-        Preconditions.checkArgument(
-            entry.getValue().getDigest() != null, "missing digest for %s", entry.getKey());
+      Preconditions.checkArgument(
+          !entry.getKey().isChildOfDeclaredDirectory(),
+          "%s should only be stored in a TreeArtifactValue",
+          entry.getKey());
+      if (entry.getValue().getType().isFile()) {
+        Preconditions.checkNotNull(
+            entry.getValue().getDigest(), "missing digest for %s", entry.getKey());
       }
     }
 
@@ -75,9 +78,9 @@ public class ActionExecutionValue implements SkyValue {
         // We should only have RegularFileValue instances in here, but apparently tree artifacts
         // sometimes store their own root directory in here. Sad.
         // https://github.com/bazelbuild/bazel/issues/9058
-        if (file.getValue().getType() == FileStateType.REGULAR_FILE) {
-          Preconditions.checkArgument(
-              file.getValue().getDigest() != null,
+        if (file.getValue().getType().isFile()) {
+          Preconditions.checkNotNull(
+              file.getValue().getDigest(),
               "missing digest for file %s in tree artifact %s",
               file.getKey(),
               tree.getKey());
@@ -118,19 +121,22 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /**
-   * Create {@link FileArtifactValue} for artifact that must be non-middleman non-tree derived
-   * artifact.
+   * Retrieves a {@link FileArtifactValue} for a regular (non-middleman, non-tree) derived artifact.
+   *
+   * <p>The value for the given artifact must be present.
    */
-  static FileArtifactValue createSimpleFileArtifactValue(
-      Artifact.DerivedArtifact artifact, ActionExecutionValue actionValue) {
-    Preconditions.checkState(!artifact.isMiddlemanArtifact(), "%s %s", artifact, actionValue);
-    Preconditions.checkState(!artifact.isTreeArtifact(), "%s %s", artifact, actionValue);
+  FileArtifactValue getExistingFileArtifactValue(DerivedArtifact artifact) {
+    Preconditions.checkState(
+        !artifact.isMiddlemanArtifact() && !artifact.isTreeArtifact(),
+        "Cannot request %s from %s",
+        artifact,
+        this);
     return Preconditions.checkNotNull(
-        actionValue.getArtifactValue(artifact),
-        "%s %s %s",
+        getArtifactValue(artifact),
+        "Missing artifact %s (generating action key %s) in %s",
         artifact,
         artifact.getGeneratingActionKey(),
-        actionValue);
+        this);
   }
 
   /**
@@ -158,26 +164,27 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /**
-   * @return The map from {@link Artifact}s to the corresponding {@link
-   *     com.google.devtools.build.lib.actions.FileValue}s that would be returned by {@link
-   *     #getArtifactValue}. Primarily needed by {@link FilesystemValueChecker}, also called by
-   *     {@link ArtifactFunction} when aggregating a {@link TreeArtifactValue}.
+   * Returns a map containing all artifacts output by the action, except for tree artifacts which
+   * are accesible via {@link #getAllTreeArtifactValues}.
+   *
+   * <p>Primarily needed by {@link FilesystemValueChecker}. Also called by {@link ArtifactFunction}
+   * when aggregating a {@link TreeArtifactValue} out of action template expansion outputs.
    */
-  Map<Artifact, FileArtifactValue> getAllFileValues() {
+  ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
     return artifactData;
   }
 
   /**
-   * @return The map from {@link Artifact}s to the corresponding {@link TreeArtifactValue}s that
-   *     would be returned by {@link #getTreeArtifactValue}. Should only be needed by {@link
-   *     FilesystemValueChecker}.
+   * Returns a map containing all tree artifacts output by the action.
+   *
+   * <p>Should only be needed by {@link FilesystemValueChecker}.
    */
   ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
     return treeArtifactData;
   }
 
   @Nullable
-  ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
+  public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
     return outputSymlinks;
   }
 
@@ -282,7 +289,7 @@ public class ActionExecutionValue implements SkyValue {
                 artifact,
                 newArtifactMap);
         transformedArtifact =
-            ActionInputHelper.treeFileArtifact(
+            TreeFileArtifact.createTreeOutput(
                 (Artifact.SpecialArtifact) newParent, artifact.getParentRelativePath());
       }
       result.put(transformedArtifact, entry.getValue());

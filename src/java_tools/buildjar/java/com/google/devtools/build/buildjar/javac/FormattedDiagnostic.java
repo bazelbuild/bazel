@@ -17,6 +17,7 @@ package com.google.devtools.build.buildjar.javac;
 import com.google.common.collect.ImmutableList;
 import com.sun.tools.javac.api.ClientCodeWrapper.Trusted;
 import com.sun.tools.javac.api.DiagnosticFormatter;
+import com.sun.tools.javac.code.Lint.LintCategory;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.sun.tools.javac.util.JavacMessages;
@@ -34,15 +35,22 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
 
   public final Diagnostic<? extends JavaFileObject> diagnostic;
   public final String formatted;
+  public final String lintCategory;
 
-  public FormattedDiagnostic(Diagnostic<? extends JavaFileObject> diagnostic, String formatted) {
+  public FormattedDiagnostic(
+      Diagnostic<? extends JavaFileObject> diagnostic, String formatted, String lintCategory) {
     this.diagnostic = diagnostic;
     this.formatted = formatted;
+    this.lintCategory = lintCategory;
   }
 
   /** The formatted diagnostic message produced by javac's diagnostic formatter. */
   public String getFormatted() {
     return formatted;
+  }
+
+  public String getLintCategory() {
+    return lintCategory;
   }
 
   @Override
@@ -95,27 +103,6 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
     return diagnostic.getMessage(locale);
   }
 
-  /** Returns true if the diagnostic might be caused by the reduced classpath optimizaiton. */
-  public boolean maybeReducedClasspathError() {
-    String code = getCode();
-    if (code.contains("doesnt.exist")
-        || code.contains("cant.resolve")
-        || code.contains("cant.access")) {
-      return true;
-    }
-    // handle -Xdoclint:reference errors, which don't have a diagnostic code
-    // TODO(cushon): this is locale-dependent
-    if (getFormatted().contains("error: reference not found")) {
-      return true;
-    }
-    // Error Prone wraps completion failures
-    if (code.equals("compiler.err.error.prone.crash")
-        && getFormatted().contains("com.sun.tools.javac.code.Symbol$CompletionFailure")) {
-      return true;
-    }
-    return false;
-  }
-
   /** A {@link DiagnosticListener<JavaFileObject>} that saves {@link FormattedDiagnostic}s. */
   @Trusted
   static class Listener implements DiagnosticListener<JavaFileObject> {
@@ -135,10 +122,13 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
       DiagnosticFormatter<JCDiagnostic> formatter = Log.instance(context).getDiagnosticFormatter();
       Locale locale = JavacMessages.instance(context).getCurrentLocale();
       String formatted = formatter.format((JCDiagnostic) diagnostic, locale);
-      FormattedDiagnostic formattedDiagnostic = new FormattedDiagnostic(diagnostic, formatted);
+      LintCategory lintCategory = ((JCDiagnostic) diagnostic).getLintCategory();
+      FormattedDiagnostic formattedDiagnostic =
+          new FormattedDiagnostic(
+              diagnostic, formatted, lintCategory != null ? lintCategory.option : null);
       diagnostics.add(formattedDiagnostic);
-      if (failFast && formattedDiagnostic.maybeReducedClasspathError()) {
-        throw new FailFastException();
+      if (failFast && diagnostic.getKind().equals(Diagnostic.Kind.ERROR)) {
+        throw new FailFastException(formatted);
       }
     }
 
@@ -147,5 +137,9 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
     }
   }
 
-  static class FailFastException extends RuntimeException {}
+  static class FailFastException extends RuntimeException {
+    FailFastException(String message) {
+      super(message);
+    }
+  }
 }

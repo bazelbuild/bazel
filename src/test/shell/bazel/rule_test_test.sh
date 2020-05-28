@@ -221,8 +221,8 @@ EOF
 
   bazel query --output=label 'attr(visibility, private, //:all)' >& "$TEST_log" || fail "query failed"
   expect_log '//:x_test_impl'
+  expect_log '//:x\b'
   expect_not_log '//:x_test\b'
-  expect_not_log '//:x\b'
 
   bazel query --output=label 'attr(visibility, foo, //:all)' >& "$TEST_log" || fail "query failed"
   expect_log '//:x_test\b'

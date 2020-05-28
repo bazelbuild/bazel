@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.GenericParsingException;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaRuleVariable;
 import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget;
+import com.google.devtools.build.lib.bazel.rules.ninja.parser.NinjaTarget.InputKind;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -40,6 +41,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -146,10 +148,10 @@ public class NinjaActionsHelper {
         }
       } else {
         PhonyTarget phonyTarget = phonyTargets.get(fragment);
-        // Phony target can be null, if the path in neither usual or phony target,
+        // Phony target can be null, if the path in neither regular or phony target,
         // but the source file.
         if (phonyTarget != null) {
-          phonyTarget.visitUsualInputs(phonyTargets, enqueuer::accept);
+          phonyTarget.visitExplicitInputs(phonyTargets, enqueuer::accept);
         }
       }
     }
@@ -157,8 +159,10 @@ public class NinjaActionsHelper {
 
   private void createNinjaAction(NinjaTarget target) throws GenericParsingException {
     NestedSetBuilder<Artifact> inputsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> orderOnlyInputsBuilder = NestedSetBuilder.stableOrder();
     ImmutableList.Builder<Artifact> outputsBuilder = ImmutableList.builder();
-    boolean isAlwaysDirty = fillArtifacts(target, inputsBuilder, outputsBuilder);
+    boolean isAlwaysDirty =
+        fillArtifacts(target, inputsBuilder, orderOnlyInputsBuilder, outputsBuilder);
 
     ImmutableSortedMap<NinjaRuleVariable, String> resolvedMap = target.computeRuleVariables();
     String command = resolvedMap.get(NinjaRuleVariable.COMMAND);
@@ -182,6 +186,7 @@ public class NinjaActionsHelper {
             artifactsHelper.getSourceRoot(),
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             inputsBuilder.build(),
+            orderOnlyInputsBuilder.build(),
             outputs,
             commandLines,
             Preconditions.checkNotNull(ruleContext.getConfiguration()).getActionEnvironment(),
@@ -213,8 +218,6 @@ public class NinjaActionsHelper {
     if (ruleDescription != null) {
       return ruleDescription;
     }
-    // TODO(cparsons): If the target has a "description" variable but the rule has none,
-    // then ruleVariables will have no DESCRIPTION value.
 
     String ruleName = target.getRuleName();
     StringBuilder messageBuilder = new StringBuilder();
@@ -230,17 +233,25 @@ public class NinjaActionsHelper {
   private boolean fillArtifacts(
       NinjaTarget target,
       NestedSetBuilder<Artifact> inputsBuilder,
+      NestedSetBuilder<Artifact> orderOnlyInputsBuilder,
       ImmutableList.Builder<Artifact> outputsBuilder)
       throws GenericParsingException {
+
     boolean isAlwaysDirty = false;
-    for (PathFragment input : target.getAllInputs()) {
+    for (Map.Entry<InputKind, PathFragment> entry : target.getAllInputsAndKind()) {
+
+      InputKind kind = entry.getKey();
+      boolean isOrderOnly = (kind == InputKind.ORDER_ONLY);
+      NestedSetBuilder<Artifact> builder = isOrderOnly ? orderOnlyInputsBuilder : inputsBuilder;
+
+      PathFragment input = entry.getValue();
       PhonyTarget phonyTarget = this.phonyTargets.get(input);
       if (phonyTarget != null) {
-        inputsBuilder.addTransitive(phonyTargetArtifacts.getPhonyTargetArtifacts(input));
-        isAlwaysDirty |= phonyTarget.isAlwaysDirty();
+        builder.addTransitive(phonyTargetArtifacts.getPhonyTargetArtifacts(input));
+        isAlwaysDirty |= (phonyTarget.isAlwaysDirty() && !isOrderOnly);
       } else {
         Artifact artifact = artifactsHelper.getInputArtifact(input);
-        inputsBuilder.add(artifact);
+        builder.add(artifact);
       }
     }
 

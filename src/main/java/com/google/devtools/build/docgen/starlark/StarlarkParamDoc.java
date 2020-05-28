@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.docgen.starlark;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 
 /** A class containing the documentation for a Starlark method parameter. */
 public final class StarlarkParamDoc extends StarlarkDoc {

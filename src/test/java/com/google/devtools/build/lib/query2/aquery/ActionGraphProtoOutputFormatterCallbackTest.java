@@ -446,7 +446,7 @@ public class ActionGraphProtoOutputFormatterCallbackTest extends ActionGraphQuer
         "    outputs = [ctx.outputs.outfile],",
         "    executable = 'dummy',",
         "    arguments = ['--non-param-file-flag', args],",
-        "    mnemonic = 'SkylarkAction'",
+        "    mnemonic = 'StarlarkAction'",
         "  )",
         "test_rule = rule(",
         "  implementation = _impl,",

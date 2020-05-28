@@ -29,8 +29,8 @@ import javax.annotation.Nullable;
  *
  * <p>Implementations of native declared providers should subclass this class, and define a method
  * in the subclass definition to create instances of its corresponding Info object. The method
- * should be annotated with {@link SkylarkCallable} with {@link SkylarkCallable#selfCall} set to
- * true, and with {@link SkylarkConstructor} for the info type it constructs.
+ * should be annotated with {@link StarlarkMethod} with {@link StarlarkMethod#selfCall} set to true,
+ * and with {@link StarlarkConstructor} for the info type it constructs.
  */
 @Immutable
 public abstract class BuiltinProvider<T extends Info> implements Provider {

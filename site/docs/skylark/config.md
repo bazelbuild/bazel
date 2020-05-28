@@ -25,18 +25,11 @@ and more, all completely from .bzl files (no Bazel release required).
 
 ## Current status
 
-As of Q4'19, everything documented here works but
-may have memory and performance consequences as we work on scaling concerns.
-Related issues:
+Ongoing bug/feature work can be found in the [Bazel
+configurability roadmap](https://bazel.build/roadmaps/configuration.html).
 
-*   [#5574](https://github.com/bazelbuild/bazel/issues/5574) - Starlark support
-    for custom configuration transitions
-*   [#5575](https://github.com/bazelbuild/bazel/issues/5575) - Starlark support
-    for multi-arch ("fat") binaries
-*   [#5577](https://github.com/bazelbuild/bazel/issues/5577) - Starlark support
-    for custom build flags
-*   [#5578](https://github.com/bazelbuild/bazel/issues/5578) - Configuration
-    doesn't block native to Starlark rules migration
+This feature may have [memory and performance impacts](#memory-and-performance-considerations) and we are
+still working on ways to [measure and mitigate](https://github.com/bazelbuild/bazel/issues/10613) those impacts.
 
 ## User-defined build settings
 A build setting is a single piece of
@@ -151,8 +144,27 @@ flavor(
 )
 ```
 
-A collection of the most common build setting rules can be found in
-[skylib](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
+### Predefined settings
+
+The
+[Skylib](https://github.com/bazelbuild/bazel-skylib)
+library includes a set of predefined settings you can instantiate without having
+to write custom Starlark.
+
+For example, to define a setting that accepts a limited set of string values:
+
+```python
+# example/BUILD
+load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+string_flag(
+    name = "myflag",
+    values = ["a", "b", "c"],
+    build_setting_default = "a",
+)
+```
+
+For a complete list, see
+[Common build setting rules](https://github.com/bazelbuild/bazel-skylib/blob/master/rules/common_settings.bzl).
 
 ### Using build settings
 
@@ -261,7 +273,7 @@ the [`configuration_field`](lib/globals.html#configuration_field)
 
 ```python
 # example/rules.bzl
-MyProvider = provider(field = ["my_field"])
+MyProvider = provider(fields = ["my_field"])
 
 def _dep_impl(ctx):
     return MyProvider(my_field = "yeehaw")
@@ -271,7 +283,7 @@ dep_rule = rule(
 )
 
 def _parent_impl(ctx):
-    if ctx.attr.my_field_provider[MyProvider] == "cowabunga":
+    if ctx.attr.my_field_provider[MyProvider].my_field == "cowabunga":
         ...
 
 parent_rule = rule(
@@ -297,7 +309,7 @@ label_flag(
 
 TODO(bazel-team): Expand supported build setting types.
 
-## Build settings and the `select` function
+### Build settings and `select()`
 
 Users can configure attributes on build settings by using
  [`select()`](../be/functions.html#select). Build setting targets can be passed to the `flag_values` attribute of
@@ -397,7 +409,7 @@ parameter of the transition function. This is true even if a build setting is
 not actually changed over the course of the transition - its original value must
 be explicitly passed through in the returned dictionary.
 
-#### Defining 1:2+ transitions
+### Defining 1:2+ transitions
 [Outgoing edge transition](#outgoing-edge-transitions) can map a single input
 configuration to two or more output configurations. These are defined in
 Starlark by returning a list of dictionaries in the transition implementation
@@ -430,7 +442,7 @@ If you need to do this, contact
 bazel-discuss@googlegroups.com
 and we can help you try to figure out a workaround.
 
-#### Incoming edge transitions
+### Incoming edge transitions
 Incoming edge transitions are activated by attaching a `transition` object
 (created by `transition()`) to `rule()`'s `cfg` parameter:
 
@@ -532,3 +544,55 @@ flags will likely be replaced by transitioning on the
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
  * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
+
+## Memory and performance considerations
+
+Adding transitions, and therefore new configurations, to your build comes at a
+cost: larger build graphs, less comprehensible build graphs, and slower
+builds. It's worth considering these costs when considering
+using transitions in your build rules. Below is an example of how a transition
+might create exponential growth of your build graph.
+
+### Badly behaved builds: a case study
+Say you have the following target structure:
+
+<img src="scalability-graph.png" width="600px" alt="a graph showing a top level target, //pkg:app, which depends on two targets, //pkg:1_0 and //pkg:1_1. Both these targets depend on two targets, //pkg:2_0 and //pkg:2_1. Both these targets depend on two targets, //pkg:3_0 and //pkg:3_1. This continues on until //pkg:n_0 and //pkg:n_1, which both depend on a single target, //pkg:dep." />
+
+Building `//pkg:app` requires \\(2n+2\\) targets:
+
+* `//pkg:app`
+* `//pkg:dep`
+* `//pkg:i_0` and `//pkg:i_1` for \\(i\\) in \\([1..n]\\)
+
+Imagine you [implement](#user-defined-build-settings)) a flag
+`--//foo:owner=<STRING>` and `//pkg:i_b` applies
+
+    depConfig = myConfig + depConfig.owner="$(myConfig.owner)$(b)"
+
+In other words, `//pkg:i_b` appends `b` to the old value of `--owner` for all
+its deps.
+
+This produces the following [configured targets](glossary.md#configured-target):
+
+```
+//pkg:app                              //foo:owner=""
+//pkg:1_0                              //foo:owner=""
+//pkg:1_1                              //foo:owner=""
+//pkg:2_0 (via //pkg:1_0)              //foo:owner="0"
+//pkg:2_0 (via //pkg:1_1)              //foo:owner="1"
+//pkg:2_1 (via //pkg:1_0)              //foo:owner="0"
+//pkg:2_1 (via //pkg:1_1)              //foo:owner="1"
+//pkg:3_0 (via //pkg:1_0 → //pkg:2_0)  //foo:owner="00"
+//pkg:3_0 (via //pkg:1_0 → //pkg:2_1)  //foo:owner="01"
+//pkg:3_0 (via //pkg:1_1 → //pkg:2_0)  //foo:owner="10"
+//pkg:3_0 (via //pkg:1_1 → //pkg:2_1)  //foo:owner="11"
+...
+```
+
+`//pkg:dep` produces \\(2^n\\) configured targets: `config.owner=`
+"\\(b_0b_1...b_n\\)" for all \\(b_i\\) in \\(\{0,1\}\\).
+
+This makes the build graph exponentially larger than the target graph, with
+corresponding memory and performance consequences.
+
+TODO: Add strategies for measurement and mitigation of these issues.

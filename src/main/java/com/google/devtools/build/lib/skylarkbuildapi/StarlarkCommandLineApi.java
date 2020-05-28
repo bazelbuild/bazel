@@ -14,25 +14,25 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
-import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDeprecated;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Interface for a module associated with creating efficient command lines. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "cmd_helper",
     namespace = true,
-    category = SkylarkModuleCategory.TOP_LEVEL_TYPE,
+    category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
     doc = "Deprecated. Module for creating memory efficient command lines.")
 @StarlarkDeprecated
 public interface StarlarkCommandLineApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "join_paths",
       doc =
           "Deprecated. Creates a single command line argument joining the paths of a set "

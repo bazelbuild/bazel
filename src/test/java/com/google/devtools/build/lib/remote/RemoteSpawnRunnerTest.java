@@ -292,13 +292,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn),
-            eq(policy),
-            any(),
-            any(),
-            any(),
-            any(),
-            /* uploadLocalResults= */ eq(true));
+            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
     verify(cache, never()).upload(any(), any(), any(), any(), any(), any());
   }
 
@@ -334,13 +328,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(
-            eq(spawn),
-            eq(policy),
-            any(),
-            any(),
-            any(),
-            any(),
-            /* uploadLocalResults= */ eq(true));
+            eq(spawn), eq(policy), any(), any(), any(), any(), /* uploadLocalResults= */ eq(true));
     verify(cache).upload(any(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
@@ -821,7 +809,7 @@ public class RemoteSpawnRunnerTest {
             execRoot,
             Options.getDefaults(RemoteOptions.class),
             executionOptions,
-            true,
+            l -> true,
             /*cmdlineReporter=*/ null,
             "build-req-id",
             "command-id",
@@ -844,7 +832,7 @@ public class RemoteSpawnRunnerTest {
             PathFragment.create("out/param_file"), args, ParameterFileType.UNQUOTED, ISO_8859_1);
     Spawn spawn =
         new SimpleSpawn(
-            new FakeOwner("foo", "bar"),
+            new FakeOwner("foo", "bar", "//dummy:label"),
             /*arguments=*/ ImmutableList.of(),
             /*environment=*/ ImmutableMap.of(),
             /*executionInfo=*/ ImmutableMap.of(),
@@ -885,7 +873,8 @@ public class RemoteSpawnRunnerTest {
 
     // assert
     verify(cache)
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(
+            any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
@@ -911,7 +900,8 @@ public class RemoteSpawnRunnerTest {
     // assert
     verify(executor).executeRemotely(any());
     verify(cache)
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(
+            any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
@@ -924,7 +914,7 @@ public class RemoteSpawnRunnerTest {
     when(cache.downloadActionResult(any(ActionKey.class), /* inlineOutErr= */ eq(false)))
         .thenReturn(succeededAction);
     IOException downloadFailure = new IOException("downloadMinimal failed");
-    when(cache.downloadMinimal(any(), anyCollection(), any(), any(), any(), any(), any()))
+    when(cache.downloadMinimal(any(), any(), anyCollection(), any(), any(), any(), any(), any()))
         .thenThrow(downloadFailure);
 
     RemoteSpawnRunner runner = newSpawnRunner();
@@ -938,7 +928,8 @@ public class RemoteSpawnRunnerTest {
 
     // assert
     verify(cache)
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(
+            any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
     verify(cache, never()).download(any(ActionResult.class), any(Path.class), eq(outErr), any());
   }
 
@@ -969,7 +960,8 @@ public class RemoteSpawnRunnerTest {
     // assert
     verify(cache).download(eq(succeededAction), any(Path.class), eq(outErr), any());
     verify(cache, never())
-        .downloadMinimal(eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
+        .downloadMinimal(
+            any(), eq(succeededAction), anyCollection(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -984,10 +976,10 @@ public class RemoteSpawnRunnerTest {
   public void accountingAddsDurationsForStages() {
     SpawnMetrics.Builder builder =
         new SpawnMetrics.Builder()
-            .setRemoteQueueTime(Duration.ofSeconds(1))
+            .setQueueTime(Duration.ofSeconds(1))
             .setSetupTime(Duration.ofSeconds(2))
             .setExecutionWallTime(Duration.ofSeconds(2))
-            .setRemoteProcessOutputsTime(Duration.ofSeconds(2));
+            .setProcessOutputsTime(Duration.ofSeconds(2));
     Timestamp queued = Timestamp.getDefaultInstance();
     com.google.protobuf.Duration oneSecond = Durations.fromMillis(1000);
     Timestamp workerStart = Timestamps.add(queued, oneSecond);
@@ -1008,13 +1000,13 @@ public class RemoteSpawnRunnerTest {
     RemoteSpawnRunner.spawnMetricsAccounting(builder, executedMetadata);
     SpawnMetrics spawnMetrics = builder.build();
     // remote queue time is accumulated
-    assertThat(spawnMetrics.remoteQueueTime()).isEqualTo(Duration.ofSeconds(2));
+    assertThat(spawnMetrics.queueTime()).isEqualTo(Duration.ofSeconds(2));
     // setup time is substituted
     assertThat(spawnMetrics.setupTime()).isEqualTo(Duration.ofSeconds(1));
     // execution time is unspecified, assume substituted
     assertThat(spawnMetrics.executionWallTime()).isEqualTo(Duration.ofSeconds(1));
-    // remoteProcessOutputs time is unspecified, assume substituted
-    assertThat(spawnMetrics.remoteProcessOutputsTime()).isEqualTo(Duration.ofSeconds(1));
+    // ProcessOutputs time is unspecified, assume substituted
+    assertThat(spawnMetrics.processOutputsTime()).isEqualTo(Duration.ofSeconds(1));
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {
@@ -1024,7 +1016,7 @@ public class RemoteSpawnRunnerTest {
   private static SimpleSpawn simpleSpawnWithExecutionInfo(
       ImmutableMap<String, String> executionInfo, Artifact... outputs) {
     return new SimpleSpawn(
-        new FakeOwner("foo", "bar"),
+        new FakeOwner("foo", "bar", "//dummy:label"),
         /*arguments=*/ ImmutableList.of(),
         /*environment=*/ ImmutableMap.of(),
         /*executionInfo=*/ executionInfo,
@@ -1035,24 +1027,20 @@ public class RemoteSpawnRunnerTest {
 
   private RemoteSpawnRunner newSpawnRunner() {
     return newSpawnRunner(
-        /* verboseFailures= */ false,
         executor,
         /* reporter= */ null,
         /* topLevelOutputs= */ ImmutableSet.of());
   }
 
   private RemoteSpawnRunner newSpawnRunner(Reporter reporter) {
-    return newSpawnRunner(
-        /* verboseFailures= */ false, executor, reporter, /* topLevelOutputs= */ ImmutableSet.of());
+    return newSpawnRunner(executor, reporter, /* topLevelOutputs= */ ImmutableSet.of());
   }
 
   private RemoteSpawnRunner newSpawnRunner(ImmutableSet<ActionInput> topLevelOutputs) {
-    return newSpawnRunner(
-        /* verboseFailures= */ false, executor, /* reporter= */ null, topLevelOutputs);
+    return newSpawnRunner(executor, /* reporter= */ null, topLevelOutputs);
   }
 
   private RemoteSpawnRunner newSpawnRunner(
-      boolean verboseFailures,
       @Nullable GrpcRemoteExecutor executor,
       @Nullable Reporter reporter,
       ImmutableSet<ActionInput> topLevelOutputs) {
@@ -1060,7 +1048,7 @@ public class RemoteSpawnRunnerTest {
         execRoot,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),
-        verboseFailures,
+        l -> false,
         reporter,
         "build-req-id",
         "command-id",

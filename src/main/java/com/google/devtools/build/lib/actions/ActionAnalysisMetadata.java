@@ -38,11 +38,7 @@ public interface ActionAnalysisMetadata {
 
   /**
    * Returns the owner of this executable if this executable can supply verbose information. This is
-   * typically the rule that constructed it; see ActionOwner class comment for details. Returns
-   * {@code null} if no owner can be determined.
-   *
-   * <p>If this executable does not supply verbose information, this function may throw an
-   * IllegalStateException.
+   * typically the rule that constructed it; see ActionOwner class comment for details.
    */
   ActionOwner getOwner();
 

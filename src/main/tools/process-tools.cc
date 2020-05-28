@@ -174,12 +174,20 @@ void SetTimeout(double timeout_secs) {
   }
 }
 
-int WaitChild(pid_t pid) {
+int WaitChild(pid_t pid, bool wait_fix) {
   int err, status;
 
-  do {
-    err = waitpid(pid, &status, 0);
-  } while (err == -1 && errno == EINTR);
+  if (wait_fix) {
+    // Discard any zombies that we may get when Linux's child subreaper feature
+    // is enabled.
+    do {
+      err = wait(&status);
+    } while (err != pid || (err == -1 && errno == EINTR));
+  } else {
+    do {
+      err = waitpid(pid, &status, 0);
+    } while (err == -1 && errno == EINTR);
+  }
 
   if (err == -1) {
     DIE("waitpid");
@@ -188,12 +196,20 @@ int WaitChild(pid_t pid) {
   return status;
 }
 
-int WaitChildWithRusage(pid_t pid, struct rusage *rusage) {
+int WaitChildWithRusage(pid_t pid, struct rusage *rusage, bool wait_fix) {
   int err, status;
 
-  do {
-    err = wait4(pid, &status, 0, rusage);
-  } while (err == -1 && errno == EINTR);
+  if (wait_fix) {
+    // Discard any zombies that we may get when Linux's child subreaper feature
+    // is enabled.
+    do {
+      err = wait3(&status, 0, rusage);
+    } while (err != pid || (err == -1 && errno == EINTR));
+  } else {
+    do {
+      err = wait4(pid, &status, 0, rusage);
+    } while (err == -1 && errno == EINTR);
+  }
 
   if (err == -1) {
     DIE("wait4");

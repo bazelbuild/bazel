@@ -144,9 +144,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         .propagateAlongAttribute("deps")
         .propagateAlongAttribute("exports")
         .propagateAlongAttribute("runtime_deps")
-        .requireSkylarkProviders(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
-        .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
-        .advertiseProvider(ImmutableList.of(ObjcProvider.SKYLARK_CONSTRUCTOR.id()))
+        .requireStarlarkProviders(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
+        .advertiseProvider(ImmutableList.of(ObjcProvider.STARLARK_CONSTRUCTOR.id()))
         .requiresConfigurationFragments(
             AppleConfiguration.class,
             CppConfiguration.class,
@@ -795,7 +795,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
                 .getExecPath(
                     ruleContext
                         .getAnalysisEnvironment()
-                        .getSkylarkSemantics()
+                        .getStarlarkSemantics()
                         .experimentalSiblingRepositoryLayout()));
   }
 
@@ -886,14 +886,14 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
         }
         builder.addDepCcHeaderProviders(ccInfoList.build());
         builder.addDepObjcProviders(
-            ruleContext.getPrerequisites(attrName, attrMode, ObjcProvider.SKYLARK_CONSTRUCTOR));
+            ruleContext.getPrerequisites(attrName, attrMode, ObjcProvider.STARLARK_CONSTRUCTOR));
       }
     }
 
     // We can't just use addDeps since that now takes ConfiguredTargetAndData and we only have
     // TransitiveInfoCollections
     builder.addDepObjcProviders(
-        otherDeps.stream().map(d -> d.get(ObjcProvider.SKYLARK_CONSTRUCTOR)).collect(toList()));
+        otherDeps.stream().map(d -> d.get(ObjcProvider.STARLARK_CONSTRUCTOR)).collect(toList()));
     builder.addDepCcHeaderProviders(
         otherDeps.stream().map(d -> d.get(CcInfo.PROVIDER)).collect(toList()));
 

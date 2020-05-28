@@ -3,6 +3,8 @@ layout: documentation
 title: ${module.title}
 ---
 
+<!-- {% raw %} -->
+
 <a href="../concepts.html">Extensions</a> &gt;
 <a href="skylark-overview.html">API reference</a> &gt;
 ${module.title}
@@ -72,3 +74,5 @@ ${module.documentation}
     ${method.returnTypeExtraMessage}
   #end
 #end
+
+<!-- {% endraw %} -->

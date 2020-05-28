@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#include <cstring>
 #include <memory>
 #include <string>
 #include <vector>
@@ -48,6 +50,7 @@ static void Usage(char *program_name, const char *fmt, ...) {
       "  -s/--stats <file>  if set, write stats in protobuf format to a file\n"
       "  -d/--debug  if set, debug info will be printed\n"
       "  --  command to run inside sandbox, followed by arguments\n");
+  // -W intentionally not documented.
   exit(EXIT_FAILURE);
 }
 
@@ -61,12 +64,13 @@ static void ParseCommandLine(const std::vector<char *> &args) {
       {"stderr", required_argument, 0, 'e'},
       {"stats", required_argument, 0, 's'},
       {"debug", no_argument, 0, 'd'},
+      {"wait_fix", optional_argument, 0, 'W'},
       {0, 0, 0, 0}};
   extern char *optarg;
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt_long(args.size(), args.data(), "+:t:k:o:e:s:d",
+  while ((c = getopt_long(args.size(), args.data(), "+:t:k:o:e:s:dW",
                           long_options, nullptr)) != -1) {
     switch (c) {
       case 't':
@@ -105,6 +109,24 @@ static void ParseCommandLine(const std::vector<char *> &args) {
         break;
       case 'd':
         opt.debug = true;
+        break;
+      case 'W':
+        // Allows for a controlled rollout of the "wait for process group" fix.
+        // The optional argument can be used to "undo" the application of -W in
+        // case things go wrong by passing the following flag to the build:
+        // --process_wrapper_extra_flags=--wait_fix=no
+        if (optarg != nullptr) {
+          if (std::strcmp(optarg, "yes") == 0) {
+            opt.wait_fix = true;
+          } else if (std::strcmp(optarg, "no") == 0) {
+            opt.wait_fix = false;
+          } else {
+            Usage(args.front(), "Argument to -W, if present, must be yes or no",
+                  optopt, optind);
+          }
+        } else {
+          opt.wait_fix = true;
+        }
         break;
       case '?':
         Usage(args.front(), "Unrecognized argument: -%c (%d)", optopt, optind);

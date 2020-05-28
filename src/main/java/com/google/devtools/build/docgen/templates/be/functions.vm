@@ -60,9 +60,8 @@ file, before any rule.</p>
         <p>Every rule in this package has the visibility specified in this
         attribute, unless otherwise specified in the <code>visibility</code>
         attribute of the rule. For detailed information about the syntax of this
-        attribute, see the documentation of the
-        <a href="common-definitions.html#common.visibility">visibility</a>
-        attribute. The package default visibility does not apply to
+        attribute, see the documentation of <a href="../visibility.md">visibility</a>.
+        The package default visibility does not apply to
         <a href="#exports_files">exports_files</a>, which is
         public by default.</p>
       </td>
@@ -259,7 +258,10 @@ package_group(
 <p>
   The BUILD file for a package may only refer directly to source files belonging
   to another package if they are explicitly exported with an
-  <pre>exports_files()</pre> statement.
+  <code>exports_files()</code> statement. Read more about
+  <a href="../visibility.md#visibility-of-a-file">visibility of files</a>.
+</p>
+   <p>
   As a legacy behaviour, also files mentioned as input to a rule are exported
   with the default visibility until the flag
   <a href="https://github.com/bazelbuild/bazel/issues/10225"><code>--incompatible_no_implicit_file_export</code></a>

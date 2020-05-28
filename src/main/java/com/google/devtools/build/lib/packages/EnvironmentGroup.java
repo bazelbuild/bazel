@@ -102,6 +102,11 @@ public class EnvironmentGroup implements Target {
     this.containingPackage = pkg;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   public EnvironmentLabels getEnvironmentLabels() {
     environmentLabels.checkInitialized();
     return environmentLabels;

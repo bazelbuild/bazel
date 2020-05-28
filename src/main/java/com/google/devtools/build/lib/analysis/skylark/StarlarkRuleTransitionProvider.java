@@ -89,7 +89,7 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
           continue;
         }
         attributes.put(
-            Attribute.getSkylarkName(attribute.getPublicName()), Starlark.fromJava(val, null));
+            Attribute.getStarlarkName(attribute.getPublicName()), Starlark.fromJava(val, null));
       }
       attrObject =
           StructProvider.STRUCT.create(

@@ -462,7 +462,7 @@ public class FdoHelper {
         .getExecPath(
             ruleContext
                 .getAnalysisEnvironment()
-                .getSkylarkSemantics()
+                .getStarlarkSemantics()
                 .experimentalSiblingRepositoryLayout())
         .getRelative(fdoLabel.getName())
         .equals(fdoArtifact.getExecPath())) {

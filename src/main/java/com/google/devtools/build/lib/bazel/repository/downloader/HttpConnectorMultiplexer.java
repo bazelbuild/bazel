@@ -114,7 +114,7 @@ final class HttpConnectorMultiplexer {
    * earlier mirrors are preferred. Each connector thread retries automatically on transient errors
    * with exponential backoff. It vets the first 32kB of any payload before selecting a mirror in
    * order to evade captive portals and avoid ultra-low-bandwidth servers. Even after this method
-   * returns the reliability doesn't stop. Each read operation wiil intercept timeouts and errors
+   * returns the reliability doesn't stop. Each read operation will intercept timeouts and errors
    * and block until the connection can be renegotiated transparently right where it left off.
    *
    * @param urls mirrors by preference; each URL can be: file, http, or https
@@ -273,7 +273,7 @@ final class HttpConnectorMultiplexer {
         } catch (SocketTimeoutException e) {
           // SocketTimeoutException derives from InterruptedIOException, but its occurrence
           // is truly exceptional, so we handle it separately here. Failing to do so hides
-          // our exception from the user s/t they only see an inscrutable "thread
+          // our exception from the user so that they only see an inscrutable "thread
           // interrupted" message instead.
           synchronized (context) {
             context.errors.add(e);

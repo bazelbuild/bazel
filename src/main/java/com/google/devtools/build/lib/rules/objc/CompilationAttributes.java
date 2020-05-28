@@ -281,7 +281,7 @@ final class CompilationAttributes {
         if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
           List<ObjcProvider> providers =
               ruleContext.getPrerequisites(
-                  "deps", TransitionMode.TARGET, ObjcProvider.SKYLARK_CONSTRUCTOR);
+                  "deps", TransitionMode.TARGET, ObjcProvider.STARLARK_CONSTRUCTOR);
           for (ObjcProvider provider : providers) {
             moduleMaps.addTransitive(provider.get(TOP_LEVEL_MODULE_MAP));
           }

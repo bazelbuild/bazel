@@ -34,7 +34,7 @@ java_library(
     deps = [
         ":graph_inconsistency_java_proto",
         ":skyframe-objects",
-        "//src/main/java/com/google/devtools/build/lib:bug-report",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/clock",  # keep
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashmap",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",

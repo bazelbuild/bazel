@@ -15,19 +15,8 @@ package com.google.devtools.build.android.desugar;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.auto.value.AutoValue;
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.desugar.io.BitFlags;
-import com.google.devtools.build.android.desugar.langmodel.ClassName;
-import com.google.devtools.build.android.desugar.langmodel.MethodInvocationSite;
-import com.google.errorprone.annotations.Immutable;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import javax.annotation.Nullable;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
-import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.ClassRemapper;
 import org.objectweb.asm.commons.MethodRemapper;
 import org.objectweb.asm.commons.Remapper;
@@ -39,13 +28,10 @@ import org.objectweb.asm.commons.Remapper;
  */
 class CorePackageRenamer extends ClassRemapper {
 
-  private final CoreLibrarySupport coreLibrarySupport;
-  private final Map<String, PreservedMethod> preserveOriginals = new LinkedHashMap<>();
   private String internalName;
 
   public CorePackageRenamer(ClassVisitor cv, CoreLibrarySupport support) {
     super(cv, new CorePackageRemapper(support));
-    coreLibrarySupport = support;
   }
 
   @Override
@@ -59,87 +45,6 @@ class CorePackageRenamer extends ClassRemapper {
     checkState(internalName == null || internalName.equals(name), "Instance already used.");
     internalName = name;
     super.visit(version, access, name, signature, superName, interfaces);
-  }
-
-  @Override
-  public MethodVisitor visitMethod(
-      int access, String name, String descriptor, String signature, String[] exceptions) {
-    if (coreLibrarySupport.preserveOriginalMethod(access, internalName, name, descriptor)) {
-      if (BitFlags.isSynthetic(access)) {
-        // Idempotency: this is the preserved override, which we mark synthetic for simplicity.
-        return cv != null ? cv.visitMethod(access, name, descriptor, signature, exceptions) : null;
-      } else {
-        PreservedMethod preserve =
-            PreservedMethod.create(access, name, descriptor, signature, exceptions);
-        preserveOriginals.put(name + ":" + descriptor, preserve);
-      }
-    }
-    return super.visitMethod(access, name, descriptor, signature, exceptions);
-  }
-
-  @Override
-  public void visitEnd() {
-    if (cv == null) {
-      return;
-    }
-
-    // Re-generate preserved method overrides to call their remapped implementations
-    for (PreservedMethod preserve : preserveOriginals.values()) {
-      CorePackageRemapper remapper = (CorePackageRemapper) this.remapper;
-      remapper.didSomething = false;
-      String remappedDesc = remapper.mapMethodDesc(preserve.desc());
-      checkState(remapper.didSomething, "Unnecessarily preserving %s", preserve);
-
-      // Create method using cv field instead of super so renaming isn't applied.  Use synthetic
-      // flag so we can recognize and skip this method if desugar is run again over the output.
-      // Also drop any "abstract" bit just in case.
-      int access = (preserve.access() & ~Opcodes.ACC_ABSTRACT) | Opcodes.ACC_SYNTHETIC;
-      MethodVisitor stubMethod =
-          cv.visitMethod(
-              access,
-              preserve.name(),
-              preserve.desc(),
-              preserve.signature(),
-              preserve.exceptions().toArray(new String[0]));
-
-      // Load all the arguments and call the previously encountered method, converting desugared
-      // core library types as needed as we go.
-      int slot = 0;
-      stubMethod.visitVarInsn(Opcodes.ALOAD, slot++); // receiver
-      Type neededType = Type.getMethodType(preserve.desc());
-      for (Type arg : neededType.getArgumentTypes()) {
-        stubMethod.visitVarInsn(arg.getOpcode(Opcodes.ILOAD), slot);
-        slot += arg.getSize();
-        String argDesc = arg.getDescriptor();
-        String mappedArg = remapper.mapDesc(argDesc);
-
-        // Insert conversion if necessary
-        if (!argDesc.equals(mappedArg)) {
-          // TODO(kmb): May need to support array types
-          checkState(arg.getSort() == Type.OBJECT, "Can only map object types: %s", arg);
-          MethodInvocationSite replacementSite =
-              coreLibrarySupport.getTypeConverterSite(ClassName.create(arg.getInternalName()));
-          replacementSite.accept(stubMethod);
-        }
-      }
-      stubMethod.visitMethodInsn(
-          Opcodes.INVOKEVIRTUAL,
-          internalName,
-          preserve.name(),
-          remappedDesc,
-          /*isInterface=*/ false);
-
-      // TODO(kmb): May need to support "to"-converting return types
-      String returnDesc = neededType.getReturnType().getDescriptor();
-      checkState(
-          returnDesc.equals(remapper.mapDesc(returnDesc)),
-          "Return value conversions not supported: %s",
-          returnDesc);
-      stubMethod.visitInsn(neededType.getReturnType().getOpcode(Opcodes.IRETURN));
-      stubMethod.visitMaxs(slot, slot);
-      stubMethod.visitEnd();
-    }
-    super.visitEnd();
   }
 
   @Override
@@ -211,35 +116,5 @@ class CorePackageRenamer extends ClassRemapper {
       }
       return typeName;
     }
-  }
-
-  /** Undesugared core library override to preserve. */
-  @AutoValue
-  @Immutable
-  abstract static class PreservedMethod {
-    private static PreservedMethod create(
-        int access,
-        String name,
-        String desc,
-        @Nullable String signature,
-        @Nullable String[] exceptions) {
-      return new AutoValue_CorePackageRenamer_PreservedMethod(
-          access,
-          name,
-          desc,
-          signature,
-          exceptions != null ? ImmutableList.copyOf(exceptions) : ImmutableList.of());
-    }
-
-    abstract int access();
-
-    abstract String name();
-
-    abstract String desc();
-
-    @Nullable
-    abstract String signature();
-
-    abstract ImmutableList<String> exceptions();
   }
 }

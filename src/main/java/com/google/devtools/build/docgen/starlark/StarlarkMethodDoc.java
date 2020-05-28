@@ -15,12 +15,12 @@ package com.google.devtools.build.docgen.starlark;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** An abstract class containing documentation for a Starlark method. */
 public abstract class StarlarkMethodDoc extends StarlarkDoc {
@@ -67,7 +67,7 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
   }
 
   private String getParameterString(Method method) {
-    SkylarkCallable annotation = SkylarkInterfaceUtils.getSkylarkCallable(method);
+    StarlarkMethod annotation = StarlarkInterfaceUtils.getStarlarkMethod(method);
     List<String> argList = new ArrayList<>();
 
     boolean named = false;
@@ -103,8 +103,10 @@ public abstract class StarlarkMethodDoc extends StarlarkDoc {
   }
 
   protected String getSignature(String fullyQualifiedMethodName, Method method) {
-    String args = SkylarkInterfaceUtils.getSkylarkCallable(method).structField()
-        ? "" : "(" + getParameterString(method) + ")";
+    String args =
+        StarlarkInterfaceUtils.getStarlarkMethod(method).structField()
+            ? ""
+            : "(" + getParameterString(method) + ")";
 
     return String.format("%s %s%s",
         getTypeAnchor(method.getReturnType()), fullyQualifiedMethodName, args);

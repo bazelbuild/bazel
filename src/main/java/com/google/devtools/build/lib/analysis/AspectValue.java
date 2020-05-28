@@ -30,8 +30,8 @@ public final class AspectValue extends BasicActionLookupValue implements Configu
   @Nullable private Aspect aspect;
   @Nullable private Location location;
   // Normally the key used to evaluate this value in AspectFunction#compute. But in the case of a
-  // top-level SkylarkAspectKey, the AspectValue will be this value but the key will be the
-  // associated aspect key from SkylarkAspectKey#toAspectkey.
+  // top-level StarlarkAspectKey, the AspectValue will be this value but the key will be the
+  // associated aspect key from StarlarkAspectKey#toAspectkey.
   @Nullable private AspectKey key;
   @Nullable private ConfiguredAspect configuredAspect;
   // May be null either after clearing or because transitive packages are not tracked.

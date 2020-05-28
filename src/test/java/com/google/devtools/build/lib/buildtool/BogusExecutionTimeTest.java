@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -34,7 +33,7 @@ public class BogusExecutionTimeTest extends BuildIntegrationTestCase {
   private ManualClock clock;
 
   @Before
-  public final void setClock() throws Exception  {
+  public final void setClock() {
     clock = new ManualClock();
   }
 
@@ -46,12 +45,9 @@ public class BogusExecutionTimeTest extends BuildIntegrationTestCase {
   @Test
   public void testBogusExecutionTime() throws Exception {
     clock.advanceMillis(1337);
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.recordCommandStartTime(1337);
     write("foo/BUILD", "sh_library(name = 'foo')");
     buildTarget("//foo");
     clock.advanceMillis(-42L);
     buildTarget("//foo");
   }
 }
-

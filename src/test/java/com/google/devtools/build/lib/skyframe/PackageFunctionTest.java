@@ -564,7 +564,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTransitiveSkylarkDepsStoredInPackage() throws Exception {
+  public void testTransitiveStarlarkDepsStoredInPackage() throws Exception {
     scratch.file("foo/BUILD", "load('//bar:ext.bzl', 'a')");
     scratch.file("bar/BUILD");
     scratch.file("bar/ext.bzl", "load('//baz:ext.bzl', 'b')", "a = b");
@@ -597,7 +597,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testNonExistingSkylarkExtension() throws Exception {
+  public void testNonExistingStarlarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/skylark/BUILD",
@@ -615,12 +615,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
     ErrorInfo errorInfo = result.getError(skyKey);
     String expectedMsg =
         "error loading package 'test/skylark': "
-            + "Unable to load file '//test/skylark:bad_extension.bzl': file doesn't exist";
+            + "cannot load '//test/skylark:bad_extension.bzl': no such file";
     assertThat(errorInfo.getException()).hasMessageThat().isEqualTo(expectedMsg);
   }
 
   @Test
-  public void testNonExistingSkylarkExtensionFromExtension() throws Exception {
+  public void testNonExistingStarlarkExtensionFromExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/skylark/extension.bzl",
@@ -645,11 +645,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/skylark': "
                 + "in /workspace/test/skylark/extension.bzl: "
-                + "Unable to load file '//test/skylark:bad_extension.bzl': file doesn't exist");
+                + "cannot load '//test/skylark:bad_extension.bzl': no such file");
   }
 
   @Test
-  public void testSymlinkCycleWithSkylarkExtension() throws Exception {
+  public void testSymlinkCycleWithStarlarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path extensionFilePath = scratch.resolve("/workspace/test/skylark/extension.bzl");
     FileSystemUtils.ensureSymbolicLink(extensionFilePath, PathFragment.create("extension.bzl"));

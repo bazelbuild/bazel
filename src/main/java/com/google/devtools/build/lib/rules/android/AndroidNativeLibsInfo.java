@@ -14,12 +14,12 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 public final class AndroidNativeLibsInfo extends NativeInfo
     implements AndroidNativeLibsInfoApi<Artifact> {
 
-  private static final String SKYLARK_NAME = "AndroidNativeLibsInfo";
+  private static final String STARLARK_NAME = "AndroidNativeLibsInfo";
 
   public static final AndroidNativeLibsInfoProvider PROVIDER =
       new AndroidNativeLibsInfoProvider();
@@ -56,7 +56,7 @@ public final class AndroidNativeLibsInfo extends NativeInfo
       implements AndroidNativeLibsInfoApiProvider {
 
     private AndroidNativeLibsInfoProvider() {
-      super(SKYLARK_NAME, AndroidNativeLibsInfo.class);
+      super(STARLARK_NAME, AndroidNativeLibsInfo.class);
     }
 
     @Override

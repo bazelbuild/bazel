@@ -158,6 +158,9 @@ public class ExecutionRequirements {
 
   public static final String SUPPORTS_MULTIPLEX_WORKERS = "supports-multiplex-workers";
 
+  /** Override for the action's mnemonic to allow for better worker process reuse. */
+  public static final String WORKER_KEY_MNEMONIC = "worker-key-mnemonic";
+
   public static final ImmutableMap<String, String> WORKER_MODE_ENABLED =
       ImmutableMap.of(SUPPORTS_WORKERS, "1");
 

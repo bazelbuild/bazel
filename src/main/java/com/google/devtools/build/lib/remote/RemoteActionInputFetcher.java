@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +33,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
+import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import io.grpc.Context;
 import java.io.IOException;
@@ -65,12 +67,13 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
   private final RemoteCache remoteCache;
   private final Path execRoot;
-  private final Context ctx;
+  private final RequestMetadata requestMetadata;
 
-  RemoteActionInputFetcher(RemoteCache remoteCache, Path execRoot, Context ctx) {
+  RemoteActionInputFetcher(
+      RemoteCache remoteCache, Path execRoot, RequestMetadata requestMetadata) {
     this.remoteCache = Preconditions.checkNotNull(remoteCache);
     this.execRoot = Preconditions.checkNotNull(execRoot);
-    this.ctx = Preconditions.checkNotNull(ctx);
+    this.requestMetadata = Preconditions.checkNotNull(requestMetadata);
   }
 
   /**
@@ -164,6 +167,9 @@ class RemoteActionInputFetcher implements ActionInputPrefetcher {
 
       ListenableFuture<Void> download = downloadsInProgress.get(path);
       if (download == null) {
+        Context ctx =
+            TracingMetadataUtils.contextWithMetadata(
+                requestMetadata.toBuilder().setActionId(metadata.getActionId()).build());
         Context prevCtx = ctx.attach();
         try {
           Digest digest = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());

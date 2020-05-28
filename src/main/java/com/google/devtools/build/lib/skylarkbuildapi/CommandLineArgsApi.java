@@ -14,22 +14,22 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Command line args module. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "Args",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "An object that encapsulates, in a memory-efficient way, the data needed to build part or "
             + "all of a command line."
@@ -111,19 +111,9 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + ")\n"
             + "</pre>")
 public interface CommandLineArgsApi extends StarlarkValue {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "add",
-      doc =
-          "Appends an argument to this command line."
-              + ""
-              + "<p><b>Deprecation note:</b> The <code>before_each</code>, <code>join_with</code> "
-              + "and <code>map_fn</code> params are replaced by the <a href='#add_all'><code>"
-              + "add_all()</code></a> and <a href='#add_joined'><code>add_joined()</code></a> "
-              + "methods. These parameters will be removed, and are currently disallowed if the "
-              + "<a href='../backward-compatibility.$DOC_EXT#new-args-api'><code>"
-              + "--incompatible_disallow_old_style_args_add</code></a> flag is set. Likewise, "
-              + "<code>value</code> should now be a scalar value, not a list, tuple, or depset of "
-              + "items.",
+      doc = "Appends an argument to this command line.",
       parameters = {
         @Param(
             name = "arg_name_or_value",
@@ -139,11 +129,10 @@ public interface CommandLineArgsApi extends StarlarkValue {
                 "The object to append. It will be converted to a string using the standard "
                     + "conversion mentioned above. Since there is no <code>map_each</code> "
                     + "parameter for this function, <code>value</code> should be either a "
-                    + "string or a <code>File</code>. A directory <code>File</code> must be "
-                    + "passed to <a href='#add_all'><code>add_all()</code> or "
-                    + "<a href='#add_joined'><code>add_joined()</code></a> instead of this method."
-                    + "<p><i>Deprecated behavior:</i> <code>value</code> may also be a "
-                    + "list, tuple, or depset of multiple items to append."),
+                    + "string or a <code>File</code>. A list, tuple, depset, or directory "
+                    + "<code>File</code> must be passed to <a href='#add_all'><code>add_all()"
+                    + "</code> or <a href='#add_joined'><code>add_joined()</code></a> instead of "
+                    + "this method."),
         @Param(
             name = "format",
             type = String.class,
@@ -153,58 +142,14 @@ public interface CommandLineArgsApi extends StarlarkValue {
             noneable = true,
             doc =
                 "A format string pattern, to be applied to the stringified version of <code>value"
-                    + "</code>."
-                    + ""
-                    + "<p><i>Deprecated behavior:</i> If <code>value</code> is a list or depset, "
-                    + "formatting is applied to each item."),
-        @Param(
-            name = "before_each",
-            type = String.class,
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "<i>Deprecated:</i> Only supported when <code>value</code> is a list, tuple, or "
-                    + "depset. This string will be appended prior to appending each item."),
-        @Param(
-            name = "join_with",
-            type = String.class,
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "<i>Deprecated:</i> Only supported when <code>value</code> is a list, tuple, or "
-                    + "depset. All items will be joined together using this string to form a "
-                    + "single arg to append."),
-        @Param(
-            name = "map_fn",
-            type = StarlarkCallable.class,
-            named = true,
-            positional = false,
-            defaultValue = "None",
-            noneable = true,
-            doc =
-                "<i>Deprecated:</i> Only supported when <code>value</code> is a list, tuple, or "
-                    + "depset. This is a function that transforms the sequence of items into a "
-                    + "list of strings. The sequence of items is given as a positional argument -- "
-                    + "the function must not take any other parameters -- and the returned "
-                    + "list's length must equal the number of items. Use <code>map_each</code> "
-                    + "of <code>add_all</code> or <code>add_joined</code> instead.")
+                    + "</code>.")
       },
       useStarlarkThread = true)
   CommandLineArgsApi addArgument(
-      Object argNameOrValue,
-      Object value,
-      Object format,
-      Object beforeEach,
-      Object joinWith,
-      Object mapFn,
-      StarlarkThread thread)
+      Object argNameOrValue, Object value, Object format, StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "add_all",
       doc =
           "Appends multiple arguments to this command line. For depsets, the items are "
@@ -363,7 +308,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "add_joined",
       doc =
           "Appends an argument to this command line by concatenating together multiple values "
@@ -479,7 +424,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_param_file",
       doc =
           "Spills the args to a params file, replacing them with a pointer to the param file. "
@@ -497,7 +442,10 @@ public interface CommandLineArgsApi extends StarlarkValue {
                 "A format string with a single \"%s\". "
                     + "If the args are spilled to a params file then they are replaced "
                     + "with an argument consisting of this string formatted with "
-                    + "the path of the params file."),
+                    + "the path of the params file."
+                    + "<p>For example, if the args are spilled to a params file \"params.txt\", "
+                    + "then specifying \"--file=%s\" would cause the action command line to "
+                    + "contain \"--file=params.txt\"."),
         @Param(
             name = "use_always",
             type = Boolean.class,
@@ -511,7 +459,7 @@ public interface CommandLineArgsApi extends StarlarkValue {
       })
   CommandLineArgsApi useParamsFile(String paramFileArg, Boolean useAlways) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "set_param_file_format",
       doc = "Sets the format of the param file when written to disk",
       parameters = {

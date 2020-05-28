@@ -81,7 +81,7 @@ public class ConfigAwareRuleClassBuilder {
    * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
    * Starlark module names of fragments instead of their classes.
    */
-  public ConfigAwareRuleClassBuilder requiresHostConfigurationFragmentsBySkylarkModuleName(
+  public ConfigAwareRuleClassBuilder requiresHostConfigurationFragmentsByStarlarkBuiltinName(
       Collection<String> configurationFragmentNames) {
     ruleClassBuilder.requiresConfigurationFragmentsByStarlarkModuleName(
         HostTransition.INSTANCE, configurationFragmentNames);

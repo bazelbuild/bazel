@@ -150,6 +150,7 @@ class DataBindingV2Context implements DataBindingContext {
 
       for (Entry<String, Collection<String>> entry : javaPackagesToLabel.asMap().entrySet()) {
         if (entry.getValue().size() > 1) {
+          String javaPackage = entry.getKey().isEmpty() ? "<default package>" : entry.getKey();
           ruleContext.attributeError(
               "deps",
               String.format(
@@ -159,7 +160,7 @@ class DataBindingV2Context implements DataBindingContext {
                       + "android_library targets are:\n"
                       + "  Java package %s:\n"
                       + "    %s",
-                  entry.getKey(), Joiner.on("\n    ").join(entry.getValue())));
+                  javaPackage, Joiner.on("\n    ").join(entry.getValue())));
         }
       }
     }

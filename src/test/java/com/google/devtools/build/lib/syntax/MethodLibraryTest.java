@@ -16,9 +16,8 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -167,7 +166,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
         .testExpression("getattr('a string', 'not there', None)", Starlark.NONE);
   }
 
-  @SkylarkModule(name = "AStruct", documented = false, doc = "")
+  @StarlarkBuiltin(name = "AStruct", documented = false, doc = "")
   static final class AStruct implements ClassObject, StarlarkValue {
     @Override
     public Object getValue(String name) {
@@ -703,67 +702,5 @@ public final class MethodLibraryTest extends EvaluationTestCase {
     new Scenario()
         .testIfErrorContains(
             "expected string for sequence element 1, got 'int'", "', '.join(['foo', 2])");
-  }
-
-  @Test
-  public void testDepsetItemsKeywordAndPositional() throws Exception {
-    new Scenario("--incompatible_disable_depset_items=false")
-        .testIfErrorContains(
-            "parameter 'items' cannot be specified both positionally and by keyword",
-            "depset([0, 1], 'default', items=[0,1])");
-  }
-
-  @Test
-  public void testDepsetDirectInvalidType() throws Exception {
-    new Scenario()
-        .testIfErrorContains("for direct, got string, want sequence", "depset(direct='hello')");
-  }
-
-  @Test
-  public void testDisableDepsetItems() throws Exception {
-    new Scenario("--incompatible_disable_depset_items")
-        .setUp("x = depset([0])", "y = depset(direct = [1])")
-        .testEval("depset([2, 3], transitive = [x, y]).to_list()", "[0, 1, 2, 3]")
-        .testIfErrorContains(
-            "parameter 'direct' cannot be specified both positionally and by keyword",
-            "depset([0, 1], 'default', direct=[0,1])")
-        .testIfErrorContains(
-            "in call to depset(), parameter 'items' is deprecated and will be removed soon. "
-                + "It may be temporarily re-enabled by setting "
-                + "--incompatible_disable_depset_inputs=false",
-            "depset(items=[0,1])");
-  }
-
-  @Test
-  public void testDepsetDepthLimit() throws Exception {
-    NestedSet.setApplicationDepthLimit(2000);
-    new Scenario()
-        .setUp(
-            "def create_depset(depth):",
-            "  x = depset([0])",
-            "  for i in range(1, depth):",
-            "    x = depset([i], transitive = [x])",
-            "  return x",
-            "too_deep_depset = create_depset(3000)",
-            "fine_depset = create_depset(900)")
-        .testEval("fine_depset.to_list()[0]", "0")
-        .testEval("str(fine_depset)[0:6]", "'depset'")
-        .testIfErrorContains("depset exceeded maximum depth 2000", "print(too_deep_depset)")
-        .testIfErrorContains("depset exceeded maximum depth 2000", "str(too_deep_depset)")
-        .testIfErrorContains("depset exceeded maximum depth 2000", "too_deep_depset.to_list()");
-  }
-
-  @Test
-  public void testDepsetDebugDepth() throws Exception {
-    NestedSet.setApplicationDepthLimit(2000);
-    new Scenario("--debug_depset_depth=true")
-        .setUp(
-            "def create_depset(depth):",
-            "  x = depset([0])",
-            "  for i in range(1, depth):",
-            "    x = depset([i], transitive = [x])",
-            "  return x")
-        .testEval("str(create_depset(900))[0:6]", "'depset'")
-        .testIfErrorContains("depset exceeded maximum depth 2000", "create_depset(3000)");
   }
 }

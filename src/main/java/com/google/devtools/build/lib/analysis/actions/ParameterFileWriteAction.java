@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
@@ -39,10 +41,9 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.Charset;
 
 /** Action to write a parameter file for a {@link CommandLine}. */
-@Immutable // if commandLine and charset are immutable
+@Immutable // if commandLine is immutable
 @AutoCodec
 public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
@@ -50,7 +51,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
   private final CommandLine commandLine;
   private final ParameterFileType type;
-  private final Charset charset;
   private final boolean hasInputArtifactToExpand;
 
   /**
@@ -60,11 +60,10 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    * @param commandLine the contents to be written to the file
    * @param type the type of the file
-   * @param charset the charset of the file
    */
-  public ParameterFileWriteAction(ActionOwner owner, Artifact output, CommandLine commandLine,
-      ParameterFileType type, Charset charset) {
-    this(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, commandLine, type, charset);
+  public ParameterFileWriteAction(
+      ActionOwner owner, Artifact output, CommandLine commandLine, ParameterFileType type) {
+    this(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, commandLine, type);
   }
 
   /**
@@ -76,7 +75,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
    * @param output the Artifact that will be created by executing this Action
    * @param commandLine the contents to be written to the file
    * @param type the type of the file
-   * @param charset the charset of the file
    */
   @AutoCodec.Instantiator
   public ParameterFileWriteAction(
@@ -84,12 +82,10 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       NestedSet<Artifact> inputs,
       Artifact output,
       CommandLine commandLine,
-      ParameterFileType type,
-      Charset charset) {
+      ParameterFileType type) {
     super(owner, inputs, output, false);
     this.commandLine = commandLine;
     this.type = type;
-    this.charset = charset;
     this.hasInputArtifactToExpand = !inputs.isEmpty();
   }
 
@@ -117,12 +113,12 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   @VisibleForTesting
   public String getStringContents() throws CommandLineExpansionException, IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ParameterFile.writeParameterFile(out, getArguments(), type, charset);
-    return new String(out.toByteArray(), charset);
+    ParameterFile.writeParameterFile(out, getArguments(), type, ISO_8859_1);
+    return new String(out.toByteArray(), ISO_8859_1);
   }
 
   @Override
-  public String getSkylarkContent() throws IOException, EvalException {
+  public String getStarlarkContent() throws IOException, EvalException {
     if (hasInputArtifactToExpand) {
       // Tree artifact information isn't available at analysis time.
       return null;
@@ -144,7 +140,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     } catch (CommandLineExpansionException e) {
       throw new UserExecException(e);
     }
-    return new ParamFileWriter(arguments, type, charset);
+    return new ParamFileWriter(arguments, type);
   }
 
   @VisibleForSerialization
@@ -155,17 +151,15 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   private static class ParamFileWriter implements DeterministicWriter {
     private final Iterable<String> arguments;
     private final ParameterFileType type;
-    private final Charset charset;
 
-    ParamFileWriter(Iterable<String> arguments, ParameterFileType type, Charset charset) {
+    ParamFileWriter(Iterable<String> arguments, ParameterFileType type) {
       this.arguments = arguments;
       this.type = type;
-      this.charset = charset;
     }
 
     @Override
     public void writeOutputFile(OutputStream out) throws IOException {
-      ParameterFile.writeParameterFile(out, arguments, type, charset);
+      ParameterFile.writeParameterFile(out, arguments, type, ISO_8859_1);
     }
   }
 
@@ -175,7 +169,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(type.toString());
-    fp.addString(charset.toString());
     commandLine.addToFingerprint(actionKeyContext, fp);
   }
 }

@@ -22,6 +22,8 @@ import java.io.File;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
@@ -42,6 +44,10 @@ public abstract class JarItem {
     return Streams.zip(Stream.generate(() -> jarFile), jarFile.stream(), JarItem::create);
   }
 
+  public static Stream<JarItem> jarItemStream(Path jarFilePath) {
+    return jarItemStream(newJarFile(jarFilePath.toFile()));
+  }
+
   public static JarFile newJarFile(File file) {
     try {
       return new JarFile(file);
@@ -50,7 +56,15 @@ public abstract class JarItem {
     }
   }
 
-  public InputStream getInputStream() {
+  public final Path jarPath() {
+    return Paths.get(jarFile().getName());
+  }
+
+  public final String jarEntryName() {
+    return jarEntry().getName();
+  }
+
+  public final InputStream getInputStream() {
     try {
       return jarFile().getInputStream(jarEntry());
     } catch (IOException e) {

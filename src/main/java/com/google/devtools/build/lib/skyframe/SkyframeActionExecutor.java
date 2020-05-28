@@ -25,6 +25,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Striped;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -437,9 +438,8 @@ public final class SkyframeActionExecutor {
    * pass the returned context to {@link #executeAction}, and any other method that needs to execute
    * tasks related to that action.
    */
-  public ActionExecutionContext getContext(
+  ActionExecutionContext getContext(
       Action action,
-      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ProgressEventBehavior progressEventBehavior,
       Map<Artifact, Collection<Artifact>> expandedInputs,
@@ -466,7 +466,7 @@ public final class SkyframeActionExecutor {
     }
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(metadataProvider, actionFileSystem),
+        createFileCache(metadataHandler, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
@@ -621,7 +621,6 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
-      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ProgressEventBehavior progressEventBehavior,
       Environment env,
@@ -630,7 +629,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            createFileCache(metadataProvider, actionFileSystem),
+            createFileCache(metadataHandler, actionFileSystem),
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,
@@ -706,12 +705,11 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * This method should be called if the builder encounters an error during
-   * execution. This allows the builder to record that it encountered at
-   * least one error, and may make it swallow its output to prevent
-   * spamming the user any further.
+   * This method should be called if the builder encounters an error during execution. This allows
+   * the builder to record that it encountered at least one error, and may make it swallow its
+   * output to prevent spamming the user any further.
    */
-  private void recordExecutionError() {
+  void recordExecutionError() {
     hadExecutionError = true;
   }
 
@@ -1462,10 +1460,13 @@ public final class SkyframeActionExecutor {
   }
 
   /**
-   * For the action 'action' that failed due to 'ex' with the output 'actionOutput', notify the user
-   * about the error. To notify the user, the method first displays the output of the action and
-   * then reports an error via the reporter. The method ensures that the two messages appear next to
-   * each other by locking the outErr object where the output is displayed.
+   * For the action 'action' that failed due to 'message' with the output 'actionOutput', notify the
+   * user about the error. To notify the user, the method first displays the output of the action
+   * and then reports an error via the reporter. The method ensures that the two messages appear
+   * next to each other by locking the outErr object where the output is displayed.
+   *
+   * <p>Should not be called for actions that might have failed because the build is shutting down
+   * after an error, since it prints output unconditionally, and such output should be suppressed.
    *
    * @param message The reason why the action failed
    * @param action The action that failed, must not be null.
@@ -1473,7 +1474,7 @@ public final class SkyframeActionExecutor {
    *     display
    */
   @SuppressWarnings("SynchronizeOnNonFinalField")
-  private void printError(String message, Action action, FileOutErr actionOutput) {
+  void printError(String message, ActionAnalysisMetadata action, FileOutErr actionOutput) {
     synchronized (reporter) {
       if (options.getOptions(KeepGoingOption.class).keepGoing) {
         message = "Couldn't " + describeAction(action) + ": " + message;
@@ -1485,7 +1486,7 @@ public final class SkyframeActionExecutor {
   }
 
   /** Describe an action, for use in error messages. */
-  private static String describeAction(Action action) {
+  private static String describeAction(ActionAnalysisMetadata action) {
     if (action.getOutputs().isEmpty()) {
       return "run " + action.prettyPrint();
     } else if (action.getActionType().isMiddleman()) {

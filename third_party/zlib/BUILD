@@ -1,3 +1,5 @@
+load("//tools/distributions:distribution_rules.bzl", "distrib_cc_library")
+
 licenses(["notice"])  #  BSD/MIT-like license
 
 filegroup(
@@ -8,11 +10,19 @@ filegroup(
 
 filegroup(
     name = "embedded_tools",
-    srcs = glob(["*.c"]) + glob(["*.h"]) + ["BUILD"] + ["LICENSE.txt"],
+    srcs = glob(["*.c"]) + glob(["*.h"]) + [":embedded_build_file"] + ["LICENSE.txt"],
     visibility = ["//visibility:public"],
 )
 
-cc_library(
+genrule(
+    name = "embedded_build_file",
+    srcs = ["BUILD.tools"],
+    # Rename BUILD.bazel instead of BUILD to not be conflict with the BUILD file in source.
+    outs = ["BUILD.bazel"],
+    cmd = "cp $< $@",
+)
+
+distrib_cc_library(
     name = "zlib",
     srcs = glob(["*.c"]),
     hdrs = glob(["*.h"]),
@@ -23,4 +33,5 @@ cc_library(
     ],
     includes = ["."],
     visibility = ["//visibility:public"],
+    enable_distributions = ["debian"],
 )

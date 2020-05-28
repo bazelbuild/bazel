@@ -24,9 +24,6 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -34,25 +31,28 @@ import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Marks configured targets that are able to supply message bundles to their dependents. */
 @AutoCodec
 @Immutable
 public final class MessageBundleInfo extends NativeInfo implements StarlarkValue {
 
-  public static final String SKYLARK_NAME = "MessageBundleInfo";
+  public static final String STARLARK_NAME = "MessageBundleInfo";
 
   /** Provider singleton constant. */
   public static final BuiltinProvider<MessageBundleInfo> PROVIDER = new Provider();
 
   /** Provider class for {@link MessageBundleInfo} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   public static class Provider extends BuiltinProvider<MessageBundleInfo> implements ProviderApi {
     private Provider() {
-      super(SKYLARK_NAME, MessageBundleInfo.class);
+      super(STARLARK_NAME, MessageBundleInfo.class);
     }
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "MessageBundleInfo",
         doc = "The <code>MessageBundleInfo</code> constructor.",
         documented = false,

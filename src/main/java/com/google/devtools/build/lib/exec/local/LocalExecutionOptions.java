@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.exec.local;
 
 import com.google.devtools.common.options.Converters;
+import com.google.devtools.common.options.Converters.StringConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.time.Duration;
+import java.util.List;
 
 /**
  * Local execution options.
@@ -27,15 +29,26 @@ import java.time.Duration;
 public class LocalExecutionOptions extends OptionsBase {
 
   @Option(
-    name = "local_termination_grace_seconds",
-    oldName = "local_sigkill_grace_seconds",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "15",
-    help =
-        "Time to wait between terminating a local process due to timeout and forcefully "
-            + "shutting it down."
-  )
+      name = "process_wrapper_extra_flags",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.EXECUTION},
+      converter = StringConverter.class,
+      allowMultiple = true,
+      help =
+          "Extra flags to pass to the process-wrapper. These are appended to the invocation "
+              + "constructed by Bazel, so this can be used to override any computed defaults.")
+  public List<String> processWrapperExtraFlags;
+
+  @Option(
+      name = "local_termination_grace_seconds",
+      oldName = "local_sigkill_grace_seconds",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "15",
+      help =
+          "Time to wait between terminating a local process due to timeout and forcefully "
+              + "shutting it down.")
   public int localSigkillGraceSeconds;
 
   @Option(

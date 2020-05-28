@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -52,6 +51,7 @@ import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.DebugLoggerConfigurator;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
@@ -308,9 +308,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
     List<String> commandEnvWarnings = new ArrayList<>();
-    CommandEnvironment env = workspace.initCommand(commandAnnotation, options, commandEnvWarnings);
-    // Record the command's starting time for use by the commands themselves.
-    env.recordCommandStartTime(firstContactTime);
+    CommandEnvironment env =
+        workspace.initCommand(
+            commandAnnotation, options, commandEnvWarnings, waitTimeInMs, firstContactTime);
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     // We cannot flip an incompatible flag that expands to other flags, so we do it manually here.
     // If an option is specified explicitly, we give that preference.
@@ -511,7 +511,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
       try (SilentCloseable closeable = Profiler.instance().profile("CommandEnv.beforeCommand")) {
         // Notify the BlazeRuntime, so it can do some initial setup.
-        env.beforeCommand(waitTimeInMs, invocationPolicy);
+        env.beforeCommand(invocationPolicy);
       } catch (AbruptExitException e) {
         logger.atInfo().withCause(e).log("Error before command");
         reporter.handle(Event.error(e.getMessage()));
@@ -547,12 +547,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           String message = "command interrupted while syncing package loading";
           reporter.handle(Event.error(message));
           earlyExitCode =
-              DetailedExitCode.of(
-                  ExitCode.INTERRUPTED,
-                  FailureDetail.newBuilder()
-                      .setMessage(message)
-                      .setInterrupted(Interrupted.newBuilder().setCode(Code.PACKAGE_LOADING_SYNC))
-                      .build());
+              InterruptedFailureDetails.detailedExitCode(message, Code.PACKAGE_LOADING_SYNC);
         } catch (AbruptExitException e) {
           logger.atInfo().withCause(e).log("Error package loading");
           reporter.handle(Event.error(e.getMessage()));
@@ -591,10 +586,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       // Run the command.
       result = command.exec(env, options);
 
-      ExitCode moduleExitCode = env.precompleteCommand(result.getExitCode());
+      DetailedExitCode moduleExitCode = env.precompleteCommand(result.getDetailedExitCode());
       // If Blaze did not suffer an infrastructure failure, check for errors in modules.
       if (!result.getExitCode().isInfrastructureFailure() && moduleExitCode != null) {
-        result = BlazeCommandResult.exitCode(moduleExitCode);
+        result = BlazeCommandResult.detailedExitCode(moduleExitCode);
       }
 
       // Finalize the Starlark CPU profile.
@@ -628,7 +623,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       return result;
     } finally {
       if (!afterCommandCalled) {
-        runtime.afterCommand(env, result);
+        BlazeCommandResult newResult = runtime.afterCommand(env, result);
+        if (!newResult.equals(result)) {
+          logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
+        }
       }
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());

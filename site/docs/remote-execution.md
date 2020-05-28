@@ -24,8 +24,6 @@ to allow for remote execution and remote caching.
 
 To run Bazel with remote execution, you can use one of the following:
 
-<!-- to-do: When we have a public post to link to, include: *  Use [Cloud Build for Bazel](), which is a remote execution service from Google -->
-
 *   Manual
     *   Use the
         [gRPC protocol](https://github.com/bazelbuild/remote-apis)
@@ -36,13 +34,8 @@ To run Bazel with remote execution, you can use one of the following:
     *   [BuildGrid](https://gitlab.com/BuildGrid/buildgrid)
     *   [Scoot](https://github.com/twitter/scoot)
 *   Commercial
-    *   Remote Build Execution, which is a remote execution service from Google.
-        Joining the
-        [RBE Alpha Customers group](https://groups.google.com/forum/#!forum/rbe-alpha-customers)
-        will give you full access to the official documentation.
-        To begin using the service, fill out this
-        [short information form](https://docs.google.com/forms/d/e/1FAIpQLScBai-iQ2tn7RcGcsz3Twjr4yDOeHowrb6-3v5qlgS69GcxbA/viewform).
-    *   [EngFlow Remote Execution](https://www.engflow.com) -- Remote execution and remote caching service. Can be self-hosted or hosted.
+    *   [EngFlow Remote Execution](https://www.engflow.com) -- Remote execution
+        and remote caching service. Can be self-hosted or hosted.
 
 ## Requirements
 

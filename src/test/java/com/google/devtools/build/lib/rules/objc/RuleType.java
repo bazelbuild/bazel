@@ -157,7 +157,7 @@ public abstract class RuleType {
       Scratch scratch, String... checkSpecificAttrs)
       throws IOException {
     String target = target(scratch, packageDir, targetName, checkSpecificAttrs);
-    scratch.file(packageDir + "/BUILD", skylarkLoadPrerequisites() + "\n" + target);
+    scratch.file(packageDir + "/BUILD", starlarkLoadPrerequisites() + "\n" + target);
     return target;
   }
 
@@ -168,7 +168,7 @@ public abstract class RuleType {
    * <p>Subclasses of {@link RuleType} should override this method if using the rule requires
    * Starlark files to be loaded.
    */
-  public String skylarkLoadPrerequisites() {
+  public String starlarkLoadPrerequisites() {
     return "";
   }
 }

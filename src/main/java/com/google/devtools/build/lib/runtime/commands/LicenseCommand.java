@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -44,8 +43,10 @@ public class LicenseCommand implements BlazeCommand {
   private static final ImmutableSet<String> JAVA_LICENSE_FILES =
       ImmutableSet.of("ASSEMBLY_EXCEPTION", "DISCLAIMER", "LICENSE", "THIRD_PARTY_README");
 
+  private static final String BAZEL_LICENSE = "license/LICENSE";
+
   public static boolean isSupported() {
-    return ResourceFileLoader.resourceExists(LicenseCommand.class, "LICENSE");
+    return ResourceFileLoader.resourceExists(LicenseCommand.class, BAZEL_LICENSE);
   }
 
   @Override
@@ -56,7 +57,7 @@ public class LicenseCommand implements BlazeCommand {
     outErr.printOutLn("Licenses of all components included in this binary:\n");
 
     try {
-      outErr.printOutLn(ResourceFileLoader.loadResource(this.getClass(), "LICENSE"));
+      outErr.printOutLn(ResourceFileLoader.loadResource(this.getClass(), BAZEL_LICENSE));
     } catch (IOException e) {
       throw new IllegalStateException(
           "I/O error while trying to print 'LICENSE' resource: " + e.getMessage(), e);
@@ -86,7 +87,7 @@ public class LicenseCommand implements BlazeCommand {
       printJavaLicenseFiles(outErr, bundledJre);
     }
 
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 
   private static void printJavaLicenseFiles(OutErr outErr, Path bundledJdkOrJre) {

@@ -99,7 +99,7 @@ public class JavaProtoLibrary implements RuleConfiguredTargetFactory {
     RuleConfiguredTargetBuilder result =
         new RuleConfiguredTargetBuilder(ruleContext)
             .setFilesToBuild(filesToBuild.build())
-            .addSkylarkTransitiveInfo(
+            .addStarlarkTransitiveInfo(
                 JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
             .addProvider(RunfilesProvider.withData(Runfiles.EMPTY, runfiles))
             .addOutputGroup(

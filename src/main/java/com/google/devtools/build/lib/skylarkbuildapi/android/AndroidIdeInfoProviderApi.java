@@ -15,25 +15,25 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.OutputJarApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Configured targets implementing this provider can contribute Android-specific info to IDE to the
  * compilation.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidIdeInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -47,7 +47,7 @@ public interface AndroidIdeInfoProviderApi<
   String NAME = "AndroidIdeInfo";
 
   /** Returns the Java package. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "java_package",
       structField = true,
       doc = "",
@@ -57,7 +57,7 @@ public interface AndroidIdeInfoProviderApi<
   String getJavaPackage();
 
   /** Returns the direct AndroidManifest. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "manifest",
       structField = true,
       doc = "",
@@ -67,7 +67,7 @@ public interface AndroidIdeInfoProviderApi<
   FileT getManifest();
 
   /** Returns the direct generated AndroidManifest. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "generated_manifest",
       structField = true,
       doc = "",
@@ -76,7 +76,7 @@ public interface AndroidIdeInfoProviderApi<
   @Nullable
   FileT getGeneratedManifest();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "idl_import_root",
       structField = true,
       doc = "",
@@ -86,18 +86,18 @@ public interface AndroidIdeInfoProviderApi<
   String getIdlImportRoot();
 
   /** A list of sources from the "idl_srcs" attribute. */
-  @SkylarkCallable(name = "idl_srcs", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "idl_srcs", structField = true, doc = "", documented = false)
   ImmutableCollection<FileT> getIdlSrcs();
 
   /** A list of java files generated from the "idl_srcs" attribute. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "idl_generated_java_files",
       structField = true,
       doc = "",
       documented = false)
   ImmutableCollection<FileT> getIdlGeneratedJavaFiles();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "idl_source_jar",
       structField = true,
       doc = "",
@@ -106,7 +106,7 @@ public interface AndroidIdeInfoProviderApi<
   @Nullable
   FileT getIdlSourceJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "idl_class_jar",
       structField = true,
       doc = "",
@@ -119,14 +119,14 @@ public interface AndroidIdeInfoProviderApi<
    * Returns true if the target defined Android resources. Exposes {@link
    * LocalResourceContainer#definesAndroidResources(AttributeMap)}
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "defines_android_resources",
       structField = true,
       doc = "",
       documented = false)
   boolean definesAndroidResources();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_jar",
       structField = true,
       doc = "",
@@ -135,7 +135,7 @@ public interface AndroidIdeInfoProviderApi<
   @Nullable
   OutputJarT getResourceJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_apk",
       structField = true,
       doc = "",
@@ -145,7 +145,7 @@ public interface AndroidIdeInfoProviderApi<
   FileT getResourceApk();
 
   /** Returns the direct debug key signed apk, if there is one. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "signed_apk",
       structField = true,
       doc = "",
@@ -154,7 +154,7 @@ public interface AndroidIdeInfoProviderApi<
   @Nullable
   FileT getSignedApk();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "aar",
       structField = true,
       doc = "",
@@ -164,15 +164,15 @@ public interface AndroidIdeInfoProviderApi<
   FileT getAar();
 
   /** A list of the APKs related to the app under test, if any. */
-  @SkylarkCallable(name = "apks_under_test", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "apks_under_test", structField = true, doc = "", documented = false)
   ImmutableCollection<FileT> getApksUnderTest();
 
   /** A map, keyed on architecture, of the native libs for the app, if any. */
-  @SkylarkCallable(name = "native_libs", structField = true, doc = "", documented = false)
-  ImmutableMap<String, Depset> getNativeLibsSkylark();
+  @StarlarkMethod(name = "native_libs", structField = true, doc = "", documented = false)
+  ImmutableMap<String, Depset> getNativeLibsStarlark();
 
   /** The provider implementing this can construct the AndroidIdeInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -181,7 +181,7 @@ public interface AndroidIdeInfoProviderApi<
   interface Provider<FileT extends FileApi, OutputJarT extends OutputJarApi<FileT>>
       extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidIdeInfo</code> constructor.",
         documented = false,
@@ -294,7 +294,7 @@ public interface AndroidIdeInfoProviderApi<
               generic1 = String.class)
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidIdeInfoProviderApi.class)
+    @StarlarkConstructor(objectType = AndroidIdeInfoProviderApi.class)
     AndroidIdeInfoProviderApi<FileT, OutputJarT> createInfo(
         /*noneable*/ Object javaPackage,
         /*noneable*/ Object manifest,

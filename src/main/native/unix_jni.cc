@@ -802,6 +802,18 @@ static DIR* ForceOpendir(JNIEnv* env, const std::vector<std::string>& dir_path,
   static const int flags = O_RDONLY | O_NOFOLLOW | PORTABLE_O_DIRECTORY;
   int fd = openat(dir_fd, entry, flags);
   if (fd == -1) {
+    // If dir_fd is a readable but non-executable directory containing entry, we
+    // could have obtained entry by readdir()-ing, but any attempt to open or
+    // stat the entry would fail with EACCESS. In this case, we need to fix the
+    // permissions on dir_fd (which we can do only if it's a "real" file
+    // descriptor, not AT_FDCWD used as the starting point of DeleteTreesBelow
+    // recursion).
+    if (errno == EACCES && dir_fd != AT_FDCWD) {
+      if (fchmod(dir_fd, 0700) == -1) {
+        PostDeleteTreesBelowException(env, errno, "fchmod", dir_path, NULL);
+        return NULL;
+      }
+    }
     if (fchmodat(dir_fd, entry, 0700, 0) == -1) {
       PostDeleteTreesBelowException(env, errno, "fchmodat", dir_path, entry);
       return NULL;

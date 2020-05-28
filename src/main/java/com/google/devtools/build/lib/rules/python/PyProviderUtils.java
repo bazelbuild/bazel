@@ -225,7 +225,7 @@ public class PyProviderUtils {
         RuleConfiguredTargetBuilder targetBuilder) {
       targetBuilder.addNativeDeclaredProvider(modernBuilder.build());
       if (createLegacy) {
-        targetBuilder.addSkylarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
+        targetBuilder.addStarlarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
       }
       return targetBuilder;
     }

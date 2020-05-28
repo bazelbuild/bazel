@@ -125,6 +125,36 @@ public class WorkerExecRootTest {
   }
 
   @Test
+  public void createsOutputDirs() throws Exception {
+    WorkerExecRoot workerExecRoot =
+        new WorkerExecRoot(
+            execRoot,
+            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            SandboxOutputs.create(
+                ImmutableSet.of(
+                    PathFragment.create("dir/foo/bar_kt.jar"),
+                    PathFragment.create("dir/foo/bar_kt.jdeps"),
+                    PathFragment.create("dir/foo/bar_kt-sources.jar")),
+                ImmutableSet.of(
+                    PathFragment.create("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_sourcegenfiles"),
+                    PathFragment.create("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_classes"),
+                    PathFragment.create("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_temp"),
+                    PathFragment.create("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_generated_classes"))),
+            ImmutableSet.of());
+
+    workerExecRoot.createFileSystem();
+
+    assertThat(execRoot.getRelative("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_sourcegenfiles").exists())
+        .isTrue();
+    assertThat(execRoot.getRelative("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_classes").exists())
+        .isTrue();
+    assertThat(execRoot.getRelative("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_temp").exists()).isTrue();
+    assertThat(
+            execRoot.getRelative("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_generated_classes").exists())
+        .isTrue();
+  }
+
+  @Test
   public void workspaceFilesAreNotDeleted() throws Exception {
     // We want to check that `WorkerExecRoot` deletes pre-existing symlinks if they're not in the
     // `SandboxInputs`, but it does not delete the files that the symlinks point to (i.e., the files

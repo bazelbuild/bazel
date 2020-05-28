@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestConstants.InternalTestExecutionMode;
@@ -46,6 +46,7 @@ import com.google.devtools.common.options.OptionsParser;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -544,11 +545,14 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     public static final OptionDefinition ALSO_IRRELEVANT_OPTION =
         OptionsParser.getOptionDefinitionByName(DiffResetOptions.class, "also_irrelevant");
     public static final PatchTransition CLEAR_IRRELEVANT =
-        (options, eventHandler) -> {
-          BuildOptions cloned = options.clone();
-          cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
-          cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
-          return cloned;
+        new PatchTransition() {
+          @Override
+          public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+            BuildOptions cloned = options.clone();
+            cloned.get(DiffResetOptions.class).probablyIrrelevantOption = "(cleared)";
+            cloned.get(DiffResetOptions.class).alsoIrrelevantOption = "(cleared)";
+            return cloned;
+          }
         };
 
     @Option(
@@ -599,7 +603,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
   }
 
-  @SkylarkModule(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
+  @StarlarkBuiltin(name = "test_diff_fragment", doc = "fragment for testing differy fragments")
   private static final class DiffResetFragment extends Fragment implements StarlarkValue {}
 
   private static final class DiffResetFactory implements ConfigurationFragmentFactory {

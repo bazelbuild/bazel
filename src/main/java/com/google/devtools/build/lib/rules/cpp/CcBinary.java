@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -71,9 +72,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -89,6 +87,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A ConfiguredTarget for <code>cc_binary</code> rules.
@@ -131,13 +131,13 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
    *     only supported to be used in existing rules (PyBinary, JavaBinary, JavaTest).
    */
   @Deprecated()
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "CcLauncherInfo",
       documented = false,
       doc =
           "Provider that signals that rules that use launchers can use this target as "
               + "the launcher.",
-      category = SkylarkModuleCategory.TOP_LEVEL_TYPE)
+      category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE)
   public static class CcLauncherInfo extends NativeInfo {
     private static final String RESTRICTION_ERROR_MESSAGE =
         "This provider is restricted to native.java_binary, native.py_binary and native.java_test. "
@@ -294,7 +294,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("dynamic_deps")) {
       if (!ruleContext
           .getAnalysisEnvironment()
-          .getSkylarkSemantics()
+          .getStarlarkSemantics()
           .experimentalCcSharedLibrary()) {
         ruleContext.ruleError(
             "The attribute 'dynamic_deps' can only be used with the flag"
@@ -332,24 +332,23 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     // if cc_binary includes "linkshared=1", then gcc will be invoked with
     // linkopt "-shared", which causes the result of linking to be a shared
-    // library. In this case, the name of the executable target should end
-    // in ".so" or "dylib" or ".dll".
-    Artifact binary;
-    PathFragment binaryPath = PathFragment.create(ruleContext.getTarget().getName());
-    if (!isLinkShared(ruleContext)) {
+    // library.
+    final Artifact binary;
+
+    // For linkshared=1 we used to force users to specify the file extension manually, as part of
+    // the target name.
+    // This is no longer necessary, the toolchain can figure out the correct file extension.
+    String targetName = ruleContext.getTarget().getName();
+    boolean hasLegacyLinkSharedName =
+        isLinkShared(ruleContext)
+            && (CppFileTypes.SHARED_LIBRARY.matches(targetName)
+                || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(targetName));
+    if (hasLegacyLinkSharedName) {
+      binary = ruleContext.getBinArtifact(PathFragment.create(targetName));
+    } else {
       binary =
           CppHelper.getLinkedArtifact(
-              ruleContext, ccToolchain, ruleContext.getConfiguration(), LinkTargetType.EXECUTABLE);
-    } else {
-      binary = ruleContext.getBinArtifact(binaryPath);
-    }
-
-    if (isLinkShared(ruleContext)
-        && !CppFileTypes.SHARED_LIBRARY.matches(binary.getFilename())
-        && !CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(binary.getFilename())) {
-      ruleContext.attributeError("linkshared", "'linkshared' used in non-shared library");
-      fillInRequiredProviders(ruleBuilder, ruleContext);
-      return;
+              ruleContext, ccToolchain, ruleContext.getConfiguration(), linkType);
     }
 
     LinkingMode linkingMode = getLinkStaticness(ruleContext, cppConfiguration);
@@ -1321,7 +1320,8 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Map<String, CcLinkingContext.LinkerInput> exportsMap = new HashMap<>();
     for (CcSharedLibraryInfo entry : mergedCcSharedLibraryInfos) {
       for (String export : entry.getExports()) {
-        if (exportsMap.containsKey(export)) {
+        if (exportsMap.containsKey(export)
+            && !entry.getLinkerInput().getOwner().equals(exportsMap.get(export).getOwner())) {
           ruleContext.ruleError(
               "Two shared libraries in dependencies export the same symbols. Both "
                   + exportsMap

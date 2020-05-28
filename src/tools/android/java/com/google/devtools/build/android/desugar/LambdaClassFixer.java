@@ -71,7 +71,7 @@ class LambdaClassFixer extends ClassVisitor {
       ImmutableSet<String> interfaceLambdaMethods,
       boolean allowDefaultMethods,
       boolean copyBridgeMethods) {
-    super(Opcodes.ASM7, dest);
+    super(Opcodes.ASM8, dest);
     checkArgument(!allowDefaultMethods || interfaceLambdaMethods.isEmpty());
     checkArgument(allowDefaultMethods || copyBridgeMethods);
     this.lambdaInfo = lambdaInfo;
@@ -240,7 +240,7 @@ class LambdaClassFixer extends ClassVisitor {
   /** Rewriter for methods in generated lambda classes. */
   private class LambdaClassMethodRewriter extends MethodVisitor {
     public LambdaClassMethodRewriter(MethodVisitor dest) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
     }
 
     @Override
@@ -300,7 +300,7 @@ class LambdaClassFixer extends ClassVisitor {
   private static class LambdaClassInvokeSpecialRewriter extends MethodVisitor {
 
     public LambdaClassInvokeSpecialRewriter(MethodVisitor dest) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
     }
 
     @Override
@@ -325,7 +325,7 @@ class LambdaClassFixer extends ClassVisitor {
 
     public CopyBridgeMethods() {
       // No delegate visitor; instead we'll add methods to the outer class's delegate where needed
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
     }
 
     @Override
@@ -370,7 +370,7 @@ class LambdaClassFixer extends ClassVisitor {
 
     public CopyOneMethod(String methodName) {
       // No delegate visitor; instead we'll add methods to the outer class's delegate where needed
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       checkState(!allowDefaultMethods, "Couldn't copy interface lambda bodies");
       this.methodName = methodName;
     }
@@ -415,7 +415,7 @@ class LambdaClassFixer extends ClassVisitor {
    */
   private static class AvoidJacocoInit extends MethodVisitor {
     public AvoidJacocoInit(MethodVisitor dest) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
     }
 
     @Override
@@ -444,7 +444,7 @@ class LambdaClassFixer extends ClassVisitor {
         String desc,
         String signature,
         String[] exceptions) {
-      super(Opcodes.ASM7, access, name, desc, signature, exceptions);
+      super(Opcodes.ASM8, access, name, desc, signature, exceptions);
       this.dest = dest;
       this.lambdaInfo = lambdaInfo;
       this.classLoader = classLoader;

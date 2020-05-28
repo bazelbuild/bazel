@@ -17,10 +17,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 
-/**
- * A {@link com/google/devtools/build/lib/skyframe/ConfiguredTargetValue.java used only in javadoc:
- * com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}.
- */
+/** A {@link com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}. */
 public interface ConfiguredTargetValue extends ConfiguredObjectValue {
 
   /** Returns the configured target for this value. */

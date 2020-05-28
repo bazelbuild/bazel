@@ -322,7 +322,6 @@ Now test your freshly built binary:
 
 ```
 ./bazel-bin/src/main/java/com/example/cmdline/runner
-
 ```
 
 You've now modified the project to build as two packages, each containing one
@@ -386,9 +385,8 @@ As you can see, `runner.jar` contains `Runner.class`, but not its dependency,
 `Greeting.class`. The `runner` script that Bazel generates adds `greeter.jar`
 to the classpath, so if you leave it like this, it will run locally, but it
 won't run standalone on another machine. Fortunately, the `java_binary` rule
-allows you to build a self-contained, deployable binary. To build it, add the
-`_deploy.jar` suffix to the file name when building `runner.jar`
-(<target-name>_deploy.jar):
+allows you to build a self-contained, deployable binary. To build it, append
+`_deploy.jar` to the target name:
 
 ```
 bazel build //src/main/java/com/example/cmdline:runner_deploy.jar

@@ -113,7 +113,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
             CcInfo.builder()
                 .setCcCompilationContext(objcProvider.getCcCompilationContext())
                 .build())
-        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
+        .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .build();
   }
 

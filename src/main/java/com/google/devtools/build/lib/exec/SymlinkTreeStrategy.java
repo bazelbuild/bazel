@@ -125,7 +125,9 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         }
       } catch (ExecException e) {
         throw e.toActionExecutionException(
-            action.getProgressMessage(), actionExecutionContext.getVerboseFailures(), action);
+            action.getProgressMessage(),
+            actionExecutionContext.showVerboseFailures(action.getOwner().getLabel()),
+            action);
       }
     }
   }
@@ -140,8 +142,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         .getRunfiles()
         .getRunfilesInputs(
             action.getInputManifest() == null ? actionExecutionContext.getEventHandler() : null,
-            action.getOwner().getLocation(),
-            actionExecutionContext.getPathResolver());
+            action.getOwner().getLocation());
   }
 
   private static void createOutput(

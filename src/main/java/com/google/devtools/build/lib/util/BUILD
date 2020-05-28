@@ -179,6 +179,11 @@ java_library(
 )
 
 java_library(
+    name = "TestType",
+    srcs = ["TestType.java"],
+)
+
+java_library(
     name = "resource_usage",
     srcs = [
         "ResourceUsage.java",
@@ -270,5 +275,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "interrupted_failure_details",
+    srcs = ["InterruptedFailureDetails.java"],
+    deps = [
+        ":abrupt_exit_exception",
+        ":detailed_exit_code",
+        ":exit_code",
+        "//src/main/protobuf:failure_details_java_proto",
     ],
 )

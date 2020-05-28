@@ -84,7 +84,8 @@ public class NativePosixFilesTest {
     assumeXattrsSupported();
 
     String myfile = Files.createTempFile("getxattrtest", null).toString();
-    Runtime.getRuntime().exec("xattr -w foo bar " + myfile).waitFor();
+    assertThat(new ProcessBuilder("xattr", "-w", "foo", "bar", myfile).start().waitFor())
+        .isEqualTo(0);
 
     assertThat(new String(NativePosixFiles.getxattr(myfile, "foo"), UTF_8)).isEqualTo("bar");
     assertThat(new String(NativePosixFiles.lgetxattr(myfile, "foo"), UTF_8)).isEqualTo("bar");

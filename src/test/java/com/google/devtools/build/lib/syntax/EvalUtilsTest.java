@@ -19,10 +19,10 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,7 +43,7 @@ public final class EvalUtilsTest extends EvaluationTestCase {
   }
 
   /** MockClassA */
-  @SkylarkModule(name = "MockClassA", doc = "MockClassA")
+  @StarlarkBuiltin(name = "MockClassA", doc = "MockClassA")
   public static class MockClassA implements StarlarkValue {}
 
   /** MockClassB */
@@ -52,14 +52,14 @@ public final class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testDataTypeNames() throws Exception {
-    assertThat(EvalUtils.getDataTypeName("foo")).isEqualTo("string");
-    assertThat(EvalUtils.getDataTypeName(3)).isEqualTo("int");
-    assertThat(EvalUtils.getDataTypeName(Tuple.of(1, 2, 3))).isEqualTo("tuple");
-    assertThat(EvalUtils.getDataTypeName(makeList(null))).isEqualTo("list");
-    assertThat(EvalUtils.getDataTypeName(makeDict(null))).isEqualTo("dict");
-    assertThat(EvalUtils.getDataTypeName(Starlark.NONE)).isEqualTo("NoneType");
-    assertThat(EvalUtils.getDataTypeName(new MockClassA())).isEqualTo("MockClassA");
-    assertThat(EvalUtils.getDataTypeName(new MockClassB())).isEqualTo("MockClassA");
+    assertThat(Starlark.type("foo")).isEqualTo("string");
+    assertThat(Starlark.type(3)).isEqualTo("int");
+    assertThat(Starlark.type(Tuple.of(1, 2, 3))).isEqualTo("tuple");
+    assertThat(Starlark.type(makeList(null))).isEqualTo("list");
+    assertThat(Starlark.type(makeDict(null))).isEqualTo("dict");
+    assertThat(Starlark.type(Starlark.NONE)).isEqualTo("NoneType");
+    assertThat(Starlark.type(new MockClassA())).isEqualTo("MockClassA");
+    assertThat(Starlark.type(new MockClassB())).isEqualTo("MockClassA");
   }
 
   @Test
@@ -110,7 +110,8 @@ public final class EvalUtilsTest extends EvaluationTestCase {
           Object first = objects[i];
           Object second = objects[j];
           assertThrows(
-              ComparisonException.class, () -> EvalUtils.SKYLARK_COMPARATOR.compare(first, second));
+              ComparisonException.class,
+              () -> EvalUtils.STARLARK_COMPARATOR.compare(first, second));
         }
       }
     }
@@ -120,7 +121,7 @@ public final class EvalUtilsTest extends EvaluationTestCase {
   public void testComparatorWithNones() throws Exception {
     assertThrows(
         ComparisonException.class,
-        () -> EvalUtils.SKYLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
+        () -> EvalUtils.STARLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
   }
 
   @Test

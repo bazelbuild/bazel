@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.base.Supplier;
 import com.google.devtools.build.lib.actions.ActionGraph;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
+import com.google.devtools.build.lib.util.AbruptExitException;
 
 /**
  * Type that can get informed about executor lifecycle events.
@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.analysis.ArtifactsToOwnerLabels;
 public interface ExecutorLifecycleListener {
 
   /** Handles executor creation. */
-  void executorCreated() throws ExecutorInitException;
+  void executorCreated() throws AbruptExitException;
 
   /**
    * Handles the start of the execution phase.
@@ -43,7 +43,7 @@ public interface ExecutorLifecycleListener {
    */
   void executionPhaseStarting(
       ActionGraph actionGraph, Supplier<ArtifactsToOwnerLabels> topLevelArtifactsToOwnerLabels)
-      throws ExecutorInitException, InterruptedException;
+      throws AbruptExitException, InterruptedException;
 
   /** Handles the end of the execution phase. */
   void executionPhaseEnding();

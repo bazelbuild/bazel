@@ -36,12 +36,12 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
     implements AppleExecutableBinaryApi {
 
   /** Starlark name for the AppleExecutableBinaryInfo. */
-  public static final String SKYLARK_NAME = "AppleExecutableBinary";
+  public static final String STARLARK_NAME = "AppleExecutableBinary";
 
   /** Starlark constructor and identifier for AppleExecutableBinaryInfo. */
-  public static final NativeProvider<AppleExecutableBinaryInfo> SKYLARK_CONSTRUCTOR =
+  public static final NativeProvider<AppleExecutableBinaryInfo> STARLARK_CONSTRUCTOR =
       new NativeProvider<AppleExecutableBinaryInfo>(
-          AppleExecutableBinaryInfo.class, SKYLARK_NAME) {};
+          AppleExecutableBinaryInfo.class, STARLARK_NAME) {};
 
   private final Artifact appleExecutableBinary;
   private final ObjcProvider depsObjcProvider;
@@ -52,7 +52,7 @@ public final class AppleExecutableBinaryInfo extends NativeInfo
    */
   public AppleExecutableBinaryInfo(Artifact appleExecutableBinary,
       ObjcProvider depsObjcProvider) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.appleExecutableBinary = appleExecutableBinary;
     this.depsObjcProvider = depsObjcProvider;
   }

@@ -34,7 +34,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class ProtoInfoStarlarkApiTest extends BuildViewTestCase /*SkylarkTestCase*/ {
+public class ProtoInfoStarlarkApiTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {

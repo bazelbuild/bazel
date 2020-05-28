@@ -1407,8 +1407,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromDefault() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1429,7 +1427,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromCommandLine() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
 
     scratch.file(
@@ -1456,8 +1453,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void buildsettings_convertedType() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1478,7 +1473,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_doesntMatch() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
 
     scratch.file(
@@ -1501,8 +1495,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_badType() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1526,8 +1518,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void notBuildSettingOrFeatureFlag() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
@@ -1552,7 +1542,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsMatch_featureFlagsMatch() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1582,7 +1571,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsMatch_featureFlagsDontMatch() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1612,7 +1600,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsDontMatch_featureFlagsMatch() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1965,5 +1952,66 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:matches_one").matches()).isTrue();
     assertThat(getConfigMatchingProvider("//test:matches_two").matches()).isTrue();
     assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+  }
+
+  @Test
+  public void canOnlyMatchSingleValueInMultiValueFlags() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_list_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string_list(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_list_flag')",
+        "string_list_flag(name = 'gouda', build_setting_default = ['smoked'])",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':gouda': 'smoked,fresh',",
+        "    },",
+        ")",
+        "filegroup(",
+        "  name = 'fg',",
+        "  srcs = select({",
+        "      ':match': []",
+        "  }),",
+        ")");
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertThat(getConfiguredTarget("//test:fg")).isNull();
+    assertContainsEvent(
+        "\"smoked,fresh\" not a valid value for flag //test:gouda. "
+            + "Only single, exact values are allowed");
+  }
+
+  @Test
+  public void singleValueThatLooksLikeMultiValueIsOkay() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "string_flag(name = 'gouda', build_setting_default = 'smoked,fresh')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':gouda': 'smoked,fresh',",
+        "    },",
+        ")",
+        "filegroup(",
+        "  name = 'fg',",
+        "  srcs = select({",
+        "      ':match': []",
+        "  }),",
+        ")");
+    assertThat(getConfiguredTarget("//test:fg")).isNotNull();
+    assertNoEvents();
   }
 }

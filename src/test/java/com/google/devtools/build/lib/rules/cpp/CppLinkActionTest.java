@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -87,8 +86,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
           }
 
           @Override
-          public StarlarkSemantics getSkylarkSemantics() {
-            return StarlarkSemantics.DEFAULT_SEMANTICS;
+          public StarlarkSemantics getStarlarkSemantics() {
+            return StarlarkSemantics.DEFAULT;
           }
 
           @Override
@@ -237,13 +236,13 @@ public class CppLinkActionTest extends BuildViewTestCase {
         "x/BUILD",
         "cc_binary(",
         "  name = 'foo',",
-        "  srcs = ['some-dir/bar.so', 'some-other-dir/qux.so'],",
+        "  srcs = ['some-dir/libbar.so', 'some-other-dir/qux.so'],",
         "  linkopts = [",
         "    '-ldl',",
         "    '-lutil',",
         "  ],",
         ")");
-    scratch.file("x/some-dir/bar.so");
+    scratch.file("x/some-dir/libbar.so");
     scratch.file("x/some-other-dir/qux.so");
 
     ConfiguredTarget configuredTarget = getConfiguredTarget("//x:foo");
@@ -254,7 +253,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
     assertThat(Joiner.on(" ").join(arguments))
         .matches(
             ".* -L[^ ]*some-dir(?= ).* -L[^ ]*some-other-dir(?= ).* "
-                + "-lbar -lqux(?= ).* -ldl -lutil .*");
+                + "-lbar -l:qux.so(?= ).* -ldl -lutil .*");
     assertThat(Joiner.on(" ").join(arguments))
         .matches(".* -Wl,-rpath[^ ]*some-dir(?= ).* -Wl,-rpath[^ ]*some-other-dir .*");
   }
@@ -888,11 +887,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
     FileSystem fs = scratch.getFileSystem();
     Path execRoot = fs.getPath(TestUtils.tmpDir());
     PathFragment execPath = PathFragment.create("out").getRelative(name);
-    return new SpecialArtifact(
-        ArtifactRoot.asDerivedRoot(execRoot, "out"),
-        execPath,
-        ActionsTestUtil.NULL_ARTIFACT_OWNER,
-        SpecialArtifactType.TREE);
+    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        ArtifactRoot.asDerivedRoot(execRoot, "out"), execPath);
   }
 
   private void verifyArguments(
@@ -909,12 +905,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         new ArtifactExpander() {
@@ -964,12 +956,8 @@ public class CppLinkActionTest extends BuildViewTestCase {
 
     SpecialArtifact testTreeArtifact = createTreeArtifact("library_directory");
 
-    TreeFileArtifact library0 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            testTreeArtifact, "library0.o");
-    TreeFileArtifact library1 =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            testTreeArtifact, "library1.o");
+    TreeFileArtifact library0 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library0.o");
+    TreeFileArtifact library1 = TreeFileArtifact.createTreeOutput(testTreeArtifact, "library1.o");
 
     ArtifactExpander expander =
         (artifact, output) -> {
