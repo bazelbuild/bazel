@@ -116,44 +116,10 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     return String.format("%s %s", label, configurationKey);
   }
 
-  public static ConfiguredTargetKey of(
-      ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
-    return builder()
-        .setConfiguredTarget(configuredTarget)
-        .setConfiguration(buildConfiguration)
-        .build();
-  }
-
-  public static ConfiguredTargetKey of(
-      ConfiguredTarget configuredTarget,
-      BuildConfigurationValue.Key configurationKey,
-      boolean unused) {
-    return builder()
-        .setConfiguredTarget(configuredTarget)
-        .setConfigurationKey(configurationKey)
-        .build();
-  }
-
-  public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
-    return builder().setLabel(label).setConfiguration(configuration).build();
-  }
-
-  public static ConfiguredTargetKey of(
-      Label label, @Nullable BuildConfigurationValue.Key configurationKey, boolean unused) {
-    return builder().setLabel(label).setConfigurationKey(configurationKey).build();
-  }
-
   @AutoCodec.Instantiator
-  public static ConfiguredTargetKey of(
+  static ConfiguredTargetKey create(
       Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
     return builder().setLabel(label).setConfigurationKey(configurationKey).build();
-  }
-
-  public static ConfiguredTargetKey inTargetConfig(ConfiguredTarget configuredTarget) {
-    return builder()
-        .setConfiguredTarget(configuredTarget)
-        .setConfigurationKey(configuredTarget.getConfigurationKey())
-        .build();
   }
 
   /** Returns a new {@link Builder} to create instances of {@link ConfiguredTargetKey}. */
