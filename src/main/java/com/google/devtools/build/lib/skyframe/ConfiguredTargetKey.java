@@ -42,23 +42,23 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     this.configurationKey = configurationKey;
   }
 
+  // TODO(jcater): Remove as part of converting to Builders.
   public static ConfiguredTargetKey of(
       ConfiguredTarget configuredTarget, BuildConfiguration buildConfiguration) {
     return of(configuredTarget.getOriginalLabel(), buildConfiguration);
   }
 
+  // TODO(jcater): Remove as part of converting to Builders.
   public static ConfiguredTargetKey of(
       ConfiguredTarget configuredTarget,
       BuildConfigurationValue.Key configurationKey,
-      boolean isHostConfiguration) {
-    return of(configuredTarget.getOriginalLabel(), configurationKey, isHostConfiguration);
+      boolean ignored) {
+    return of(configuredTarget.getOriginalLabel(), configurationKey);
   }
 
+  // TODO(jcater): Remove as part of converting to Builders.
   public static ConfiguredTargetKey inTargetConfig(ConfiguredTarget configuredTarget) {
-    return of(
-        configuredTarget.getOriginalLabel(),
-        configuredTarget.getConfigurationKey(),
-        /*isHostConfiguration=*/ false);
+    return of(configuredTarget.getOriginalLabel(), configuredTarget.getConfigurationKey());
   }
 
   /**
@@ -66,26 +66,25 @@ public class ConfiguredTargetKey extends ActionLookupKey {
    * not {@code O(edges between configured targets)}.
    */
   private static final Interner<ConfiguredTargetKey> interner = BlazeInterners.newWeakInterner();
-  private static final Interner<HostConfiguredTargetKey> hostInterner =
-      BlazeInterners.newWeakInterner();
 
   public static ConfiguredTargetKey of(Label label, @Nullable BuildConfiguration configuration) {
-    KeyAndHost keyAndHost = keyFromConfiguration(configuration);
-    return of(label, keyAndHost.key, keyAndHost.isHost);
+    return of(
+        label, configuration == null ? null : BuildConfigurationValue.key(configuration), false);
+  }
+
+  // TODO(jcater): Remove as part of converting to Builders.
+  public static ConfiguredTargetKey of(
+      Label label, @Nullable BuildConfigurationValue.Key configurationKey, boolean ignored) {
+    return of(label, configurationKey);
   }
 
   @AutoCodec.Instantiator
   public static ConfiguredTargetKey of(
-      Label label,
-      @Nullable BuildConfigurationValue.Key configurationKey,
-      boolean isHostConfiguration) {
-    if (isHostConfiguration) {
-      return hostInterner.intern(new HostConfiguredTargetKey(label, configurationKey));
-    } else {
-      return interner.intern(new ConfiguredTargetKey(label, configurationKey));
-    }
+      Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
+    return interner.intern(new ConfiguredTargetKey(label, configurationKey));
   }
 
+  // TODO(katre): Remove this.
   static KeyAndHost keyFromConfiguration(@Nullable BuildConfiguration configuration) {
     return configuration == null
         ? KeyAndHost.NULL_INSTANCE
@@ -136,7 +135,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
 
   private int computeHashCode() {
     int configVal = configurationKey == null ? 79 : configurationKey.hashCode();
-    return 31 * label.hashCode() + configVal + (isHostConfiguration() ? 41 : 0);
+    return 31 * label.hashCode() + configVal;
   }
 
   @Override
@@ -151,37 +150,20 @@ public class ConfiguredTargetKey extends ActionLookupKey {
       return false;
     }
     ConfiguredTargetKey other = (ConfiguredTargetKey) obj;
-    return this.isHostConfiguration() == other.isHostConfiguration()
-        && Objects.equals(label, other.label)
+    return Objects.equals(label, other.label)
         && Objects.equals(configurationKey, other.configurationKey);
-  }
-
-  public boolean isHostConfiguration() {
-    return false;
   }
 
   public String prettyPrint() {
     if (label == null) {
       return "null";
     }
-    return isHostConfiguration() ? (label + " (host)") : label.toString();
+    return label.toString();
   }
 
   @Override
   public String toString() {
-    return String.format("%s %s %s", label, configurationKey, isHostConfiguration());
-  }
-
-  static class HostConfiguredTargetKey extends ConfiguredTargetKey {
-    private HostConfiguredTargetKey(
-        Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
-      super(label, configurationKey);
-    }
-
-    @Override
-    public boolean isHostConfiguration() {
-      return true;
-    }
+    return String.format("%s %s", label, configurationKey);
   }
 
   /**
