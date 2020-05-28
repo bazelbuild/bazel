@@ -56,10 +56,11 @@ def run_bazel_in_client(args: List[str]) -> Tuple[int, str, str]:
 class BazelApi():
   """API that accepts injectable Bazel invocation logic."""
 
-  def __init__(self, run_bazel: Callable[List[str]]=run_bazel_in_client):
+  def __init__(self, run_bazel: Callable[List[str]] = run_bazel_in_client):
     self.run_bazel = run_bazel
 
-  def cquery(self, args: List[str]) -> Tuple[bool, str, Tuple[ConfiguredTarget]]:
+  def cquery(self, args: List[str]) -> Tuple[
+      bool, str, Tuple[ConfiguredTarget]]:
     """Calls cquery with the given arguments.
 
     Args:
@@ -115,6 +116,7 @@ class BazelApi():
     }
     return Configuration(fragments, options)
 
+
 # TODO(gregce): have cquery --output=jsonproto support --show_config_fragments
 # so we can replace all this regex parsing with JSON reads.
 def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
@@ -135,18 +137,18 @@ def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
   """
   tokens = line.split()
   label = tokens[0]
-  if tokens[1][0] != '(' or tokens[1][-1] != ')':
+  if tokens[1][0] != "(" or tokens[1][-1] != ")":
     raise ValueError(f"{tokens[1]} in {line} not surrounded by parentheses")
   config_hash = tokens[1][1:-1]
-  if config_hash == 'null':
+  if config_hash == "null":
     fragments = ()
   else:
-    if tokens[2][0] != '[' or tokens[-1][-1] != ']':
+    if tokens[2][0] != "[" or tokens[-1][-1] != "]":
       raise ValueError(f"{tokens[2:]} in {line} not surrounded by [] brackets")
     # The fragments list looks like '[Fragment1, Fragment2, ...]'. Split the
     # whole line on ' [' to get just this list, then remove the final ']', then
     # split again on ', ' to convert it to a structured tuple.
-    fragments = tuple(line.split(' [')[1][0:-1].split(', '))
+    fragments = tuple(line.split(" [")[1][0:-1].split(", "))
   return ConfiguredTarget(
       label=label,
       config=None,  # Not yet available: we'll need `bazel config` to get this.
