@@ -1,3 +1,5 @@
+package(default_visibility = ["//visibility:public"])
+
 py_binary(
     name = "ctexplain",
     srcs = ["ctexplain.py"],
@@ -35,4 +37,9 @@ py_test(
     size = "small",
     srcs = ["types_test.py"],
     deps = [":base"]
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
 )
