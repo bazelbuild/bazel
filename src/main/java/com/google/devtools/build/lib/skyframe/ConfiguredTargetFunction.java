@@ -753,7 +753,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configConditionDeps) {
-      SkyKey baseKey = ConfiguredTargetKey.of(entry.getLabel(), entry.getConfiguration());
+      SkyKey baseKey =
+          ConfiguredTargetKey.builder()
+              .setLabel(entry.getLabel())
+              .setConfiguration(entry.getConfiguration())
+              .build();
       ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
       // The code above guarantees that value is non-null here and since the rule is a
       // config_setting, provider must also be non-null.
@@ -928,7 +932,10 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
         view.createAnalysisEnvironment(
-            ConfiguredTargetKey.of(target.getLabel(), configuration),
+            ConfiguredTargetKey.builder()
+                .setLabel(target.getLabel())
+                .setConfiguration(configuration)
+                .build(),
             false,
             events,
             env,

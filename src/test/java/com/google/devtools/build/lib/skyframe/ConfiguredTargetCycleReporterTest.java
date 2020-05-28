@@ -51,7 +51,11 @@ public class ConfiguredTargetCycleReporterTest extends BuildViewTestCase {
                 TransitiveTargetKey.of(makeLabel("//foo:b")),
                 TransitiveTargetKey.of(makeLabel("//foo:c"))));
 
-    ConfiguredTargetKey ctKey = ConfiguredTargetKey.of(makeLabel("//foo:a"), targetConfig);
+    ConfiguredTargetKey ctKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//foo:a"))
+            .setConfiguration(targetConfig)
+            .build();
     assertThat(cycleReporter.getAdditionalMessageAboutCycle(reporter, ctKey, cycle))
         .contains(
             "The cycle is caused by a visibility edge from //foo:b to the non-package-group "

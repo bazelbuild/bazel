@@ -1265,7 +1265,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
     ActionLookupValue.ActionLookupKey actionLookupKey =
-        ConfiguredTargetKey.of(owner, owner.getConfigurationKey(), /*isHostConfiguration=*/ false);
+        ConfiguredTargetKey.builder()
+            .setConfiguredTarget(owner)
+            .setConfigurationKey(owner.getConfigurationKey())
+            .build();
     return getDerivedArtifact(
         owner.getLabel().getPackageFragment().getRelative(packageRelativePath),
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
@@ -1322,8 +1325,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         getConfiguration(owner).getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.of(
-            owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
+        ConfiguredTargetKey.builder()
+            .setConfiguredTarget(owner)
+            .setConfiguration(
+                skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey()))
+            .build());
   }
 
   /**
@@ -1389,7 +1395,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifact(String packageRelativePath, String owner) {
     BuildConfiguration config = getConfiguration(owner);
     return getGenfilesArtifact(
-        packageRelativePath, ConfiguredTargetKey.of(makeLabel(owner), config), config);
+        packageRelativePath,
+        ConfiguredTargetKey.builder().setLabel(makeLabel(owner)).setConfiguration(config).build(),
+        config);
   }
 
   /**
@@ -1401,7 +1409,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner) {
     BuildConfiguration configuration =
         skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey());
-    ConfiguredTargetKey configKey = ConfiguredTargetKey.of(owner, configuration);
+    ConfiguredTargetKey configKey =
+        ConfiguredTargetKey.builder()
+            .setConfiguredTarget(owner)
+            .setConfiguration(configuration)
+            .build();
     return getGenfilesArtifact(packageRelativePath, configKey, configuration);
   }
 
@@ -1488,8 +1500,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getDerivedArtifact(
         PathFragment.create(rootRelativePath),
         targetConfig.getBinDirectory(RepositoryName.MAIN),
-        ConfiguredTargetKey.of(
-            owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
+        ConfiguredTargetKey.builder()
+            .setConfiguredTarget(owner)
+            .setConfiguration(
+                skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey()))
+            .build());
   }
 
   protected Action getGeneratingActionForLabel(String label) throws Exception {
@@ -1602,7 +1617,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   private ConfiguredTargetKey makeConfiguredTargetKey(String label) {
-    return ConfiguredTargetKey.of(makeLabel(label), getConfiguration(label));
+    return ConfiguredTargetKey.builder()
+        .setLabel(makeLabel(label))
+        .setConfiguration(getConfiguration(label))
+        .build();
   }
 
   protected static List<String> actionInputsToPaths(NestedSet<? extends ActionInput> actionInputs) {

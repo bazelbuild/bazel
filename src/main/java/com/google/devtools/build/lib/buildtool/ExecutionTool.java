@@ -713,7 +713,11 @@ public class ExecutionTool {
     // order as configuredTargets.
     Collection<ConfiguredTarget> successfulTargets = new LinkedHashSet<>();
     for (ConfiguredTarget target : configuredTargets) {
-      if (builtTargets.contains(ConfiguredTargetKey.inTargetConfig(target))) {
+      if (builtTargets.contains(
+          ConfiguredTargetKey.builder()
+              .setConfiguredTarget(target)
+              .setConfigurationKey(target.getConfigurationKey())
+              .build())) {
         successfulTargets.add(target);
       }
     }

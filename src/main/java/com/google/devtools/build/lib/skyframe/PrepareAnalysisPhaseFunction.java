@@ -178,9 +178,13 @@ final class PrepareAnalysisPhaseFunction implements SkyFunction {
       return null;
     }
     ImmutableList<ConfiguredTargetKey> topLevelCtKeys =
-        topLevelTargetsWithConfigs
-            .stream()
-            .map(node -> ConfiguredTargetKey.of(node.getLabel(), node.getConfiguration()))
+        topLevelTargetsWithConfigs.stream()
+            .map(
+                node ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(node.getLabel())
+                        .setConfiguration(node.getConfiguration())
+                        .build())
             .collect(ImmutableList.toImmutableList());
     return new PrepareAnalysisPhaseValue(
         hostConfigurationKey, targetConfigurationKeys, topLevelCtKeys);

@@ -120,6 +120,9 @@ public abstract class Dependency {
 
   /** Returns the ConfiguredTargetKey needed to fetch this dependency. */
   public ConfiguredTargetKey getConfiguredTargetKey() {
-    return ConfiguredTargetKey.of(getLabel(), getConfiguration());
+    return ConfiguredTargetKey.builder()
+        .setLabel(getLabel())
+        .setConfiguration(getConfiguration())
+        .build();
   }
 }

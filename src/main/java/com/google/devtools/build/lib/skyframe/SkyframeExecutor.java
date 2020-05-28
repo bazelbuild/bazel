@@ -1772,7 +1772,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         continue;
       }
       for (BuildConfiguration depConfig : configs.get(key)) {
-        skyKeys.add(ConfiguredTargetKey.of(key.getLabel(), depConfig));
+        skyKeys.add(
+            ConfiguredTargetKey.builder()
+                .setLabel(key.getLabel())
+                .setConfiguration(depConfig)
+                .build());
         for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
           skyKeys.add(
               AspectValueKey.createAspectKey(
@@ -1801,7 +1805,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           continue;
         }
         for (BuildConfiguration depConfig : configs.get(key)) {
-          SkyKey configuredTargetKey = ConfiguredTargetKey.of(key.getLabel(), depConfig);
+          SkyKey configuredTargetKey =
+              ConfiguredTargetKey.builder()
+                  .setLabel(key.getLabel())
+                  .setConfiguration(depConfig)
+                  .build();
           if (result.get(configuredTargetKey) == null) {
             continue;
           }

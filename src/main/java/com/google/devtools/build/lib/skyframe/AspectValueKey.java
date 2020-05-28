@@ -49,7 +49,7 @@ public abstract class AspectValueKey extends ActionLookupKey {
       AspectDescriptor aspectDescriptor,
       @Nullable BuildConfiguration aspectConfiguration) {
     return AspectKey.createAspectKey(
-        ConfiguredTargetKey.of(label, baseConfiguration),
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
         baseKeys,
         aspectDescriptor,
         aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
@@ -61,7 +61,7 @@ public abstract class AspectValueKey extends ActionLookupKey {
       AspectDescriptor aspectDescriptor,
       @Nullable BuildConfiguration aspectConfiguration) {
     return AspectKey.createAspectKey(
-        ConfiguredTargetKey.of(label, baseConfiguration),
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(baseConfiguration).build(),
         ImmutableList.of(),
         aspectDescriptor,
         aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration));
@@ -77,7 +77,10 @@ public abstract class AspectValueKey extends ActionLookupKey {
         new StarlarkAspectLoadingKey(
             targetLabel,
             aspectConfiguration == null ? null : BuildConfigurationValue.key(aspectConfiguration),
-            ConfiguredTargetKey.of(targetLabel, targetConfiguration),
+            ConfiguredTargetKey.builder()
+                .setLabel(targetLabel)
+                .setConfiguration(targetConfiguration)
+                .build(),
             starlarkFileLabel,
             starlarkExportName);
 

@@ -528,7 +528,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       throws InterruptedException {
     Label label = owner.getLabel();
     ActionLookupValue.ActionLookupKey actionLookupKey =
-        ConfiguredTargetKey.of(label, owner.getConfigurationKey(), /*isHostConfiguration=*/ false);
+        ConfiguredTargetKey.builder()
+            .setLabel(label)
+            .setConfigurationKey(owner.getConfigurationKey())
+            .build();
     ActionLookupValue actionLookupValue;
     try {
       actionLookupValue =
@@ -551,8 +554,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
             getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
-            ConfiguredTargetKey.of(
-                owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
+            ConfiguredTargetKey.builder()
+                .setConfiguredTarget(owner)
+                .setConfiguration(
+                    skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey()))
+                .build());
   }
 
   protected Set<SkyKey> getSkyframeEvaluatedTargetKeys() {

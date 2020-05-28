@@ -386,8 +386,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
         boolean implicit =
             implicitDeps == null
                 || implicitDeps.contains(
-                    ConfiguredTargetKey.of(
-                        getCorrectLabel(dependency), getConfiguration(dependency)));
+                    ConfiguredTargetKey.builder()
+                        .setLabel(getCorrectLabel(dependency))
+                        .setConfiguration(getConfiguration(dependency))
+                        .build());
         values.add(new ClassifiedDependency<>(dependency, implicit));
       } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
         // Also fetch these dependencies.

@@ -191,9 +191,10 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
     return (RuleConfiguredTarget)
         ((ConfiguredTargetValue)
                 walkableGraph.getValue(
-                    ConfiguredTargetKey.of(
-                        oct.getGeneratingRule().getLabel(),
-                        queryEnvironment.getConfiguration(oct))))
+                    ConfiguredTargetKey.builder()
+                        .setLabel(oct.getGeneratingRule().getLabel())
+                        .setConfiguration(queryEnvironment.getConfiguration(oct))
+                        .build()))
             .getConfiguredTarget();
   }
 

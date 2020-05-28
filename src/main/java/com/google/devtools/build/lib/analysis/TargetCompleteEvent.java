@@ -136,8 +136,10 @@ public final class TargetCompleteEvent
     this.label = targetAndData.getConfiguredTarget().getLabel();
     this.aliasLabel = targetAndData.getConfiguredTarget().getOriginalLabel();
     this.configuredTargetKey =
-        ConfiguredTargetKey.of(
-            targetAndData.getConfiguredTarget(), targetAndData.getConfiguration());
+        ConfiguredTargetKey.builder()
+            .setConfiguredTarget(targetAndData.getConfiguredTarget())
+            .setConfiguration(targetAndData.getConfiguration())
+            .build();
     postedAfterBuilder.add(BuildEventIdUtil.targetConfigured(aliasLabel));
     DetailedExitCode mostImportantDetailedExitCode = null;
     for (Cause cause : getRootCauses().toList()) {
