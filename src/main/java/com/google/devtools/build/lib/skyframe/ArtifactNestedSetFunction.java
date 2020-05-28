@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Lists;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -21,7 +22,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
 import java.io.IOException;
-import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
@@ -109,11 +110,13 @@ public class ArtifactNestedSetFunction implements SkyFunction {
                 ActionExecutionException.class);
 
     // Evaluate all children.
-    ArrayList<SkyKey> transitiveKeys = new ArrayList<>();
-    for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
-      nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
-      transitiveKeys.add(nestedSetToSkyKey.get(transitive));
+    List<Object> transitiveMembers = artifactNestedSetKey.transitiveMembers();
+    List<SkyKey> transitiveKeys = Lists.newArrayListWithCapacity(transitiveMembers.size());
+    for (Object transitiveMember : transitiveMembers) {
+      transitiveKeys.add(
+          nestedSetToSkyKey.computeIfAbsent(transitiveMember, ArtifactNestedSetKey::new));
     }
+
     env.getValues(transitiveKeys);
 
     if (env.valuesMissing()) {

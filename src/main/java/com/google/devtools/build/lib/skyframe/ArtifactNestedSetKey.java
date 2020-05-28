@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Collections;
 
 /** SkyKey for {@code NestedSet<Artifact>}. */
 public class ArtifactNestedSetKey implements SkyKey {
@@ -87,10 +86,8 @@ public class ArtifactNestedSetKey implements SkyKey {
    *
    * <p>This refers to the transitive members after any inlining that might have happened at
    * construction of the nested set.
-   *
-   * <p>TODO(b/142232950) Investigate the potential additional load on GC.
    */
-  Iterable<Object> transitiveMembers() {
+  ImmutableList<Object> transitiveMembers() {
     if (!(rawChildren instanceof Object[])) {
       return ImmutableList.of();
     }
@@ -108,12 +105,10 @@ public class ArtifactNestedSetKey implements SkyKey {
    *
    * <p>This refers to the direct members after any inlining that might have happened at
    * construction of the nested set.
-   *
-   * <p>TODO(b/142232950) Investigate the potential additional load on GC.
    */
-  Iterable<SkyKey> directKeys() {
+  ImmutableList<SkyKey> directKeys() {
     if (!(rawChildren instanceof Object[])) {
-      return Collections.singletonList(Artifact.key((Artifact) rawChildren));
+      return ImmutableList.of(Artifact.key((Artifact) rawChildren));
     }
     ImmutableList.Builder<SkyKey> listBuilder = new ImmutableList.Builder<>();
     for (Object c : (Object[]) rawChildren) {
