@@ -18,7 +18,6 @@ There's no Python Bazel API so we invoke Bazel as a subprocess.
 """
 import json
 import os
-import re
 import subprocess
 from tools.ctexplain.types import Configuration
 from tools.ctexplain.types import ConfiguredTarget
@@ -114,25 +113,6 @@ class BazelApi():
     }
     return Configuration(fragments, options)
 
-
-##############################################
-# Regex patterns for matching cquery results:
-
-# Label: "//" followed by one or more non-space characters.
-_label_pattern = "(\/\/[\S]+)"  # pylint: disable=anomalous-backslash-in-string
-# Config hash: one or more non-")" characters surrounded by "()".
-_config_pattern = "\(([^\)]+)\)"  # pylint: disable=anomalous-backslash-in-string
-# Required fragments: zero or more non-"]" characters surrounded by "[]".
-_fragments_pattern = "\[([^\]]*)\]"  # pylint: disable=anomalous-backslash-in-string
-
-# The required fragments pattern is optional. Null-configured targets don't list
-# required fragments.
-_cquery_line_matcher = re.compile(
-    f"{_label_pattern} {_config_pattern}( {_fragments_pattern})?")
-
-##############################################
-
-
 # TODO(gregce): have cquery --output=jsonproto support --show_config_fragments
 # so we can replace all this regex parsing with JSON reads.
 def _parse_cquery_result_line(line):
@@ -151,12 +131,22 @@ def _parse_cquery_result_line(line):
   Returns:
     Corresponding ConfiguredTarget if the line matches else None.
   """
-  match = _cquery_line_matcher.match(line)
-  if not match:
-    return None
-  transitive_fragments = match.group(4).split(", ") if match.group(4) else []
+  tokens = line.split()
+  label = tokens[0]
+  if tokens[1][0] != '(' or tokens[1][-1] != ')':
+    raise ValueError(f"{tokens[1]} in {line} not surrounded by parentheses")
+  config_hash = tokens[1][1:-1]
+  if config_hash == 'null':
+    fragments = ()
+  else:
+    if tokens[2][0] != '[' or tokens[-1][-1] != ']':
+      raise ValueError(f"{tokens[2:]} in {line} not surrounded by [] brackets")
+    # The fragments list looks like '[Fragment1, Fragment2, ...]'. Split the
+    # whole line on ' [' to get just this list, then remove the final ']', then
+    # split again on ', ' to convert it to a structured tuple.
+    fragments = tuple(line.split(' [')[1][0:-1].split(', '))
   return ConfiguredTarget(
-      label=match.group(1),
+      label=label,
       config=None,  # Not yet available: we'll need `bazel config` to get this.
-      config_hash=match.group(2),
-      transitive_fragments=tuple(transitive_fragments))
+      config_hash=config_hash,
+      transitive_fragments=fragments)
