@@ -45,6 +45,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -161,6 +162,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testSimple() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
 
@@ -176,6 +178,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testRenameDirectory() throws Exception {
     scratchDir("dir1");
     scratchFile("dir1/file.c", "first");
@@ -190,6 +193,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
   }
 
   @Test
+  @Ignore("Test is flaky; see https://github.com/bazelbuild/bazel/issues/10776")
   public void testStress() throws Exception {
     View view1 = underTest.getCurrentView(watchFsEnabledProvider);
 
