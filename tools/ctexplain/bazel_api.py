@@ -19,13 +19,16 @@ There's no Python Bazel API so we invoke Bazel as a subprocess.
 import json
 import os
 import subprocess
+from typing import Callable
+from typing import List
+from typing import Tuple
 from tools.ctexplain.types import Configuration
 from tools.ctexplain.types import ConfiguredTarget
 from tools.ctexplain.types import HostConfiguration
 from tools.ctexplain.types import NullConfiguration
 
 
-def run_bazel_in_client(args):
+def run_bazel_in_client(args: List[str]) -> Tuple[int, str, str]:
   """Calls bazel within the current workspace.
 
   For production use. Tests use an alternative invoker that goes through test
@@ -53,20 +56,20 @@ def run_bazel_in_client(args):
 class BazelApi():
   """API that accepts injectable Bazel invocation logic."""
 
-  def __init__(self, run_bazel=run_bazel_in_client):
+  def __init__(self, run_bazel: Callable[List[str]]=run_bazel_in_client):
     self.run_bazel = run_bazel
 
-  def cquery(self, args):
+  def cquery(self, args: List[str]) -> Tuple[bool, str, Tuple[ConfiguredTarget]]:
     """Calls cquery with the given arguments.
 
     Args:
       args: A list of cquery command-line arguments, one argument per entry.
 
     Returns:
-      (success: bool, stderr: str, cts: Tuple[ConfiguredTarget]), where
-      success is True iff the query succeeded, stderr contains the query's
-      stderr (regardless of success value), and cts is the configured targets
-      found by the query if successful, empty otherwise.
+      (success, stderr, cts), where success is True iff the query succeeded,
+      stderr contains the query's stderr (regardless of success value), and cts
+      is the configured targets found by the query if successful, empty
+      otherwise.
     """
     base_args = ["cquery", "--show_config_fragments=transitive"]
     (returncode, stdout, stderr) = self.run_bazel(base_args + args)
@@ -81,15 +84,14 @@ class BazelApi():
 
     return (True, stderr, tuple(cts))
 
-  def get_config(self, config_hash):
+  def get_config(self, config_hash: str) -> Configuration:
     """Calls "bazel config" with the given config hash.
 
     Args:
       config_hash: A config hash as reported by "bazel cquery".
 
     Returns:
-      A types.Configuration with the matching configuration or None if no match
-      is found.
+      The matching configuration or None if no match is found.
 
     Raises:
       ValueError on any parsing problems.
@@ -115,8 +117,8 @@ class BazelApi():
 
 # TODO(gregce): have cquery --output=jsonproto support --show_config_fragments
 # so we can replace all this regex parsing with JSON reads.
-def _parse_cquery_result_line(line):
-  """Converts a cquery output line to a ConfiguredTargetInfo.
+def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
+  """Converts a cquery output line to a ConfiguredTarget.
 
   Expected input is:
 
