@@ -29,3 +29,10 @@ py_library(
     ],
     srcs_version = "PY3ONLY",
 )
+
+py_test(
+    name = "types_test",
+    size = "small",
+    srcs = ["types_test.py"],
+    deps = [":base"]
+)
