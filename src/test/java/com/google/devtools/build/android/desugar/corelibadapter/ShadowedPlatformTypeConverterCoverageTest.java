@@ -24,6 +24,8 @@ import static com.google.devtools.build.android.desugar.langmodel.ClassName.TYPE
 import static org.objectweb.asm.ClassReader.SKIP_CODE;
 import static org.objectweb.asm.ClassReader.SKIP_DEBUG;
 import static org.objectweb.asm.ClassReader.SKIP_FRAMES;
+import static org.objectweb.asm.Opcodes.ACC_PROTECTED;
+import static org.objectweb.asm.Opcodes.ACC_PUBLIC;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
@@ -33,6 +35,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.android.desugar.io.JarItem;
 import com.google.devtools.build.android.desugar.langmodel.ClassName;
+import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.MethodDeclInfo;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import java.io.IOError;
@@ -41,11 +44,13 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Set;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
@@ -66,10 +71,23 @@ public class ShadowedPlatformTypeConverterCoverageTest {
       ImmutableList.copyOf(SPACE_SPLITTER.splitToList(System.getProperty("platform_jars")));
   private static final String TYPE_CONVERTER_JAR_PATH = System.getProperty("type_converter_jar");
 
-  private final ImmutableMultimap<ClassName, MethodHeaderTypeTrackingLabel>
-      shadowedTypesOnPlatformMethodHeaders = getShadowedTypesOnPlatformMethodHeaders();
+  private ImmutableMultimap<ClassName, MethodHeaderTypeTrackingLabel>
+      shadowedTypesOnPlatformMethodHeaders;
+  private ImmutableMultimap<ClassName, FieldTypeTrackingLabel> shadowedTypesOnPlatformFields;
+
   private final ImmutableSet<ClassName> shadowedTypesWithTypeConverterSupport =
       getShadowedTypesWithTypeConverterSupport();
+
+  @Before
+  public void setUp() throws Exception {
+    ImmutableMultimap.Builder<ClassName, MethodHeaderTypeTrackingLabel> shadowedMethods =
+        ImmutableMultimap.builder();
+    ImmutableMultimap.Builder<ClassName, FieldTypeTrackingLabel> shadowedFields =
+        ImmutableMultimap.builder();
+    loadShadowedTypesOnPlatformClassMembers(shadowedMethods, shadowedFields);
+    shadowedTypesOnPlatformMethodHeaders = shadowedMethods.build();
+    shadowedTypesOnPlatformFields = shadowedFields.build();
+  }
 
   @Test
   public void checkTypeConverterSupport_allAndroidPlatformMethodHeadersCovered() {
@@ -87,10 +105,26 @@ public class ShadowedPlatformTypeConverterCoverageTest {
         .isEmpty();
   }
 
-  private static ImmutableMultimap<ClassName, MethodHeaderTypeTrackingLabel>
-      getShadowedTypesOnPlatformMethodHeaders() {
-    ImmutableMultimap.Builder<ClassName, MethodHeaderTypeTrackingLabel> shadowedTypesBuilder =
-        ImmutableMultimap.builder();
+  @Test
+  public void checkTypeConverterSupport_allAndroidPlatformFieldsCovered() {
+    ImmutableSet<ClassName> shadowedTypesOnPlatform = shadowedTypesOnPlatformFields.keySet();
+    Set<ClassName> shadowedTypesMissingTypeConverter =
+        Sets.difference(shadowedTypesOnPlatform, shadowedTypesWithTypeConverterSupport);
+
+    assertWithMessage(
+            String.format(
+                "Desugar-shadowable platform types missing a type converter: \n%s\n",
+                shadowedTypesMissingTypeConverter.stream()
+                    .flatMap(type -> shadowedTypesOnPlatformFields.get(type).stream())
+                    .collect(toImmutableList())))
+        .that(shadowedTypesMissingTypeConverter)
+        .isEmpty();
+  }
+
+  private static void loadShadowedTypesOnPlatformClassMembers(
+      ImmutableMultimap.Builder<ClassName, MethodHeaderTypeTrackingLabel>
+          shadowedMethodTypesBuilder,
+      ImmutableMultimap.Builder<ClassName, FieldTypeTrackingLabel> shadowedFieldTypesBuilder) {
     PLATFORM_JAR_PATHS.stream()
         .flatMap(jarTextPath -> JarItem.jarItemStream(Paths.get(jarTextPath)))
         .filter(
@@ -102,13 +136,13 @@ public class ShadowedPlatformTypeConverterCoverageTest {
               try (InputStream inputStream = jarItem.getInputStream()) {
                 ClassReader cr = new ClassReader(inputStream);
                 ClassVisitor cv =
-                    new ClassMemberHeaderClassVisitor(shadowedTypesBuilder, jarItem.jarPath());
+                    new ClassMemberHeaderClassVisitor(
+                        shadowedMethodTypesBuilder, shadowedFieldTypesBuilder, jarItem.jarPath());
                 cr.accept(cv, SKIP_CODE | SKIP_DEBUG | SKIP_FRAMES);
               } catch (IOException e) {
                 throw new IOError(e);
               }
             });
-    return shadowedTypesBuilder.build();
   }
 
   private static ImmutableSet<ClassName> getShadowedTypesWithTypeConverterSupport() {
@@ -131,17 +165,21 @@ public class ShadowedPlatformTypeConverterCoverageTest {
 
   private static class ClassMemberHeaderClassVisitor extends ClassVisitor {
 
-    private final ImmutableMultimap.Builder<ClassName, MethodHeaderTypeTrackingLabel> shadowedTypes;
+    private final ImmutableMultimap.Builder<ClassName, MethodHeaderTypeTrackingLabel>
+        shadowedMethodTypes;
+    private final ImmutableMultimap.Builder<ClassName, FieldTypeTrackingLabel> shadowedFieldTypes;
     private final Path containgJar;
 
     private ClassName className;
     private int classAccess;
 
     ClassMemberHeaderClassVisitor(
-        ImmutableMultimap.Builder<ClassName, MethodHeaderTypeTrackingLabel> shadowedTypes,
+        ImmutableMultimap.Builder<ClassName, MethodHeaderTypeTrackingLabel> shadowedMethodTypes,
+        ImmutableMultimap.Builder<ClassName, FieldTypeTrackingLabel> shadowedFieldTypes,
         Path containingJar) {
       super(Opcodes.ASM7);
-      this.shadowedTypes = shadowedTypes;
+      this.shadowedMethodTypes = shadowedMethodTypes;
+      this.shadowedFieldTypes = shadowedFieldTypes;
       this.containgJar = containingJar;
     }
 
@@ -156,6 +194,25 @@ public class ShadowedPlatformTypeConverterCoverageTest {
       super.visit(version, classAccess, name, signature, superName, interfaces);
       className = ClassName.create(name);
       classAccess = access;
+    }
+
+    @Override
+    public FieldVisitor visitField(
+        int access, String name, String descriptor, String signature, Object value) {
+      FieldKey fieldKey = FieldKey.create(className, name, descriptor);
+      ClassName fieldType = fieldKey.getFieldTypeName();
+      if (className.isAndroidDomainType()
+          && ((access & ACC_PUBLIC) != 0 || (access & ACC_PROTECTED) != 0)
+          && fieldType.isDesugarShadowedType()) {
+        FieldTypeTrackingLabel trackingLabel =
+            FieldTypeTrackingLabel.builder()
+                .setField(fieldKey)
+                .setShadowedType(fieldType)
+                .setJarPath(containgJar)
+                .build();
+        shadowedFieldTypes.put(trackingLabel.shadowedType(), trackingLabel);
+      }
+      return super.visitField(access, name, descriptor, signature, value);
     }
 
     @Override
@@ -181,7 +238,7 @@ public class ShadowedPlatformTypeConverterCoverageTest {
                     .setExceptionTypePosition(-1)
                     .setJarPath(containgJar)
                     .build();
-            shadowedTypes.put(trackingLabel.shadowedType(), trackingLabel);
+            shadowedMethodTypes.put(trackingLabel.shadowedType(), trackingLabel);
           }
 
           ImmutableList<ClassName> argumentTypes = methodDeclInfo.argumentTypeNames();
@@ -197,7 +254,7 @@ public class ShadowedPlatformTypeConverterCoverageTest {
                       .setExceptionTypePosition(-1)
                       .setJarPath(containgJar)
                       .build();
-              shadowedTypes.put(trackingLabel.shadowedType(), trackingLabel);
+              shadowedMethodTypes.put(trackingLabel.shadowedType(), trackingLabel);
             }
           }
 
@@ -214,12 +271,39 @@ public class ShadowedPlatformTypeConverterCoverageTest {
                       .setExceptionTypePosition(i)
                       .setJarPath(containgJar)
                       .build();
-              shadowedTypes.put(trackingLabel.shadowedType(), trackingLabel);
+              shadowedMethodTypes.put(trackingLabel.shadowedType(), trackingLabel);
             }
           }
         }
       }
       return super.visitMethod(access, name, descriptor, signature, exceptions);
+    }
+  }
+
+  /** Tracks the origin of a field type. */
+  @AutoValue
+  abstract static class FieldTypeTrackingLabel {
+    abstract ClassName shadowedType();
+
+    abstract FieldKey field();
+
+    abstract Path jarPath();
+
+    static Builder builder() {
+      return new AutoValue_ShadowedPlatformTypeConverterCoverageTest_FieldTypeTrackingLabel
+          .Builder();
+    }
+
+    @AutoValue.Builder
+    abstract static class Builder {
+
+      abstract Builder setShadowedType(ClassName value);
+
+      abstract Builder setField(FieldKey value);
+
+      abstract Builder setJarPath(Path value);
+
+      abstract FieldTypeTrackingLabel build();
     }
   }
 
