@@ -225,6 +225,30 @@ public final class ConfigurationResolver {
         }
         putOnlyEntry(resolvedDeps, dependencyEdge, finalDependency);
         continue;
+      } else if (transition.isHostTransition()) {
+        // The current rule's host configuration can also be used for the dep. We short-circuit
+        // the standard transition logic for host transitions because these transitions are
+        // uniquely frequent. It's possible, e.g., for every node in the configured target graph
+        // to incur multiple host transitions. So we aggressively optimize to avoid hurting
+        // analysis time.
+        if (hostConfiguration.trimConfigurationsRetroactively() && !dep.getAspects().isEmpty()) {
+          String message =
+              ctgValue.getLabel()
+                  + " has aspects attached, but these are not supported in retroactive"
+                  + " trimming mode.";
+          env.getListener()
+              .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
+          throw new DependencyEvaluationException(new InvalidConfigurationException(message));
+        }
+        putOnlyEntry(
+            resolvedDeps,
+            dependencyEdge,
+            Dependency.builder()
+                .setLabel(dep.getLabel())
+                .setConfiguration(hostConfiguration)
+                .setAspects(dep.getAspects())
+                .build());
+        continue;
       }
 
       // Figure out the required fragments for this dep and its transitive closure.
@@ -264,30 +288,6 @@ public final class ConfigurationResolver {
               Dependency.builder()
                   .setLabel(dep.getLabel())
                   .setConfiguration(ctgValue.getConfiguration())
-                  .setAspects(dep.getAspects())
-                  .build());
-          continue;
-        } else if (transition.isHostTransition()) {
-          // The current rule's host configuration can also be used for the dep. We short-circuit
-          // the standard transition logic for host transitions because these transitions are
-          // uniquely frequent. It's possible, e.g., for every node in the configured target graph
-          // to incur multiple host transitions. So we aggressively optimize to avoid hurting
-          // analysis time.
-          if (hostConfiguration.trimConfigurationsRetroactively() && !dep.getAspects().isEmpty()) {
-            String message =
-                ctgValue.getLabel()
-                    + " has aspects attached, but these are not supported in retroactive"
-                    + " trimming mode.";
-            env.getListener()
-                .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
-            throw new DependencyEvaluationException(new InvalidConfigurationException(message));
-          }
-          putOnlyEntry(
-              resolvedDeps,
-              dependencyEdge,
-              Dependency.builder()
-                  .setLabel(dep.getLabel())
-                  .setConfiguration(hostConfiguration)
                   .setAspects(dep.getAspects())
                   .build());
           continue;
