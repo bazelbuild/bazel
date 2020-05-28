@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
@@ -67,7 +66,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
@@ -78,6 +77,12 @@ import javax.annotation.Nullable;
  * is successful, returns a {@link BzlLoadValue} that encapsulates the loaded {@link Module} and its
  * transitive digest and {@link StarlarkFileDependency} information. If loading is unsuccessful,
  * throws a {@link BzlLoadFunctionException} that encapsulates the cause of the failure.
+ *
+ * <p>This Skyframe function supports a special "inlining" mode in which all (indirectly) recursive
+ * calls to {@code BzlLoadFunction} are made in the same thread rather than through Skyframe. The
+ * inlining mode's entry point is {@link #computeInline}; see that method for more details. Note
+ * that it may only be called on an instance of this Skyfunction created by {@link
+ * #createForInlining}.
  */
 public class BzlLoadFunction implements SkyFunction {
 
@@ -172,91 +177,104 @@ public class BzlLoadFunction implements SkyFunction {
    * Entry point for computing "inline", without any direct or indirect Skyframe calls back into
    * {@link BzlLoadFunction}. (Other Skyframe calls are permitted.)
    *
-   * <p>{@code visitedBzls} is a cache of values previously computed, and will be added to by this
-   * call.
+   * <p>Under inlining, there is some calling context that wants to obtain a set of {@link
+   * BzlLoadValue}s without Skyframe evaluation. For example, a calling context can be a BUILD file
+   * trying to resolve its top-level {@code load()} statements. Although this work proceeds in a
+   * single thread, multiple calling contexts may evaluate .bzls in parallel. To avoid redundant
+   * work, they share a single (global to this Skyfunction instance) cache in lieu of the regular
+   * Skyframe cache.
+   *
+   * <p>If two calling contexts race to compute the same .bzl, each one will see a different copy of
+   * it, and only one will end up in the shared cache. This presents a hazard: Suppose A and B both
+   * need foo.bzl, and A needs it twice due to a diamond dependency. If A and B race to compute
+   * foo.bzl, but B's computation populates the cache, then when A comes back to resolve it the
+   * second time it will observe a different {@code BzlLoadValue}. This leads to incorrect Starlark
+   * evaluation since Starlark values may rely on Java object identity (see b/138598337). Even if we
+   * weren't concerned about racing, A may also reevaluate previously computed items due to cache
+   * evictions.
+   *
+   * <p>To solve this, we keep a second cache, {@code visitedBzls}, that is local to the current
+   * calling context, and which never evicts entries. This cache is always checked in preference to
+   * the shared one; it may deviate from the shared one in some of its entries, but the calling
+   * context won't know the difference. (If inlining is only used for the loading phase, we don't
+   * need to worry about Starlark values from different packages interacting.)
+   *
+   * <p>As an aside, note that we can't avoid having a second cache by simply naively blocking
+   * evaluation of .bzls on retrievals from the shared cache. This is because two contexts could
+   * deadlock while trying to evaluate an illegal {@code load()} cycle from opposite ends. It would
+   * be possible to construct a waits-for graph and perform cycle detection, or to monitor slow
+   * threads and do detection lazily, but these do not address the cache eviction issue.
+   * Alternatively, we could make Starlark tolerant of reloading, but that would be tantamount to
+   * implementing full Starlark serialization.
+   *
+   * @return the requested {@code BzlLoadValue}, or null if there is a Skyframe restart or error
    */
   @Nullable
   BzlLoadValue computeInline(
       BzlLoadValue.Key key, Environment env, Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls)
       throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+    // Note to refactorors: No Skyframe calls may be made before the RecordingSkyFunctionEnvironment
+    // is set up below in computeInlineForCacheMiss.
     Preconditions.checkNotNull(inliningManager);
-    // See comments in computeInlineInternal for an explanation of the loadStack and visitedBzls
-    // vars.
-    // TODO(brandjon): centralize the explanation of these vars.
     CachedBzlLoadData cachedData =
-        computeInlineInternal(
-            key,
-            env,
-            // loadStack must use insertion order to display the correct error.
-            /*loadStack=*/ new LinkedHashSet<>(),
-            /*visitedBzls=*/ visitedBzls);
+        computeInlineWithState(key, env, InliningState.createInitial(visitedBzls));
     return cachedData != null ? cachedData.getValue() : null;
   }
 
   /**
-   * Retrieves or creates the requested CachedBzlLoadData object, entering it into the caches.
+   * Retrieves or creates the requested {@link CachedBzlLoadData} object, entering it into the
+   * local and shared caches. This is the entry point for recursive calls to the inline code path.
    *
-   * <p>Returns null if the underlying Skyvalue computation is null (error or Skyframe restart).
+   * <p>Skyframe calls made underneath this function will be logged in the resulting {@code
+   * CachedBzlLoadData) (or its transitive dependencies).
+   *
+   * <p>Returns null on Skyframe restart or error.
    */
   @Nullable
-  private CachedBzlLoadData computeInlineInternal(
-      BzlLoadValue.Key key,
-      Environment env,
-      Set<BzlLoadValue.Key> loadStack,
-      Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls)
+  private CachedBzlLoadData computeInlineWithState(
+      BzlLoadValue.Key key, Environment env, InliningState inliningState)
       throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
-    // Under BzlLoadFunction inlining, BUILD and WORKSPACE files (and the singular
-    // StarlarkBuiltinsFunction) are evaluated in separate Skyframe threads, but all the .bzls
-    // transitively loaded by a single package occur in one thread. All these threads share a global
-    // cache in inliningManager, so that once any thread completes evaluation of a .bzl, it needn't
-    // be evaluated again (unless it's evicted).
-    //
-    // If two threads race to evaluate the same .bzl, each one will see a different copy of it, and
-    // only one will end up in the global cache. This presents a hazard if the same BUILD or
-    // WORKSPACE file has a diamond dependency on foo.bzl, evaluates it the first time, and gets a
-    // different copy of it from the cache the second time. This is because Starlark values may use
-    // object identity, which breaks the moment two distinct observable copies are visible in the
-    // same context (see b/138598337).
-    //
-    // (Note that blocking evaluation of .bzls on retrievals from the global cache doesn't work --
-    // two threads could deadlock while trying to evaluate an illegal load() cycle from opposite
-    // ends.)
-    //
-    // To solve this, we keep a second cache in visitedBzls, of just the .bzls transitively loaded
-    // in the current package. The entry for foo.bzl may be a different copy than the one in the
-    // global cache, but the BUILD or WORKSPACE file won't know the difference. (We don't need to
-    // worry about Starlark values from different packages interacting since inlining is only used
-    // for the loading phase.)
-    //
-    CachedBzlLoadData cachedData = visitedBzls.get(key);
+    // Note to refactorors: No Skyframe calls may be made before the RecordingSkyFunctionEnvironment
+    // is set up below in computeInlineForCacheMiss.
+
+    // Try the caches. We must try the thread-local cache before the shared one.
+    CachedBzlLoadData cachedData = inliningState.visitedBzls.get(key);
     if (cachedData == null) {
       cachedData = inliningManager.bzlLoadValueCache.getIfPresent(key);
       if (cachedData != null) {
         // Found a cache hit from another thread's computation; register the recorded deps as if our
         // thread required them for the current key. Incorporate into visitedBzls any transitive
         // cache hits it does not already contain.
-        cachedData.traverse(env::registerDependencies, visitedBzls);
+        cachedData.traverse(env::registerDependencies, inliningState.visitedBzls);
       }
     }
+
+    // If that didn't work, compute it ourselves and add to the caches on success.
+    if (cachedData == null) {
+      cachedData = computeInlineForCacheMiss(key, env, inliningState);
+      if (cachedData != null) {
+        inliningState.visitedBzls.put(key, cachedData);
+        inliningManager.bzlLoadValueCache.put(key, cachedData);
+      }
+    }
+
+    // On success, notify the parent CachedBzlLoadData of its new child.
     if (cachedData != null) {
-      return cachedData;
+      inliningState.childCachedDataHandler.accept(cachedData);
     }
 
-    // loadStack is keyed on the SkyKey, not the label, because it's possible for distinct keys to
-    // share the same label. Examples include the "@builtins" pseudo-repo vs a real repository that
-    // happens to be named "@builtins", or keys for the same .bzl with different workspace chunking
-    // information. It's unclear whether these particular cycles can arise in practice, but it
-    // doesn't hurt to be robust to future changes that may make that possible.
-    if (!loadStack.add(key)) {
-      ImmutableList<BzlLoadValue.Key> cycle =
-          CycleUtils.splitIntoPathAndChain(Predicates.equalTo(key), loadStack).second;
-      throw new BzlLoadFailedException("Starlark load cycle: " + cycle);
-    }
+    return cachedData;
+  }
 
+  @Nullable
+  private CachedBzlLoadData computeInlineForCacheMiss(
+      BzlLoadValue.Key key, Environment env, InliningState inliningState)
+      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+    // We use an instrumented Skyframe env to capture Skyframe deps in the CachedBzlLoadData. This
+    // generally includes transitive Skyframe deps, but specifically excludes deps underneath
+    // recursively loaded .bzls. We unwrap the instrumented env right before recursively calling
+    // back into computeInlineWithState.
     CachedBzlLoadData.Builder cachedDataBuilder = inliningManager.cachedDataBuilder();
-    // Use an instrumented Skyframe env to capture Skyframe deps in the CachedBzlLoadData. This is
-    // transitive but doesn't include deps underneath recursively loaded .bzls (the recursion uses
-    // the unwrapped original env).
     Preconditions.checkState(
         !(env instanceof RecordingSkyFunctionEnvironment),
         "Found nested RecordingSkyFunctionEnvironment but it should have been stripped: %s",
@@ -267,20 +285,26 @@ public class BzlLoadFunction implements SkyFunction {
             cachedDataBuilder::addDep,
             cachedDataBuilder::addDeps,
             cachedDataBuilder::noteException);
-    BzlLoadValue value =
-        computeInternal(
-            key, recordingEnv, new InliningState(loadStack, cachedDataBuilder, visitedBzls));
-    // All loads traversed, this key can no longer be part of a cycle.
-    Preconditions.checkState(loadStack.remove(key), key);
 
-    if (value != null) {
-      cachedDataBuilder.setValue(value);
-      cachedDataBuilder.setKey(key);
-      cachedData = cachedDataBuilder.build();
-      visitedBzls.put(key, cachedData);
-      inliningManager.bzlLoadValueCache.put(key, cachedData);
+    inliningState.beginLoad(key); // track for cyclic load() detection
+    BzlLoadValue value;
+    try {
+      value =
+          computeInternal(
+              key,
+              recordingEnv,
+              inliningState.createChildState(
+                  /*childCachedDataHandler=*/ cachedDataBuilder::addTransitiveDeps));
+    } finally {
+      inliningState.finishLoad(key);
     }
-    return cachedData;
+    if (value == null) {
+      return null;
+    }
+
+    cachedDataBuilder.setValue(value);
+    cachedDataBuilder.setKey(key);
+    return cachedDataBuilder.build();
   }
 
   public void resetInliningCache() {
@@ -326,17 +350,54 @@ public class BzlLoadFunction implements SkyFunction {
    * are inlined.
    */
   private static class InliningState {
-    private final Set<BzlLoadValue.Key> loadStack;
-    private final CachedBzlLoadData.Builder cachedDataBuilder;
+    /**
+     * The set of .bzls we're currently in the process of loading. This is used for cycle detection
+     * since we don't have the benefit of Skyframe's internal cycle detection. The set must use
+     * insertion order for correct error reporting.
+     */
+    // Keyed on the SkyKey, not the label, since label could theoretically be ambiguous, even though
+    // in practice keys from BUILD / WORKSPACE / @builtins don't call each other. (Not sure if
+    // WORKSPACE chunking can cause duplicate labels to appear, but we're robust regardless.)
+    private final LinkedHashSet<BzlLoadValue.Key> loadStack;
+
+    /** Called when a transitive {@code CachedBzlLoadData} is produced. */
+    private final Consumer<CachedBzlLoadData> childCachedDataHandler;
+
+    /** Cache local to current calling context. See {@link #computeInline}. */
     private final Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls;
 
     private InliningState(
-        Set<BzlLoadValue.Key> loadStack,
-        CachedBzlLoadData.Builder cachedDataBuilder,
+        LinkedHashSet<BzlLoadValue.Key> loadStack,
+        Consumer<CachedBzlLoadData> childCachedDataHandler,
         Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls) {
       this.loadStack = loadStack;
-      this.cachedDataBuilder = cachedDataBuilder;
+      this.childCachedDataHandler = childCachedDataHandler;
       this.visitedBzls = visitedBzls;
+    }
+
+    static InliningState createInitial(Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls) {
+      return new InliningState(
+          new LinkedHashSet<>(),
+          x -> {}, // No parent value to mutate.
+          visitedBzls);
+    }
+
+    InliningState createChildState(Consumer<CachedBzlLoadData> childCachedDataHandler) {
+      return new InliningState(loadStack, childCachedDataHandler, visitedBzls);
+    }
+
+    /** Records entry to a {@code load()}, throwing an exception if a cycle is detected. */
+    void beginLoad(BzlLoadValue.Key key) throws BzlLoadFailedException {
+      if (!loadStack.add(key)) {
+        ImmutableList<BzlLoadValue.Key> cycle =
+            CycleUtils.splitIntoPathAndChain(Predicates.equalTo(key), loadStack).second;
+        throw new BzlLoadFailedException("Starlark load cycle: " + cycle);
+      }
+    }
+
+    /** Records exit from a {@code load()}. */
+    void finishLoad(BzlLoadValue.Key key) throws BzlLoadFailedException {
+      Preconditions.checkState(loadStack.remove(key), key);
     }
   }
 
@@ -603,6 +664,7 @@ public class BzlLoadFunction implements SkyFunction {
         "Expected to be recording dep requests when inlining BzlLoadFunction: %s",
         fileLabel);
     Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
+
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
     Exception deferredException = null;
     boolean valuesMissing = false;
@@ -610,9 +672,7 @@ public class BzlLoadFunction implements SkyFunction {
     for (BzlLoadValue.Key key : keys) {
       CachedBzlLoadData cachedData;
       try {
-        cachedData =
-            computeInlineInternal(
-                key, strippedEnv, inliningState.loadStack, inliningState.visitedBzls);
+        cachedData = computeInlineWithState(key, strippedEnv, inliningState);
       } catch (BzlLoadFailedException | InconsistentFilesystemException e) {
         // For determinism's sake while inlining, preserve the first exception and continue to run
         // subsequently listed loads to completion/exception, loading all transitive deps anyway.
@@ -627,7 +687,6 @@ public class BzlLoadFunction implements SkyFunction {
         valuesMissing = true;
       } else {
         bzlLoads.add(cachedData.getValue());
-        inliningState.cachedDataBuilder.addTransitiveDeps(cachedData);
       }
     }
     if (deferredException != null) {
