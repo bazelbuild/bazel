@@ -233,51 +233,51 @@ filegroup(
 JACOCOVERSION = "0.8.3"
 java_import(
     name = "agent",
-    jars = ["org.jacoco.agent-%s.jar" % JACOCOVERSION],
+    jars = ["org.jacoco.agent.jar"],
 )
 
 java_import(
     name = "agent-%s" % JACOCOVERSION,
-    jars = ["org.jacoco.agent-%s.jar" % JACOCOVERSION],
+    jars = ["org.jacoco.agent.jar"],
 )
 
 java_import(
     name = "core",
-    jars = ["org.jacoco.core-%s.jar" % JACOCOVERSION],
+    jars = ["org.jacoco.core.jar"],
 )
 
 java_import(
     name = "core-%s" % JACOCOVERSION,
-    jars = ["org.jacoco.core-%s.jar" % JACOCOVERSION],
+    jars = ["org.jacoco.core.jar"],
 )
 
 filegroup(
     name = "core-jars",
-    srcs = ["org.jacoco.core-%s.jar" % JACOCOVERSION],
+    srcs = ["org.jacoco.core.jar"],
 )
 
 filegroup(
     name = "core-jars-%s" % JACOCOVERSION,
-    srcs = ["org.jacoco.core-%s.jar" % JACOCOVERSION],
+    srcs = ["org.jacoco.core.jar"],
 )
 
 java_import(
     name = "report",
-    jars = ["org.jacoco.report-%s.jar" % JACOCOVERSION],
+    jars = ["org.jacoco.report.jar"],
 )
 
 java_import(
     name = "report-%s" % JACOCOVERSION,
-    jars = ["org.jacoco.report-%s.jar" % JACOCOVERSION],
+    jars = ["org.jacoco.report.jar"],
 )
 
 java_import(
    name = "blaze-agent",
-   jars = ["org.jacoco.agent-%s.jar" % JACOCOVERSION],
+   jars = ["org.jacoco.agent.jar"],
 )
 
 java_import(
    name = "blaze-agent-%s" % JACOCOVERSION,
-   jars = ["org.jacoco.agent-%s.jar" % JACOCOVERSION],
+   jars = ["org.jacoco.agent.jar"],
 )
 # libjacoco-java - END
