@@ -86,6 +86,11 @@ public class ComposingTransition implements ConfigurationTransition {
     return "(" + transition1.getName() + " + " + transition2.getName() + ")";
   }
 
+  @Override
+  public boolean isHostTransition() {
+    return transition1.isHostTransition() || transition2.isHostTransition();
+  }
+
   // Override to allow recursive visiting.
   @Override
   public <E extends Exception> void visit(Visitor<E> visitor) throws E {
