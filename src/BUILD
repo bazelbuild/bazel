@@ -226,6 +226,9 @@ filegroup(
         "//src/conditions:linux_aarch64": [
             "@openjdk_linux_aarch64_vanilla//file",
         ],
+        "//src/conditions:linux_ppc64le": [
+            "@openjdk_linux_ppc64le_vanilla//file",
+        ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
         ],
@@ -758,6 +761,7 @@ filegroup(
         "@remote_java_tools_windows_for_testing//:WORKSPACE",
         "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
         "@remotejdk11_linux_for_testing//:WORKSPACE",
+        "@remotejdk11_linux_ppc64le_for_testing//:WORKSPACE",
         "@remotejdk11_macos_for_testing//:WORKSPACE",
         "@remotejdk11_win_for_testing//:WORKSPACE",
         "@rules_cc//:WORKSPACE",
