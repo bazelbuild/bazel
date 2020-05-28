@@ -91,11 +91,7 @@ public final class AspectResolver {
 
         // Validate that aspect is applicable to "bare" configured target.
         ConfiguredTargetAndData associatedTarget =
-            configuredTargetMap.get(
-                ConfiguredTargetKey.builder()
-                    .setLabel(dep.getLabel())
-                    .setConfiguration(dep.getConfiguration())
-                    .build());
+            configuredTargetMap.get(dep.getConfiguredTargetKey());
         if (!aspectMatchesConfiguredTarget(associatedTarget, aspectValue.getAspect())) {
           continue;
         }
