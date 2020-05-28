@@ -221,6 +221,11 @@ public class StarlarkOptionsParser {
   /**
    * Separates out any Starlark options from the given list
    *
+   * This method doesn't go through the trouble to actually load build setting targets and verify
+   * they are build settings, it just assumes all strings that look like they could be build
+   * settings, aka are formatted like a flag and can parse out to a proper label, are build
+   * settings. Use actual parsing functions above to do full build setting verification.
+   *
    * @param list List of strings from which to parse out starlark options
    * @return Returns a pair of string lists. The first item contains the list of starlark options
    *     that were removed; the second contains the remaining string from the original list.
@@ -230,15 +235,19 @@ public class StarlarkOptionsParser {
     ImmutableList.Builder<String> keep = ImmutableList.builder();
     ImmutableList.Builder<String> remove = ImmutableList.builder();
     for (String name : list) {
+      // Check if the string is a flag and trim off "--" if so.
       if (!name.startsWith("--")) {
         keep.add(name);
         continue;
       }
-
       String potentialStarlarkFlag = name.substring(2);
+      // Check if the string uses the "no" prefix for setting boolean flags to false, trim
+      // off "no" if so.
       if (name.startsWith("no")) {
         potentialStarlarkFlag = potentialStarlarkFlag.substring(2);
       }
+      // Check if we can properly parse the (potentially trimmed) string as a label. If so, count
+      // as starlark flag, else count as regular residue.
       try {
         LabelValidator.validateAbsoluteLabel(potentialStarlarkFlag);
         remove.add(name);
