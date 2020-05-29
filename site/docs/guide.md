@@ -1048,7 +1048,7 @@ Total time (across all threads) spent on:
              SPAWN    3.26%      154      475 ms
           VFS_STAT   10.81%    65416     3.71 ms
 [...]
-SKYLARK_BUILTIN_FN   13.12%    45138     6.52 ms
+STARLARK_BUILTIN_FN   13.12%    45138     6.52 ms
 
 === ANALYSIS PHASE INFORMATION ===
 

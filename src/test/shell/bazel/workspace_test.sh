@@ -201,9 +201,9 @@ EOF
   bazel build //:x --internal_skylark_flag_test_canary &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: $MARKER" \
-    "Skylark flags are not propagating to workspace evaluation"
+    "Starlark flags are not propagating to workspace evaluation"
   expect_log "In workspace macro: $MARKER" \
-    "Skylark flags are not propagating to workspace macro evaluation"
+    "Starlark flags are not propagating to workspace macro evaluation"
 }
 
 function test_workspace_name() {

@@ -27,7 +27,7 @@ readonly OUTPUT=${PWD}/$1
 shift
 readonly JEKYLL_BASE=${PWD}/$1
 shift
-readonly SKYLARK_RULE_DOCS=${PWD}/$1
+readonly STARLARK_RULE_DOCS=${PWD}/$1
 shift
 readonly BE_ZIP=${PWD}/$1
 shift
@@ -96,7 +96,7 @@ function unpack_skylark_rule_docs {
   local tmp_dir=$TMP/skylark
   mkdir -p $tmp_dir
   cd "$tmp_dir"
-  tar -xf "${SKYLARK_RULE_DOCS}"
+  tar -xf "${STARLARK_RULE_DOCS}"
   copy_skylark_rule_doc pkg "Packaging"
 }
 
