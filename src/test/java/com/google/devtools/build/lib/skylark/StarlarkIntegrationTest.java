@@ -859,6 +859,63 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testInstrumentedFilesForwardedFromDepsByDefaultExperimentFlag() throws Exception {
+    scratch.file(
+        "test/starlark/extension.bzl",
+        "def wrapper_impl(ctx):",
+        // This wrapper doesn't configure InstrumentedFilesInfo.
+        "    return []",
+        "",
+        "wrapper = rule(implementation = wrapper_impl,",
+        "    attrs = {",
+        "        'srcs': attr.label_list(allow_files = True),",
+        "        'wrapped': attr.label(mandatory = True),",
+        "        'wrapped_list': attr.label_list(),",
+        // Host deps aren't forwarded by default, since they don't provide code/binaries executed
+        // at runtime.
+        "        'tool': attr.label(cfg = 'host', executable = True, mandatory = True),",
+        "    })");
+
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:extension.bzl', 'wrapper')",
+        "",
+        "cc_binary(name = 'tool', srcs = [':tool.cc'])",
+        "cc_binary(name = 'wrapped', srcs = [':wrapped.cc'])",
+        "cc_binary(name = 'wrapped_list', srcs = [':wrapped_list.cc'])",
+        "wrapper(",
+        "    name = 'wrapper',",
+        "    srcs = ['ignored.cc'],",
+        "    wrapped = ':wrapped',",
+        "    wrapped_list = [':wrapped_list'],",
+        "    tool = ':tool',",
+        ")",
+        "cc_binary(name = 'outer', data = [':wrapper'])");
+
+    // Current behavior is that nothing gets forwarded if IntstrumentedFilesInfo is not configured.
+    // That means that source files are not collected for the coverage manifest unless the entire
+    // dependency chain between the test and the source file explicitly configures coverage.
+    // New behavior is protected by --experimental_forward_instrumented_files_info_by_default.
+    useConfiguration("--collect_code_coverage");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:outer");
+    InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
+    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles())).isEmpty();
+
+    // Instead, the default behavior could be to forward InstrumentedFilesInfo from all
+    // dependencies. Coverage still needs to be configured for rules that handle source files for
+    // languages which support coverage instrumentation, but not every wrapper rule in the
+    // dependency chain needs to configure that for instrumentation to be correct.
+    useConfiguration(
+        "--collect_code_coverage", "--experimental_forward_instrumented_files_info_by_default");
+    target = getConfiguredTarget("//test/starlark:outer");
+    provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
+    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
+        .containsExactly("wrapped.cc", "wrapped_list.cc");
+  }
+
+  @Test
   public void testMandatoryProviderMissing() throws Exception {
     scratch.file("test/skylark/BUILD");
     scratch.file(

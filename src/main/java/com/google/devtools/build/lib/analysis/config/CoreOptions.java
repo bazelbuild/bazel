@@ -377,6 +377,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean collectCodeCoverage;
 
   @Option(
+      name = "experimental_forward_instrumented_files_info_by_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If specified, rules that don't configure InstrumentedFilesInfo will still forward the "
+              + "contents of InstrumentedFilesInfo from transitive dependencies.")
+  public boolean experimentalForwardInstrumentedFilesInfoByDefault;
+
+  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
