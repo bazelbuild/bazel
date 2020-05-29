@@ -324,6 +324,10 @@ public final class CppConfiguration extends Fragment
     return cppOptions.dynamicMode;
   }
 
+  public boolean isRenameDLL() {
+    return cppOptions.renameDLL;
+  } 
+
   public boolean isFdo() {
     return cppOptions.isFdo();
   }
