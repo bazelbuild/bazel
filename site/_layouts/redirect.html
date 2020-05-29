@@ -3,5 +3,7 @@
     <script>
       window.location.replace("{{ page.redirect }}" + window.location.hash);
     </script>
+    <!-- Fall back to a <meta> redirect if the user has JavaScript disabled. -->
+    <meta http-equiv="refresh" content="0;url={{ page.redirect }}">
   </head>
 </html>
