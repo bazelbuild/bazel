@@ -37,6 +37,7 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
       name = "object_files",
       doc = "Do not use. Use eiher 'objects' or 'pic_objects'.",
       useStarlarkThread = true,
+      documented = false,
       parameters = {
         @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
       })
@@ -44,9 +45,17 @@ public interface CcCompilationOutputsApi<FileT extends FileApi> extends Starlark
   Sequence<FileT> getStarlarkObjectFiles(boolean usePic, StarlarkThread thread)
       throws EvalException;
 
-  @StarlarkMethod(name = "objects", documented = false, structField = true)
+  @StarlarkMethod(
+      name = "objects",
+      doc = "Non-PIC object files.",
+      documented = true,
+      structField = true)
   Sequence<FileT> getStarlarkObjects() throws EvalException;
 
-  @StarlarkMethod(name = "pic_objects", documented = false, structField = true)
+  @StarlarkMethod(
+      name = "pic_objects",
+      doc = "PIC object files.",
+      documented = true,
+      structField = true)
   Sequence<FileT> getStarlarkPicObjects() throws EvalException;
 }
