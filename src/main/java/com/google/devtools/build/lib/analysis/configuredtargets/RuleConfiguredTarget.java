@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.protobuf.ByteString.Output;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -222,40 +223,49 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public void debugPrint(Printer printer) {
     printer.append("<target " + getLabel() + ", keys:[");
-    ImmutableList.Builder<String> starlarkProviderKeyStrings = getStarlarkProviderKeyStrings();
-    printer.append(Joiner.on(", ").join(starlarkProviderKeyStrings.build()));
+    ImmutableList<String> starlarkProviderKeyStrings = getStarlarkProviderKeyStrings(/*showOutputGroupInfo=*/false);
+    printer.append(Joiner.on(", ").join(starlarkProviderKeyStrings));
     printer.append("]>");
   }
 
-  // Returns the names of the provider keys that this target propagates.
-  // Provider key names might potentially be *private* information, and thus a comprehensive
-  // list of provider keys should not be exposed in any way other than for debug information.
-  public ImmutableList.Builder<String> getStarlarkProviderKeyStrings() {
+  /**
+   * Returns the names of the provider keys that this target propagates.
+   * Provider key names might potentially be *private* information, and thus a comprehensive
+   * list of provider keys should not be exposed in a programmatic way within Starlark. However,
+   * enumerating them for debug or cquery purposes are okay.
+   *
+   * Also return information about non-internal or hidden output group names, if there are
+   * output groups.
+   * @param showOutputGroupInfo if enabled, include OutputGroupInfo in the list of providers
+   * @return the list of provider this {@link RuleConfiguredTarget} propagates
+   */
+  public ImmutableList<String> getStarlarkProviderKeyStrings(boolean showOutputGroupInfo) {
     ImmutableList.Builder<String> skylarkProviderKeyStrings = ImmutableList.builder();
     for (int providerIndex = 0; providerIndex < providers.getProviderCount(); providerIndex++) {
       Object providerKey = providers.getProviderKeyAt(providerIndex);
       if (providerKey instanceof Provider.Key) {
-        if (providerKey.toString().equals("OutputGroupInfo")) {
+        // Is there a better way to perform equality check for OutputGroupInfo?
+        if (showOutputGroupInfo && providerKey.toString().equals("OutputGroupInfo")) {
           ImmutableList<String> outputGroups =
               ((OutputGroupInfo) providers.getProviderInstanceAt(providerIndex))
                   .getFieldNames()
                   .stream()
-                  .filter((name) -> !name.contains("_INTERNAL_"))
+                  .filter((name) ->
+                      !name.endsWith(OutputGroupInfo.INTERNAL_SUFFIX) ||
+                          !name.startsWith(OutputGroupInfo.HIDDEN_OUTPUT_GROUP_PREFIX))
                   .collect(ImmutableList.toImmutableList());
           if (!outputGroups.isEmpty()) {
-            skylarkProviderKeyStrings.add("OutputGroupInfo" + outputGroups.toString() + "");
+            // Prints OutputGroupInfo[foo, bar, baz]
+            skylarkProviderKeyStrings.add("OutputGroupInfo" + outputGroups.toString());
           }
         } else {
+          // Not an OutputGroupInfo provider
           skylarkProviderKeyStrings.add(providerKey.toString());
         }
       }
     }
-    return skylarkProviderKeyStrings;
+    return skylarkProviderKeyStrings.build();
   }
-
-  // public ImmutableList<String> getOutputGroupNames() {
-  //   Object outputGroupInfo = providers.getProvider(OutputGroupInfo.class);
-  // }
 
   /** Returns a list of actions that this configured target generated. */
   public ImmutableList<ActionAnalysisMetadata> getActions() {

@@ -128,15 +128,13 @@ public abstract class PostAnalysisQueryBuildTool<T> extends BuildTool {
     NamedThreadSafeOutputFormatterCallback<T> callback =
         NamedThreadSafeOutputFormatterCallback.selectCallback(outputFormat, callbacks);
     if (callback == null) {
-      env.getReporter()
-          .handle(
-              Event.error(
-                  String.format(
-                      "Invalid output format '%s'. Valid values are: %s",
-                      outputFormat,
-                      NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks))));
-      throw new QueryException("Invalid output format.");
-      // return;
+      String errorMessage =
+          String.format(
+              "Invalid output format '%s'. Valid values are: %s",
+              outputFormat,
+              NamedThreadSafeOutputFormatterCallback.callbackNames(callbacks));
+      env.getReporter().handle(Event.error(errorMessage));
+      throw new QueryException(errorMessage);
     }
     QueryEvalResult result =
         postAnalysisQueryEnvironment.evaluateQuery(queryExpression, callback);

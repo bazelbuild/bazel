@@ -47,7 +47,7 @@ public class ProvidersOutputFormatterCallback extends CqueryThreadsafeCallback {
       output
           .append(configuredTarget.getLabel())
           .append(" ")
-          .append(ruleConfiguredTarget.getStarlarkProviderKeyStrings().build());
+          .append(ruleConfiguredTarget.getStarlarkProviderKeyStrings(/*showOutputGroupInfo=*/true));
       addResult(output.toString());
     }
   }
