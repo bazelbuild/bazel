@@ -223,8 +223,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public void debugPrint(Printer printer) {
     printer.append("<target " + getLabel() + ", keys:[");
-    ImmutableList<String> starlarkProviderKeyStrings = getStarlarkProviderKeyStrings(/*showOutputGroupInfo=*/false);
-    printer.append(Joiner.on(", ").join(starlarkProviderKeyStrings));
+    printer.append(Joiner.on(", ").join(getStarlarkProviderKeyStrings(/*showOutputGroupInfo=*/false)));
     printer.append("]>");
   }
 

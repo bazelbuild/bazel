@@ -156,3 +156,19 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "ProvidersOutputFormatterCallbackTest",
+    srcs = ["ProvidersOutputFormatterCallbackTest.java"],
+    deps = [
+        ":configured_target_query_helper",
+        ":configured_target_query_test",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/query2/engine",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:util_internal",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
