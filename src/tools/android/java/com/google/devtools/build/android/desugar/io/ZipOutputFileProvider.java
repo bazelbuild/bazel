@@ -14,6 +14,7 @@
 package com.google.devtools.build.android.desugar.io;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.devtools.build.android.ziputils.DosTime.EPOCHISH;
 
 import com.google.common.io.ByteStreams;
 import java.io.BufferedOutputStream;
@@ -83,7 +84,7 @@ class ZipOutputFileProvider implements OutputFileProvider {
     checksum.update(content);
 
     ZipEntry result = new ZipEntry(filename);
-    result.setTime(0L); // Use stable timestamp Jan 1 1980
+    result.setTime(EPOCHISH.time); // Use stable timestamp Jan 1 1980
     result.setCrc(checksum.getValue());
     result.setSize(content.length);
     result.setCompressedSize(content.length);

@@ -459,8 +459,8 @@ public class ResourceLinker {
               String comment = dirEntry.getComment();
               byte[] extra = dirEntry.getExtraData();
               zipOut.nextEntry(
-                  dirEntry.clone(filename, extra, comment).set(CENTIM, DosTime.EPOCH.time));
-              zipOut.write(header.clone(filename, extra).set(LOCTIM, DosTime.EPOCH.time));
+                  dirEntry.clone(filename, extra, comment).set(CENTIM, DosTime.EPOCHISH.time));
+              zipOut.write(header.clone(filename, extra).set(LOCTIM, DosTime.EPOCHISH.time));
               zipOut.write(data);
               if ((header.get(LOCFLG) & LocalFileHeader.SIZE_MASKED_FLAG) != 0) {
                 DataDescriptor desc =
