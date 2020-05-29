@@ -49,9 +49,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
-import com.google.protobuf.ByteString.Output;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**

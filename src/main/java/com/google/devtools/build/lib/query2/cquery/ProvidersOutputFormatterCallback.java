@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import java.io.OutputStream;
 
+/** Provider name output formatter for cquery results */
 public class ProvidersOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   ProvidersOutputFormatterCallback(
@@ -38,17 +39,16 @@ public class ProvidersOutputFormatterCallback extends CqueryThreadsafeCallback {
   @Override
   public void processOutput(Iterable<ConfiguredTarget> partialResult) {
     for (ConfiguredTarget configuredTarget : partialResult) {
-      if (!(configuredTarget instanceof RuleConfiguredTarget)) {
-        continue;
+      if (configuredTarget instanceof RuleConfiguredTarget) {
+        RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+        StringBuilder output = new StringBuilder();
+        output
+            .append(configuredTarget.getLabel())
+            .append(" ")
+            .append(
+                ruleConfiguredTarget.getStarlarkProviderKeyStrings(/*showOutputGroupInfo=*/true));
+        addResult(output.toString());
       }
-
-      RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
-      StringBuilder output = new StringBuilder();
-      output
-          .append(configuredTarget.getLabel())
-          .append(" ")
-          .append(ruleConfiguredTarget.getStarlarkProviderKeyStrings(/*showOutputGroupInfo=*/true));
-      addResult(output.toString());
     }
   }
 }
