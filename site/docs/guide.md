@@ -327,8 +327,8 @@ be determined, for example to manually clean up the cache. The cache is never
 cleaned up automatically, as it might contain a copy of a file that is no
 longer available upstream.
 
-<a name="distdir"></a> #### 
-Distribution files directories
+<a name="distdir"></a> 
+#### Distribution files directories
 
 Besides the repository cache, Bazel has a second mechanism to avoid unnecessary
 downloads, called the distribution directory.
