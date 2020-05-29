@@ -1758,9 +1758,7 @@ public abstract class CcModule
             .addAdditionalCompilationInputs(
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
-            .setPurpose(common.getPurpose(getSemantics()))
-            .setHeadersCheckingMode(
-                getSemantics().determineHeadersCheckingMode(actions.getRuleContext()));
+            .setPurpose(common.getPurpose(getSemantics()));
     if (disallowNopicOutputs) {
       helper.setGenerateNoPicAction(false);
     }
