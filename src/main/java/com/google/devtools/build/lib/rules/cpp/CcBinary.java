@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.STATIC_LINK
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
@@ -1046,13 +1048,29 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
   private static NestedSet<Artifact> createDynamicLibrariesCopyActions(
       RuleContext ruleContext, Iterable<Artifact> dynamicLibrariesForRuntime) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     for (Artifact target : dynamicLibrariesForRuntime) {
       if (!ruleContext
           .getLabel()
           .getPackageIdentifier()
-          .equals(target.getOwner().getPackageIdentifier())) {
+          .equals(target.getOwner().getPackageIdentifier())
+          || cppConfiguration.isRenameDLL()) {
         // SymlinkAction on file is actually copy on Windows.
-        Artifact copy = ruleContext.getBinArtifact(target.getFilename());
+        String copyFilename = target.getFilename();
+        if(cppConfiguration.isRenameDLL()) {
+          String targetPath = ruleContext.getRepository() 
+              + "/" 
+              + target.getOwnerLabel().getPackageIdentifier().getSourceRoot();
+          String targetHash = Hashing.sha256()
+              .hashString(targetPath, Charsets.UTF_8)
+              .toString();
+          String copyFilenameWithoutExtension = copyFilename
+              .replaceAll("." + target.getExtension(), "");
+          copyFilename = copyFilenameWithoutExtension 
+              + "_" + targetHash + "." 
+              + target.getExtension();
+        }
+        Artifact copy = ruleContext.getBinArtifact(copyFilename);
         ruleContext.registerAction(SymlinkAction.toArtifact(
             ruleContext.getActionOwner(), target, copy, "Copying Execution Dynamic Library"));
         result.add(copy);

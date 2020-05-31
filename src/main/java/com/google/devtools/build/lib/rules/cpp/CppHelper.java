@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Charsets;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -27,6 +28,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
+import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -871,6 +873,19 @@ public class CppHelper {
     for (Artifact objectFile : objectFiles) {
       argv.addDynamicString(objectFile.getExecPathString());
     }
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    if(cppConfiguration.isRenameDLL()) {
+      String dllPath = ruleContext.getRepository() 
+          + "/" 
+          + ruleContext.getPackageDirectory();
+      String dllHash = Hashing.sha256()
+          .hashString(dllPath, Charsets.UTF_8)
+          .toString();
+      String dllNameWithoutExtension = dllName
+          .replaceAll(".dll", "");
+      dllName = dllNameWithoutExtension 
+          + "_" + dllHash + ".dll";
+    }
 
     ruleContext.registerAction(
         new SpawnAction.Builder()
@@ -903,7 +918,23 @@ public class CppHelper {
             ruleContext.getLabel().getName()
                 + ".gen.empty"
                 + Iterables.getOnlyElement(CppFileTypes.WINDOWS_DEF_FILE.getExtensions()));
-    ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile, "", false));
+    String fileContent = "";
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    if(cppConfiguration.isRenameDLL()) {
+      String dllName = ruleContext.getLabel().getName();
+      String dllPath = ruleContext.getRepository() 
+          + "/" 
+          + ruleContext.getPackageDirectory();
+      String dllHash = Hashing.sha256()
+          .hashString(dllPath, Charsets.UTF_8)
+          .toString();
+      String dllNameWithoutExtension = dllName
+          .replaceAll(".dll", "");
+      dllName = dllNameWithoutExtension 
+          + "_" + dllHash + ".dll";
+      fileContent = "LIBRARY " + dllName;
+    }
+    ruleContext.registerAction(FileWriteAction.create(ruleContext, trivialDefFile, fileContent, false));
     return trivialDefFile;
   }
 
