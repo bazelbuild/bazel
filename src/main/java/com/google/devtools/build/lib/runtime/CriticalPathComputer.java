@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
+import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
@@ -118,22 +119,21 @@ public class CriticalPathComputer {
     }
 
     ImmutableList.Builder<CriticalPathComponent> components = ImmutableList.builder();
-    ImmutableList.Builder<SpawnMetrics> metrics = ImmutableList.builder();
+    AggregatedSpawnMetrics.Builder metricsBuilder = new AggregatedSpawnMetrics.Builder();
     CriticalPathComponent child = criticalPath;
 
     while (child != null) {
-      SpawnMetrics childSpawnMetrics = child.getSpawnMetrics();
+      AggregatedSpawnMetrics childSpawnMetrics = child.getSpawnMetrics();
       if (childSpawnMetrics != null) {
-        metrics.add(childSpawnMetrics);
+        metricsBuilder.addDurations(childSpawnMetrics);
+        metricsBuilder.addNonDurations(childSpawnMetrics);
       }
       components.add(child);
       child = child.getChild();
     }
 
     return new AggregatedCriticalPath(
-        criticalPath.getAggregatedElapsedTime(),
-        SpawnMetrics.sumAllMetrics(metrics.build()),
-        components.build());
+        criticalPath.getAggregatedElapsedTime(), metricsBuilder.build(), components.build());
   }
 
   public Map<Artifact, CriticalPathComponent> getCriticalPathComponentsMap() {
@@ -177,7 +177,9 @@ public class CriticalPathComputer {
         .collect(
             Comparators.greatest(
                 LARGEST_MEMORY_COMPONENTS_SIZE,
-                Comparator.comparingLong((c) -> c.getSpawnMetrics().memoryEstimate())));
+                Comparator.comparingLong(
+                    (c) ->
+                        c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::memoryEstimate))));
   }
 
   /** Returns the list of components with the largest input sizes. */
@@ -186,7 +188,8 @@ public class CriticalPathComputer {
         .collect(
             Comparators.greatest(
                 LARGEST_INPUT_SIZE_COMPONENTS_SIZE,
-                Comparator.comparingLong((c) -> c.getSpawnMetrics().inputBytes())));
+                Comparator.comparingLong(
+                    (c) -> c.getSpawnMetrics().getMaxNonDuration(0, SpawnMetrics::inputBytes))));
   }
 
   /** Returns the list of slowest components. */

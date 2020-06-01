@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import java.time.Duration;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,9 +25,10 @@ import org.junit.runners.JUnit4;
 public final class SpawnMetricsTest {
 
   @Test
-  public void sumAllMetrics() throws Exception {
+  public void builder_addDurationsNonDurations() throws Exception {
     SpawnMetrics metrics1 =
         new SpawnMetrics.Builder()
+            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
             .setTotalTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(2))
             .setInputBytes(10)
@@ -37,6 +37,7 @@ public final class SpawnMetricsTest {
             .build();
     SpawnMetrics metrics2 =
         new SpawnMetrics.Builder()
+            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
             .setTotalTime(Duration.ofSeconds(10))
             .setExecutionWallTime(Duration.ofSeconds(20))
             .setInputBytes(100)
@@ -44,7 +45,14 @@ public final class SpawnMetricsTest {
             .setMemoryEstimateBytes(300)
             .build();
 
-    SpawnMetrics result = SpawnMetrics.sumAllMetrics(ImmutableList.of(metrics1, metrics2));
+    SpawnMetrics result =
+        new SpawnMetrics.Builder()
+            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+            .addDurations(metrics1)
+            .addDurations(metrics2)
+            .addNonDurations(metrics1)
+            .addNonDurations(metrics2)
+            .build();
 
     assertThat(result.totalTime()).isEqualTo(Duration.ofSeconds(11));
     assertThat(result.executionWallTime()).isEqualTo(Duration.ofSeconds(22));
@@ -54,9 +62,10 @@ public final class SpawnMetricsTest {
   }
 
   @Test
-  public void sumDurationMetricsMaxOther() throws Exception {
+  public void builder_addDurationsMaxNonDurations() throws Exception {
     SpawnMetrics metrics1 =
         new SpawnMetrics.Builder()
+            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
             .setTotalTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(2))
             .setInputBytes(10)
@@ -65,6 +74,7 @@ public final class SpawnMetricsTest {
             .build();
     SpawnMetrics metrics2 =
         new SpawnMetrics.Builder()
+            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
             .setTotalTime(Duration.ofSeconds(10))
             .setExecutionWallTime(Duration.ofSeconds(20))
             .setInputBytes(100)
@@ -72,26 +82,19 @@ public final class SpawnMetricsTest {
             .setMemoryEstimateBytes(300)
             .build();
 
-    SpawnMetrics result = SpawnMetrics.sumDurationsMaxOther(ImmutableList.of(metrics1, metrics2));
+    SpawnMetrics result =
+        new SpawnMetrics.Builder()
+            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+            .addDurations(metrics1)
+            .addDurations(metrics2)
+            .maxNonDurations(metrics1)
+            .maxNonDurations(metrics2)
+            .build();
 
     assertThat(result.totalTime()).isEqualTo(Duration.ofSeconds(11));
     assertThat(result.executionWallTime()).isEqualTo(Duration.ofSeconds(22));
     assertThat(result.inputBytes()).isEqualTo(100);
     assertThat(result.inputFiles()).isEqualTo(200);
     assertThat(result.memoryEstimate()).isEqualTo(300);
-  }
-
-  @Test
-  public void aggregatingMetrics_defaultsToRemote() throws Exception {
-    SpawnMetrics metrics1 = new SpawnMetrics.Builder().setTotalTime(Duration.ofSeconds(1)).build();
-    SpawnMetrics metrics2 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.LOCAL)
-            .setTotalTime(Duration.ofSeconds(5))
-            .build();
-
-    SpawnMetrics result = SpawnMetrics.sumAllMetrics(ImmutableList.of(metrics1, metrics2));
-
-    assertThat(result.execKind()).isEqualTo(SpawnMetrics.ExecKind.REMOTE);
   }
 }

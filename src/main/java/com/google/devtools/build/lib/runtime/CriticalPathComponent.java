@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -66,9 +66,9 @@ public class CriticalPathComponent {
   private final Artifact primaryOutput;
 
   /** Spawn metrics for this action. */
-  private SpawnMetrics phaseMaxMetrics = SpawnMetrics.EMPTY;
+  private SpawnMetrics phaseMaxMetrics = SpawnMetrics.EMPTY_REMOTE;
 
-  private SpawnMetrics totalSpawnMetrics = SpawnMetrics.EMPTY;
+  private AggregatedSpawnMetrics totalSpawnMetrics = AggregatedSpawnMetrics.EMPTY;
   private Duration longestRunningTotalDuration = Duration.ZERO;
   private boolean phaseChange;
 
@@ -125,10 +125,8 @@ public class CriticalPathComponent {
 
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
     if (!this.phaseMaxMetrics.totalTime().isZero()) {
-      this.totalSpawnMetrics =
-          SpawnMetrics.sumDurationsMaxOther(
-              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics));
-      this.phaseMaxMetrics = SpawnMetrics.EMPTY;
+      this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
+      this.phaseMaxMetrics = SpawnMetrics.EMPTY_REMOTE;
     }
   }
 
@@ -199,9 +197,7 @@ public class CriticalPathComponent {
       this.remote = true;
     }
     if (this.phaseChange) {
-      this.totalSpawnMetrics =
-          SpawnMetrics.sumDurationsMaxOther(
-              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics));
+      this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
       this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
     } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
@@ -223,7 +219,7 @@ public class CriticalPathComponent {
    * Returns total spawn metrics of the maximum (longest running) spawn metrics of all phases for
    * the execution of the action.
    */
-  public SpawnMetrics getSpawnMetrics() {
+  public AggregatedSpawnMetrics getSpawnMetrics() {
     return totalSpawnMetrics;
   }
 
@@ -331,7 +327,7 @@ public class CriticalPathComponent {
     }
     sb.append(currentTime);
     if (remote) {
-      sb.append(", Remote ");
+      sb.append(", ");
       sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
     }
     sb.append(" ");
