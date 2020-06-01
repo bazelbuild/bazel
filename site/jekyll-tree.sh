@@ -151,19 +151,22 @@ EOF
 # During setup, all documentation under docs are moved to the /versions/$VERSION
 # directory. This leaves nothing in the root directory.
 #
-# This function generates a redirect from the root of the site for the given
-# doc page under /versions/$LATEST_RELEASE_VERSION so that
+# As a fix, when generating the master tarball, this function generates a
+# redirect from the root of the site for the given doc page under
+# /versions/$LATEST_RELEASE_VERSION so that
 # https://docs.bazel.build/foo.html will be redirected to
 # https://docs.bazel.build/versions/$LATEST_RELEASE_VERSION/foo.html
 function gen_redirects {
-  pushd "$VERSION_DIR" > /dev/null
-  for f in $(find . -name "*.html" -type f); do
-    gen_redirect $f
-  done
-  for f in $(find . -name "*.md" -type f); do
-    gen_redirect $f
-  done
-  popd > /dev/null
+  if [[ "$VERSION" == "master" ]]; then
+    pushd "$VERSION_DIR" > /dev/null
+    for f in $(find . -name "*.html" -type f); do
+      gen_redirect $f
+    done
+    for f in $(find . -name "*.md" -type f); do
+      gen_redirect $f
+    done
+    popd > /dev/null
+  fi
 }
 
 # Creates a tar archive containing the final Jekyll tree.
