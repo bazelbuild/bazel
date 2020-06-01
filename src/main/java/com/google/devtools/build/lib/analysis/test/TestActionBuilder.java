@@ -158,6 +158,11 @@ public final class TestActionBuilder {
     return this;
   }
 
+  private boolean isPersistentTestRunner() {
+    return ruleContext.getConfiguration().getFragment(TestConfiguration.class).isPersistentTestRunner()
+        && persistentTestRunnerRunfiles != null;
+  }
+
   /**
    * Creates a test action and artifacts for the given rule. The test action will
    * use the specified executable and runfiles.
@@ -189,7 +194,7 @@ public final class TestActionBuilder {
       inputsBuilder.addTransitive(testRuntime);
     }
     TestTargetProperties testProperties = new TestTargetProperties(
-        ruleContext, executionRequirements);
+        ruleContext, executionRequirements, isPersistentTestRunner());
 
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
@@ -301,7 +306,7 @@ public final class TestActionBuilder {
     } else {
       Artifact flagFile = null;
       // The worker spawn runner expects a flag file containg the worker's flags.
-      if (testConfiguration.isPersistentTestRunner()) {
+      if (isPersistentTestRunner()) {
         flagFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + "_flag_file.txt");
         inputsBuilder.add(flagFile);
       }
@@ -366,7 +371,7 @@ public final class TestActionBuilder {
             testConfiguration.runsPerTestDetectsFlakes()
                 && testConfiguration.cancelConcurrentTests();
         RunfilesSupplier testRunfilesSupplier;
-        if (testConfiguration.isPersistentTestRunner()) {
+        if (isPersistentTestRunner()) {
           // Create a RunfilesSupplier from the persistent test runner's runfiles. Pass only the
           // test runner's runfiles to avoid using a different worker for every test run.
           testRunfilesSupplier =
@@ -380,7 +385,7 @@ public final class TestActionBuilder {
         }
 
         ImmutableList.Builder<Artifact> tools = new ImmutableList.Builder<>();
-        if (testConfiguration.isPersistentTestRunner()) {
+        if (isPersistentTestRunner()) {
           tools.add(testActionExecutable);
           tools.add(executionSettings.getExecutable());
           tools.addAll(additionalTools.build());
