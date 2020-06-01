@@ -79,14 +79,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     }
   }
 
-  // TODO(b/142520065): Remove.
-  /** Converter for {@link AndroidAaptVersion} */
-  public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
-    public AndroidAaptConverter() {
-      super(AndroidAaptVersion.class, "android androidAaptVersion");
-    }
-  }
-
   /**
    * Value used to avoid multiple configurations from conflicting.
    *
@@ -178,12 +170,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     ALPHABETICAL_BY_CONFIGURATION,
     /** Library manifests come before the manifests of their dependencies. */
     DEPENDENCY;
-  }
-
-  /** Types of android manifest mergers. */
-  @Deprecated
-  public enum AndroidAaptVersion {
-    AAPT2;
   }
 
   /** Android configuration options. */
@@ -614,22 +600,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "before the manifests of its dependencies.")
     public ManifestMergerOrder manifestMergerOrder;
 
-    // TODO(b/142520065): Remove.
-    @Option(
-        name = "android_aapt",
-        defaultValue = "aapt2",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        converter = AndroidAaptConverter.class,
-        help =
-            "Selects the version of androidAaptVersion to use for android_binary rules."
-                + "Flag to help the test and transition to aapt2.")
-    public AndroidAaptVersion androidAaptVersion;
-
     @Option(
         name = "apk_signing_method",
         converter = ApkSigningMethodConverter.class,
@@ -926,7 +896,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
       host.manifestMergerOrder = manifestMergerOrder;
-      host.androidAaptVersion = androidAaptVersion;
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
@@ -1057,11 +1026,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
-
-    if (options.androidAaptVersion != AndroidAaptVersion.AAPT2) {
-      throw new InvalidConfigurationException(
-          "--android_aapt is no longer available for setting aapt version to aapt");
-    }
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
