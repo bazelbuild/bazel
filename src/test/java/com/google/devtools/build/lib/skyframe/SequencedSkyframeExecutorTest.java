@@ -623,7 +623,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         public void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {}
       };
 
-  private EvaluationResult<FileArtifactValue> evaluate(Iterable<? extends SkyKey> roots)
+  private <T extends SkyValue> EvaluationResult<T> evaluate(Iterable<? extends SkyKey> roots)
       throws InterruptedException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -1005,7 +1005,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     skyframeExecutor.prepareBuildingForTestingOnly(
         reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
-    evaluate(ImmutableList.of(output1, output2));
+
+    EvaluationResult<TreeArtifactValue> result = evaluate(ImmutableList.of(output1, output2));
+
+    TreeFileArtifact tree1Child = Iterables.getOnlyElement(result.get(output1).getChildren());
+    TreeFileArtifact tree2Child = Iterables.getOnlyElement(result.get(output2).getChildren());
+    assertThat(tree1Child).isEqualTo(TreeFileArtifact.createTreeOutput(output1, "child"));
+    assertThat(tree2Child).isEqualTo(TreeFileArtifact.createTreeOutput(output2, "child"));
   }
 
   /** Dummy action that creates a tree output. */
