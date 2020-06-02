@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -514,6 +515,67 @@ public class ActionMetadataHandlerTest {
     assertThat(handler.getMetadata(ActionInputHelper.fromPath("/output/bin/target/bytestring3")))
         .isNull();
     assertThat(handler.getMetadata(ActionInputHelper.fromPath("/does/not/exist"))).isNull();
+  }
+
+  @Test
+  public void omitRegularArtifact() {
+    OutputStore store = new MinimalOutputStore();
+    Artifact omitted =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("omitted"));
+    Artifact consumed =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("consumed"));
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            new ActionInputMap(1),
+            /*expandedFilesets=*/ ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            ImmutableSet.of(omitted, consumed),
+            /*tsgm=*/ null,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+
+    handler.discardOutputMetadata();
+    handler.markOmitted(omitted);
+
+    assertThat(handler.artifactOmitted(omitted)).isTrue();
+    assertThat(handler.artifactOmitted(consumed)).isFalse();
+    assertThat(store.getAllArtifactData())
+        .containsExactly(omitted, FileArtifactValue.OMITTED_FILE_MARKER);
+    assertThat(store.getAllTreeArtifactData()).isEmpty();
+  }
+
+  @Test
+  public void omitTreeArtifact() {
+    OutputStore store = new MinimalOutputStore();
+    SpecialArtifact omittedTree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("omitted"));
+    SpecialArtifact consumedTree =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("consumed"));
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            new ActionInputMap(1),
+            /*expandedFilesets=*/ ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            ImmutableSet.of(omittedTree, consumedTree),
+            /*tsgm=*/ null,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+
+    handler.discardOutputMetadata();
+    handler.markOmitted(omittedTree);
+    handler.markOmitted(omittedTree); // Marking a tree artifact as omitted twice is tolerated.
+
+    assertThat(handler.artifactOmitted(omittedTree)).isTrue();
+    assertThat(handler.artifactOmitted(consumedTree)).isFalse();
+    assertThat(store.getAllTreeArtifactData())
+        .containsExactly(omittedTree, TreeArtifactValue.OMITTED_TREE_MARKER);
+    assertThat(store.getAllArtifactData()).isEmpty();
   }
 
   private ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> createFilesetOutputSymlinkMap(

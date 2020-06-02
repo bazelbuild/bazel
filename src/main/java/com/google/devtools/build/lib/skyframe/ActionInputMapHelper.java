@@ -157,6 +157,10 @@ class ActionInputMapHelper {
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
       ActionInputMapSink inputMap,
       Artifact depOwner) {
+    if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
+      inputMap.put(treeArtifact, FileArtifactValue.OMITTED_FILE_MARKER, depOwner);
+      return;
+    }
     ImmutableSet.Builder<Artifact> children = ImmutableSet.builder();
     for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
         value.getChildValues().entrySet()) {
