@@ -161,6 +161,34 @@ class TarFileWriterTest(unittest.TestCase):
     } for n in names])
     self.assertTarFileContent(self.tempfile, content)
 
+  def testDefaultMtimeNotProvided(self):
+    with archive.TarFileWriter(self.tempfile) as f:
+      self.assertEqual(f.default_mtime, 0)
+
+  def testDefaultMtimeProvided(self):
+    with archive.TarFileWriter(self.tempfile, default_mtime=1234) as f:
+      self.assertEqual(f.default_mtime, 1234)
+
+  def testPortableMtime(self):
+    with archive.TarFileWriter(self.tempfile, default_mtime="portable") as f:
+      self.assertEqual(f.default_mtime, 946684800)
+
+  def testPreserveTarMtimesTrue(self):
+    with archive.TarFileWriter(self.tempfile, preserve_tar_mtimes=True) as f:
+      input_tar_path = os.path.join(testenv.TESTDATA_PATH, "tar_test.tar")
+      f.add_tar(input_tar_path)
+      input_tar = tarfile.open(input_tar_path, "r")
+      for file_name in f.members:
+        input_file = input_tar.getmember(file_name)
+        output_file = f.tar.getmember(file_name)
+        self.assertEqual(input_file.mtime, output_file.mtime)
+
+  def testPreserveTarMtimesFalse(self):
+    with archive.TarFileWriter(self.tempfile, preserve_tar_mtimes=False) as f:
+      f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"))
+      for output_file in f.tar:
+        self.assertEqual(output_file.mtime, 0)
+
   def testAddFile(self):
     self.assertSimpleFileContent(["./a"])
     self.assertSimpleFileContent(["./b"])
