@@ -861,7 +861,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     clearTrimmingCache();
     skyframeBuildView.clearInvalidatedConfiguredTargets();
     skyframeBuildView.clearLegacyData();
-    ArtifactNestedSetFunction.getInstance().resetArtifactSkyKeyToValueOrException();
+    ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
   }
 
   /** Activates retroactive trimming (idempotently, so has no effect if already active). */
