@@ -125,10 +125,20 @@ function gcov_coverage() {
           # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
           "${GCOV}" -i $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
 
-          # Append all .gcov files in the current directory to the output file.
-          cat *.gcov >> "$output_file"
-          # Delete the .gcov files.
-          rm *.gcov
+          gcov_version=$("${GCOV}" --version | sed -n -r -e 's/^.*\s([0-9]\.[0-9]\.[0-9])\s?.*$/\1/p')
+
+          # Check the gcov version so we can process the data correctly
+          if [ "$(printf '%s\n%s' "9.1.0" "$gcov_version" | sort -V | head -n 1)" != "$gcov_version" ]; then
+              # GCOV 9.1.0 or higher generate a JSON based coverage format
+              # The output is generated into multiple files: "$(basename ${gcda}).gcov.json.gz"
+              # Concatenating JSON documents does not yield a valid document, so they are moved individually
+              mv -- *.gcov.json.gz "$(dirname "$output_file")"
+          else
+              # Append all .gcov files in the current directory to the output file.
+              cat -- *.gcov >> "$output_file"
+              # Delete the .gcov files.
+              rm -- *.gcov
+          fi
       fi
     fi
   done < "${COVERAGE_MANIFEST}"
