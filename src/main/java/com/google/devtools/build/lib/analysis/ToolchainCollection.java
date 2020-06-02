@@ -40,11 +40,11 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
   /** A map of execution group names to toolchain contexts. */
   public abstract ImmutableMap<String, T> getContextMap();
 
-  T getDefaultToolchainContext() {
+  public T getDefaultToolchainContext() {
     return getContextMap().get(DEFAULT_EXEC_GROUP_NAME);
   }
 
-  boolean hasToolchainContext(String execGroup) {
+  public boolean hasToolchainContext(String execGroup) {
     return getContextMap().containsKey(execGroup);
   }
 
@@ -58,7 +58,7 @@ public abstract class ToolchainCollection<T extends ToolchainContext> {
         .collect(toImmutableSet());
   }
 
-  ImmutableSet<String> getExecGroups() {
+  public ImmutableSet<String> getExecGroups() {
     return getContextMap().keySet();
   }
 
