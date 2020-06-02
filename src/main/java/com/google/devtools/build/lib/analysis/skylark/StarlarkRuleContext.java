@@ -709,7 +709,8 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
   @Override
   public ExecGroupCollection execGroups() {
-    return new ExecGroupCollection(ruleContext.getToolchainContexts());
+    // Create a thin wrapper around the toolchain collection, to expose the Starlark API.
+    return ExecGroupCollection.create(ruleContext.getToolchainContexts());
   }
 
   @Override

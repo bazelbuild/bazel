@@ -1024,6 +1024,7 @@ java_library(
     deps = [
         ":toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )

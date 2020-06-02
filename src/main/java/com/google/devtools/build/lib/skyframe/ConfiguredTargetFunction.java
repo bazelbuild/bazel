@@ -325,7 +325,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       if (unloadedToolchainContexts != null) {
         String targetDescription = target.toString();
         ToolchainCollection.Builder<ResolvedToolchainContext> contextsBuilder =
-            new ToolchainCollection.Builder<>();
+            ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
             unloadedToolchainContexts.getContextMap().entrySet()) {
           contextsBuilder.addContext(
@@ -514,7 +514,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     boolean valuesMissing = env.valuesMissing();
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
-        valuesMissing ? null : new ToolchainCollection.Builder<>();
+        valuesMissing ? null : ToolchainCollection.builder();
     for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
         toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =

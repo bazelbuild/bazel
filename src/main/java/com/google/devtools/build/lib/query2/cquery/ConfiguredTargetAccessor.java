@@ -223,7 +223,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
     ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
-        new ToolchainCollection.Builder<>();
+        ToolchainCollection.builder();
     try {
       for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
         ExecGroup execGroup = group.getValue();

@@ -421,7 +421,7 @@ public final class AspectFunction implements SkyFunction {
                 configConditions,
                 unloadedToolchainContext == null
                     ? null
-                    : new ToolchainCollection.Builder<>()
+                    : ToolchainCollection.builder()
                         .addDefaultContext(unloadedToolchainContext)
                         .build(),
                 ruleClassProvider,

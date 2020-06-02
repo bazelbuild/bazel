@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ExecGroupCollectionApi;
@@ -29,16 +32,20 @@ import java.util.stream.Collectors;
  * A {@link StarlarkIndexable} collection of resolved toolchain contexts that can be exposed to
  * starlark.
  */
-public class ExecGroupCollection extends ToolchainCollection<ResolvedToolchainContext>
-    implements ExecGroupCollectionApi {
+@AutoValue
+public abstract class ExecGroupCollection implements ExecGroupCollectionApi {
 
-  public ExecGroupCollection(ToolchainCollection<ResolvedToolchainContext> toolchainCollection) {
-    super(toolchainCollection);
+  /** Returns a new {@link ExecGroupCollection} backed by the given {@code toolchainCollection}. */
+  public static ExecGroupCollection create(
+      ToolchainCollection<ResolvedToolchainContext> toolchainCollection) {
+    return new AutoValue_ExecGroupCollection(toolchainCollection);
   }
+
+  protected abstract ToolchainCollection<ResolvedToolchainContext> toolchainCollection();
 
   @VisibleForTesting
   public ImmutableMap<String, ResolvedToolchainContext> getToolchainCollectionForTesting() {
-    return getContextMap();
+    return toolchainCollection().getContextMap();
   }
 
   public static boolean isValidGroupName(String execGroupName) {
@@ -48,7 +55,8 @@ public class ExecGroupCollection extends ToolchainCollection<ResolvedToolchainCo
   @Override
   public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     String group = castGroupName(key);
-    return !DEFAULT_EXEC_GROUP_NAME.equals(group) && getExecGroups().contains(group);
+    return !DEFAULT_EXEC_GROUP_NAME.equals(group)
+        && toolchainCollection().getExecGroups().contains(group);
   }
 
   /**
@@ -62,11 +70,11 @@ public class ExecGroupCollection extends ToolchainCollection<ResolvedToolchainCo
     if (!containsKey(semantics, key)) {
       throw Starlark.errorf(
           "In %s, unrecognized exec group '%s' requested. Available exec groups: [%s]",
-          getDefaultToolchainContext().targetDescription(),
+          toolchainCollection().getDefaultToolchainContext().targetDescription(),
           execGroup,
           String.join(", ", getScrubbedExecGroups()));
     }
-    return new ExecGroupContext(getToolchainContext(execGroup));
+    return new ExecGroupContext(toolchainCollection().getToolchainContext(execGroup));
   }
 
   private static String castGroupName(Object key) throws EvalException {
@@ -87,7 +95,7 @@ public class ExecGroupCollection extends ToolchainCollection<ResolvedToolchainCo
   }
 
   private List<String> getScrubbedExecGroups() {
-    return getExecGroups().stream()
+    return toolchainCollection().getExecGroups().stream()
         .filter(group -> !DEFAULT_EXEC_GROUP_NAME.equals(group))
         .sorted()
         .collect(Collectors.toList());
@@ -105,7 +113,7 @@ public class ExecGroupCollection extends ToolchainCollection<ResolvedToolchainCo
     }
 
     @Override
-    public ResolvedToolchainContext toolchains() throws EvalException {
+    public ResolvedToolchainContext toolchains() {
       return resolvedToolchainContext;
     }
 
