@@ -1,5 +1,5 @@
 destination: production
-markdown: CommonMarkGhPages
+markdown: kramdown
 kramdown:
   syntax_highlighter: rouge
   toc_levels: "2,3"
@@ -12,7 +12,6 @@ gems:
   - jekyll-paginate
   - jekyll-toc
   - jekyll-sitemap
-  - jekyll-commonmark-ghpages
 
 url: "https://docs.bazel.build" # used by jekyll-sitemap
 
@@ -67,7 +66,3 @@ toc:
   max_level: 3
   list_class: page-toc
   sublist_class: page-toc-sublist
-
-commonmark:
-  options: ["SMART", "FOOTNOTES"]
-  extensions: ["strikethrough", "autolink", "table", "tagfilter"]
