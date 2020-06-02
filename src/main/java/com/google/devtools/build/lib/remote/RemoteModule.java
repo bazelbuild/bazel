@@ -27,8 +27,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -599,23 +601,33 @@ public final class RemoteModule extends BlazeModule {
       CommandEnvironment env,
       BuildRequest request,
       BuildOptions buildOptions,
-      Iterable<ConfiguredTarget> configuredTargets) {
+      AnalysisResult analysisResult) {
     // The actionContextProvider may be null if remote execution is disabled or if there was an
-    // error during
-    // initialization.
+    // error during initialization.
     if (remoteOutputsMode != null
         && remoteOutputsMode.downloadToplevelOutputsOnly()
         && actionContextProvider != null) {
       boolean isTestCommand = env.getCommandName().equals("test");
       TopLevelArtifactContext artifactContext = request.getTopLevelArtifactContext();
       ImmutableSet.Builder<ActionInput> filesToDownload = ImmutableSet.builder();
-      for (ConfiguredTarget configuredTarget : configuredTargets) {
+      for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
         if (isTestCommand && isTestRule(configuredTarget)) {
           // When running a test download the test.log and test.xml.
           filesToDownload.addAll(getTestOutputs(configuredTarget));
         } else {
           filesToDownload.addAll(getArtifactsToBuild(configuredTarget, artifactContext).toList());
           filesToDownload.addAll(getRunfiles(configuredTarget));
+        }
+      }
+      // Also fetch all inputs for actions that propagate their inputs (symlink actions).
+      for (ActionInput actionInput : filesToDownload.build()) {
+        if (!(actionInput instanceof Artifact)) {
+          continue;
+        }
+        ActionExecutionMetadata action =
+            (ActionExecutionMetadata) analysisResult.getActionGraph().getGeneratingAction((Artifact) actionInput);
+        if (action.mayInsensitivelyPropagateInputs()) {
+          filesToDownload.addAll(action.getInputs().toList());
         }
       }
       actionContextProvider.setFilesToDownload(filesToDownload.build());

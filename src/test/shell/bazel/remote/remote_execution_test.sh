@@ -1207,6 +1207,58 @@ EOF
   || fail "Expected runfile bazel-bin/a/create_bar.sh to be downloaded"
 }
 
+function test_downloads_toplevel_symlinks() {
+  # Test that --remote_download_toplevel fetches inputs to symlink actions. In
+  # particular, cc_binary links against a symlinked imported .so file, and only
+  # the symlink is in the runfiles.
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # TODO(b/37355380): This test is disabled due to RemoteWorker not supporting
+    # setting SDKROOT and DEVELOPER_DIR appropriately, as is required of
+    # action executors in order to select the appropriate Xcode toolchain.
+    return 0
+  fi
+
+  mkdir -p a
+
+  cat > a/bar.cc <<'EOF'
+int f() {
+  return 42;
+}
+EOF
+
+  cat > a/foo.cc <<'EOF'
+extern int f();
+int main() { return f() == 42 ? 0 : 1; }
+EOF
+
+  cat > a/BUILD <<'EOF'
+cc_binary(
+  name = "foo",
+  srcs = ["foo.cc"],
+  deps = [":libbar_lib"],
+)
+
+cc_import(
+  name = "libbar_lib",
+  shared_library = ":libbar.so",
+)
+
+cc_binary(
+  name = "libbar.so",
+  srcs = ["bar.cc"],
+  linkshared = 1,
+  linkstatic = 1,
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_toplevel \
+    //a:foo || fail "Failed to build //a:foobar"
+
+  ./bazel-bin/a/foo${EXE_EXT} || fail "bazel-bin/a/foo${EXE_EXT} failed to run"
+}
+
 function test_downloads_toplevel_src_runfiles() {
   # Test that using --remote_download_toplevel with a non-generated (source)
   # runfile dependency works.
