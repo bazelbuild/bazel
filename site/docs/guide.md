@@ -330,17 +330,76 @@ longer available upstream.
 <a name="distdir"></a>
 #### Distribution files directories
 
-Besides the repository cache, Bazel has a second mechanism to avoid
-unnecessary downloads. Using the `--distdir` option, you can
-specify additional read-only directories to look for files instead of fetching
-them. A file is taken from such a directory if the file name is equal to
-the base name of the URL and additionally the hash of the file is equal to the
-one specified in the download request (again, no file is taken from a distdir,
-if no hash is specified). While the condition on the file name is not
-necessary for correctness, it reduces the number of candidate files to one per
-specified directory. In this way, specifying distribution files directories
-remains efficient, even if the number of files in such a directory grows
-large.
+The distribution directory is another Bazel mechanism to avoid unnecessary
+downloads. Bazel searches distribution directories before the repository cache.
+The primary difference is that the distribution directory requires manual
+preparation.
+
+Using the
+[`--distdir=/path/to-directory`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--distdir)
+option, you can specify additional read-only directories to look for files
+instead of fetching them. A file is taken from such a directory if the file name
+is equal to the base name of the URL and additionally the hash of the file is
+equal to the one specified in the download request. This only works if the
+file hash is specified in the WORKSPACE declaration.
+
+While the condition on the file name is not necessary for correctness, it
+reduces the number of candidate files to one per specified directory. In this
+way, specifying distribution files directories remains efficient, even if the
+number of files in such a directory grows large.
+
+#### Running Bazel in an airgapped environment
+
+To keep Bazel's binary size small, Bazel's implicit dependencies are fetched
+over the network while running for the first time. These implicit dependencies
+contain toolchains and rules that may not be necessary for everyone. For
+example, Android tools are unbundled and fetched only when building Android
+projects.
+
+However, these implicit dependencies may cause problems when running
+Bazel in an airgapped environment, even if you have vendored all of your
+WORKSPACE dependencies. To solve that, you can prepare a distribution directory
+containing these dependencies on a machine with network access, and then
+transfer them to the airgapped environment with an offline approach.
+
+To prepare the [distribution directory](distribution-files-directories), use the
+[`--distdir`](https://docs.bazel.build/versions/master/command-line-reference.html#flag--distdir)
+flag. You will need to do this once for every new Bazel binary version, since
+the implicit dependencies can be different for every release.
+
+To build these dependencies outside of your airgapped environment, first
+checkout the Bazel source tree at the right version:
+
+```
+git clone https://github.com/bazelbuild/bazel "$BAZEL_DIR"
+cd "$BAZEL_DIR"
+git checkout "$BAZEL_VERSION"
+```
+
+Then, build the tarball containing the implicit runtime dependencies for that
+specific Bazel version:
+
+```
+bazel build @additional_distfiles//:archives.tar
+```
+
+Export this tarball to a directory that can be copied into your airgapped
+environment. Note the `--strip-components` flag, because `--distdir` can be
+quite finicky with the directory nesting level:
+
+
+```
+tar xvf bazel-bin/external/additional_distfiles/archives.tar \
+  -C "$NEW_DIRECTORY" --strip-components=3
+```
+
+Finally, when you use Bazel in your airgapped environment, pass the `--distdir`
+flag pointing to the directory. For convenience, you can add it as an `.bazelrc`
+entry:
+
+```
+build --distdir=path/to/directory
+```
 
 
 <a name="configurations"></a>
