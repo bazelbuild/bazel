@@ -133,9 +133,7 @@ class ArtifactFunction implements SkyFunction {
             artifactDependencies.actionLookupValue.getAction(generatingActionKey.getActionIndex()),
             "Null middleman action? %s",
             artifactDependencies);
-    FileArtifactValue individualMetadata =
-        Preconditions.checkNotNull(
-            actionValue.getArtifactValue(artifact), "%s %s", artifact, actionValue);
+    FileArtifactValue individualMetadata = actionValue.getExistingFileArtifactValue(artifact);
     if (isAggregatingValue(action)) {
       return createAggregatingValue(artifact, action, individualMetadata, env);
     }
@@ -331,9 +329,7 @@ class ArtifactFunction implements SkyFunction {
       } else if (inputValue instanceof ActionExecutionValue) {
         fileInputsBuilder.add(
             Pair.of(
-                input,
-                ((ActionExecutionValue) inputValue)
-                    .getExistingFileArtifactValue((DerivedArtifact) input)));
+                input, ((ActionExecutionValue) inputValue).getExistingFileArtifactValue(input)));
       } else if (inputValue instanceof TreeArtifactValue) {
         directoryInputsBuilder.add(Pair.of(input, (TreeArtifactValue) inputValue));
       } else {

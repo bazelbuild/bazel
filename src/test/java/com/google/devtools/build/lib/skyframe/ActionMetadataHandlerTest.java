@@ -480,11 +480,12 @@ public class ActionMetadataHandlerTest {
     assertThat(treeValue.getChildPaths())
         .containsExactly(PathFragment.create("foo"), PathFragment.create("bar"));
     assertThat(treeValue.getChildValues().values()).containsExactly(fooValue, barValue);
+
+    // Make sure that all children are transferred properly into the ActionExecutionValue. If any
+    // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.createFromOutputStore(handler.getOutputStore(), null, null, false);
-    treeValue
-        .getChildren()
-        .forEach(t -> assertThat(actionExecutionValue.getArtifactValue(t)).isNotNull());
+    treeValue.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 
   @Test

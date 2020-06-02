@@ -125,41 +125,32 @@ public class ActionExecutionValue implements SkyValue {
   }
 
   /**
-   * Retrieves a {@link FileArtifactValue} for a regular (non-middleman, non-tree) derived artifact.
+   * Retrieves a {@link FileArtifactValue} for a regular (non-tree) derived artifact.
    *
-   * <p>The value for the given artifact must be present.
+   * <p>The value for the given artifact must be present, or else {@link NullPointerException} will
+   * be thrown.
    */
-  FileArtifactValue getExistingFileArtifactValue(DerivedArtifact artifact) {
-    Preconditions.checkState(
-        !artifact.isMiddlemanArtifact() && !artifact.isTreeArtifact(),
+  public FileArtifactValue getExistingFileArtifactValue(Artifact artifact) {
+    Preconditions.checkArgument(
+        artifact instanceof DerivedArtifact && !artifact.isTreeArtifact(),
         "Cannot request %s from %s",
         artifact,
         this);
+
+    FileArtifactValue result;
+    if (artifact.isChildOfDeclaredDirectory()) {
+      TreeArtifactValue tree = treeArtifactData.get(artifact.getParent());
+      result = tree == null ? null : tree.getChildValues().get(artifact);
+    } else {
+      result = artifactData.get(artifact);
+    }
+
     return Preconditions.checkNotNull(
-        getArtifactValue(artifact),
+        result,
         "Missing artifact %s (generating action key %s) in %s",
         artifact,
-        artifact.getGeneratingActionKey(),
+        ((DerivedArtifact) artifact).getGeneratingActionKey(),
         this);
-  }
-
-  /**
-   * @return The data for each non-middleman output of this action, in the form of the {@link
-   *     com.google.devtools.build.lib.actions.FileValue} that would be created for the file if it
-   *     were to be read from disk.
-   */
-  @Nullable
-  public FileArtifactValue getArtifactValue(Artifact artifact) {
-    FileArtifactValue result = artifactData.get(artifact);
-    if (result != null || !artifact.hasParent()) {
-      return result;
-    }
-    // In some cases, TreeFileArtifact metadata may not have been injected directly, and is only
-    // available via the parent. However, if this ActionExecutionValue corresponds to a templated
-    // action, as opposed to an action that created a tree artifact itself, the TreeFileArtifact
-    // metadata will be in artifactData, since this value will have no treeArtifactData.
-    TreeArtifactValue treeArtifactValue = treeArtifactData.get(artifact.getParent());
-    return treeArtifactValue == null ? null : treeArtifactValue.getChildValues().get(artifact);
   }
 
   TreeArtifactValue getTreeArtifactValue(Artifact artifact) {

@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionRewoundEvent;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -1076,9 +1075,7 @@ public class ActionExecutionFunction implements SkyFunction {
         inputData.putWithNoDepOwner(input, treeValue.getSelfData());
       } else if (retrievedMetadata instanceof ActionExecutionValue) {
         inputData.putWithNoDepOwner(
-            input,
-            ((ActionExecutionValue) retrievedMetadata)
-                .getExistingFileArtifactValue((DerivedArtifact) input));
+            input, ((ActionExecutionValue) retrievedMetadata).getExistingFileArtifactValue(input));
       } else if (retrievedMetadata instanceof MissingFileArtifactValue) {
         inputData.putWithNoDepOwner(input, FileArtifactValue.MISSING_FILE_MARKER);
       } else if (retrievedMetadata instanceof FileArtifactValue) {

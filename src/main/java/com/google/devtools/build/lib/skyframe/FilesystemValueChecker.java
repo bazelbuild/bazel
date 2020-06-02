@@ -26,7 +26,6 @@ import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -337,8 +336,7 @@ public class FilesystemValueChecker {
           Pair<SkyKey, ActionExecutionValue> keyAndValue = fileToKeyAndValue.get(artifact);
           ActionExecutionValue actionValue = keyAndValue.getSecond();
           SkyKey key = keyAndValue.getFirst();
-          FileArtifactValue lastKnownData =
-              actionValue.getExistingFileArtifactValue((DerivedArtifact) artifact);
+          FileArtifactValue lastKnownData = actionValue.getExistingFileArtifactValue(artifact);
           try {
             FileArtifactValue newData =
                 ActionMetadataHandler.fileArtifactValueFromArtifact(artifact, stat, tsgm);

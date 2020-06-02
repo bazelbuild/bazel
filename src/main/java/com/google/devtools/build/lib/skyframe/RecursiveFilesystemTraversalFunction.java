@@ -22,7 +22,6 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
@@ -278,9 +277,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         if (value instanceof FileArtifactValue || value instanceof TreeArtifactValue) {
           fsVal = (HasDigest) value;
         } else if (value instanceof ActionExecutionValue) {
-          fsVal =
-              ((ActionExecutionValue) value)
-                  .getExistingFileArtifactValue((DerivedArtifact) artifact);
+          fsVal = ((ActionExecutionValue) value).getExistingFileArtifactValue(artifact);
         } else {
           return NON_EXISTENT_FILE_INFO;
         }

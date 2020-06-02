@@ -434,8 +434,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     }
     SkyValue value = result.get(key);
     if (value instanceof ActionExecutionValue) {
-      return ((ActionExecutionValue) value)
-          .getExistingFileArtifactValue((DerivedArtifact) artifact);
+      return ((ActionExecutionValue) value).getExistingFileArtifactValue(artifact);
     }
     return value;
   }
