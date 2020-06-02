@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
-import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
@@ -31,20 +29,6 @@ import net.starlark.java.annot.StarlarkMethod;
     documented = true,
     doc = "Helper class containing CC compilation outputs.")
 public interface CcCompilationOutputsApi<FileT extends FileApi> extends StarlarkValue {
-
-  /** @deprecated use {@link #getStarlarkObjects} or {@link #getStarlarkPicObjects}. */
-  @StarlarkMethod(
-      name = "object_files",
-      doc = "Do not use. Use eiher 'objects' or 'pic_objects'.",
-      useStarlarkThread = true,
-      documented = false,
-      parameters = {
-        @Param(name = "use_pic", doc = "use_pic", positional = false, named = true),
-      })
-  @Deprecated
-  Sequence<FileT> getStarlarkObjectFiles(boolean usePic, StarlarkThread thread)
-      throws EvalException;
-
   @StarlarkMethod(
       name = "objects",
       doc = "Non-PIC object files.",

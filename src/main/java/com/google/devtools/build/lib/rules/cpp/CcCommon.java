@@ -59,8 +59,6 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -71,7 +69,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -198,43 +195,6 @@ public final class CcCommon {
           entryOutputGroupBuilder.getKey(), entryOutputGroupBuilder.getValue().build());
     }
     return mergedOutputGroups;
-  }
-
-  public static void checkRuleWhitelisted(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException, InterruptedException {
-    RuleContext context = starlarkRuleContext.getRuleContext();
-    Rule rule = context.getRule();
-
-    RuleClass ruleClass = rule.getRuleClassObject();
-    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label != null) {
-      checkLocationWhitelisted(
-          context.getAnalysisEnvironment().getStarlarkSemantics(),
-          rule.getLocation(),
-          label.getPackageFragment().toString());
-    }
-  }
-
-  public static void checkLocationWhitelisted(
-      StarlarkSemantics semantics, Location location, String callPath) throws EvalException {
-    List<String> whitelistedPackagesList = semantics.experimentalCcStarlarkApiEnabledPackages();
-    if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {
-      throwWhiteListError(location, callPath, whitelistedPackagesList);
-    }
-  }
-
-  private static void throwWhiteListError(
-      Location location, String callPath, List<String> whitelistedPackagesList)
-      throws EvalException {
-    String whitelistedPackages = whitelistedPackagesList.stream().collect(Collectors.joining(", "));
-    throw new EvalException(
-        location,
-        String.format(
-            "the C++ Starlark API is for the time being only allowed for rules in '%s'; "
-                + "but this is defined in '%s'. You can try it out by passing "
-                + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that "
-                + "we will be making breaking changes to this API without prior warning.",
-            whitelistedPackages, callPath));
   }
 
   /**
@@ -1132,6 +1092,20 @@ public final class CcCommon {
     if (!hasValidTag(ruleContext) || !ruleContext.getRule().wasCreatedByMacro()) {
       registerMigrationRuleError(ruleContext);
     }
+  }
+
+  public static boolean isOldStarlarkApiWhiteListed(
+      StarlarkRuleContext starlarkRuleContext, List<String> whitelistedPackages) {
+    RuleContext context = starlarkRuleContext.getRuleContext();
+    Rule rule = context.getRule();
+
+    RuleClass ruleClass = rule.getRuleClassObject();
+    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
+    if (label != null) {
+      return whitelistedPackages.stream()
+          .anyMatch(path -> label.getPackageFragment().toString().startsWith(path));
+    }
+    return false;
   }
 
   private static boolean hasValidTag(RuleContext ruleContext) {
