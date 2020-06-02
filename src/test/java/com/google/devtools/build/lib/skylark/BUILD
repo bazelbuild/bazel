@@ -37,6 +37,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:skylark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
