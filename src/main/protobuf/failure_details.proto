@@ -127,6 +127,7 @@ message FailureDetail {
     ProfileCommand profile_command = 151;
     RunCommand run_command = 152;
     VersionCommand version_command = 153;
+    PrintActionCommand print_action_command = 154;
   }
 
   reserved 102; // For internal use
@@ -746,6 +747,18 @@ message VersionCommand {
   enum Code {
     VERSION_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     NOT_AVAILABLE = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message PrintActionCommand {
+  enum Code {
+    PRINT_ACTION_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    TARGET_NOT_FOUND = 1 [(metadata) = { exit_code: 1 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+    TARGET_KIND_UNSUPPORTED = 3 [(metadata) = { exit_code: 1 }];
+    ACTIONS_NOT_FOUND = 4 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
