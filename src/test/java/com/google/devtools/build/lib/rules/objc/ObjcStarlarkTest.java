@@ -42,7 +42,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Starlark interaction with the objc_* rules. */
 @RunWith(JUnit4.class)
-public class ObjcStararkTest extends ObjcRuleTestCase {
+public class ObjcStarlarkTest extends ObjcRuleTestCase {
   private void writeObjcSplitTransitionTestFiles() throws Exception {
     scratch.file(
         "examples/rule/apple_rules.bzl",
