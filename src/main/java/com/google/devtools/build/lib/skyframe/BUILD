@@ -1123,6 +1123,7 @@ java_library(
     deps = [
         ":build_configuration_value",
         ":sky_functions",
+        ":toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
