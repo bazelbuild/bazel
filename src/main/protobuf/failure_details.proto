@@ -141,6 +141,7 @@ message FailureDetail {
   reserved 138; // For internal use
   reserved 143; // For internal use
   reserved 149; // For internal use
+  reserved 155; // For internal use
 }
 
 message Interrupted {
