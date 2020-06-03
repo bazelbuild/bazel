@@ -173,6 +173,12 @@ distdir_tar(
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         # protocolbuffers/protobuf
         "v3.11.3.tar.gz",
+        # grpc/grpc
+        "v1.26.0.tar.gz",
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -204,6 +210,12 @@ distdir_tar(
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         # protocolbuffers/protobuf
         "v3.11.3.tar.gz": "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
+        # grpc/grpc
+        "v1.26.0.tar.gz": "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -276,6 +288,21 @@ distdir_tar(
         "v3.11.3.tar.gz": [
             "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
             "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+        ],
+        # grpc/grpc
+        "v1.26.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        ],
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": [
+            "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+            "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+        ],
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
         ],
     },
 )
@@ -511,6 +538,12 @@ distdir_tar(
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         # protocolbuffers/protobuf
         "v3.11.3.tar.gz",
+        # grpc/grpc
+        "v1.26.0.tar.gz",
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -535,6 +568,12 @@ distdir_tar(
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         # protocolbuffers/protobuf
         "v3.11.3.tar.gz": "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
+        # grpc/grpc
+        "v1.26.0.tar.gz": "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
     },
     urls = {
         "java_tools_javac11_linux-v8.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v8.0/java_tools_javac11_linux-v8.0.zip"],
@@ -577,6 +616,21 @@ distdir_tar(
         "v3.11.3.tar.gz": [
             "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
             "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+        ],
+        # grpc/grpc
+        "v1.26.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        ],
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": [
+            "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+            "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+        ],
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
         ],
     },
 )
@@ -949,6 +1003,26 @@ load("@local_config_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains"
 register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
+
+http_archive(
+    name = "com_github_grpc_grpc",
+    urls = [
+        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+    ],
+    sha256 = "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
+    patches = ["//third_party/grpc:grpc_1.26.0.patch"],
+    patch_args = ["-p1"],
+    strip_prefix = "grpc-1.26.0",
+)
+
+# Projects using gRPC as an external dependency must call both grpc_deps() and
+# grpc_extra_deps().
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+grpc_deps()
+
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+grpc_extra_deps()
 
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
 debian_deps()
