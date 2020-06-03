@@ -39,5 +39,7 @@ build:ubuntu1604_java8 --config=remote_shared
 # Alias
 build:remote --config=ubuntu1604_java8
 
+build --macos_minimum_os=10.10
+
 # User-specific .bazelrc
 try-import user.bazelrc
