@@ -251,7 +251,7 @@ public class CppOptions extends FragmentOptions {
     effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
     help =
         "If enabled, all C++ dynamic linked libraries (DLLs) on Windows will be renamed "
-            + "to name_hash.dll where hash is caculated based on the RepositoryName and "
+            + "to name_{hash}.dll where hash is caculated based on the RepositoryName and "
             + "the DLL's package path. This option is useful when you have one package " 
             + "which depends on severals packages with the same name "
             + "(e.g //foo/bar1/utils and //foo/bar2/utils)."
