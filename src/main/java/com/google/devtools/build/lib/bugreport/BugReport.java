@@ -142,14 +142,13 @@ public abstract class BugReport {
   }
 
   /**
-   * Print, log, send a bug report, and then cause the current Blaze command to fail with the
-   * specified exit code, and then cause the jvm to terminate.
+   * Print, log, and then cause the current Blaze command to fail with the specified exit code, and
+   * then cause the jvm to terminate.
    *
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static void handleCrashWithoutSendingBugReport(
       Throwable throwable, ExitCode exitCode, String... args) {
-    // TODO(b/78555988): allow call sites to specialize DetailedExitCode
     handleCrash(
         throwable,
         /*sendBugReport=*/ false,
@@ -164,7 +163,6 @@ public abstract class BugReport {
    * <p>Has no effect if another crash has already been handled by {@link BugReport}.
    */
   public static void handleCrash(Throwable throwable, ExitCode exitCode, String... args) {
-    // TODO(b/78555988): allow call sites to specialize DetailedExitCode
     handleCrash(
         throwable,
         /*sendBugReport=*/ true,
@@ -191,8 +189,7 @@ public abstract class BugReport {
       boolean sendBugReport,
       DetailedExitCode detailedExitCode,
       String... args) {
-    ExitCode exitCodeToUse = detailedExitCode.getExitCode();
-    int numericExitCode = exitCodeToUse.getNumericExitCode();
+    int numericExitCode = detailedExitCode.getExitCode().getNumericExitCode();
     try {
       synchronized (LOCK) {
         if (TestType.isInTest()) {
