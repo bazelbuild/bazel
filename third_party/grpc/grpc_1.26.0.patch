@@ -1,0 +1,114 @@
+commit bb0d04663c7dc6c0096f8717cb4ec26330a5ae40
+Author: Yun Peng <pcloudy@google.com>
+Date:   Wed Jun 3 15:35:31 2020 +0200
+
+    Patch grpc v1.26.0 for Bazel build
+    
+    - Avoid loading dependencies that're not needed for the gRPC C++
+    libraries
+    - Add bazel mirror URL for upb and cares
+    - Redirect zlib to @//third_party/zlib
+
+diff --git a/bazel/grpc_build_system.bzl b/bazel/grpc_build_system.bzl
+index 7bb6b8bdb9..7644107b70 100644
+--- a/bazel/grpc_build_system.bzl
++++ b/bazel/grpc_build_system.bzl
+@@ -25,7 +25,7 @@
+ 
+ load("//bazel:cc_grpc_library.bzl", "cc_grpc_library")
+ load("@upb//bazel:upb_proto_library.bzl", "upb_proto_library")
+-load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
++# load("@build_bazel_rules_apple//apple:ios.bzl", "ios_unit_test")
+ 
+ # The set of pollers to test against if a test exercises polling
+ POLLERS = ["epollex", "epoll1", "poll"]
+@@ -181,13 +181,13 @@ def ios_cc_test(
+             testonly = 1,
+         )
+         ios_test_deps = [ios_test_adapter, ":" + test_lib_ios]
+-        ios_unit_test(
+-            name = name + "_on_ios",
+-            size = kwargs.get("size"),
+-            tags = ios_tags,
+-            minimum_os_version = "9.0",
+-            deps = ios_test_deps,
+-        )
++        # ios_unit_test(
++        #     name = name + "_on_ios",
++        #     size = kwargs.get("size"),
++        #     tags = ios_tags,
++        #     minimum_os_version = "9.0",
++        #     deps = ios_test_deps,
++        # )
+ 
+ def grpc_cc_test(name, srcs = [], deps = [], external_deps = [], args = [], data = [], uses_polling = True, language = "C++", size = "medium", timeout = None, tags = [], exec_compatible_with = [], exec_properties = {}, shard_count = None):
+     copts = if_mac(["-DGRPC_CFSTREAM"])
+diff --git a/bazel/grpc_deps.bzl b/bazel/grpc_deps.bzl
+index 09fcad95a2..9b737e5deb 100644
+--- a/bazel/grpc_deps.bzl
++++ b/bazel/grpc_deps.bzl
+@@ -33,7 +33,7 @@ def grpc_deps():
+ 
+     native.bind(
+         name = "madler_zlib",
+-        actual = "@zlib//:zlib",
++        actual = "@//third_party/zlib",
+     )
+ 
+     native.bind(
+@@ -164,7 +164,10 @@ def grpc_deps():
+             build_file = "@com_github_grpc_grpc//third_party:cares/cares.BUILD",
+             sha256 = "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
+             strip_prefix = "c-ares-e982924acee7f7313b4baa4ee5ec000c5e373c30",
+-            url = "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
++            urls = [
++                "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
++                "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
++            ],
+         )
+ 
+     if "com_google_absl" not in native.existing_rules():
+@@ -209,7 +212,10 @@ def grpc_deps():
+             name = "upb",
+             sha256 = "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
+             strip_prefix = "upb-9effcbcb27f0a665f9f345030188c0b291e32482",
+-            url = "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
++            urls = [
++                "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
++                "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
++            ],
+         )
+     if "envoy_api" not in native.existing_rules():
+         http_archive(
+diff --git a/bazel/grpc_extra_deps.bzl b/bazel/grpc_extra_deps.bzl
+index 4c1dfad2e8..f63c54ddef 100644
+--- a/bazel/grpc_extra_deps.bzl
++++ b/bazel/grpc_extra_deps.bzl
+@@ -1,11 +1,6 @@
+ """Loads the dependencies necessary for the external repositories defined in grpc_deps.bzl."""
+ 
+-load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+ load("@upb//bazel:workspace_deps.bzl", "upb_deps")
+-load("@envoy_api//bazel:repositories.bzl", "api_dependencies")
+-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+-load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
+-load("@build_bazel_apple_support//lib:repositories.bzl", "apple_support_dependencies")
+ 
+ def grpc_extra_deps():
+     """Loads the extra dependencies.
+@@ -26,15 +21,5 @@ def grpc_extra_deps():
+     grpc_extra_deps()
+     ```
+     """
+-    protobuf_deps()
+-
+     upb_deps()
+ 
+-    api_dependencies()
+-
+-    go_rules_dependencies()
+-    go_register_toolchains()
+-
+-    apple_rules_dependencies()
+-
+-    apple_support_dependencies()

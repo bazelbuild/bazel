@@ -18,6 +18,8 @@ load("@rules_java//java:defs.bzl", "java_import")
 
 licenses(["notice"])  # Apache v2
 
+exports_files(["grpc_1.26.0.patch"])
+
 package(
     default_visibility = ["//visibility:public"],
     features = [
