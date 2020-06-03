@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2002 Google Inc. All Rights Reserved.
 #
 # Redistribution and use in source and binary forms, with or without

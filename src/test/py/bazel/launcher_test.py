@@ -355,7 +355,7 @@ class LauncherTest(test_base.TestBase):
         'helloworld(', '  name = "hello",', '  out = "hello.txt",', ')'
     ])
     foo_py = self.ScratchFile('foo/foo.py', [
-        '#!/usr/bin/env python',
+        '#!/usr/bin/env python3',
         'import sys',
         'if len(sys.argv) == 2:',
         '  with open(sys.argv[1], "w") as f:',
@@ -364,7 +364,7 @@ class LauncherTest(test_base.TestBase):
         '  print("Hello World!")',
     ])
     test_py = self.ScratchFile('foo/test.py', [
-        '#!/usr/bin/env python',
+        '#!/usr/bin/env python3',
         'import unittest',
         'class MyTest(unittest.TestCase):',
         '  def test_dummy(self):',

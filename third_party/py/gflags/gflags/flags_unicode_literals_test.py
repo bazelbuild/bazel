@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Test the use of flags when from __future__ import unicode_literals is on."""
 
 from __future__ import unicode_literals
