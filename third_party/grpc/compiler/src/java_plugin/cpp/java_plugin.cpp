@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 The gRPC Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 // Generates Java gRPC service interface out of Protobuf IDL.
 //
 // This is a Proto2 compiler plugin.  See net/proto2/compiler/proto/plugin.proto
@@ -39,17 +55,14 @@ class JavaGrpcGenerator : public google::protobuf::compiler::CodeGenerator {
 
     bool disable_version = false;
     for (size_t i = 0; i < options.size(); i++) {
-      if (options[i].first == "nano") {
-        flavor = java_grpc_generator::ProtoFlavor::NANO;
-      } else if (options[i].first == "lite") {
+      if (options[i].first == "lite") {
         flavor = java_grpc_generator::ProtoFlavor::LITE;
       } else if (options[i].first == "noversion") {
         disable_version = true;
       }
     }
 
-    string package_name = java_grpc_generator::ServiceJavaPackage(
-        file, flavor == java_grpc_generator::ProtoFlavor::NANO);
+    string package_name = java_grpc_generator::ServiceJavaPackage(file);
     string package_filename = JavaPackageToDir(package_name);
     for (int i = 0; i < file->service_count(); ++i) {
       const google::protobuf::ServiceDescriptor* service = file->service(i);
