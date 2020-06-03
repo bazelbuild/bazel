@@ -94,3 +94,37 @@ eof
   bazel run --enable_runfiles=no $pkg:x >&$TEST_log || fail "expected success"
   bazel run --enable_runfiles=yes $pkg:x >&$TEST_log || fail "expected success"
 }
+
+function test_windows_argument_escaping() {
+  if ! "$is_windows"; then
+    return # Run test only on Windows.
+  fi
+
+  local -r pkg="pkg${LINENO}"
+  mkdir $pkg
+  cat >$pkg/BUILD <<eof
+sh_binary(
+  name = "a",
+  srcs = [":a.sh"],
+)
+eof
+  cat >$pkg/a.sh <<eof
+echo Hello World
+eof
+  disable_errexit
+  # This test uses the content of the Bazel error message to test that Bazel correctly handles
+  # paths to Bash which contain spaces - which is needed when using --run_under as it
+  # unconditionally results in Bazel wrapping the executable in Bash.
+  #
+  # The expected error message starts with:
+  # ```
+  # FATAL: ExecuteProgram(C:\first_part second_part) failed: ERROR: s
+  # rc/main/native/windows/process.cc(202): CreateProcessW("C:\first_
+  # part second_part"
+  # ```
+  output="$(BAZEL_SH="C:/first_part second_part" bazel run --run_under=":;" $pkg:a 2>&1)"
+  enable_errexit
+  echo "$output" | grep --fixed-strings 'ExecuteProgram(C:\first_part second_part)' || fail "Expected error message to contain unquoted path"
+}
+
+run_suite "run_under_tests"

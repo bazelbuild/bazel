@@ -511,9 +511,15 @@ public class RunCommand implements BlazeCommand  {
             ByteString.copyFrom(workingDir.getPathString(), StandardCharsets.ISO_8859_1));
 
     if (OS.getCurrent() == OS.WINDOWS) {
+      boolean isBinary = true;
       for (String arg : cmdLine) {
-        execDescription.addArgv(
-            ByteString.copyFrom(ShellUtils.windowsEscapeArg(arg), StandardCharsets.ISO_8859_1));
+        if (!isBinary) {
+          // All but the first element in `cmdLine` have to be escaped. The first element is the
+          // binary, which must not be escaped.
+          arg = ShellUtils.windowsEscapeArg(arg);
+        }
+        execDescription.addArgv(ByteString.copyFrom(arg, StandardCharsets.ISO_8859_1));
+        isBinary = false;
       }
     } else {
       PathFragment shExecutable = ShToolchain.getPath(configuration);
