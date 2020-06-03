@@ -291,7 +291,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
       // Determine what toolchains are needed by this target.
       unloadedToolchainContexts =
-          computeUnloadedToolchainContexts(env, ruleClassProvider, defaultBuildOptions, ctgValue);
+          computeUnloadedToolchainContexts(
+              env,
+              ruleClassProvider,
+              defaultBuildOptions,
+              ctgValue,
+              configuredTargetKey.getToolchainContextKey());
       if (env.valuesMissing()) {
         return null;
       }
@@ -441,7 +446,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       RuleClassProvider ruleClassProvider,
       BuildOptions defaultBuildOptions,
-      TargetAndConfiguration targetAndConfig)
+      TargetAndConfiguration targetAndConfig,
+      @Nullable ToolchainContextKey parentToolchainContextKey)
       throws InterruptedException, ToolchainException {
     if (!(targetAndConfig.getTarget() instanceof Rule)) {
       return null;
@@ -494,14 +500,19 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
-    toolchainContextKeys.put(
-        targetUnloadedToolchainContext,
-        ToolchainContextKey.key()
-            .configurationKey(toolchainConfig)
-            .requiredToolchainTypeLabels(requiredDefaultToolchains)
-            .execConstraintLabels(defaultExecConstraintLabels)
-            .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
-            .build());
+    ToolchainContextKey toolchainContextKey;
+    if (parentToolchainContextKey != null) {
+      toolchainContextKey = parentToolchainContextKey;
+    } else {
+      toolchainContextKey =
+          ToolchainContextKey.key()
+              .configurationKey(toolchainConfig)
+              .requiredToolchainTypeLabels(requiredDefaultToolchains)
+              .execConstraintLabels(defaultExecConstraintLabels)
+              .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
+              .build();
+    }
+    toolchainContextKeys.put(targetUnloadedToolchainContext, toolchainContextKey);
     for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
       ExecGroup execGroup = group.getValue();
       toolchainContextKeys.put(

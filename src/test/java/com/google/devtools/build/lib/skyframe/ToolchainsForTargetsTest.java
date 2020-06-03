@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -122,8 +123,8 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
                 env,
                 stateProvider.lateBoundRuleClassProvider(),
                 buildOptionsSupplier.get(),
-                key.targetAndConfiguration());
-        // TODO(#10523): Pass in the ToolchainContextKey.
+                key.targetAndConfiguration(),
+                key.configuredTargetKey().getToolchainContextKey());
         return env.valuesMissing() ? null : Value.create(toolchainCollection);
       } catch (ToolchainException e) {
         throw new ComputeUnloadedToolchainContextsException(e);
@@ -446,5 +447,48 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
     assertThat(toolchainCollection)
         .execGroup("temp")
         .hasResolvedToolchain("//toolchains:toolchain_1_impl");
+  }
+
+  @Test
+  public void keepParentToolchainContext() throws Exception {
+    scratch.file(
+        "extra/BUILD",
+        "load('//toolchain:toolchain_def.bzl', 'test_toolchain')",
+        "toolchain_type(name = 'extra_toolchain')",
+        "toolchain(",
+        "    name = 'toolchain',",
+        "    toolchain_type = '//extra:extra_toolchain',",
+        "    exec_compatible_with = [],",
+        "    target_compatible_with = [],",
+        "    toolchain = ':toolchain_impl')",
+        "test_toolchain(",
+        "    name='toolchain_impl',",
+        "    data = 'foo')");
+    scratch.file("a/BUILD", "load('//toolchain:rule.bzl', 'my_rule')", "my_rule(name = 'a')");
+
+    useConfiguration("--extra_toolchains=//extra:toolchain");
+    ConfiguredTarget target = Iterables.getOnlyElement(update("//a").getTargetsToBuild());
+    ToolchainCollection<UnloadedToolchainContext> toolchainCollection =
+        getToolchainCollection(
+            target,
+            ConfiguredTargetKey.builder()
+                .setLabel(target.getOriginalLabel())
+                .setConfigurationKey(target.getConfigurationKey())
+                .setToolchainContextKey(
+                    ToolchainContextKey.key()
+                        .configurationKey(target.getConfigurationKey())
+                        .requiredToolchainTypeLabels(
+                            Label.parseAbsoluteUnchecked("//extra:extra_toolchain"))
+                        .build())
+                .build());
+
+    assertThat(toolchainCollection).isNotNull();
+    assertThat(toolchainCollection).hasDefaultExecGroup();
+    assertThat(toolchainCollection)
+        .defaultToolchainContext()
+        .hasToolchainType("//extra:extra_toolchain");
+    assertThat(toolchainCollection)
+        .defaultToolchainContext()
+        .hasResolvedToolchain("//extra:toolchain_impl");
   }
 }
