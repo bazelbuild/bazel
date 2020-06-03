@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -289,7 +290,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Determine what toolchains are needed by this target.
-      unloadedToolchainContexts = computeUnloadedToolchainContexts(env, ctgValue);
+      unloadedToolchainContexts =
+          computeUnloadedToolchainContexts(env, ruleClassProvider, defaultBuildOptions, ctgValue);
       if (env.valuesMissing()) {
         return null;
       }
@@ -433,9 +435,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * <p>This involves Skyframe evaluation: callers should check {@link Environment#valuesMissing()
    * to check the result is valid.
    */
+  @VisibleForTesting
   @Nullable
-  private ToolchainCollection<UnloadedToolchainContext> computeUnloadedToolchainContexts(
-      Environment env, TargetAndConfiguration targetAndConfig)
+  static ToolchainCollection<UnloadedToolchainContext> computeUnloadedToolchainContexts(
+      Environment env,
+      RuleClassProvider ruleClassProvider,
+      BuildOptions defaultBuildOptions,
+      TargetAndConfiguration targetAndConfig)
       throws InterruptedException, ToolchainException {
     if (!(targetAndConfig.getTarget() instanceof Rule)) {
       return null;
