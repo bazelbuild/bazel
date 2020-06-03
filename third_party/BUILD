@@ -36,7 +36,6 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
-        "//third_party/nanopb:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/pprof:srcs",
         "@googleapis//:srcs",
@@ -430,8 +429,15 @@ filegroup(
 java_import(
     name = "opencensus-api",
     jars = [
-        "opencensus/opencensus-api-0.19.2.jar",
-        "opencensus/opencensus-contrib-grpc-metrics-0.19.2.jar",
+        "opencensus/opencensus-api-0.24.0.jar",
+        "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
+    ],
+)
+
+java_import(
+    name = "perfmark-api",
+    jars = [
+        "perfmark/perfmark-api-0.19.0.jar",
     ],
 )
 
