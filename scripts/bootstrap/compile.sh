@@ -29,6 +29,11 @@ PROTO_FILES=$(find third_party/remoteapis ${GOOGLE_API_PROTOS} third_party/pprof
 LIBRARY_JARS=$(find $ADDITIONAL_JARS third_party -name '*.jar' | grep -Fv JavaBuilder | grep -Fv third_party/guava | grep -ve 'third_party/grpc/grpc.*jar' | tr "\n" " ")
 GRPC_JAVA_VERSION=1.20.0
 GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
+# TODO(pcloudy): Remove this after upgrading gRPC to 1.26.0
+if [ -z "${GRPC_LIBRARY_JARS}" ]; then
+  GRPC_JAVA_VERSION=1.26.0
+  GRPC_LIBRARY_JARS=$(find third_party/grpc -name '*.jar' | grep -e ".*${GRPC_JAVA_VERSION}.*jar" | tr "\n" " ")
+fi
 GUAVA_VERSION=25.1
 GUAVA_JARS=$(find third_party/guava -name '*.jar' | grep -e ".*${GUAVA_VERSION}.*jar" | tr "\n" " ")
 LIBRARY_JARS="${LIBRARY_JARS} ${GRPC_LIBRARY_JARS} ${GUAVA_JARS}"
