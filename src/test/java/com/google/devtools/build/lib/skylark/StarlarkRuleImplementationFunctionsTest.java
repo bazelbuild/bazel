@@ -2960,4 +2960,27 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         ctx.getRuleContext().getAnalysisEnvironment().getLocalGeneratingAction(params);
     assertThat(action.getInputs().toList()).contains(directory);
   }
+
+  @Test
+  public void testDirectoryExpansionInArgs() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "directory = ruleContext.actions.declare_directory('dir')",
+        "file3 = ruleContext.actions.declare_file('file3')",
+        "def _expand_dirs(artifact, dir_expander):",
+        "  return [f.short_path for f in dir_expander.expand(artifact)]",
+        "args.add_all([directory, file3], map_each=_expand_dirs)");
+    Args args = (Args) ev.eval("args");
+    Artifact directory = (Artifact) ev.eval("directory");
+    CommandLine commandLine = args.build();
+
+    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
+    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
+    ArtifactExpanderImpl artifactExpander =
+        new ArtifactExpanderImpl(
+            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
+    assertThat(commandLine.arguments(artifactExpander))
+        .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
+  }
 }
