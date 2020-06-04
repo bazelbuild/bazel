@@ -125,10 +125,14 @@ function gcov_coverage() {
           # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
           "${GCOV}" -i $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
 
-          gcov_version=$("${GCOV}" --version | sed -n -r -e 's/^.*\s([0-9]\.[0-9]\.[0-9])\s?.*$/\1/p')
+          # Extract Gcov's version: the output of `gcov --version` contains the
+          # version as a set of major-minor-patch numbers, of which we extract
+          # the major version.
+          gcov_major_version=$("${GCOV}" --version | sed -n -E -e 's/^.*\s([0-9]+)\.[0-9]+\.[0-9]+\s?.*$/\1/p')
 
-          # Check the gcov version so we can process the data correctly
-          if [ "$(printf '%s\n%s' "9.1.0" "$gcov_version" | sort -V | head -n 1)" != "$gcov_version" ]; then
+          # Check the gcov version so we can process the data correctly, GCC 9
+          # contains the required changes
+          if [[ $gcov_major_version -ge 9 ]]; then
               # GCOV 9.1.0 or higher generate a JSON based coverage format
               # The output is generated into multiple files: "$(basename ${gcda}).gcov.json.gz"
               # Concatenating JSON documents does not yield a valid document, so they are moved individually
