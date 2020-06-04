@@ -28,6 +28,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
+import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
@@ -90,8 +91,10 @@ import io.grpc.ClientInterceptor;
 import io.grpc.Context;
 import io.grpc.ManagedChannel;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executors;
 
 /** RemoteModule provides distributed cache and remote execution for Bazel. */
@@ -582,7 +585,7 @@ public final class RemoteModule extends BlazeModule {
     return testProvider.getTestParams().getOutputs();
   }
 
-  private static NestedSet<? extends ActionInput> getArtifactsToBuild(
+  private static NestedSet<Artifact> getArtifactsToBuild(
       ConfiguredTarget buildTarget, TopLevelArtifactContext topLevelArtifactContext) {
     return TopLevelArtifactHelper.getAllArtifactsToBuild(buildTarget, topLevelArtifactContext)
         .getImportantArtifacts();
@@ -609,28 +612,59 @@ public final class RemoteModule extends BlazeModule {
         && actionContextProvider != null) {
       boolean isTestCommand = env.getCommandName().equals("test");
       TopLevelArtifactContext artifactContext = request.getTopLevelArtifactContext();
-      ImmutableSet.Builder<ActionInput> filesToDownload = ImmutableSet.builder();
+      Set<ActionInput> filesToDownload = new HashSet<>();
       for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
         if (isTestCommand && isTestRule(configuredTarget)) {
-          // When running a test download the test.log and test.xml.
+          // When running a test download the test.log and test.xml. These are never symlinks.
           filesToDownload.addAll(getTestOutputs(configuredTarget));
         } else {
-          filesToDownload.addAll(getArtifactsToBuild(configuredTarget, artifactContext).toList());
-          filesToDownload.addAll(getRunfiles(configuredTarget));
+          fetchSymlinkDependenciesRecursively(
+              analysisResult.getActionGraph(),
+              filesToDownload,
+              getArtifactsToBuild(configuredTarget, artifactContext).toList());
+          fetchSymlinkDependenciesRecursively(
+              analysisResult.getActionGraph(),
+              filesToDownload,
+              getRunfiles(configuredTarget));
         }
       }
-      // Also fetch all inputs for actions that propagate their inputs (symlink actions).
-      for (ActionInput actionInput : filesToDownload.build()) {
-        if (!(actionInput instanceof Artifact)) {
-          continue;
-        }
-        ActionExecutionMetadata action =
-            (ActionExecutionMetadata) analysisResult.getActionGraph().getGeneratingAction((Artifact) actionInput);
-        if (action.mayInsensitivelyPropagateInputs()) {
-          filesToDownload.addAll(action.getInputs().toList());
-        }
+      actionContextProvider.setFilesToDownload(ImmutableSet.copyOf(filesToDownload));
+    }
+  }
+
+  // This is a short-term fix for top-level outputs that are symlinks. Unfortunately, we cannot
+  // reliably tell after analysis whether actions will create symlinks (the RE protocol allows any
+  // action to generate and return symlinks), but at least we can handle basic C++ rules with this
+  // change.
+  // TODO(ulfjack): I think we should separate downloading files from action execution. That would
+  // also resolve issues around action invalidation - we currently invalidate actions to trigger
+  // downloads of top-level outputs when the top-level targets change.
+  private static void fetchSymlinkDependenciesRecursively(
+      ActionGraph actionGraph, Set<ActionInput> builder, List<Artifact> inputs) {
+    for (Artifact input : inputs) {
+      // Only fetch recursively if we don't have the file to avoid visiting nodes multiple times.
+      if (builder.add(input)) {
+        fetchSymlinkDependenciesRecursively(actionGraph, builder, input);
       }
-      actionContextProvider.setFilesToDownload(filesToDownload.build());
+    }
+  }
+
+  private static void fetchSymlinkDependenciesRecursively(
+      ActionGraph actionGraph, Set<ActionInput> builder, Artifact artifact) {
+    if (!(actionGraph.getGeneratingAction(artifact) instanceof ActionExecutionMetadata)) {
+      // The top-level artifact could be a tree artifact, in which case the generating action may
+      // be an ActionTemplate, which does not implement ActionExecutionMetadata. We don't handle
+      // this case right now, so exit.
+      return;
+    }
+    ActionExecutionMetadata action = (ActionExecutionMetadata) actionGraph.getGeneratingAction(artifact);
+    if (action.mayInsensitivelyPropagateInputs()) {
+      List<Artifact> inputs = action.getInputs().toList();
+      if (inputs.size() > 5) {
+        logger.atWarning()
+                .log("Action with a lot of inputs insensitively propagates them; this could be performance problem");
+      }
+      fetchSymlinkDependenciesRecursively(actionGraph, builder, inputs);
     }
   }
 

@@ -282,7 +282,7 @@ public abstract class BlazeModule {
    * @param env the command environment
    * @param request the build request
    * @param buildOptions the build's top-level options
-   * @param analysisResult the build's requested top-level targets as {@link ConfiguredTarget}s
+   * @param analysisResult the build's analysis result
    */
   public void afterAnalysis(
       CommandEnvironment env,
