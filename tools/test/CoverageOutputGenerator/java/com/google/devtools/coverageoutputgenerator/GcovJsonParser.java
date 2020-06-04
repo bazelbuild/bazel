@@ -74,47 +74,50 @@ public class GcovJsonParser {
 
     return allSourceFiles;
   }
-}
 
-// Classes for the Gson data mapper representing the structure of the GCov JSON format
+  // Classes for the Gson data mapper representing the structure of the GCov JSON format
+  // These do not follow the Java naming styleguide as they need to match the JSON field names
+  // Documentation can be found in GCov's manpage, of which the source is available at
+  // https://gcc.gnu.org/git/?p=gcc.git;a=blob;f=gcc/doc/gcov.texi;h=dcdd7831ff063483d43e5347af0b67083c85ecc4;hb=4212a6a3e44f870412d9025eeb323fd4f50a61da#l184
 
-class GcovJsonFormat {
-  String gcc_version;
-  GcovJsonFile[] files;
-  String format_version;
-  String current_working_directory;
-  String data_file;
-}
+  class GcovJsonFormat {
+    String gcc_version;
+    GcovJsonFile[] files;
+    String format_version;
+    String current_working_directory;
+    String data_file;
+  }
 
-class GcovJsonFile {
-  String file;
-  GcovJsonFunction[] functions;
-  GcovJsonLine[] lines;
-}
+  class GcovJsonFile {
+    String file;
+    GcovJsonFunction[] functions;
+    GcovJsonLine[] lines;
+  }
 
-class GcovJsonFunction {
-  int blocks;
-  int end_column;
-  int start_line;
-  String name;
-  int blocks_executed;
-  int execution_count;
-  String demangled_name;
-  int start_column;
-  int end_line;
-}
+  class GcovJsonFunction {
+    int blocks;
+    int end_column;
+    int start_line;
+    String name;
+    int blocks_executed;
+    int execution_count;
+    String demangled_name;
+    int start_column;
+    int end_line;
+  }
 
-class GcovJsonLine {
-  GcovJsonBranch[] branches;
-  int count;
-  int line_number;
-  boolean unexecuted_block;
-  String function_name;
-}
+  class GcovJsonLine {
+    GcovJsonBranch[] branches;
+    int count;
+    int line_number;
+    boolean unexecuted_block;
+    String function_name;
+  }
 
-class GcovJsonBranch {
-  boolean fallthrough;
-  int count;
-  @SerializedName("throw")
-  boolean _throw;
+  class GcovJsonBranch {
+    boolean fallthrough;
+    int count;
+    @SerializedName("throw")
+    boolean _throw;
+  }
 }
