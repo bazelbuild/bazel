@@ -27,8 +27,7 @@ public final class SpawnMetricsTest {
   @Test
   public void builder_addDurationsNonDurations() throws Exception {
     SpawnMetrics metrics1 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(2))
             .setInputBytes(10)
@@ -36,8 +35,7 @@ public final class SpawnMetricsTest {
             .setMemoryEstimateBytes(30)
             .build();
     SpawnMetrics metrics2 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(10))
             .setExecutionWallTime(Duration.ofSeconds(20))
             .setInputBytes(100)
@@ -46,8 +44,7 @@ public final class SpawnMetricsTest {
             .build();
 
     SpawnMetrics result =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .addDurations(metrics1)
             .addDurations(metrics2)
             .addNonDurations(metrics1)
@@ -64,8 +61,7 @@ public final class SpawnMetricsTest {
   @Test
   public void builder_addDurationsMaxNonDurations() throws Exception {
     SpawnMetrics metrics1 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(2))
             .setInputBytes(10)
@@ -73,8 +69,7 @@ public final class SpawnMetricsTest {
             .setMemoryEstimateBytes(30)
             .build();
     SpawnMetrics metrics2 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(10))
             .setExecutionWallTime(Duration.ofSeconds(20))
             .setInputBytes(100)
@@ -83,8 +78,7 @@ public final class SpawnMetricsTest {
             .build();
 
     SpawnMetrics result =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .addDurations(metrics1)
             .addDurations(metrics2)
             .maxNonDurations(metrics1)

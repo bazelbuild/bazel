@@ -173,9 +173,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     SortedMap<PathFragment, HashCode> workerFiles =
         WorkerFilesHash.getWorkerFilesWithHashes(
-            spawn,
-            context.getArtifactExpander(),
-            context.getMetadataProvider());
+            spawn, context.getArtifactExpander(), context.getMetadataProvider());
 
     HashCode workerFilesCombinedHash = WorkerFilesHash.getCombinedHash(workerFiles);
 
@@ -215,8 +213,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                 exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
             .setWallTime(wallTime)
             .setSpawnMetrics(
-                new SpawnMetrics.Builder()
-                    .setExecKind(SpawnMetrics.ExecKind.WORKER)
+                SpawnMetrics.Builder.forWorkerExec()
                     .setTotalTime(wallTime)
                     .setExecutionWallTime(wallTime)
                     .build())

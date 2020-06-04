@@ -66,7 +66,7 @@ public class CriticalPathComponent {
   private final Artifact primaryOutput;
 
   /** Spawn metrics for this action. */
-  private SpawnMetrics phaseMaxMetrics = SpawnMetrics.EMPTY_REMOTE;
+  @Nullable private SpawnMetrics phaseMaxMetrics = null;
 
   private AggregatedSpawnMetrics totalSpawnMetrics = AggregatedSpawnMetrics.EMPTY;
   private Duration longestRunningTotalDuration = Duration.ZERO;
@@ -124,9 +124,9 @@ public class CriticalPathComponent {
     }
 
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
-    if (!this.phaseMaxMetrics.totalTime().isZero()) {
+    if (this.phaseMaxMetrics != null && !this.phaseMaxMetrics.totalTime().isZero()) {
       this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
-      this.phaseMaxMetrics = SpawnMetrics.EMPTY_REMOTE;
+      this.phaseMaxMetrics = null;
     }
   }
 
@@ -197,10 +197,13 @@ public class CriticalPathComponent {
       this.remote = true;
     }
     if (this.phaseChange) {
-      this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
+      if (this.phaseMaxMetrics != null) {
+        this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
+      }
       this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
-    } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
+    } else if (this.phaseMaxMetrics == null
+        || metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
       this.phaseMaxMetrics = metrics;
     }
 

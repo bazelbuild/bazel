@@ -27,8 +27,7 @@ public final class AggregatedSpawnMetricsTest {
   @Test
   public void sumAllMetrics() throws Exception {
     SpawnMetrics metrics1 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(2))
             .setInputBytes(10)
@@ -36,8 +35,7 @@ public final class AggregatedSpawnMetricsTest {
             .setMemoryEstimateBytes(30)
             .build();
     SpawnMetrics metrics2 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(10))
             .setExecutionWallTime(Duration.ofSeconds(20))
             .setInputBytes(100)
@@ -59,8 +57,7 @@ public final class AggregatedSpawnMetricsTest {
   @Test
   public void sumDurationMetricsMaxOther() throws Exception {
     SpawnMetrics metrics1 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(2))
             .setInputBytes(10)
@@ -68,8 +65,7 @@ public final class AggregatedSpawnMetricsTest {
             .setMemoryEstimateBytes(30)
             .build();
     SpawnMetrics metrics2 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(10))
             .setExecutionWallTime(Duration.ofSeconds(20))
             .setInputBytes(100)
@@ -91,20 +87,11 @@ public final class AggregatedSpawnMetricsTest {
   @Test
   public void aggregatingMetrics_preservesExecKind() throws Exception {
     SpawnMetrics metrics1 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.LOCAL)
-            .setTotalTime(Duration.ofSeconds(1))
-            .build();
+        SpawnMetrics.Builder.forLocalExec().setTotalTime(Duration.ofSeconds(1)).build();
     SpawnMetrics metrics2 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
-            .setTotalTime(Duration.ofSeconds(2))
-            .build();
+        SpawnMetrics.Builder.forRemoteExec().setTotalTime(Duration.ofSeconds(2)).build();
     SpawnMetrics metrics3 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.WORKER)
-            .setTotalTime(Duration.ofSeconds(3))
-            .build();
+        SpawnMetrics.Builder.forWorkerExec().setTotalTime(Duration.ofSeconds(3)).build();
 
     AggregatedSpawnMetrics aggregated = AggregatedSpawnMetrics.EMPTY;
     aggregated = aggregated.sumAllMetrics(metrics1);
@@ -122,21 +109,18 @@ public final class AggregatedSpawnMetricsTest {
   @Test
   public void toString_printsOnlyRemote() throws Exception {
     SpawnMetrics metrics1 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.LOCAL)
+        SpawnMetrics.Builder.forLocalExec()
             .setTotalTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(1))
             .build();
     SpawnMetrics metrics2 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.REMOTE)
+        SpawnMetrics.Builder.forRemoteExec()
             .setTotalTime(Duration.ofSeconds(2))
             .setNetworkTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(1))
             .build();
     SpawnMetrics metrics3 =
-        new SpawnMetrics.Builder()
-            .setExecKind(SpawnMetrics.ExecKind.WORKER)
+        SpawnMetrics.Builder.forWorkerExec()
             .setTotalTime(Duration.ofSeconds(3))
             .setQueueTime(Duration.ofSeconds(1))
             .setExecutionWallTime(Duration.ofSeconds(2))
