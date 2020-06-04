@@ -53,7 +53,7 @@ The `bazel` tool performs many functions, called commands. The most commonly
 used ones are `bazel build` and `bazel test`. You can browse the online help
 messages using `bazel help`.
 
-<a name="build"></a>
+<a id="build"></a>
 
 ## Building programs with Bazel
 
@@ -111,7 +111,7 @@ directory tree that contains all the source files needed to build your
 application. Bazel allows you to perform a build from a completely read-only
 volume.
 
-<a name="target-patterns"></a>
+<a id="target-patterns"></a>
 
 ### Specifying targets to build
 
@@ -258,7 +258,7 @@ patterns (`...`, `:*`, `:all`, etc.). You should specify such test targets with
 explicit target patterns on the command line if you want Bazel to build/test
 them.
 
-<a name="fetch"></a>
+<a id="fetch"></a>
 ### Fetching external dependencies
 
 By default, Bazel will download and symlink external dependencies during the
@@ -304,7 +304,7 @@ However, if you're using anything outside of the workspace directory then Bazel
 will automatically run `bazel fetch` before running
 `bazel build`.
 
-<a name="repository-cache"></a>
+<a id="repository-cache"></a>
 #### The repository cache
 
 Bazel tries to avoid fetching the same file several times, even if the same
@@ -327,7 +327,7 @@ be determined, for example to manually clean up the cache. The cache is never
 cleaned up automatically, as it might contain a copy of a file that is no
 longer available upstream.
 
-<a name="distdir"></a>
+<a id="distdir"></a>
 #### Distribution files directories
 
 The distribution directory is another Bazel mechanism to avoid unnecessary
@@ -402,7 +402,7 @@ build --distdir=path/to/directory
 ```
 
 
-<a name="configurations"></a>
+<a id="configurations"></a>
 
 ### Build configurations and cross-compilation
 
@@ -508,7 +508,7 @@ builds in which changes of configuration are infrequent (especially certain Java
 builds), and builds where the amount of code that must be built in both host and
 target configurations is large, may not benefit.
 
-<a name="correctness"></a>
+<a id="correctness"></a>
 
 ### Correct incremental rebuilds
 
@@ -588,7 +588,7 @@ build tool.
 If you ever detect a stable inconsistent state with Bazel, please report a bug.
 
 
-<a name="sandboxing"></a>
+<a id="sandboxing"></a>
 
 #### Sandboxed execution
 
@@ -625,7 +625,7 @@ issue tracker and mention which Linux distribution you're using so that we can
 investigate and provide a fix in a subsequent release.
 
 
-<a name="phases"></a>
+<a id="phases"></a>
 
 ### Phases of a build
 
@@ -677,7 +677,7 @@ build. Errors reported during this phase include: missing source files, errors
 in a tool executed by some build action, or failure of a tool to produce the
 expected set of outputs.
 
-<a name="client/server"></a>
+<a id="client/server"></a>
 
 ## Client/server implementation
 
@@ -725,7 +725,7 @@ the use of a long-running server process doesn't interfere with proper
 versioning.
 
 
-<a name="bazelrc"></a>
+<a id="bazelrc"></a>
 
 ## `.bazelrc`, the Bazel configuration file
 
@@ -919,7 +919,7 @@ build:memcheck --strip=never --test_timeout=3600
 ```
 
 
-<a name="startup files"></a>
+<a id="startup files"></a>
 ### Other files governing Bazel's behavior
 
 #### `.bazelignore`
@@ -932,7 +932,7 @@ and add the directories you want Bazel to ignore, one per
 line. Entries are relative to the workspace root.
 
 
-<a name="scripting"></a>
+<a id="scripting"></a>
 
 ## Calling Bazel from scripts
 
@@ -1055,7 +1055,7 @@ files they created. Be sure to specify a very large value of _n_ if you rely on
 these messages.
 
 
-<a name="profiling"></a>
+<a id="profiling"></a>
 
 ## Troubleshooting performance by profiling
 
@@ -1151,7 +1151,7 @@ Critical path (32.078 s):
 
 You can use the following options to display more detailed information:
 
--   <a name="dump-text-format"></a>[`--dump=text`](user-manual.html#flag--dump)
+-   <a id="dump-text-format"></a>[`--dump=text`](user-manual.html#flag--dump)
 
     This option prints all recorded tasks in the order they occurred. Nested
     tasks are indented relative to the parent. For each task, output includes
@@ -1164,7 +1164,7 @@ You can use the following options to display more detailed information:
     [aggregated statistic for nested tasks, including count and total duration for each nested task]
     ```
 
--   <a name="dump-raw-format"></a>[`--dump=raw`](user-manual.html#flag--dump)
+-   <a id="dump-raw-format"></a>[`--dump=raw`](user-manual.html#flag--dump)
 
     This option is most useful for automated analysis with scripts. It outputs
     each task record on a single line using '|' delimiter between fields. Fields
@@ -1195,7 +1195,7 @@ You can use the following options to display more detailed information:
     [...]
     ```
 
--   <a name="dump-html-format"></a>[`--html`](user-manual.html#flag--html)
+-   <a id="dump-html-format"></a>[`--html`](user-manual.html#flag--html)
 
     This option writes a file called `<profile-file>.html` in the directory of
     the profile file. Open it in your browser to see the visualization of the
