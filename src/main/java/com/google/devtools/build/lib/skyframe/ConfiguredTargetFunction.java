@@ -945,10 +945,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
         view.createAnalysisEnvironment(
-            ConfiguredTargetKey.builder()
-                .setLabel(target.getLabel())
-                .setConfiguration(configuration)
-                .build(),
+            configuredTargetKey,
             false,
             events,
             env,
