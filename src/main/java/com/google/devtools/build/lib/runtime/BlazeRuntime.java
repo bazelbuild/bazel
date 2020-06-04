@@ -376,7 +376,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           eventHandler.handle(
               Event.warn(
                   "Enabling both --slim_profile and"
-                      + " --experimental_include_primary_output: the \"out\" field"
+                      + " --experimental_profile_include_primary_output: the \"out\" field"
                       + " will be omitted in merged actions."));
         }
         Profiler profiler = Profiler.instance();
