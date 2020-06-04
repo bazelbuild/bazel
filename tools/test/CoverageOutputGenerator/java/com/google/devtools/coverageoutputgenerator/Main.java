@@ -79,13 +79,12 @@ public class Main {
                 getTracefiles(flags, filesInCoverageDir),
                 LcovParser::parse,
                 flags.parseParallelism()),
-	    Coverage.merge(
-	        parseFiles(
-                    getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()),
-	        parseFiles(
-		    getGcovJsonInfoFiles(filesInCoverageDir),
-		    GcovJsonParser::parse,
-		    flags.parseParallelism())));
+            parseFiles(
+                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()),
+            parseFiles(
+                getGcovJsonInfoFiles(filesInCoverageDir),
+                GcovJsonParser::parse,
+                flags.parseParallelism()));
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
