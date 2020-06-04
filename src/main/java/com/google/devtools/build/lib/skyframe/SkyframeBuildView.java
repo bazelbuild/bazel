@@ -839,15 +839,6 @@ public final class SkyframeBuildView {
         || cause instanceof NoSuchPackageException;
   }
 
-  /** Special flake for error cases when loading CROSSTOOL for C++ rules */
-  // TODO(b/110087561): Remove when CROSSTOOL file is not loaded anymore
-  public static class CcCrosstoolException extends Exception implements SaneAnalysisException {
-
-    public CcCrosstoolException(String message) {
-      super(message);
-    }
-  }
-
   public ArtifactFactory getArtifactFactory() {
     return artifactFactory;
   }
