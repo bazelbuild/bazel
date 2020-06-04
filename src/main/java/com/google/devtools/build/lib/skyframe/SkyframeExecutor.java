@@ -2715,23 +2715,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     }
   }
 
-  /**
-   * Updates ArtifactNestedSetFunction options if the flags' values changed.
-   *
-   * @return whether an update was made.
-   */
-  protected static boolean nestedSetAsSkyKeyOptionsChanged(OptionsProvider options) {
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions == null) {
-      return false;
-    }
-
-    return ArtifactNestedSetFunction.sizeThresholdUpdated(
-            buildRequestOptions.nestedSetAsSkyKeyThreshold)
-        || ArtifactNestedSetFunction.evalKeysAsOneGroupUpdated(
-            buildRequestOptions.nsosEvalKeysAsOneGroup);
-  }
-
   protected void syncPackageLoading(
       PackageOptions packageOptions,
       PathPackageLocator pathPackageLocator,

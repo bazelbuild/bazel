@@ -274,6 +274,23 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   /**
+   * Updates ArtifactNestedSetFunction options if the flags' values changed.
+   *
+   * @return whether an update was made.
+   */
+  private static boolean nestedSetAsSkyKeyOptionsChanged(OptionsProvider options) {
+    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions == null) {
+      return false;
+    }
+
+    return ArtifactNestedSetFunction.sizeThresholdUpdated(
+            buildRequestOptions.nestedSetAsSkyKeyThreshold)
+        || ArtifactNestedSetFunction.evalKeysAsOneGroupUpdated(
+            buildRequestOptions.nsosEvalKeysAsOneGroup);
+  }
+
+  /**
    * The value types whose builders have direct access to the package locator, rather than accessing
    * it via an explicit Skyframe dependency. They need to be invalidated if the package locator
    * changes.

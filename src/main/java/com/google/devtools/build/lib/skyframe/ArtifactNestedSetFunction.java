@@ -49,7 +49,7 @@ import java.util.concurrent.ConcurrentMap;
  * <p>[1] Heuristic: If the size of the NestedSet exceeds a certain threshold, we evaluate it as an
  * ArtifactNestedSetKey.
  */
-public class ArtifactNestedSetFunction implements SkyFunction {
+final class ArtifactNestedSetFunction implements SkyFunction {
 
   /**
    * A concurrent map from Artifacts' SkyKeys to their ValueOrException, for Artifacts that are part
@@ -83,7 +83,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
    * will GCed immediately. // TODO(leba): Re-evaluate the above point about weak-valued map.
    *
    * <p>This map will be removed when --experimental_nsos_eval_keys_as_one_group is stable, and
-   * replaced by {@link artifactSkyKeyToSkyValue}.
+   * replaced by {@link #artifactSkyKeyToSkyValue}.
    */
   private ConcurrentMap<
           SkyKey,
@@ -93,7 +93,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
   /**
    * A concurrent map from Artifacts' SkyKeys to their SkyValue, for Artifacts that are part of
    * NestedSets which were evaluated as {@link ArtifactNestedSetKey}. This is expected to replace
-   * the above {@link artifactSkyKeyToValueOrException}.
+   * the above {@link #artifactSkyKeyToValueOrException}.
    */
   private ConcurrentMap<SkyKey, SkyValue> artifactSkyKeyToSkyValue;
 
@@ -220,7 +220,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
     return new ArtifactNestedSetValue();
   }
 
-  public static ArtifactNestedSetFunction getInstance() {
+  static ArtifactNestedSetFunction getInstance() {
     if (singleton == null) {
       return createInstance();
     }
@@ -232,13 +232,13 @@ public class ArtifactNestedSetFunction implements SkyFunction {
    * this method separated from {@code #getInstance} since sometimes we need to overwrite the
    * existing instance.
    */
-  public static ArtifactNestedSetFunction createInstance() {
+  static ArtifactNestedSetFunction createInstance() {
     singleton = new ArtifactNestedSetFunction();
     return singleton;
   }
 
   /** Reset the various state-keeping maps of ArtifactNestedSetFunction. */
-  public void resetArtifactNestedSetFunctionMaps() {
+  void resetArtifactNestedSetFunctionMaps() {
     artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
     artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
   }
@@ -247,7 +247,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
     return artifactSkyKeyToSkyValue;
   }
 
-  public Map<
+  Map<
           SkyKey,
           ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
       getArtifactSkyKeyToValueOrException() {
@@ -263,7 +263,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
    * Get the threshold to which we evaluate a NestedSet as a Skykey. If sizeThreshold is unset,
    * return the default value of 0.
    */
-  public static int getSizeThreshold() {
+  static int getSizeThreshold() {
     return sizeThreshold == null ? 0 : sizeThreshold;
   }
 
@@ -276,7 +276,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
    *
    * @return whether an update was made.
    */
-  public static boolean evalKeysAsOneGroupUpdated(boolean newEvalKeysAsOneGroup) {
+  static boolean evalKeysAsOneGroupUpdated(boolean newEvalKeysAsOneGroup) {
     // If this is the first time the value is set, it's not considered "updated".
     if (evalKeysAsOneGroup == null) {
       evalKeysAsOneGroup = newEvalKeysAsOneGroup;
@@ -297,7 +297,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
    * @param newValue The new value from --experimental_nested_set_as_skykey_threshold.
    * @return whether an update was made.
    */
-  public static boolean sizeThresholdUpdated(int newValue) {
+  static boolean sizeThresholdUpdated(int newValue) {
     // If this is the first time the value is set, it's not considered "updated".
     if (sizeThreshold == null) {
       sizeThreshold = newValue;
@@ -335,7 +335,7 @@ public class ArtifactNestedSetFunction implements SkyFunction {
       this.nestedExceptions = nestedExceptions;
     }
 
-    public NestedSet<Pair<SkyKey, Exception>> getNestedExceptions() {
+    NestedSet<Pair<SkyKey, Exception>> getNestedExceptions() {
       return nestedExceptions;
     }
   }
