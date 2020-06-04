@@ -327,6 +327,15 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectWithComputedAttribute() throws Exception {
+    setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.COMPUTED_ATTRIBUTE_ASPECT_RULE);
+
+    pkg("a", "rule_with_computed_deps_aspect(name='a', foo=[':b'])", "base(name='b')");
+
+    getConfiguredTarget("//a:a");
+  }
+
+  @Test
   public void ruleDependencyDeprecationWarningsAbsentDuringAspectEvaluations() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.ASPECT_REQUIRING_RULE);
 

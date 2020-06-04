@@ -1358,6 +1358,60 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectParametersConfigurationField() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "MyAspect = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { '_my_attr' : attr.label(default=",
+        "             configuration_field(fragment='cpp', name = 'cc_toolchain')) },",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspect]) },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
+
+    AnalysisResult result = update(ImmutableList.<String>of(), "//test:xxx");
+    assertThat(result.hasError()).isFalse();
+  }
+
+  @Test
+  public void aspectParameterComputedDefault() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   return struct()",
+        "def _rule_impl(ctx):",
+        "   return struct()",
+        "def _defattr():",
+        "   return Label('//foo/bar:baz')",
+        "MyAspect = aspect(",
+        "    implementation=_impl,",
+        "    attrs = { '_extra' : attr.label(default = _defattr) }",
+        ")",
+        "my_rule = rule(",
+        "    implementation=_rule_impl,",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspect]) },",
+        ")");
+    scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
+    reporter.removeHandler(failFastHandler);
+
+    if (keepGoing()) {
+      AnalysisResult result = update("//test:xxx");
+      assertThat(result.hasError()).isTrue();
+    } else {
+      assertThrows(TargetParsingException.class, () -> update("//test:xxx"));
+    }
+    assertContainsEvent(
+        "Aspect attribute '_extra' (label) with computed default value is unsupported.");
+  }
+
+  @Test
   public void aspectParametersOptional() throws Exception {
     scratch.file(
         "test/aspect.bzl",

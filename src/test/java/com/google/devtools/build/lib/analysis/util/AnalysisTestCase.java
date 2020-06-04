@@ -623,6 +623,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             TestAspects.ALL_ATTRIBUTES_WITH_TOOL_ASPECT,
             TestAspects.BAR_PROVIDER_ASPECT,
             TestAspects.EXTRA_ATTRIBUTE_ASPECT,
+            TestAspects.COMPUTED_ATTRIBUTE_ASPECT,
             TestAspects.FOO_PROVIDER_ASPECT,
             TestAspects.ASPECT_REQUIRING_PROVIDER_SETS,
             TestAspects.WARNING_ASPECT,

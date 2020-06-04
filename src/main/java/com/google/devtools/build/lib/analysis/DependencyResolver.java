@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -504,6 +505,9 @@ public abstract class DependencyResolver {
             dependencyKind.getOwningAspect() == null
                 ? attributeMap.get(attribute.getName(), attribute.getType())
                 : attribute.getDefaultValue(rule);
+        if (attributeValue instanceof ComputedDefault) {
+          attributeValue = ((ComputedDefault) attributeValue).getDefault(attributeMap);
+        }
       } else if (attribute.isLateBound()) {
         attributeValue =
             resolveLateBoundDefault(rule, attributeMap, attribute, ruleConfig, hostConfig);

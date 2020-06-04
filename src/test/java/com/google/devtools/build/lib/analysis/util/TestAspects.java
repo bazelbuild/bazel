@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.Type.STRING;
+import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
@@ -45,7 +46,9 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LabelListLateBoundDefault;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
@@ -332,6 +335,29 @@ public class TestAspects {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return EXTRA_ATTRIBUTE_ASPECT_DEFINITION;
+    }
+  }
+
+  public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =
+      new ComputedAttributeAspect();
+  private static final AspectDefinition COMPUTED_ATTRIBUTE_ASPECT_DEFINITION =
+      new AspectDefinition.Builder(COMPUTED_ATTRIBUTE_ASPECT)
+          .add(
+              attr("$default_copts", STRING_LIST)
+                  .value(
+                      new ComputedDefault() {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          return rule.getPackageDefaultCopts();
+                        }
+                      }))
+          .build();
+
+  /** An aspect that defines its own computed default attribute. */
+  public static class ComputedAttributeAspect extends BaseAspect {
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return COMPUTED_ATTRIBUTE_ASPECT_DEFINITION;
     }
   }
 
@@ -647,6 +673,17 @@ public class TestAspects {
           "rule_with_extra_deps_aspect",
           attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
               .aspect(EXTRA_ATTRIBUTE_ASPECT));
+
+  /** A rule that defines an {@link ComputedAttributeAspect} on one of its attributes. */
+  public static final MockRule COMPUTED_ATTRIBUTE_ASPECT_RULE =
+      () ->
+          MockRule.ancestor(BASE_RULE.getClass())
+              .factory(DummyRuleFactory.class)
+              .define(
+                  "rule_with_computed_deps_aspect",
+                  attr("foo", LABEL_LIST)
+                      .allowedFileTypes(FileTypeSet.ANY_FILE)
+                      .aspect(COMPUTED_ATTRIBUTE_ASPECT));
 
   /**
    * A rule that defines an {@link ParametrizedDefinitionAspect} on one of its attributes.
