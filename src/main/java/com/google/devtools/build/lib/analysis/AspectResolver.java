@@ -124,11 +124,7 @@ public final class AspectResolver {
 
     for (Map.Entry<DependencyKind, Dependency> entry : depValueNames.entries()) {
       Dependency dep = entry.getValue();
-      SkyKey depKey =
-          ConfiguredTargetKey.builder()
-              .setLabel(dep.getLabel())
-              .setConfiguration(dep.getConfiguration())
-              .build();
+      SkyKey depKey = dep.getConfiguredTargetKey();
       ConfiguredTargetAndData depConfiguredTarget = depConfiguredTargetMap.get(depKey);
 
       result.put(
