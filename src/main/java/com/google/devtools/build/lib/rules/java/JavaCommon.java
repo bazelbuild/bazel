@@ -379,7 +379,7 @@ public class JavaCommon {
   /**
    * Returns transitive Java native libraries.
    *
-   * @see JavaNativeLibraryProvider
+   * @see JavaNativeLibraryInfo
    */
   protected NestedSet<LibraryToLink> collectTransitiveJavaNativeLibraries() {
     NativeLibraryNestedSetBuilder builder = new NativeLibraryNestedSetBuilder();
