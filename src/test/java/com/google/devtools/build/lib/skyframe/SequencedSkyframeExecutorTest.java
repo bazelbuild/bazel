@@ -1840,6 +1840,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     new TopLevelArtifactContext(
                         /*runTestsExclusively=*/ false,
                         false,
+                        false,
                         OutputGroupInfo.determineOutputGroups(ImmutableList.of(), true)),
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not

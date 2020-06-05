@@ -278,6 +278,7 @@ public final class CompletionFunction<
               expandedArtifacts,
               expandedFilesets,
               key.topLevelArtifactContext().expandFilesets(),
+              key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
               inputMap,
               pathResolverFactory,
               skyframeActionExecutor.getExecRoot(),

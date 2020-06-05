@@ -26,14 +26,17 @@ import java.util.Set;
 public final class TopLevelArtifactContext {
   private final boolean runTestsExclusively;
   private final boolean expandFilesets;
+  private final boolean fullyResolveFilesetSymlinks;
   private final ImmutableSortedSet<String> outputGroups;
 
   public TopLevelArtifactContext(
       boolean runTestsExclusively,
       boolean expandFilesets,
+      boolean fullyResolveFilesetSymlinks,
       ImmutableSortedSet<String> outputGroups) {
     this.runTestsExclusively = runTestsExclusively;
     this.expandFilesets = expandFilesets;
+    this.fullyResolveFilesetSymlinks = fullyResolveFilesetSymlinks;
     this.outputGroups = outputGroups;
   }
 
@@ -44,6 +47,10 @@ public final class TopLevelArtifactContext {
 
   public boolean expandFilesets() {
     return expandFilesets;
+  }
+
+  public boolean fullyResolveFilesetSymlinks() {
+    return fullyResolveFilesetSymlinks;
   }
 
   /** Returns the value of the --output_groups flag. */
@@ -60,6 +67,7 @@ public final class TopLevelArtifactContext {
       TopLevelArtifactContext otherContext = (TopLevelArtifactContext) other;
       return runTestsExclusively == otherContext.runTestsExclusively
           && expandFilesets == otherContext.expandFilesets
+          && fullyResolveFilesetSymlinks == otherContext.fullyResolveFilesetSymlinks
           && outputGroups.equals(otherContext.outputGroups);
     } else {
       return false;
@@ -68,6 +76,7 @@ public final class TopLevelArtifactContext {
 
   @Override
   public int hashCode() {
-    return Objects.hash(runTestsExclusively, expandFilesets, outputGroups);
+    return Objects.hash(
+        runTestsExclusively, expandFilesets, fullyResolveFilesetSymlinks, outputGroups);
   }
 }
