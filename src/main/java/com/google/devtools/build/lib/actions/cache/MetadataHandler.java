@@ -45,7 +45,7 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
    * <p>chmod will not be called on the output.
    */
   FileArtifactValue constructMetadataForDigest(
-      Artifact output, FileStatus statNoFollow, byte[] digest) throws IOException;
+      Artifact output, FileStatus statNoFollow, byte[] injectedDigest) throws IOException;
 
   /** Retrieves the artifacts inside the TreeArtifact, without injecting its digest. */
   ImmutableSet<TreeFileArtifact> getExpandedOutputs(Artifact artifact);

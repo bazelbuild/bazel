@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -464,7 +463,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   /**
    * Constructs a new {@link FileArtifactValue} by reading from the file system and checks
-   * inconsistent data. This calls chmod on the file if we're in execution mode.
+   * inconsistent data. This calls chmod on the file if we're in execution mode, unless it is in
+   * {@link OutputStore#injectedFiles()}.
    */
   private FileArtifactValue constructFileArtifactValueFromFilesystem(Artifact artifact)
       throws IOException {
@@ -473,7 +473,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   /**
    * Constructs a new {@link FileArtifactValue} and checks inconsistent data. This calls chmod on
-   * the file if we're in execution mode.
+   * the file if we're in execution mode, unless it is in {@link OutputStore#injectedFiles()}.
    */
   private FileArtifactValue constructFileArtifactValue(
       Artifact artifact,
@@ -489,16 +489,18 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
     FileArtifactValue value =
         fileArtifactValueFromArtifact(
-            artifact, artifactPathResolver, statNoFollow, getTimestampGranularityMonitor(artifact));
+            artifact,
+            artifactPathResolver,
+            statNoFollow,
+            injectedDigest != null,
+            getTimestampGranularityMonitor(artifact));
 
-    // Ensure the injected digest supplied matches the actual digest if it exists.
+    // Ensure that we don't have both an injected digest and a digest from the filesystem.
     byte[] fileDigest = value.getDigest();
-    if (fileDigest != null
-        && injectedDigest != null
-        && !Arrays.equals(injectedDigest, fileDigest)) {
+    if (fileDigest != null && injectedDigest != null) {
       throw new IllegalStateException(
           String.format(
-              "Expected digest %s for artifact %s, but got %s (%s)",
+              "Digest %s was injected for artifact %s, but got %s from the filesystem (%s)",
               BaseEncoding.base16().encode(injectedDigest),
               artifact,
               BaseEncoding.base16().encode(fileDigest),
@@ -547,6 +549,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
   private static FileArtifactValue fileArtifactValueFromStat(
       RootedPath rootedPath,
       FileStatusWithDigest stat,
+      boolean digestWillBeInjected,
       boolean isConstantMetadata,
       TimestampGranularityMonitor tsgm)
       throws IOException {
@@ -554,7 +557,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
       return FileArtifactValue.MISSING_FILE_MARKER;
     }
 
-    FileStateValue fileStateValue = FileStateValue.createWithStatNoFollow(rootedPath, stat, tsgm);
+    FileStateValue fileStateValue =
+        FileStateValue.createWithStatNoFollow(rootedPath, stat, digestWillBeInjected, tsgm);
 
     if (stat.isDirectory()) {
       return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
@@ -572,20 +576,24 @@ public final class ActionMetadataHandler implements MetadataHandler {
     return filesetMapping;
   }
 
-  @VisibleForTesting
   static FileArtifactValue fileArtifactValueFromArtifact(
       Artifact artifact,
       @Nullable FileStatusWithDigest statNoFollow,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     return fileArtifactValueFromArtifact(
-        artifact, ArtifactPathResolver.IDENTITY, statNoFollow, tsgm);
+        artifact,
+        ArtifactPathResolver.IDENTITY,
+        statNoFollow,
+        /*digestWillBeInjected=*/ false,
+        tsgm);
   }
 
   private static FileArtifactValue fileArtifactValueFromArtifact(
       Artifact artifact,
       ArtifactPathResolver artifactPathResolver,
       @Nullable FileStatusWithDigest statNoFollow,
+      boolean digestWillBeInjected,
       @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     Preconditions.checkState(!artifact.isTreeArtifact());
@@ -602,7 +610,11 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
     if (statNoFollow == null || !statNoFollow.isSymbolicLink()) {
       return fileArtifactValueFromStat(
-          rootedPathNoFollow, statNoFollow, artifact.isConstantMetadata(), tsgm);
+          rootedPathNoFollow,
+          statNoFollow,
+          digestWillBeInjected,
+          artifact.isConstantMetadata(),
+          tsgm);
     }
 
     if (artifact.isSymlink()) {
@@ -627,7 +639,11 @@ public final class ActionMetadataHandler implements MetadataHandler {
     FileStatus realStat = realRootedPath.asPath().statIfFound(Symlinks.NOFOLLOW);
     FileStatusWithDigest realStatWithDigest = FileStatusWithDigestAdapter.adapt(realStat);
     return fileArtifactValueFromStat(
-        realRootedPath, realStatWithDigest, artifact.isConstantMetadata(), tsgm);
+        realRootedPath,
+        realStatWithDigest,
+        digestWillBeInjected,
+        artifact.isConstantMetadata(),
+        tsgm);
   }
 
   private void setPathReadOnlyAndExecutable(Artifact artifact) throws IOException {
