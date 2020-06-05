@@ -141,7 +141,7 @@ message FailureDetail {
   reserved 138; // For internal use
   reserved 143; // For internal use
   reserved 149; // For internal use
-  reserved 155; // For internal use
+  reserved 155 to 156; // For internal use
 }
 
 message Interrupted {
@@ -165,7 +165,7 @@ message Interrupted {
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
     reserved 19; // For internal use
-    reserved 24; // For internal use
+    reserved 24 to 26; // For internal use
   }
 
   Code code = 1;
