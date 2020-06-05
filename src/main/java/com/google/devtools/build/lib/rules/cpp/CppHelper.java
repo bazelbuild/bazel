@@ -936,8 +936,9 @@ public class CppHelper {
    */
   public static String getHashSuffix(
       RuleContext ruleContext,
-      CppConfiguration config) {
-    if(!config.isRenameDLL()) {
+      CppConfiguration config,
+      FeatureConfiguration featureConfiguration) {
+    if(!config.isRenameDLL(featureConfiguration)) {
       return "";
     } else {
       Fingerprint digest = new Fingerprint();

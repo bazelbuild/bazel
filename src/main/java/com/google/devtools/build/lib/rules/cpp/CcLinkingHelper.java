@@ -320,7 +320,7 @@ public final class CcLinkingHelper {
    * will link against the DLL whose name is the same as the name of cc_library.
    */
   public CcLinkingHelper setLinkedDLLNameSuffix(String suffix) {
-    if(this.cppConfiguration.isRenameDLL()) {
+    if(this.cppConfiguration.isRenameDLL(featureConfiguration)) {
       this.linkedDLLNameSuffix = Preconditions.checkNotNull(suffix);
     }
     return this;

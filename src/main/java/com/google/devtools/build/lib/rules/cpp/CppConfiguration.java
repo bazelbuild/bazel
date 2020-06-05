@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -325,9 +326,9 @@ public final class CppConfiguration extends Fragment
     return cppOptions.dynamicMode;
   }
 
-  public boolean isRenameDLL() {
-    return cppOptions.renameDLL && (cppOptions.dynamicMode == DynamicMode.FULLY)
-        && (OS.getCurrent() == OS.WINDOWS);
+  public boolean isRenameDLL(FeatureConfiguration featureConfiguration) {
+    return cppOptions.renameDLL && (cppOptions.dynamicMode != DynamicMode.OFF)
+        && (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
   } 
 
   public boolean isFdo() {
