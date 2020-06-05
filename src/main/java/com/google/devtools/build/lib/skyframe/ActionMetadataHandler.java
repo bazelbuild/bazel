@@ -267,8 +267,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
     }
     // This artifact was not injected directly to the store, but it may have been injected as part
     // of a tree artifact.
-    // TODO(jhorvitz): We can skip this for action template expansion artifacts.
-    if (artifact.hasParent()) {
+    if (artifact.isChildOfDeclaredDirectory()) {
       TreeArtifactValue tree = store.getTreeArtifactData(artifact.getParent());
       if (tree != null) {
         value = tree.getChildValues().get(artifact);
