@@ -312,7 +312,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        String DLLNameSuffix = CppHelper.getHashSuffix(ruleContext, cppConfiguration, featureConfiguration);
+        String DLLNameSuffix = CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration);
         linkingHelper.setLinkedDLLNameSuffix(DLLNameSuffix);
         Artifact generatedDefFile = null;
 
@@ -628,7 +628,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ccToolchain,
               configuration,
               Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
-              CppHelper.getHashSuffix(ruleContext, cppConfiguration, featureConfiguration)));
+              CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration)));
 
       if (CppHelper.useInterfaceSharedLibraries(
           cppConfiguration, ccToolchain, featureConfiguration)) {
