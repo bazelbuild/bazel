@@ -61,6 +61,9 @@ public final class ProcessWrapper {
 
     ImmutableList.Builder<String> extraFlags = ImmutableList.builder();
     if (options != null) {
+      if (options.processWrapperGracefulSigterm) {
+        extraFlags.add("--graceful_sigterm");
+      }
       if (options.processWrapperWaitFix) {
         extraFlags.add("--wait_fix");
       }

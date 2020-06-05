@@ -72,6 +72,17 @@ public class LocalExecutionOptions extends OptionsBase {
   public boolean localLockfreeOutput;
 
   @Option(
+      name = "experimental_process_wrapper_graceful_sigterm",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "When true, make the process-wrapper propagate SIGTERMs (used by the dynamic scheduler "
+              + "to stop process trees) to the subprocesses themselves, giving them the grace "
+              + "period in --local_termination_grace_seconds before forcibly sending a SIGKILL.")
+  public boolean processWrapperGracefulSigterm;
+
+  @Option(
       name = "experimental_process_wrapper_wait_fix",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

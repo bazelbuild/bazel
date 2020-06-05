@@ -72,12 +72,28 @@ void LegacyProcessWrapper::SpawnChild() {
   }
 }
 
+// Sets up signal handlers to kill all subprocesses when the given signal is
+// triggered. Whether subprocesses are abruptly terminated or not depends on
+// the signal type and the user configuration.
+void LegacyProcessWrapper::SetupSignalHandlers() {
+  // SIGALRM represents a timeout so we should give the process a bit of time
+  // to die gracefully if it needs it.
+  InstallSignalHandler(SIGALRM, OnGracefulSignal);
+
+  // Termination signals should kill the process quickly, as it's typically
+  // blocking the return of the prompt after a user hits "Ctrl-C". But we allow
+  // customizing the behavior of SIGTERM because it's used by the dynamic
+  // scheduler to terminate process trees in a controlled manner.
+  if (opt.graceful_sigterm) {
+    InstallSignalHandler(SIGTERM, OnGracefulSignal);
+  } else {
+    InstallSignalHandler(SIGTERM, OnAbruptSignal);
+  }
+  InstallSignalHandler(SIGINT, OnAbruptSignal);
+}
+
 void LegacyProcessWrapper::WaitForChild() {
-  // Set up a signal handler which kills all subprocesses when the given signal
-  // is triggered.
-  InstallSignalHandler(SIGALRM, OnSignal);
-  InstallSignalHandler(SIGTERM, OnSignal);
-  InstallSignalHandler(SIGINT, OnSignal);
+  SetupSignalHandlers();
   if (opt.timeout_secs > 0) {
     SetTimeout(opt.timeout_secs);
   }
@@ -144,16 +160,13 @@ void LegacyProcessWrapper::WaitForChild() {
 }
 
 // Called when timeout or signal occurs.
-void LegacyProcessWrapper::OnSignal(int sig) {
+void LegacyProcessWrapper::OnAbruptSignal(int sig) {
   last_signal = sig;
+  KillEverything(child_pid, false, opt.kill_delay_secs);
+}
 
-  if (sig == SIGALRM) {
-    // SIGALRM represents a timeout, so we should give the process a bit of time
-    // to die gracefully if it needs it.
-    KillEverything(child_pid, true, opt.kill_delay_secs);
-  } else {
-    // Signals should kill the process quickly, as it's typically blocking the
-    // return of the prompt after a user hits "Ctrl-C".
-    KillEverything(child_pid, false, opt.kill_delay_secs);
-  }
+// Called when timeout or signal occurs.
+void LegacyProcessWrapper::OnGracefulSignal(int sig) {
+  last_signal = sig;
+  KillEverything(child_pid, true, opt.kill_delay_secs);
 }
