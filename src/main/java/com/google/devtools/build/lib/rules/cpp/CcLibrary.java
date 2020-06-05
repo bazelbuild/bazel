@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -313,15 +312,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        String DLLNameSuffix = "";
-        if(cppConfiguration.isRenameDLL()){
-          Fingerprint digest = new Fingerprint();
-          digest.addString(ruleContext.getRepository().toString());
-          digest.addPath(ruleContext.getPackageDirectory());
-          DLLNameSuffix = "_" + digest.hexDigestAndReset().substring(0, 10);
-          linkingHelper.setLinkedDLLNameSuffix(DLLNameSuffix);
-        }
-
+        String DLLNameSuffix = CppHelper.getHashSuffix(ruleContext, cppConfiguration);
+        linkingHelper.setLinkedDLLNameSuffix(DLLNameSuffix);
         Artifact generatedDefFile = null;
 
         Artifact defParser = common.getDefParser();
@@ -630,20 +622,13 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     if (!ruleContext.attributes().get("linkstatic", Type.BOOLEAN)
         && !ccCompilationOutputs.isEmpty()) {
-      String linkedArtifactNameSuffix = "";
-      if(cppConfiguration.isRenameDLL()) {
-        Fingerprint digest = new Fingerprint();
-        digest.addString(ruleContext.getRepository().toString());
-        digest.addPath(ruleContext.getPackageDirectory());
-        linkedArtifactNameSuffix = "_" + digest.hexDigestAndReset().substring(0, 10);
-      }
       dynamicLibrary.add(
           CppHelper.getLinkedArtifact(
               ruleContext,
               ccToolchain,
               configuration,
               Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
-              linkedArtifactNameSuffix));
+              CppHelper.getHashSuffix(ruleContext, cppConfiguration)));
 
       if (CppHelper.useInterfaceSharedLibraries(
           cppConfiguration, ccToolchain, featureConfiguration)) {
