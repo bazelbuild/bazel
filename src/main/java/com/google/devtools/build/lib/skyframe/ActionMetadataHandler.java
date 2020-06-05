@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
@@ -375,7 +374,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void injectDigest(Artifact output, FileStatus statNoFollow, byte[] digest) {
+  public FileArtifactValue constructMetadataForDigest(
+      Artifact output, FileStatus statNoFollow, byte[] digest) throws IOException {
     Preconditions.checkState(executionMode.get());
     Preconditions.checkState(!output.isSymlink());
     Preconditions.checkNotNull(digest);
@@ -383,37 +383,26 @@ public final class ActionMetadataHandler implements MetadataHandler {
     // We have to add the artifact to injectedFiles before calling constructFileArtifactValue to
     // avoid duplicate chmod calls.
     store.injectedFiles().add(output);
-    try {
-      // This call may make an extra call to Path#getFastDigest to see if the digest is readily
-      // available, even though we have the injected digest. This is necessary though, because
-      // otherwise this FileArtifactValue will not compare equal to another one created for the same
-      // file without an injected digest, because the other one will be missing its digest.
-      FileArtifactValue fileMetadata =
-          constructFileArtifactValue(
-              output, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
-      store.putArtifactData(output, fileMetadata);
-    } catch (IOException e) {
-      // Do nothing - we just failed to inject metadata. Real error handling will be done later,
-      // when somebody tries to access that file.
-    }
+
+    // TODO(jhorvitz): This unnecessarily calls getFastDigest even though we know the digest.
+    return constructFileArtifactValue(
+        output, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
   }
 
   @Override
-  public void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata) {
+  public void injectFile(Artifact output, FileArtifactValue metadata) {
     Preconditions.checkArgument(
         isKnownOutput(output), "%s is not a declared output of this action", output);
     Preconditions.checkArgument(
-        !output.isTreeArtifact(),
-        "injectRemoteFile must not be called on TreeArtifacts: %s",
-        output);
+        !output.isTreeArtifact(), "injectFile must not be called on TreeArtifacts: %s", output);
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
     store.injectOutputData(output, metadata);
   }
 
   @Override
-  public void injectRemoteDirectory(
-      SpecialArtifact output, Map<TreeFileArtifact, RemoteFileArtifactValue> children) {
+  public void injectDirectory(
+      SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children) {
     Preconditions.checkArgument(
         isKnownOutput(output), "%s is not a declared output of this action", output);
     Preconditions.checkArgument(output.isTreeArtifact(), "output must be a tree artifact");

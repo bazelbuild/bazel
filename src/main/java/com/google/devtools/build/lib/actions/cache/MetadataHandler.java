@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MetadataProvider;
+import com.google.devtools.build.lib.vfs.FileStatus;
+import java.io.IOException;
 
 /**
  * Retrieves {@link FileArtifactValue} of {@link Artifact}s, and inserts virtual metadata as well.
@@ -34,6 +36,17 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
   /** Sets digest for virtual artifacts (e.g. middlemen). {@code digest} must not be null. */
   void setDigestForVirtualArtifact(Artifact artifact, byte[] digest);
 
+  /**
+   * Constructs a {@link FileArtifactValue} for the given output whose digest is known.
+   *
+   * <p>This call does not inject the returned metadata. It should be injected with a followup call
+   * to {@link #injectFile} or {@link #injectDirectory} as appropriate.
+   *
+   * <p>chmod will not be called on the output.
+   */
+  FileArtifactValue constructMetadataForDigest(
+      Artifact output, FileStatus statNoFollow, byte[] digest) throws IOException;
+
   /** Retrieves the artifacts inside the TreeArtifact, without injecting its digest. */
   ImmutableSet<TreeFileArtifact> getExpandedOutputs(Artifact artifact);
 
@@ -46,8 +59,7 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
 
   /**
    * Discards all known output artifact metadata, presumably because outputs will be modified. May
-   * only be called before any metadata is injected using {@link #injectDigest} or {@link
-   * #markOmitted};
+   * only be called before any metadata is injected.
    *
    * <p>Must be called at most once on any specific instance.
    */
