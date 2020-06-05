@@ -312,8 +312,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-        String DLLNameSuffix = CppHelper.getHashSuffix(ruleContext, cppConfiguration, featureConfiguration);
-        linkingHelper.setLinkedDLLNameSuffix(DLLNameSuffix);
+        String linkedArtifactNameSuffix = CppHelper.getHashSuffix(ruleContext, cppConfiguration, featureConfiguration);
+        linkingHelper.setLinkedArtifactNameSuffix(linkedArtifactNameSuffix);
         Artifact generatedDefFile = null;
 
         Artifact defParser = common.getDefParser();
@@ -327,7 +327,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                     ccToolchain
                         .getFeatures()
                         .getArtifactNameForCategory(
-                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName() + DLLNameSuffix));
+                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName() + linkedArtifactNameSuffix));
             targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
           } catch (EvalException e) {
             throw ruleContext.throwWithRuleError(e);
@@ -602,6 +602,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       return outputGroups.build();
     }
 
+    String linkedArtifactNameSuffix = CppHelper.getHashSuffix(ruleContext, cppConfiguration, featureConfiguration);
     if (ruleContext.attributes().get("alwayslink", Type.BOOLEAN)) {
       archiveFile.add(
           CppHelper.getLinkedArtifact(
@@ -617,7 +618,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ccToolchain,
               configuration,
               Link.LinkTargetType.STATIC_LIBRARY,
-              /* linkedArtifactNameSuffix= */ ""));
+              linkedArtifactNameSuffix));
     }
 
     if (!ruleContext.attributes().get("linkstatic", Type.BOOLEAN)
@@ -628,7 +629,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ccToolchain,
               configuration,
               Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
-              CppHelper.getHashSuffix(ruleContext, cppConfiguration, featureConfiguration)));
+              linkedArtifactNameSuffix));
 
       if (CppHelper.useInterfaceSharedLibraries(
           cppConfiguration, ccToolchain, featureConfiguration)) {
@@ -638,7 +639,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ccToolchain,
                 configuration,
                 LinkTargetType.INTERFACE_DYNAMIC_LIBRARY,
-                /* linkedArtifactNameSuffix= */ ""));
+                linkedArtifactNameSuffix));
       }
     }
 
