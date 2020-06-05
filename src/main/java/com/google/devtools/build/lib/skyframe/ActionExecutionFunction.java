@@ -1237,8 +1237,10 @@ public class ActionExecutionFunction implements SkyFunction {
         actionInputMapSinkFactory.apply(populateInputData ? allInputsList.size() : 0);
     Map<Artifact, Collection<Artifact>> expandedArtifacts =
         new HashMap<>(populateInputData ? 128 : 0);
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = new HashMap<>();
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles =
+        Maps.newHashMapWithExpectedSize(0);
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets =
+        Maps.newHashMapWithExpectedSize(0);
 
     ActionExecutionException firstActionExecutionException = null;
 
@@ -1409,8 +1411,10 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     // When there are no missing values, we can start populating input data.
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = new HashMap<>();
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles =
+        Maps.newHashMapWithExpectedSize(0);
+    Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets =
+        Maps.newHashMapWithExpectedSize(0);
     S inputArtifactData = actionInputMapSinkFactory.apply(allInputsList.size());
     Map<Artifact, Collection<Artifact>> expandedArtifacts = Maps.newHashMapWithExpectedSize(128);
 
