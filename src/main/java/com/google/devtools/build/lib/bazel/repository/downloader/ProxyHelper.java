@@ -56,7 +56,7 @@ public class ProxyHelper {
       noProxyUrl = env.get("NO_PROXY");
     }
     if (!Strings.isNullOrEmpty(noProxyUrl)) {
-      String[] noProxyUrlArray = noProxyUrl.split(",");
+      String[] noProxyUrlArray = noProxyUrl.split("\\s*,\\s*");
       String requestedHost = requestedUrl.getHost();
       for (int i = 0; i < noProxyUrlArray.length; i++) {
         if (noProxyUrlArray[i].startsWith(".")) {
