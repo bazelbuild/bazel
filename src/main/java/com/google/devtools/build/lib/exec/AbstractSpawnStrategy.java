@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.SortedMap;
@@ -133,6 +134,8 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
           cacheHandle.store(spawnResult);
         }
       }
+    } catch (InterruptedIOException e) {
+      throw new InterruptedException(e.getMessage());
     } catch (IOException e) {
       throw new EnvironmentalExecException(e);
     } catch (SpawnExecException e) {
