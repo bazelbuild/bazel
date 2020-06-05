@@ -871,8 +871,7 @@ public final class CcLinkingHelper {
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
       String maybePicName = label.getName() + linkedArtifactNameSuffix;
-      if(linkTargetType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY
-          && cppConfiguration.isRenameDLL(featureConfiguration)) {
+      if(linkTargetType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
         maybePicName += linkedDLLNameSuffix;
       }
       if (linkTargetType.picness() == Picness.PIC) {

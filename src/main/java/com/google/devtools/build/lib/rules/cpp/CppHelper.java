@@ -940,15 +940,14 @@ public class CppHelper {
     CppOptions cppOptions =
         Preconditions.checkNotNull(
             ruleContext.getConfiguration().getOptions().get(CppOptions.class));
-    if(!cppOptions.renameDLL
+    if(cppOptions.renameDLL
         && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
-      return "";
-    } else {
       Fingerprint digest = new Fingerprint();
       digest.addString(ruleContext.getRepository().getName());
       digest.addPath(ruleContext.getPackageDirectory());
       return "_" + digest.hexDigestAndReset().substring(0, 10);
     }
+    return "";
   }
 
   /**
