@@ -623,6 +623,7 @@ message ActionQuery {
         [(metadata) = { exit_code: 2 }];
     INVALID_AQUERY_EXPRESSION = 6 [(metadata) = { exit_code: 1 }];
     SKYFRAME_STATE_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
+    AQUERY_OUTPUT_TOO_BIG = 8 [(metadata) = { exit_code: 7 }];
   }
 
   Code code = 1;
