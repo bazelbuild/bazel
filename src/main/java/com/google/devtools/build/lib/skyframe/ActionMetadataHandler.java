@@ -382,7 +382,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
     // avoid duplicate chmod calls.
     store.injectedFiles().add(output);
 
-    // TODO(jhorvitz): This unnecessarily calls getFastDigest even though we know the digest.
     return constructFileArtifactValue(
         output, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
   }
