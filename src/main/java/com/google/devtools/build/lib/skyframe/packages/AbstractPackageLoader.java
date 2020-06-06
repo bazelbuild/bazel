@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceNameFunction;
@@ -443,6 +444,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         .put(
             SkyFunctions.AST_FILE_LOOKUP,
             new ASTFileLookupFunction(ruleClassProvider, digestHashFunction))
+        .put(
+            SkyFunctions.STARLARK_BUILTINS,
+            new StarlarkBuiltinsFunction(ruleClassProvider, pkgFactory))
         .put(
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(

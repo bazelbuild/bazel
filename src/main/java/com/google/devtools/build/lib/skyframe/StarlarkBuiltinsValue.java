@@ -23,19 +23,16 @@ import com.google.devtools.build.skyframe.SkyValue;
  * A Skyframe value representing the Starlark symbols defined by the {@code @builtins}
  * pseudo-repository.
  *
- * <p>These are parsed from {@code @builtins//:exports.bzl}, but not validated until they're used by
- * {@link PackageFunction} and {@link BzlLoadFunction}.
+ * <p>These are parsed from {@code @builtins//:exports.bzl}.
  */
 public final class StarlarkBuiltinsValue implements SkyValue {
 
   // These are all deeply immutable (the Starlark values are already frozen), so let's skip the
   // accessors and mutators.
 
-  /** Contents of the {@code exported_toplevels} dict. */
-  public final ImmutableMap<String, Object> exportedToplevels;
-
-  /** Contents of the {@code exported_rules} dict. */
-  public final ImmutableMap<String, Object> exportedRules;
+  /** Top-level predeclared symbols for a .bzl file (loaded on behalf of a BUILD file). */
+  // TODO(#11437): Corresponding predeclaredForBuild for BUILD files
+  public final ImmutableMap<String, Object> predeclaredForBuildBzl;
 
   /** Contents of the {@code exported_to_java} dict. */
   public final ImmutableMap<String, Object> exportedToJava;
@@ -44,12 +41,10 @@ public final class StarlarkBuiltinsValue implements SkyValue {
   public final byte[] transitiveDigest;
 
   public StarlarkBuiltinsValue(
-      ImmutableMap<String, Object> exportedToplevels,
-      ImmutableMap<String, Object> exportedRules,
+      ImmutableMap<String, Object> predeclaredForBuildBzl,
       ImmutableMap<String, Object> exportedToJava,
       byte[] transitiveDigest) {
-    this.exportedToplevels = exportedToplevels;
-    this.exportedRules = exportedRules;
+    this.predeclaredForBuildBzl = predeclaredForBuildBzl;
     this.exportedToJava = exportedToJava;
     this.transitiveDigest = transitiveDigest;
   }

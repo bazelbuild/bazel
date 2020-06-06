@@ -479,6 +479,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // We don't check for duplicates in order to allow extraSkyfunctions to override existing
     // entries.
     Map<SkyFunctionName, SkyFunction> map = new HashMap<>();
+    // IF YOU ADD A NEW SKYFUNCTION: If your Skyfunction can be used transitively by package
+    // loading, make sure to register it in AbstractPackageLoader as well.
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
     map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction(clientEnv));
     map.put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction());
@@ -501,7 +503,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.AST_FILE_LOOKUP,
         new ASTFileLookupFunction(ruleClassProvider, DigestHashFunction.getDefaultUnchecked()));
-    map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction());
+    map.put(
+        SkyFunctions.STARLARK_BUILTINS,
+        new StarlarkBuiltinsFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.GLOB, newGlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());

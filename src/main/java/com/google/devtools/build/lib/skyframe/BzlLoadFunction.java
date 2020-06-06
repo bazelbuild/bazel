@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
@@ -62,7 +63,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -86,10 +86,18 @@ import javax.annotation.Nullable;
  */
 public class BzlLoadFunction implements SkyFunction {
 
-  // Creates the BazelStarlarkContext and populates the predeclared .bzl symbols.
+  // We need the RuleClassProvider to 1) create the BazelStarlarkContext for Starlark evaluation,
+  // and 2) to pass it to ASTFileLookupFunction's inlining code path.
+  // TODO(#11437): The second use can probably go away by refactoring ASTFileLookupFunction to
+  // instead accept the set of predeclared bindings. Simplify the code path and then this comment.
   private final RuleClassProvider ruleClassProvider;
-  // Only used to retrieve the "native" object.
-  private final PackageFactory packageFactory;
+
+  // TODO(#11437): Remove once we're getting builtins from StarlarkBuiltinsValue instead.
+  private final ImmutableMap<String, Object> predeclaredForBuildBzl;
+
+  private final ImmutableMap<String, Object> predeclaredForWorkspaceBzl;
+
+  private final ImmutableMap<String, Object> predeclaredForBuiltinsBzl;
 
   // Handles retrieving ASTFileLookupValues, either by calling Skyframe or by inlining
   // ASTFileLookupFunction; the latter is not to be confused with inlining of BzlLoadFunction. See
@@ -107,7 +115,17 @@ public class BzlLoadFunction implements SkyFunction {
       ASTManager astManager,
       @Nullable CachedBzlLoadDataManager cachedBzlLoadDataManager) {
     this.ruleClassProvider = ruleClassProvider;
-    this.packageFactory = packageFactory;
+    this.predeclaredForBuildBzl =
+        StarlarkBuiltinsFunction.createPredeclaredForBuildBzlUsingInjection(
+            ruleClassProvider,
+            packageFactory,
+            /*exportedToplevels=*/ ImmutableMap.of(),
+            /*exportedRules=*/ ImmutableMap.of());
+    this.predeclaredForWorkspaceBzl =
+        StarlarkBuiltinsFunction.createPredeclaredForWorkspaceBzl(
+            ruleClassProvider, packageFactory);
+    this.predeclaredForBuiltinsBzl =
+        StarlarkBuiltinsFunction.createPredeclaredForBuiltinsBzl(ruleClassProvider);
     this.astManager = astManager;
     this.cachedBzlLoadDataManager = cachedBzlLoadDataManager;
   }
@@ -522,18 +540,18 @@ public class BzlLoadFunction implements SkyFunction {
     }
     byte[] transitiveDigest = fp.digestAndReset();
 
-    // executeModule does not request values from the Environment. It may post events to the
-    // Environment, but events do not matter when caching BzlLoadValues.
-    Module module =
-        executeModule(
-            file,
-            key.getLabel(),
-            transitiveDigest,
-            loadedModules,
-            starlarkSemantics,
-            env,
-            /*inWorkspace=*/ key instanceof BzlLoadValue.KeyForWorkspace,
-            repoMapping);
+    Module module = Module.withPredeclared(starlarkSemantics, getPredeclaredEnvironment(key));
+    module.setClientData(BazelModuleContext.create(label, transitiveDigest));
+    // executeBzlFile may post events to the Environment's handler, but events do not matter when
+    // caching BzlLoadValues. Note that executing the module mutates it.
+    executeBzlFile(
+        file,
+        key.getLabel(),
+        module,
+        loadedModules,
+        starlarkSemantics,
+        env.getListener(),
+        repoMapping);
     BzlLoadValue result =
         new BzlLoadValue(
             module, transitiveDigest, new StarlarkFileDependency(label, fileDependencies.build()));
@@ -707,45 +725,53 @@ public class BzlLoadFunction implements SkyFunction {
     return valuesMissing ? null : bzlLoads;
   }
 
+  /**
+   * Obtains the predeclared environment for a .bzl file, based on the type of file and (if
+   * applicable) the injected builtins.
+   */
+  private ImmutableMap<String, Object> getPredeclaredEnvironment(BzlLoadValue.Key key) {
+    if (key instanceof BzlLoadValue.KeyForBuild) {
+      return predeclaredForBuildBzl;
+    } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
+      return predeclaredForWorkspaceBzl;
+    } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
+      return predeclaredForBuiltinsBzl;
+    } else {
+      throw new AssertionError("Unknown key type: " + key.getClass());
+    }
+  }
+
   /** Executes the .bzl file defining the module to be loaded. */
-  private Module executeModule(
+  private void executeBzlFile(
       StarlarkFile file,
       Label label,
-      byte[] transitiveDigest,
+      Module module,
       Map<String, Module> loadedModules,
       StarlarkSemantics starlarkSemantics,
-      Environment env,
-      boolean inWorkspace,
+      ExtendedEventHandler skyframeEventHandler,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws BzlLoadFailedException, InterruptedException {
-    // set up .bzl predeclared environment
-    Map<String, Object> predeclared = new HashMap<>(ruleClassProvider.getEnvironment());
-    predeclared.put("native", packageFactory.getNativeModule(inWorkspace));
-    Module module = Module.withPredeclared(starlarkSemantics, predeclared);
-    module.setClientData(BazelModuleContext.create(label, transitiveDigest));
-
     try (Mutability mu = Mutability.create("loading", label)) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
       thread.setLoader(loadedModules::get);
-      StoredEventHandler eventHandler = new StoredEventHandler();
-      thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
+      StoredEventHandler starlarkEventHandler = new StoredEventHandler();
+      thread.setPrintHandler(Event.makeDebugPrintHandler(starlarkEventHandler));
       ruleClassProvider.setStarlarkThreadContext(thread, label, repositoryMapping);
-      execAndExport(file, label, eventHandler, module, thread);
+      execAndExport(file, label, starlarkEventHandler, module, thread);
 
-      Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
-      for (Postable post : eventHandler.getPosts()) {
-        env.getListener().post(post);
+      Event.replayEventsOn(skyframeEventHandler, starlarkEventHandler.getEvents());
+      for (Postable post : starlarkEventHandler.getPosts()) {
+        skyframeEventHandler.post(post);
       }
-      if (eventHandler.hasErrors()) {
+      if (starlarkEventHandler.hasErrors()) {
         throw BzlLoadFailedException.errors(label.toPathFragment());
       }
-      return module;
     }
   }
 
   // Precondition: file is validated and error-free.
   // Precondition: thread has a valid transitiveDigest.
-  // TODO(adonovan): executeModule would make a better public API than this function.
+  // TODO(adonovan): executeBzlFile would make a better public API than this function.
   public static void execAndExport(
       StarlarkFile file, Label label, EventHandler handler, Module module, StarlarkThread thread)
       throws InterruptedException {

@@ -519,6 +519,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   private final PrerequisiteValidator prerequisiteValidator;
 
+  private final ImmutableMap<String, Object> nativeRuleSpecificBindings;
+
   private final ImmutableMap<String, Object> environment;
 
   private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
@@ -574,7 +576,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.environment = createEnvironment(starlarkAccessibleJavaClasses, starlarkBootstraps);
+    this.nativeRuleSpecificBindings =
+        createNativeRuleSpecificBindings(starlarkAccessibleJavaClasses, starlarkBootstraps);
+    this.environment = createEnvironment(nativeRuleSpecificBindings);
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
@@ -725,19 +729,24 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  private static ImmutableMap<String, Object> createEnvironment(
+  private static ImmutableMap<String, Object> createNativeRuleSpecificBindings(
       ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+    ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
+    bindings.putAll(starlarkAccessibleTopLevels);
+    for (Bootstrap bootstrap : bootstraps) {
+      bootstrap.addBindingsToBuilder(bindings);
+    }
+    return bindings.build();
+  }
 
+  private static ImmutableMap<String, Object> createEnvironment(
+      ImmutableMap<String, Object> nativeRuleSpecificBindings) {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
     // Add predeclared symbols of the Bazel build language.
     StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder);
-
-    envBuilder.putAll(starlarkAccessibleTopLevels.entrySet());
-    for (Bootstrap bootstrap : bootstraps) {
-      bootstrap.addBindingsToBuilder(envBuilder);
-    }
-
+    // Add all the extensions registered with the rule class provider.
+    envBuilder.putAll(nativeRuleSpecificBindings);
     return envBuilder.build();
   }
 
@@ -752,6 +761,15 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
       }
     }
     return mapBuilder.build();
+  }
+
+  @Override
+  public ImmutableMap<String, Object> getNativeRuleSpecificBindings() {
+    // Include rule-related stuff like CcInfo, but not core stuff like rule(). Essentially, this
+    // is intended to include things that could in principle be migrated to Starlark (and hence
+    // should be overridable by @builtins); in practice it means anything specifically registered
+    // with the RuleClassProvider.
+    return nativeRuleSpecificBindings;
   }
 
   @Override
