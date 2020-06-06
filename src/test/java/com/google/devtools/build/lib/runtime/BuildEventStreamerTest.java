@@ -67,7 +67,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
@@ -278,10 +277,7 @@ public class BuildEventStreamerTest extends FoundationTestCase {
       BuildEventStreamProtos.NamedSetOfFiles.Builder builder =
           BuildEventStreamProtos.NamedSetOfFiles.newBuilder();
       for (NestedSet<Artifact> artifactset : artifacts) {
-        builder.addFileSets(
-            converters
-                .artifactGroupNamer()
-                .apply((new NestedSetView<Artifact>(artifactset)).identifier()));
+        builder.addFileSets(converters.artifactGroupNamer().apply(artifactset.toNode()));
       }
       return GenericBuildEvent.protoChaining(this).setNamedSetOfFiles(builder.build()).build();
     }

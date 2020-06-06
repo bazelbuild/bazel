@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -358,13 +357,12 @@ public class ActionExecutionFunction implements SkyFunction {
       // - It's uncommon that 2 actions share the exact same set of inputs
       //   => the top layer offers little in terms of reusability.
       // More details: b/143205147.
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>(allInputs);
-      Iterable<SkyKey> directKeys = Artifact.keys(nestedSetView.directs());
+      Iterable<SkyKey> directKeys = Artifact.keys(allInputs.getLeaves());
       if (state.requestedArtifactNestedSetKeys == null) {
         state.requestedArtifactNestedSetKeys = CompactHashSet.create();
-        for (NestedSetView<Artifact> transitive : nestedSetView.transitives()) {
+        for (NestedSet<Artifact> nonleaf : allInputs.getNonLeaves()) {
           state.requestedArtifactNestedSetKeys.add(
-              new ArtifactNestedSetKey(transitive.identifier()));
+              new ArtifactNestedSetKey(nonleaf, nonleaf.toNode()));
         }
       }
 

@@ -19,7 +19,6 @@ java_library(
         "NestedSetCodecWithStore.java",
         "NestedSetExpander.java",
         "NestedSetStore.java",
-        "NestedSetView.java",
         "NestedSetVisitor.java",
         "Order.java",
     ],

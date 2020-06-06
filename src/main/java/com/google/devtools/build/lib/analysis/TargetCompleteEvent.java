@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
@@ -465,18 +464,14 @@ public final class TargetCompleteEvent
       }
       OutputGroup.Builder groupBuilder = OutputGroup.newBuilder();
       groupBuilder.setName(artifactsInOutputGroup.getOutputGroup());
-      groupBuilder.addFileSets(
-          namer.apply(
-              (new NestedSetView<Artifact>(artifactsInOutputGroup.getArtifacts())).identifier()));
+      groupBuilder.addFileSets(namer.apply(artifactsInOutputGroup.getArtifacts().toNode()));
       groups.add(groupBuilder.build());
     }
     if (baselineCoverageArtifacts != null) {
       groups.add(
           OutputGroup.newBuilder()
               .setName(BASELINE_COVERAGE)
-              .addFileSets(
-                  namer.apply(
-                      (new NestedSetView<Artifact>(baselineCoverageArtifacts).identifier())))
+              .addFileSets(namer.apply(baselineCoverageArtifacts.toNode()))
               .build());
     }
     return groups.build();

@@ -68,9 +68,6 @@ public class NestedSetImplTest {
     NestedSet<String> linkOrderSet =
         NestedSetBuilder.<String>linkOrder().add("a").addTransitive(b).addTransitive(c).build();
     assertThat(linkOrderSet.toString()).isEqualTo("[a, b2, b1, c2, c1]");
-    // Stable order when printing children directly.
-    assertThat(NestedSet.childrenToString(linkOrderSet.getChildren()))
-        .isEqualTo("[c1, c2, b1, b2, a]");
 
     assertThat(nestedSetBuilder().addTransitive(b).build().toString()).isEqualTo("[b1, b2]");
   }

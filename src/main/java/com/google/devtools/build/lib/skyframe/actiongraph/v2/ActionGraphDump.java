@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
@@ -218,11 +217,8 @@ public class ActionGraphDump {
     if (includeArtifacts) {
       // Store inputs
       NestedSet<Artifact> inputs = action.getInputs();
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>(inputs);
-
-      if (!nestedSetView.directs().isEmpty() || !nestedSetView.transitives().isEmpty()) {
-        actionBuilder.addInputDepSetIds(
-            knownNestedSets.dataToIdAndStreamOutputProto(nestedSetView));
+      if (!inputs.isEmpty()) {
+        actionBuilder.addInputDepSetIds(knownNestedSets.dataToIdAndStreamOutputProto(inputs));
       }
 
       // store outputs
