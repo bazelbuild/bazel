@@ -136,9 +136,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * Returns the set of predeclared symbols to initialize a Starlark {@link Module} with, for
    * evaluating .bzls loaded from a BUILD file.
    */
-  // TODO(#11437): Make private in follow-up CL to retrieve predeclared environment from
-  // StarlarkBuiltinsValue instead of this static helper.
-  static ImmutableMap<String, Object> createPredeclaredForBuildBzlUsingInjection(
+  private static ImmutableMap<String, Object> createPredeclaredForBuildBzlUsingInjection(
       RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       ImmutableMap<String, Object> exportedToplevels,

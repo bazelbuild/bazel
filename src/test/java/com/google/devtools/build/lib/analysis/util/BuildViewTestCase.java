@@ -879,7 +879,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns the ConfiguredTarget for the specified label, configured for the "build" (aka "target")
    * configuration. If the label corresponds to a target with a top-level configuration transition,
    * that transition is applied to the given config in the returned ConfiguredTarget.
+   *
+   * <p>May return null on error; see {@link #getConfiguredTarget(Label, BuildConfiguration)}.
    */
+  @Nullable
   public ConfiguredTarget getConfiguredTarget(String label) throws LabelSyntaxException {
     return getConfiguredTarget(label, targetConfig);
   }
@@ -888,7 +891,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Returns the ConfiguredTarget for the specified label, using the given build configuration. If
    * the label corresponds to a target with a top-level configuration transition, that transition is
    * applied to the given config in the returned ConfiguredTarget.
+   *
+   * <p>May return null on error; see {@link #getConfiguredTarget(Label, BuildConfiguration)}.
    */
+  @Nullable
   protected ConfiguredTarget getConfiguredTarget(String label, BuildConfiguration config)
       throws LabelSyntaxException {
     return getConfiguredTarget(Label.parseAbsolute(label, ImmutableMap.of()), config);
@@ -906,6 +912,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    *
    * @throws AssertionError if the target cannot be transitioned into with the given configuration
    */
+  // TODO(bazel-team): Should we work around b/26382502 by asserting here that the result is not
+  // null?
+  @Nullable
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config) {
     try {
       return view.getConfiguredTargetForTesting(

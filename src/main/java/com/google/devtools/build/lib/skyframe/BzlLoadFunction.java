@@ -92,8 +92,9 @@ public class BzlLoadFunction implements SkyFunction {
   // instead accept the set of predeclared bindings. Simplify the code path and then this comment.
   private final RuleClassProvider ruleClassProvider;
 
-  // TODO(#11437): Remove once we're getting builtins from StarlarkBuiltinsValue instead.
-  private final ImmutableMap<String, Object> predeclaredForBuildBzl;
+  // Used for BUILD .bzls if injection is disabled.
+  // TODO(#11437): Remove once injection is on unconditionally.
+  private final StarlarkBuiltinsValue uninjectedStarlarkBuiltins;
 
   private final ImmutableMap<String, Object> predeclaredForWorkspaceBzl;
 
@@ -115,12 +116,9 @@ public class BzlLoadFunction implements SkyFunction {
       ASTManager astManager,
       @Nullable CachedBzlLoadDataManager cachedBzlLoadDataManager) {
     this.ruleClassProvider = ruleClassProvider;
-    this.predeclaredForBuildBzl =
-        StarlarkBuiltinsFunction.createPredeclaredForBuildBzlUsingInjection(
-            ruleClassProvider,
-            packageFactory,
-            /*exportedToplevels=*/ ImmutableMap.of(),
-            /*exportedRules=*/ ImmutableMap.of());
+    this.uninjectedStarlarkBuiltins =
+        StarlarkBuiltinsFunction.createStarlarkBuiltinsValueWithoutInjection(
+            ruleClassProvider, packageFactory);
     this.predeclaredForWorkspaceBzl =
         StarlarkBuiltinsFunction.createPredeclaredForWorkspaceBzl(
             ruleClassProvider, packageFactory);
@@ -338,6 +336,27 @@ public class BzlLoadFunction implements SkyFunction {
     cachedBzlLoadDataManager.reset();
   }
 
+  /**
+   * Retrieves {@link StarlarkBuiltinsValue}, or uses a dummy value if either 1) the builtins
+   * mechanism is disabled or 2) the current .bzl is not being loaded for a BUILD file
+   *
+   * <p>Returns null if a Skyframe restart/error occurred.
+   */
+  @Nullable
+  private StarlarkBuiltinsValue getStarlarkBuiltinsValue(
+      BzlLoadValue.Key key, Environment env, StarlarkSemantics starlarkSemantics)
+      throws InterruptedException {
+    // Don't request @builtins if we're in workspace evaluation, or already in @builtins evaluation.
+    if (!(key instanceof BzlLoadValue.KeyForBuild)
+        // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
+        || starlarkSemantics.experimentalBuiltinsBzlPath().equals("")) {
+      return uninjectedStarlarkBuiltins;
+    }
+    // May be null.
+    return (StarlarkBuiltinsValue) env.getValue(StarlarkBuiltinsValue.key());
+  }
+
+  @Nullable
   private static ContainingPackageLookupValue getContainingPackageLookupValue(
       Environment env, Label label)
       throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
@@ -443,6 +462,12 @@ public class BzlLoadFunction implements SkyFunction {
       return null;
     }
 
+    StarlarkBuiltinsValue starlarkBuiltinsValue =
+        getStarlarkBuiltinsValue(key, env, starlarkSemantics);
+    if (starlarkBuiltinsValue == null) {
+      return null;
+    }
+
     if (getContainingPackageLookupValue(env, label) == null) {
       return null;
     }
@@ -462,7 +487,13 @@ public class BzlLoadFunction implements SkyFunction {
     try {
       result =
           computeInternalWithAST(
-              key, filePath, starlarkSemantics, astLookupValue, env, inliningState);
+              key,
+              filePath,
+              starlarkSemantics,
+              starlarkBuiltinsValue,
+              astLookupValue,
+              env,
+              inliningState);
     } catch (InconsistentFilesystemException | BzlLoadFailedException | InterruptedException e) {
       astManager.doneWithASTFileLookupValue(label);
       throw e;
@@ -479,6 +510,7 @@ public class BzlLoadFunction implements SkyFunction {
       BzlLoadValue.Key key,
       PathFragment filePath,
       StarlarkSemantics starlarkSemantics,
+      StarlarkBuiltinsValue starlarkBuiltinsValue,
       ASTFileLookupValue astLookupValue,
       Environment env,
       @Nullable InliningState inliningState)
@@ -540,7 +572,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
     byte[] transitiveDigest = fp.digestAndReset();
 
-    Module module = Module.withPredeclared(starlarkSemantics, getPredeclaredEnvironment(key));
+    Module module =
+        Module.withPredeclared(
+            starlarkSemantics, getPredeclaredEnvironment(key, starlarkBuiltinsValue));
     module.setClientData(BazelModuleContext.create(label, transitiveDigest));
     // executeBzlFile may post events to the Environment's handler, but events do not matter when
     // caching BzlLoadValues. Note that executing the module mutates it.
@@ -693,6 +727,11 @@ public class BzlLoadFunction implements SkyFunction {
     Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
 
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
+    // For determinism's sake while inlining, preserve the first exception and continue to run
+    // subsequently listed loads to completion/exception, loading all transitive deps anyway.
+    // TODO(brandjon, adgar): What's the deal with determinism w.r.t. InterruptedException, and
+    // don't null returns mean the first exception seen isn't deterministic? See also cl/263656490
+    // and discussion therein.
     Exception deferredException = null;
     boolean valuesMissing = false;
     // NOTE: Iterating over loads in the order listed in the file.
@@ -701,8 +740,6 @@ public class BzlLoadFunction implements SkyFunction {
       try {
         cachedData = computeInlineWithState(key, strippedEnv, inliningState);
       } catch (BzlLoadFailedException | InconsistentFilesystemException e) {
-        // For determinism's sake while inlining, preserve the first exception and continue to run
-        // subsequently listed loads to completion/exception, loading all transitive deps anyway.
         deferredException = MoreObjects.firstNonNull(deferredException, e);
         continue;
       }
@@ -729,9 +766,10 @@ public class BzlLoadFunction implements SkyFunction {
    * Obtains the predeclared environment for a .bzl file, based on the type of file and (if
    * applicable) the injected builtins.
    */
-  private ImmutableMap<String, Object> getPredeclaredEnvironment(BzlLoadValue.Key key) {
+  private ImmutableMap<String, Object> getPredeclaredEnvironment(
+      BzlLoadValue.Key key, StarlarkBuiltinsValue starlarkBuiltinsValue) {
     if (key instanceof BzlLoadValue.KeyForBuild) {
-      return predeclaredForBuildBzl;
+      return starlarkBuiltinsValue.predeclaredForBuildBzl;
     } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
       return predeclaredForWorkspaceBzl;
     } else if (key instanceof BzlLoadValue.KeyForBuiltins) {
@@ -860,6 +898,8 @@ public class BzlLoadFunction implements SkyFunction {
     static BzlLoadFailedException skylarkErrors(PathFragment file) {
       return new BzlLoadFailedException(String.format("Extension '%s' has errors", file));
     }
+
+    // TODO(#11437): Add builtinsFailed() factory method here.
   }
 
   /**
