@@ -72,6 +72,7 @@ import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifa
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -1111,7 +1112,8 @@ public class ActionExecutionFunction implements SkyFunction {
       try {
         return skyframeAwareAction.processSkyframeValues(keys, values, env.valuesMissing());
       } catch (SkyframeAwareAction.ExceptionBase e) {
-        throw new ActionExecutionException(e, action, false);
+        throw new ActionExecutionException(
+            e, action, false, DetailedExitCode.of(e.getFailureDetail()));
       }
     }
     return null;

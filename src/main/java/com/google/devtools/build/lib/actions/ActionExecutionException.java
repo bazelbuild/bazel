@@ -48,6 +48,18 @@ public class ActionExecutionException extends Exception {
   }
 
   public ActionExecutionException(
+      Throwable cause,
+      ActionAnalysisMetadata action,
+      boolean catastrophe,
+      DetailedExitCode detailedExitCode) {
+    super(cause.getMessage(), cause);
+    this.action = action;
+    this.detailedExitCode = detailedExitCode;
+    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
+    this.catastrophe = catastrophe;
+  }
+
+  public ActionExecutionException(
       String message, Throwable cause, ActionAnalysisMetadata action, boolean catastrophe) {
     super(message, cause);
     this.action = action;
