@@ -89,6 +89,11 @@ public final class SpawnMetrics {
     return execKind;
   }
 
+  /** Returns true if {@link #totalTime()} is zero. */
+  public boolean isEmpty() {
+    return totalTime.isZero();
+  }
+
   /**
    * Total (measured locally) wall time spent running a spawn. This should be at least as large as
    * all the other times summed together.
