@@ -5,10 +5,10 @@ title: Updating Bazel
 
 # Updating Bazel
 
-The Bazel project has a [backwards compatibility
+The Bazel project has a [backward compatibility
 policy](https://docs.bazel.build/versions/master/backward-compatibility.html)
 (see [guidance for rolling out incompatible
-changes](https://www.bazel.build/breaking-changes-guide.html) if you are the
+changes](https://www.bazel.build/maintaining/breaking-changes-guide.html) if you are the
 author of one). That page summarizes best practices on how to test and migrate
 your project with upcoming incompatible changes and how to provide feedback to
 the incompatible change authors.
