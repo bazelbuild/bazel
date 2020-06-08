@@ -160,8 +160,11 @@ public class NinjaAction extends SpawnAction {
         // This branch needed in case the depfile contains an absolute path to a source file.
         if (sourceRoot.contains(inputPath)) {
           execRelativePath = inputPath.asFragment().relativeTo(sourceRoot.asPath().asFragment());
-        } else {
+        } else if (inputPath.startsWith(execRoot)) {
           execRelativePath = inputPath.asFragment().relativeTo(execRoot.asFragment());
+        } else {
+            // inputPath is an absolute path, don't add it to the inputs.
+            continue;
         }
 
         Artifact inputArtifact = null;
