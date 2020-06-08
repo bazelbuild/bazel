@@ -13,19 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.ShareabilityOfValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Data that uniquely identifies an action. */
-@AutoCodec
 public class ActionLookupData implements SkyKey {
 
   private final ActionLookupKey actionLookupKey;
@@ -40,8 +37,6 @@ public class ActionLookupData implements SkyKey {
    * Creates a key for the result of action execution. Does <i>not</i> intern its results, so should
    * only be called once per {@code (actionLookupKey, actionIndex)} pair.
    */
-  @VisibleForTesting
-  @AutoCodec.Instantiator
   public static ActionLookupData create(ActionLookupKey actionLookupKey, int actionIndex) {
     return new ActionLookupData(actionLookupKey, actionIndex);
   }

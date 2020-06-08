@@ -23,10 +23,17 @@ import java.util.GregorianCalendar;
  */
 public final class DosTime {
 
-  /** DOS representation of DOS epoch (midnight, jan 1, 1980) */
-  public static final DosTime EPOCH;
+  /**
+   * DOS representation of DOS epoch (1980-01-01) + epsilon.
+   *
+   * <p>NB: we avoid exact midnight since
+   * http://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8246129 causes the local timezone to be
+   * leaked into the ZIP file.
+   */
+  public static final DosTime EPOCHISH;
   /** {@code java.util.Date} for DOS epoch */
-  public static final Date DOS_EPOCH;
+  public static final Date DOS_EPOCHISH;
+
   private static final Calendar calendar;
 
   /**
@@ -44,9 +51,9 @@ public final class DosTime {
   }
 
   static {
-    calendar = new GregorianCalendar(1980, 0, 1, 0, 0, 0);
-    DOS_EPOCH = calendar.getTime();
-    EPOCH = new DosTime(DOS_EPOCH);
+    calendar = new GregorianCalendar(1980, 0, 1, /*hrs=*/ 0, /*min=*/ 1);
+    DOS_EPOCHISH = calendar.getTime();
+    EPOCHISH = new DosTime(DOS_EPOCHISH);
   }
 
   private static synchronized int dateToDosTime(Date date) {

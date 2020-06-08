@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -105,7 +104,7 @@ public class WorkspaceFactory {
     this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
     this.starlarkSemantics = starlarkSemantics;
     this.workspaceFunctions =
-        WorkspaceFactory.createWorkspaceFunctions(
+        createWorkspaceFunctions(
             allowOverride, ruleFactory, this.workspaceGlobals, starlarkSemantics);
   }
 
@@ -377,10 +376,24 @@ public class WorkspaceFactory {
     return defaultSystemJavabaseDir != null ? defaultSystemJavabaseDir.toString() : "";
   }
 
-  private static ClassObject newNativeModule(
-      ImmutableMap<String, Object> workspaceFunctions, String version) {
-    ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
-    Starlark.addMethods(env, new StarlarkNativeModule());
+  /** Returns the entries to populate the "native" module with, for WORKSPACE-loaded .bzl files. */
+  static ImmutableMap<String, Object> createNativeModuleBindings(
+      RuleClassProvider ruleClassProvider, String version) {
+    // Machinery to build the collection of workspace functions.
+    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
+    WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(/*allowOverride=*/ false, ruleFactory);
+    // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
+    // configured by flags. [brandjon: This should be possible now that we create the native module
+    // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.
+    // But mind that some code may depend on being able to enumerate all possible entries regardless
+    // of the particular semantics.]
+    ImmutableMap<String, Object> workspaceFunctions =
+        createWorkspaceFunctions(
+            /*allowOverride=*/ false, ruleFactory, workspaceGlobals, StarlarkSemantics.DEFAULT);
+
+    // Determine the contents for native.
+    ImmutableMap.Builder<String, Object> bindings = new ImmutableMap.Builder<>();
+    Starlark.addMethods(bindings, new StarlarkNativeModule());
     for (Map.Entry<String, Object> entry : workspaceFunctions.entrySet()) {
       String name = entry.getKey();
       if (name.startsWith("$")) {
@@ -393,22 +406,11 @@ public class WorkspaceFactory {
       if (name.equals("workspace")) {
         continue;
       }
-      env.put(entry);
+      bindings.put(entry);
     }
+    bindings.put("bazel_version", version);
 
-    env.put("bazel_version", version);
-    return StructProvider.STRUCT.create(env.build(), "no native function or rule '%s'");
-  }
-
-  static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
-    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
-    WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(false, ruleFactory);
-    // TODO(ichern): StarlarkSemantics should be a parameter here, as native module can be
-    //  configured by flags.
-    return WorkspaceFactory.newNativeModule(
-        WorkspaceFactory.createWorkspaceFunctions(
-            false, ruleFactory, workspaceGlobals, StarlarkSemantics.DEFAULT),
-        version);
+    return bindings.build();
   }
 
   public Map<String, Module> getLoadedModules() {

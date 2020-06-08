@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -195,7 +197,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
       List<String> stringValues;
       if (mapEach != null) {
         stringValues = new ArrayList<>(expandedValues.size());
-        applyMapEach(mapEach, expandedValues, stringValues::add, location, starlarkSemantics);
+        applyMapEach(
+            mapEach,
+            expandedValues,
+            stringValues::add,
+            location,
+            artifactExpander,
+            starlarkSemantics);
       } else {
         int count = expandedValues.size();
         stringValues = new ArrayList<>(expandedValues.size());
@@ -356,7 +364,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
         argi += count;
         if (mapEach != null) {
           List<String> stringValues = new ArrayList<>(count);
-          applyMapEach(mapEach, originalValues, stringValues::add, location, starlarkSemantics);
+          applyMapEach(
+              mapEach,
+              originalValues,
+              stringValues::add,
+              location,
+              /*artifactExpander=*/ null,
+              starlarkSemantics);
           for (String s : stringValues) {
             fingerprint.addString(s);
           }
@@ -664,11 +678,42 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
+  /** Used during action key evaluation when we don't have an artifact expander. * */
+  private static class NoopExpander implements DirectoryExpander {
+    @Override
+    public ImmutableList<FileApi> list(FileApi file) {
+      return ImmutableList.of(file);
+    }
+
+    static final DirectoryExpander INSTANCE = new NoopExpander();
+  }
+
+  private static class FullExpander implements DirectoryExpander {
+    ArtifactExpander expander;
+
+    FullExpander(ArtifactExpander expander) {
+      this.expander = expander;
+    }
+
+    @Override
+    public ImmutableList<FileApi> list(FileApi file) {
+      Artifact artifact = (Artifact) file;
+      if (artifact.isTreeArtifact()) {
+        List<Artifact> files = new ArrayList<>(1);
+        expander.expand((Artifact) file, files);
+        return ImmutableList.<FileApi>copyOf(files);
+      } else {
+        return ImmutableList.of(file);
+      }
+    }
+  }
+
   private static void applyMapEach(
       StarlarkCallable mapFn,
       List<Object> originalValues,
       Consumer<String> consumer,
       Location loc,
+      @Nullable ArtifactExpander artifactExpander,
       StarlarkSemantics starlarkSemantics)
       throws CommandLineExpansionException {
     try (Mutability mu = Mutability.create("map_each")) {
@@ -676,13 +721,25 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // TODO(b/77140311): Error if we issue print statements.
       thread.setPrintHandler((th, msg) -> {});
       int count = originalValues.size();
+      // map_each can accept either each object, or each object + a directory expander.
+      boolean wantsDirectoryExpander =
+          (mapFn instanceof StarlarkFunction)
+              && ((StarlarkFunction) mapFn).getParameterNames().size() >= 2;
+      // We create a list that we reuse for the args to map_each
+      List<Object> args = new ArrayList<>(2);
+      args.add(null); // This will be overwritten each iteration.
+      if (wantsDirectoryExpander) {
+        final DirectoryExpander expander;
+        if (artifactExpander != null) {
+          expander = new FullExpander(artifactExpander);
+        } else {
+          expander = NoopExpander.INSTANCE;
+        }
+        args.add(expander); // This will remain constant each iteration
+      }
       for (int i = 0; i < count; ++i) {
-        Object ret =
-            Starlark.call(
-                thread,
-                mapFn,
-                originalValues.subList(i, i + 1),
-                /*kwargs=*/ ImmutableMap.of());
+        args.set(0, originalValues.get(i));
+        Object ret = Starlark.call(thread, mapFn, args, /*kwargs=*/ ImmutableMap.of());
         if (ret instanceof String) {
           consumer.accept((String) ret);
         } else if (ret instanceof Sequence) {
@@ -725,7 +782,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Override
     public void expandToCommandLine(Object object, Consumer<String> args) {
       try {
-        applyMapEach(mapFn, ImmutableList.of(object), args, location, starlarkSemantics);
+        applyMapEach(
+            mapFn,
+            ImmutableList.of(object),
+            args,
+            location,
+            /*artifactExpander=*/ null,
+            starlarkSemantics);
       } catch (CommandLineExpansionException e) {
         // Rather than update CommandLineItem#expandToCommandLine and the numerous callers,
         // we wrap this in a runtime exception and handle it above

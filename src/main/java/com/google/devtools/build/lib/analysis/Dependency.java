@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import javax.annotation.Nullable;
 
 /**
@@ -57,6 +58,10 @@ public abstract class Dependency {
 
     /** Sets the keys of a configuration transition. */
     public Builder setTransitionKey(String key) {
+      if (key.isEmpty()) {
+        // Ignore empty keys.
+        return this;
+      }
       return setTransitionKeys(ImmutableList.of(key));
     }
 
@@ -75,6 +80,25 @@ public abstract class Dependency {
             "Dependency with null Configuration cannot have aspects");
       }
       return dependency;
+    }
+
+    // Added to enable copy, below. Should not be accessible to other classes.
+    protected abstract Label getLabel();
+
+    @Nullable
+    protected abstract BuildConfiguration getConfiguration();
+
+    protected abstract AspectCollection getAspects();
+
+    protected abstract ImmutableList<String> getTransitionKeys();
+
+    /** Returns a copy of this Builder, with the values the same. */
+    public Builder copy() {
+      return Dependency.builder()
+          .setLabel(getLabel())
+          .setConfiguration(getConfiguration())
+          .setAspects(getAspects())
+          .setTransitionKeys(getTransitionKeys());
     }
   }
 
@@ -116,4 +140,12 @@ public abstract class Dependency {
    * to the dependency.
    */
   public abstract ImmutableList<String> getTransitionKeys();
+
+  /** Returns the ConfiguredTargetKey needed to fetch this dependency. */
+  public ConfiguredTargetKey getConfiguredTargetKey() {
+    return ConfiguredTargetKey.builder()
+        .setLabel(getLabel())
+        .setConfiguration(getConfiguration())
+        .build();
+  }
 }

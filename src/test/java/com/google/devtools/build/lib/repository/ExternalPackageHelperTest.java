@@ -152,7 +152,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fileSystem),
             directories,
-            /*starlarkImportLookupFunctionForInlining=*/ null));
+            /*bzlLoadFunctionForInlining=*/ null));
     skyFunctions.put(
         SkyFunctions.PACKAGE,
         new PackageFunction(

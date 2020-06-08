@@ -234,7 +234,10 @@ public abstract class ResourceTestBase extends AndroidBuildViewTestCase {
         /* env= */ new CachingAnalysisEnvironment(
             view.getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
-            ConfiguredTargetKey.of(dummyTarget.getLabel(), targetConfig),
+            ConfiguredTargetKey.builder()
+                .setLabel(dummyTarget.getLabel())
+                .setConfiguration(targetConfig)
+                .build(),
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             targetConfig.allowAnalysisFailures(),

@@ -129,7 +129,7 @@ public class SplitZipTest {
     SplitZip result = instance.useDefaultEntryDate();
     assertThat(result).isSameInstanceAs(instance);
     Date date = instance.getEntryDate();
-    assertThat(date).isEqualTo(DosTime.DOS_EPOCH);
+    assertThat(date).isEqualTo(DosTime.DOS_EPOCHISH);
   }
 
   @Test
@@ -192,15 +192,15 @@ public class SplitZipTest {
           .create("input.zip");
 
       new ZipFileBuilder()
-          .add(new ZipFileBuilder.FileInfo("pkg/test.txt", DosTime.EPOCH.time, "hello world"))
+          .add(new ZipFileBuilder.FileInfo("pkg/test.txt", DosTime.EPOCHISH.time, "hello world"))
           .create("expect.zip");
       byte[] expectBytes = fileSystem.toByteArray("expect.zip");
 
       new SplitZip()
-          .addOutput(new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false),
-              "out/shard1.jar"))
+          .addOutput(
+              new ZipOut(fileSystem.getOutputChannel("out/shard1.jar", false), "out/shard1.jar"))
           .setVerbose(true)
-          .setEntryDate(DosTime.DOS_EPOCH)
+          .setEntryDate(DosTime.DOS_EPOCHISH)
           .addInput(new ZipIn(fileSystem.getInputChannel("input.zip"), "input.zip"))
           .run()
           .close();

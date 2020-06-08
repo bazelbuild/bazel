@@ -143,6 +143,7 @@ cc_binary(
         # There is no config_setting for Linux.
         # See https://github.com/bazelbuild/bazel/issues/11107
         "//src/conditions:linux_aarch64": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux_arm": ["cpu_profiler_posix.cc"],
         "//src/conditions:linux_ppc": ["cpu_profiler_posix.cc"],
         "//src/conditions:linux_s390x": ["cpu_profiler_posix.cc"],
         "//src/conditions:linux_x86_64": ["cpu_profiler_posix.cc"],

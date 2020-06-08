@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -162,7 +161,6 @@ public class RemoteSpawnCacheTest {
               .getInputMapping(
                   simpleSpawn,
                   SIMPLE_ARTIFACT_EXPANDER,
-                  ArtifactPathResolver.IDENTITY,
                   fakeFileCache,
                   true);
         }

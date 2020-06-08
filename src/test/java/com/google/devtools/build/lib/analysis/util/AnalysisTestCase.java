@@ -528,7 +528,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
       throws InterruptedException {
     Label label = owner.getLabel();
     ActionLookupValue.ActionLookupKey actionLookupKey =
-        ConfiguredTargetKey.of(label, owner.getConfigurationKey(), /*isHostConfiguration=*/ false);
+        ConfiguredTargetKey.builder()
+            .setLabel(label)
+            .setConfigurationKey(owner.getConfigurationKey())
+            .build();
     ActionLookupValue actionLookupValue;
     try {
       actionLookupValue =
@@ -551,8 +554,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         .getDerivedArtifact(
             label.getPackageFragment().getRelative(packageRelativePath),
             getTargetConfiguration().getBinDirectory(label.getPackageIdentifier().getRepository()),
-            ConfiguredTargetKey.of(
-                owner, skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey())));
+            ConfiguredTargetKey.builder()
+                .setConfiguredTarget(owner)
+                .setConfiguration(
+                    skyframeExecutor.getConfiguration(reporter, owner.getConfigurationKey()))
+                .build());
   }
 
   protected Set<SkyKey> getSkyframeEvaluatedTargetKeys() {
@@ -617,6 +623,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             TestAspects.ALL_ATTRIBUTES_WITH_TOOL_ASPECT,
             TestAspects.BAR_PROVIDER_ASPECT,
             TestAspects.EXTRA_ATTRIBUTE_ASPECT,
+            TestAspects.PACKAGE_GROUP_ATTRIBUTE_ASPECT,
+            TestAspects.COMPUTED_ATTRIBUTE_ASPECT,
             TestAspects.FOO_PROVIDER_ASPECT,
             TestAspects.ASPECT_REQUIRING_PROVIDER_SETS,
             TestAspects.WARNING_ASPECT,

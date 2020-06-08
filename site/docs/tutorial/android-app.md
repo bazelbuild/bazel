@@ -20,7 +20,8 @@ You will need to install the following software:
 
 * **Bazel.** To install, follow the [installation instructions](../install.md).
 * **Android Studio.** To install, follow the steps to [download Android
-  Studio](https://developer.android.com/sdk/index.html).
+  Studio](https://developer.android.com/sdk/index.html). Execute the setup
+  wizard to download the SDK and configure your environment.
 * (Optional) **Git.** We will use `git` to download the Android app project.
 
 ## Getting started
@@ -37,11 +38,11 @@ Clone the repository with `git` (or [download the ZIP file
 directly](https://github.com/bazelbuild/examples/archive/master.zip)):
 
 ``` bash
-git clone git@github.com:bazelbuild/examples.git bazel-examples
-cd bazel-examples/android/tutorial
+git clone https://github.com/bazelbuild/examples
 ```
 
-For the rest of the tutorial, you will be executing commands in this directory.
+The sample project for this tutorial is in `examples/android/tutorial`. For
+the rest of the tutorial, you will be executing commands in this directory.
 
 ## Review the source files
 
@@ -125,19 +126,19 @@ latest version of build tools installed within that location.
 You can set the `ANDROID_HOME` variable to the location of the Android SDK. Find
 the path to the installed SDK using Android Studio's [SDK
 Manager](https://developer.android.com/studio/intro/update#sdk-manager).
+Assuming the SDK is installed to default locations, you can use the following
+commands to set the `ANDROID_HOME` variable:
 
-For example, as the default SDK path is in your home directory for Linux and
-macOS, and `LOCALAPPDATA` for Windows, you can use the following commands to set
-the `ANDROID_HOME` variable:
-
-| Linux, macOS             | `export ANDROID_HOME=$HOME/Android/Sdk/`            |
+| Linux                    | `export ANDROID_HOME=$HOME/Android/Sdk/`            |
+| macOS                    | `export ANDROID_HOME=$HOME/Library/Android/sdk`     |
 | Windows (Command Prompt) | `set ANDROID_HOME=%LOCALAPPDATA%\Android\Sdk`       |
 | Windows (PowerShell)     | `$env:ANDROID_HOME="$env:LOCALAPPDATA\Android\Sdk"` |
 
 The above commands set the variable only for the current shell session. To make
 them permanent, run the following commands:
 
-| Linux, macOS             | `echo "export ANDROID_HOME=$HOME/Android/Sdk/" >> ~/.bashrc`                                                                              |
+| Linux                    | `echo "export ANDROID_HOME=$HOME/Android/Sdk/" >> ~/.bashrc`                                                                              |
+| macOS                    | `echo "export ANDROID_HOME=$HOME/Library/Android/Sdk/" >> ~/.bashrc`                                                                              |
 | Windows (Command Prompt) | `setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"`                                                                                          |
 | Windows (PowerShell)     | `[System.Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", [System.EnvironmentVariableTarget]::User)` |
 
@@ -211,7 +212,7 @@ those that contain their own `BUILD` file. The *package name* is the path to the
 
 Note that Bazel's package hierarchy is conceptually different from the Java
 package hierarchy of your Android App directory where the `BUILD` file is
-located. , although the directories may be organized identically.
+located, although the directories may be organized identically.
 
 For the simple Android app in this tutorial, the source files in `src/main/`
 comprise a single Bazel package. A more complex project may have many nested
@@ -222,12 +223,12 @@ packages.
 A `BUILD` file contains several different types of declarations for Bazel. The
 most important type is the [build rule](../build-ref.html#funcs), which tells
 Bazel how to build an intermediate or final software output from a set of source
-files or other dependencies.
+files or other dependencies. Bazel provides two build rules, [`android_library`](../be/android.html#android_library)
+and [`android_binary`](../be/android.html#android_binary), that you can use to
+build an Android app.
 
-Bazel provides two build rules, `android_library` and `android_binary`, that you
-can use to build an Android app. For this tutorial, you'll first use the
-[`android_library`](../be/android.html#android_library) rule to tell Bazel to
-build an [Android library
+For this tutorial, you'll first use the
+`android_library` rule to tell Bazel to build an [Android library
 module](http://developer.android.com/tools/projects/index.html#LibraryProjects)
 from the app source code and resource files. You'll then use the
 `android_binary` rule to tell Bazel how to build the Android application package.

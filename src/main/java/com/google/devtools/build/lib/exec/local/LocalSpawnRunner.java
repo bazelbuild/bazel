@@ -57,6 +57,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.OutputStream;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -122,7 +123,6 @@ public class LocalSpawnRunner implements SpawnRunner {
     runfilesTreeUpdater.updateRunfilesDirectory(
         execRoot,
         spawn.getRunfilesSupplier(),
-        context.getPathResolver(),
         binTools,
         spawn.getEnvironment(),
         context.getFileOutErr());
@@ -189,7 +189,7 @@ public class LocalSpawnRunner implements SpawnRunner {
     public SpawnResult run() throws InterruptedException, IOException {
       try {
         return start();
-      } catch (InterruptedException e) {
+      } catch (InterruptedException | InterruptedIOException e) {
         maybeCleanupOnInterrupt();
         // Logging the exception causes a lot of noise in builds using the dynamic scheduler, and
         // the information is not very interesting, so avoid that.
@@ -364,6 +364,12 @@ public class LocalSpawnRunner implements SpawnRunner {
             subprocess.destroyAndWait();
             throw e;
           }
+          if (Thread.interrupted()) {
+            stepLog(SEVERE, "Interrupted but didn't throw; status %s", terminationStatus);
+            throw new InterruptedException();
+          }
+        } catch (InterruptedIOException e) {
+          throw new InterruptedException(e.getMessage());
         } catch (IOException e) {
           String msg = e.getMessage() == null ? e.getClass().getName() : e.getMessage();
           setState(State.PERMANENT_ERROR);

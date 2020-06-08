@@ -25,6 +25,7 @@ import static com.google.devtools.build.android.desugar.strconcat.IndyStringConc
 
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ConcurrentHashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -942,10 +943,10 @@ public class Desugar {
   public static void main(String[] args) throws Exception {
     verifyLambdaDumpDirectoryRegistered(DUMP_DIRECTORY);
 
-    DesugarOptions options = DesugarOptions.parseCommandLineOptions(args);
-    if (options.persistentWorker) {
+    if (args.length == 1 && "--persistent_worker".equals(args[0])) {
       runPersistentWorker(DUMP_DIRECTORY);
     } else {
+      DesugarOptions options = DesugarOptions.parseCommandLineOptions(args);
       processRequest(options, DUMP_DIRECTORY);
     }
   }
@@ -953,7 +954,6 @@ public class Desugar {
   private static void runPersistentWorker(Path dumpDirectory) throws Exception {
     while (true) {
       WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
-
       if (request == null) {
         break;
       }
@@ -963,19 +963,27 @@ public class Desugar {
 
       DesugarOptions options = DesugarOptions.parseCommandLineOptions(argList);
 
+      WorkResponse wr;
       try {
         processRequest(options, dumpDirectory);
-        logger.atInfo().log(
-            "Processing Request success: %s", WorkResponse.newBuilder().setExitCode(0).build());
+        wr = WorkResponse.newBuilder().setExitCode(0).build();
+        logger.atInfo().log("Processing Request success: %s", wr);
       } catch (Exception e) {
-        logger.atWarning().withCause(e).log(
-            "Processing Request exception: %s",
-            WorkResponse.newBuilder().setExitCode(1).setOutput(e.getMessage()).build());
+        wr =
+            WorkResponse.newBuilder()
+                .setExitCode(1)
+                .setOutput(Throwables.getStackTraceAsString(e))
+                .build();
+        logger.atWarning().withCause(e).log("Processing Request exception: %s", wr);
       }
+
+      // We are in persistent worker mode, so send the persistent worker response back to Bazel
+      // through stdout. Without this, Bazel will timeout while waiting for the worker's response.
+      wr.writeDelimitedTo(System.out);
     }
   }
 
-  private static int processRequest(DesugarOptions options, Path dumpDirectory) throws Exception {
+  private static void processRequest(DesugarOptions options, Path dumpDirectory) throws Exception {
     checkArgument(!options.inputJars.isEmpty(), "--input is required");
     checkArgument(
         options.inputJars.size() == options.outputJars.size(),
@@ -998,8 +1006,6 @@ public class Desugar {
       logger.atInfo().log("Lambda classes will be written under %s%n", dumpDirectory);
     }
     new Desugar(options, dumpDirectory).desugar();
-
-    return 0;
   }
 
   static void verifyLambdaDumpDirectoryRegistered(Path dumpDirectory) throws IOException {

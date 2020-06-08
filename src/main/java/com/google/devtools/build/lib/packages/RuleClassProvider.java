@@ -60,10 +60,20 @@ public interface RuleClassProvider extends RuleDefinitionContext {
       ImmutableMap<RepositoryName, RepositoryName> repoMapping);
 
   /**
+   * Returns all the predeclared top-level symbols (for .bzl files) that belong to native rule sets,
+   * and hence are allowed to be overridden by builtins-injection.
+   *
+   * <p>For example, {@code CcInfo} is included, but {@code rule()} is not.
+   *
+   * @see StarlarkBuiltinsFunction
+   */
+  ImmutableMap<String, Object> getNativeRuleSpecificBindings();
+
+  /**
    * Returns the predeclared environment for a loading-phase thread. Includes "native", though its
    * value may be inappropriate for a WORKSPACE file. Excludes universal bindings (e.g. True, len).
    */
-  // TODO(adonovan): update doc comment. And does it really include native?
+  // TODO(adonovan, brandjon): update doc comment. And does it really include native?
   ImmutableMap<String, Object> getEnvironment();
 
   /**

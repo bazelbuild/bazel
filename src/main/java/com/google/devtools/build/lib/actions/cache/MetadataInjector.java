@@ -16,29 +16,31 @@ package com.google.devtools.build.lib.actions.cache;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.vfs.FileStatus;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import java.util.Map;
 
 /** Supports metadata injection of action outputs into skyframe. */
 public interface MetadataInjector {
 
   /**
-   * Injects metadata of a file that is stored remotely.
+   * Injects the metadata of a file.
+   *
+   * <p>This can be used to save filesystem operations when the metadata is already known.
    *
    * @param output a regular output file
    * @param metadata the remote file metadata
    */
-  void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata);
+  void injectFile(Artifact output, FileArtifactValue metadata);
 
   /**
-   * Injects the metadata of a tree artifact whose contents are stored remotely.
+   * Injects the metadata of a tree artifact.
+   *
+   * <p>This can be used to save filesystem operations when the metadata is already known.
    *
    * @param output an output directory {@linkplain Artifact#isTreeArtifact tree artifact}
    * @param children the metadata of the files stored in the directory
    */
-  void injectRemoteDirectory(
-      SpecialArtifact output, Map<TreeFileArtifact, RemoteFileArtifactValue> children);
+  void injectDirectory(SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children);
 
   /**
    * Marks an {@link Artifact} as intentionally omitted.
@@ -47,9 +49,4 @@ public interface MetadataInjector {
    * action depends on) from a remote system.
    */
   void markOmitted(Artifact output);
-
-  /**
-   * Injects provided digest into the metadata handler, simultaneously caching lstat() data as well.
-   */
-  void injectDigest(Artifact output, FileStatus statNoFollow, byte[] digest);
 }

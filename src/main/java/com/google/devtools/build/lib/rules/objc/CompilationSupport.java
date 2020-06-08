@@ -450,10 +450,13 @@ public class CompilationSupport {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(
             ruleContext, ruleContext.getConfiguration(), ruleContext.getLabel());
+    // Do a re-exporting merge of the ARC and non-ARC contexts so that the direct headers are
+    // preserved in the unified context.
     ccCompilationContextBuilder.mergeDependentCcCompilationContexts(
         Arrays.asList(
             objcArcCompilationInfo.getCcCompilationContext(),
-            nonObjcArcCompilationInfo.getCcCompilationContext()));
+            nonObjcArcCompilationInfo.getCcCompilationContext()),
+        ImmutableList.of());
     ccCompilationContextBuilder.setPurpose(
         String.format("%s_merged_arc_non_arc_objc", semantics.getPurpose()));
 

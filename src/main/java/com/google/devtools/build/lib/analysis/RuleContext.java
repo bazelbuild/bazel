@@ -1856,7 +1856,7 @@ public final class RuleContext extends TargetContext
           this.toolchainContexts == null,
           "toolchainContexts has already been set for this Builder");
       this.toolchainContexts =
-          new ToolchainCollection.Builder<ResolvedToolchainContext>()
+          ToolchainCollection.<ResolvedToolchainContext>builder()
               .addDefaultContext(toolchainContext)
               .build();
       return this;

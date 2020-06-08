@@ -14,6 +14,7 @@ java_library(
     deps = [
         ":options",
         "//src/main/protobuf:invocation_policy_java_proto",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

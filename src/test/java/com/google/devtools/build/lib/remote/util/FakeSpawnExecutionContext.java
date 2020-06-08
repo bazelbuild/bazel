@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -116,8 +115,7 @@ public class FakeSpawnExecutionContext implements SpawnExecutionContext {
   public SortedMap<PathFragment, ActionInput> getInputMapping(boolean expandTreeArtifactsInRunfiles)
       throws IOException {
     return new SpawnInputExpander(execRoot, /*strict*/ false)
-        .getInputMapping(
-            spawn, this::artifactExpander, ArtifactPathResolver.IDENTITY, metadataProvider, true);
+        .getInputMapping(spawn, this::artifactExpander, metadataProvider, true);
   }
 
   @Override

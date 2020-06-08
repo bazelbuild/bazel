@@ -262,7 +262,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   // Cache of partially constructed Package instances, stored between reruns of the PackageFunction
   // (because of missing dependencies, within the same evaluate() run) to avoid loading the same
-  // package twice (first time loading to find imported bzl files and declare Skyframe
+  // package twice (first time loading to find load()ed bzl files and declare Skyframe
   // dependencies).
   private final Cache<PackageIdentifier, LoadedPackageCacheEntry> packageFunctionCache =
       newPkgFunctionCache();
@@ -270,9 +270,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private final Cache<PackageIdentifier, StarlarkFile> buildFileSyntaxCache =
       newBuildFileSyntaxCache();
 
-  // Cache of parsed bzl files, for use when we're inlining ASTFileLookupValue in
-  // StarlarkImportLookupValue. See the comments in StarlarkLookupFunction for motivations and
-  // details.
+  // Cache of parsed bzl files, for use when we're inlining ASTFileLookupFunction in
+  // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
   private final Cache<Label, ASTFileLookupValue> astFileLookupValueCache =
       CacheBuilder.newBuilder().build();
 
@@ -471,8 +470,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(PackageFactory pkgFactory) {
     ConfiguredRuleClassProvider ruleClassProvider =
         (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
-    StarlarkImportLookupFunction starlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes =
-        getStarlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes();
+    BzlLoadFunction bzlLoadFunctionForInliningPackageAndWorkspaceNodes =
+        getBzlLoadFunctionForInliningPackageAndWorkspaceNodes();
     // TODO(janakr): use this semaphore to bound memory usage for SkyFunctions besides
     // ConfiguredTargetFunction that may have a large temporary memory blow-up.
     Semaphore cpuBoundSemaphore = new Semaphore(ResourceUsage.getAvailableProcessors());
@@ -480,6 +479,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // We don't check for duplicates in order to allow extraSkyfunctions to override existing
     // entries.
     Map<SkyFunctionName, SkyFunction> map = new HashMap<>();
+    // IF YOU ADD A NEW SKYFUNCTION: If your Skyfunction can be used transitively by package
+    // loading, make sure to register it in AbstractPackageLoader as well.
     map.put(SkyFunctions.PRECOMPUTED, new PrecomputedFunction());
     map.put(SkyFunctions.CLIENT_ENVIRONMENT_VARIABLE, new ClientEnvironmentFunction(clientEnv));
     map.put(SkyFunctions.ACTION_ENVIRONMENT_VARIABLE, new ActionEnvironmentFunction());
@@ -502,10 +503,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.AST_FILE_LOOKUP,
         new ASTFileLookupFunction(ruleClassProvider, DigestHashFunction.getDefaultUnchecked()));
-    map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction());
     map.put(
-        SkyFunctions.STARLARK_IMPORTS_LOOKUP,
-        newStarlarkImportLookupFunction(ruleClassProvider, pkgFactory));
+        SkyFunctions.STARLARK_BUILTINS,
+        new StarlarkBuiltinsFunction(ruleClassProvider, pkgFactory));
+    map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.GLOB, newGlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
@@ -541,7 +542,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             packageFunctionCache,
             buildFileSyntaxCache,
             numPackagesLoaded,
-            starlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes,
+            bzlLoadFunctionForInliningPackageAndWorkspaceNodes,
             packageProgress,
             actionOnIOExceptionReadingBuildFile,
             tracksStateForIncrementality()
@@ -586,7 +587,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             ruleClassProvider,
             pkgFactory,
             directories,
-            starlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes));
+            bzlLoadFunctionForInliningPackageAndWorkspaceNodes));
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(externalPackageHelper));
     map.put(
         SkyFunctions.TARGET_COMPLETION,
@@ -657,14 +658,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   @Nullable
-  protected StarlarkImportLookupFunction
-      getStarlarkImportLookupFunctionForInliningPackageAndWorkspaceNodes() {
+  protected BzlLoadFunction getBzlLoadFunctionForInliningPackageAndWorkspaceNodes() {
     return null;
   }
 
-  protected SkyFunction newStarlarkImportLookupFunction(
+  protected SkyFunction newBzlLoadFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
-    return StarlarkImportLookupFunction.create(
+    return BzlLoadFunction.create(
         ruleClassProvider,
         this.pkgFactory,
         DigestHashFunction.getDefaultUnchecked(),
@@ -865,7 +865,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     clearTrimmingCache();
     skyframeBuildView.clearInvalidatedConfiguredTargets();
     skyframeBuildView.clearLegacyData();
-    ArtifactNestedSetFunction.getInstance().resetArtifactSkyKeyToValueOrException();
+    ArtifactNestedSetFunction.getInstance().resetArtifactNestedSetFunctionMaps();
   }
 
   /** Activates retroactive trimming (idempotently, so has no effect if already active). */
@@ -981,7 +981,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private static final ImmutableSet<SkyFunctionName> LOADING_TYPES =
       ImmutableSet.of(
           SkyFunctions.PACKAGE,
-          SkyFunctions.STARLARK_IMPORTS_LOOKUP,
+          SkyFunctions.BZL_LOAD,
           SkyFunctions.AST_FILE_LOOKUP,
           SkyFunctions.GLOB);
 
@@ -1776,7 +1776,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         continue;
       }
       for (BuildConfiguration depConfig : configs.get(key)) {
-        skyKeys.add(ConfiguredTargetKey.of(key.getLabel(), depConfig));
+        skyKeys.add(
+            ConfiguredTargetKey.builder()
+                .setLabel(key.getLabel())
+                .setConfiguration(depConfig)
+                .build());
         for (AspectDescriptor aspectDescriptor : key.getAspects().getAllAspects()) {
           skyKeys.add(
               AspectValueKey.createAspectKey(
@@ -1805,7 +1809,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           continue;
         }
         for (BuildConfiguration depConfig : configs.get(key)) {
-          SkyKey configuredTargetKey = ConfiguredTargetKey.of(key.getLabel(), depConfig);
+          SkyKey configuredTargetKey =
+              ConfiguredTargetKey.builder()
+                  .setLabel(key.getLabel())
+                  .setConfiguration(depConfig)
+                  .build();
           if (result.get(configuredTargetKey) == null) {
             continue;
           }
@@ -2709,20 +2717,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
-  }
-
-  /**
-   * Updates the nestedset size threshold if the flag value changed.
-   *
-   * @return whether an update was made.
-   */
-  protected static boolean nestedSetAsSkyKeyThresholdUpdatedAndReset(OptionsProvider options) {
-    BuildRequestOptions buildRequestOptions = options.getOptions(BuildRequestOptions.class);
-    if (buildRequestOptions == null) {
-      return false;
-    }
-    return ArtifactNestedSetFunction.sizeThresholdUpdatedTo(
-        buildRequestOptions.nestedSetAsSkyKeyThreshold);
   }
 
   protected void syncPackageLoading(

@@ -101,34 +101,22 @@ Install Homebrew (a one-time step):
 https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 ```
 
-### Step 2: Install the Bazel Homebrew package
+### Step 2: Install Bazel via Homebrew
 
-Please note that there are two different Bazel packages ("formulae"):
-
-* `bazelbuild/tap/bazel` is maintained by the Bazel team, and installs the
-  official Bazel binary package (see above).
-* The default [homebrew/core formula](https://formulae.brew.sh/formula/bazel)
-  is maintained by the community, and compiles Bazel from source or installs a
-  binary pre-compiled by the Homebrew project.
-
-If you previously installed Bazel from homebrew/core, you can switch to the
-`bazelbuild` tap by uninstalling the existing package: `brew uninstall bazel`.
-
-Install the `bazelbuild/tap` Bazel package via Homebrew as follows:
+Install the Bazel package via Homebrew as follows:
 
 ```bash
-brew tap bazelbuild/tap
-brew install bazelbuild/tap/bazel
+$ brew install bazel
 ```
 
 All set! You can confirm Bazel is installed successfully by running the following command:
 
 ```bash
-bazel --version
+$ bazel --version
 ```
 
 Once installed, you can upgrade to a newer version of Bazel using the following command:
 
 ```bash
-brew upgrade bazelbuild/tap/bazel
+$ brew upgrade bazel
 ```

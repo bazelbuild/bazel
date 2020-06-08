@@ -69,38 +69,35 @@ public class BuildRequestOptions extends OptionsBase {
   public int jobs;
 
   @Option(
-    name = "progress_report_interval",
-    defaultValue = "0",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    converter = ProgressReportIntervalConverter.class,
-    help =
-        "The number of seconds to wait between two reports on still running jobs. The "
-            + "default value 0 means to use the default 10:30:60 incremental algorithm."
-  )
+      name = "progress_report_interval",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = ProgressReportIntervalConverter.class,
+      help =
+          "The number of seconds to wait between two reports on still running jobs. The "
+              + "default value 0 means to use the default 10:30:60 incremental algorithm.")
   public int progressReportInterval;
 
   @Option(
-    name = "explain",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    help =
-        "Causes the build system to explain each executed step of the "
-            + "build. The explanation is written to the specified log file."
-  )
+      name = "explain",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "Causes the build system to explain each executed step of the "
+              + "build. The explanation is written to the specified log file.")
   public PathFragment explanationPath;
 
   @Option(
-    name = "verbose_explanations",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Increases the verbosity of the explanations issued if --explain is enabled. "
-            + "Has no effect if --explain is not enabled."
-  )
+      name = "verbose_explanations",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Increases the verbosity of the explanations issued if --explain is enabled. "
+              + "Has no effect if --explain is not enabled.")
   public boolean verboseExplanations;
 
   @Option(
@@ -114,28 +111,26 @@ public class BuildRequestOptions extends OptionsBase {
   public RegexPatternOption outputFilter;
 
   @Option(
-    name = "analyze",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Execute the analysis phase; this is the usual behaviour. Specifying --noanalyze causes "
-            + "the build to stop before starting the analysis phase, returning zero iff the "
-            + "package loading completed successfully; this mode is useful for testing."
-  )
+      name = "analyze",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Execute the analysis phase; this is the usual behaviour. Specifying --noanalyze causes "
+              + "the build to stop before starting the analysis phase, returning zero iff the "
+              + "package loading completed successfully; this mode is useful for testing.")
   public boolean performAnalysisPhase;
 
   @Option(
-    name = "build",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
-    effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Execute the build; this is the usual behaviour. "
-            + "Specifying --nobuild causes the build to stop before executing the build "
-            + "actions, returning zero iff the package loading and analysis phases completed "
-            + "successfully; this mode is useful for testing those phases."
-  )
+      name = "build",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Execute the build; this is the usual behaviour. "
+              + "Specifying --nobuild causes the build to stop before executing the build "
+              + "actions, returning zero iff the package loading and analysis phases completed "
+              + "successfully; this mode is useful for testing those phases.")
   public boolean performExecutionPhase;
 
   @Option(
@@ -161,42 +156,39 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean runValidationActions;
 
   @Option(
-    name = "show_result",
-    defaultValue = "1",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Show the results of the build.  For each target, state whether or not it was brought "
-            + "up-to-date, and if so, a list of output files that were built.  The printed files "
-            + "are convenient strings for copy+pasting to the shell, to execute them.\n"
-            + "This option requires an integer argument, which is the threshold number of "
-            + "targets above which result information is not printed. Thus zero causes "
-            + "suppression of the message and MAX_INT causes printing of the result to occur "
-            + "always.  The default is one."
-  )
+      name = "show_result",
+      defaultValue = "1",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Show the results of the build.  For each target, state whether or not it was brought "
+              + "up-to-date, and if so, a list of output files that were built.  The printed files "
+              + "are convenient strings for copy+pasting to the shell, to execute them.\n"
+              + "This option requires an integer argument, which is the threshold number of "
+              + "targets above which result information is not printed. Thus zero causes "
+              + "suppression of the message and MAX_INT causes printing of the result to occur "
+              + "always.  The default is one.")
   public int maxResultTargets;
 
   @Option(
-    name = "experimental_show_artifacts",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "Output a list of all top level artifacts produced by this build."
-            + "Use output format suitable for tool consumption. "
-            + "This flag is temporary and intended to facilitate Android Studio integration. "
-            + "This output format will likely change in the future or disappear completely."
-  )
+      name = "experimental_show_artifacts",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Output a list of all top level artifacts produced by this build."
+              + "Use output format suitable for tool consumption. "
+              + "This flag is temporary and intended to facilitate Android Studio integration. "
+              + "This output format will likely change in the future or disappear completely.")
   public boolean showArtifacts;
 
   @Option(
-    name = "announce",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Deprecated. No-op.",
-    deprecationWarning = "This option is now deprecated and is a no-op"
-  )
+      name = "announce",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Deprecated. No-op.",
+      deprecationWarning = "This option is now deprecated and is a no-op")
   public boolean announce;
 
   @Option(
@@ -261,17 +253,16 @@ public class BuildRequestOptions extends OptionsBase {
   public List<String> multiCpus;
 
   @Option(
-    name = "output_tree_tracking",
-    oldName = "experimental_output_tree_tracking",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help =
-        "If set, tell the output service (if any) to track when files in the output "
-            + "tree have been modified externally (not by the build system). "
-            + "This should improve incremental build speed when an appropriate output service "
-            + "is enabled."
-  )
+      name = "output_tree_tracking",
+      oldName = "experimental_output_tree_tracking",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "If set, tell the output service (if any) to track when files in the output "
+              + "tree have been modified externally (not by the build system). "
+              + "This should improve incremental build speed when an appropriate output service "
+              + "is enabled.")
   public boolean finalizeActions;
 
   @Option(
@@ -309,15 +300,14 @@ public class BuildRequestOptions extends OptionsBase {
   // Transitional flag for safely rolling out new convenience symlink behavior.
   // To be made a no-op and deleted once new symlink behavior is battle-tested.
   @Option(
-    name = "use_top_level_targets_for_symlinks",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help =
-        "If enabled, the symlinks are based on the configurations of the top-level targets "
-            + " rather than the top-level target configuration. If this would be ambiguous, "
-            + " the symlinks will be deleted to avoid confusion."
-  )
+      name = "use_top_level_targets_for_symlinks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If enabled, the symlinks are based on the configurations of the top-level targets "
+              + " rather than the top-level target configuration. If this would be ambiguous, "
+              + " the symlinks will be deleted to avoid confusion.")
   public boolean useTopLevelTargetsForSymlinks;
 
   /**
@@ -366,15 +356,14 @@ public class BuildRequestOptions extends OptionsBase {
   public boolean printWorkspaceInOutputPathsIfNeeded;
 
   @Option(
-    name = "use_action_cache",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {
-      OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
-      OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
-    },
-    help = "Whether to use the action cache"
-  )
+      name = "use_action_cache",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
+        OptionEffectTag.HOST_MACHINE_RESOURCE_OPTIMIZATIONS
+      },
+      help = "Whether to use the action cache")
   public boolean useActionCache;
 
   @Option(
@@ -424,6 +413,17 @@ public class BuildRequestOptions extends OptionsBase {
           "If this flag is set with a non-zero value, NestedSets whose size exceeds the threshold"
               + " will be evaluated as a unit on Skyframe.")
   public int nestedSetAsSkyKeyThreshold;
+
+  @Option(
+      name = "experimental_nsos_eval_keys_as_one_group",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.EXPERIMENTAL,
+      effectTags = {OptionEffectTag.EXECUTION, OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If set, evaluate direct and transitive keys of an ArtifactNestedSetKey"
+              + "in one single Skyframe call.")
+  public boolean nsosEvalKeysAsOneGroup;
 
   @Option(
       name = "experimental_use_fork_join_pool",

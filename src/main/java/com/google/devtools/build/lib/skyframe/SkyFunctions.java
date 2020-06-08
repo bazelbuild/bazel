@@ -47,8 +47,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("AST_FILE_LOOKUP");
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
-  public static final SkyFunctionName STARLARK_IMPORTS_LOOKUP =
-      SkyFunctionName.createHermetic("STARLARK_IMPORTS_LOOKUP");
+  public static final SkyFunctionName BZL_LOAD = SkyFunctionName.createHermetic("BZL_LOAD");
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");
   static final SkyFunctionName PACKAGE_ERROR = SkyFunctionName.createHermetic("PACKAGE_ERROR");

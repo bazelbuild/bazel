@@ -50,7 +50,7 @@ public class PackageMetricsModule extends BlazeModule {
   private final ExtremaPackageLoadingListener packageLoadingListener;
 
   public PackageMetricsModule() {
-    this(new ExtremaPackageLoadingListener());
+    this(ExtremaPackageLoadingListener.getInstance());
   }
 
   @VisibleForTesting

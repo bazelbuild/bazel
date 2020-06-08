@@ -250,7 +250,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "incompatible_objc_compile_info_migration",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {

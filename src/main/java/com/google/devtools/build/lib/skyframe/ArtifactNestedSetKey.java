@@ -13,114 +13,46 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Collections;
 
 /** SkyKey for {@code NestedSet<Artifact>}. */
-public class ArtifactNestedSetKey implements SkyKey {
-  private final Object rawChildren;
+final class ArtifactNestedSetKey implements SkyKey {
+
+  private final NestedSet<Artifact> set;
+  private final NestedSet.Node node;
 
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.ARTIFACT_NESTED_SET;
   }
 
-  /**
-   * We use Object instead of NestedSet to store children as a measure to save memory, and to be
-   * consistent with the implementation of NestedSet.
-   *
-   * @param rawChildren the underlying members of the nested set.
-   */
-  public ArtifactNestedSetKey(Object rawChildren) {
-    Preconditions.checkState(rawChildren instanceof Object[] || rawChildren instanceof Artifact);
-    this.rawChildren = rawChildren;
+  ArtifactNestedSetKey(NestedSet<Artifact> set, NestedSet.Node node) {
+    this.set = set;
+    this.node = node;
   }
 
-  @VisibleForTesting
-  public Object getRawChildrenForTesting() {
-    return rawChildren;
+  /** Returns the set of artifacts that this key represents. */
+  public NestedSet<Artifact> getSet() {
+    return set;
   }
 
   @Override
   public int hashCode() {
-    return rawChildren.hashCode();
+    return node.hashCode();
   }
 
   @Override
   public boolean equals(Object that) {
-    if (this == that) {
-      return true;
-    }
-
-    if (!(that instanceof ArtifactNestedSetKey)) {
-      return false;
-    }
-
-    Object theirRawChildren = ((ArtifactNestedSetKey) that).rawChildren;
-    if (rawChildren == theirRawChildren) {
-      return true;
-    }
-
-    if (rawChildren instanceof Artifact && theirRawChildren instanceof Artifact) {
-      return rawChildren.equals(theirRawChildren);
-    }
-
-    return false;
+    return that instanceof ArtifactNestedSetKey
+        && this.node.equals(((ArtifactNestedSetKey) that).node);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this)
-        .add("rawChildren", NestedSet.childrenToString(rawChildren))
-        .toString();
-  }
-
-  /**
-   * Return the set of transitive members.
-   *
-   * <p>This refers to the transitive members after any inlining that might have happened at
-   * construction of the nested set.
-   *
-   * <p>TODO(b/142232950) Investigate the potential additional load on GC.
-   */
-  Iterable<Object> transitiveMembers() {
-    if (!(rawChildren instanceof Object[])) {
-      return ImmutableList.of();
-    }
-    ImmutableList.Builder<Object> listBuilder = new ImmutableList.Builder<>();
-    for (Object c : (Object[]) rawChildren) {
-      if (c instanceof Object[]) {
-        listBuilder.add(c);
-      }
-    }
-    return listBuilder.build();
-  }
-
-  /**
-   * Return the set of direct members.
-   *
-   * <p>This refers to the direct members after any inlining that might have happened at
-   * construction of the nested set.
-   *
-   * <p>TODO(b/142232950) Investigate the potential additional load on GC.
-   */
-  Iterable<SkyKey> directKeys() {
-    if (!(rawChildren instanceof Object[])) {
-      return Collections.singletonList(Artifact.key((Artifact) rawChildren));
-    }
-    ImmutableList.Builder<SkyKey> listBuilder = new ImmutableList.Builder<>();
-    for (Object c : (Object[]) rawChildren) {
-      if (!(c instanceof Object[])) {
-        listBuilder.add(Artifact.key((Artifact) c));
-      }
-    }
-    return listBuilder.build();
+    return MoreObjects.toStringHelper(this).add("rawChildren", set).toString();
   }
 }

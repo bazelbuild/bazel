@@ -129,18 +129,11 @@ public class ConfiguredTargetQueryEnvironment
         settings);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
     this.configuredTargetKeyExtractor =
-        element -> {
-          try {
-            return ConfiguredTargetKey.of(
-                element,
-                element.getConfigurationKey() == null
-                    ? null
-                    : ((BuildConfigurationValue) graph.getValue(element.getConfigurationKey()))
-                        .getConfiguration());
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected in configured query", e);
-          }
-        };
+        element ->
+            ConfiguredTargetKey.builder()
+                .setConfiguredTarget(element)
+                .setConfigurationKey(element.getConfigurationKey())
+                .build();
     this.transitiveConfigurations =
         getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraphSupplier.get());
   }
@@ -318,7 +311,8 @@ public class ConfiguredTargetQueryEnvironment
   @Nullable
   private ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration configuration)
       throws InterruptedException {
-    return getValueFromKey(ConfiguredTargetKey.of(label, configuration));
+    return getValueFromKey(
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(configuration).build());
   }
 
   @Override
@@ -475,7 +469,10 @@ public class ConfiguredTargetQueryEnvironment
 
   @Override
   protected ConfiguredTargetKey getSkyKey(ConfiguredTarget target) {
-    return ConfiguredTargetKey.of(target, getConfiguration(target));
+    return ConfiguredTargetKey.builder()
+        .setConfiguredTarget(target)
+        .setConfiguration(getConfiguration(target))
+        .build();
   }
 
   @Override

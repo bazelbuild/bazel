@@ -174,12 +174,13 @@ public class SplitZip implements EntryHandler {
   }
 
   /**
-   * Sets date to {@link DosTime#DOS_EPOCH}.
+   * Sets date to {@link DosTime#DOS_EPOCHISH}.
+   *
    * @return this object.
    */
   public SplitZip useDefaultEntryDate() {
-    this.date = DosTime.DOS_EPOCH;
-    this.dosTime = DosTime.EPOCH;
+    this.date = DosTime.DOS_EPOCHISH;
+    this.dosTime = DosTime.EPOCHISH;
     return this;
   }
 

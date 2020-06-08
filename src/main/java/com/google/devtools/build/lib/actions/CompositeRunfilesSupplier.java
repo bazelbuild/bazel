@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 
@@ -85,11 +84,10 @@ public class CompositeRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings(
-      ArtifactPathResolver resolver) throws IOException {
+  public ImmutableMap<PathFragment, Map<PathFragment, Artifact>> getMappings() {
     Map<PathFragment, Map<PathFragment, Artifact>> result = Maps.newHashMap();
     for (RunfilesSupplier supplier : suppliers) {
-      Map<PathFragment, Map<PathFragment, Artifact>> mappings = supplier.getMappings(resolver);
+      Map<PathFragment, Map<PathFragment, Artifact>> mappings = supplier.getMappings();
       for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> entry : mappings.entrySet()) {
         result.putIfAbsent(entry.getKey(), entry.getValue());
       }

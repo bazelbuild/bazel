@@ -213,7 +213,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     final MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     SpawnMetrics.Builder spawnMetrics =
-        new SpawnMetrics.Builder()
+        SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(merkleTree.getInputBytes())
             .setInputFiles(merkleTree.getInputFiles());
     maybeWriteParamFilesLocally(spawn);

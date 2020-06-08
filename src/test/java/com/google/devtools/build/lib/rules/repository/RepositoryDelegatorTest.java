@@ -30,8 +30,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.repository.skylark.StarlarkRepositoryModule;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.S
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
@@ -56,7 +57,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossReposit
 import com.google.devtools.build.lib.skyframe.PrecomputedFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceASTFunction;
 import com.google.devtools.build.lib.skyframe.WorkspaceFileFunction;
 import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
@@ -185,7 +185,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         ruleClassProvider,
                         pkgFactory,
                         directories,
-                        /*starlarkImportLookupFunctionForInlining=*/ null))
+                        /*bzlLoadFunctionForInlining=*/ null))
                 .put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction())
                 .put(
                     SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
@@ -200,8 +200,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     SkyFunctions.AST_FILE_LOOKUP,
                     new ASTFileLookupFunction(ruleClassProvider, fileSystem.getDigestFunction()))
                 .put(
-                    SkyFunctions.STARLARK_IMPORTS_LOOKUP,
-                    StarlarkImportLookupFunction.create(
+                    SkyFunctions.BZL_LOAD,
+                    BzlLoadFunction.create(
                         ruleClassProvider,
                         pkgFactory,
                         fileSystem.getDigestFunction(),

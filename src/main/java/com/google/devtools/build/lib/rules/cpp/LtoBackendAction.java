@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -41,6 +42,8 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -157,9 +160,22 @@ public final class LtoBackendAction extends SpawnAction {
     // Convert the import set of paths to the set of bitcode file artifacts.
     NestedSet<Artifact> bitcodeInputSet = computeBitcodeInputs(importSet);
     if (bitcodeInputSet.memoizedFlattenAndGetSize() != importSet.size()) {
+      Set<PathFragment> missingInputs =
+          Sets.difference(
+              importSet,
+              bitcodeInputSet.toList().stream()
+                  .map(Artifact::getExecPath)
+                  .collect(Collectors.toSet()));
       throw new ActionExecutionException(
-          "error computing inputs from imports file "
-              + actionExecutionContext.getInputPath(imports),
+          String.format(
+              "error computing inputs from imports file: %s, missing bitcode files (first 10): %s",
+              actionExecutionContext.getInputPath(imports),
+              // Limit the reported count to protect against a large error message.
+              missingInputs.stream()
+                  .map(Object::toString)
+                  .sorted()
+                  .limit(10)
+                  .collect(Collectors.joining(", "))),
           this,
           false);
     }

@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
@@ -65,6 +66,8 @@ import javax.annotation.Nullable;
  * This module provides the Sandbox spawn strategy.
  */
 public final class SandboxModule extends BlazeModule {
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Tracks whether we are issuing the very first build within this Bazel server instance. */
   private static boolean firstBuild = true;
@@ -524,6 +527,27 @@ public final class SandboxModule extends BlazeModule {
     unmountSandboxfs();
   }
 
+  /**
+   * Best-effort cleanup of the sandbox base assuming all per-spawn contents have been removed.
+   *
+   * <p>When this gets called, the individual trees of each spawn should have been cleaned up but we
+   * may be left with the top-level subdirectories used by each sandboxed spawn runner (e.g. {@code
+   * darwin-sandbox}) and the sandbox base itself. Try to delete those so that a Bazel server
+   * restart doesn't print a spurious {@code Deleting stale sandbox base} message.
+   */
+  private static void cleanupSandboxBaseTop(Path sandboxBase) {
+    try {
+      // This might be called twice for a given sandbox base, so don't bother recording error
+      // messages if any of the files we try to delete don't exist.
+      for (Path leftover : sandboxBase.getDirectoryEntries()) {
+        leftover.delete();
+      }
+      sandboxBase.delete();
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("Failed to clean up sandbox base %s", sandboxBase);
+    }
+  }
+
   @Override
   public void afterCommand() {
     checkNotNull(env, "env not initialized; was beforeCommand called?");
@@ -555,7 +579,11 @@ public final class SandboxModule extends BlazeModule {
           sandboxfsProcess == null,
           "sandboxfs instance should have been shut down at this "
               + "point; were the buildComplete/buildInterrupted events sent?");
-      sandboxBase = null;
+
+      cleanupSandboxBaseTop(sandboxBase);
+      // We intentionally keep sandboxBase around, without resetting it to null, in case we have
+      // asynchronous deletions going on. In that case, we'd still want to retry this during
+      // shutdown.
     }
 
     spawnRunners.clear();
@@ -576,6 +604,10 @@ public final class SandboxModule extends BlazeModule {
       } finally {
         treeDeleter = null; // Avoid potential reexecution if we crash.
       }
+    }
+
+    if (sandboxBase != null) {
+      cleanupSandboxBaseTop(sandboxBase);
     }
   }
 

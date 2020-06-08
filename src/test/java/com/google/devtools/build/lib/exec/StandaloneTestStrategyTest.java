@@ -40,12 +40,15 @@ import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.analysis.test.TestStrategy;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestResult.ExecutionInfo;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.TestStatus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
@@ -54,6 +57,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.exec.StandaloneTestStrategy.StandaloneFailedAttemptResult;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.OS;
@@ -62,6 +66,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
+import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -1021,5 +1026,43 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
     assertContainsPrefixedEvent(
         storedEvents.getEvents(),
         Event.of(EventKind.FAIL, null, "//standalone:empty_test (run 2 of 2)"));
+  }
+
+  @Test
+  public void missingTestLogSpawnTestResultIsIncomplete() throws Exception {
+    ExecutionOptions executionOptions = ExecutionOptions.DEFAULTS;
+    Path tmpDirRoot = TestStrategy.getTmpRoot(rootDirectory, outputBase, executionOptions);
+    BinTools binTools = BinTools.forUnitTesting(directories, analysisMock.getEmbeddedTools());
+    TestedStandaloneTestStrategy standaloneTestStrategy =
+        new TestedStandaloneTestStrategy(executionOptions, binTools, tmpDirRoot);
+    ActionExecutionContext actionExecutionContext =
+        new FakeActionExecutionContext(createTempOutErr(tmpDirRoot), spawnStrategy, binTools);
+
+    // setup a test action
+    scratch.file("standalone/simple_test.sh", "this does not get executed, it is mocked out");
+    scratch.file(
+        "standalone/BUILD",
+        "sh_test(",
+        "    name = \"simple_test\",",
+        "    size = \"small\",",
+        "    srcs = [\"simple_test.sh\"],",
+        ")");
+    TestRunnerAction testRunnerAction = getTestAction("//standalone:simple_test");
+    TestRunnerSpawn spawn =
+        standaloneTestStrategy.createTestRunnerSpawn(testRunnerAction, actionExecutionContext);
+
+    TestResultData.Builder builder =
+        TestResultData.newBuilder().setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
+    StandaloneTestResult result =
+        StandaloneTestResult.builder()
+            .setSpawnResults(ImmutableList.of())
+            .setTestResultDataBuilder(builder)
+            .setExecutionInfo(ExecutionInfo.getDefaultInstance())
+            .build();
+    FailedAttemptResult failedResult = spawn.finalizeFailedTestAttempt(result, 0);
+
+    assertThat(failedResult).isInstanceOf(StandaloneFailedAttemptResult.class);
+    TestResultData data = ((StandaloneFailedAttemptResult) failedResult).testResultData();
+    assertThat(data.getStatus()).isEqualTo(BlazeTestStatus.INCOMPLETE);
   }
 }

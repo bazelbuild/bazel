@@ -77,14 +77,18 @@ public final class StringLiteral extends Expression {
     @Override
     public void serialize(SerializationContext context, StringLiteral lit, CodedOutputStream out)
         throws SerializationException, IOException {
-      // The String instances referred to by StringLiterals are deduped by Parser, so therefore
-      // memoization is guaranteed to be profitable.
+      // Enable de-duplication of strings during encoding.
+      // The encoder does not intern and de-duplicate Strings by default,
+      // though it does for all other objects;
+      // see skyframe.serialization.strings.StringCodec.getStrategy.
+      // If that were to change, we could delete StringLiteralCodec.
+      // (One wonders why Identifier.name strings are not similarly de-duped,
+      // as they are as numerous and more repetitive than string literals.)
       context.serializeWithAdHocMemoizationStrategy(
           lit.getValue(), MemoizationStrategy.MEMOIZE_AFTER, out);
       out.writeInt32NoTag(lit.startOffset);
       out.writeInt32NoTag(lit.endOffset);
-      context.serializeWithAdHocMemoizationStrategy(
-          lit.locs, MemoizationStrategy.MEMOIZE_AFTER, out);
+      context.serialize(lit.locs, out);
     }
 
     @Override
@@ -94,8 +98,7 @@ public final class StringLiteral extends Expression {
           context.deserializeWithAdHocMemoizationStrategy(in, MemoizationStrategy.MEMOIZE_AFTER);
       int startOffset = in.readInt32();
       int endOffset = in.readInt32();
-      FileLocations locs =
-          context.deserializeWithAdHocMemoizationStrategy(in, MemoizationStrategy.MEMOIZE_AFTER);
+      FileLocations locs = context.deserialize(in);
       return new StringLiteral(locs, startOffset, value, endOffset);
     }
   }

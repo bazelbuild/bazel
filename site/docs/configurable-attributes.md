@@ -652,7 +652,7 @@ select({"foo": "val_with_suffix"}, ...)
 This is for two reasons.
 
 First, macros that need to know which path a `select` will choose *cannot work*
-because macros are evaluated in Bazel's [loading phase](user-manual.html#loading-phase),
+because macros are evaluated in Bazel's [loading phase](guide.html#loading-phase),
 which occurs before flag values are known.
 This is a core Bazel design restriction that's unlikely to change any time soon.
 
@@ -662,7 +662,7 @@ this.
 
 ## <a name="query"></a>Bazel query and cquery
 Bazel `query` operates over Bazel's [loading phase](
-user-manual.html#loading-phase). This means it doesn't know what command line
+guide.html#loading-phase). This means it doesn't know what command line
 flags will be applied to a target since those flags aren't evaluated until later
 in the build (during the [analysis phase](user-manual.html#analysis-phase)). So
 the [`query`](query.html) command can't accurately determine which path a

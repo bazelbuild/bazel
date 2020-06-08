@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.constraints.SupportedEnvironmentsP
 import com.google.devtools.build.lib.analysis.test.AnalysisTestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.analysis.test.TestEnvironmentInfo;
@@ -149,6 +150,14 @@ public final class RuleConfiguredTargetBuilder {
 
     collectTransitiveValidationOutputGroups();
 
+    // Add a default provider that forwards InstrumentedFilesInfo from dependencies, even if this
+    // rule doesn't configure InstrumentedFilesInfo. This needs to be done for non-test rules
+    // as well, but should be done before initializeTestProvider, which uses that.
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()
+        && ruleContext.getConfiguration().experimentalForwardInstrumentedFilesInfoByDefault()
+        && !providersBuilder.contains(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey())) {
+      addNativeDeclaredProvider(InstrumentedFilesCollector.forwardAll(ruleContext));
+    }
     // Create test action and artifacts if target was successfully initialized
     // and is a test.
     if (TargetUtils.isTestRule(ruleContext.getTarget())) {
@@ -219,7 +228,6 @@ public final class RuleConfiguredTargetBuilder {
           BuildSettingProvider.class,
           new BuildSettingProvider(buildSetting, defaultValue, ruleContext.getLabel()));
     }
-
     TransitiveInfoProviderMap providers = providersBuilder.build();
 
     if (ruleContext.getRule().isAnalysisTest()) {
@@ -309,11 +317,10 @@ public final class RuleConfiguredTargetBuilder {
 
       Attribute attribute = ruleContext.attributes().getAttributeDefinition(attributeName);
 
-      // Validation actions in the host configuration, or for tools, or from implicit deps should
+      // Validation actions for tools, or from implicit deps should
       // not fail the overall build, since those dependencies should have their own builds
       // and tests that should surface any failing validations.
-      if (!attribute.getTransitionFactory().isHost()
-          && !attribute.getTransitionFactory().isTool()
+      if (!attribute.getTransitionFactory().isTool()
           && !attribute.isImplicit()
           && attribute.getType().getLabelClass() == LabelClass.DEPENDENCY) {
 

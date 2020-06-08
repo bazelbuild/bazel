@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
-load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import", "distrib_jar_filegroup")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -36,7 +36,6 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
-        "//third_party/nanopb:srcs",
         "//third_party/def_parser:srcs",
         "//third_party/pprof:srcs",
         "@googleapis//:srcs",
@@ -371,6 +370,15 @@ distrib_java_import(
     enable_distributions = ["debian"],
 )
 
+# For bootstrapping JavaBuilder
+distrib_jar_filegroup(
+    name = "jcip_annotations-jars",
+    srcs = [
+        "jcip_annotations/jcip-annotations-1.0-1.jar",
+    ],
+    enable_distributions = ["debian"],
+)
+
 java_import(
     name = "pcollections",
     jars = [
@@ -383,13 +391,13 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "guava/guava-25.1-jre.jar",
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
-        "jsr305/jsr-305.jar",
+        ":guava-jars",
+        ":jcip_annotations-jars",
+        ":jsr305-jars",
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "guava",
     jars = ["guava/guava-25.1-jre.jar"],
     exports = [
@@ -397,6 +405,7 @@ java_import(
         ":jcip_annotations",
         ":jsr305",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -420,15 +429,23 @@ filegroup(
 java_import(
     name = "opencensus-api",
     jars = [
-        "opencensus/opencensus-api-0.19.2.jar",
-        "opencensus/opencensus-contrib-grpc-metrics-0.19.2.jar",
+        "opencensus/opencensus-api-0.24.0.jar",
+        "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
+    ],
+)
+
+java_import(
+    name = "perfmark-api",
+    jars = [
+        "perfmark/perfmark-api-0.19.0.jar",
     ],
 )
 
 # For bootstrapping JavaBuilder
-filegroup(
+distrib_jar_filegroup(
     name = "guava-jars",
     srcs = ["guava/guava-25.1-jre.jar"],
+    enable_distributions = ["debian"],
 )
 
 # javax.annotation.Generated is not included in the default root modules in 9,
@@ -453,9 +470,10 @@ distrib_java_import(
 )
 
 # For bootstrapping JavaBuilder
-filegroup(
+distrib_jar_filegroup(
     name = "jsr305-jars",
     srcs = ["jsr305/jsr-305.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -513,9 +531,10 @@ distrib_java_import(
 )
 
 # For bootstrapping JavaBuilder
-filegroup(
+distrib_jar_filegroup(
     name = "tomcat_annotations_api-jars",
     srcs = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_import(

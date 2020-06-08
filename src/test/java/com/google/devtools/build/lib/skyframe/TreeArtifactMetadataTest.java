@@ -70,8 +70,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Test the behavior of ActionMetadataHandler and ArtifactFunction
- * with respect to TreeArtifacts.
+ * Test the behavior of ActionMetadataHandler and ArtifactFunction with respect to TreeArtifacts.
  */
 @RunWith(JUnit4.class)
 public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
@@ -84,9 +83,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     delegateActionExecutionFunction = new TreeArtifactExecutionFunction();
   }
 
-  private TreeArtifactValue evaluateTreeArtifact(Artifact treeArtifact,
-      Iterable<PathFragment> children)
-    throws Exception {
+  private TreeArtifactValue evaluateTreeArtifact(
+      Artifact treeArtifact, Iterable<PathFragment> children) throws Exception {
     testTreeArtifactContents = ImmutableList.copyOf(children);
     for (PathFragment child : children) {
       file(treeArtifact.getPath().getRelative(child), child.toString());
@@ -155,13 +153,14 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
         ImmutableList.of(PathFragment.create("one"), PathFragment.create("two"));
     TreeArtifactValue valueOne = evaluateTreeArtifact(treeArtifact, children);
     MemoizingEvaluator evaluator = driver.getGraphForTesting();
-    evaluator.delete(new Predicate<SkyKey>() {
-      @Override
-      public boolean apply(SkyKey key) {
-        // Delete action execution node to force our artifacts to be re-evaluated.
-        return actions.contains(key.argument());
-      }
-    });
+    evaluator.delete(
+        new Predicate<SkyKey>() {
+          @Override
+          public boolean apply(SkyKey key) {
+            // Delete action execution node to force our artifacts to be re-evaluated.
+            return actions.contains(key.argument());
+          }
+        });
     TreeArtifactValue valueTwo = evaluateTreeArtifact(treeArtifact, children);
     assertThat(valueOne.getDigest()).isNotSameInstanceAs(valueTwo.getDigest());
     assertThat(valueOne).isEqualTo(valueTwo);
@@ -197,8 +196,8 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
   }
 
   /**
-   * Tests that ArtifactFunction rethrows transitive {@link IOException}s as
-   * {@link MissingInputFileException}s.
+   * Tests that ArtifactFunction rethrows transitive {@link IOException}s as {@link
+   * MissingInputFileException}s.
    */
   @Test
   public void testIOExceptionEndToEnd() throws Throwable {
@@ -276,7 +275,6 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      Map<Artifact, FileArtifactValue> fileData = new HashMap<>();
       Map<TreeFileArtifact, FileArtifactValue> treeArtifactData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
@@ -295,7 +293,6 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           FileArtifactValue withDigest =
               FileArtifactValue.createFromInjectedDigest(
                   noDigest, path.getDigest(), !output.isConstantMetadata());
-          fileData.put(suboutput, withDigest);
           treeArtifactData.put(suboutput, withDigest);
         } catch (IOException e) {
           throw new SkyFunctionException(e, Transience.TRANSIENT) {};
@@ -305,7 +302,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
       TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(treeArtifactData);
 
       return ActionExecutionValue.create(
-          fileData,
+          /*artifactData=*/ ImmutableMap.of(),
           ImmutableMap.of(output, treeArtifactValue),
           /*outputSymlinks=*/ null,
           /*discoveredModules=*/ null,

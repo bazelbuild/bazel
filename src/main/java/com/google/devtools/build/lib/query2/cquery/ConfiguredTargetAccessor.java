@@ -191,9 +191,10 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
     return (RuleConfiguredTarget)
         ((ConfiguredTargetValue)
                 walkableGraph.getValue(
-                    ConfiguredTargetKey.of(
-                        oct.getGeneratingRule().getLabel(),
-                        queryEnvironment.getConfiguration(oct))))
+                    ConfiguredTargetKey.builder()
+                        .setLabel(oct.getGeneratingRule().getLabel())
+                        .setConfiguration(queryEnvironment.getConfiguration(oct))
+                        .build()))
             .getConfiguredTarget();
   }
 
@@ -222,7 +223,7 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
     ImmutableMap<String, ExecGroup> execGroups = rule.getRuleClassObject().getExecGroups();
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
-        new ToolchainCollection.Builder<>();
+        ToolchainCollection.builder();
     try {
       for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
         ExecGroup execGroup = group.getValue();

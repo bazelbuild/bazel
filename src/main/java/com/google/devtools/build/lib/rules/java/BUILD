@@ -142,7 +142,7 @@ java_library(
         "JavaInfo.java",
         "JavaInfoBuildHelper.java",
         "JavaLibraryHelper.java",
-        "JavaNativeLibraryProvider.java",
+        "JavaNativeLibraryInfo.java",
         "JavaOptions.java",
         "JavaPackageConfigurationProvider.java",
         "JavaPluginInfoProvider.java",

@@ -34,8 +34,8 @@ public class EnablingAndDisablingFlagParam implements StarlarkValue {
             name = "two",
             type = Integer.class,
             named = true,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
-            disableWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API),
+            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS,
+            disableWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS),
       })
   public String someMethod(String one, Integer two) {
     return "foo";

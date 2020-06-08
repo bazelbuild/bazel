@@ -229,7 +229,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
   @StarlarkMethod(
       name = "build_setting_value",
       structField = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
       doc =
           "<b>Experimental. This field is experimental and subject to change at any time. Do not "
               + "depend on it.</b> <p>Returns the value of the build setting that is represented "
