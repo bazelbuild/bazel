@@ -14,7 +14,7 @@
 # limitations under the License.
 """The core data types ctexplain manipulates."""
 
-from typing import Dict
+from typing import Mapping
 from typing import Optional
 from typing import Tuple
 from dataclasses import dataclass
@@ -27,13 +27,13 @@ class Configuration():
   # BuildConfiguration.Fragments in this configuration, as base names without
   # packages. For example: ["PlatformConfiguration", ...].
   fragments: Tuple[str, ...]
-  # Dict of FragmentOptions to option key/value pairs. For example:
+  # Mapping of FragmentOptions to option key/value pairs. For example:
   # {"CoreOptions": {"action_env": "[]", "cpu": "x86", ...}, ...}.
   #
   # Option values are stored as strings of whatever "bazel config" outputs.
   #
   # Note that Fragment and FragmentOptions aren't the same thing.
-  options: Dict[str, Dict[str, str]]
+  options: Mapping[str, Mapping[str, str]]
 
   def __hash__(self):
     return self._hash_value()
@@ -80,7 +80,7 @@ class HostConfiguration(Configuration):
   """
   # We don't currently read the host config's fragments or option values.
   fragments: Tuple[str, ...] = ()
-  options: Dict[str, Dict[str, str]] = field(default_factory=lambda: {})
+  options: Mapping[str, Mapping[str, str]] = field(default_factory=lambda: {})
 
 
 @dataclass(frozen=True)
@@ -90,4 +90,4 @@ class NullConfiguration(Configuration):
   By definition this has no fragments or options.
   """
   fragments: Tuple[str, ...] = ()
-  options: Dict[str, Dict[str, str]] = field(default_factory=lambda: {})
+  options: Mapping[str, Mapping[str, str]] = field(default_factory=lambda: {})

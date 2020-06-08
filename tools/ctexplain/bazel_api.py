@@ -56,11 +56,12 @@ def run_bazel_in_client(args: List[str]) -> Tuple[int, str, str]:
 class BazelApi():
   """API that accepts injectable Bazel invocation logic."""
 
-  def __init__(self, run_bazel: Callable[List[str]] = run_bazel_in_client):
+  def __init__(self, run_bazel: Callable[
+      List[str], Tuple[int, str, str]] = run_bazel_in_client):
     self.run_bazel = run_bazel
 
   def cquery(self, args: List[str]) -> Tuple[
-      bool, str, Tuple[ConfiguredTarget]]:
+      bool, str, Tuple[ConfiguredTarget, ...]]:
     """Calls cquery with the given arguments.
 
     Args:
@@ -135,7 +136,7 @@ def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
   Returns:
     Corresponding ConfiguredTarget if the line matches else None.
   """
-  tokens = line.split()
+  tokens = line.split(maxsplit=2)
   label = tokens[0]
   if tokens[1][0] != "(" or tokens[1][-1] != ")":
     raise ValueError(f"{tokens[1]} in {line} not surrounded by parentheses")
@@ -143,8 +144,8 @@ def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
   if config_hash == "null":
     fragments = ()
   else:
-    if tokens[2][0] != "[" or tokens[-1][-1] != "]":
-      raise ValueError(f"{tokens[2:]} in {line} not surrounded by [] brackets")
+    if tokens[2][0] != "[" or tokens[2][-1] != "]":
+      raise ValueError(f"{tokens[2]} in {line} not surrounded by [] brackets")
     # The fragments list looks like '[Fragment1, Fragment2, ...]'. Split the
     # whole line on ' [' to get just this list, then remove the final ']', then
     # split again on ', ' to convert it to a structured tuple.
