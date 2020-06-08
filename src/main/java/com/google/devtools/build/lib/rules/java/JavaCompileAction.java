@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -60,11 +61,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.JavaCompile;
+import com.google.devtools.build.lib.server.FailureDetails.JavaCompile.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.view.proto.Deps;
@@ -327,7 +332,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         try {
           reducedClasspath = getReducedClasspath(actionExecutionContext, context);
         } catch (IOException e) {
-          throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
+          throw createActionExecutionException(e, Code.REDUCED_CLASSPATH_FAILURE);
         }
         spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback= */ false);
       } else {
@@ -335,7 +340,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         spawn = getFullSpawn(actionExecutionContext);
       }
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
+      throw createActionExecutionException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
     SpawnContinuation spawnContinuation =
         actionExecutionContext
@@ -549,6 +554,16 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     }
   }
 
+  private ActionExecutionException createActionExecutionException(Exception e, Code detailedCode) {
+    DetailedExitCode detailedExitCode =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(Strings.nullToEmpty(e.getMessage()))
+                .setJavaCompile(JavaCompile.newBuilder().setCode(detailedCode))
+                .build());
+    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
+  }
+
   private final class JavaActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     @Nullable private final ReducedClasspath reducedClasspath;
@@ -601,7 +616,10 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         try {
           spawn = getReducedSpawn(actionExecutionContext, reducedClasspath, /* fallback=*/ true);
         } catch (CommandLineExpansionException e) {
-          throw new ActionExecutionException(e, JavaCompileAction.this, /*catastrophe=*/ false);
+          Code detailedCode = Code.COMMAND_LINE_EXPANSION_FAILURE;
+          ActionExecutionException actionExecutionException =
+              createActionExecutionException(e, detailedCode);
+          throw actionExecutionException;
         }
         SpawnContinuation fallbackContinuation =
             actionExecutionContext

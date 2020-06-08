@@ -128,6 +128,9 @@ message FailureDetail {
     RunCommand run_command = 152;
     VersionCommand version_command = 153;
     PrintActionCommand print_action_command = 154;
+    WorkspaceStatus workspace_status = 158;
+    JavaCompile java_compile = 159;
+    ActionRewinding action_rewinding = 160;
   }
 
   reserved 102; // For internal use
@@ -184,6 +187,7 @@ message Spawn {
     EXECUTION_FAILED = 4 [(metadata) = { exit_code: 1 }];
     EXECUTION_DENIED = 5 [(metadata) = { exit_code: 1 }];
     REMOTE_CACHE_FAILED = 6 [(metadata) = { exit_code: 34 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
   }
   Code code = 1;
 
@@ -763,6 +767,37 @@ message PrintActionCommand {
     COMMAND_LINE_EXPANSION_FAILURE = 2 [(metadata) = { exit_code: 1 }];
     TARGET_KIND_UNSUPPORTED = 3 [(metadata) = { exit_code: 1 }];
     ACTIONS_NOT_FOUND = 4 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message WorkspaceStatus {
+  enum Code {
+    WORKSPACE_STATUS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NON_ZERO_EXIT = 1 [(metadata) = { exit_code: 1 }];
+    ABNORMAL_TERMINATION = 2 [(metadata) = { exit_code: 1 }];
+    EXEC_FAILED = 3 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message JavaCompile {
+  enum Code {
+    JAVA_COMPILE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    REDUCED_CLASSPATH_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message ActionRewinding {
+  enum Code {
+    ACTION_REWINDING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    LOST_INPUT_TOO_MANY_TIMES = 1 [(metadata) = { exit_code: 1 }];
+    LOST_INPUT_IS_SOURCE = 2 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

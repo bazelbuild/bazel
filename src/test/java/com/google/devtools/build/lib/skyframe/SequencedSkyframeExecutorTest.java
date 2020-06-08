@@ -121,6 +121,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -1459,7 +1460,8 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
       try {
         FileSystemUtils.createEmptyFile(actionExecutionContext.getInputPath(getPrimaryOutput()));
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, false);
+        throw new ActionExecutionException(
+            e, this, false, CrashFailureDetails.detailedExitCodeForThrowable(e));
       }
       return ActionResult.EMPTY;
     }
@@ -1880,7 +1882,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
               @Override
               public Void call() throws ActionExecutionException {
                 throw new ActionExecutionException(
-                    new Exception(), failedActionReference.get(), /*catastrophe=*/ false);
+                    new Exception(),
+                    failedActionReference.get(),
+                    /*catastrophe=*/ false,
+                    USER_DETAILED_EXIT_CODE);
               }
             },
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),

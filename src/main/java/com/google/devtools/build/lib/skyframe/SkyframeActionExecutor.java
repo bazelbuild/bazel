@@ -88,6 +88,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -1073,7 +1074,11 @@ public final class SkyframeActionExecutor {
             action,
             actionResult,
             actionFileSystemType().inMemoryFileSystem(),
-            new ActionExecutionException(exception, action, true),
+            new ActionExecutionException(
+                exception,
+                action,
+                true,
+                CrashFailureDetails.detailedExitCodeForThrowable(exception)),
             fileOutErr,
             ErrorTiming.AFTER_EXECUTION);
         throw exception;

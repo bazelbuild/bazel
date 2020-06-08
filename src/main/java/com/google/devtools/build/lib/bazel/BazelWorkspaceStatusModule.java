@@ -17,6 +17,7 @@ import static com.google.common.base.StandardSystemProperty.USER_NAME;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -42,11 +43,16 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus;
+import com.google.devtools.build.lib.server.FailureDetails.WorkspaceStatus.Code;
+import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.NetUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -113,15 +119,20 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       } catch (BadExitStatusException e) {
         String errorMessage = e.getMessage();
         try {
-          actionExecutionContext.getFileOutErr().getOutputStream().write(
-              e.getResult().getStdout());
+          actionExecutionContext.getFileOutErr().getOutputStream().write(e.getResult().getStdout());
           actionExecutionContext.getFileOutErr().getErrorStream().write(e.getResult().getStderr());
         } catch (IOException e2) {
           errorMessage = errorMessage + " and could not get stdout/stderr: " + e2.getMessage();
         }
-        throw new ActionExecutionException(errorMessage, e, this, true);
+        throw new ActionExecutionException(
+            errorMessage, e, this, true, createDetailedCode(errorMessage, Code.NON_ZERO_EXIT));
       } catch (CommandException e) {
-        throw new ActionExecutionException(e, this, true);
+        Code detailedCode =
+            e instanceof AbnormalTerminationException
+                ? Code.ABNORMAL_TERMINATION
+                : Code.EXEC_FAILED;
+        throw new ActionExecutionException(
+            e, this, true, createDetailedCode(Strings.nullToEmpty(e.getMessage()), detailedCode));
       }
       return "";
     }
@@ -260,6 +271,14 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     public Artifact getStableStatus() {
       return stableStatus;
     }
+  }
+
+  private static DetailedExitCode createDetailedCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setWorkspaceStatus(WorkspaceStatus.newBuilder().setCode(detailedCode))
+            .build());
   }
 
   private static class BazelStatusActionFactory implements WorkspaceStatusAction.Factory {

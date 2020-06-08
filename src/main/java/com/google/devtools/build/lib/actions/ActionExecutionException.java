@@ -39,15 +39,6 @@ public class ActionExecutionException extends Exception {
   private final DetailedExitCode detailedExitCode;
 
   public ActionExecutionException(
-      Throwable cause, ActionAnalysisMetadata action, boolean catastrophe) {
-    super(cause.getMessage(), cause);
-    this.action = action;
-    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
-    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
-    this.catastrophe = catastrophe;
-  }
-
-  public ActionExecutionException(
       Throwable cause,
       ActionAnalysisMetadata action,
       boolean catastrophe,

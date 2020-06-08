@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -69,11 +70,15 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
@@ -323,13 +328,23 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       throw toActionExecutionException(
           new EnvironmentalExecException(e), actionExecutionContext.showVerboseFailures(label));
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
+      throw createDetailedException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
     SpawnContinuation spawnContinuation =
         actionExecutionContext
             .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
     return new SpawnActionContinuation(actionExecutionContext, spawnContinuation, label);
+  }
+
+  private ActionExecutionException createDetailedException(Exception e, Code detailedCode) {
+    DetailedExitCode detailedExitCode =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(Strings.nullToEmpty(e.getMessage()))
+                .setSpawn(FailureDetails.Spawn.newBuilder().setCode(detailedCode))
+                .build());
+    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
   }
 
   private ActionExecutionException toActionExecutionException(

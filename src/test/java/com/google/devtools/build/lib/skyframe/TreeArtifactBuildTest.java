@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -849,7 +850,8 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         run(context);
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
+        throw new ActionExecutionException(
+            e, this, /*catastrophe=*/ false, CrashFailureDetails.detailedExitCodeForThrowable(e));
       }
       return ActionResult.EMPTY;
     }
