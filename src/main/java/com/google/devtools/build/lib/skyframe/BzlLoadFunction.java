@@ -93,6 +93,9 @@ public class BzlLoadFunction implements SkyFunction {
   // instead accept the set of predeclared bindings. Simplify the code path and then this comment.
   private final RuleClassProvider ruleClassProvider;
 
+  // Used for StarlarkBuiltinsFunction's inlining code path.
+  private final PackageFactory packageFactory;
+
   // Used for BUILD .bzls if injection is disabled.
   // TODO(#11437): Remove once injection is on unconditionally.
   private final StarlarkBuiltinsValue uninjectedStarlarkBuiltins;
@@ -117,6 +120,7 @@ public class BzlLoadFunction implements SkyFunction {
       ASTManager astManager,
       @Nullable CachedBzlLoadDataManager cachedBzlLoadDataManager) {
     this.ruleClassProvider = ruleClassProvider;
+    this.packageFactory = packageFactory;
     this.uninjectedStarlarkBuiltins =
         StarlarkBuiltinsFunction.createStarlarkBuiltinsValueWithoutInjection(
             ruleClassProvider, packageFactory);
@@ -348,17 +352,28 @@ public class BzlLoadFunction implements SkyFunction {
    */
   @Nullable
   private StarlarkBuiltinsValue getStarlarkBuiltinsValue(
-      BzlLoadValue.Key key, Environment env, StarlarkSemantics starlarkSemantics)
-      throws BuiltinsFailedException, InterruptedException {
+      BzlLoadValue.Key key,
+      Environment env,
+      StarlarkSemantics starlarkSemantics,
+      @Nullable InliningState inliningState)
+      throws BuiltinsFailedException, InconsistentFilesystemException, InterruptedException {
     // Don't request @builtins if we're in workspace evaluation, or already in @builtins evaluation.
     if (!(key instanceof BzlLoadValue.KeyForBuild)
         // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
         || starlarkSemantics.experimentalBuiltinsBzlPath().equals("")) {
       return uninjectedStarlarkBuiltins;
     }
-    // May be null.
-    return (StarlarkBuiltinsValue)
-        env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+    // Result may be null.
+    return inliningState == null
+        ? (StarlarkBuiltinsValue)
+            env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class)
+        : StarlarkBuiltinsFunction.computeInline(
+            StarlarkBuiltinsValue.key(),
+            env,
+            inliningState,
+            /*bzlLoadFunction=*/ this,
+            ruleClassProvider,
+            packageFactory);
   }
 
   @Nullable
@@ -485,7 +500,7 @@ public class BzlLoadFunction implements SkyFunction {
 
     StarlarkBuiltinsValue starlarkBuiltinsValue;
     try {
-      starlarkBuiltinsValue = getStarlarkBuiltinsValue(key, env, starlarkSemantics);
+      starlarkBuiltinsValue = getStarlarkBuiltinsValue(key, env, starlarkSemantics, inliningState);
     } catch (BuiltinsFailedException e) {
       throw BzlLoadFailedException.builtinsFailed(label, e);
     }

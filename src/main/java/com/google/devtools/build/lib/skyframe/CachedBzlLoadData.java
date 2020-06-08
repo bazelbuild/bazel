@@ -108,16 +108,12 @@ class CachedBzlLoadData {
 
     @CanIgnoreReturnValue
     Builder addDep(SkyKey key) {
-      Preconditions.checkState(
-          transitiveDeps.isEmpty(), "Expected transitive deps to be loaded last: %s", this);
       directDeps.add(ImmutableList.of(key));
       return this;
     }
 
     @CanIgnoreReturnValue
     Builder addDeps(Iterable<SkyKey> keys) {
-      Preconditions.checkState(
-          transitiveDeps.isEmpty(), "Expected transitive deps to be loaded last: %s", this);
       directDeps.add(keys);
       return this;
     }

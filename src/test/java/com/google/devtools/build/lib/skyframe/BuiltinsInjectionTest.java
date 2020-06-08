@@ -257,4 +257,18 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
   // TODO(#11437): Add test cases for BUILD file injection, and WORKSPACE file non-injection, when
   // we add injection support to PackageFunction.
+
+  /**
+   * Tests for injection, under inlining of {@link BzlLoadFunction}.
+   *
+   * <p>See {@link BzlLoadFunction#computeInline} for an explanation of inlining.
+   */
+  @RunWith(JUnit4.class)
+  public static class BuiltinsInjectionTestWithInlining extends BuiltinsInjectionTest {
+
+    @Override
+    protected boolean usesInliningBzlLoadFunction() {
+      return true;
+    }
+  }
 }

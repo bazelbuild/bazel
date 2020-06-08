@@ -14,7 +14,9 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -24,6 +26,7 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
+import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -91,7 +94,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * that 1) we can resolve the {@code @builtins} name appropriately, and 2) loading it does not
    * trigger a cyclic call back into {@code StarlarkBuiltinsFunction}.
    */
-  private static final SkyKey EXPORTS_ENTRYPOINT_KEY =
+  private static final BzlLoadValue.Key EXPORTS_ENTRYPOINT_KEY =
       BzlLoadValue.keyForBuiltins(
           // TODO(#11437): Replace by EXPORTS_ENTRYPOINT once BzlLoadFunction can resolve the
           // @builtins namespace.
@@ -109,6 +112,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
   }
 
   @Override
+  @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws StarlarkBuiltinsFunctionException, InterruptedException {
     // skyKey is a singleton, unused.
@@ -124,6 +128,68 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     if (exportsValue == null) {
       return null;
     }
+
+    try {
+      return computeWithExports(exportsValue, ruleClassProvider, packageFactory);
+    } catch (BuiltinsFailedException e) {
+      throw new StarlarkBuiltinsFunctionException(e);
+    }
+  }
+
+  /**
+   * Computes this Skyfunction under inlining of {@link BzlLoadFunction}, forwarding the given
+   * inlining state.
+   *
+   * <p>The given Skyframe environment must be a {@link RecordingSkyFunctionEnvironment}. It is
+   * unwrapped before calling {@link BzlLoadFunction}'s inlining code path.
+   *
+   * <p>Returns null on Skyframe restart or error.
+   */
+  @Nullable
+  public static StarlarkBuiltinsValue computeInline(
+      StarlarkBuiltinsValue.Key key, // singleton value, unused
+      Environment env,
+      BzlLoadFunction.InliningState inliningState,
+      BzlLoadFunction bzlLoadFunction,
+      RuleClassProvider ruleClassProvider,
+      PackageFactory packageFactory)
+      throws BuiltinsFailedException, InconsistentFilesystemException, InterruptedException {
+    Preconditions.checkState(
+        env instanceof RecordingSkyFunctionEnvironment,
+        "Expected to be recording dep requests when inlining StarlarkBuiltinsFunction");
+    // We don't need any direct Skyframe calls because we only depend on the exports.bzl file. If we
+    // did make Skyframe calls, they'd use the original recording environment (env), so that they're
+    // properly registered in the CachedBzlLoadData object of the .bzl that is requesting the
+    // builtins.
+    //
+    // We unwrap the environment before calling computeInline(). Any Skyframe deps needed to
+    // evaluate exports.bzl and its transitive deps will be reported by their CachedBzlLoadData
+    // objects.
+    //
+    // TODO(#11437): Update these comments for when we can also inline builtins computations for
+    // BUILD files.
+    Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
+    BzlLoadValue exportsValue;
+    try {
+      exportsValue =
+          bzlLoadFunction.computeInline(EXPORTS_ENTRYPOINT_KEY, strippedEnv, inliningState);
+    } catch (BzlLoadFailedException e) {
+      throw BuiltinsFailedException.errorEvaluatingBuiltinsBzls(e);
+    }
+    if (exportsValue == null) {
+      return null;
+    }
+
+    return computeWithExports(exportsValue, ruleClassProvider, packageFactory);
+  }
+
+  /**
+   * Applies the declarations of exports.bzl to the native predeclared symbols to obtain the final
+   * {@link StarlarkBuiltinsValue}.
+   */
+  private static StarlarkBuiltinsValue computeWithExports(
+      BzlLoadValue exportsValue, RuleClassProvider ruleClassProvider, PackageFactory packageFactory)
+      throws BuiltinsFailedException {
     byte[] transitiveDigest = exportsValue.getTransitiveDigest();
     Module module = exportsValue.getModule();
 
@@ -137,7 +203,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       return new StarlarkBuiltinsValue(predeclared, exportedToJava, transitiveDigest);
     } catch (EvalException ex) {
       ex.ensureLocation(EXPORTS_ENTRYPOINT_LOC);
-      throw new StarlarkBuiltinsFunctionException(BuiltinsFailedException.errorApplyingExports(ex));
+      throw BuiltinsFailedException.errorApplyingExports(ex);
     }
   }
 
@@ -254,8 +320,13 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     return null;
   }
 
-  /** An exception that occurs while trying to determine the injected builtins. */
-  static final class BuiltinsFailedException extends Exception implements SaneAnalysisException {
+  /**
+   * An exception that occurs while trying to determine the injected builtins.
+   *
+   * <p>This exception type typically wraps a {@link BzlLoadFailedException} and is wrapped by a
+   * {@link BzlLoadFailedException} in turn.
+   */
+  static final class BuiltinsFailedException extends Exception {
 
     private final Transience transience;
 
