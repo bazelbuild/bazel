@@ -675,16 +675,16 @@ public class PackageFunction implements SkyFunction {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
     Exception deferredException = null;
     boolean valuesMissing = false;
-    // Compute BzlLoadValue for each key, sharing this map as one big cache. This ensures that each
-    // .bzl is loaded only once, regardless of diamond dependencies. (Multiple loads of the same
-    // .bzl would screw up identity equality of some Starlark symbols -- see comments in
-    // BzlLoadFunction.)
-    Map<BzlLoadValue.Key, CachedBzlLoadData> visitedBzls = new HashMap<>();
+    // Compute BzlLoadValue for each key, sharing the same inlining state, i.e. cache of loaded
+    // modules. This ensures that each .bzl is loaded only once, regardless of diamond dependencies
+    // or cache eviction. (Multiple loads of the same .bzl would screw up identity equality of some
+    // Starlark symbols -- see comments in BzlLoadFunction#computeInline.)
+    BzlLoadFunction.InliningState inliningState = BzlLoadFunction.InliningState.create();
     for (BzlLoadValue.Key key : keys) {
       SkyValue skyValue;
       try {
-        // Will complete right away if it's already cached in visitedBzls.
-        skyValue = bzlLoadFunctionForInlining.computeInline(key, env, visitedBzls);
+        // Will complete right away if it's already cached in inliningState.
+        skyValue = bzlLoadFunctionForInlining.computeInline(key, env, inliningState);
       } catch (BzlLoadFailedException | InconsistentFilesystemException e) {
         // For determinism's sake while inlining, preserve the first exception and continue to run
         // subsequently listed loads to completion/exception, loading all transitive deps anyway.
