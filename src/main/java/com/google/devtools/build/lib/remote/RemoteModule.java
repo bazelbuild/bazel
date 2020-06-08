@@ -459,12 +459,8 @@ public final class RemoteModule extends BlazeModule {
     if (runfilesSupport == null) {
       return ImmutableList.of();
     }
-    boolean noPruningManifestsInBazel =
-        runfilesSupport.getRunfiles().getPruningManifests().isEmpty();
-    Preconditions.checkState(
-        noPruningManifestsInBazel, "Bazel should not have pruning manifests. This is a bug.");
     ImmutableList.Builder<Artifact> runfilesBuilder = ImmutableList.builder();
-    for (Artifact runfile : runfilesSupport.getRunfiles().getUnconditionalArtifacts().toList()) {
+    for (Artifact runfile : runfilesSupport.getRunfiles().getArtifacts().toList()) {
       if (runfile.isSourceArtifact()) {
         continue;
       }

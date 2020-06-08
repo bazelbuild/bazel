@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
@@ -686,7 +685,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     RunfilesSupplier runfilesSupplier =
         CompositeRunfilesSupplier.fromSuppliers(
             (List<RunfilesSupplier>) ev.lookup("input_manifests"));
-    assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
+    assertThat(runfilesSupplier.getMappings()).hasSize(1);
   }
 
   @Test
@@ -762,7 +761,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     RunfilesSupplier runfilesSupplier =
         CompositeRunfilesSupplier.fromSuppliers(
             (List<RunfilesSupplier>) ev.lookup("input_manifests"));
-    assertThat(runfilesSupplier.getMappings(ArtifactPathResolver.IDENTITY)).hasSize(1);
+    assertThat(runfilesSupplier.getMappings()).hasSize(1);
 
     SpawnAction action =
         (SpawnAction)
@@ -946,7 +945,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
             "  symlinks = {'sym1': ruleContext.files.srcs[1]})");
     Runfiles runfiles = (Runfiles) result;
     reporter.removeHandler(failFastHandler); // So it doesn't throw an exception.
-    runfiles.getRunfilesInputs(reporter, null, ArtifactPathResolver.IDENTITY);
+    runfiles.getRunfilesInputs(reporter, null);
     assertContainsEvent("ERROR <no location>: overwrote runfile");
   }
 
@@ -2960,5 +2959,28 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     ActionAnalysisMetadata action =
         ctx.getRuleContext().getAnalysisEnvironment().getLocalGeneratingAction(params);
     assertThat(action.getInputs().toList()).contains(directory);
+  }
+
+  @Test
+  public void testDirectoryExpansionInArgs() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "directory = ruleContext.actions.declare_directory('dir')",
+        "file3 = ruleContext.actions.declare_file('file3')",
+        "def _expand_dirs(artifact, dir_expander):",
+        "  return [f.short_path for f in dir_expander.expand(artifact)]",
+        "args.add_all([directory, file3], map_each=_expand_dirs)");
+    Args args = (Args) ev.eval("args");
+    Artifact directory = (Artifact) ev.eval("directory");
+    CommandLine commandLine = args.build();
+
+    Artifact file1 = getBinArtifactWithNoOwner("foo/dir/file1");
+    Artifact file2 = getBinArtifactWithNoOwner("foo/dir/file2");
+    ArtifactExpanderImpl artifactExpander =
+        new ArtifactExpanderImpl(
+            ImmutableMap.of(directory, ImmutableList.of(file1, file2)), ImmutableMap.of());
+    assertThat(commandLine.arguments(artifactExpander))
+        .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
   }
 }

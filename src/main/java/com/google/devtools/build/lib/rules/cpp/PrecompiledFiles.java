@@ -30,8 +30,8 @@ public final class PrecompiledFiles {
   private final ImmutableList<Artifact> files;
 
   /**
-   * Initializes this object with the artifacts obtained from the "srcs" attribute of the given
-   * rule (this is the most common usage for this class).
+   * Initializes this object with the artifacts obtained from the "srcs" attribute of the given rule
+   * (this is the most common usage for this class).
    */
   public PrecompiledFiles(RuleContext ruleContext) {
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {

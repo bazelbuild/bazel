@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -929,8 +930,8 @@ public class RemoteCacheTests {
 
     // assert
     assertThat(inMemoryOutput).isNull();
-    verify(injector).injectRemoteFile(eq(a1), remoteFileMatchingDigest(d1));
-    verify(injector).injectRemoteFile(eq(a2), remoteFileMatchingDigest(d2));
+    verify(injector).injectFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(injector).injectFile(eq(a2), remoteFileMatchingDigest(d2));
 
     Path outputBase = artifactRoot.getRoot().asPath();
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
@@ -992,13 +993,13 @@ public class RemoteCacheTests {
     // assert
     assertThat(inMemoryOutput).isNull();
 
-    Map<TreeFileArtifact, RemoteFileArtifactValue> m =
+    Map<TreeFileArtifact, FileArtifactValue> m =
         ImmutableMap.of(
             TreeFileArtifact.createTreeOutput(dir, "file1"),
             new RemoteFileArtifactValue(toBinaryDigest(d1), d1.getSizeBytes(), 1, "action-id"),
             TreeFileArtifact.createTreeOutput(dir, "a/file2"),
             new RemoteFileArtifactValue(toBinaryDigest(d2), d2.getSizeBytes(), 1, "action-id"));
-    verify(injector).injectRemoteDirectory(eq(dir), eq(m));
+    verify(injector).injectDirectory(eq(dir), eq(m));
 
     Path outputBase = artifactRoot.getRoot().asPath();
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
@@ -1144,8 +1145,8 @@ public class RemoteCacheTests {
     assertThat(inMemoryOutput.getContents()).isEqualTo(expectedContents);
     assertThat(inMemoryOutput.getOutput()).isEqualTo(a1);
     // The in memory file also needs to be injected as an output
-    verify(injector).injectRemoteFile(eq(a1), remoteFileMatchingDigest(d1));
-    verify(injector).injectRemoteFile(eq(a2), remoteFileMatchingDigest(d2));
+    verify(injector).injectFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(injector).injectFile(eq(a2), remoteFileMatchingDigest(d2));
 
     Path outputBase = artifactRoot.getRoot().asPath();
     assertThat(outputBase.readdir(Symlinks.NOFOLLOW)).isEmpty();
@@ -1181,7 +1182,7 @@ public class RemoteCacheTests {
     // assert
     assertThat(inMemoryOutput).isNull();
     // The in memory file metadata also should not have been injected.
-    verify(injector, never()).injectRemoteFile(eq(a1), remoteFileMatchingDigest(d1));
+    verify(injector, never()).injectFile(eq(a1), remoteFileMatchingDigest(d1));
   }
 
   @Test

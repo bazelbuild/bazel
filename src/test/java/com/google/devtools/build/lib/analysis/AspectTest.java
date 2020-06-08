@@ -327,6 +327,26 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectDependsOnPackageGroup() throws Exception {
+    setRulesAvailableInTests(
+        TestAspects.BASE_RULE, TestAspects.PACKAGE_GROUP_ATTRIBUTE_ASPECT_RULE);
+    pkg("extra", "package_group(name='extra')");
+    pkg("a", "rule_with_package_group_deps_aspect(name='a', foo=[':b'])", "base(name='b')");
+
+    getConfiguredTarget("//a:a");
+    assertContainsEventWithFrequency("bad aspect", 0);
+  }
+
+  @Test
+  public void aspectWithComputedAttribute() throws Exception {
+    setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.COMPUTED_ATTRIBUTE_ASPECT_RULE);
+
+    pkg("a", "rule_with_computed_deps_aspect(name='a', foo=[':b'])", "base(name='b')");
+
+    getConfiguredTarget("//a:a");
+  }
+
+  @Test
   public void ruleDependencyDeprecationWarningsAbsentDuringAspectEvaluations() throws Exception {
     setRulesAvailableInTests(TestAspects.BASE_RULE, TestAspects.ASPECT_REQUIRING_RULE);
 

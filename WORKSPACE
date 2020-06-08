@@ -150,10 +150,13 @@ distdir_tar(
         "java_tools_javac11_windows-v8.0.zip",
         "java_tools_javac11_darwin-v8.0.zip",
         "coverage_output_generator-v2.1.zip",
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        # bazelbuid/stardoc
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+        # rules_sass
         "1.25.0.zip",
+        # rules_nodejs
         "rules_nodejs-1.3.0.tar.gz",
-        "android_tools_pkg-0.16.0.tar.gz",
+        "android_tools_pkg-0.17.0.tar.gz",
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         # bazelbuild/platforms
@@ -163,13 +166,19 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         # bazelbuild/bazel-toolchains
-        "3.1.0.tar.gz",
+        "bazel-toolchains-3.1.0.tar.gz",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.5.tar.gz",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         # protocolbuffers/protobuf
         "v3.11.3.tar.gz",
+        # grpc/grpc
+        "v1.26.0.tar.gz",
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
     ],
     dirname = "derived/distdir",
     sha256 = {
@@ -178,12 +187,13 @@ distdir_tar(
         "java_tools_javac11_windows-v8.0.zip": "444c391977e50af4e10549a28d021069d2ca7745a0e7b9b968a7b153fe3ea430",
         "java_tools_javac11_darwin-v8.0.zip": "e0291e8956ac295143da4a673ca50727f7376665ee82b649a4ee810b64ff76c1",
         "coverage_output_generator-v2.1.zip": "96ac6bc9b9fbc67b532bcae562da1642409791e6a4b8e522f04946ee5cc3ff8e",
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
+        # bazelbuild/stardoc
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
         # rules_sass
         "1.25.0.zip": "c78be58f5e0a29a04686b628cf54faaee0094322ae0ac99da5a8a8afca59a647",
         # rules_nodejs
         "rules_nodejs-1.3.0.tar.gz": "b6670f9f43faa66e3009488bbd909bc7bc46a5a9661a33f6bc578068d1837f37",
-        "android_tools_pkg-0.16.0.tar.gz": "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361",
+        "android_tools_pkg-0.17.0.tar.gz": "8d0bf8ab83c9e38ec6ed5ce7bf425dbdc6469cec9e078559d4e8da42b705410f",
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
         # bazelbuild/platforms
@@ -193,13 +203,19 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip": "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
         # bazelbuild/bazel-toolchains
-        "3.1.0.tar.gz": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
+        "bazel-toolchains-3.1.0.tar.gz": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.5.tar.gz": "352c090cc3d3f9a6b4e676cf42a6047c16824959b438895a76c2989c6d7c246a",
         # bazelbuild/rules_proto
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         # protocolbuffers/protobuf
         "v3.11.3.tar.gz": "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
+        # grpc/grpc
+        "v1.26.0.tar.gz": "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
     },
     urls = {
         "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
@@ -218,9 +234,9 @@ distdir_tar(
         "coverage_output_generator-v2.1.zip": [
             "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.1.zip",
         ],
-        "c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
-            "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        "1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+            "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
         ],
         "1.25.0.zip": [
             "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.25.0.zip",
@@ -230,8 +246,8 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
             "https://github.com/bazelbuild/rules_nodejs/releases/download/1.3.0/rules_nodejs-1.3.0.tar.gz",
         ],
-        "android_tools_pkg-0.16.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",
+        "android_tools_pkg-0.17.0.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.17.0.tar.gz",
         ],
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
@@ -254,8 +270,8 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         ],
         # bazelbuild/bazel-toolchains
-        "3.1.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/3.1.0.tar.gz",
+        "bazel-toolchains-3.1.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
             "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
         ],
         # bazelbuild/rules_pkg
@@ -272,6 +288,21 @@ distdir_tar(
         "v3.11.3.tar.gz": [
             "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
             "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+        ],
+        # grpc/grpc
+        "v1.26.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        ],
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": [
+            "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+            "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+        ],
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
         ],
     },
 )
@@ -317,6 +348,16 @@ http_file(
     downloaded_file_path = "zulu-linux-aarch64-minimal.tar.gz",
     sha256 = "06f6520a877704c77614bcfc4f846cc7cbcbf5eaad149bf7f19f4f16e285c9de",
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64-minimal-b23d4e05466f2aa1fdcd72d3d3a8e962206b64bf-1581690750.tar.gz"],
+)
+
+http_file(
+    name = "openjdk_linux_ppc64le_vanilla",
+    downloaded_file_path="adoptopenjdk-ppc64le-vanilla.tar.gz",
+    sha256 = "a417db0295b1f4b538ecbaf7c774f3a177fab9657a665940170936c0eca4e71a",
+    urls = [
+        "https://mirror.bazel.build/openjdk/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7+10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
+        "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7+10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
+    ],
 )
 
 http_file(
@@ -368,7 +409,7 @@ http_archive(
     sha256 = "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
     strip_prefix = "bazel-toolchains-3.1.0",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/archive/3.1.0.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
         "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
     ],
 )
@@ -420,15 +461,17 @@ http_archive(
     ],
 )
 
-# Note that skydoc depends on being called io_bazel_skydoc (and not just skydoc)
+# Note that stardoc depends on being called io_bazel_skydoc
 # to work without being patched, as it hard-codes this name in its sources.
+# TODO(wyv): Is the above still true? Try a different name and see if it works.
+#   If it does, can we rename the workspace in bazelbuild/stardoc?
 http_archive(
     name = "io_bazel_skydoc",
-    sha256 = "e6a76586b264f30679688f65f7e71ac112d1446681010a13bf22d9ca071f34b7",
-    strip_prefix = "skydoc-c7bbde2950769aac9a99364b0926230060a3ce04",
+    sha256 = "5a725b777976b77aa122b707d1b6f0f39b6020f66cd427bb111a585599c857b1",
+    strip_prefix = "stardoc-1ef781ced3b1443dca3ed05dec1989eca1a4e1cd",
     urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
-        "https://github.com/bazelbuild/skydoc/archive/c7bbde2950769aac9a99364b0926230060a3ce04.tar.gz",
+        "https://mirror.bazel.build/github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
+        "https://github.com/bazelbuild/stardoc/archive/1ef781ced3b1443dca3ed05dec1989eca1a4e1cd.tar.gz",
     ],
 )
 
@@ -482,7 +525,7 @@ distdir_tar(
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz",
         "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz",
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip",
-        "android_tools_pkg-0.16.0.tar.gz",
+        "android_tools_pkg-0.17.0.tar.gz",
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         # bazelbuild/platforms
@@ -495,6 +538,12 @@ distdir_tar(
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
         # protocolbuffers/protobuf
         "v3.11.3.tar.gz",
+        # grpc/grpc
+        "v1.26.0.tar.gz",
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
     ],
     dirname = "test_WORKSPACE/distdir",
     sha256 = {
@@ -506,7 +555,7 @@ distdir_tar(
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
         "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz": "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip": "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
-        "android_tools_pkg-0.16.0.tar.gz": "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361",
+        "android_tools_pkg-0.17.0.tar.gz": "8d0bf8ab83c9e38ec6ed5ce7bf425dbdc6469cec9e078559d4e8da42b705410f",
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
         # bazelbuild/platforms
@@ -519,6 +568,12 @@ distdir_tar(
         "97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz": "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         # protocolbuffers/protobuf
         "v3.11.3.tar.gz": "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
+        # grpc/grpc
+        "v1.26.0.tar.gz": "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": "e8c2751ddc70fed9dc6f999acd92e232d5846f009ee1674f8aee81f19b2b915a",
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
     },
     urls = {
         "java_tools_javac11_linux-v8.0.zip": ["https://mirror.bazel.build/bazel_java_tools/releases/javac11/v8.0/java_tools_javac11_linux-v8.0.zip"],
@@ -529,8 +584,8 @@ distdir_tar(
         "zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz"],
         "zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-macosx_x64.tar.gz"],
         "zulu11.37.17-ca-jdk11.0.6-win_x64.zip": ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip"],
-        "android_tools_pkg-0.16.0.tar.gz": [
-            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",
+        "android_tools_pkg-0.17.0.tar.gz": [
+            "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.17.0.tar.gz",
         ],
         # bazelbuild/bazel-skylib
         "2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz": [
@@ -562,6 +617,21 @@ distdir_tar(
             "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
             "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
         ],
+        # grpc/grpc
+        "v1.26.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+            "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        ],
+        # c-ares/c-ares
+        "e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz": [
+            "https://mirror.bazel.build/github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+            "https://github.com/c-ares/c-ares/archive/e982924acee7f7313b4baa4ee5ec000c5e373c30.tar.gz",
+        ],
+        # protocolbuffers/upb
+        "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": [
+            "https://mirror.bazel.build/github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+            "https://github.com/protocolbuffers/upb/archive/9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz",
+        ],
     },
 )
 
@@ -589,7 +659,7 @@ exports_files(["_sass/style.scss"])
 """
 )
 
-# Skydoc recommends declaring its dependencies via "*_dependencies" functions.
+# Stardoc recommends declaring its dependencies via "*_dependencies" functions.
 # This requires that the repositories these functions come from need to be
 # fetched unconditionally for everything (including just building bazel!), so
 # provide them as http_archives that can be shiped in the distdir, to keep the
@@ -644,8 +714,8 @@ http_archive(
     name = "android_tools_for_testing",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "e2cbd43a9d23aa32197c29d689a7e017f205acb07053f5dd584f500a1a9d4361",  # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.16.0.tar.gz",
+    sha256 = "8d0bf8ab83c9e38ec6ed5ce7bf425dbdc6469cec9e078559d4e8da42b705410f", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.17.0.tar.gz",
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/coverage.WORKSPACE.
@@ -679,6 +749,20 @@ http_archive(
     sha256 = "a452f1b9682d9f83c1c14e54d1446e1c51b5173a3a05dcb013d380f9508562e4",
     strip_prefix = "zulu11.37.48-ca-jdk11.0.6-linux_aarch64",
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.48-ca-jdk11.0.6/zulu11.37.48-ca-jdk11.0.6-linux_aarch64.tar.gz"],
+)
+
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+http_archive(
+    name = "remotejdk11_linux_ppc64le_for_testing",
+    build_file = "@local_jdk//:BUILD.bazel",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    sha256 = "a417db0295b1f4b538ecbaf7c774f3a177fab9657a665940170936c0eca4e71a",
+    strip_prefix = "jdk-11.0.7+10",
+    urls = [
+        "https://mirror.bazel.build/openjdk/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7+10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
+        "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7+10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
+    ],
 )
 
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
@@ -875,9 +959,9 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-win_x64.zip"],
 )
 
-load("@io_bazel_skydoc//:setup.bzl", "skydoc_repositories")
+load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
 
-skydoc_repositories()
+stardoc_repositories()
 
 load("@io_bazel_rules_sass//:package.bzl", "rules_sass_dependencies")
 
@@ -921,6 +1005,26 @@ load("@local_config_winsdk//:toolchains.bzl", "register_local_rc_exe_toolchains"
 register_local_rc_exe_toolchains()
 
 register_toolchains("//src/main/res:empty_rc_toolchain")
+
+http_archive(
+    name = "com_github_grpc_grpc",
+    urls = [
+        "https://mirror.bazel.build/github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+        "https://github.com/grpc/grpc/archive/v1.26.0.tar.gz",
+    ],
+    sha256 = "2fcb7f1ab160d6fd3aaade64520be3e5446fc4c6fa7ba6581afdc4e26094bd81",
+    patches = ["//third_party/grpc:grpc_1.26.0.patch"],
+    patch_args = ["-p1"],
+    strip_prefix = "grpc-1.26.0",
+)
+
+# Projects using gRPC as an external dependency must call both grpc_deps() and
+# grpc_extra_deps().
+load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
+grpc_deps()
+
+load("@com_github_grpc_grpc//bazel:grpc_extra_deps.bzl", "grpc_extra_deps")
+grpc_extra_deps()
 
 load("//tools/distributions/debian:deps.bzl", "debian_deps")
 debian_deps()

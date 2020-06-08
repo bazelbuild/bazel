@@ -89,7 +89,7 @@ public class SkyframeExecutorTestUtils {
   public static ConfiguredTargetValue getExistingConfiguredTargetValue(
       SkyframeExecutor skyframeExecutor, Label label, BuildConfiguration config)
       throws InterruptedException {
-    SkyKey key = ConfiguredTargetKey.of(label, config);
+    SkyKey key = ConfiguredTargetKey.builder().setLabel(label).setConfiguration(config).build();
     return (ConfiguredTargetValue) getExistingValue(skyframeExecutor, key);
   }
 

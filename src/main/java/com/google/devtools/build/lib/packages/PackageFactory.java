@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.CallExpression;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.DefStatement;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -84,11 +83,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /**
- * The package factory is responsible for constructing Package instances
- * from a BUILD file's abstract syntax tree (AST).
+ * The package factory is responsible for constructing Package instances from a BUILD file's
+ * abstract syntax tree (AST).
  *
- * <p>A PackageFactory is a heavy-weight object; create them sparingly.
- * Typically only one is needed per client application.
+ * <p>A PackageFactory is a heavy-weight object; create them sparingly. Typically only one is needed
+ * per client application.
  */
 public final class PackageFactory {
 
@@ -105,9 +104,7 @@ public final class PackageFactory {
     /** Update the environment of the native module. */
     void updateNative(ImmutableMap.Builder<String, Object> env);
 
-    /**
-     * Returns the extra arguments to the {@code package()} statement.
-     */
+    /** Returns the extra arguments to the {@code package()} statement. */
     Iterable<PackageArgument<?>> getPackageArguments();
   }
 
@@ -123,6 +120,9 @@ public final class PackageFactory {
 
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
   private final ImmutableMap<String, PackageArgument<?>> packageArguments;
+
+  private final ImmutableMap<String, Object> nativeModuleBindingsForBuild;
+  private final ImmutableMap<String, Object> nativeModuleBindingsForWorkspace;
 
   private final Package.Builder.Helper packageBuilderHelper;
   private final PackageValidator packageValidator;
@@ -169,6 +169,9 @@ public final class PackageFactory {
    * <p>Do not call this constructor directly in tests; please use
    * TestConstants#PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING instead.
    */
+  // TODO(bazel-team): Maybe store `version` in the RuleClassProvider rather than passing it in
+  // here? It's an extra constructor parameter that all the tests have to give, and it's only needed
+  // so WorkspaceFactory can add an extra top-level builtin.
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
       Iterable<EnvironmentExtension> environmentExtensions,
@@ -182,23 +185,22 @@ public final class PackageFactory {
     setGlobbingThreads(100);
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
     this.packageArguments = createPackageArguments();
-    this.nativeModule = newNativeModule();
-    this.workspaceNativeModule = WorkspaceFactory.newNativeModule(ruleClassProvider, version);
+    this.nativeModuleBindingsForBuild =
+        createNativeModuleBindingsForBuild(
+            ruleFunctions, packageArguments, this.environmentExtensions);
+    this.nativeModuleBindingsForWorkspace =
+        createNativeModuleBindingsForWorkspace(ruleClassProvider, version);
     this.packageBuilderHelper = packageBuilderHelper;
     this.packageValidator = packageValidator;
     this.packageLoadingListener = packageLoadingListener;
   }
 
- /**
-   * Sets the syscalls cache used in globbing.
-   */
+  /** Sets the syscalls cache used in globbing. */
   public void setSyscalls(AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls) {
     this.syscalls = Preconditions.checkNotNull(syscalls);
   }
 
-  /**
-   * Sets the max number of threads to use for globbing.
-   */
+  /** Sets the max number of threads to use for globbing. */
   public void setGlobbingThreads(int globbingThreads) {
     if (executor == null || executor.getParallelism() != globbingThreads) {
       executor = NamedForkJoinPool.newNamedPool("globbing pool", globbingThreads);
@@ -217,10 +219,7 @@ public final class PackageFactory {
     this.maxDirectoriesToEagerlyVisitInGlobbing = maxDirectoriesToEagerlyVisitInGlobbing;
   }
 
-  /**
-   * Returns the immutable, unordered set of names of all the known rule
-   * classes.
-   */
+  /** Returns the immutable, unordered set of names of all the known rule classes. */
   public Set<String> getRuleClassNames() {
     return ruleFactory.getRuleClassNames();
   }
@@ -233,9 +232,7 @@ public final class PackageFactory {
     return ruleFactory.getRuleClass(ruleClassName);
   }
 
-  /**
-   * Returns the {@link RuleClassProvider} of this {@link PackageFactory}.
-   */
+  /** Returns the {@link RuleClassProvider} of this {@link PackageFactory}. */
   public RuleClassProvider getRuleClassProvider() {
     return ruleClassProvider;
   }
@@ -244,9 +241,26 @@ public final class PackageFactory {
     return environmentExtensions;
   }
 
+  /** Returns the bindings to add to the "native" module, for BUILD-loaded .bzl files. */
+  public ImmutableMap<String, Object> getNativeModuleBindingsForBuild() {
+    return nativeModuleBindingsForBuild;
+  }
+
+  /** Returns the bindings to add to the "native" module, for WORKSPACE-loaded .bzl files. */
+  public ImmutableMap<String, Object> getNativeModuleBindingsForWorkspace() {
+    return nativeModuleBindingsForWorkspace;
+  }
+
   /**
-   * Creates the list of arguments for the 'package' function.
+   * Returns the subset of bindings of the "native" module (for BUILD-loaded .bzls) that are rules.
+   *
+   * <p>Excludes non-rule functions such as {@code glob()}.
    */
+  public ImmutableMap<String, ?> getNativeRules() {
+    return ruleFunctions;
+  }
+
+  /** Creates the map of arguments for the 'package' function. */
   private ImmutableMap<String, PackageArgument<?>> createPackageArguments() {
     ImmutableList.Builder<PackageArgument<?>> arguments =
         ImmutableList.<PackageArgument<?>>builder().addAll(DefaultPackageArguments.get());
@@ -593,41 +607,26 @@ public final class PackageFactory {
       this.globber = globber;
     }
 
-    /**
-     * Returns the Label of this Package.
-     */
+    /** Returns the Label of this Package's BUILD file. */
     public Label getLabel() {
       return pkgBuilder.getBuildFileLabel();
     }
 
-    /**
-     * Sets a Make variable.
-     */
+    /** Sets a Make variable. */
     public void setMakeVariable(String name, String value) {
       pkgBuilder.setMakeVariable(name, value);
     }
 
-    /**
-     * Returns the builder of this Package.
-     */
+    /** Returns the builder of this Package. */
     public Package.Builder getBuilder() {
       return pkgBuilder;
     }
   }
 
-  private final ClassObject nativeModule;
-  private final ClassObject workspaceNativeModule;
-
-  /** @return the Starlark struct to bind to "native" */
-  public ClassObject getNativeModule(boolean workspace) {
-    return workspace ? workspaceNativeModule : nativeModule;
-  }
-
-  /**
-   * Returns a native module with the functions created using the {@link RuleClassProvider}
-   * of this {@link PackageFactory}.
-   */
-  private ClassObject newNativeModule() {
+  private static ImmutableMap<String, Object> createNativeModuleBindingsForBuild(
+      ImmutableMap<String, BuiltinRuleFunction> ruleFunctions,
+      ImmutableMap<String, PackageArgument<?>> packageArguments,
+      ImmutableList<EnvironmentExtension> environmentExtensions) {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
     builder.putAll(StarlarkNativeModule.BINDINGS_FOR_BUILD_FILES);
     builder.putAll(ruleFunctions);
@@ -635,7 +634,12 @@ public final class PackageFactory {
     for (EnvironmentExtension ext : environmentExtensions) {
       ext.updateNative(builder);
     }
-    return StructProvider.STRUCT.create(builder.build(), "no native function or rule '%s'");
+    return builder.build();
+  }
+
+  private static ImmutableMap<String, Object> createNativeModuleBindingsForWorkspace(
+      RuleClassProvider ruleClassProvider, String version) {
+    return WorkspaceFactory.createNativeModuleBindings(ruleClassProvider, version);
   }
 
   private void populateEnvironment(ImmutableMap.Builder<String, Object> env) {

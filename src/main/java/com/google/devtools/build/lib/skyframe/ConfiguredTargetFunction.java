@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -289,7 +290,13 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       }
 
       // Determine what toolchains are needed by this target.
-      unloadedToolchainContexts = computeUnloadedToolchainContexts(env, ctgValue);
+      unloadedToolchainContexts =
+          computeUnloadedToolchainContexts(
+              env,
+              ruleClassProvider,
+              defaultBuildOptions,
+              ctgValue,
+              configuredTargetKey.getToolchainContextKey());
       if (env.valuesMissing()) {
         return null;
       }
@@ -325,7 +332,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       if (unloadedToolchainContexts != null) {
         String targetDescription = target.toString();
         ToolchainCollection.Builder<ResolvedToolchainContext> contextsBuilder =
-            new ToolchainCollection.Builder<>();
+            ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
             unloadedToolchainContexts.getContextMap().entrySet()) {
           contextsBuilder.addContext(
@@ -433,9 +440,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
    * <p>This involves Skyframe evaluation: callers should check {@link Environment#valuesMissing()
    * to check the result is valid.
    */
+  @VisibleForTesting
   @Nullable
-  private ToolchainCollection<UnloadedToolchainContext> computeUnloadedToolchainContexts(
-      Environment env, TargetAndConfiguration targetAndConfig)
+  static ToolchainCollection<UnloadedToolchainContext> computeUnloadedToolchainContexts(
+      Environment env,
+      RuleClassProvider ruleClassProvider,
+      BuildOptions defaultBuildOptions,
+      TargetAndConfiguration targetAndConfig,
+      @Nullable ToolchainContextKey parentToolchainContextKey)
       throws InterruptedException, ToolchainException {
     if (!(targetAndConfig.getTarget() instanceof Rule)) {
       return null;
@@ -488,14 +500,19 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     Map<String, ToolchainContextKey> toolchainContextKeys = new HashMap<>();
     String targetUnloadedToolchainContext = "target-unloaded-toolchain-context";
-    toolchainContextKeys.put(
-        targetUnloadedToolchainContext,
-        ToolchainContextKey.key()
-            .configurationKey(toolchainConfig)
-            .requiredToolchainTypeLabels(requiredDefaultToolchains)
-            .execConstraintLabels(defaultExecConstraintLabels)
-            .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
-            .build());
+    ToolchainContextKey toolchainContextKey;
+    if (parentToolchainContextKey != null) {
+      toolchainContextKey = parentToolchainContextKey;
+    } else {
+      toolchainContextKey =
+          ToolchainContextKey.key()
+              .configurationKey(toolchainConfig)
+              .requiredToolchainTypeLabels(requiredDefaultToolchains)
+              .execConstraintLabels(defaultExecConstraintLabels)
+              .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
+              .build();
+    }
+    toolchainContextKeys.put(targetUnloadedToolchainContext, toolchainContextKey);
     for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
       ExecGroup execGroup = group.getValue();
       toolchainContextKeys.put(
@@ -514,7 +531,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     boolean valuesMissing = env.valuesMissing();
 
     ToolchainCollection.Builder<UnloadedToolchainContext> toolchainContexts =
-        valuesMissing ? null : new ToolchainCollection.Builder<>();
+        valuesMissing ? null : ToolchainCollection.builder();
     for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
         toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
@@ -753,7 +770,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
 
     // Get the configured targets as ConfigMatchingProvider interfaces.
     for (Dependency entry : configConditionDeps) {
-      SkyKey baseKey = ConfiguredTargetKey.of(entry.getLabel(), entry.getConfiguration());
+      SkyKey baseKey = entry.getConfiguredTargetKey();
       ConfiguredTarget value = configValues.get(baseKey).getConfiguredTarget();
       // The code above guarantees that value is non-null here and since the rule is a
       // config_setting, provider must also be non-null.
@@ -797,8 +814,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     // to do a potential second pass, in which we fetch all the Packages for AliasConfiguredTargets.
     Iterable<SkyKey> depKeys =
         Iterables.concat(
-            Iterables.transform(
-                deps, input -> ConfiguredTargetKey.of(input.getLabel(), input.getConfiguration())),
+            Iterables.transform(deps, Dependency::getConfiguredTargetKey),
             Iterables.transform(
                 deps, input -> PackageValue.key(input.getLabel().getPackageIdentifier())));
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> depValuesOrExceptions =
@@ -810,7 +826,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     Collection<Dependency> depsToProcess = deps;
     for (int i = 0; i < 2; i++) {
       for (Dependency dep : depsToProcess) {
-        SkyKey key = ConfiguredTargetKey.of(dep.getLabel(), dep.getConfiguration());
+        SkyKey key = dep.getConfiguredTargetKey();
         try {
           ConfiguredTargetValue depValue =
               (ConfiguredTargetValue) depValuesOrExceptions.get(key).get();
@@ -928,12 +944,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       throws ConfiguredTargetFunctionException, InterruptedException {
     StoredEventHandler events = new StoredEventHandler();
     CachingAnalysisEnvironment analysisEnvironment =
-        view.createAnalysisEnvironment(
-            ConfiguredTargetKey.of(target.getLabel(), configuration),
-            false,
-            events,
-            env,
-            configuration);
+        view.createAnalysisEnvironment(configuredTargetKey, false, events, env, configuration);
     if (env.valuesMissing()) {
       return null;
     }

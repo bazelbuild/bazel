@@ -127,6 +127,7 @@ message FailureDetail {
     ProfileCommand profile_command = 151;
     RunCommand run_command = 152;
     VersionCommand version_command = 153;
+    PrintActionCommand print_action_command = 154;
   }
 
   reserved 102; // For internal use
@@ -140,6 +141,7 @@ message FailureDetail {
   reserved 138; // For internal use
   reserved 143; // For internal use
   reserved 149; // For internal use
+  reserved 155 to 156; // For internal use
 }
 
 message Interrupted {
@@ -159,9 +161,11 @@ message Interrupted {
     MOBILE_INSTALL_COMMAND = 21 [(metadata) = { exit_code: 8 }];
     QUERY = 22 [(metadata) = { exit_code: 8 }];
     RUN_COMMAND = 23 [(metadata) = { exit_code: 8 }];
+
     reserved 1 to 3; // For internal use
     reserved 11 to 16; // For internal use
     reserved 19; // For internal use
+    reserved 24 to 26; // For internal use
   }
 
   Code code = 1;
@@ -434,6 +438,9 @@ message Command {
     OPTIONS_PARSE_FAILURE = 9 [(metadata) = { exit_code: 2 }];
     STARLARK_OPTIONS_PARSE_FAILURE = 10 [(metadata) = { exit_code: 2 }];
     ARGUMENTS_NOT_RECOGNIZED = 11 [(metadata) = { exit_code: 2 }];
+    NOT_IN_WORKSPACE = 12 [(metadata) = { exit_code: 2 }];
+    SPACES_IN_WORKSPACE_PATH = 13 [(metadata) = { exit_code: 36 }];
+    IN_OUTPUT_DIRECTORY = 14 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -616,6 +623,7 @@ message ActionQuery {
         [(metadata) = { exit_code: 2 }];
     INVALID_AQUERY_EXPRESSION = 6 [(metadata) = { exit_code: 1 }];
     SKYFRAME_STATE_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
+    AQUERY_OUTPUT_TOO_BIG = 8 [(metadata) = { exit_code: 7 }];
   }
 
   Code code = 1;
@@ -732,6 +740,8 @@ message RunCommand {
     COMMAND_LINE_EXPANSION_FAILURE = 10 [(metadata) = { exit_code: 36 }];
     NO_SHELL_SPECIFIED = 11 [(metadata) = { exit_code: 2 }];
     SCRIPT_WRITE_FAILURE = 12 [(metadata) = { exit_code: 6 }];
+    RUNFILES_DIRECTORIES_CREATION_FAILURE = 13 [(metadata) = { exit_code: 36 }];
+    RUNFILES_SYMLINKS_CREATION_FAILURE = 14 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -741,6 +751,18 @@ message VersionCommand {
   enum Code {
     VERSION_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     NOT_AVAILABLE = 1 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+message PrintActionCommand {
+  enum Code {
+    PRINT_ACTION_COMMAND_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    TARGET_NOT_FOUND = 1 [(metadata) = { exit_code: 1 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+    TARGET_KIND_UNSUPPORTED = 3 [(metadata) = { exit_code: 1 }];
+    ACTIONS_NOT_FOUND = 4 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

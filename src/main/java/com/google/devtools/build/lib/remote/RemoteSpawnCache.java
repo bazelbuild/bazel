@@ -126,7 +126,7 @@ final class RemoteSpawnCache implements SpawnCache {
     MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     SpawnMetrics.Builder spawnMetrics =
-        new SpawnMetrics.Builder()
+        SpawnMetrics.Builder.forRemoteExec()
             .setInputBytes(merkleTree.getInputBytes())
             .setInputFiles(merkleTree.getInputFiles());
     Digest merkleTreeRoot = merkleTree.getRootDigest();

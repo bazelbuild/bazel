@@ -52,7 +52,7 @@ public final class NativeLibraryNestedSetBuilder {
 
   /** Include native Java libraries of a specified target into the nested set. */
   public NativeLibraryNestedSetBuilder addJavaTarget(TransitiveInfoCollection dep) {
-    JavaNativeLibraryProvider javaProvider = dep.getProvider(JavaNativeLibraryProvider.class);
+    JavaNativeLibraryInfo javaProvider = dep.get(JavaNativeLibraryInfo.PROVIDER);
     if (javaProvider != null) {
       builder.addTransitive(javaProvider.getTransitiveJavaNativeLibraries());
       return this;

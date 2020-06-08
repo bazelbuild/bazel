@@ -37,7 +37,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class ExtremaPackageLoadingListenerTest {
 
-  private final ExtremaPackageLoadingListener underTest = new ExtremaPackageLoadingListener();
+  private final ExtremaPackageLoadingListener underTest =
+      ExtremaPackageLoadingListener.getInstance();
 
   @Test
   public void testRecordsTopSlowestPackagesPerBuild() {

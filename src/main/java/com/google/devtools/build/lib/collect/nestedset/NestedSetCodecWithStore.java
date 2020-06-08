@@ -152,19 +152,19 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
     @Override
     public int hashCode() {
       int childrenHashCode;
-      if (nestedSet.rawChildren() instanceof ListenableFuture
-          && ((ListenableFuture) nestedSet.rawChildren()).isDone()) {
+      if (nestedSet.children instanceof ListenableFuture
+          && ((ListenableFuture) nestedSet.children).isDone()) {
         try {
-          childrenHashCode = Futures.getDone((ListenableFuture) nestedSet.rawChildren()).hashCode();
+          childrenHashCode = Futures.getDone((ListenableFuture) nestedSet.children).hashCode();
         } catch (ExecutionException e) {
           // If the future failed, we can treat it as unequal to all non-future NestedSet instances
           // (using the hashCode of the Future object) and hide the exception until the NestedSet is
           // truly needed (i.e. unrolled). Note that NestedSetStore already attaches a listener to
           // this future that sends a bug report if it fails.
-          childrenHashCode = nestedSet.rawChildren().hashCode();
+          childrenHashCode = nestedSet.children.hashCode();
         }
       } else {
-        childrenHashCode = nestedSet.rawChildren().hashCode();
+        childrenHashCode = nestedSet.children.hashCode();
       }
 
       return 37 * nestedSet.getOrder().hashCode() + childrenHashCode;
@@ -196,21 +196,19 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       // Both sets contain Object[] or both sets contain ListenableFuture<Object[]>
       NestedSet<?> thatSet = ((EqualsWrapper) obj).nestedSet;
       if (this.nestedSet.getOrder().equals(thatSet.getOrder())
-          && this.nestedSet.rawChildren().equals(thatSet.rawChildren())) {
+          && this.nestedSet.children.equals(thatSet.children)) {
         return true;
       }
 
       // One set contains Object[], while the other contains ListenableFuture<Object[]>
-      if (this.nestedSet.rawChildren() instanceof ListenableFuture
-          && thatSet.rawChildren() instanceof Object[]) {
+      if (this.nestedSet.children instanceof ListenableFuture
+          && thatSet.children instanceof Object[]) {
         return deserializingAndMaterializedSetsAreEqual(
-            (Object[]) thatSet.rawChildren(),
-            (ListenableFuture<Object[]>) this.nestedSet.rawChildren());
-      } else if (thatSet.rawChildren() instanceof ListenableFuture
-          && this.nestedSet.rawChildren() instanceof Object[]) {
+            (Object[]) thatSet.children, (ListenableFuture<Object[]>) this.nestedSet.children);
+      } else if (thatSet.children instanceof ListenableFuture
+          && this.nestedSet.children instanceof Object[]) {
         return deserializingAndMaterializedSetsAreEqual(
-            (Object[]) this.nestedSet.rawChildren(),
-            (ListenableFuture<Object[]>) thatSet.rawChildren());
+            (Object[]) this.nestedSet.children, (ListenableFuture<Object[]>) thatSet.children);
       } else {
         return false;
       }

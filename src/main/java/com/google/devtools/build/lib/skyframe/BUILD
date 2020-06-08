@@ -27,6 +27,7 @@ java_library(
         "BazelSkyframeExecutorConstants.java",
         "BuildConfigurationFunction.java",
         "BuildInfoCollectionFunction.java",
+        "BzlLoadFunction.java",
         "CompletionFunction.java",
         "ConfiguredTargetCycleReporter.java",
         "ConfiguredTargetFunction.java",
@@ -72,7 +73,6 @@ java_library(
         "StarlarkAspectFactory.java",
         "StarlarkBuiltinsFunction.java",
         "StarlarkBuiltinsValue.java",
-        "StarlarkImportLookupFunction.java",
         "TargetCompletionValue.java",
         "TargetCompletor.java",
         "TargetPatternFunction.java",
@@ -127,8 +127,9 @@ java_library(
         ":blacklisted_package_prefixes_value",
         ":build_configuration_value",
         ":build_info_collection_value",
-        ":cached_starlark_import_lookup_value_and_deps",
-        ":cached_starlark_import_lookup_value_and_deps_builder_factory",
+        ":bzl_load_value",
+        ":cached_bzl_load_value_and_deps",
+        ":cached_bzl_load_value_and_deps_builder_factory",
         ":client_environment_function",
         ":client_environment_value",
         ":collect_packages_under_directory_function",
@@ -198,7 +199,6 @@ java_library(
         ":skyframe_incremental_build_monitor",
         ":skylark_module_cycle_reporter",
         ":starlark_file_dependency",
-        ":starlark_import_lookup_value",
         ":state_informing_sky_function_environment",
         ":target_pattern_error_function",
         ":target_pattern_phase_value",
@@ -254,6 +254,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:duplicate_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
@@ -765,6 +766,8 @@ java_library(
         ":artifact_nested_set_key",
         ":artifact_nested_set_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
@@ -942,10 +945,10 @@ java_library(
 )
 
 java_library(
-    name = "cached_starlark_import_lookup_value_and_deps",
-    srcs = ["CachedStarlarkImportLookupValueAndDeps.java"],
+    name = "cached_bzl_load_value_and_deps",
+    srcs = ["CachedBzlLoadData.java"],
     deps = [
-        ":starlark_import_lookup_value",
+        ":bzl_load_value",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -953,10 +956,10 @@ java_library(
 )
 
 java_library(
-    name = "cached_starlark_import_lookup_value_and_deps_builder_factory",
-    srcs = ["CachedStarlarkImportLookupValueAndDepsBuilderFactory.java"],
+    name = "cached_bzl_load_value_and_deps_builder_factory",
+    srcs = ["CachedBzlLoadDataBuilderFactory.java"],
     deps = [
-        ":cached_starlark_import_lookup_value_and_deps",
+        ":cached_bzl_load_value_and_deps",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//third_party:guava",
     ],
@@ -1120,6 +1123,7 @@ java_library(
     deps = [
         ":build_configuration_value",
         ":sky_functions",
+        ":toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
@@ -2268,9 +2272,9 @@ java_library(
     srcs = ["StarlarkModuleCycleReporter.java"],
     deps = [
         ":abstract_label_cycle_reporter",
+        ":bzl_load_value",
         ":repository_value",
         ":sky_functions",
-        ":starlark_import_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -2292,8 +2296,8 @@ java_library(
 )
 
 java_library(
-    name = "starlark_import_lookup_value",
-    srcs = ["StarlarkImportLookupValue.java"],
+    name = "bzl_load_value",
+    srcs = ["BzlLoadValue.java"],
     deps = [
         ":sky_functions",
         ":starlark_file_dependency",
@@ -2631,6 +2635,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",

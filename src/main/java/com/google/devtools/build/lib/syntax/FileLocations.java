@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.collect.Interner;
-import com.google.common.collect.Interners;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Arrays;
 import java.util.Objects;
 import javax.annotation.concurrent.Immutable;
@@ -25,11 +22,8 @@ import javax.annotation.concurrent.Immutable;
  * FileLocations maps each source offset within a file to a Location. An offset is a (UTF-16) char
  * index such that {@code 0 <= offset <= size}. A Location is a (file, line, column) triple.
  */
-@AutoCodec
 @Immutable
 final class FileLocations {
-
-  private static final Interner<FileLocations> INTERNER = Interners.newWeakInterner();
 
   private final int[] linestart; // maps line number (line >= 1) to char offset
   private final String file;
@@ -39,11 +33,6 @@ final class FileLocations {
     this.linestart = linestart;
     this.file = file;
     this.size = size;
-  }
-
-  @AutoCodec.Instantiator
-  static FileLocations createForSerialization(int[] linestart, String file, int size) {
-    return INTERNER.intern(new FileLocations(linestart, file, size));
   }
 
   static FileLocations create(char[] buffer, String file) {

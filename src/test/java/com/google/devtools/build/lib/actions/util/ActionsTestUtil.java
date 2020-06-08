@@ -53,14 +53,12 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissDetail;
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil.FakeMetadataHandlerBase;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
@@ -971,18 +969,19 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void injectDigest(Artifact output, FileStatus statNoFollow, byte[] digest) {
+    public FileArtifactValue constructMetadataForDigest(
+        Artifact output, FileStatus statNoFollow, byte[] digest) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public void injectRemoteFile(Artifact output, RemoteFileArtifactValue metadata) {
+    public void injectFile(Artifact output, FileArtifactValue metadata) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public void injectRemoteDirectory(
-        SpecialArtifact treeArtifact, Map<TreeFileArtifact, RemoteFileArtifactValue> children) {
+    public void injectDirectory(
+        SpecialArtifact treeArtifact, Map<TreeFileArtifact, FileArtifactValue> children) {
       throw new UnsupportedOperationException();
     }
 

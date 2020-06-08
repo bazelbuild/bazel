@@ -666,7 +666,8 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   /**
    * Deletes the file denoted by this path, not following symbolic links. Returns normally iff the
    * file doesn't exist after the call: true if this call deleted the file, false if the file
-   * already didn't exist. Throws an exception if the file could not be deleted for any reason.
+   * already didn't exist. Throws an exception if the file could not be deleted but was present
+   * prior to this call.
    *
    * @return true iff the file was actually deleted by this call
    * @throws IOException if the deletion failed but the file was present prior to the call

@@ -69,9 +69,15 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
   @Test
   public void testPlatformLookup() throws Exception {
     ConfiguredTargetKey linuxKey =
-        ConfiguredTargetKey.of(makeLabel("//platforms:linux"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//platforms:linux"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     ConfiguredTargetKey macKey =
-        ConfiguredTargetKey.of(makeLabel("//platforms:mac"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//platforms:mac"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(linuxKey, macKey));
 
     EvaluationResult<GetPlatformInfoValue> result = getPlatformInfo(key);
@@ -90,7 +96,10 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
 
     ConfiguredTargetKey targetKey =
-        ConfiguredTargetKey.of(makeLabel("//invalid:not_a_platform"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//invalid:not_a_platform"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(targetKey));
 
     EvaluationResult<GetPlatformInfoValue> result = getPlatformInfo(key);
@@ -110,7 +119,10 @@ public class PlatformLookupUtilTest extends ToolchainTestCase {
   @Test
   public void testPlatformLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
-        ConfiguredTargetKey.of(makeLabel("//fake:missing"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//fake:missing"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetPlatformInfoKey key = GetPlatformInfoKey.create(ImmutableList.of(targetKey));
 
     EvaluationResult<GetPlatformInfoValue> result = getPlatformInfo(key);

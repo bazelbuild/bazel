@@ -37,9 +37,7 @@ public class ToggledKwargsParam implements StarlarkValue {
       },
       extraPositionals = @Param(name = "args"),
       extraKeywords =
-          @Param(
-              name = "kwargs",
-              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API),
+          @Param(name = "kwargs", enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS),
       useStarlarkThread = true)
   public String toggledKwargsMethod(
       String one, Integer two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {

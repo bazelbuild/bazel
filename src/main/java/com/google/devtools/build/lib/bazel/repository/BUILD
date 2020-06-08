@@ -9,7 +9,7 @@ filegroup(
     srcs = glob(["*"]) + [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/cache:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/skylark:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )

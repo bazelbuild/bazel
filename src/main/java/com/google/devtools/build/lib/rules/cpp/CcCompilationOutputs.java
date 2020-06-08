@@ -20,13 +20,10 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationOutputsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -101,19 +98,6 @@ public class CcCompilationOutputs implements CcCompilationOutputsApi<Artifact> {
    */
   public ImmutableList<Artifact> getObjectFiles(boolean usePic) {
     return usePic ? picObjectFiles : objectFiles;
-  }
-
-  @Override
-  public Sequence<Artifact> getStarlarkObjectFiles(boolean usePic, StarlarkThread thread)
-      throws EvalException {
-    CcCommon.checkLocationWhitelisted(
-        thread.getSemantics(),
-        thread.getCallerLocation(),
-        ((BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-            .label()
-            .getPackageIdentifier()
-            .toString());
-    return StarlarkList.immutableCopyOf(getObjectFiles(usePic));
   }
 
   @Override

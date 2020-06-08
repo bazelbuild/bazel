@@ -23,6 +23,12 @@ config_setting(
 )
 
 config_setting(
+    name = "linux_ppc64le",
+    values = {"cpu": "ppc"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
     name = "linux_s390x",
     values = {"cpu": "s390x"},
     visibility = ["//visibility:public"],

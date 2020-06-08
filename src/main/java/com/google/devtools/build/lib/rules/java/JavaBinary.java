@@ -609,7 +609,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Runfiles runfiles =
             defaultLauncher.getProvider(RunfilesProvider.class).getDefaultRunfiles();
         NestedSetBuilder<Artifact> unconditionalArtifacts = NestedSetBuilder.compileOrder();
-        for (Artifact a : runfiles.getUnconditionalArtifacts().toList()) {
+        for (Artifact a : runfiles.getArtifacts().toList()) {
           if (!a.equals(defaultLauncherArtifact)) {
             unconditionalArtifacts.add(a);
           }
@@ -617,7 +617,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         builder.addTransitiveArtifacts(unconditionalArtifacts.build());
         builder.addSymlinks(runfiles.getSymlinks());
         builder.addRootSymlinks(runfiles.getRootSymlinks());
-        builder.addPruningManifests(runfiles.getPruningManifests());
       } else {
         builder.addTarget(defaultLauncher, RunfilesProvider.DEFAULT_RUNFILES);
       }

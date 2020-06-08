@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
@@ -548,6 +549,20 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         String starlarkName = "_" + nativeName.substring(1);
         throw new EvalException(
             null, String.format("Aspect attribute '%s' has no default value.", starlarkName));
+      }
+      if (attribute.getDefaultValueUnchecked() instanceof StarlarkComputedDefaultTemplate) {
+        // Attributes specifying dependencies using computed value are currently not supported.
+        // The limitation is in place because:
+        //  - blaze query requires that all possible values are knowable without BuildConguration
+        //  - aspects can attach to any rule
+        // Current logic in StarlarkComputedDefault is not enough,
+        // however {Conservative,Precise}AspectResolver can probably be improved to make that work.
+        String starlarkName = "_" + nativeName.substring(1);
+        throw new EvalException(
+            null,
+            String.format(
+                "Aspect attribute '%s' (%s) with computed default value is unsupported.",
+                starlarkName, attribute.getType()));
       }
       attributes.add(attribute);
     }

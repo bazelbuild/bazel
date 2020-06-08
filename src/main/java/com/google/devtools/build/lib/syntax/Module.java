@@ -16,13 +16,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -261,58 +254,5 @@ public final class Module implements Resolver.Module {
   @Override
   public String toString() {
     return String.format("<module %s>", clientData == null ? "?" : clientData);
-  }
-
-  static final class ModuleCodec implements ObjectCodec<Module> {
-    @Override
-    public Class<Module> getEncodedClass() {
-      return Module.class;
-    }
-
-    @Override
-    public MemoizationStrategy getStrategy() {
-      return MemoizationStrategy.MEMOIZE_BEFORE;
-    }
-
-    @Override
-    public void serialize(SerializationContext context, Module module, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.serialize(module.predeclared, codedOut);
-      context.serialize(module.globals, codedOut);
-      context.serialize(module.exportedGlobals, codedOut);
-      context.serialize(module.clientData, codedOut);
-    }
-
-    @Override
-    public Module deserialize(DeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      // Modules and their globals form cycles in the object graph,
-      // so we must register the empty Module object before reading
-      // and populating its elements.
-      //
-      // The MEMOIZE_BEFORE machinery seems to require that registerInitialValue
-      // be called even before we deserialize the predeclared map, even though it
-      // is not cyclic. This seems like a bug.
-      //
-      // [brandjon notes: "I'll bet it's because Deserializer#tagForMemoizedBefore is getting
-      // clobbered by any deserialization that occurs between the beginning of this function call
-      // and the registerInitialValue call. This bit of extra statefulness is probably to avoid
-      // threading it through the serialization signature, given that it's not used in all
-      // codepaths."]
-      Module module = create();
-      context.registerInitialValue(module);
-
-      ImmutableMap<String, Object> predeclared = context.deserialize(codedIn);
-      Map<String, Object> globals = context.deserialize(codedIn);
-      Set<String> exportedGlobals = context.deserialize(codedIn);
-      Object clientData = context.deserialize(codedIn);
-
-      module.predeclared = predeclared;
-      module.globals.putAll(globals);
-      module.exportedGlobals.addAll(exportedGlobals);
-      module.setClientData(clientData);
-
-      return module;
-    }
   }
 }

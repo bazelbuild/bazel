@@ -91,7 +91,22 @@ function test_java_8_android_binary() {
   create_new_workspace
   setup_android_sdk_support
   create_java_8_android_binary
-  bazel build -s --experimental_desugar_for_android //java/bazel:bin \
+
+  # Test desugar in sandboxed mode, or fallback to standalone for Windows.
+  bazel build \
+   --strategy=Desugar=sandboxed \
+   --desugar_for_android //java/bazel:bin \
+      || fail "build failed"
+}
+
+function test_java_8_android_binary_worker_strategy() {
+  create_new_workspace
+  setup_android_sdk_support
+  create_java_8_android_binary
+
+  bazel build \
+   --strategy=Desugar=worker \
+   --desugar_for_android //java/bazel:bin \
       || fail "build failed"
 }
 

@@ -462,7 +462,10 @@ public class BuildViewForTesting {
         new CachingAnalysisEnvironment(
             getArtifactFactory(),
             skyframeExecutor.getActionKeyContext(),
-            ConfiguredTargetKey.of(target.getLabel(), targetConfig),
+            ConfiguredTargetKey.builder()
+                .setLabel(target.getLabel())
+                .setConfiguration(targetConfig)
+                .build(),
             /*isSystemEnv=*/ false,
             targetConfig.extendedSanityChecks(),
             targetConfig.allowAnalysisFailures(),
@@ -524,7 +527,7 @@ public class BuildViewForTesting {
             toolchainContextKeys.values(), ToolchainException.class);
 
     ToolchainCollection.Builder<UnloadedToolchainContext> unloadedToolchainContexts =
-        new ToolchainCollection.Builder<>();
+        ToolchainCollection.builder();
     for (Map.Entry<String, ToolchainContextKey> unloadedToolchainContextKey :
         toolchainContextKeys.entrySet()) {
       UnloadedToolchainContext unloadedToolchainContext =
@@ -549,7 +552,7 @@ public class BuildViewForTesting {
     String targetDescription = target.toString();
 
     ToolchainCollection.Builder<ResolvedToolchainContext> resolvedToolchainContext =
-        new ToolchainCollection.Builder<>();
+        ToolchainCollection.builder();
     for (Map.Entry<String, UnloadedToolchainContext> unloadedToolchainContext :
         unloadedToolchainCollection.getContextMap().entrySet()) {
       ResolvedToolchainContext toolchainContext =
@@ -569,7 +572,10 @@ public class BuildViewForTesting {
             configurations.getHostConfiguration(),
             ruleClassProvider.getPrerequisiteValidator(),
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy(),
-            ConfiguredTargetKey.inTargetConfig(configuredTarget))
+            ConfiguredTargetKey.builder()
+                .setConfiguredTarget(configuredTarget)
+                .setConfigurationKey(configuredTarget.getConfigurationKey())
+                .build())
         .setVisibility(
             NestedSetBuilder.create(
                 Order.STABLE_ORDER,

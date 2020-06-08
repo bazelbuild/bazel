@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.ToolchainContextSubject.assertThat;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.collect.ImmutableList;
@@ -78,18 +79,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     UnloadedToolchainContext unloadedToolchainContext = result.get(key);
     assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(unloadedToolchainContext.requiredToolchainTypes())
-        .containsExactly(testToolchainType);
-    assertThat(unloadedToolchainContext.resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//extra:extra_toolchain_mac_impl"));
-
-    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.executionPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:mac"));
-
-    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.targetPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_mac_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
   @Test
@@ -122,18 +115,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     UnloadedToolchainContext unloadedToolchainContext = result.get(key);
     assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(unloadedToolchainContext.requiredToolchainTypes())
-        .containsExactly(testToolchainType);
-    assertThat(unloadedToolchainContext.resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"));
-
-    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.executionPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
-
-    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.targetPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
   @Test
@@ -151,11 +136,9 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(unloadedToolchainContext).isNotNull();
 
     assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
-
     // Even with no toolchains requested, should still select the first execution platform.
-    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.executionPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:mac"));
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:mac");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
   @Test
@@ -190,14 +173,8 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     assertThat(unloadedToolchainContext).isNotNull();
 
     assertThat(unloadedToolchainContext.requiredToolchainTypes()).isEmpty();
-
-    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.executionPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//sample:sample_b"));
-
-    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.targetPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//sample:sample_b");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
   @Test
@@ -378,18 +355,10 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
     UnloadedToolchainContext unloadedToolchainContext = result.get(key);
     assertThat(unloadedToolchainContext).isNotNull();
 
-    assertThat(unloadedToolchainContext.requiredToolchainTypes())
-        .containsExactly(testToolchainType);
-    assertThat(unloadedToolchainContext.resolvedToolchainLabels())
-        .containsExactly(Label.parseAbsoluteUnchecked("//extra:extra_toolchain_linux_impl"));
-
-    assertThat(unloadedToolchainContext.executionPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.executionPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
-
-    assertThat(unloadedToolchainContext.targetPlatform()).isNotNull();
-    assertThat(unloadedToolchainContext.targetPlatform().label())
-        .isEqualTo(Label.parseAbsoluteUnchecked("//platforms:linux"));
+    assertThat(unloadedToolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(unloadedToolchainContext).hasResolvedToolchain("//extra:extra_toolchain_linux_impl");
+    assertThat(unloadedToolchainContext).hasExecutionPlatform("//platforms:linux");
+    assertThat(unloadedToolchainContext).hasTargetPlatform("//platforms:linux");
   }
 
   @Test

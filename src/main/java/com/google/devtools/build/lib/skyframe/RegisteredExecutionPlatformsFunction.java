@@ -129,7 +129,12 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     ImmutableList<ConfiguredTargetKey> keys =
         labels.stream()
-            .map(label -> ConfiguredTargetKey.of(label, configuration))
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
             .collect(toImmutableList());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =

@@ -58,12 +58,20 @@ public final class ProcessWrapper {
   public static ProcessWrapper fromCommandEnvironment(CommandEnvironment cmdEnv) {
     LocalExecutionOptions options = cmdEnv.getOptions().getOptions(LocalExecutionOptions.class);
     Duration killDelay = options == null ? null : options.getLocalSigkillGraceSeconds();
-    List<String> extraFlags =
-        options == null ? ImmutableList.of() : options.processWrapperExtraFlags;
+
+    ImmutableList.Builder<String> extraFlags = ImmutableList.builder();
+    if (options != null) {
+      if (options.processWrapperGracefulSigterm) {
+        extraFlags.add("--graceful_sigterm");
+      }
+      if (options.processWrapperWaitFix) {
+        extraFlags.add("--wait_fix");
+      }
+    }
 
     Path path = cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(BIN_BASENAME);
     if (OS.isPosixCompatible() && path != null && path.exists()) {
-      return new ProcessWrapper(path, killDelay, extraFlags);
+      return new ProcessWrapper(path, killDelay, extraFlags.build());
     } else {
       return null;
     }

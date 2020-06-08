@@ -37,10 +37,33 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
- * A list-like iterable that supports efficient nesting.
+ * A NestedSet is an immutable ordered set of element values of type {@code E}. Elements must not be
+ * arrays.
+ *
+ * <p>Conceptually, NestedSet values form a directed acyclic graph (DAG). Each leaf node represents
+ * a set containing a single element; there is also a distinguished leaf node representing the empty
+ * set. Each non-leaf node represents the union of the sets represented by its successors.
+ *
+ * <p>A NestedSet value represents a node in this graph. The elements of a NestedSet may be
+ * enumerated by traversing the complete DAG, eliminating duplicates using an ephemeral hash table.
+ * The {@link #toList} and {@link #toSet} methods provide the result of this traversal as a list or
+ * a set, respectively. These operations, which are relatively expensive, are known as "flattening".
+ * Computing the size of the set requires flattening.
+ *
+ * <p>By contrast, construction of a new set as a union of existing sets is relatively cheap. The
+ * constructor accepts a list of "direct" elements and list of "transitive" nodes. The resulting
+ * NestedSet refers to a new graph node representing their union. The relative order of direct and
+ * transitive successors is governed by the Order parameter. Duplicates among the "direct" elements
+ * are eliminated at construction, again with an ephemeral hash table. If after duplicate
+ * elimination the new node would have exactly one successor, whether "direct" or "transitive", the
+ * resulting NestedSet reuses the existing node for the sole successor.
+ *
+ * <p>The implementation has been highly optimized as it is crucial to Blaze's performance.
  *
  * @see NestedSetBuilder
  */
@@ -56,7 +79,20 @@ public final class NestedSet<E> {
    */
   private int orderAndSize;
 
-  private final Object children;
+  // children contains the "direct" elements and "transitive" nested sets.
+  // Direct elements are never arrays.
+  // Transitive elements may be arrays, but singletons are replaced by their sole element
+  // (thus transitive arrays always contain at least two logical elements).
+  // The relative order of direct and transitive is determined by the Order.
+  // All empty sets have children==EMPTY_CHILDREN, not null.
+  //
+  // Please be careful to use the terms of the conceptual model in the API documentation,
+  // and the terms of the physical representation in internal comments. They are not the same.
+  //
+  // TODO(adonovan): rename this field and related accessors to something less suggestive,
+  // such as 'state' or 'repr' or 'node'.  The public API no longer mentions "children".
+  final Object children;
+
   @Nullable private byte[] memo;
 
   /**
@@ -171,7 +207,10 @@ public final class NestedSet<E> {
 
   private NestedSet(Order order, Object children, @Nullable byte[] memo) {
     this.orderAndSize = order.ordinal();
-    this.children = children;
+    this.children =
+        children instanceof Object[] && ((Object[]) children).length == 0
+            ? EMPTY_CHILDREN
+            : children;
     this.memo = memo;
   }
 
@@ -202,8 +241,7 @@ public final class NestedSet<E> {
 
   /**
    * Returns the internal item or array. If the internal item is a deserialization future, blocks on
-   * completion. For external use only by NestedSetVisitor and NestedSetView. Those two classes also
-   * have knowledge of the internal implementation of NestedSet.
+   * completion. For use only by NestedSetVisitor.
    */
   Object getChildren() {
     return getChildrenUninterruptibly();
@@ -259,18 +297,34 @@ public final class NestedSet<E> {
   }
 
   /**
-   * Public version of {@link #getChildren}.
+   * forEachElement applies function {@code f} to each element of the NestedSet.
    *
-   * <p>Strongly prefer {@link NestedSetVisitor}. Internal representation subject to change without
-   * notice.
+   * <p>The {@code descend} function is called for each node in the DAG, and if it returns false,
+   * the traversal is pruned and does not descend into that node; if the node was a leaf, {@code f}
+   * is not called.
+   *
+   * <p>Clients must treat the {@code descend} function's argument as an opaque reference: only
+   * {@link System#identityHashCode} and {@code ==} should be applied to it.
    */
-  public Object getChildrenUnsafe() {
-    return getChildren();
+  // TODO(b/157992832): this function is an encapsulation-breaking hack for the function named in
+  // the bug report. Eliminate it, and make it use NestedSetVisitor instead.
+  public void forEachElement(Predicate<Object> descend, Consumer<E> f) {
+    forEachElementImpl(descend, f, getChildren());
   }
 
-  /** Returns the internal item, array, or future. */
-  Object rawChildren() {
-    return children;
+  private static <E> void forEachElementImpl(
+      Predicate<Object> descend, Consumer<E> f, Object node) {
+    if (descend.test(node)) {
+      if (node instanceof Object[]) {
+        for (Object child : (Object[]) node) {
+          forEachElementImpl(descend, f, child);
+        }
+      } else {
+        @SuppressWarnings("unchecked")
+        E elem = (E) node;
+        f.accept(elem);
+      }
+    }
   }
 
   /** Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set). */
@@ -412,11 +466,11 @@ public final class NestedSet<E> {
 
     return other != null
         && getOrder() == other.getOrder()
-        && (rawChildren().equals(other.rawChildren())
+        && (children.equals(other.children)
             || (!isSingleton()
                 && !other.isSingleton()
-                && rawChildren() instanceof Object[]
-                && other.rawChildren() instanceof Object[]
+                && children instanceof Object[]
+                && other.children instanceof Object[]
                 && Arrays.equals((Object[]) children, (Object[]) other.children)));
   }
 
@@ -439,39 +493,19 @@ public final class NestedSet<E> {
 
   @Override
   public String toString() {
-    String specialCase = specialCaseChildrenToString(children);
-    return specialCase != null ? specialCase : nestedSetToString(this);
-  }
-
-  /** Returned string iterates over {@code children} in {@link Order#STABLE_ORDER}. */
-  public static String childrenToString(Object children) {
-    String specialCase = specialCaseChildrenToString(children);
-    return specialCase != null
-        ? specialCase
-        : nestedSetToString(new NestedSet<>(Order.STABLE_ORDER, children, null));
-  }
-
-  @Nullable
-  private static String specialCaseChildrenToString(Object children) {
     if (isSingleton(children)) {
       return "[" + children + "]";
     }
-    if (children instanceof Future) {
-      if (!((Future<Object[]>) children).isDone()) {
-        return "Deserializing NestedSet with future: " + children;
-      }
+    if (children instanceof Future && !((Future<Object[]>) children).isDone()) {
+      return "Deserializing NestedSet with future: " + children;
     }
-    return null;
-  }
-
-  private static String nestedSetToString(NestedSet<?> nestedSet) {
-    ImmutableList<?> expandedList = nestedSet.toList();
-    if (expandedList.size() <= MAX_ELEMENTS_TO_STRING) {
-      return expandedList.toString();
+    ImmutableList<?> elems = toList();
+    if (elems.size() <= MAX_ELEMENTS_TO_STRING) {
+      return elems.toString();
     }
-    return expandedList.subList(0, MAX_ELEMENTS_TO_STRING)
+    return elems.subList(0, MAX_ELEMENTS_TO_STRING)
         + " (truncated, full size "
-        + expandedList.size()
+        + elems.size()
         + ")";
   }
 
@@ -639,6 +673,110 @@ public final class NestedSet<E> {
     /** Returns the depth limit that was exceeded which resulted in this exception being thrown. */
     public int getDepthLimit() {
       return depthLimit;
+    }
+  }
+
+  /**
+   * Returns a new NestedSet containing the same elements, but represented using a logical graph
+   * with the specified maximum out-degree, which must be at least 2. The resulting set's iteration
+   * order is undefined.
+   */
+  public NestedSet<E> splitIfExceedsMaximumSize(int maximumSize) {
+    Preconditions.checkArgument(maximumSize >= 2, "maximumSize must be at least 2");
+    Object children = getChildren(); // may wait for a future
+    if (!(children instanceof Object[])) {
+      return this;
+    }
+    Object[] arr = (Object[]) children;
+    int size = arr.length;
+    if (size <= maximumSize) {
+      return this;
+    }
+    Object[][] pieces = new Object[((size + maximumSize - 1) / maximumSize)][];
+    for (int i = 0; i < pieces.length; i++) {
+      int max = Math.min((i + 1) * maximumSize, arr.length);
+      pieces[i] = Arrays.copyOfRange(arr, i * maximumSize, max);
+    }
+
+    // TODO(adonovan): why is this recursive call here? It looks like it is intended to propagate
+    // the split down to each subgraph, but it clearly never did that, because it would have to be
+    // applied to each element of pieces[i]. More surprising is that it does anything at all: pieces
+    // has already been split. Yet a test breaks if it is removed. Investigate and simplify.
+    return new NestedSet<E>(getOrder(), pieces, null).splitIfExceedsMaximumSize(maximumSize);
+  }
+
+  /** Returns the list of this node's successors that are themselves non-leaf nodes. */
+  public ImmutableList<NestedSet<E>> getNonLeaves() {
+    Object children = getChildren(); // may wait for a future
+    if (!(children instanceof Object[])) {
+      return ImmutableList.of();
+    }
+    ImmutableList.Builder<NestedSet<E>> res = ImmutableList.builder();
+    for (Object c : (Object[]) children) {
+      if (c instanceof Object[]) {
+        res.add(new NestedSet<>(getOrder(), c, null));
+      }
+    }
+    return res.build();
+  }
+
+  /**
+   * Returns the list of elements (leaf nodes) of this set that are reached by following at most one
+   * graph edge.
+   */
+  @SuppressWarnings("unchecked")
+  public ImmutableList<E> getLeaves() {
+    Object children = getChildren(); // may wait for a future
+    if (!(children instanceof Object[])) {
+      return ImmutableList.of((E) children);
+    }
+    ImmutableList.Builder<E> res = ImmutableList.builder();
+    for (Object c : (Object[]) children) {
+      if (!(c instanceof Object[])) {
+        res.add((E) c);
+      }
+    }
+    return res.build();
+  }
+
+  /**
+   * Returns a Node, an opaque reference to the logical node of the DAG that this NestedSet
+   * represents.
+   */
+  public Node toNode() {
+    return new Node(children);
+  }
+
+  /**
+   * A Node is an opaque reference to a logical node of the NestedSet DAG.
+   *
+   * <p>The only operation it supports is {@link Object#equals}. Branch nodes are equal if and only
+   * if they refer to the same logical graph node. Leaf nodes are equal if they refer to equal
+   * elements. Two distinct NestedSets may have equal elements.
+   *
+   * <p>Node is provided so that clients can implement their own traversals and detect when they
+   * have encountered a subgraph already visited.
+   */
+  public static class Node {
+    private final Object children;
+
+    private Node(Object children) {
+      this.children = children;
+    }
+
+    @Override
+    public int hashCode() {
+      return children.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object that) {
+      return that instanceof Node && this.children.equals(((Node) that).children);
+    }
+
+    @Override
+    public String toString() {
+      return "NestedSet.Node@" + hashCode(); // intentionally opaque
     }
   }
 }

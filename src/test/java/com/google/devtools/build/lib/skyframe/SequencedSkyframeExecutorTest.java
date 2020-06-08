@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEventRegex;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNotContainsEventRegex;
-import static com.google.devtools.build.lib.util.subjects.DetailedExitCodeSubjectFactory.assertThatDetailedExitCode;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -105,6 +104,10 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
@@ -119,7 +122,6 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -167,6 +169,18 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link SequencedSkyframeExecutor}. */
 @RunWith(JUnit4.class)
 public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
+
+  private static final DetailedExitCode USER_DETAILED_EXIT_CODE =
+      DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+              .build());
+  private static final DetailedExitCode INFRA_DETAILED_EXIT_CODE =
+      DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_UNKNOWN))
+              .build());
+
   private TransitivePackageLoader visitor;
   private OptionsParser options;
 
@@ -517,8 +531,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             getDerivedArtifact(
                 PathFragment.create("conflict/_objs/x/foo.o"),
                 root,
-                ConfiguredTargetKey.of(
-                    conflict.getConfiguredTarget(), conflict.getConfiguration())));
+                ConfiguredTargetKey.builder()
+                    .setConfiguredTarget(conflict.getConfiguredTarget())
+                    .setConfiguration(conflict.getConfiguration())
+                    .build()));
     assertThat(oldAction.getOwner().getLabel().toString()).isEqualTo("//conflict:x");
     skyframeExecutor.handleAnalysisInvalidatingChange();
     ConfiguredTargetAndData objsConflict =
@@ -532,8 +548,10 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             getDerivedArtifact(
                 PathFragment.create("conflict/_objs/x/foo.o"),
                 root,
-                ConfiguredTargetKey.of(
-                    objsConflict.getConfiguredTarget(), objsConflict.getConfiguration())));
+                ConfiguredTargetKey.builder()
+                    .setConfiguredTarget(objsConflict.getConfiguredTarget())
+                    .setConfiguration(objsConflict.getConfiguration())
+                    .build()));
     assertThat(newAction.getOwner().getLabel().toString()).isEqualTo("//conflict:_objs/x/foo.o");
   }
 
@@ -619,7 +637,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         public void noteActionEvaluationStarted(ActionLookupData actionLookupData, Action action) {}
       };
 
-  private EvaluationResult<FileArtifactValue> evaluate(Iterable<? extends SkyKey> roots)
+  private <T extends SkyValue> EvaluationResult<T> evaluate(Iterable<? extends SkyKey> roots)
       throws InterruptedException {
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -1001,7 +1019,13 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
     skyframeExecutor.prepareBuildingForTestingOnly(
         reporter, new DummyExecutor(fileSystem, rootDirectory), options, NULL_CHECKER, null);
-    evaluate(ImmutableList.of(output1, output2));
+
+    EvaluationResult<TreeArtifactValue> result = evaluate(ImmutableList.of(output1, output2));
+
+    TreeFileArtifact tree1Child = Iterables.getOnlyElement(result.get(output1).getChildren());
+    TreeFileArtifact tree2Child = Iterables.getOnlyElement(result.get(output2).getChildren());
+    assertThat(tree1Child).isEqualTo(TreeFileArtifact.createTreeOutput(output1, "child"));
+    assertThat(tree2Child).isEqualTo(TreeFileArtifact.createTreeOutput(output2, "child"));
   }
 
   /** Dummy action that creates a tree output. */
@@ -1443,7 +1467,11 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
 
   /** Dummy action that throws a catastrophic error when it runs. */
   private static class CatastrophicAction extends DummyAction {
-    public static final ExitCode expectedExitCode = ExitCode.RESERVED;
+    public static final DetailedExitCode expectedDetailedExitCode =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_UNKNOWN))
+                .build());
 
     CatastrophicAction(Artifact output) {
       super(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, MiddlemanType.NORMAL);
@@ -1457,7 +1485,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
           new Exception("just cause"),
           this,
           /*catastrophe=*/ true,
-          DetailedExitCode.justExitCode(expectedExitCode));
+          expectedDetailedExitCode);
     }
   }
 
@@ -1555,8 +1583,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThatDetailedExitCode(e.getDetailedExitCode())
-        .hasExitCode(CatastrophicAction.expectedExitCode);
+    assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
     assertThat(builtTargets).isEmpty();
     assertThat(markerRan.get()).isFalse();
   }
@@ -1614,7 +1641,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Artifact failureArtifact =
         new Artifact.DerivedArtifact(
             ArtifactRoot.asDerivedRoot(root, "out"), execPath.getRelative("fail"), failureCTK);
-    Action failureAction = new FailedExecAction(failureArtifact, ExitCode.RESERVED);
+    Action failureAction = new FailedExecAction(failureArtifact, USER_DETAILED_EXIT_CODE);
     ConfiguredTargetValue failureCTV = createConfiguredTargetValue(failureAction, failureCTK);
     ActionLookupValue.ActionLookupKey topCTK = new InjectedActionLookupKey("top");
     Artifact topArtifact =
@@ -1686,8 +1713,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThatDetailedExitCode(e.getDetailedExitCode())
-        .hasExitCode(CatastrophicAction.expectedExitCode);
+    assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
@@ -1732,7 +1758,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
               execPath.getRelative(failString),
               configuredTargetKey);
       failedArtifacts.add(failureArtifact);
-      failedActions.add(new FailedExecAction(failureArtifact, ExitCode.BUILD_FAILURE));
+      failedActions.add(new FailedExecAction(failureArtifact, USER_DETAILED_EXIT_CODE));
     }
     NonRuleConfiguredTargetValue nonRuleConfiguredTargetValue =
         new NonRuleConfiguredTargetValue(
@@ -1814,12 +1840,12 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     new TopLevelArtifactContext(
                         /*runTestsExclusively=*/ false,
                         false,
+                        false,
                         OutputGroupInfo.determineOutputGroups(ImmutableList.of(), true)),
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThatDetailedExitCode(e.getDetailedExitCode())
-        .hasExitCode(CatastrophicAction.expectedExitCode);
+    assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
@@ -1925,35 +1951,26 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The catastrophic exception should be propagated into the BuildFailedException whether or not
     // --keep_going is set.
-    assertThatDetailedExitCode(e.getDetailedExitCode())
-        .hasExitCode(CatastrophicAction.expectedExitCode);
+    assertThat(e.getDetailedExitCode()).isEqualTo(CatastrophicAction.expectedDetailedExitCode);
     assertThat(builtTargets).isEmpty();
   }
 
   /** Dummy action that throws a ActionExecution error when it runs. */
   private static class FailedExecAction extends DummyAction {
-    private final ExitCode exitCode;
+    private final DetailedExitCode detailedExitCode;
 
-    FailedExecAction(Artifact output, ExitCode exitCode) {
+    FailedExecAction(Artifact output, DetailedExitCode detailedExitCode) {
       super(NestedSetBuilder.emptySet(Order.STABLE_ORDER), output, MiddlemanType.NORMAL);
-      this.exitCode = exitCode;
+      this.detailedExitCode = detailedExitCode;
     }
 
     @Override
     public ActionResult execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       throw new ActionExecutionException(
-          "foo",
-          new Exception("bar"),
-          this,
-          /*catastrophe=*/ false,
-          DetailedExitCode.justExitCode(exitCode));
+          "foo", new Exception("bar"), this, /*catastrophe=*/ false, detailedExitCode);
     }
   }
-
-  private static final ExitCode USER_EXIT_CODE = ExitCode.create(Integer.MAX_VALUE, "user_error");
-  private static final ExitCode INFRA_EXIT_CODE =
-      ExitCode.createInfrastructureFailure(Integer.MAX_VALUE - 1, "infra_error");
 
   /**
    * Verify SkyframeBuilder returns correct user error code as global error code when:
@@ -1984,7 +2001,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), succeededOutput);
     ConfiguredTargetValue succeededTarget =
         createConfiguredTargetValue(succeededAction, succeededKey);
-    Action failedAction = new FailedExecAction(failedOutput, USER_EXIT_CODE);
+    Action failedAction = new FailedExecAction(failedOutput, USER_DETAILED_EXIT_CODE);
     ConfiguredTargetValue failedTarget = createConfiguredTargetValue(failedAction, failedKey);
 
     // Inject the targets into the graph,
@@ -2037,7 +2054,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
-    assertThatDetailedExitCode(e.getDetailedExitCode()).hasExitCode(USER_EXIT_CODE);
+    assertThat(e.getDetailedExitCode()).isEqualTo(USER_DETAILED_EXIT_CODE);
   }
 
   /**
@@ -2075,9 +2092,9 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         new DummyAction(NestedSetBuilder.emptySet(Order.STABLE_ORDER), succeededOutput);
     ConfiguredTargetValue succeededTarget =
         createConfiguredTargetValue(succeededAction, succeededKey);
-    Action failedAction1 = new FailedExecAction(failedOutput1, USER_EXIT_CODE);
+    Action failedAction1 = new FailedExecAction(failedOutput1, USER_DETAILED_EXIT_CODE);
     ConfiguredTargetValue failedTarget1 = createConfiguredTargetValue(failedAction1, failedKey1);
-    Action failedAction2 = new FailedExecAction(failedOutput2, INFRA_EXIT_CODE);
+    Action failedAction2 = new FailedExecAction(failedOutput2, INFRA_DETAILED_EXIT_CODE);
     ConfiguredTargetValue failedTarget2 = createConfiguredTargetValue(failedAction2, failedKey2);
 
     // Inject the targets into the graph,
@@ -2131,7 +2148,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
                     /* trustRemoteArtifacts= */ false));
     // The exit code should be propagated into the BuildFailedException whether or not --keep_going
     // is set.
-    assertThatDetailedExitCode(e.getDetailedExitCode()).hasExitCode(INFRA_EXIT_CODE);
+    assertThat(e.getDetailedExitCode()).isEqualTo(INFRA_DETAILED_EXIT_CODE);
   }
 
   /**

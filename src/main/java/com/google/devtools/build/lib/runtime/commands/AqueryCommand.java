@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -136,9 +135,14 @@ public final class AqueryCommand implements BlazeCommand {
     if (queryCurrentSkyframeState) {
       return aqueryBuildTool.dumpActionGraphFromSkyframe(request);
     }
-    DetailedExitCode detailedExitCode =
-        aqueryBuildTool.processRequest(request, null).getDetailedExitCode();
-    return BlazeCommandResult.detailedExitCode(detailedExitCode);
+    try {
+      return BlazeCommandResult.detailedExitCode(
+          aqueryBuildTool.processRequest(request, null).getDetailedExitCode());
+    } catch (StackOverflowError e) {
+      String message = "Aquery output was too large to handle: " + query;
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.AQUERY_OUTPUT_TOO_BIG);
+    }
   }
 
   private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {

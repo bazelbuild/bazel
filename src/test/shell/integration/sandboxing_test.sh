@@ -41,7 +41,8 @@ EOF
   local output_base="$(bazel info output_base)"
 
   do_build() {
-    bazel build --genrule_strategy=sandboxed "${extra_args[@]}" //pkg
+    bazel build --genrule_strategy=sandboxed --sandbox_debug \
+      "${extra_args[@]}" //pkg
   }
 
   do_build >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
@@ -127,7 +128,7 @@ EOF
   local output_base="$(bazel info output_base)"
 
   do_build() {
-    bazel build --genrule_strategy=sandboxed //pkg
+    bazel build --genrule_strategy=sandboxed --sandbox_debug //pkg
   }
 
   do_build >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
@@ -143,6 +144,32 @@ EOF
 
   # And now ensure Bazel reconstructs the sandbox base on a second build.
   do_build >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
+}
+
+function test_sandbox_base_top_is_removed() {
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+genrule(name = "pkg", outs = ["pkg.out"], cmd = "echo >\$@")
+EOF
+
+  local output_base="$(bazel info output_base)"
+
+  do_build() {
+    bazel build --genrule_strategy=sandboxed //pkg
+  }
+
+  do_build >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
+  find "${output_base}" >>"${TEST_log}" 2>&1 || true
+
+  local sandbox_base="${output_base}/sandbox"
+  [[ ! -d "${sandbox_base}" ]] \
+    || fail "${sandbox_base} left behind unnecessarily"
+
+  # Restart Bazel and check we don't print spurious "Deleting stale sandbox"
+  # warnings.
+  bazel shutdown
+  do_build >"${TEST_log}" 2>&1 || fail "Expected build to succeed"
+  expect_not_log "Deleting stale sandbox"
 }
 
 function test_sandbox_old_contents_not_reused_in_consecutive_builds() {

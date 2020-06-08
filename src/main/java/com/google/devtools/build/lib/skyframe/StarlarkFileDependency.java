@@ -19,12 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
-/**
- * A simple value class to store the direct Starlark file dependencies of a Starlark extension file.
- * It also contains a Label identifying the extension file.
- *
- * <p>The dependency structure must be acyclic.
- */
+/** A value class representing a node in a DAG that mirrors the load graph of a Starlark file. */
 @AutoCodec
 public class StarlarkFileDependency {
 

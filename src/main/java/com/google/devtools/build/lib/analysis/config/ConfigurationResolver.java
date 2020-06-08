@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
 import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
@@ -225,6 +226,30 @@ public final class ConfigurationResolver {
         }
         putOnlyEntry(resolvedDeps, dependencyEdge, finalDependency);
         continue;
+      } else if (transition.isHostTransition()) {
+        // The current rule's host configuration can also be used for the dep. We short-circuit
+        // the standard transition logic for host transitions because these transitions are
+        // uniquely frequent. It's possible, e.g., for every node in the configured target graph
+        // to incur multiple host transitions. So we aggressively optimize to avoid hurting
+        // analysis time.
+        if (hostConfiguration.trimConfigurationsRetroactively() && !dep.getAspects().isEmpty()) {
+          String message =
+              ctgValue.getLabel()
+                  + " has aspects attached, but these are not supported in retroactive"
+                  + " trimming mode.";
+          env.getListener()
+              .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
+          throw new DependencyEvaluationException(new InvalidConfigurationException(message));
+        }
+        putOnlyEntry(
+            resolvedDeps,
+            dependencyEdge,
+            Dependency.builder()
+                .setLabel(dep.getLabel())
+                .setConfiguration(hostConfiguration)
+                .setAspects(dep.getAspects())
+                .build());
+        continue;
       }
 
       // Figure out the required fragments for this dep and its transitive closure.
@@ -264,30 +289,6 @@ public final class ConfigurationResolver {
               Dependency.builder()
                   .setLabel(dep.getLabel())
                   .setConfiguration(ctgValue.getConfiguration())
-                  .setAspects(dep.getAspects())
-                  .build());
-          continue;
-        } else if (transition.isHostTransition()) {
-          // The current rule's host configuration can also be used for the dep. We short-circuit
-          // the standard transition logic for host transitions because these transitions are
-          // uniquely frequent. It's possible, e.g., for every node in the configured target graph
-          // to incur multiple host transitions. So we aggressively optimize to avoid hurting
-          // analysis time.
-          if (hostConfiguration.trimConfigurationsRetroactively() && !dep.getAspects().isEmpty()) {
-            String message =
-                ctgValue.getLabel()
-                    + " has aspects attached, but these are not supported in retroactive"
-                    + " trimming mode.";
-            env.getListener()
-                .handle(Event.error(TargetUtils.getLocationMaybe(ctgValue.getTarget()), message));
-            throw new DependencyEvaluationException(new InvalidConfigurationException(message));
-          }
-          putOnlyEntry(
-              resolvedDeps,
-              dependencyEdge,
-              Dependency.builder()
-                  .setLabel(dep.getLabel())
-                  .setConfiguration(hostConfiguration)
                   .setAspects(dep.getAspects())
                   .build());
           continue;
@@ -675,17 +676,15 @@ public final class ConfigurationResolver {
   }
 
   /**
-   * Determines the output ordering of each <attribute, depLabel> ->
-   * [dep<config1>, dep<config2>, ...] collection produced by a split transition.
+   * Determines the output ordering of each {@code <attribute, depLabel> -> [dep<config1>,
+   * dep<config2>, ...]} collection produced by a split transition.
    */
   @VisibleForTesting
   public static final Comparator<Dependency> SPLIT_DEP_ORDERING =
-      new Comparator<Dependency>() {
-        @Override
-        public int compare(Dependency d1, Dependency d2) {
-          return d1.getConfiguration().getMnemonic().compareTo(d2.getConfiguration().getMnemonic());
-        }
-      };
+      Comparator.comparing(
+              Functions.compose(BuildConfiguration::getMnemonic, Dependency::getConfiguration))
+          .thenComparing(
+              Functions.compose(BuildConfiguration::checksum, Dependency::getConfiguration));
 
   /**
    * Returns a copy of the output deps using the same key and value ordering as the input deps.

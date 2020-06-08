@@ -58,6 +58,12 @@ java_import(
     jars = ["tomcat9-annotations-api.jar"],
 )
 
+# For bootstrapping java toolcahin
+filegroup(
+    name = "tomcat_annotations_api-jars",
+    srcs = ["tomcat9-annotations-api.jar"],
+)
+
 # libjava-allocation-instrumenter-java
 java_import(
     name = "allocation_instrumenter",
@@ -74,6 +80,15 @@ java_import(
 java_import(
     name = "protobuf_java_util",
     jars = ["protobuf-util.jar"],
+)
+
+# For bootstrapping java toolcahin
+filegroup(
+    name = "bootstrap-derived-java-jars",
+    srcs = [
+        "protobuf.jar",
+        "protobuf-util.jar",
+    ],
 )
 
 # libcommons-collections3-java
@@ -134,10 +149,24 @@ java_import(
     ],
 )
 
+# For bootstrapping java toolcahin
+filegroup(
+    name = "jcip_annotations-jars",
+    srcs = [
+        "jcip-annotations.jar",
+    ],
+)
+
 # libjsr305-java
 java_import(
     name = "jsr305",
     jars = ["jsr305.jar"],
+)
+
+# For bootstrapping java toolcahin
+filegroup(
+    name = "jsr305-jars",
+    srcs = ["jsr305.jar"],
 )
 
 # libnetty-tcnative-java
@@ -182,3 +211,73 @@ java_import(
         "com.android.tools.layoutlib.layoutlib-api.jar",
     ],
 )
+
+# libguava-java
+java_import(
+    name = "guava",
+    jars = ["guava.jar"],
+    exports = [
+        "@//third_party:error_prone_annotations",
+        "@//third_party:jcip_annotations",
+        "@//third_party:jsr305",
+    ],
+)
+
+# For bootstrapping java toolcahin
+filegroup(
+    name = "guava-jars",
+    srcs = ["guava.jar"],
+)
+
+# libjacoco-java - BEGIN
+JACOCOVERSION = "0.8.3"
+java_import(
+    name = "agent",
+    jars = ["org.jacoco.agent.jar"],
+)
+
+java_import(
+    name = "agent-%s" % JACOCOVERSION,
+    jars = ["org.jacoco.agent.jar"],
+)
+
+java_import(
+    name = "core",
+    jars = ["org.jacoco.core.jar"],
+)
+
+java_import(
+    name = "core-%s" % JACOCOVERSION,
+    jars = ["org.jacoco.core.jar"],
+)
+
+filegroup(
+    name = "core-jars",
+    srcs = ["org.jacoco.core.jar"],
+)
+
+filegroup(
+    name = "core-jars-%s" % JACOCOVERSION,
+    srcs = ["org.jacoco.core.jar"],
+)
+
+java_import(
+    name = "report",
+    jars = ["org.jacoco.report.jar"],
+)
+
+java_import(
+    name = "report-%s" % JACOCOVERSION,
+    jars = ["org.jacoco.report.jar"],
+)
+
+java_import(
+   name = "blaze-agent",
+   jars = ["org.jacoco.agent.jar"],
+)
+
+java_import(
+   name = "blaze-agent-%s" % JACOCOVERSION,
+   jars = ["org.jacoco.agent.jar"],
+)
+# libjacoco-java - END

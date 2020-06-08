@@ -315,8 +315,6 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             defaultValue = "None",
             named = true,
             positional = false,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_BUILD_SETTING_API,
-            valueWhenDisabled = "None",
             doc =
                 "If set, describes what kind of "
                     + "<a href = '../config.$DOC_EXT#user-defined-build-settings'><code>build "

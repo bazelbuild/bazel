@@ -103,7 +103,11 @@ public abstract class FieldKey extends ClassMemberKey<FieldKey> {
         Type.getMethodDescriptor(getFieldType(), Type.getObjectType(ownerName()), getFieldType()));
   }
 
-  public Type getFieldType() {
+  public final Type getFieldType() {
     return Type.getType(descriptor());
+  }
+
+  public final ClassName getFieldTypeName() {
+    return ClassName.create(getFieldType());
   }
 }

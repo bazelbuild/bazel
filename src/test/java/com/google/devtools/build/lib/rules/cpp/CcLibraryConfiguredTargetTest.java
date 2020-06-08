@@ -1571,4 +1571,66 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .containsExactly("//foo:foo", "//foo:bar", "//foo:baz")
         .inOrder();
   }
+
+  @Test
+  public void testPrecompiledFilesFromDifferentConfigs() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        "load(':example_transition.bzl', 'transitioned_file')",
+        "genrule(",
+        "   name = 'generated',",
+        "   outs = ['libbar.so'],",
+        "   cmd = 'echo foo > @',",
+        ")",
+        "transitioned_file(",
+        "   name = 'transitioned_libbar',",
+        "   src = 'generated',",
+        ")",
+        "cc_library(",
+        "   name = 'foo',",
+        "   srcs = [",
+        "       'generated',",
+        "       'transitioned_libbar',",
+        "   ],",
+        ")");
+    scratch.file(
+        "foo/example_transition.bzl",
+        "def _impl(settings, attr):",
+        "    _ignore = (settings, attr)",
+        "    return [",
+        "        {'//command_line_option:cpu': 'k8'},",
+        "    ]",
+        "cpu_transition = transition(",
+        "    implementation = _impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:cpu'],",
+        ")",
+        "def _transitioned_file_impl(ctx):",
+        "    return DefaultInfo(files = depset([ctx.file.src]))",
+        "",
+        "transitioned_file = rule(",
+        "    implementation = _transitioned_file_impl,",
+        "    attrs = {",
+        "        'src': attr.label(",
+        "            allow_single_file = True,",
+        "            cfg = cpu_transition,",
+        "        ),",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        ),",
+        "    },",
+        ")");
+    scratch.overwriteFile(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = ['//...'],",
+        ")",
+        "filegroup(",
+        "    name = 'srcs',",
+        "    srcs = glob(['**']),",
+        "    visibility = ['//tools/whitelists:__pkg__'],",
+        ")");
+    checkError("//foo", "Trying to link twice");
+  }
 }

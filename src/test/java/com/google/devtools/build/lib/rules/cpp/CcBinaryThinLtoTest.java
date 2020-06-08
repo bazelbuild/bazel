@@ -190,7 +190,10 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
             getSkyframeExecutor()
                 .getEvaluatorForTesting()
                 .getExistingEntryAtLatestVersion(
-                    ConfiguredTargetKey.of(pkg.getLabel(), getConfiguration(pkg)))
+                    ConfiguredTargetKey.builder()
+                        .setLabel(pkg.getLabel())
+                        .setConfiguration(getConfiguration(pkg))
+                        .build())
                 .getValue();
     ImmutableList<ActionAnalysisMetadata> linkstampCompileActions =
         configuredTargetValue

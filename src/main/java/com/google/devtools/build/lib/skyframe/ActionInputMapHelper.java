@@ -33,10 +33,15 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
 import java.util.Map;
 
-class ActionInputMapHelper {
+/** Static utilities for working with action inputs. */
+final class ActionInputMapHelper {
 
-  // Adds a value obtained by an Artifact skyvalue lookup to the action input map. May do Skyframe
-  // lookups.
+  private ActionInputMapHelper() {}
+
+  /**
+   * Adds a value obtained by an Artifact skyvalue lookup to the action input map. May do Skyframe
+   * lookups.
+   */
   static void addToMap(
       ActionInputMapSink inputMap,
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
@@ -87,10 +92,7 @@ class ActionInputMapHelper {
       expandTreeArtifactAndPopulateArtifactData(
           key, (TreeArtifactValue) value, expandedArtifacts, inputMap, /*depOwner=*/ key);
     } else if (value instanceof ActionExecutionValue) {
-      inputMap.put(
-          key,
-          ((ActionExecutionValue) value).getExistingFileArtifactValue((DerivedArtifact) key),
-          key);
+      inputMap.put(key, ((ActionExecutionValue) value).getExistingFileArtifactValue(key), key);
       if (key.isFileset()) {
         topLevelFilesets.put(key, getFilesets(env, (SpecialArtifact) key));
       }
@@ -157,6 +159,10 @@ class ActionInputMapHelper {
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
       ActionInputMapSink inputMap,
       Artifact depOwner) {
+    if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
+      inputMap.put(treeArtifact, FileArtifactValue.OMITTED_FILE_MARKER, depOwner);
+      return;
+    }
     ImmutableSet.Builder<Artifact> children = ImmutableSet.builder();
     for (Map.Entry<Artifact.TreeFileArtifact, FileArtifactValue> child :
         value.getChildValues().entrySet()) {

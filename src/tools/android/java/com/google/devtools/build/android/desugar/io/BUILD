@@ -12,6 +12,7 @@ java_library(
     ],
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar/langmodel",
+        "//src/tools/android/java/com/google/devtools/build/android/ziputils:ziputils_lib",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:asm-tree",

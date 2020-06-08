@@ -52,10 +52,10 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -801,7 +801,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   @Test
   public void testInstrumentedFilesInfo_coverageEnabled() throws Exception {
     scratch.file(
-        "test/skylark/extension.bzl",
+        "test/starlark/extension.bzl",
         "def custom_rule_impl(ctx):",
         "  return [coverage_common.instrumented_files_info(ctx,",
         "      extensions = ['txt'],",
@@ -814,20 +814,28 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "      'attr2': attr.label_list(mandatory = True)})");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:extension.bzl', 'custom_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:extension.bzl', 'custom_rule')",
         "",
-        "java_library(name='jl', srcs = [':A.java'])",
-        "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':jl'])");
+        "cc_library(name='cl', srcs = [':A.cc'])",
+        "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':cl'])");
 
     useConfiguration("--collect_code_coverage");
 
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:cr");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:cr");
 
     InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
     assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
-        .containsExactly("a.txt", "A.java");
+        .containsExactly("a.txt", "A.cc");
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                ((Depset) provider.getValue("instrumented_files")).getSet(Artifact.class)))
+        .containsExactly("a.txt", "A.cc");
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                ((Depset) provider.getValue("metadata_files")).getSet(Artifact.class)))
+        .containsExactly("A.gcno");
   }
 
   @Test
@@ -856,6 +864,63 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
                 ((Depset) getMyInfoFromTarget(target).getValue("provider_key"))
                     .getSet(Artifact.class)))
         .containsExactly("a.txt");
+  }
+
+  @Test
+  public void testInstrumentedFilesForwardedFromDepsByDefaultExperimentFlag() throws Exception {
+    scratch.file(
+        "test/starlark/extension.bzl",
+        "def wrapper_impl(ctx):",
+        // This wrapper doesn't configure InstrumentedFilesInfo.
+        "    return []",
+        "",
+        "wrapper = rule(implementation = wrapper_impl,",
+        "    attrs = {",
+        "        'srcs': attr.label_list(allow_files = True),",
+        "        'wrapped': attr.label(mandatory = True),",
+        "        'wrapped_list': attr.label_list(),",
+        // Host deps aren't forwarded by default, since they don't provide code/binaries executed
+        // at runtime.
+        "        'tool': attr.label(cfg = 'host', executable = True, mandatory = True),",
+        "    })");
+
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:extension.bzl', 'wrapper')",
+        "",
+        "cc_binary(name = 'tool', srcs = [':tool.cc'])",
+        "cc_binary(name = 'wrapped', srcs = [':wrapped.cc'])",
+        "cc_binary(name = 'wrapped_list', srcs = [':wrapped_list.cc'])",
+        "wrapper(",
+        "    name = 'wrapper',",
+        "    srcs = ['ignored.cc'],",
+        "    wrapped = ':wrapped',",
+        "    wrapped_list = [':wrapped_list'],",
+        "    tool = ':tool',",
+        ")",
+        "cc_binary(name = 'outer', data = [':wrapper'])");
+
+    // Current behavior is that nothing gets forwarded if IntstrumentedFilesInfo is not configured.
+    // That means that source files are not collected for the coverage manifest unless the entire
+    // dependency chain between the test and the source file explicitly configures coverage.
+    // New behavior is protected by --experimental_forward_instrumented_files_info_by_default.
+    useConfiguration("--collect_code_coverage");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:outer");
+    InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
+    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles())).isEmpty();
+
+    // Instead, the default behavior could be to forward InstrumentedFilesInfo from all
+    // dependencies. Coverage still needs to be configured for rules that handle source files for
+    // languages which support coverage instrumentation, but not every wrapper rule in the
+    // dependency chain needs to configure that for instrumentation to be correct.
+    useConfiguration(
+        "--collect_code_coverage", "--experimental_forward_instrumented_files_info_by_default");
+    target = getConfiguredTarget("//test/starlark:outer");
+    provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
+    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
+    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
+        .containsExactly("wrapped.cc", "wrapped_list.cc");
   }
 
   @Test
@@ -1505,7 +1570,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMultipleImportsOfSameRule() throws Exception {
+  public void testMultipleLoadsOfSameRule() throws Exception {
     scratch.file("test/skylark/BUILD");
     scratch.file(
         "test/skylark/extension.bzl",
@@ -1545,7 +1610,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testImportInStarlark() throws Exception {
+  public void testLoadInStarlark() throws Exception {
     scratch.file("test/skylark/implementation.bzl", "def custom_rule_impl(ctx):", "  return None");
 
     scratch.file(
@@ -1594,7 +1659,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRecursiveImport() throws Exception {
+  public void testRecursiveLoad() throws Exception {
     scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext1.bzl', 'symbol2')");
 
     scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol1')");
@@ -1615,7 +1680,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testRecursiveImport2() throws Exception {
+  public void testRecursiveLoad2() throws Exception {
     scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol2')");
     scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext3.bzl', 'symbol3')");
     scratch.file("test/skylark/ext3.bzl", "load('//test/skylark:ext4.bzl', 'symbol4')");
@@ -2227,8 +2292,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingRule_flag() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file("test/rules.bzl",
         "def _impl(ctx): return None",
         "build_setting_rule = rule(_impl, build_setting = config.string(flag=True))");
@@ -2248,8 +2311,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingRule_settingByDefault() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file("test/rules.bzl",
         "def _impl(ctx): return None",
         "build_setting_rule = rule(_impl, build_setting = config.string())");
@@ -2269,8 +2330,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingRule_settingByFlagParameter() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file("test/rules.bzl",
         "def _impl(ctx): return None",
         "build_setting_rule = rule(_impl, build_setting = config.string(flag=False))");
@@ -2291,8 +2350,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingRule_noDefault() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file("test/rules.bzl",
         "def _impl(ctx): return None",
         "build_setting_rule = rule(_impl, build_setting = config.string())");
@@ -2305,26 +2362,6 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     assertContainsEvent("missing value for mandatory attribute "
         + "'build_setting_default' in 'build_setting_rule' rule");
 
-  }
-
-  @Test
-  public void testBuildSettingRule_errorsWithoutExperimentalFlag() throws Exception {
-    setStarlarkSemanticsOptions("--experimental_build_setting_api=false");
-
-    scratch.file(
-        "test/rules.bzl",
-        "def _impl(ctx): return None",
-        "build_setting_rule = rule(_impl, build_setting = config.string())");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:rules.bzl', 'build_setting_rule')",
-        "build_setting_rule(name = 'my_build_setting', build_setting_default = 'default')");
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:my_build_setting");
-    assertContainsEvent(
-        "parameter 'build_setting' is experimental and thus unavailable with the "
-            + "current flags. It may be enabled by setting --experimental_build_setting_api");
   }
 
   @Test
@@ -2980,19 +3017,17 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
       ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions =
           ((InMemoryMemoizingEvaluator) getSkyframeExecutor().getEvaluatorForTesting())
               .getSkyFunctionsForTesting();
-      StarlarkImportLookupFunction starlarkImportLookupFunction =
-          StarlarkImportLookupFunction.createForInliningSelfForPackageAndWorkspaceNodes(
-              this.getRuleClassProvider(),
-              this.getPackageFactory(),
-              /*starlarkImportLookupValueCacheSize=*/ 2);
-      starlarkImportLookupFunction.resetSelfInliningCache();
+      BzlLoadFunction bzlLoadFunction =
+          BzlLoadFunction.createForInlining(
+              this.getRuleClassProvider(), this.getPackageFactory(), /*bzlLoadValueCacheSize=*/ 2);
+      bzlLoadFunction.resetInliningCache();
       ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
-          .setStarlarkImportLookupFunctionForInliningForTesting(starlarkImportLookupFunction);
+          .setBzlLoadFunctionForInliningForTesting(bzlLoadFunction);
     }
 
     @Override
     @Test
-    public void testRecursiveImport() throws Exception {
+    public void testRecursiveLoad() throws Exception {
       scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext1.bzl', 'symbol2')");
 
       scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol1')");
@@ -3008,12 +3043,12 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
               BuildFileContainsErrorsException.class, () -> getTarget("//test/skylark:rule"));
       assertThat(e)
           .hasMessageThat()
-          .contains("Starlark import cycle: [//test/skylark:ext1.bzl, //test/skylark:ext2.bzl]");
+          .contains("Starlark load cycle: [//test/skylark:ext1.bzl, //test/skylark:ext2.bzl]");
     }
 
     @Override
     @Test
-    public void testRecursiveImport2() throws Exception {
+    public void testRecursiveLoad2() throws Exception {
       scratch.file("test/skylark/ext1.bzl", "load('//test/skylark:ext2.bzl', 'symbol2')");
       scratch.file("test/skylark/ext2.bzl", "load('//test/skylark:ext3.bzl', 'symbol3')");
       scratch.file("test/skylark/ext3.bzl", "load('//test/skylark:ext4.bzl', 'symbol4')");
@@ -3031,7 +3066,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
       assertThat(e)
           .hasMessageThat()
           .contains(
-              "Starlark import cycle: [//test/skylark:ext2.bzl, "
+              "Starlark load cycle: [//test/skylark:ext2.bzl, "
                   + "//test/skylark:ext3.bzl, //test/skylark:ext4.bzl]");
     }
   }

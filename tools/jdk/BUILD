@@ -129,13 +129,15 @@ java_runtime_files(
 # See test_jni in third_party/bazel/src/test/shell/bazel/bazel_java_test.sh for
 # an example of using Bazel to build a Java program that calls a C function.
 #
-# TODO(adonovan): add cases for //src/conditions:linux_{ppc,s390x} when released in Bazel.
+# TODO(adonovan): add cases for //src/conditions:linux_arm when released in Bazel.
 # TODO(adonovan): why is there no //src/conditions target meaning "just linux"?
 cc_library(
     name = "jni",
     hdrs = [":jni_header"] + select({
-        "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
+        "//src/conditions:linux_ppc": [":jni_md_header-linux"],
+        "//src/conditions:linux_s390x": [":jni_md_header-linux"],
+        "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:darwin": [":jni_md_header-darwin"],
         "//src/conditions:freebsd": [":jni_md_header-freebsd"],
         "//src/conditions:openbsd": [":jni_md_header-openbsd"],
@@ -143,8 +145,10 @@ cc_library(
         "//conditions:default": [],
     }),
     includes = ["include"] + select({
-        "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:linux_aarch64": ["include/linux"],
+        "//src/conditions:linux_ppc": ["include/linux"],
+        "//src/conditions:linux_s390x": ["include/linux"],
+        "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:darwin": ["include/darwin"],
         "//src/conditions:freebsd": ["include/freebsd"],
         "//src/conditions:openbsd": ["include/openbsd"],
@@ -498,6 +502,7 @@ alias(
             "//src/conditions:windows": "@remotejdk11_win//:jdk",
             "//src/conditions:linux_aarch64": "@remotejdk11_linux_aarch64//:jdk",
             "//src/conditions:linux_x86_64": "@remotejdk11_linux//:jdk",
+            "//src/conditions:linux_ppc64le": "@remotejdk11_linux_ppc64le//:jdk",
         },
         no_match_error = "Could not find a JDK for host execution environment, please explicitly" +
                          " provide one using `--host_javabase.`",

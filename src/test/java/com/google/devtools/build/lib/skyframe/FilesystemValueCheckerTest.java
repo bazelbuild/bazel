@@ -170,7 +170,7 @@ public class FilesystemValueCheckerTest {
                 .builder(directories)
                 .build(TestRuleClassProvider.getRuleClassProvider(), fs),
             directories,
-            /*starlarkImportLookupFunctionForInlining=*/ null));
+            /*bzlLoadFunctionForInlining=*/ null));
     skyFunctions.put(
         SkyFunctions.EXTERNAL_PACKAGE,
         new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
@@ -871,19 +871,16 @@ public class FilesystemValueCheckerTest {
     }
     return ActionExecutionValue.create(
         artifactData,
-        ImmutableMap.<Artifact, TreeArtifactValue>of(),
+        /*treeArtifactData=*/ ImmutableMap.of(),
         /*outputSymlinks=*/ null,
         /*discoveredModules=*/ null,
         /*actionDependsOnBuildId=*/ false);
   }
 
-  private static ActionExecutionValue actionValueWithEmptyDirectory(Artifact emptyDir) {
-    TreeArtifactValue emptyValue = TreeArtifactValue.create
-        (ImmutableMap.<TreeFileArtifact, FileArtifactValue>of());
-
+  private static ActionExecutionValue actionValueWithEmptyDirectory(SpecialArtifact emptyDir) {
     return ActionExecutionValue.create(
-        ImmutableMap.of(),
-        ImmutableMap.of(emptyDir, emptyValue),
+        /*artifactData=*/ ImmutableMap.of(),
+        ImmutableMap.of(emptyDir, TreeArtifactValue.create(ImmutableMap.of())),
         /*outputSymlinks=*/ null,
         /*discoveredModules=*/ null,
         /*actionDependsOnBuildId=*/ false);
@@ -891,7 +888,6 @@ public class FilesystemValueCheckerTest {
 
   private static ActionExecutionValue actionValueWithTreeArtifacts(
       List<TreeFileArtifact> contents) {
-    Map<Artifact, FileArtifactValue> fileData = new HashMap<>();
     Map<Artifact, Map<TreeFileArtifact, FileArtifactValue>> directoryData = new HashMap<>();
 
     for (TreeFileArtifact output : contents) {
@@ -912,7 +908,6 @@ public class FilesystemValueCheckerTest {
             FileArtifactValue.createFromInjectedDigest(
                 noDigest, path.getDigest(), !output.isConstantMetadata());
         dirDatum.put(output, withDigest);
-        fileData.put(output, withDigest);
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
@@ -925,7 +920,7 @@ public class FilesystemValueCheckerTest {
     }
 
     return ActionExecutionValue.create(
-        fileData,
+        /*artifactData=*/ ImmutableMap.of(),
         treeArtifactData,
         /*outputSymlinks=*/ null,
         /*discoveredModules=*/ null,

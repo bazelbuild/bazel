@@ -124,7 +124,7 @@ EOF
 
 #### TESTS #############################################################
 
-function test_experimental_nested_set_as_skykey_threshold_successfully_builds() {
+function test_threshold_successfully_builds() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
 
   cat > foo/BUILD <<EOF
@@ -152,58 +152,46 @@ foo_binary(
 EOF
   touch foo/1.a foo/1.b foo/c.foo
 
-  bazel build //foo:c || fail "build failed"
+  bazel build //foo:c &> "$TEST_log"|| fail "build failed"
   regular=$(bazel dump --skyframe summary)
   bazel clean
 
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c || fail "build failed"
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c \
+    &> "$TEST_log"|| fail "build failed"
   with_flag=$(bazel dump --skyframe summary)
 
   [[ regular != $with_flag ]] || fail "number of nodes and edges on skyframe should be different"
 }
 
-function test_experimental_nested_set_as_skykey_threshold_changes() {
+function test_options_changed() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
   cat > foo/BUILD <<EOF
 load(":foo.bzl", "foo_library", "foo_binary")
-py_binary(
-    name = "foocc",
-    srcs = ["foocc.py"],
-)
 
 foo_library(
     name = "a",
     srcs = ["1.a"],
 )
-
-foo_library(
-    name = "b",
-    srcs = ["1.b"],
-    deps = [":a"],
-)
-foo_binary(
-    name = "c",
-    srcs = ["c.foo"],
-    deps = [":b"],
-)
 EOF
-  touch foo/1.a foo/1.b foo/c.foo
+  touch foo/1.a
 
-  bazel build //foo:c || fail "build failed"
-  regular=$(bazel dump --skyframe summary)
+  bazel build --experimental_nested_set_as_skykey_threshold=1 --experimental_nsos_eval_keys_as_one_group //foo:a \
+    &> "$TEST_log" || fail "build failed"
 
-  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:c || fail "build failed"
-  with_flag=$(bazel dump --skyframe summary)
+  bazel build --experimental_nested_set_as_skykey_threshold=1 --experimental_nsos_eval_keys_as_one_group //foo:a \
+    &> "$TEST_log" || fail "build failed"
+  expect_not_log "ArtifactNestedSetFunction options changed. Resetting evaluator..."
 
-  [[ $regular != $with_flag ]] || fail "number of nodes and edges on skyframe should be different"
+  bazel build --experimental_nested_set_as_skykey_threshold=0 --experimental_nsos_eval_keys_as_one_group //foo:a \
+    &> "$TEST_log" || fail "build failed"
+  expect_log "ArtifactNestedSetFunction options changed. Resetting evaluator..."
 
-  bazel build --experimental_nested_set_as_skykey_threshold=0 //foo:c || fail "build failed"
-  back_to_zero=$(bazel dump --skyframe summary)
-
-  [[ $regular == $back_to_zero ]] || fail "number of nodes and edges on skyframe should be the same"
+  bazel build --experimental_nested_set_as_skykey_threshold=0 --noexperimental_nsos_eval_keys_as_one_group //foo:a \
+    &> "$TEST_log" || fail "build failed"
+  expect_log "ArtifactNestedSetFunction options changed. Resetting evaluator..."
 }
 
-function test_experimental_nested_set_as_skykey_dirty_file() {
+function test_eval_as_one_group_dirty_file() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
   cat > foo/BUILD <<EOF
 load(":foo.bzl", "foo_library", "foo_binary")
@@ -230,14 +218,181 @@ foo_binary(
 EOF
   touch foo/1.a foo/1.b foo/c.foo
 
-  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c || fail "build failed"
+  bazel build --experimental_nested_set_as_skykey_threshold=1 \
+    --experimental_nsos_eval_keys_as_one_group \
+    //foo:c &> "$TEST_log" || fail "build failed"
   # Deliberately breaking the file.
   echo omgomgomg >> foo/foocc.py
-  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c && fail "Expected failure"
+  bazel build --experimental_nested_set_as_skykey_threshold=1 \
+    --experimental_nsos_eval_keys_as_one_group \
+    //foo:c &> "$TEST_log" && fail "Expected failure"
 
   true  # reset the last exit code so the test won't be considered failed
 }
 
+# Regression test for b/154716911.
+function test_eval_as_one_group_missing_file() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+genrule(
+    name = "foo",
+    outs = ["file.o"],
+    cmd = ("touch $@"),
+    tools = [":bar"],
+)
 
+cc_binary(
+    name = "bar",
+    srcs = [
+        "bar.cc",
+        "missing.a",
+    ],
+)
+EOF
+  touch foo/bar.cc
+
+  bazel build --experimental_nested_set_as_skykey_threshold=1 \
+    --experimental_nsos_eval_keys_as_one_group \
+    //foo:foo &> "$TEST_log" && fail "Expected failure"
+
+  exit_code=$?
+  [[ $exit_code -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+
+  true  # reset the last exit code so the test won't be considered failed
+}
+
+# Regression test for b/155850727.
+function test_eval_as_one_group_incremental_err_reporting() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+genrule(
+    name = "foo",
+    outs = ["file.o"],
+    cmd = ("touch $@"),
+    tools = [":bar"],
+)
+
+java_library(
+    name = "bar",
+    srcs = [
+        "bar.java",
+    ],
+)
+EOF
+  echo "randomstuffs" > foo/bar.java
+
+  bazel build --experimental_nested_set_as_skykey_threshold=1 \
+    --experimental_nsos_eval_keys_as_one_group \
+    //foo:foo &> "$TEST_log" && fail "Expected failure"
+
+  # Verify that the incremental run prints the expected failure message.
+  bazel build --experimental_nested_set_as_skykey_threshold=1 \
+    --experimental_nsos_eval_keys_as_one_group \
+    //foo:foo &> "$TEST_log" && fail "Expected failure"
+
+  expect_log "ERROR"
+  expect_log "randomstuffs"
+}
+
+# TODO(leba): Clean up the following tests after
+#   --experimental_nsos_eval_keys_as_one_group is stable.
+function test_dirty_file() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+load(":foo.bzl", "foo_library", "foo_binary")
+py_binary(
+    name = "foocc",
+    srcs = ["foocc.py"],
+)
+
+foo_library(
+    name = "a",
+    srcs = ["1.a"],
+)
+
+foo_library(
+    name = "b",
+    srcs = ["1.b"],
+    deps = [":a"],
+)
+foo_binary(
+    name = "c",
+    srcs = ["c.foo"],
+    deps = [":b"],
+)
+EOF
+  touch foo/1.a foo/1.b foo/c.foo
+
+  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c \
+    &> "$TEST_log" || fail "build failed"
+  # Deliberately breaking the file.
+  echo omgomgomg >> foo/foocc.py
+  bazel build --experimental_nested_set_as_skykey_threshold=2 //foo:c \
+    &> "$TEST_log" && fail "Expected failure"
+
+  true  # reset the last exit code so the test won't be considered failed
+}
+
+# Regression test for b/154716911.
+function test_missing_file() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+genrule(
+    name = "foo",
+    outs = ["file.o"],
+    cmd = ("touch $@"),
+    tools = [":bar"],
+)
+
+cc_binary(
+    name = "bar",
+    srcs = [
+        "bar.cc",
+        "missing.a",
+    ],
+)
+EOF
+  touch foo/bar.cc
+
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
+    &> "$TEST_log" && fail "Expected failure"
+
+  exit_code=$?
+  [[ $exit_code -eq 1 ]] || fail "Unexpected exit code: $exit_code"
+
+  true  # reset the last exit code so the test won't be considered failed
+}
+
+# Regression test for b/155850727.
+function test_incremental_err_reporting() {
+  export DONT_SANITY_CHECK_SERIALIZATION=1
+  cat > foo/BUILD <<EOF
+genrule(
+    name = "foo",
+    outs = ["file.o"],
+    cmd = ("touch $@"),
+    tools = [":bar"],
+)
+
+java_library(
+    name = "bar",
+    srcs = [
+        "bar.java",
+    ],
+)
+EOF
+  echo "randomstuffs" > foo/bar.java
+
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
+    &> "$TEST_log" && fail "Expected failure"
+
+  # Verify that the incremental run prints the expected failure message.
+  bazel build --experimental_nested_set_as_skykey_threshold=1 //foo:foo \
+    &> "$TEST_log" && fail "Expected failure"
+
+
+  expect_log "ERROR"
+  expect_log "randomstuffs"
+}
 
 run_suite "Integration tests of ${PRODUCT_NAME} with NestedSet as SkyKey."

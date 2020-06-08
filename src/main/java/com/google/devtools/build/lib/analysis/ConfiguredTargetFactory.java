@@ -240,7 +240,10 @@ public final class ConfiguredTargetFactory {
               inputFile.getExecPath(
                   analysisEnvironment.getStarlarkSemantics().experimentalSiblingRepositoryLayout()),
               inputFile.getPackage().getSourceRoot().get(),
-              ConfiguredTargetKey.of(target.getLabel(), config));
+              ConfiguredTargetKey.builder()
+                  .setLabel(target.getLabel())
+                  .setConfiguration(config)
+                  .build());
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;

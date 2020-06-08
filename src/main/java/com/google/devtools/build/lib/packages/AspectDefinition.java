@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
@@ -370,16 +371,42 @@ public final class AspectDefinition {
     /**
      * Adds an attribute to the aspect.
      *
-     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit
-     * (not available in the BUILD file, starting with '$') or late-bound (determined after the
+     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit (not
+     * available in the BUILD file, starting with '$') or late-bound (determined after the
      * configuration is available, starting with ':')
+     *
+     * <p>Aspect definition currently cannot handle {@link ComputedDefault} dependencies (type LABEL
+     * or LABEL_LIST), because all the dependencies are resolved from the aspect definition and the
+     * defining rule.
      */
     public Builder add(Attribute attribute) {
-      Preconditions.checkArgument(attribute.isImplicit() || attribute.isLateBound()
-          || (attribute.getType() == Type.STRING && attribute.checkAllowedValues()),
-          "Invalid attribute '%s' (%s)", attribute.getName(), attribute.getType());
-      Preconditions.checkArgument(!attributes.containsKey(attribute.getName()),
-          "An attribute with the name '%s' already exists.", attribute.getName());
+      Preconditions.checkArgument(
+          attribute.isImplicit()
+              || attribute.isLateBound()
+              || (attribute.getType() == Type.STRING && attribute.checkAllowedValues()),
+          "%s: Invalid attribute '%s' (%s)",
+          aspectClass.getName(),
+          attribute.getName(),
+          attribute.getType());
+
+      // Attributes specifying dependencies using ComputedDefault value are currently not supported.
+      // The limitation is in place because:
+      //  - blaze query requires that all possible values are knowable without BuildConguration
+      //  - aspects can attach to any rule
+      // Current logic in #forEachLabelDepFromAllAttributesOfAspect is not enough,
+      // however {Conservative,Precise}AspectResolver can probably be improved to make that work.
+      Preconditions.checkArgument(
+          !(attribute.getType().getLabelClass() == LabelClass.DEPENDENCY
+              && (attribute.getDefaultValueUnchecked() instanceof ComputedDefault)),
+          "%s: Invalid attribute '%s' (%s) with computed default dependencies",
+          aspectClass.getName(),
+          attribute.getName(),
+          attribute.getType());
+      Preconditions.checkArgument(
+          !attributes.containsKey(attribute.getName()),
+          "%s: An attribute with the name '%s' already exists.",
+          aspectClass.getName(),
+          attribute.getName());
       attributes.put(attribute.getName(), attribute);
       return this;
     }

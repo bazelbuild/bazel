@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit;
 import javax.annotation.concurrent.GuardedBy;
 
 /** Tracks per-invocation extreme package loading events. */
-class ExtremaPackageLoadingListener implements PackageLoadingListener {
+public class ExtremaPackageLoadingListener implements PackageLoadingListener {
   @GuardedBy("this")
   private int currentNumPackagesToTrack;
 
@@ -40,7 +40,16 @@ class ExtremaPackageLoadingListener implements PackageLoadingListener {
   @GuardedBy("this")
   private Extrema<PackageIdentifierAndLong> packagesWithMostComputationSteps;
 
-  ExtremaPackageLoadingListener() {
+  private static ExtremaPackageLoadingListener instance = null;
+
+  public static synchronized ExtremaPackageLoadingListener getInstance() {
+    if (instance == null) {
+      instance = new ExtremaPackageLoadingListener();
+    }
+    return instance;
+  }
+
+  private ExtremaPackageLoadingListener() {
     this.currentNumPackagesToTrack = 0;
     this.slowestPackagesToLoad = Extrema.max(0);
     this.largestPackages = Extrema.max(0);
@@ -86,13 +95,18 @@ class ExtremaPackageLoadingListener implements PackageLoadingListener {
             pkg.getPackageIdentifier(), pkg.getStarlarkFileDependencies().size()));
   }
 
-  synchronized TopPackages getAndResetTopPackages() {
+  public synchronized TopPackages getTopPackages() {
     TopPackages result =
         new TopPackages(
             slowestPackagesToLoad.getExtremeElements(),
             packagesWithMostComputationSteps.getExtremeElements(),
             largestPackages.getExtremeElements(),
             packagesWithMostTransitiveLoads.getExtremeElements());
+    return result;
+  }
+
+  synchronized TopPackages getAndResetTopPackages() {
+    TopPackages result = getTopPackages();
     clear();
     return result;
   }
@@ -104,7 +118,8 @@ class ExtremaPackageLoadingListener implements PackageLoadingListener {
     packagesWithMostTransitiveLoads.clear();
   }
 
-  static class TopPackages {
+  /** Container around lists of packages which are slow or large in some form. */
+  public static class TopPackages {
     private final List<PackageIdentifierAndLong> slowestPackages;
     private final List<PackageIdentifierAndLong> packagesWithMostComputationSteps;
     private final List<PackageIdentifierAndLong> largestPackages;
@@ -121,30 +136,39 @@ class ExtremaPackageLoadingListener implements PackageLoadingListener {
       this.packagesWithMostTransitiveLoads = packagesWithMostTransitiveLoads;
     }
 
-    List<PackageIdentifierAndLong> getSlowestPackages() {
+    public List<PackageIdentifierAndLong> getSlowestPackages() {
       return slowestPackages;
     }
 
-    List<PackageIdentifierAndLong> getPackagesWithMostComputationSteps() {
+    public List<PackageIdentifierAndLong> getPackagesWithMostComputationSteps() {
       return packagesWithMostComputationSteps;
     }
 
-    List<PackageIdentifierAndLong> getLargestPackages() {
+    public List<PackageIdentifierAndLong> getLargestPackages() {
       return largestPackages;
     }
 
-    List<PackageIdentifierAndLong> getPackagesWithMostTransitiveLoads() {
+    public List<PackageIdentifierAndLong> getPackagesWithMostTransitiveLoads() {
       return packagesWithMostTransitiveLoads;
     }
   }
 
-  static class PackageIdentifierAndLong implements Comparable<PackageIdentifierAndLong> {
+  /** A pair of PackageIdentifier and a corresponding value. */
+  public static class PackageIdentifierAndLong implements Comparable<PackageIdentifierAndLong> {
     private final PackageIdentifier pkgId;
     private final long val;
 
     private PackageIdentifierAndLong(PackageIdentifier pkgId, long val) {
       this.pkgId = pkgId;
       this.val = val;
+    }
+
+    public long getVal() {
+      return val;
+    }
+
+    public PackageIdentifier getPkgId() {
+      return pkgId;
     }
 
     @Override

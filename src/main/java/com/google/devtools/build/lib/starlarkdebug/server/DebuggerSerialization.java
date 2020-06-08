@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.starlarkdebug.server;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Value;
 import com.google.devtools.build.lib.syntax.CallUtils;
@@ -57,7 +57,7 @@ final class DebuggerSerialization {
     if (value instanceof Depset) {
       return true;
     }
-    if (value instanceof NestedSetView) {
+    if (value instanceof NestedSet) {
       return true;
     }
     if (value instanceof Map) {
@@ -85,8 +85,8 @@ final class DebuggerSerialization {
     if (value instanceof Depset) {
       return getChildren(objectMap, (Depset) value);
     }
-    if (value instanceof NestedSetView) {
-      return getChildren(objectMap, (NestedSetView) value);
+    if (value instanceof NestedSet) {
+      return getChildren(objectMap, (NestedSet) value);
     }
     if (value instanceof Map) {
       return getChildren(objectMap, ((Map) value).entrySet());
@@ -150,23 +150,23 @@ final class DebuggerSerialization {
     return children.build();
   }
 
-  private static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Depset nestedSet) {
+  private static ImmutableList<Value> getChildren(ThreadObjectMap objectMap, Depset depset) {
     return ImmutableList.<Value>builder()
         .add(
             Value.newBuilder()
                 .setLabel("order")
                 .setType("Traversal order")
-                .setDescription(nestedSet.getOrder().getStarlarkName())
+                .setDescription(depset.getOrder().getStarlarkName())
                 .build())
-        .addAll(getChildren(objectMap, new NestedSetView<>(nestedSet.getSet())))
+        .addAll(getChildren(objectMap, depset.getSet()))
         .build();
   }
 
   private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, NestedSetView<?> nestedSet) {
+      ThreadObjectMap objectMap, NestedSet<?> nestedSet) {
     return ImmutableList.of(
-        getValueProto(objectMap, "directs", nestedSet.directs()),
-        getValueProto(objectMap, "transitives", nestedSet.transitives()));
+        getValueProto(objectMap, "directs", nestedSet.getLeaves()),
+        getValueProto(objectMap, "transitives", nestedSet.getNonLeaves()));
   }
 
   private static ImmutableList<Value> getChildren(

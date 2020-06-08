@@ -296,8 +296,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             // Provide the options parser so that we can cache OptionsData here.
             createOptionsParser(command),
             invocationPolicy);
-    DetailedExitCode earlyExitCode =
-        DetailedExitCode.justExitCode(optionHandler.parseOptions(args, storedEventHandler));
+    DetailedExitCode earlyExitCode = optionHandler.parseOptions(args, storedEventHandler);
     OptionsParsingResult options = optionHandler.getOptionsResult();
 
     CommandLineEvent originalCommandLineEvent =
@@ -567,9 +566,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       }
 
       // Parse starlark options.
-      earlyExitCode =
-          DetailedExitCode.justExitCode(
-              optionHandler.parseStarlarkOptions(env, storedEventHandler));
+      earlyExitCode = optionHandler.parseStarlarkOptions(env, storedEventHandler);
       if (!earlyExitCode.isSuccess()) {
         replayEarlyExitEvents(
             outErr,

@@ -269,9 +269,15 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   public void testRegisteredExecutionPlatformsValue_equalsAndHashCode()
       throws ConstraintCollection.DuplicateConstraintException {
     ConfiguredTargetKey executionPlatformKey1 =
-        ConfiguredTargetKey.of(makeLabel("//test:executionPlatform1"), null, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//test:executionPlatform1"))
+            .setConfigurationKey(null)
+            .build();
     ConfiguredTargetKey executionPlatformKey2 =
-        ConfiguredTargetKey.of(makeLabel("//test:executionPlatform2"), null, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//test:executionPlatform2"))
+            .setConfigurationKey(null)
+            .build();
 
     new EqualsTester()
         .addEqualityGroup(

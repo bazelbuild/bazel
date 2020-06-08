@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.actions.ActionScanningCompletedEvent;
@@ -438,9 +439,8 @@ public final class SkyframeActionExecutor {
    * pass the returned context to {@link #executeAction}, and any other method that needs to execute
    * tasks related to that action.
    */
-  public ActionExecutionContext getContext(
+  ActionExecutionContext getContext(
       Action action,
-      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ProgressEventBehavior progressEventBehavior,
       Map<Artifact, Collection<Artifact>> expandedInputs,
@@ -467,7 +467,7 @@ public final class SkyframeActionExecutor {
     }
     return new ActionExecutionContext(
         executorEngine,
-        createFileCache(metadataProvider, actionFileSystem),
+        createFileCache(metadataHandler, actionFileSystem),
         actionInputPrefetcher,
         actionKeyContext,
         metadataHandler,
@@ -622,7 +622,6 @@ public final class SkyframeActionExecutor {
   NestedSet<Artifact> discoverInputs(
       Action action,
       ActionLookupData actionLookupData,
-      MetadataProvider metadataProvider,
       MetadataHandler metadataHandler,
       ProgressEventBehavior progressEventBehavior,
       Environment env,
@@ -631,7 +630,7 @@ public final class SkyframeActionExecutor {
     ActionExecutionContext actionExecutionContext =
         ActionExecutionContext.forInputDiscovery(
             executorEngine,
-            createFileCache(metadataProvider, actionFileSystem),
+            createFileCache(metadataHandler, actionFileSystem),
             actionInputPrefetcher,
             actionKeyContext,
             metadataHandler,
@@ -830,7 +829,8 @@ public final class SkyframeActionExecutor {
           profiler.profileAction(
               ProfilerTask.ACTION,
               action.describe(),
-              action.getPrimaryOutput().getExecPathString())) {
+              action.getPrimaryOutput().getExecPathString(),
+              getOwnerLabelAsString(action))) {
         String message = action.getProgressMessage();
         if (message != null) {
           reporter.startTask(null, prependExecPhaseStats(message));
@@ -897,6 +897,18 @@ public final class SkyframeActionExecutor {
 
         return continueAction(env.getListener(), runFully(action, actionExecutionContext));
       }
+    }
+
+    private String getOwnerLabelAsString(Action action) {
+      ActionOwner owner = action.getOwner();
+      if (owner == null) {
+        return "";
+      }
+      Label ownerLabel = owner.getLabel();
+      if (ownerLabel == null) {
+        return "";
+      }
+      return ownerLabel.getCanonicalForm();
     }
 
     private void notifyActionCompletion(

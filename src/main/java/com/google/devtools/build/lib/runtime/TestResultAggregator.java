@@ -93,7 +93,10 @@ final class TestResultAggregator {
   synchronized void testEvent(TestResult result) {
     ActionOwner testOwner = result.getTestAction().getOwner();
     ConfiguredTargetKey targetLabel =
-        ConfiguredTargetKey.of(testOwner.getLabel(), result.getTestAction().getConfiguration());
+        ConfiguredTargetKey.builder()
+            .setLabel(testOwner.getLabel())
+            .setConfiguration(result.getTestAction().getConfiguration())
+            .build();
     Preconditions.checkArgument(targetLabel.equals(asKey(testTarget)));
 
     TestResult previousResult = statusMap.put(result.getTestStatusArtifact(), result);
@@ -164,11 +167,10 @@ final class TestResultAggregator {
   }
 
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
-    return ConfiguredTargetKey.of(
-        // A test is never in the host configuration.
-        AliasProvider.getDependencyLabel(target),
-        target.getConfigurationKey(),
-        /*isHostConfiguration=*/ false);
+    return ConfiguredTargetKey.builder()
+        .setLabel(AliasProvider.getDependencyLabel(target))
+        .setConfigurationKey(target.getConfigurationKey())
+        .build();
   }
 
   private static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {

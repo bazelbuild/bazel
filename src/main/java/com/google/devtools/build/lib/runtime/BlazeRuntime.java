@@ -376,7 +376,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           eventHandler.handle(
               Event.warn(
                   "Enabling both --slim_profile and"
-                      + " --experimental_include_primary_output: the \"out\" field"
+                      + " --experimental_profile_include_primary_output: the \"out\" field"
                       + " will be omitted in merged actions."));
         }
         Profiler profiler = Profiler.instance();
@@ -391,7 +391,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             execStartTimeNanos,
             options.enableCpuUsageProfiling,
             options.slimProfile,
-            options.includePrimaryOutput);
+            options.includePrimaryOutput,
+            options.profileIncludeTargetLabel);
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.

@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
@@ -56,6 +57,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -352,7 +354,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
     List<LibraryToLink> precompiledLibraries =
         convertPrecompiledLibrariesToLibraryToLink(
-            common, ruleContext.getFragment(CppConfiguration.class).forcePic(), precompiledFiles);
+            ruleContext,
+            common,
+            ruleContext.getFragment(CppConfiguration.class).forcePic(),
+            precompiledFiles);
 
     if (!ccCompilationOutputs.isEmpty()) {
       checkIfLinkOutputsCollidingWithPrecompiledFiles(
@@ -674,12 +679,21 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     return ccCompilationOutputsIsEmpty && !ccLinkingOutputsIsEmpty;
   }
 
-  private static Map<String, Artifact> buildMapIdentifierToArtifact(Iterable<Artifact> artifacts) {
-    ImmutableMap.Builder<String, Artifact> libraries = ImmutableMap.builder();
+  private static ImmutableMap<String, Artifact> buildMapIdentifierToArtifact(
+      RuleErrorConsumer ruleErrorConsumer, Iterable<Artifact> artifacts) {
+    Map<String, Artifact> libraries = new LinkedHashMap<>();
     for (Artifact artifact : artifacts) {
-      libraries.put(CcLinkingOutputs.libraryIdentifierOf(artifact), artifact);
+      String identifier = CcLinkingOutputs.libraryIdentifierOf(artifact);
+      if (libraries.containsKey(identifier)) {
+        ruleErrorConsumer.attributeError(
+            "srcs",
+            String.format(
+                "Trying to link twice a library with the same identifier '%s', files: %s and %s",
+                identifier, artifact.toDetailString(), libraries.get(identifier).toDetailString()));
+      }
+      libraries.put(identifier, artifact);
     }
-    return libraries.build();
+    return ImmutableMap.copyOf(libraries);
   }
 
   /*
@@ -697,19 +711,24 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
    * Note that some target platforms do not require shared library code to be PIC.
    */
   private static List<LibraryToLink> convertPrecompiledLibrariesToLibraryToLink(
-      CcCommon common, boolean forcePic, PrecompiledFiles precompiledFiles) {
+      RuleErrorConsumer ruleErrorConsumer,
+      CcCommon common,
+      boolean forcePic,
+      PrecompiledFiles precompiledFiles) {
     ImmutableList.Builder<LibraryToLink> librariesToLink = ImmutableList.builder();
 
     Map<String, Artifact> staticLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getStaticLibraries());
+        buildMapIdentifierToArtifact(ruleErrorConsumer, precompiledFiles.getStaticLibraries());
     Map<String, Artifact> picStaticLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getPicStaticLibraries());
+        buildMapIdentifierToArtifact(ruleErrorConsumer, precompiledFiles.getPicStaticLibraries());
     Map<String, Artifact> alwayslinkStaticLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getAlwayslinkStaticLibraries());
+        buildMapIdentifierToArtifact(
+            ruleErrorConsumer, precompiledFiles.getAlwayslinkStaticLibraries());
     Map<String, Artifact> alwayslinkPicStaticLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getPicAlwayslinkLibraries());
+        buildMapIdentifierToArtifact(
+            ruleErrorConsumer, precompiledFiles.getPicAlwayslinkLibraries());
     Map<String, Artifact> dynamicLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getSharedLibraries());
+        buildMapIdentifierToArtifact(ruleErrorConsumer, precompiledFiles.getSharedLibraries());
 
     Set<String> identifiersUsed = new HashSet<>();
     for (Map.Entry<String, Artifact> staticLibraryEntry :

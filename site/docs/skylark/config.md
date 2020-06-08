@@ -273,7 +273,7 @@ the [`configuration_field`](lib/globals.html#configuration_field)
 
 ```python
 # example/rules.bzl
-MyProvider = provider(field = ["my_field"])
+MyProvider = provider(fields = ["my_field"])
 
 def _dep_impl(ctx):
     return MyProvider(my_field = "yeehaw")
@@ -283,7 +283,7 @@ dep_rule = rule(
 )
 
 def _parent_impl(ctx):
-    if ctx.attr.my_field_provider[MyProvider] == "cowabunga":
+    if ctx.attr.my_field_provider[MyProvider].my_field == "cowabunga":
         ...
 
 parent_rule = rule(

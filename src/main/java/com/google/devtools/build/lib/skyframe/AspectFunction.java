@@ -63,9 +63,9 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredTargetFunctionException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
-import com.google.devtools.build.lib.skyframe.StarlarkImportLookupFunction.StarlarkImportFailedException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -154,18 +154,17 @@ public final class AspectFunction implements SkyFunction {
   static StarlarkAspect loadStarlarkAspect(
       Environment env, Label extensionLabel, String starlarkValueName)
       throws AspectCreationException, InterruptedException {
-    SkyKey importFileKey = StarlarkImportLookupValue.key(extensionLabel);
+    SkyKey importFileKey = BzlLoadValue.keyForBuild(extensionLabel);
     try {
-      StarlarkImportLookupValue starlarkImportLookupValue =
-          (StarlarkImportLookupValue)
-              env.getValueOrThrow(importFileKey, StarlarkImportFailedException.class);
-      if (starlarkImportLookupValue == null) {
+      BzlLoadValue bzlLoadValue =
+          (BzlLoadValue) env.getValueOrThrow(importFileKey, BzlLoadFailedException.class);
+      if (bzlLoadValue == null) {
         Preconditions.checkState(
             env.valuesMissing(), "no Starlark import value for %s", importFileKey);
         return null;
       }
 
-      Object starlarkValue = starlarkImportLookupValue.getModule().getGlobal(starlarkValueName);
+      Object starlarkValue = bzlLoadValue.getModule().getGlobal(starlarkValueName);
       if (starlarkValue == null) {
         throw new ConversionException(
             String.format(
@@ -177,7 +176,7 @@ public final class AspectFunction implements SkyFunction {
                 "%s from %s is not an aspect", starlarkValueName, extensionLabel.toString()));
       }
       return (StarlarkAspect) starlarkValue;
-    } catch (StarlarkImportFailedException | ConversionException e) {
+    } catch (BzlLoadFailedException | ConversionException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new AspectCreationException(e.getMessage(), extensionLabel);
     }
@@ -422,7 +421,7 @@ public final class AspectFunction implements SkyFunction {
                 configConditions,
                 unloadedToolchainContext == null
                     ? null
-                    : new ToolchainCollection.Builder<>()
+                    : ToolchainCollection.builder()
                         .addDefaultContext(unloadedToolchainContext)
                         .build(),
                 ruleClassProvider,

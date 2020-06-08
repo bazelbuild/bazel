@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.testing.ResolvedToolchainContextSubject.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
@@ -81,8 +82,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             "test",
             ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
-    assertThat(toolchainContext.forToolchainType(testToolchainType)).isNotNull();
-    assertThat(toolchainContext.forToolchainType(testToolchainType).getValue("data"))
+    assertThat(toolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(toolchainContext)
+        .forToolchainType(testToolchainTypeLabel)
+        .getValue("data")
         .isEqualTo("baz");
   }
 
@@ -130,8 +133,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             "test",
             ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
-    assertThat(toolchainContext.forToolchainType(testToolchainType)).isNotNull();
-    assertThat(toolchainContext.forToolchainType(testToolchainType).getValue("data"))
+    assertThat(toolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(toolchainContext)
+        .forToolchainType(testToolchainTypeLabel)
+        .getValue("data")
         .isEqualTo("baz");
   }
 
@@ -234,7 +239,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             "test",
             ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
-    assertThat(toolchainContext.forToolchainType(variableToolchainType)).isNotNull();
+    assertThat(toolchainContext).hasToolchainType(variableToolchainTypeLabel);
     assertThat(toolchainContext.templateVariableProviders()).hasSize(1);
     assertThat(toolchainContext.templateVariableProviders().get(0).getVariables())
         .containsExactly("VALUE", "foo");

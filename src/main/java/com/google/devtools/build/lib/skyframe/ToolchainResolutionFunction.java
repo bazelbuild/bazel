@@ -152,7 +152,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
       throws InvalidToolchainTypeException, InterruptedException, ValueMissingException {
     ImmutableSet<ConfiguredTargetKey> toolchainTypeKeys =
         requestedToolchainTypeLabels.stream()
-            .map(label -> ConfiguredTargetKey.of(label, configuration))
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
             .collect(toImmutableSet());
 
     ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypes =
@@ -195,9 +200,16 @@ public class ToolchainResolutionFunction implements SkyFunction {
     Label hostPlatformLabel = platformConfiguration.getHostPlatform();
     Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
 
-    ConfiguredTargetKey hostPlatformKey = ConfiguredTargetKey.of(hostPlatformLabel, configuration);
+    ConfiguredTargetKey hostPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(hostPlatformLabel)
+            .setConfiguration(configuration)
+            .build();
     ConfiguredTargetKey targetPlatformKey =
-        ConfiguredTargetKey.of(targetPlatformLabel, configuration);
+        ConfiguredTargetKey.builder()
+            .setLabel(targetPlatformLabel)
+            .setConfiguration(configuration)
+            .build();
 
     // Load the host and target platforms early, to check for errors.
     PlatformLookupUtil.getPlatformInfo(
@@ -249,7 +261,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // Filter out execution platforms that don't satisfy the extra constraints.
     ImmutableList<ConfiguredTargetKey> execConstraintKeys =
         execConstraintLabels.stream()
-            .map(label -> ConfiguredTargetKey.of(label, configuration))
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
             .collect(toImmutableList());
 
     return filterAvailablePlatforms(
