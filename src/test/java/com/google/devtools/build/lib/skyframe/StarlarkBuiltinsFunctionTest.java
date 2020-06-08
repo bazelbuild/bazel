@@ -21,9 +21,9 @@ import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
+import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -146,10 +146,12 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
             "exported_toplevels = {}", //
             "# exported_rules missing",
             "exported_to_java = {}");
-    assertThat(ex).isInstanceOf(EvalException.class);
+    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
     assertThat(ex)
         .hasMessageThat()
-        .contains("expected a 'exported_rules' dictionary to be defined");
+        .contains(
+            "Failed to apply declared builtins: expected a 'exported_rules' dictionary to be "
+                + "defined");
   }
 
   @Test
@@ -159,8 +161,11 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
             "exported_toplevels = {}", //
             "exported_rules = None",
             "exported_to_java = {}");
-    assertThat(ex).isInstanceOf(EvalException.class);
-    assertThat(ex).hasMessageThat().contains("got NoneType for 'exported_rules dict', want dict");
+    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
+    assertThat(ex)
+        .hasMessageThat()
+        .contains(
+            "Failed to apply declared builtins: got NoneType for 'exported_rules dict', want dict");
   }
 
   @Test
@@ -170,10 +175,12 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
             "exported_toplevels = {}", //
             "exported_rules = {1: 'a'}",
             "exported_to_java = {}");
-    assertThat(ex).isInstanceOf(EvalException.class);
+    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
     assertThat(ex)
         .hasMessageThat()
-        .contains("got dict<int, string> for 'exported_rules dict', want dict<string, unknown>");
+        .contains(
+            "Failed to apply declared builtins: got dict<int, string> for 'exported_rules dict', "
+                + "want dict<string, unknown>");
   }
 
   @Test
@@ -185,9 +192,12 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
             "exported_rules = {}",
             "exported_to_java = {}",
             "asdf asdf  # <-- parse error");
+    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
     assertThat(ex)
         .hasMessageThat()
-        .contains("Extension 'tools/builtins_staging/exports.bzl' has errors");
+        .contains(
+            "Failed to load builtins sources: Extension 'tools/builtins_staging/exports.bzl' has "
+                + "errors");
   }
 
   @Test
@@ -199,9 +209,12 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
             "exported_rules = {}",
             "exported_to_java = {}",
             "1 // 0  # <-- dynamic error");
+    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
     assertThat(ex)
         .hasMessageThat()
-        .contains("Extension file 'tools/builtins_staging/exports.bzl' has errors");
+        .contains(
+            "Failed to load builtins sources: Extension file 'tools/builtins_staging/exports.bzl' "
+                + "has errors");
   }
 
   @Test
@@ -218,8 +231,11 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
             "exported_toplevels = {}",
             "exported_rules = {}",
             "exported_to_java = {}");
+    assertThat(ex).isInstanceOf(BuiltinsFailedException.class);
     assertThat(ex)
         .hasMessageThat()
-        .contains("Extension file 'builtins_helper/dummy.bzl' has errors");
+        .contains(
+            "Failed to load builtins sources: in /workspace/tools/builtins_staging/exports.bzl: "
+                + "Extension file 'builtins_helper/dummy.bzl' has errors");
   }
 }

@@ -116,6 +116,51 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
     assertContainsEvent("overridable_rule :: new_rule");
   }
 
+  @Test
+  public void evalWithInjection_errorInEvaluatingBuiltins() throws Exception {
+    // Test case with a Starlark error in the @builtins pseudo-repo itself.
+    // TODO(#11437): Use @builtins//:... syntax for load, once supported.
+    scratch.file(
+        "tools/builtins_staging/helper.bzl", //
+        "toplevels = {'overridable_symbol': 1//0}  # <-- dynamic error");
+    writeExportsBzl(
+        "load('//tools/builtins_staging:helper.bzl', 'toplevels')",
+        "exported_toplevels = toplevels",
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBzl("print('evaluation completed')");
+    reporter.removeHandler(failFastHandler);
+
+    buildDummyWithoutAssertingSuccess();
+    assertContainsEvent(
+        "/workspace/tools/builtins_staging/helper.bzl:1:36: integer division by zero");
+    assertContainsEvent(
+        "error loading package 'pkg': Internal error while loading Starlark builtins for "
+            + "//pkg:dummy.bzl: Failed to load builtins sources: in "
+            + "/workspace/tools/builtins_staging/exports.bzl: Extension file "
+            + "'tools/builtins_staging/helper.bzl' has errors");
+    assertDoesNotContainEvent("evaluation completed");
+  }
+
+  @Test
+  public void evalWithInjection_errorInProcessingExports() throws Exception {
+    // Test case with an error in the symbols exported by exports.bzl, but no actual Starlark errors
+    // in the @builtins files themselves.
+    writeExportsBzl(
+        "exported_toplevels = None", // should be dict
+        "exported_rules = {}",
+        "exported_to_java = {}");
+    writePkgBzl("print('evaluation completed')");
+    reporter.removeHandler(failFastHandler);
+
+    buildDummyWithoutAssertingSuccess();
+    assertContainsEvent(
+        "error loading package 'pkg': Internal error while loading Starlark builtins for "
+            + "//pkg:dummy.bzl: Failed to apply declared builtins: got NoneType for "
+            + "'exported_toplevels dict', want dict");
+    assertDoesNotContainEvent("evaluation completed");
+  }
+
   // TODO(#11437): Remove once disabling is not allowed.
   @Test
   public void injectionDisabledByFlag() throws Exception {
