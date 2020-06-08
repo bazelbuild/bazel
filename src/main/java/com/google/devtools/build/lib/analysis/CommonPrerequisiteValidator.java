@@ -107,9 +107,12 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
 
     if (prerequisiteTarget instanceof PackageGroup) {
+      Attribute configuredAttribute = RawAttributeMapper.of(rule).getAttributeDefinition(attrName);
+      if (configuredAttribute == null) { // handles aspects
+        configuredAttribute = attribute;
+      }
       boolean containsPackageSpecificationProvider =
-          RawAttributeMapper.of(rule)
-              .getAttributeDefinition(attrName)
+          configuredAttribute
               .getRequiredProviders()
               .getDescription()
               .contains("PackageSpecificationProvider");

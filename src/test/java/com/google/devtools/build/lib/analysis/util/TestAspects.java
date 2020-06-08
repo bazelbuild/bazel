@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -337,6 +338,24 @@ public class TestAspects {
       return EXTRA_ATTRIBUTE_ASPECT_DEFINITION;
     }
   }
+
+  /** An aspect that defines its own implicit attribute, requiring PackageSpecificationProvider. */
+  public static class PackageGroupAttributeAspect extends BaseAspect {
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return PACKAGE_GROUP_ATTRIBUTE_ASPECT_DEFINITION;
+    }
+  }
+
+  public static final PackageGroupAttributeAspect PACKAGE_GROUP_ATTRIBUTE_ASPECT =
+      new PackageGroupAttributeAspect();
+  private static final AspectDefinition PACKAGE_GROUP_ATTRIBUTE_ASPECT_DEFINITION =
+      new AspectDefinition.Builder(PACKAGE_GROUP_ATTRIBUTE_ASPECT)
+          .add(
+              attr("$dep", LABEL)
+                  .value(Label.parseAbsoluteUnchecked("//extra:extra"))
+                  .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class)))
+          .build();
 
   public static final ComputedAttributeAspect COMPUTED_ATTRIBUTE_ASPECT =
       new ComputedAttributeAspect();
@@ -673,6 +692,17 @@ public class TestAspects {
           "rule_with_extra_deps_aspect",
           attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
               .aspect(EXTRA_ATTRIBUTE_ASPECT));
+
+  /** A rule that defines an {@link PackageGroupAttributeAspect} on one of its attributes. */
+  public static final MockRule PACKAGE_GROUP_ATTRIBUTE_ASPECT_RULE =
+      () ->
+          MockRule.ancestor(BASE_RULE.getClass())
+              .factory(DummyRuleFactory.class)
+              .define(
+                  "rule_with_package_group_deps_aspect",
+                  attr("foo", LABEL_LIST)
+                      .allowedFileTypes(FileTypeSet.ANY_FILE)
+                      .aspect(PACKAGE_GROUP_ATTRIBUTE_ASPECT));
 
   /** A rule that defines an {@link ComputedAttributeAspect} on one of its attributes. */
   public static final MockRule COMPUTED_ATTRIBUTE_ASPECT_RULE =
