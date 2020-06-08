@@ -19,7 +19,9 @@ This makes it possible to:
 *   bake better defaults into rules (e.g. automatically build `//my:android_app`
     with a specified SDK)
 
-and more, all completely from .bzl files (no Bazel release required).
+and more, all completely from .bzl files (no Bazel release required). See the
+`bazelbuild/examples` repo for
+[examples](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations).
 
 <!-- [TOC] -->
 
@@ -49,6 +51,8 @@ register changes). They also can be set via the command line
 set via [user-defined transitions](#user-defined-transitions).
 
 ### Defining build settings
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/basic_build_setting)
 
 #### The `build_setting` `rule()` parameter
 
@@ -145,6 +149,8 @@ flavor(
 ```
 
 ### Predefined settings
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/use_skylib_build_setting)
 
 The
 [Skylib](https://github.com/bazelbuild/bazel-skylib)
@@ -257,6 +263,8 @@ $ bazel build //my/target --//third_party/bazel/src/main:cpu=k8 --no//my/project
 
 ### Label-typed build settings
 
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/label_typed_build_setting)
+
 Unlike other build settings, label-typed settings cannot be defined using the
 `build_setting` rule parameter. Instead, bazel has two built-in rules:
 `label_flag` and `label_setting`. These rules forward the providers of the
@@ -310,6 +318,8 @@ label_flag(
 TODO(bazel-team): Expand supported build setting types.
 
 ### Build settings and `select()`
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/select_on_build_setting)
 
 Users can configure attributes on build settings by using
  [`select()`](../be/functions.html#select). Build setting targets can be passed to the `flag_values` attribute of
@@ -410,6 +420,9 @@ not actually changed over the course of the transition - its original value must
 be explicitly passed through in the returned dictionary.
 
 ### Defining 1:2+ transitions
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/multi_arch_binary)
+
 [Outgoing edge transition](#outgoing-edge-transitions) can map a single input
 configuration to two or more output configurations. These are defined in
 Starlark by returning a list of dictionaries in the transition implementation
@@ -432,6 +445,9 @@ coffee_transition = transition(
 ```
 
 ### Attaching transitions
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/attaching_transitions_to_rules)
+
 Transitions can be attached in two places: incoming edges and outgoing edges.
 Effectively this means rules can transition their own configuration (incoming
 edge transition) and transition their dependencies' configurations (outgoing
@@ -472,6 +488,9 @@ drink_rule = rule(
 Outgoing edge transitions can be 1:1 or 1:2+.
 
 ### Transitions on native options
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/transition_on_native_flag)
+
 WARNING: Long term, we plan to reimplement all native options as build settings.
 When that happens, this syntax will be deprecated. Currently other issues are
 blocking that migration but be aware you may have to migrate your transitions
@@ -497,6 +516,9 @@ supported - create a custom [build setting](#users-defined-build-settings) to
 cover this functionality.
 
 ### Accessing attributes with transitions
+
+[End to end example](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations/read_attr_in_transition)
+
 When [attaching a transition to an outgoing edge](#outgoing-edge-transitions)
 (regardless of whether the transition is a 1:1 or 1:2+ transition) access to
 values of that attribute in the rule implementation changes. Access through
@@ -544,6 +566,7 @@ flags will likely be replaced by transitioning on the
 
  * [Starlark Build Configuration](https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
  * [Bazel Configurability Roadmap](https://bazel.build/roadmaps/configuration.html)
+ * Full [set](https://github.com/bazelbuild/examples/tree/master/rules/starlark_configurations) of end to end examples
 
 ## Memory and performance considerations
 
