@@ -52,18 +52,12 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.objc.ObjcProvider;
-import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skyframe.PackageFunction;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
 import java.util.List;
 import org.junit.Before;
@@ -3012,17 +3006,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   @RunWith(JUnit4.class)
   public static class StarlarkIntegrationTestsWithInlineCalls extends StarlarkIntegrationTest {
 
-    @Before
-    public final void initializeLookupFunctions() throws Exception {
-      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions =
-          ((InMemoryMemoizingEvaluator) getSkyframeExecutor().getEvaluatorForTesting())
-              .getSkyFunctionsForTesting();
-      BzlLoadFunction bzlLoadFunction =
-          BzlLoadFunction.createForInlining(
-              this.getRuleClassProvider(), this.getPackageFactory(), /*bzlLoadValueCacheSize=*/ 2);
-      bzlLoadFunction.resetInliningCache();
-      ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
-          .setBzlLoadFunctionForInliningForTesting(bzlLoadFunction);
+    @Override
+    protected boolean usesInliningBzlLoadFunction() {
+      return true;
     }
 
     @Override

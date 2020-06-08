@@ -38,7 +38,7 @@ public class StarlarkBuiltinsFunctionTest extends BuildViewTestCase {
   private static final MockRule OVERRIDABLE_RULE = () -> MockRule.define("overridable_rule");
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     // Add a fake rule and top-level symbol to override.
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()

@@ -151,7 +151,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
                           .allowedFileTypes(FileTypeSet.ANY_FILE)));
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(RULE_WITH_OUTPUT_ATTR)
