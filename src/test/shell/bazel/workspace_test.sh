@@ -194,11 +194,11 @@ EOF
   expect_log "In workspace macro: " "Did not find workspace macro print output"
   expect_not_log "$MARKER" \
     "Marker string '$MARKER' was seen even though \
-    --internal_skylark_flag_test_canary wasn't passed"
+    --internal_starlark_flag_test_canary wasn't passed"
 
   # Build with the special testing flag that appends a marker string to all
   # print() calls.
-  bazel build //:x --internal_skylark_flag_test_canary &>"$TEST_log" \
+  bazel build //:x --internal_starlark_flag_test_canary &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: $MARKER" \
     "Starlark flags are not propagating to workspace evaluation"

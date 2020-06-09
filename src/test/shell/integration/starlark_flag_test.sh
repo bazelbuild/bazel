@@ -17,7 +17,7 @@
 # Tests that the Starlark interpreter is reading flags passed in on the command
 # line, in several different evaluation contexts.
 #
-# The --internal_skylark_flag_test_canary flag is built into
+# The --internal_starlark_flag_test_canary flag is built into
 # StarlarkSemanticsOptions specifically for this test suite.
 
 # --- begin runfiles.bash initialization ---
@@ -72,7 +72,7 @@ fi
 MARKER="<== Starlark flag test ==>"
 
 sanity_fail_msg="Marker string '$MARKER' was seen even though "
-sanity_fail_msg+="--internal_skylark_flag_test_canary wasn't passed"
+sanity_fail_msg+="--internal_starlark_flag_test_canary wasn't passed"
 
 
 function test_build_file() {
@@ -95,7 +95,7 @@ EOF
   expect_not_log "$MARKER" "$sanity_fail_msg"
 
   bazel build //$pkg:dummy \
-      --internal_skylark_flag_test_canary \
+      --internal_starlark_flag_test_canary \
       &>"$TEST_log" || fail "bazel build failed";
   expect_log "In BUILD: $MARKER" \
       "Starlark flags are not propagating to BUILD file evaluation"
@@ -129,7 +129,7 @@ EOF
   expect_not_log "$MARKER" "$sanity_fail_msg"
 
   bazel build //$pkg:dummy \
-      --internal_skylark_flag_test_canary \
+      --internal_starlark_flag_test_canary \
       &>"$TEST_log" || fail "bazel build failed";
   expect_log "In bzl: $MARKER" \
       "Starlark flags are not propagating to .bzl file evaluation"
@@ -163,7 +163,7 @@ EOF
   expect_not_log "$MARKER" "$sanity_fail_msg"
 
   bazel build //$pkg:dummy \
-      --internal_skylark_flag_test_canary \
+      --internal_starlark_flag_test_canary \
       &>"$TEST_log" || fail "bazel build failed";
   expect_log "In rule: $MARKER" \
       "Starlark flags are not propagating to rule implementation function evaluation"
@@ -208,7 +208,7 @@ EOF
   expect_not_log "$MARKER" "$sanity_fail_msg"
 
   bazel build //$pkg:dummy --aspects $pkg/test.bzl%some_aspect \
-      --internal_skylark_flag_test_canary \
+      --internal_starlark_flag_test_canary \
       &>"$TEST_log" || fail "bazel build failed";
   expect_log "In aspect: $MARKER" \
       "Starlark flags are not propagating to aspect implementation function evaluation"
@@ -219,14 +219,14 @@ EOF
 function test_nested_set_depth() {
   mkdir -p test
   cat << EOF >> test/BUILD
-load(":skylark.bzl", "test_rule")
+load(":starlark.bzl", "test_rule")
 
 test_rule(
     name = "test",
 )
 EOF
 
-  cat << 'EOF' >> test/skylark.bzl
+  cat << 'EOF' >> test/starlark.bzl
 def _test_impl(ctx):
   x = depset([0])
   for i in range(1, 1000):
@@ -258,4 +258,4 @@ EOF
 }
 
 
-run_suite "skylark_flag_test"
+run_suite "starlark_flag_test"
