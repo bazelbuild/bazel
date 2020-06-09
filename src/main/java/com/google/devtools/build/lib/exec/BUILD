@@ -107,11 +107,8 @@ java_library(
     srcs = ["ExecutorBuilder.java"],
     deps = [
         ":executor_lifecycle_listener",
-        ":module_action_context_registry",
         ":spawn_action_context_maps",
-        ":spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//third_party:guava",
     ],
