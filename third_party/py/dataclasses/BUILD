@@ -16,4 +16,5 @@ py_library(
     name = "dataclasses",
     srcs = ["__init__.py"],
     srcs_version = "PY3",  # Only works with Python 3.
+    imports = ["."],
 )

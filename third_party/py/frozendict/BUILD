@@ -12,5 +12,6 @@ py_library(
     name = "frozendict",
     srcs = ["__init__.py"],
     srcs_version = "PY2AND3",
+    imports = ["."],
     visibility = ["//visibility:public"],
 )
