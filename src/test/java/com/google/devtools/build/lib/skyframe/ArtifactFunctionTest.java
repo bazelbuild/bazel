@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -343,6 +344,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
         .addDependency(
             Root.RootCodecDependencies.class,
             new Root.RootCodecDependencies(Root.absoluteRoot(root.getFileSystem())))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
   }
 

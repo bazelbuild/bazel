@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -261,6 +262,7 @@ public class ArtifactTest {
         .addDependency(FileSystem.class, scratch.getFileSystem())
         .addDependency(
             Root.RootCodecDependencies.class, new Root.RootCodecDependencies(anotherRoot.getRoot()))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
   }
 
@@ -271,7 +273,18 @@ public class ArtifactTest {
     ArtifactFactory artifactFactory =
         new ArtifactFactory(execDir.getParentDirectory(), "blaze-out");
     artifactFactory.setSourceArtifactRoots(ImmutableMap.of(root, artifactRoot));
-    ArtifactResolverSupplier artifactResolverSupplierForTest = () -> artifactFactory;
+    ArtifactResolverSupplier artifactResolverSupplierForTest =
+        new ArtifactResolverSupplier() {
+          @Override
+          public Artifact.DerivedArtifact intern(Artifact.DerivedArtifact original) {
+            return original;
+          }
+
+          @Override
+          public ArtifactResolver get() {
+            return artifactFactory;
+          }
+        };
 
     ObjectCodecs objectCodecs =
         new ObjectCodecs(

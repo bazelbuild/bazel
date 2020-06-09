@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -89,6 +90,7 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
         .addDependency(
             Root.RootCodecDependencies.class,
             new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .runTests();
   }
 
