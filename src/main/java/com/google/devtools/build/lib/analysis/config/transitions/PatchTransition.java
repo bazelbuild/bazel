@@ -68,14 +68,14 @@ public interface PatchTransition extends ConfigurationTransition {
    */
   default BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
     throw new UnsupportedOperationException(
-        "Either this or patch(RestrictedBuildOptions) must be overriden");
+        "Either this or patch(BuildOptionsView) must be overridden");
   }
 
   /**
    * Applies the transition.
    *
    * <p>Blaze throws an {@link IllegalArgumentException} if this method reads any options fragment
-   * not declard in {@link ConfigurationTransition#requiresOptionFragments}.
+   * not declared in {@link ConfigurationTransition#requiresOptionFragments}.
    *
    * @param options the options representing the input configuration to this transition. <b>DO NOT
    *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST!</b>

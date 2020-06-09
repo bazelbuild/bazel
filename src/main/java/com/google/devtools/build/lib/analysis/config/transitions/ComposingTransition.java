@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /**
  * A configuration transition that composes two other transitions in an ordered sequence.
@@ -53,7 +52,7 @@ public class ComposingTransition implements ConfigurationTransition {
   }
 
   @Override
-  public Set<Class<? extends FragmentOptions>> requiresOptionFragments() {
+  public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
     return ImmutableSet.<Class<? extends FragmentOptions>>builder()
         .addAll(transition1.requiresOptionFragments())
         .addAll(transition2.requiresOptionFragments())

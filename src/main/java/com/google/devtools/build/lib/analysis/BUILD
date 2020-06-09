@@ -1591,6 +1591,7 @@ java_library(
         ":config/build_options",
         ":config/build_options_cache",
         ":config/core_options",
+        ":config/fragment_options",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
         ":platform_options",

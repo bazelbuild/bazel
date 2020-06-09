@@ -60,7 +60,7 @@ public class BuildOptionsCache<T> {
    * @param transitionFunc the transition to apply if {@code (fromOptions, context)} isn't cached
    */
   public BuildOptions applyTransition(
-      BuildOptions fromOptions, T context, Supplier<BuildOptions> transitionFunc) {
+      BuildOptionsView fromOptions, T context, Supplier<BuildOptions> transitionFunc) {
     try {
       return cache.get(new ReferenceCacheKey(fromOptions, context), () -> transitionFunc.get());
     } catch (ExecutionException e) {
@@ -77,17 +77,17 @@ public class BuildOptionsCache<T> {
    * BuildOptions#equals} calls.
    */
   private static final class ReferenceCacheKey {
-    private final BuildOptions options;
+    private final BuildOptionsView options;
     private final Object context;
 
-    ReferenceCacheKey(BuildOptions options, Object context) {
+    ReferenceCacheKey(BuildOptionsView options, Object context) {
       this.options = options;
       this.context = context;
     }
 
     @Override
     public String toString() {
-      return String.format("ReferenceCacheKey(%s, %s)", options, context);
+      return String.format("ReferenceCacheKey(%s, %s)", options.underlying(), context);
     }
 
     @Override
@@ -101,7 +101,9 @@ public class BuildOptionsCache<T> {
       // because the memory problem we're trying to solve is the same transition applying to the
       // same BuildOptions instance over and over again.
       @SuppressWarnings("ReferenceEquality")
-      boolean match = this.options == casted.options && this.context.equals(casted.context);
+      boolean match =
+          this.options.underlying() == casted.options.underlying()
+              && this.context.equals(casted.context);
       return match;
     }
 
@@ -109,7 +111,7 @@ public class BuildOptionsCache<T> {
     public int hashCode() {
       // Computing BuildOptions.hashCode is potentially expensive and its reference is sufficient,
       // so we just hash its reference.
-      return Objects.hash(System.identityHashCode(options), context);
+      return Objects.hash(System.identityHashCode(options.underlying()), context);
     }
   }
 }

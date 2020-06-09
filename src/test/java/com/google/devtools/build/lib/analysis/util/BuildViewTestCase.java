@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.ConfigsMode;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -1845,7 +1846,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         return skyframeExecutor.getConfigurationForTesting(
             reporter,
             fromConfig.fragmentClasses(),
-            transition.patch(fromConfig.getOptions(), eventCollector));
+            transition.patch(
+                new BuildOptionsView(fromConfig.getOptions(), transition.requiresOptionFragments()),
+                eventCollector));
       } catch (OptionsParsingException | InvalidConfigurationException e) {
         throw new AssertionError(e);
       }

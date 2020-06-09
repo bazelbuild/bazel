@@ -49,7 +49,7 @@ public interface SplitTransition extends ConfigurationTransition {
    */
   default Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
     throw new UnsupportedOperationException(
-        "Either this or patch(RestrictedBuildOptions) must be overriden");
+        "Either this or patch(BuildOptionsView) must be overridden");
   }
 
   /**
@@ -58,7 +58,7 @@ public interface SplitTransition extends ConfigurationTransition {
    * are recommended.
    *
    * <p>Blaze throws an {@link IllegalArgumentException} if this method reads any options fragment
-   * not declard in {@link ConfigurationTransition#requiresOptionFragments}.
+   * not declared in {@link ConfigurationTransition#requiresOptionFragments}.
    *
    * <p>Returning an empty or null list triggers a {@link RuntimeException}.
    */
