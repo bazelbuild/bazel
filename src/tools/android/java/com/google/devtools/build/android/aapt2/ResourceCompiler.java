@@ -33,6 +33,8 @@ import com.google.devtools.build.android.ResourceProcessorBusyBox;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.ResourcesAttribute;
+import com.google.devtools.build.lib.util.OS;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -231,6 +233,9 @@ public class ResourceCompiler {
                 .thenAdd("--pseudo-localize")
                 .add("-o", destination.toString())
                 .add(file.toString())
+                // build-tools 29.0.3's aapt2.exe on Windows is unable to crunch 9-patch PNG.
+                .when(OS.getCurrent() == OS.WINDOWS)
+                .thenAdd("--no-crunch")
                 .execute("Compiling " + file));
 
         Preconditions.checkArgument(
