@@ -6,7 +6,11 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Python Software Foundation
 
-exports_files(["LICENSE"])
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
 
 py_library(
     name = "dataclasses",

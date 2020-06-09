@@ -1,5 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
-load("//tools/distributions:distribution_rules.bzl", "distrib_java_import", "distrib_jar_filegroup")
+load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup", "distrib_java_import")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -40,6 +40,8 @@ filegroup(
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
         "//third_party/py/concurrent:srcs",
+        "//third_party/py/dataclasses:srcs",
+        "//third_party/py/frozendict:srcs",
         "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
