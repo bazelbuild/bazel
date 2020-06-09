@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.exec;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
-import com.google.devtools.build.lib.util.AbruptExitException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -25,14 +24,8 @@ import java.util.Set;
  * class is part of the module API, which allows modules to affect how the executor is initialized.
  */
 public class ExecutorBuilder {
-  private final SpawnActionContextMaps.Builder spawnActionContextMapsBuilder =
-      new SpawnActionContextMaps.Builder();
   private final Set<ExecutorLifecycleListener> executorLifecycleListeners = new LinkedHashSet<>();
   private ActionInputPrefetcher prefetcher;
-
-  public SpawnActionContextMaps getSpawnActionContextMaps() throws AbruptExitException {
-    return spawnActionContextMapsBuilder.build();
-  }
 
   /** Returns all executor lifecycle listeners registered with this builder so far. */
   public ImmutableSet<ExecutorLifecycleListener> getExecutorLifecycleListeners() {
