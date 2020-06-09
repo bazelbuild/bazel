@@ -2,4 +2,4 @@
 --------
 
 * Version: 7e078bf084ee734367dde8db2c8a2f00ec37375f
-* License: New MIT License
+* License: MIT License
