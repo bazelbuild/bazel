@@ -120,7 +120,7 @@ class BazelApiTest(test_base.TestBase):
     config = self._bazel_api.get_config(cts[0].config_hash)
     user_defined_options = config.options['user-defined']
     self.assertIsNotNone(user_defined_options)
-    self.assertDictEqual(user_defined_options, {'--define:a': 'b'})
+    self.assertDictEqual(user_defined_options._dict, {'--define:a': 'b'})
 
   def testConfigWithStarlarkFlags(self):
     self.ScratchFile('testapp/defs.bzl', [
@@ -139,7 +139,8 @@ class BazelApiTest(test_base.TestBase):
     config = self._bazel_api.get_config(cts[0].config_hash)
     user_defined_options = config.options['user-defined']
     self.assertIsNotNone(user_defined_options)
-    self.assertDictEqual(user_defined_options, {'//testapp:my_flag': 'algo'})
+    self.assertDictEqual(user_defined_options._dict,
+                         {'//testapp:my_flag': 'algo'})
 
 
 if __name__ == '__main__':

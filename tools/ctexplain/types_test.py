@@ -14,30 +14,45 @@
 # limitations under the License.
 """Tests for types.py."""
 import unittest
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from frozendict import frozendict
 from tools.ctexplain.types import Configuration
 
 
 class TypesTest(unittest.TestCase):
 
   def testConfigurationIsHashable(self):
-    c = Configuration(fragments=('F1'), options={'o1': {'k1': 'v1'}})
+    options = frozendict({'o1': frozendict({'k1': 'v1'})})
+    c = Configuration(fragments=('F1'), options=options)
     some_dict = {}
     some_dict[c] = 4
 
   def testConfigurationHashAccuracy(self):
-    dict = {}
-    dict[Configuration(fragments=('F1'), options={'o1': {'k1': 'v1'}})] = 4
-    self.assertEqual(len(dict), 1)
-    dict[Configuration(fragments=('F1'), options={'o1': {'k1': 'v1'}})] = 4
-    self.assertEqual(len(dict), 1)
-    dict[Configuration(fragments=('F2'), options={'o1': {'k1': 'v1'}})] = 4
-    self.assertEqual(len(dict), 2)
-    dict[Configuration(fragments=('F2'), options={'o2': {'k1': 'v1'}})] = 4
-    self.assertEqual(len(dict), 3)
-    dict[Configuration(fragments=('F2'), options={'o2': {'k2': 'v1'}})] = 4
-    self.assertEqual(len(dict), 4)
-    dict[Configuration(fragments=('F2'), options={'o2': {'k2': 'v2'}})] = 4
-    self.assertEqual(len(dict), 5)
+    d = {}
+
+    options1 = frozendict({'o1': frozendict({'k1': 'v1'})})
+    d[Configuration(fragments=('F1'), options=options1)] = 4
+    self.assertEqual(len(d), 1)
+
+    options2 = frozendict({'o1': frozendict({'k1': 'v1'})})
+    d[Configuration(fragments=('F1'), options=options2)] = 4
+    self.assertEqual(len(d), 1)
+
+    options3 = frozendict({'o1': frozendict({'k1': 'v1'})})
+    d[Configuration(fragments=('F2'), options=options3)] = 4
+    self.assertEqual(len(d), 2)
+
+    options4 = frozendict({'o2': frozendict({'k1': 'v1'})})
+    d[Configuration(fragments=('F2'), options=options4)] = 4
+    self.assertEqual(len(d), 3)
+
+    options5 = frozendict({'o2': frozendict({'k2': 'v1'})})
+    d[Configuration(fragments=('F2'), options=options5)] = 4
+    self.assertEqual(len(d), 4)
+
+    options6 = frozendict({'o2': frozendict({'k2': 'v2'})})
+    d[Configuration(fragments=('F2'), options=options6)] = 4
+    self.assertEqual(len(d), 5)
 
   def testConfigurationEquality(self):
     c1 = Configuration(fragments=('F1'), options={'o1': {'k1': 'v1'}})
@@ -49,6 +64,7 @@ class TypesTest(unittest.TestCase):
     self.assertNotEqual(c1, c3)
     self.assertNotEqual(c1, c4)
     self.assertNotEqual(c3, c4)
- 
+
+
 if __name__ == '__main__':
   unittest.main()

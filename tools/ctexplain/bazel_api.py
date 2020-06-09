@@ -22,13 +22,15 @@ import subprocess
 from typing import Callable
 from typing import List
 from typing import Tuple
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
+from frozendict import frozendict
 from tools.ctexplain.types import Configuration
 from tools.ctexplain.types import ConfiguredTarget
 from tools.ctexplain.types import HostConfiguration
 from tools.ctexplain.types import NullConfiguration
 
 
-def run_bazel_in_client(args: List[str]) -> Tuple[int, str, str]:
+def run_bazel_in_client(args: List[str]) -> Tuple[int, List[str], List[str]]:
   """Calls bazel within the current workspace.
 
   For production use. Tests use an alternative invoker that goes through test
@@ -46,22 +48,21 @@ def run_bazel_in_client(args: List[str]) -> Tuple[int, str, str]:
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
       check=True)
-  return (
-      result.returncode,
-      result.stdout.decode("utf-8").split(os.linesep),
-      result.stderr
-  )
+  return (result.returncode, result.stdout.decode("utf-8").split(os.linesep),
+          result.stderr)
 
 
 class BazelApi():
   """API that accepts injectable Bazel invocation logic."""
 
-  def __init__(self, run_bazel: Callable[
-      List[str], Tuple[int, str, str]] = run_bazel_in_client):
+  def __init__(self,
+               run_bazel: Callable[[List[str]],
+                                   Tuple[int, List[str],
+                                         List[str]]] = run_bazel_in_client):
     self.run_bazel = run_bazel
 
-  def cquery(self, args: List[str]) -> Tuple[
-      bool, str, Tuple[ConfiguredTarget, ...]]:
+  def cquery(self,
+             args: List[str]) -> Tuple[bool, str, Tuple[ConfiguredTarget, ...]]:
     """Calls cquery with the given arguments.
 
     Args:
@@ -111,10 +112,10 @@ class BazelApi():
     fragments = [
         fragment["name"].split(".")[-1] for fragment in config_json["fragments"]
     ]
-    options = {
-        entry["name"].split(".")[-1]: entry["options"]
+    options = frozendict({
+        entry["name"].split(".")[-1]: frozendict(entry["options"])
         for entry in config_json["fragmentOptions"]
-    }
+    })
     return Configuration(fragments, options)
 
 

@@ -17,8 +17,10 @@
 from typing import Mapping
 from typing import Optional
 from typing import Tuple
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from dataclasses import dataclass
 from dataclasses import field
+from frozendict import frozendict
 
 
 @dataclass(frozen=True)
@@ -33,21 +35,7 @@ class Configuration():
   # Option values are stored as strings of whatever "bazel config" outputs.
   #
   # Note that Fragment and FragmentOptions aren't the same thing.
-  options: Mapping[str, Mapping[str, str]]
-
-  def __hash__(self):
-    return self._hash_value()
-
-  def __eq__(self, other):
-    return other._hash_value() == self._hash_value()
-
-  def _hash_value(self):
-    """Explicitly specified because dict isn't hashable."""
-    items_to_hash = list(self.fragments)
-    for item in sorted(self.options.items()):
-      items_to_hash.append(item[0])
-      items_to_hash.append(tuple(sorted(item[1].items())))
-    return hash(tuple(items_to_hash))
+  options: [Mapping[str, Mapping[str, str]]]
 
 
 @dataclass(frozen=True)
@@ -80,7 +68,9 @@ class HostConfiguration(Configuration):
   """
   # We don't currently read the host config's fragments or option values.
   fragments: Tuple[str, ...] = ()
-  options: Mapping[str, Mapping[str, str]] = field(default_factory=lambda: {})
+  options: Mapping[str,
+                   Mapping[str,
+                           str]] = field(default_factory=lambda: frozendict({}))
 
 
 @dataclass(frozen=True)
@@ -90,4 +80,6 @@ class NullConfiguration(Configuration):
   By definition this has no fragments or options.
   """
   fragments: Tuple[str, ...] = ()
-  options: Mapping[str, Mapping[str, str]] = field(default_factory=lambda: {})
+  options: Mapping[str,
+                   Mapping[str,
+                           str]] = field(default_factory=lambda: frozendict({}))
