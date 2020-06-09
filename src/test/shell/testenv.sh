@@ -139,16 +139,6 @@ EOF
   cp -R ${langtools_dir}/* third_party/java/jdk/langtools
 
   chmod -R +w .
-
-  mkdir -p third_party/py/gflags
-  cat > third_party/py/gflags/BUILD <<EOF
-licenses(["notice"])
-package(default_visibility = ["//visibility:public"])
-
-py_library(
-    name = "gflags",
-)
-EOF
 }
 
 # Report whether a given directory name corresponds to a tools directory.
