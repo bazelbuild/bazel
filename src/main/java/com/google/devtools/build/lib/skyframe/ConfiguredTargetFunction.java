@@ -634,14 +634,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     }
     // Trim each dep's configuration so it only includes the fragments needed by its transitive
     // closure.
+    ConfigurationResolver configResolver =
+        new ConfigurationResolver(
+            env, ctgValue, hostConfiguration, defaultBuildOptions, configConditions);
     OrderedSetMultimap<DependencyKind, Dependency> depValueNames =
-        ConfigurationResolver.resolveConfigurations(
-            env,
-            ctgValue,
-            initialDependencies,
-            hostConfiguration,
-            defaultBuildOptions,
-            configConditions);
+        configResolver.resolveConfigurations(initialDependencies);
 
     // Return early in case packages were not loaded yet. In theory, we could start configuring
     // dependent targets in loaded packages. However, that creates an artificial sync boundary
