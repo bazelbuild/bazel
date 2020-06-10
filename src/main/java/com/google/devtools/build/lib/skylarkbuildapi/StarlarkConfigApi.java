@@ -29,7 +29,6 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "config",
-    namespace = true,
     category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "Note: This API is experimental and may change at any time."
