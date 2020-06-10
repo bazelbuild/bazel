@@ -99,6 +99,10 @@ public abstract class DependencyResolver {
       return new AutoValue_DependencyResolver_PartiallyResolvedDependency.Builder()
           .setPropagatingAspects(ImmutableList.of());
     }
+
+    public DependencyKey.Builder getDependencyKeyBuilder() {
+      return DependencyKey.builder().setLabel(getLabel());
+    }
   }
 
   /**
@@ -198,8 +202,7 @@ public abstract class DependencyResolver {
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
 
     // TODO(bazel-team): Figure out a way to implement the below (and partiallyResolveDependencies)
-    // using
-    // LabelVisitationUtils.
+    // using LabelVisitationUtils.
     Rule fromRule = null;
     ConfiguredAttributeMapper attributeMap = null;
     if (target instanceof OutputFile) {
@@ -366,9 +369,9 @@ public abstract class DependencyResolver {
 
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
         partiallyResolvedDeps.entries()) {
-      PartiallyResolvedDependency dep = entry.getValue();
+      PartiallyResolvedDependency partiallyResolvedDependency = entry.getValue();
 
-      Target toTarget = targetMap.get(dep.getLabel());
+      Target toTarget = targetMap.get(partiallyResolvedDependency.getLabel());
       if (toTarget == null) {
         // Dependency pointing to non-existent target. This error was reported in getTargets(), so
         // we can just ignore this dependency.
@@ -377,18 +380,19 @@ public abstract class DependencyResolver {
 
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
-              originalConfiguration, dep.getTransition(), toTarget, trimmingTransitionFactory);
+              originalConfiguration,
+              partiallyResolvedDependency.getTransition(),
+              toTarget,
+              trimmingTransitionFactory);
 
       AspectCollection requiredAspects =
-          filterPropagatingAspects(dep.getPropagatingAspects(), toTarget);
+          filterPropagatingAspects(partiallyResolvedDependency.getPropagatingAspects(), toTarget);
 
+      DependencyKey.Builder dependencyKeyBuilder =
+          partiallyResolvedDependency.getDependencyKeyBuilder();
       outgoingEdges.put(
           entry.getKey(),
-          DependencyKey.builder()
-              .setLabel(dep.getLabel())
-              .setTransition(transition)
-              .setAspects(requiredAspects)
-              .build());
+          dependencyKeyBuilder.setTransition(transition).setAspects(requiredAspects).build());
     }
     return outgoingEdges;
   }
