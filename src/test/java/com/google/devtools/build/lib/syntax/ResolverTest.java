@@ -283,10 +283,10 @@ public class ResolverTest {
         "def rule(*, implementation): return None", //
         "def impl(ctx): return None",
         "",
-        "skylark_rule = rule(implementation = impl)",
+        "starlark_rule = rule(implementation = impl)",
         "",
         "def macro(name):",
-        "  skylark_rule(name = name)");
+        "  starlark_rule(name = name)");
   }
 
   @Test

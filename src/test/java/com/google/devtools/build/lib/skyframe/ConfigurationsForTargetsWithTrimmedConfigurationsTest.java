@@ -248,10 +248,10 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     builder.overrideTrimmingTransitionFactoryForTesting(trimmingTransitionFactory);
     useRuleClassProvider(builder.build());
     scratch.file(
-        "a/skylark.bzl",
+        "a/starlark.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(),",
@@ -260,18 +260,18 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")");
     scratch.file(
         "a/BUILD",
-        "load(':skylark.bzl', 'skylark_rule')",
+        "load(':starlark.bzl', 'starlark_rule')",
         // ensure that all Starlark rules get the TestConfiguration fragment
         "test_base(name = 'base')",
         // Starlark rules get trimmed
-        "skylark_rule(name = 'skylark_solo', deps = [':base'])",
+        "starlark_rule(name = 'starlark_solo', deps = [':base'])",
         // native rules get trimmed; top-level targets get trimmed after the rule-class transition
         "add_test_arg_for_self(name = 'test_arg_on_self')",
         // deps with dependency transitions get trimmed after the dependency transition
         "add_test_arg_for_deps(name = 'attribute_transition', deps = [':dep_after_transition'])",
-        "skylark_rule(name = 'dep_after_transition')",
+        "starlark_rule(name = 'dep_after_transition')",
         // deps on rule-class transitions get trimmed after the rule-class transition
-        "skylark_rule(name = 'dep_on_ruleclass', deps = [':ruleclass_transition'])",
+        "starlark_rule(name = 'dep_on_ruleclass', deps = [':ruleclass_transition'])",
         "add_test_arg_for_self(name = 'ruleclass_transition')",
         // when all three (rule-class, attribute, trimming transitions) collide it's okay
         "add_test_arg_for_deps(name = 'attribute_outer', deps = [':ruleclass_inner'])",
@@ -280,10 +280,10 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     ConfiguredTarget configuredTarget;
     BuildConfiguration config;
 
-    configuredTarget = Iterables.getOnlyElement(update("//a:skylark_solo").getTargetsToBuild());
+    configuredTarget = Iterables.getOnlyElement(update("//a:starlark_solo").getTargetsToBuild());
     config = getConfiguration(configuredTarget);
     assertThat(config.getFragment(TestConfiguration.class).getTestArguments())
-        .containsExactly("trimming transition for //a:skylark_solo");
+        .containsExactly("trimming transition for //a:starlark_solo");
 
     configuredTarget = Iterables.getOnlyElement(update("//a:test_arg_on_self").getTargetsToBuild());
     config = getConfiguration(configuredTarget);
@@ -345,10 +345,10 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
     builder.addTrimmingTransitionFactory(secondTrimmingTransitionFactory);
     useRuleClassProvider(builder.build());
     scratch.file(
-        "a/skylark.bzl",
+        "a/starlark.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(),",
@@ -357,21 +357,21 @@ public class ConfigurationsForTargetsWithTrimmedConfigurationsTest
         ")");
     scratch.file(
         "a/BUILD",
-        "load(':skylark.bzl', 'skylark_rule')",
+        "load(':starlark.bzl', 'starlark_rule')",
         // ensure that all Starlark rules get the TestConfiguration fragment
         "test_base(name = 'base')",
         // Starlark rules get trimmed
-        "skylark_rule(name = 'skylark_solo', deps = [':base'])");
+        "starlark_rule(name = 'starlark_solo', deps = [':base'])");
 
     ConfiguredTarget configuredTarget;
     BuildConfiguration config;
 
-    configuredTarget = Iterables.getOnlyElement(update("//a:skylark_solo").getTargetsToBuild());
+    configuredTarget = Iterables.getOnlyElement(update("//a:starlark_solo").getTargetsToBuild());
     config = getConfiguration(configuredTarget);
     assertThat(config.getFragment(TestConfiguration.class).getTestArguments())
         .containsExactly(
-            "first trimming transition for //a:skylark_solo",
-            "second trimming transition for //a:skylark_solo")
+            "first trimming transition for //a:starlark_solo",
+            "second trimming transition for //a:starlark_solo")
         .inOrder();
   }
 

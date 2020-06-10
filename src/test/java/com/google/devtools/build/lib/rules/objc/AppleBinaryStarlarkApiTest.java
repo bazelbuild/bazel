@@ -57,7 +57,7 @@ public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
 
     scratch.file(
         "test_skylark/apple_binary_skylark.bzl",
-        "def apple_binary_skylark_impl(ctx):",
+        "def apple_binary_starlark_impl(ctx):",
         "  binary_output = apple_common.link_multi_arch_binary(ctx=ctx)",
         "  return [",
         "      DefaultInfo(",
@@ -67,7 +67,7 @@ public class AppleBinaryStarlarkApiTest extends AppleBinaryTest {
         "      binary_output.debug_outputs_provider",
         "  ]",
         "apple_binary_skylark = rule(",
-        "    apple_binary_skylark_impl,",
+        "    apple_binary_starlark_impl,",
         "    attrs = {",
         "        '_child_configuration_dummy': attr.label(",
         "            cfg=apple_common.multi_arch_split,",

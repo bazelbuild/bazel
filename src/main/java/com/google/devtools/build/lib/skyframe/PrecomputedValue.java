@@ -77,7 +77,7 @@ public class PrecomputedValue implements SkyValue {
       new Precomputed<>("default_visibility");
 
   public static final Precomputed<StarlarkSemantics> STARLARK_SEMANTICS =
-      new Precomputed<>("skylark_semantics");
+      new Precomputed<>("starlark_semantics");
 
   static final Precomputed<UUID> BUILD_ID = new UnsharablePrecomputed<>("build_id");
 

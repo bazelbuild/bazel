@@ -1335,9 +1335,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "load(':extension.bzl', 'my_rule')",
         "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'])",
         "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'] , deps = [':my_java_lib_b'])",
-        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
@@ -1365,9 +1365,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
         "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = [':my_java_lib_c'])",
         "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], deps = [':my_java_lib_b'])",
-        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
@@ -1398,9 +1398,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
         "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = [':my_java_lib_c'])",
         "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], deps = [':my_java_lib_b'])",
-        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
@@ -1431,9 +1431,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_library(name = 'my_java_lib_c', srcs = ['java/C.java'])",
         "java_library(name = 'my_java_lib_b', srcs = ['java/B.java'], deps = [':my_java_lib_c'])",
         "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], deps = [':my_java_lib_b'])",
-        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
@@ -1464,9 +1464,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
         "             deps = [':my_java_lib_b', ':my_java_lib_c'], ",
         "             exports = [':my_java_lib_b']) ",
-        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
@@ -1493,9 +1493,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "load(':extension.bzl', 'my_rule')",
         "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'], ",
         "             javacopts = ['-processor com.google.process.Processor'])",
-        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
@@ -1523,9 +1523,9 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "foo/BUILD",
         "load(':extension.bzl', 'my_rule')",
         "java_library(name = 'my_java_lib_a', srcs = ['java/A.java'])",
-        "my_rule(name = 'my_skylark_rule', dep = ':my_java_lib_a')");
+        "my_rule(name = 'my_starlark_rule', dep = ':my_java_lib_a')");
     assertNoEvents();
-    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_skylark_rule");
+    ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:my_starlark_rule");
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(

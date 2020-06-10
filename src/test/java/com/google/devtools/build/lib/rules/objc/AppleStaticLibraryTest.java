@@ -654,22 +654,22 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def skylark_static_lib_impl(ctx):",
+        "def starlark_static_lib_impl(ctx):",
         "   dep_provider = ctx.attr.proxy[apple_common.AppleStaticLibrary]",
         "   my_provider = apple_common.AppleStaticLibrary(archive = dep_provider.archive,",
         "       objc = dep_provider.objc)",
         "   return [my_provider]",
         "",
-        "skylark_static_lib = rule(",
-        "  implementation = skylark_static_lib_impl,",
+        "starlark_static_lib = rule(",
+        "  implementation = starlark_static_lib_impl,",
         "  attrs = {'proxy': attr.label()},",
         ")");
 
     scratch.file(
         "examples/apple_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'skylark_static_lib')",
-        "skylark_static_lib(",
+        "load('//examples/rule:apple_rules.bzl', 'starlark_static_lib')",
+        "starlark_static_lib(",
         "   name='my_target',",
         "   proxy='//x:x'",
         ")");
@@ -694,22 +694,22 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
     scratch.file("examples/rule/BUILD");
     scratch.file(
         "examples/rule/apple_rules.bzl",
-        "def skylark_static_lib_impl(ctx):",
+        "def starlark_static_lib_impl(ctx):",
         "   dep_provider = ctx.attr.proxy[apple_common.AppleStaticLibrary]",
         "   my_provider = apple_common.AppleStaticLibrary(archive = dep_provider.archive,",
         "       objc = dep_provider.objc, foo = 'bar')",
         "   return [my_provider]",
         "",
-        "skylark_static_lib = rule(",
-        "  implementation = skylark_static_lib_impl,",
+        "starlark_static_lib = rule(",
+        "  implementation = starlark_static_lib_impl,",
         "  attrs = {'proxy': attr.label()},",
         ")");
 
     scratch.file(
         "examples/apple_skylark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
-        "load('//examples/rule:apple_rules.bzl', 'skylark_static_lib')",
-        "skylark_static_lib(",
+        "load('//examples/rule:apple_rules.bzl', 'starlark_static_lib')",
+        "starlark_static_lib(",
         "   name='my_target',",
         "   proxy='//x:x'",
         ")");
