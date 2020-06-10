@@ -1905,17 +1905,26 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     customLoadingOptions = Options.parse(LoadingOptions.class, options).getOptions();
   }
 
-  protected AnalysisResult update(List<String> targets,
+  protected AnalysisResult update(
+      List<String> targets,
       boolean keepGoing,
       int loadingPhaseThreads,
       boolean doAnalysis,
-      EventBus eventBus) throws Exception {
+      EventBus eventBus)
+      throws Exception {
     return update(
-        targets, ImmutableList.<String>of(), keepGoing, loadingPhaseThreads, doAnalysis, eventBus);
+        targets,
+        ImmutableSet.<String>of(),
+        ImmutableList.<String>of(),
+        keepGoing,
+        loadingPhaseThreads,
+        doAnalysis,
+        eventBus);
   }
 
   protected AnalysisResult update(
       List<String> targets,
+      ImmutableSet<String> explicitTargetPatterns,
       List<String> aspects,
       boolean keepGoing,
       int loadingPhaseThreads,
@@ -1947,6 +1956,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         loadingResult,
         targetConfig.getOptions(),
         /* multiCpu= */ ImmutableSet.of(),
+        explicitTargetPatterns,
         aspects,
         viewOptions,
         keepGoing,

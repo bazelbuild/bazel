@@ -86,16 +86,22 @@ class BuildResultPrinter {
       if (targetsToPrint.size() > request.getBuildOptions().maxResultTargets) {
         return;
       }
-      // Filter the targets we care about into two buckets:
+      // Filter the targets we care about into three buckets:
       Collection<ConfiguredTarget> succeeded = new ArrayList<>();
       Collection<ConfiguredTarget> failed = new ArrayList<>();
+      Collection<ConfiguredTarget> skipped = new ArrayList<>();
       Collection<ConfiguredTarget> successfulTargets = result.getSuccessfulTargets();
       for (ConfiguredTarget target : targetsToPrint) {
-        (successfulTargets.contains(target) ? succeeded : failed).add(target);
+        if (configuredTargetsToSkip.contains(target)) {
+          skipped.add(target);
+        } else {
+          (successfulTargets.contains(target) ? succeeded : failed).add(target);
+        }
       }
 
-      // TODO(bazel-team): convert these to a new "SKIPPED" status when ready: b/62191890.
-      failed.addAll(configuredTargetsToSkip);
+      for (ConfiguredTarget target : skipped) {
+        outErr.printErr("Target " + target.getLabel() + " was skipped\n");
+      }
 
       TopLevelArtifactContext context = request.getTopLevelArtifactContext();
       for (ConfiguredTarget target : succeeded) {

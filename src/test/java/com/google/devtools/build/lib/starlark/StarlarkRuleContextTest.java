@@ -633,6 +633,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             "generator_location",
             "features",
             "compatible_with",
+            "target_compatible_with",
             "restricted_to",
             "srcs",
             "tools",
