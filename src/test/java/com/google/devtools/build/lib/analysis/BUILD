@@ -128,6 +128,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_context_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe:toolchain_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:unloaded_toolchain_context_impl",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",

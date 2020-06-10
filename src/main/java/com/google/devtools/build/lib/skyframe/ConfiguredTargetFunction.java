@@ -538,6 +538,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           (UnloadedToolchainContext) values.get(unloadedToolchainContextKey.getValue()).get();
       if (!valuesMissing) {
         String execGroup = unloadedToolchainContextKey.getKey();
+        if (parentToolchainContextKey != null) {
+          // Since we inherited the toolchain context from the parent of the dependency, the current
+          // target may also be in the resolved toolchains list. We need to clear it out.
+          // TODO(configurability): When updating this for config_setting, only remove the current
+          // target, not everything, because config_setting might want to check the toolchain
+          // dependencies.
+          unloadedToolchainContext = unloadedToolchainContext.withoutResolvedToolchains();
+        }
         if (execGroup.equals(targetUnloadedToolchainContext)) {
           toolchainContexts.addDefaultContext(unloadedToolchainContext);
         } else {
