@@ -325,11 +325,6 @@ public final class CppConfiguration extends Fragment
     return cppOptions.dynamicMode;
   }
 
-  public boolean isRenameDLL(FeatureConfiguration featureConfiguration) {
-    return cppOptions.renameDLL && (cppOptions.dynamicMode != DynamicMode.OFF)
-        && (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS));
-  } 
-
   public boolean isFdo() {
     return cppOptions.isFdo();
   }

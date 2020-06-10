@@ -320,9 +320,7 @@ public final class CcLinkingHelper {
    * will link against the DLL whose name is the same as the name of cc_library.
    */
   public CcLinkingHelper setLinkedDLLNameSuffix(String suffix) {
-    if(this.cppConfiguration.isRenameDLL(featureConfiguration)) {
-      this.linkedDLLNameSuffix = Preconditions.checkNotNull(suffix);
-    }
+    this.linkedDLLNameSuffix = Preconditions.checkNotNull(suffix);
     return this;
   }
 
@@ -871,17 +869,16 @@ public final class CcLinkingHelper {
    */
   private Artifact getLinkedArtifact(LinkTargetType linkTargetType) throws RuleErrorException {
       String maybePicName = label.getName() + linkedArtifactNameSuffix;
-      if(linkTargetType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY) {
-        maybePicName += linkedDLLNameSuffix;
-      }
       if (linkTargetType.picness() == Picness.PIC) {
         maybePicName =
             CppHelper.getArtifactNameForCategory(
                 ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, maybePicName);
       }
-      String linkedName =
+      String linkedName = maybePicName + 
+          (linkTargetType == LinkTargetType.NODEPS_DYNAMIC_LIBRARY ? linkedDLLNameSuffix : "");
+      linkedName =
           CppHelper.getArtifactNameForCategory(
-              ruleErrorConsumer, ccToolchain, linkTargetType.getLinkerOutput(), maybePicName);
+              ruleErrorConsumer, ccToolchain, linkTargetType.getLinkerOutput(), linkedName);
       PathFragment artifactFragment =
           PathFragment.create(label.getName()).getParentDirectory().getRelative(linkedName);
 

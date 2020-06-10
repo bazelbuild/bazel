@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ExpansionException;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.shell.ShellUtils;
@@ -940,7 +941,7 @@ public class CppHelper {
     CppOptions cppOptions =
         Preconditions.checkNotNull(
             ruleContext.getConfiguration().getOptions().get(CppOptions.class));
-    if(cppOptions.renameDLL
+    if(cppOptions.renameDLL && cppOptions.dynamicMode != DynamicMode.OFF
         && featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
       Fingerprint digest = new Fingerprint();
       digest.addString(ruleContext.getRepository().getName());
