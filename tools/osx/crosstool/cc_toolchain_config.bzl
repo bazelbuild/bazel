@@ -1803,6 +1803,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-filelist",
                                 "%{obj_list_path}",
@@ -1834,6 +1835,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-filelist",
                                 "%{obj_list_path}",
@@ -1866,6 +1868,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-filelist",
                                 "%{obj_list_path}",
@@ -1897,6 +1900,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-filelist",
                                 "%{obj_list_path}",
@@ -1928,6 +1932,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-filelist",
                                 "%{obj_list_path}",
@@ -1959,6 +1964,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-filelist",
                                 "%{obj_list_path}",
@@ -1991,6 +1997,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-filelist",
                                 "%{obj_list_path}",
@@ -2025,6 +2032,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-filelist",
                                 "%{obj_list_path}",
@@ -2807,6 +2815,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-arch_only",
                                 "<architecture>",
@@ -2848,6 +2857,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-arch_only",
                                 "arm64_32",
@@ -2890,6 +2900,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-arch_only",
                                 "arm64",
@@ -2931,6 +2942,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-arch_only",
                                 "arm64e",
@@ -2972,6 +2984,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-arch_only",
                                 "armv7",
@@ -3013,6 +3026,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-arch_only",
                                 "armv7k",
@@ -3055,6 +3069,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-arch_only",
                                 "i386",
@@ -3099,6 +3114,7 @@ def _impl(ctx):
                         flag_group(
                             flags = [
                                 "-no_warning_for_no_symbols",
+                                "-D",
                                 "-static",
                                 "-arch_only",
                                 "x86_64",
@@ -5010,7 +5026,7 @@ def _impl(ctx):
                 actions = [ACTION_NAMES.cpp_link_static_library],
                 flag_groups = [
                     flag_group(
-                        flags = ["-no_warning_for_no_symbols", "-static", "-o", "%{output_execpath}"],
+                        flags = ["-no_warning_for_no_symbols", "-D", "-static", "-o", "%{output_execpath}"],
                         expand_if_available = "output_execpath",
                     ),
                 ],
