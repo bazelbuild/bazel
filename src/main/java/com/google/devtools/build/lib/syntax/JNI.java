@@ -18,8 +18,13 @@ final class JNI {
   private JNI() {} // uninstantiable
 
   static void load() {
-    // Google's Java launcher statically links the JNI
-    // dependencies of a java_binary at build time,
-    // so there is nothing to do here.
+    try {
+      System.loadLibrary("cpu_profiler");
+    } catch (UnsatisfiedLinkError ex) {
+      // Ignore, deferring the error until a C function is called, if ever.
+      // Without this hack //src/test/shell/bazel:bazel_bootstrap_distfile_test
+      // fails with an utterly uninformative error.
+      // TODO(adonovan): remove try/catch once that test is fixed.
+    }
   }
 }
