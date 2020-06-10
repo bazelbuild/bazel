@@ -14,6 +14,7 @@
 
 import os
 import unittest
+from glob import glob
 from src.test.py.bazel import test_base
 
 
@@ -255,11 +256,15 @@ class BazelWindowsCppTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['build', '//main:main', '--incompatible_avoid_conflict_dlls'])
     self.AssertExitCode(exit_code, 0, stderr)
 
-    # We should check the A_{hash}.dll and B_{hash}.dll exist.
+    # Run the binary to see if it runs successfully
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
     exit_code, stdout, stderr = self.RunProgram([main_bin])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual(['Hello A, 1', 'Hello A, 2', 'Hello B', 'Hello C'], stdout)
+    # There are 2 A_{hash}.dll since //main:main depends on both //lib:A and //:A
+    self.assertEqual(len(glob(os.path.join(bazel_bin, "main", "A_*.dll"))), 2)
+    # There is only 1 B_{hash}.dll
+    self.assertEqual(len(glob(os.path.join(bazel_bin, "main", "B_*.dll"))), 1)
 
   def testBuildDifferentCcBinariesDependOnConflictDLLs(self):
     self.createProjectFiles()
@@ -284,22 +289,31 @@ class BazelWindowsCppTest(test_base.TestBase):
     self.ScratchFile('main/other_main.cc', ['int main() {return 0;}'])
 
     # Building //main:main should succeed
-    # We should check the A_{hash}.dll exist.
     exit_code, _, stderr = self.RunBazel(['build', '//main:main', '--incompatible_avoid_conflict_dlls'])
     self.AssertExitCode(exit_code, 0, stderr)
     main_bin = os.path.join(bazel_bin, 'main/main.exe')
+
+    # Run the main_bin binary to see if it runs successfully
     exit_code, stdout, stderr = self.RunProgram([main_bin])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertEqual(['Hello A, 1', 'Hello A, 2', 'Hello B', 'Hello C'], stdout)
+    # There is only 1 A_{hash}.dll since //main:main depends transitively on //:A
+    self.assertEqual(len(glob(os.path.join(bazel_bin, "main", "A_*.dll"))), 1)
+    # There is only 1 B_{hash}.dll
+    self.assertEqual(len(glob(os.path.join(bazel_bin, "main", "B_*.dll"))), 1)
 
-    # Building //main:other_main *and* //main:main
-    # We should check the A_{hash}.dll exist.
+    # Building //main:other_main should succeed
     exit_code, _, stderr = self.RunBazel(
         ['build', '//main:main', '//main:other_main', '--incompatible_avoid_conflict_dlls'])
     self.AssertExitCode(exit_code, 0, stderr)
     other_main_bin = os.path.join(bazel_bin, 'main/other_main.exe')
+
+    # Run the other_main_bin binary to see if it runs successfully
     exit_code, stdout, stderr = self.RunProgram([other_main_bin])
     self.AssertExitCode(exit_code, 0, stderr)
+    # There are 2 A_{hash}.dll since //main:main depends on //:A
+    # and //main:other_main depends on //lib:A
+    self.assertEqual(len(glob(os.path.join(bazel_bin, "main", "A_*.dll"))), 2)
 
   def testDLLIsCopiedFromExternalRepo(self):
     self.ScratchFile('ext_repo/WORKSPACE')
