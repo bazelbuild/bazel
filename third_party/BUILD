@@ -114,23 +114,23 @@ java_import(
     ],
 )
 
-distrib_java_import(
+java_import(
     name = "apache_commons_codec",
     jars = ["apache_commons_codec/commons-codec-1.10.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_collections",
     jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
     enable_distributions = ["debian"],
 )
 
-distrib_java_import(
+java_import(
     name = "apache_commons_io",
     jars = ["apache_commons_io/commons-io-2.4.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_lang",
     jars = ["apache_commons_lang/commons-lang-2.6.jar"],
     enable_distributions = ["debian"],
