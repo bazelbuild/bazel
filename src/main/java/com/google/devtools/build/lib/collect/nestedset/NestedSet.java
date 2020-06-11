@@ -70,14 +70,8 @@ import javax.annotation.Nullable;
 @SuppressWarnings("unchecked")
 @AutoCodec
 public final class NestedSet<E> {
-  /**
-   * Order and size of set packed into one int.
-   *
-   * <p>Bits 31-2: size, bits 1-0: order enum ordinal. The order is assigned on construction time,
-   * the size is computed on the first expansion and set afterwards so it's available for {@link
-   * #replay}.
-   */
-  private int orderAndSize;
+  // Order of set, represented as numeric ordinal to save space.
+  private final int orderOrdinal;
 
   // children contains the "direct" elements and "transitive" nested sets.
   // Direct elements are never arrays.
@@ -93,6 +87,20 @@ public final class NestedSet<E> {
   // such as 'state' or 'repr' or 'node'.  The public API no longer mentions "children".
   final Object children;
 
+  // memo is a compact encoding of facts computed by a complete traversal.
+  // It is lazily populated by lockedExpand.
+  //
+  // Its initial bytes are a bitfield that indicates whether the ith node
+  // encountered in a preorder traversal should be visited, or skipped because
+  // that subgraph would contribute nothing to the flattening as it contains only
+  // elements previously seen in the traversal.
+  //
+  // Its final bytes are a reverse varint (base 128) encoding of the size of the set.
+  //
+  // There may be unused bytes between the two encodings.
+  //
+  // All NestedSets of depth < 3, that is, those whose successors are all leaves,
+  // share the empty NO_MEMO array.
   @Nullable private byte[] memo;
 
   /**
@@ -103,20 +111,23 @@ public final class NestedSet<E> {
    */
   private static final AtomicInteger expansionDepthLimit = new AtomicInteger(3500);
 
-  private static final byte[] LEAF_MEMO = {};
+  // NO_MEMO is the distinguished memo for all nodes of depth < 2, that is,
+  // leaf nodes and nodes whose successors are all leaf nodes.
+  private static final byte[] NO_MEMO = {};
+
   @AutoCodec static final Object[] EMPTY_CHILDREN = {};
 
   /** Construct an empty NestedSet. Should only be called by Order's class initializer. */
   NestedSet(Order order) {
-    this.orderAndSize = order.ordinal();
+    this.orderOrdinal = order.ordinal();
     this.children = EMPTY_CHILDREN;
-    this.memo = LEAF_MEMO;
+    this.memo = NO_MEMO;
   }
 
   NestedSet(
       Order order, Set<E> direct, Set<NestedSet<E>> transitive, InterruptStrategy interruptStrategy)
       throws InterruptedException {
-    this.orderAndSize = order.ordinal();
+    this.orderOrdinal = order.ordinal();
 
     // The iteration order of these collections is the order in which we add the items.
     Collection<E> directOrder = direct;
@@ -147,7 +158,7 @@ public final class NestedSet<E> {
     // The candidate array of children.
     Object[] children = new Object[direct.size() + transitive.size()];
     int n = 0; // current position in children
-    boolean leaf = true;  // until we find otherwise
+    boolean shallow = true; // until we find otherwise
 
     for (int pass = 0; pass <= 1; ++pass) {
       if ((pass == 0) == preorder && !direct.isEmpty()) {
@@ -174,7 +185,7 @@ public final class NestedSet<E> {
               throw new AssertionError(a.length);
             }
             children[n++] = a;
-            leaf = false;
+            shallow = false;
           } else {
             if (!alreadyInserted.contains(c)) {
               if (hoisted == null) {
@@ -200,13 +211,13 @@ public final class NestedSet<E> {
     } else {
       this.children = children;
     }
-    if (leaf) {
-      this.memo = LEAF_MEMO;
+    if (shallow) {
+      this.memo = NO_MEMO;
     }
   }
 
   private NestedSet(Order order, Object children, @Nullable byte[] memo) {
-    this.orderAndSize = order.ordinal();
+    this.orderOrdinal = order.ordinal();
     this.children =
         children instanceof Object[] && ((Object[]) children).length == 0
             ? EMPTY_CHILDREN
@@ -230,13 +241,13 @@ public final class NestedSet<E> {
     boolean hasChildren =
         children instanceof Object[]
             && (Arrays.stream((Object[]) children).anyMatch(child -> child instanceof Object[]));
-    byte[] memo = hasChildren ? null : LEAF_MEMO;
+    byte[] memo = hasChildren ? null : NO_MEMO;
     return new NestedSet<>(order, children, memo);
   }
 
   /** Returns the ordering of this nested set. */
   public Order getOrder() {
-    return Order.getOrder(orderAndSize & 3);
+    return Order.getOrder(orderOrdinal & 3);
   }
 
   /**
@@ -440,12 +451,31 @@ public final class NestedSet<E> {
    * @return the size of the nested set.
    */
   public int memoizedFlattenAndGetSize() {
-    if (orderAndSize >> 2 == 0) {
-      // toList() only implicitly updates orderAndSize if this is a NestedSet with transitives.
-      // Therefore we need to explicitly set it here.
-      orderAndSize |= toList().size() << 2;
+    // before flattening?
+    if (memo == null) {
+      return toList().size(); // side effect: set memo
     }
-    return orderAndSize >> 2;
+
+    // After flattening: inspect memo.
+
+    // shallow?
+    if (memo == NO_MEMO) {
+      Object children = getChildrenUninterruptibly();
+      return children == EMPTY_CHILDREN
+          ? 0 //
+          : !(children instanceof Object[])
+              ? 1 //
+              : ((Object[]) children).length;
+    }
+
+    // Read size from end of memo.
+    int size = 0;
+    for (int i = memo.length - 1; ; i--) {
+      size = (size << 7) | (memo[i] & 0x7f);
+      if ((memo[i] & 0x80) != 0) {
+        return size;
+      }
+    }
   }
 
   /**
@@ -516,14 +546,15 @@ public final class NestedSet<E> {
    */
   private ImmutableList<E> expand(Object[] children) {
     // This value is only set in the constructor, so safe to test here with no lock.
-    if (memo == LEAF_MEMO) {
+    if (memo == NO_MEMO) {
       return ImmutableList.copyOf(new ArraySharingCollection<>(children));
     }
     CompactHashSet<E> members = lockedExpand(children);
     if (members != null) {
       return ImmutableList.copyOf(members);
     }
-    ImmutableList.Builder<E> output = ImmutableList.builderWithExpectedSize(orderAndSize >> 2);
+    ImmutableList.Builder<E> output =
+        ImmutableList.builderWithExpectedSize(memoizedFlattenAndGetSize());
     replay(output, children, memo, 0);
     return output.build();
   }
@@ -557,13 +588,14 @@ public final class NestedSet<E> {
    * {@link #walk}. Otherwise returns null; the caller should use {@link #replay} instead.
    */
   private synchronized CompactHashSet<E> lockedExpand(Object[] children) {
+    // Precondition: this is a non-leaf node with non-leaf successors (depth > 2).
     if (memo != null) {
       return null;
     }
     CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
     CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);
-    memo = new byte[Math.min((children.length + 7) / 8, 8)];
+    memo = new byte[3 + Math.min(ceildiv(children.length, 8), 8)]; // (+3 for size: a guess)
     int pos =
         walk(
             sets,
@@ -572,13 +604,42 @@ public final class NestedSet<E> {
             /* pos= */ 0,
             /* currentDepth= */ 1,
             expansionDepthLimit.get());
-    int bytes = (pos + 7) / 8;
-    if (bytes <= memo.length - 16) {
-      memo = Arrays.copyOf(memo, bytes);
+    int bytes = ceildiv(pos, 8);
+
+    // Append (nonzero) size to memo, in reverse varint encoding:
+    // 7 bits at a time, least significant first.
+    // Only the first encoded byte's top bit is set.
+    //
+    // We resize memo if it is too small or much too large.
+    // There may be unused bytes between the replay memo (at the start)
+    // and the size (at the end).
+    int size = members.size();
+    Preconditions.checkState(0 < size);
+    int nsize = varintlen(size);
+    int ideal = bytes + nsize;
+    if (!(memo.length - 16 < ideal && ideal <= memo.length)) {
+      memo = Arrays.copyOf(memo, ideal);
     }
-    Preconditions.checkState(members.size() < (Integer.MAX_VALUE >> 2));
-    orderAndSize |= (members.size()) << 2;
+    for (byte top = (byte) 0x80; size > 0; top = 0) {
+      memo[bytes++] = (byte) ((byte) (size & 0x7f) | top);
+      size >>>= 7;
+    }
+
     return members;
+  }
+
+  // varintlen returns the length of the base128 varint encoding of n (n > 0).
+  private static int varintlen(int n) {
+    int len;
+    for (len = 0; n > 0; len++) {
+      n >>>= 7;
+    }
+    return len;
+  }
+
+  // ceildiv(x/y) returns ⌈x/y⌉.
+  private static int ceildiv(int x, int y) {
+    return (x + y - 1) / y;
   }
 
   /**
@@ -692,7 +753,7 @@ public final class NestedSet<E> {
     if (size <= maximumSize) {
       return this;
     }
-    Object[][] pieces = new Object[((size + maximumSize - 1) / maximumSize)][];
+    Object[][] pieces = new Object[ceildiv(size, maximumSize)][];
     for (int i = 0; i < pieces.length; i++) {
       int max = Math.min((i + 1) * maximumSize, arr.length);
       pieces[i] = Arrays.copyOfRange(arr, i * maximumSize, max);
