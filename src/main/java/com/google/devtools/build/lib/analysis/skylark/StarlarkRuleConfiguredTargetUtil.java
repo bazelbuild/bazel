@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.test.CoverageCommon;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
@@ -651,11 +652,23 @@ public final class StarlarkRuleConfiguredTargetUtil {
 
   private static void assertExecutableSymlinkPresent(
       Runfiles runfiles, Artifact executable, Location loc) throws EvalException {
-    // Extracting the map from Runfiles flattens a depset.
-    // TODO(cparsons): Investigate: Avoiding this flattening may be an efficiency win.
-    Map<PathFragment, Artifact> symlinks = runfiles.asMapWithoutRootSymlinks();
-    if (!symlinks.containsValue(executable)) {
-      throw new EvalException(loc, "main program " + executable + " not included in runfiles");
+    try {
+      // Extracting the map from Runfiles flattens a depset.
+      // TODO(cparsons): Investigate: Avoiding this flattening may be an efficiency win.
+      Map<PathFragment, Artifact> symlinks = runfiles.asMapWithoutRootSymlinks();
+      if (!symlinks.containsValue(executable)) {
+        throw new EvalException(loc, "main program " + executable + " not included in runfiles");
+      }
+    } catch (NestedSetDepthException exception) {
+      throw new EvalException(
+          loc,
+          "depset exceeded maximum depth "
+              + exception.getDepthLimit()
+              + ". This was only discovered when attempting to flatten the runfiles depset "
+              + "returned by the rule implementation function. the size of depsets is unknown "
+              + "until flattening. "
+              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+              + "solutions.");
     }
   }
 

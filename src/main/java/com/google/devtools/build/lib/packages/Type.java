@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -611,7 +612,17 @@ public abstract class Type<T> {
       if (x instanceof Iterable) {
         iterable = (Iterable<?>) x;
       } else if (x instanceof Depset) {
-        iterable = ((Depset) x).toList();
+        try {
+          iterable = ((Depset) x).toList();
+        } catch (NestedSetDepthException exception) {
+          throw new ConversionException(
+              "depset exceeded maximum depth "
+                  + exception.getDepthLimit()
+                  + ". This was only discovered when attempting to flatten the depset for"
+                  + " iteration, as the size of depsets is unknown until flattening. See"
+                  + " https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
+                  + "solutions.");
+        }
       } else {
         throw new ConversionException(this, x, what);
       }

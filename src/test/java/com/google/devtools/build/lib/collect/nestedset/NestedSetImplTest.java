@@ -286,51 +286,50 @@ public class NestedSetImplTest {
 
   @Test
   public void buildInterruptibly_propagatesInterrupt() {
-    NestedSet<String> deserializingNestedSet =
+    NestedSet<String> deserialzingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
     NestedSetBuilder<String> builder =
-        NestedSetBuilder.<String>stableOrder().addTransitive(deserializingNestedSet).add("a");
+        NestedSetBuilder.<String>stableOrder().addTransitive(deserialzingNestedSet).add("a");
     Thread.currentThread().interrupt();
     assertThrows(InterruptedException.class, builder::buildInterruptibly);
   }
 
   @Test
   public void getChildrenInterruptibly_propagatesInterrupt() {
-    NestedSet<String> deserializingNestedSet =
+    NestedSet<String> deserialzingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
     Thread.currentThread().interrupt();
-    assertThrows(InterruptedException.class, deserializingNestedSet::getChildrenInterruptibly);
+    assertThrows(InterruptedException.class, deserialzingNestedSet::getChildrenInterruptibly);
   }
 
   @Test
   public void toListWithTimeout_propagatesInterrupt() {
-    NestedSet<String> deserializingNestedSet =
+    NestedSet<String> deserialzingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
     Thread.currentThread().interrupt();
     assertThrows(
         InterruptedException.class,
-        () -> deserializingNestedSet.toListWithTimeout(Duration.ofDays(1)));
+        () -> deserialzingNestedSet.toListWithTimeout(Duration.ofDays(1)));
   }
 
   @Test
   public void toListWithTimeout_timesOut() {
-    NestedSet<String> deserializingNestedSet =
+    NestedSet<String> deserialzingNestedSet =
         NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
     assertThrows(
-        TimeoutException.class,
-        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+        TimeoutException.class, () -> deserialzingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
   }
 
   @Test
   public void toListWithTimeout_waits() throws Exception {
     SettableFuture<Object[]> future = SettableFuture.create();
-    NestedSet<String> deserializingNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, future);
+    NestedSet<String> deserialzingNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, future);
     Future<ImmutableList<String>> result =
         Executors.newSingleThreadExecutor()
-            .submit(() -> deserializingNestedSet.toListWithTimeout(Duration.ofMinutes(1)));
+            .submit(() -> deserialzingNestedSet.toListWithTimeout(Duration.ofMinutes(1)));
     Thread.sleep(100);
     assertThat(result.isDone()).isFalse();
-    future.set(new Object[] {/*depth=*/ 2, "a", "b"});
+    future.set(new Object[] {"a", "b"});
     assertThat(result.get()).containsExactly("a", "b");
   }
 
@@ -360,37 +359,5 @@ public class NestedSetImplTest {
     assertThat(deserializingNestedSet.isReady()).isFalse();
     future.set(new Object[] {"a", "b"});
     assertThat(deserializingNestedSet.isReady()).isTrue();
-  }
-
-  @Test
-  public void getDepth() {
-    NestedSet<String> empty = nestedSetBuilder().build();
-    NestedSet<String> justA = nestedSetBuilder("a").build();
-    NestedSet<String> justB = nestedSetBuilder("b").build();
-    NestedSet<String> ab = nestedSetBuilder().addTransitive(justA).addTransitive(justB).build();
-
-    assertThat(empty.getDepth()).isEqualTo(0);
-    assertThat(nestedSetBuilder().addTransitive(empty).addTransitive(empty).build().getDepth())
-        .isEqualTo(0);
-    assertThat(justA.getDepth()).isEqualTo(1);
-    assertThat(justB.getDepth()).isEqualTo(1);
-    assertThat(nestedSetBuilder().addTransitive(empty).addTransitive(empty).build().getDepth())
-        .isEqualTo(0);
-    assertThat(nestedSetBuilder().addTransitive(empty).addTransitive(justA).build().getDepth())
-        .isEqualTo(1);
-    assertThat(nestedSetBuilder().addTransitive(justA).addTransitive(empty).build().getDepth())
-        .isEqualTo(1);
-    assertThat(nestedSetBuilder().addTransitive(justA).addTransitive(justA).build().getDepth())
-        .isEqualTo(1);
-    assertThat(nestedSetBuilder().addTransitive(justA).addTransitive(justB).build().getDepth())
-        .isEqualTo(2);
-    assertThat(
-            nestedSetBuilder("a", "b", "c")
-                .addTransitive(justA)
-                .addTransitive(justB)
-                .addTransitive(ab)
-                .build()
-                .getDepth())
-        .isEqualTo(3);
   }
 }

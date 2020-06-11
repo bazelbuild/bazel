@@ -30,6 +30,7 @@ import java.util.Set;
  *
  * @param <E> the data type
  */
+// @ThreadSafety.ThreadSafe
 public final class NestedSetVisitor<E> {
 
   /**
@@ -76,9 +77,8 @@ public final class NestedSetVisitor<E> {
   private void visitRaw(Object node) {
     if (visited.add(node)) {
       if (node instanceof Object[]) {
-        Object[] children = (Object[]) node;
-        for (int i = 1; i < children.length; i++) { // skip depth
-          visitRaw(children[i]);
+        for (Object child : (Object[]) node) {
+          visitRaw(child);
         }
       } else {
         callback.accept((E) node);
