@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsDiffForReconstruction;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -1511,9 +1512,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     BuildConfiguration firstTargetConfig = topLevelTargetConfigs.get(0);
 
     BuildOptions targetOptions = firstTargetConfig.getOptions();
+    BuildOptionsView hostTransitionOptionsView =
+        new BuildOptionsView(
+            firstTargetConfig.getOptions(), HostTransition.INSTANCE.requiresOptionFragments());
     BuildOptions hostOptions =
         targetOptions.get(CoreOptions.class).useDistinctHostConfiguration
-            ? HostTransition.INSTANCE.patch(targetOptions, eventHandler)
+            ? HostTransition.INSTANCE.patch(hostTransitionOptionsView, eventHandler)
             : targetOptions;
     BuildConfiguration hostConfig = getConfiguration(eventHandler, hostOptions, keepGoing);
 

@@ -25,6 +25,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -287,8 +288,10 @@ public class AttributeTest {
 
   private static class TestSplitTransition implements SplitTransition {
     @Override
-    public Map<String, BuildOptions> split(BuildOptions buildOptions, EventHandler eventHandler) {
-      return ImmutableMap.of("test0", buildOptions.clone(), "test1", buildOptions.clone());
+    public Map<String, BuildOptions> split(
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
+      return ImmutableMap.of(
+          "test0", buildOptions.clone().underlying(), "test1", buildOptions.clone().underlying());
     }
   }
 

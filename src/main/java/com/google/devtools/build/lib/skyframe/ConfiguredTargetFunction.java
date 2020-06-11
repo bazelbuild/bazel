@@ -46,10 +46,12 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -488,10 +490,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     //         ...
     //
     // None of this has any effect on rules that don't utilize manual trimming.
+    PatchTransition toolchainTaggedTrimmingTransition =
+        ((ConfiguredRuleClassProvider) ruleClassProvider).getToolchainTaggedTrimmingTransition();
     BuildOptions toolchainOptions =
-        ((ConfiguredRuleClassProvider) ruleClassProvider)
-            .getToolchainTaggedTrimmingTransition()
-            .patch(configuration.getOptions(), env.getListener());
+        toolchainTaggedTrimmingTransition.patch(
+            new BuildOptionsView(
+                configuration.getOptions(),
+                toolchainTaggedTrimmingTransition.requiresOptionFragments()),
+            env.getListener());
 
     BuildConfigurationValue.Key toolchainConfig =
         BuildConfigurationValue.keyWithoutPlatformMapping(

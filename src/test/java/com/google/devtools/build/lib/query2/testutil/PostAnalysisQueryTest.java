@@ -18,10 +18,13 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.MockRule;
@@ -349,10 +352,15 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
-      BuildOptions result = options.clone();
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(TestOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+      BuildOptionsView result = options.clone();
       result.get(TestOptions.class).testArguments = Collections.singletonList(toOption);
-      return result;
+      return result.underlying();
     }
   }
 
