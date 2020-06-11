@@ -149,6 +149,7 @@ message FailureDetail {
   reserved 143; // For internal use
   reserved 149; // For internal use
   reserved 155 to 157; // For internal use
+  reserved 165; // For internal use
 }
 
 message Interrupted {
@@ -364,6 +365,7 @@ message Execution {
     SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION = 15
         [(metadata) = { exit_code: 36 }];
     SYMLINK_TREE_CREATION_IO_EXCEPTION = 16 [(metadata) = { exit_code: 36 }];
+    ACTION_INPUT_READ_IO_EXCEPTION = 17 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -795,6 +797,7 @@ message WorkspaceStatus {
     NON_ZERO_EXIT = 1 [(metadata) = { exit_code: 1 }];
     ABNORMAL_TERMINATION = 2 [(metadata) = { exit_code: 1 }];
     EXEC_FAILED = 3 [(metadata) = { exit_code: 1 }];
+    PARSE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
