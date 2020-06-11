@@ -135,6 +135,10 @@ message FailureDetail {
     StarlarkAction starlark_action = 162;
     NinjaAction ninja_action = 163;
     DynamicExecution dynamic_execution = 164;
+    FailAction fail_action = 166;
+    SymlinkAction symlink_action = 167;
+    CppLink cpp_link = 168;
+    LtoAction lto_action = 169;
   }
 
   reserved 102; // For internal use
@@ -372,6 +376,12 @@ message Execution {
     SYMLINK_TREE_CREATION_COMMAND_EXCEPTION = 18
         [(metadata) = { exit_code: 36 }];
     ACTION_INPUT_READ_IO_EXCEPTION = 19 [(metadata) = { exit_code: 36 }];
+    ACTION_NOT_UP_TO_DATE = 20 [(metadata) = { exit_code: 1 }];
+    PSEUDO_ACTION_EXECUTION_PROHIBITED = 21 [(metadata) = { exit_code: 1 }];
+    DISCOVERED_INPUT_DOES_NOT_EXIST = 22 [(metadata) = { exit_code: 1 }];
+    ACTION_OUTPUTS_DELETION_FAILURE = 23 [(metadata) = { exit_code: 1 }];
+    ACTION_OUTPUTS_NOT_CREATED = 24 [(metadata) = { exit_code: 1 }];
+    ACTION_FINALIZATION_FAILURE = 25 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -805,6 +815,7 @@ message WorkspaceStatus {
     ABNORMAL_TERMINATION = 2 [(metadata) = { exit_code: 1 }];
     EXEC_FAILED = 3 [(metadata) = { exit_code: 1 }];
     PARSE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    VALIDATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -839,6 +850,11 @@ message CppCompile {
     FIND_USED_HEADERS_IO_EXCEPTION = 1 [(metadata) = { exit_code: 36 }];
     COPY_OUT_ERR_FAILURE = 2 [(metadata) = { exit_code: 36 }];
     D_FILE_READ_FAILURE = 3 [(metadata) = { exit_code: 36 }];
+    COMMAND_GENERATION_FAILURE = 4 [(metadata) = { exit_code: 1 }];
+    MODULE_EXPANSION_TIMEOUT = 5 [(metadata) = { exit_code: 1 }];
+    INCLUDE_PATH_OUTSIDE_EXEC_ROOT = 6 [(metadata) = { exit_code: 1 }];
+    FAKE_COMMAND_GENERATION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
+    UNDECLARED_INCLUSIONS = 8 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -867,6 +883,46 @@ message DynamicExecution {
   enum Code {
     DYNAMIC_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     XCODE_RELATED_PREREQ_UNMET = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message FailAction {
+  enum Code {
+    FAIL_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INTENTIONAL_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message SymlinkAction {
+  enum Code {
+    SYMLINK_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    EXECUTABLE_INPUT_NOT_FILE = 1 [(metadata) = { exit_code: 1 }];
+    EXECUTABLE_INPUT_IS_NOT = 2 [(metadata) = { exit_code: 1 }];
+    EXECUTABLE_INPUT_CHECK_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message CppLink {
+  enum Code {
+    CPP_LINK_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    COMMAND_GENERATION_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    FAKE_COMMAND_GENERATION_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message LtoAction {
+  enum Code {
+    LTO_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INVALID_ABSOLUTE_PATH_IN_IMPORTS = 1 [(metadata) = { exit_code: 1 }];
+    MISSING_BITCODE_FILES = 2 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

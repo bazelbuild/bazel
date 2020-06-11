@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DependencySet;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -534,13 +535,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       try {
         options = getCompilerOptions();
       } catch (CommandLineExpansionException e) {
-        throw new ActionExecutionException(
-            "failed to generate compile command for rule '"
-                + getOwner().getLabel()
-                + ": "
-                + e.getMessage(),
-            this,
-            /* catastrophe= */ false);
+        String message =
+            String.format(
+                "failed to generate compile command for rule '%s: %s",
+                getOwner().getLabel(), e.getMessage());
+        DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
       }
       commandLineKey = computeCommandLineKey(options);
       List<PathFragment> systemIncludeDirs = getSystemIncludeDirs(options);
@@ -625,8 +625,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           throw lostInputsExceptionForTimedOutNestedSetExpansion(entry.getKey(), iterator, e);
         }
         BugReport.sendBugReport(e);
-        throw new ActionExecutionException(
-            "Timed out expanding modules", this, /*catastrophe=*/ false);
+        String message = "Timed out expanding modules";
+        DetailedExitCode code = createDetailedExitCode(message, Code.MODULE_EXPANSION_TIMEOUT);
+        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
       }
 
       for (Artifact module : modules) {
@@ -882,13 +883,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     try {
       return getEnvironment(ImmutableMap.of());
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(
-          "failed to generate compile environment variables for rule '"
-              + getOwner().getLabel()
-              + ": "
-              + e.getMessage(),
-          this,
-          /* catastrophe= */ false);
+      String message =
+          String.format(
+              "failed to generate compile environment variables for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
     }
   }
 
@@ -1111,12 +1111,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         includePath = includePath.relativeTo(prefix);
       }
       if (includePath.isAbsolute() || includePath.containsUplevelReferences()) {
-        throw new ActionExecutionException(
+        String message =
             String.format(
                 "The include path '%s' references a path outside of the execution root.",
-                includePath),
-            this,
-            false);
+                includePath);
+        DetailedExitCode code =
+            createDetailedExitCode(message, Code.INCLUDE_PATH_OUTSIDE_EXEC_ROOT);
+        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
       }
     }
   }
@@ -1404,13 +1405,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                 ParameterFileType.GCC_QUOTED,
                 StandardCharsets.ISO_8859_1);
       } catch (CommandLineExpansionException e) {
-        throw new ActionExecutionException(
-            "failed to generate compile command for rule '"
-                + getOwner().getLabel()
-                + ": "
-                + e.getMessage(),
-            this,
-            /* catastrophe= */ false);
+        String message =
+            String.format(
+                "failed to generate compile command for rule '%s: %s",
+                getOwner().getLabel(), e.getMessage());
+        DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+        throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
       }
     }
 
@@ -1508,13 +1508,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           getOutputs(),
           estimateResourceConsumptionLocal());
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(
-          "failed to generate compile command for rule '"
-              + getOwner().getLabel()
-              + ": "
-              + e.getMessage(),
-          this,
-          /* catastrophe= */ false);
+      String message =
+          String.format(
+              "failed to generate compile command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
     }
   }
 
@@ -1659,13 +1658,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
                   .build());
       return discoveredInputs;
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(
-          "failed to generate compile environment variables for rule '"
-              + getOwner().getLabel()
-              + ": "
-              + e.getMessage(),
-          this,
-          /* catastrophe= */ false);
+      String message =
+          String.format(
+              "failed to generate compile environment variables for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
     }
   }
 
@@ -1929,6 +1927,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         }
       }
     }
+  }
+
+  static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(createFailureDetail(message, detailedCode));
   }
 
   private static FailureDetail createFailureDetail(String message, Code detailedCode) {

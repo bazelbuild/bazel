@@ -105,6 +105,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/go",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:shell_escaper",

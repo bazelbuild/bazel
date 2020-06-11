@@ -1064,8 +1064,10 @@ public class ActionExecutionFunction implements SkyFunction {
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
         // it likely has no label, so we'd have to use the Action's label anyway. Just use the
         // default ActionFailed event constructed by ActionExecutionException.
-        throw new ActionExecutionException(
-            "discovered input file does not exist", actionForError, false);
+        String message = "discovered input file does not exist";
+        DetailedExitCode code =
+            createDetailedExitCode(message, Code.DISCOVERED_INPUT_DOES_NOT_EXIST);
+        throw new ActionExecutionException(message, actionForError, false, code);
       }
       if (retrievedMetadata instanceof TreeArtifactValue) {
         TreeArtifactValue treeValue = (TreeArtifactValue) retrievedMetadata;
@@ -1758,15 +1760,20 @@ public class ActionExecutionFunction implements SkyFunction {
   private static ActionExecutionException createMissingInputsException(
       Action action, List<LabelCause> missingArtifactCauses) {
     String message = missingArtifactCauses.size() + " input file(s) do not exist";
+    Code detailedCode = Code.ACTION_INPUT_FILES_MISSING;
     return new ActionExecutionException(
         message,
         action,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, missingArtifactCauses),
         /*catastrophe=*/ false,
-        DetailedExitCode.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setExecution(Execution.newBuilder().setCode(Code.ACTION_INPUT_FILES_MISSING))
-                .build()));
+        createDetailedExitCode(message, detailedCode));
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setExecution(Execution.newBuilder().setCode(detailedCode))
+            .build());
   }
 }
