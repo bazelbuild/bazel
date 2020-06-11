@@ -251,8 +251,6 @@ public abstract class Artifact
     }
   }
 
-  public static final ImmutableList<Artifact> NO_ARTIFACTS = ImmutableList.of();
-
   /** A Predicate that evaluates to true if the Artifact is not a middleman artifact. */
   public static final Predicate<Artifact> MIDDLEMAN_FILTER = input -> !input.isMiddlemanArtifact();
 
@@ -260,15 +258,7 @@ public abstract class Artifact
   private final ArtifactRoot root;
   private final PathFragment execPath;
 
-  /**
-   * Content-based output paths are experimental. Only derived artifacts that are explicitly opted
-   * in by their creating rules should use them and only when {@link
-   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths} is
-   * on.
-   */
-  private final boolean contentBasedPath;
-
-  private Artifact(ArtifactRoot root, PathFragment execPath, boolean contentBasedPath) {
+  private Artifact(ArtifactRoot root, PathFragment execPath) {
     Preconditions.checkNotNull(root);
     // The ArtifactOwner is not part of this computation because it is very rare that two Artifacts
     // have the same execPath and different owners, so a collision is fine there. If this is
@@ -276,7 +266,6 @@ public abstract class Artifact
     this.hashCode = execPath.hashCode();
     this.root = root;
     this.execPath = execPath;
-    this.contentBasedPath = contentBasedPath;
   }
 
   /**
@@ -294,7 +283,7 @@ public abstract class Artifact
   @Immutable
   public static final class NinjaMysteryArtifact extends Artifact {
     public NinjaMysteryArtifact(ArtifactRoot root, PathFragment execPath) {
-      super(root, execPath, false);
+      super(root, execPath);
     }
 
     @Override
@@ -335,6 +324,14 @@ public abstract class Artifact
      */
     private Object owner;
 
+    /**
+     * Content-based output paths are experimental. Only derived artifacts that are explicitly opted
+     * in by their creating rules should use them and only when {@link
+     * com.google.devtools.build.lib.analysis.config.BuildConfiguration#useContentBasedOutputPaths}
+     * is on.
+     */
+    private final boolean contentBasedPath;
+
     /** Standard constructor for derived artifacts. */
     public DerivedArtifact(ArtifactRoot root, PathFragment execPath, ActionLookupKey owner) {
       this(root, execPath, owner, /*contentBasedPath=*/ false);
@@ -347,10 +344,11 @@ public abstract class Artifact
      */
     public DerivedArtifact(
         ArtifactRoot root, PathFragment execPath, ActionLookupKey owner, boolean contentBasedPath) {
-      super(root, execPath, contentBasedPath);
+      super(root, execPath);
       Preconditions.checkState(
           !root.getExecPath().isEmpty(), "Derived root has no exec path: %s, %s", root, execPath);
       this.owner = owner;
+      this.contentBasedPath = contentBasedPath;
     }
 
     /**
@@ -358,7 +356,7 @@ public abstract class Artifact
      * must have the same owner as this artifact's current {@link #getArtifactOwner}.
      */
     @VisibleForTesting
-    public void setGeneratingActionKey(ActionLookupData generatingActionKey) {
+    public final void setGeneratingActionKey(ActionLookupData generatingActionKey) {
       Preconditions.checkState(
           this.owner instanceof ArtifactOwner,
           "Already set generating action key: %s (%s %s)",
@@ -375,35 +373,35 @@ public abstract class Artifact
     }
 
     @VisibleForTesting
-    public boolean hasGeneratingActionKey() {
+    public final boolean hasGeneratingActionKey() {
       return this.owner instanceof ActionLookupData;
     }
 
     /** Can only be called once {@link #setGeneratingActionKey} is called. */
-    public ActionLookupData getGeneratingActionKey() {
+    public final ActionLookupData getGeneratingActionKey() {
       Preconditions.checkState(owner instanceof ActionLookupData, "Bad owner: %s %s", this, owner);
       return (ActionLookupData) owner;
     }
 
     @Override
-    public ActionLookupValue.ActionLookupKey getArtifactOwner() {
+    public final ActionLookupValue.ActionLookupKey getArtifactOwner() {
       return owner instanceof ActionLookupData
           ? getGeneratingActionKey().getActionLookupKey()
           : (ActionLookupKey) owner;
     }
 
     @Override
-    public Label getOwnerLabel() {
+    public final Label getOwnerLabel() {
       return getArtifactOwner().getLabel();
     }
 
     @Override
-    public PathFragment getRootRelativePath() {
+    public final PathFragment getRootRelativePath() {
       return getExecPath().relativeTo(getRoot().getExecPath());
     }
 
     @Override
-    boolean ownersEqual(Artifact other) {
+    final boolean ownersEqual(Artifact other) {
       DerivedArtifact that = (DerivedArtifact) other;
       if (!(this.owner instanceof ActionLookupData) || !(that.owner instanceof ActionLookupData)) {
         // Happens when at least one of these artifacts hasn't had its generating action key set
@@ -411,6 +409,11 @@ public abstract class Artifact
         return this.getArtifactOwner().equals(that.getArtifactOwner());
       }
       return this.owner.equals(that.owner);
+    }
+
+    @Override
+    public boolean contentBasedPath() {
+      return contentBasedPath;
     }
   }
 
@@ -523,12 +526,12 @@ public abstract class Artifact
   }
 
   @Override
-  public String filePathForFileTypeMatcher() {
+  public final String filePathForFileTypeMatcher() {
     return getExecPath().filePathForFileTypeMatcher();
   }
 
   @Override
-  public String expandToCommandLine() {
+  public final String expandToCommandLine() {
     return getExecPathString();
   }
 
@@ -563,9 +566,25 @@ public abstract class Artifact
     return execPath;
   }
 
+  /**
+   * Returns the relative path to this artifact relative to its root. (Useful when deriving output
+   * filenames from input files, etc.)
+   */
+  public abstract PathFragment getRootRelativePath();
+
+  /** Returns this.getExecPath().getPathString(). */
+  @Override
+  public final String getExecPathString() {
+    return getExecPath().getPathString();
+  }
+
+  public final String getRootRelativePathString() {
+    return getRootRelativePath().getPathString();
+  }
+
   @Override
   public boolean contentBasedPath() {
-    return contentBasedPath;
+    return false;
   }
 
   @Override
@@ -667,6 +686,85 @@ public abstract class Artifact
     return false;
   }
 
+  /**
+   * For targets in external repositories, this returns the path the artifact live at in the
+   * runfiles tree. For local targets, it returns the rootRelativePath.
+   */
+  public final PathFragment getRunfilesPath() {
+    PathFragment relativePath = getRootRelativePath();
+    if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
+      // Turn external/repo/foo into ../repo/foo.
+      relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
+      relativePath = PathFragment.create("..").getRelative(relativePath);
+    }
+    return relativePath;
+  }
+
+  @Override
+  public final String getRunfilesPathString() {
+    return getRunfilesPath().getPathString();
+  }
+
+  public final String prettyPrint() {
+    // toDetailString would probably be more useful to users, but lots of tests rely on the
+    // current values.
+    return getRootRelativePath().toString();
+  }
+
+  @SuppressWarnings("EqualsGetClass") // Distinct classes of Artifact are never equal.
+  @Override
+  public final boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof Artifact)) {
+      return false;
+    }
+    if (!getClass().equals(other.getClass())) {
+      return false;
+    }
+    Artifact that = (Artifact) other;
+    return equalsWithoutOwner(that) && ownersEqual(that);
+  }
+
+  final boolean equalsWithoutOwner(Artifact other) {
+    return hashCode == other.hashCode && execPath.equals(other.execPath) && root.equals(other.root);
+  }
+
+  abstract boolean ownersEqual(Artifact other);
+
+  @Override
+  public final int hashCode() {
+    // This is just execPath.hashCode() (along with the class). We cache a copy in the Artifact
+    // object to reduce LLC misses during operations which build a HashSet out of many Artifacts.
+    // This is a slight loss for memory but saves ~1% overall CPU in some real builds.
+    return hashCode;
+  }
+
+  @Override
+  public final String toString() {
+    return "File:" + toDetailString();
+  }
+
+  /** Returns a string representing the complete artifact path information. */
+  public final String toDetailString() {
+    if (isSourceArtifact()) {
+      // Source Artifact: relPath == execPath, & real path is not under execRoot
+      return "[" + root + "]" + getRootRelativePathString();
+    } else {
+      // Derived Artifact: path and root are under execRoot
+      //
+      // TODO(blaze-team): this is misleading because execution_root isn't unique. Dig the
+      // workspace name out and print that also.
+      return "[[<execution_root>]" + root.getExecPath() + "]" + getRootRelativePathString();
+    }
+  }
+
+  @Override
+  public final SkyFunctionName functionName() {
+    return ARTIFACT;
+  }
+
   /** {@link Artifact#isSourceArtifact() is true.
    *
    * <p>Source artifacts have the property that unlike for output artifacts, direct file system
@@ -679,7 +777,7 @@ public abstract class Artifact
 
     @VisibleForTesting
     public SourceArtifact(ArtifactRoot root, PathFragment execPath, ArtifactOwner owner) {
-      super(root, execPath, /*contentBasedPath=*/ false);
+      super(root, execPath);
       this.owner = owner;
     }
 
@@ -759,7 +857,7 @@ public abstract class Artifact
     }
 
     @Override
-    public final boolean isFileset() {
+    public boolean isFileset() {
       return type == SpecialArtifactType.FILESET;
     }
 
@@ -986,100 +1084,6 @@ public abstract class Artifact
     }
   }
 
-  /**
-   * Returns the relative path to this artifact relative to its root. (Useful when deriving output
-   * filenames from input files, etc.)
-   */
-  public abstract PathFragment getRootRelativePath();
-
-  /**
-   * For targets in external repositories, this returns the path the artifact live at in the
-   * runfiles tree. For local targets, it returns the rootRelativePath.
-   */
-  public final PathFragment getRunfilesPath() {
-    PathFragment relativePath = getRootRelativePath();
-    if (relativePath.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX)) {
-      // Turn external/repo/foo into ../repo/foo.
-      relativePath = relativePath.relativeTo(LabelConstants.EXTERNAL_PATH_PREFIX);
-      relativePath = PathFragment.create("..").getRelative(relativePath);
-    }
-    return relativePath;
-  }
-
-  @Override
-  public final String getRunfilesPathString() {
-    return getRunfilesPath().getPathString();
-  }
-
-  /**
-   * Returns this.getExecPath().getPathString().
-   */
-  @Override
-  public final String getExecPathString() {
-    return getExecPath().getPathString();
-  }
-
-  public final String getRootRelativePathString() {
-    return getRootRelativePath().getPathString();
-  }
-
-  public final String prettyPrint() {
-    // toDetailString would probably be more useful to users, but lots of tests rely on the
-    // current values.
-    return getRootRelativePath().toString();
-  }
-
-  @SuppressWarnings("EqualsGetClass") // Distinct classes of Artifact are never equal.
-  @Override
-  public final boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof Artifact)) {
-      return false;
-    }
-    if (!getClass().equals(other.getClass())) {
-      return false;
-    }
-    Artifact that = (Artifact) other;
-    return equalsWithoutOwner(that) && ownersEqual(that);
-  }
-
-  final boolean equalsWithoutOwner(Artifact other) {
-    return hashCode == other.hashCode && execPath.equals(other.execPath) && root.equals(other.root);
-  }
-
-  abstract boolean ownersEqual(Artifact other);
-
-  @Override
-  public final int hashCode() {
-    // This is just execPath.hashCode() (along with the class). We cache a copy in the Artifact
-    // object to reduce LLC misses during operations which build a HashSet out of many Artifacts.
-    // This is a slight loss for memory but saves ~1% overall CPU in some real builds.
-    return hashCode;
-  }
-
-  @Override
-  public final String toString() {
-    return "File:" + toDetailString();
-  }
-
-  /**
-   * Returns a string representing the complete artifact path information.
-   */
-  public final String toDetailString() {
-    if (isSourceArtifact()) {
-      // Source Artifact: relPath == execPath, & real path is not under execRoot
-      return "[" + root + "]" + getRootRelativePathString();
-    } else {
-      // Derived Artifact: path and root are under execRoot
-      //
-      // TODO(blaze-team): this is misleading because execution_root isn't unique. Dig the
-      // workspace name out and print that also.
-      return "[[<execution_root>]" + root.getExecPath() + "]" + getRootRelativePathString();
-    }
-  }
-
   /** {@link ObjectCodec} for {@link SourceArtifact} */
   @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
   private static class SourceArtifactCodec implements ObjectCodec<SourceArtifact> {
@@ -1204,11 +1208,13 @@ public abstract class Artifact
   }
 
   /**
-   * Adds a collection of artifacts to a given collection, with
-   * {@link MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions expanded once.
+   * Adds a collection of artifacts to a given collection, with {@link
+   * MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions expanded once.
    */
-  public static void addExpandedArtifacts(Iterable<Artifact> artifacts,
-      Collection<? super Artifact> output, ArtifactExpander artifactExpander) {
+  static void addExpandedArtifacts(
+      Iterable<Artifact> artifacts,
+      Collection<? super Artifact> output,
+      ArtifactExpander artifactExpander) {
     addExpandedArtifacts(artifacts, output, Functions.<Artifact>identity(), artifactExpander);
   }
 
@@ -1319,10 +1325,5 @@ public abstract class Artifact
           .add("owner", artifact.getArtifactOwner())
           .toString();
     }
-  }
-
-  @Override
-  public SkyFunctionName functionName() {
-    return ARTIFACT;
   }
 }
