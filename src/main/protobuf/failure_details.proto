@@ -337,6 +337,8 @@ message RemoteExecution {
         [(metadata) = { exit_code: 2 }];
     REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS = 12
         [(metadata) = { exit_code: 2 }];
+    INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE = 13
+        [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -364,8 +366,12 @@ message Execution {
     TEST_OUT_ERR_IO_EXCEPTION = 14 [(metadata) = { exit_code: 36 }];
     SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION = 15
         [(metadata) = { exit_code: 36 }];
-    SYMLINK_TREE_CREATION_IO_EXCEPTION = 16 [(metadata) = { exit_code: 36 }];
-    ACTION_INPUT_READ_IO_EXCEPTION = 17 [(metadata) = { exit_code: 36 }];
+    SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION = 16
+        [(metadata) = { exit_code: 36 }];
+    SYMLINK_TREE_CREATION_IO_EXCEPTION = 17 [(metadata) = { exit_code: 36 }];
+    SYMLINK_TREE_CREATION_COMMAND_EXCEPTION = 18
+        [(metadata) = { exit_code: 36 }];
+    ACTION_INPUT_READ_IO_EXCEPTION = 19 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -608,6 +614,7 @@ message IncludeScanning {
     INITIALIZE_INCLUDE_HINTS_ERROR = 1 [(metadata) = { exit_code: 36 }];
     SCANNING_IO_EXCEPTION = 2 [(metadata) = { exit_code: 36 }];
     INCLUDE_HINTS_FILE_NOT_IN_PACKAGE = 3 [(metadata) = { exit_code: 36 }];
+    INCLUDE_HINTS_READ_FAILURE = 4 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -831,6 +838,7 @@ message CppCompile {
     CPP_COMPILE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     FIND_USED_HEADERS_IO_EXCEPTION = 1 [(metadata) = { exit_code: 36 }];
     COPY_OUT_ERR_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+    D_FILE_READ_FAILURE = 3 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

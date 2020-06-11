@@ -1459,7 +1459,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         try {
           return ByteStreams.toByteArray(in);
         } catch (IOException e) {
-          throw new EnvironmentalExecException("Reading in-memory .d file failed", e);
+          throw new EnvironmentalExecException(
+              e, createFailureDetail("Reading in-memory .d file failed", Code.D_FILE_READ_FAILURE));
         }
       }
     }

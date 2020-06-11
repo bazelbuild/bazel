@@ -19,12 +19,10 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.ExitCode;
 import java.io.IOException;
-import javax.annotation.Nullable;
 
 /**
- * An ExecException which is reports an issue executing an action due to an external problem on the
+ * An ExecException which reports an issue executing an action due to an external problem on the
  * local system.
  *
  * <p>This exception will result in an exit code regarded as a system error; avoid using this for
@@ -37,8 +35,7 @@ import javax.annotation.Nullable;
  * directory or denied file system access.
  */
 public class EnvironmentalExecException extends ExecException {
-  // TODO(b/138456686): Make this not nullable.
-  @Nullable private final FailureDetail failureDetail;
+  private final FailureDetail failureDetail;
 
   public EnvironmentalExecException(IOException cause, FailureDetails.Execution.Code code) {
     super("unexpected I/O exception", cause);
@@ -46,14 +43,9 @@ public class EnvironmentalExecException extends ExecException {
         FailureDetail.newBuilder().setExecution(Execution.newBuilder().setCode(code)).build();
   }
 
-  public EnvironmentalExecException(IOException cause, FailureDetail failureDetail) {
+  public EnvironmentalExecException(Exception cause, FailureDetail failureDetail) {
     super(failureDetail.getMessage(), cause);
     this.failureDetail = failureDetail;
-  }
-
-  public EnvironmentalExecException(String message, Throwable cause) {
-    super(message, cause);
-    failureDetail = null;
   }
 
   public EnvironmentalExecException(FailureDetail failureDetail) {
@@ -70,10 +62,8 @@ public class EnvironmentalExecException extends ExecException {
             messagePrefix,
             getMessage(),
             getCause() == null ? "" : ("\n" + Throwables.getStackTraceAsString(getCause())));
-    DetailedExitCode detailedExitCode =
-        failureDetail == null
-            ? DetailedExitCode.justExitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR)
-            : DetailedExitCode.of(failureDetail.toBuilder().setMessage(message).build());
-    return new ActionExecutionException(message, action, isCatastrophic(), detailedExitCode);
+    FailureDetail failureDetailWithPrefix = failureDetail.toBuilder().setMessage(message).build();
+    return new ActionExecutionException(
+        message, action, isCatastrophic(), DetailedExitCode.of(failureDetailWithPrefix));
   }
 }

@@ -27,7 +27,9 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -155,8 +157,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       try {
         FileSystemUtils.writeContentAsLatin1(outputManifest, hexDigest);
       } catch (IOException e) {
-        throw new EnvironmentalExecException(
-            "Failed to link output manifest '" + outputManifest.getPathString() + "'", e);
+        throw createLinkFailureException(outputManifest, e);
       }
     } else {
       // Link output manifest on success. We avoid a file copy as these manifests may be
@@ -165,8 +166,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       try {
         outputManifest.createSymbolicLink(inputManifest);
       } catch (IOException e) {
-        throw new EnvironmentalExecException(
-            "Failed to link output manifest '" + outputManifest.getPathString() + "'", e);
+        throw createLinkFailureException(outputManifest, e);
       }
     }
   }
@@ -177,5 +177,16 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
         actionExecutionContext.getInputPath(action.getInputManifest()),
         actionExecutionContext.getInputPath(action.getOutputManifest()).getParentDirectory(),
         action.isFilesetTree());
+  }
+
+  private static EnvironmentalExecException createLinkFailureException(
+      Path outputManifest, IOException e) {
+    return new EnvironmentalExecException(
+        e,
+        FailureDetail.newBuilder()
+            .setMessage("Failed to link output manifest '" + outputManifest.getPathString() + "'")
+            .setExecution(
+                Execution.newBuilder().setCode(Code.SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION))
+            .build());
   }
 }

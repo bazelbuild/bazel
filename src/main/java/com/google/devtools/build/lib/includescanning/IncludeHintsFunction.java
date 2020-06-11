@@ -77,8 +77,11 @@ public class IncludeHintsFunction implements SkyFunction {
       env.getValueOrThrow(FileValue.key(RootedPath.toRootedPath(hintsPackageRoot, hintsFile)),
           IOException.class);
     } catch (IOException | BuildFileNotFoundException e) {
-      throw new IncludeHintsFunctionException(new EnvironmentalExecException(
-          "could not read INCLUDE_HINTS file", e));
+      throw new IncludeHintsFunctionException(
+          new EnvironmentalExecException(
+              e,
+              createFailureDetail(
+                  "could not read INCLUDE_HINTS file", Code.INCLUDE_HINTS_READ_FAILURE)));
     }
     if (env.valuesMissing()) {
       return null;
@@ -86,8 +89,11 @@ public class IncludeHintsFunction implements SkyFunction {
     try {
       return Hints.getRules(hintsPackageRoot.getRelative(hintsFile));
     } catch (IOException e) {
-      throw new IncludeHintsFunctionException(new EnvironmentalExecException(
-          "could not read INCLUDE_HINTS file", e));
+      throw new IncludeHintsFunctionException(
+          new EnvironmentalExecException(
+              e,
+              createFailureDetail(
+                  "could not read INCLUDE_HINTS file", Code.INCLUDE_HINTS_READ_FAILURE)));
     }
   }
 
