@@ -18,14 +18,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.OptionsDiffPredicate;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.OptionsDiffPredicate;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
+import com.google.devtools.build.lib.analysis.test.TestShardingStrategy.ShardingStrategyConverter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -33,7 +34,6 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -90,6 +90,16 @@ public class TestConfiguration extends Fragment {
     public String testFilter;
 
     @Option(
+        name = "test_runner_fail_fast",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Forwards fail fast option to the test runner. The test runner should stop execution"
+                + " upon first failure.")
+    public boolean testRunnerFailFast;
+
+    @Option(
       name = "cache_test_results",
       defaultValue = "auto",
       abbrev = 't', // it's useful to toggle this on/off quickly
@@ -130,51 +140,60 @@ public class TestConfiguration extends Fragment {
     public boolean trimTestConfiguration;
 
     @Option(
-      name = "test_arg",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies additional options and arguments that should be passed to the test "
-              + "executable. Can be used multiple times to specify several arguments. "
-              + "If multiple tests are executed, each of them will receive identical arguments. "
-              + "Used only by the 'bazel test' command."
-    )
+        name = "test_arg",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies additional options and arguments that should be passed to the test "
+                + "executable. Can be used multiple times to specify several arguments. "
+                + "If multiple tests are executed, each of them will receive identical arguments. "
+                + "Used only by the 'bazel test' command.")
     public List<String> testArguments;
 
     @Option(
         name = "test_sharding_strategy",
         defaultValue = "explicit",
-        converter = TestActionBuilder.ShardingStrategyConverter.class,
+        converter = ShardingStrategyConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.UNKNOWN},
         help =
             "Specify strategy for test sharding: "
                 + "'explicit' to only use sharding if the 'shard_count' BUILD attribute is "
                 + "present. 'disabled' to never use test sharding.")
-    public TestActionBuilder.TestShardingStrategy testShardingStrategy;
+    public TestShardingStrategy testShardingStrategy;
 
     @Option(
-      name = "runs_per_test",
-      allowMultiple = true,
-      defaultValue = "1",
-      converter = RunsPerTestConverter.class,
-      documentationCategory = OptionDocumentationCategory.TESTING,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies number of times to run each test. If any of those attempts "
-              + "fail for any reason, the whole test would be considered failed. "
-              + "Normally the value specified is just an integer. Example: --runs_per_test=3 "
-              + "will run all tests 3 times. "
-              + "Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for "
-              + "an integer value and regex_filter stands "
-              + "for a list of include and exclude regular expression patterns (Also see "
-              + "--instrumentation_filter). Example: "
-              + "--runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ "
-              + "except those under foo/bar three times. "
-              + "This option can be passed multiple times. "
-    )
+        name = "experimental_persistent_test_runner",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Allows running java_test targets locally within a persistent worker. "
+                + "To enable the persistent test runner one must run bazel test with the flags:"
+                + "--test_strategy=local --strategy=TestRunner=worker "
+                + " --experimental_persistent_test_runner")
+    public boolean persistentTestRunner;
+
+    @Option(
+        name = "runs_per_test",
+        allowMultiple = true,
+        defaultValue = "1",
+        converter = RunsPerTestConverter.class,
+        documentationCategory = OptionDocumentationCategory.TESTING,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies number of times to run each test. If any of those attempts fail for any"
+                + " reason, the whole test is considered failed. Normally the value specified is"
+                + " just an integer. Example: --runs_per_test=3 will run all tests 3 times."
+                + " Alternate syntax: regex_filter@runs_per_test. Where runs_per_test stands for"
+                + " an integer value and regex_filter stands for a list of include and exclude"
+                + " regular expression patterns (Also see --instrumentation_filter). Example:"
+                + " --runs_per_test=//foo/.*,-//foo/bar/.*@3 runs all tests in //foo/ except those"
+                + " under foo/bar three times. This option can be passed multiple times. The most"
+                + " recently passed argument that matches takes precedence. If nothing matches,"
+                + " the test is only run once.")
     public List<PerLabelOptions> runsPerTest;
 
     @Option(
@@ -231,25 +250,14 @@ public class TestConfiguration extends Fragment {
     public Label coverageReportGenerator;
 
     @Option(
-        name = "incompatible_windows_native_test_wrapper",
-        // Design:
-        // https://github.com/laszlocsomor/proposals/blob/win-test-runner/designs/2018-07-18-windows-native-test-runner.md
-        documentationCategory = OptionDocumentationCategory.TESTING,
-        // Affects loading and analysis: this flag affects which target Bazel loads and creates test
-        // actions with on Windows.
-        effectTags = {
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.TEST_RUNNER,
-        },
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        },
-        defaultValue = "true",
+        name = "experimental_fetch_all_coverage_outputs",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help =
-            "On Windows: if true, uses the C++ test wrapper to run tests, otherwise uses "
-                + "tools/test/test-setup.sh as on other platforms. On other platforms: no-op.")
-    public boolean windowsNativeTestWrapper;
+            "If true, then Bazel fetches the entire coverage data directory for each test during a "
+                + "coverage run.")
+    public boolean fetchAllCoverageOutputs;
 
     @Override
     public FragmentOptions getHost() {
@@ -258,6 +266,8 @@ public class TestConfiguration extends Fragment {
       // configuration.
       hostOptions.coverageSupport = this.coverageSupport;
       hostOptions.coverageReportGenerator = this.coverageReportGenerator;
+      // trimTestConfiguration is a global analysis option and should be platform-agnostic
+      hostOptions.trimTestConfiguration = this.trimTestConfiguration;
       return hostOptions;
     }
   }
@@ -301,6 +311,10 @@ public class TestConfiguration extends Fragment {
     return options.testFilter;
   }
 
+  public boolean getTestRunnerFailFast() {
+    return options.testRunnerFailFast;
+  }
+
   public TriState cacheTestResults() {
     return options.cacheTestResults;
   }
@@ -309,8 +323,12 @@ public class TestConfiguration extends Fragment {
     return options.testArguments;
   }
 
-  public TestActionBuilder.TestShardingStrategy testShardingStrategy() {
+  public TestShardingStrategy testShardingStrategy() {
     return options.testShardingStrategy;
+  }
+
+  public boolean isPersistentTestRunner() {
+    return options.persistentTestRunner;
   }
 
   public Label getCoverageSupport(){
@@ -319,10 +337,6 @@ public class TestConfiguration extends Fragment {
 
   public Label getCoverageReportGenerator(){
     return options.coverageReportGenerator;
-  }
-
-  public boolean isUsingWindowsNativeTestWrapper() {
-    return options.windowsNativeTestWrapper;
   }
 
   /**
@@ -344,6 +358,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean cancelConcurrentTests() {
     return options.cancelConcurrentTests;
+  }
+
+  public boolean fetchAllCoverageOutputs() {
+    return options.fetchAllCoverageOutputs;
   }
 
   /**

@@ -18,25 +18,34 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import javax.annotation.Nullable;
 
-// TODO(bazel-team): For performance, avoid doing HashMap lookups at runtime, and compile local
-// variable access into array reference with a constant index. Variable lookups are currently a
-// speed bottleneck, as previously measured in an experiment.
-/**
- * Syntax node for an identifier.
- */
+/** Syntax node for an identifier. */
 public final class Identifier extends Expression {
 
   private final String name;
-  // The scope of the variable. The value is set when the AST has been analysed by
-  // ValidationEnvironment.
-  @Nullable private ValidationEnvironment.Scope scope;
+  private final int nameOffset;
 
-  Identifier(String name) {
+  // set by Resolver
+  @Nullable private Resolver.Binding binding;
+
+  Identifier(FileLocations locs, String name, int nameOffset) {
+    super(locs);
     this.name = name;
+    this.nameOffset = nameOffset;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return nameOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return nameOffset + name.length();
   }
 
   /**
-   *  Returns the name of the Identifier.
+   * Returns the name of the Identifier. If there were parse errors, misparsed regions may be
+   * represented as an Identifier for which {@code !isValid(getName())}.
    */
   public String getName() {
     return name;
@@ -46,13 +55,13 @@ public final class Identifier extends Expression {
     return name.startsWith("_");
   }
 
-  ValidationEnvironment.Scope getScope() {
-    return scope;
+  Resolver.Binding getBinding() {
+    return binding;
   }
 
-  void setScope(ValidationEnvironment.Scope scope) {
-    Preconditions.checkState(this.scope == null);
-    this.scope = scope;
+  void setBinding(Resolver.Binding bind) {
+    Preconditions.checkState(this.binding == null);
+    this.binding = bind;
   }
 
   @Override
@@ -65,32 +74,19 @@ public final class Identifier extends Expression {
     return Kind.IDENTIFIER;
   }
 
-  /** @return The {@link Identifier} of the provided name. */
-  static Identifier of(String name) {
-    return new Identifier(name);
-  }
-
-  /** Returns true if the string is a syntactically valid identifier. */
+  /** Reports whether the string is a valid identifier. */
   public static boolean isValid(String name) {
-    // TODO(laurentlb): Handle Unicode characters.
-    if (name.isEmpty()) {
-      return false;
-    }
+    // Keep consistent with Lexer.scanIdentifier.
     for (int i = 0; i < name.length(); i++) {
       char c = name.charAt(i);
-      if ((c >= 'a' && c <= 'z')
-          || (c >= 'A' && c <= 'Z')
-          || (c >= '0' && c <= '9')
-          || (c == '_')) {
-        continue;
+      if (!(('a' <= c && c <= 'z')
+          || ('A' <= c && c <= 'Z')
+          || (i > 0 && '0' <= c && c <= '9')
+          || (c == '_'))) {
+        return false;
       }
-      return false;
     }
-    if (name.charAt(0) >= '0' && name.charAt(0) <= '9') {
-      return false;
-    }
-
-    return true;
+    return !name.isEmpty();
   }
 
   /**

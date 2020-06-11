@@ -107,6 +107,10 @@ void SigPrintf(const char *format, ...);
 
 std::string GetProcessIdAsString();
 
+// Locates a file named `executable` in the PATH. Returns a path to the first
+// matching file, or an empty string if `executable` is not found on the PATH.
+std::string Which(const std::string& executable);
+
 // Gets an absolute path to the binary being executed that is guaranteed to be
 // readable.
 std::string GetSelfPath(const char* argv0);

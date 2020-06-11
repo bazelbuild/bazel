@@ -184,7 +184,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
                 .getRuleClassObject()
                 .getAttributeByName("tools")
                 .getTransitionFactory()
-                .isHost())
+                .isTool())
         .isTrue();
     assertThat(getHostConfiguration().getCompilationMode()).isEqualTo(CompilationMode.OPT);
   }
@@ -272,6 +272,14 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
     useConfiguration();
     assertThat(getMapper("//a:lib").isAttributeValueExplicitlySpecified("linkstamp")).isFalse();
     assertThat(getMapper("//a:lib").get("linkstamp", BuildType.LABEL)).isNull();
+  }
+
+  @Test
+  public void testNoneValueOnMandatoryAttribute() throws Exception {
+    scratch.file("a/BUILD", "alias(name='a', actual=select({'//conditions:default': None}))");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//a:a");
+    assertContainsEvent("Mandatory attribute 'actual' resolved to 'None'");
   }
 
   @Test

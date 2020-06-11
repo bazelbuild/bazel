@@ -34,8 +34,11 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.InfoItem;
 import com.google.devtools.build.lib.runtime.commands.proto.BazelFlagsProto;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.HelpCommand.Code;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Converters;
@@ -125,11 +128,12 @@ public final class HelpCommand implements BlazeCommand {
     if (options.getResidue().isEmpty()) {
       emitBlazeVersionInfo(outErr, runtime.getProductName());
       emitGenericHelp(outErr, runtime);
-      return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+      return BlazeCommandResult.success();
     }
     if (options.getResidue().size() != 1) {
-      env.getReporter().handle(Event.error("You must specify exactly one command"));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String message = "You must specify exactly one command";
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.MISSING_ARGUMENT);
     }
     String helpSubject = options.getResidue().get(0);
     String productName = runtime.getProductName();
@@ -138,31 +142,32 @@ public final class HelpCommand implements BlazeCommand {
       case "startup_options":
         emitBlazeVersionInfo(outErr, runtime.getProductName());
         emitStartupOptions(outErr, helpOptions.helpVerbosity, runtime);
-        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+        return BlazeCommandResult.success();
       case "target-syntax":
         emitBlazeVersionInfo(outErr, runtime.getProductName());
         emitTargetSyntaxHelp(outErr, productName);
 
-        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+        return BlazeCommandResult.success();
       case "info-keys":
         emitInfoKeysHelp(env, outErr);
-        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+        return BlazeCommandResult.success();
       case "completion":
         emitCompletionHelp(runtime, outErr);
-        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+        return BlazeCommandResult.success();
       case "flags-as-proto":
         emitFlagsAsProtoHelp(runtime, outErr);
-        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+        return BlazeCommandResult.success();
       case "everything-as-html":
         new HtmlEmitter(runtime).emit(outErr);
-        return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+        return BlazeCommandResult.success();
       default: // fall out
     }
 
     BlazeCommand command = runtime.getCommandMap().get(helpSubject);
     if (command == null) {
-      env.getReporter().handle(Event.error(null, "'" + helpSubject + "' is not a known command"));
-        return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String message = "'" + helpSubject + "' is not a known command";
+      env.getReporter().handle(Event.error(null, message));
+      return createFailureResult(message, Code.COMMAND_NOT_FOUND);
     }
     emitBlazeVersionInfo(outErr, productName);
     outErr.printOut(
@@ -173,7 +178,7 @@ public final class HelpCommand implements BlazeCommand {
             runtime.getRuleClassProvider(),
             productName));
 
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
   }
 
   private void emitBlazeVersionInfo(OutErr outErr, String productName) {
@@ -505,6 +510,14 @@ public final class HelpCommand implements BlazeCommand {
      *     by the command.
      */
     void visit(String commandName, Command commandAnnotation, OptionsParser parser);
+  }
+
+  private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
+    return BlazeCommandResult.failureDetail(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setHelpCommand(FailureDetails.HelpCommand.newBuilder().setCode(detailedCode))
+            .build());
   }
 }
 

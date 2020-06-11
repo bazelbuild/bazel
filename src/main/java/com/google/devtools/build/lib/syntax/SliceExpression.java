@@ -15,35 +15,64 @@ package com.google.devtools.build.lib.syntax;
 
 import javax.annotation.Nullable;
 
-/** Syntax node for a slice expression, e.g. obj[:len(obj):2]. */
+/** Syntax node for a slice expression, {@code object[start:stop:step]}. */
 public final class SliceExpression extends Expression {
 
   private final Expression object;
+  private final int lbracketOffset;
   @Nullable private final Expression start;
-  @Nullable private final Expression end;
+  @Nullable private final Expression stop;
   @Nullable private final Expression step;
+  private final int rbracketOffset;
 
-  SliceExpression(Expression object, Expression start, Expression end, Expression step) {
+  SliceExpression(
+      FileLocations locs,
+      Expression object,
+      int lbracketOffset,
+      Expression start,
+      Expression stop,
+      Expression step,
+      int rbracketOffset) {
+    super(locs);
     this.object = object;
+    this.lbracketOffset = lbracketOffset;
     this.start = start;
-    this.end = end;
+    this.stop = stop;
     this.step = step;
+    this.rbracketOffset = rbracketOffset;
   }
 
   public Expression getObject() {
     return object;
   }
 
-  public @Nullable Expression getStart() {
+  @Nullable
+  public Expression getStart() {
     return start;
   }
 
-  public @Nullable Expression getEnd() {
-    return end;
+  @Nullable
+  public Expression getStop() {
+    return stop;
   }
 
-  public @Nullable Expression getStep() {
+  @Nullable
+  public Expression getStep() {
     return step;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return object.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return rbracketOffset + 1;
+  }
+
+  public Location getLbracketLocation() {
+    return locs.getLocation(lbracketOffset);
   }
 
   @Override

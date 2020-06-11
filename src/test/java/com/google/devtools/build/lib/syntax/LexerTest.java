@@ -15,8 +15,7 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.common.base.Joiner;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.Test;
@@ -31,7 +30,7 @@ public class LexerTest {
 
   // TODO(adonovan): make these these tests less unnecessarily stateful.
 
-  private final List<Event> errors = new ArrayList<>();
+  private final List<SyntaxError> errors = new ArrayList<>();
   private String lastError;
 
   /**
@@ -42,20 +41,37 @@ public class LexerTest {
     ParserInput inputSource = ParserInput.create(input, "/some/path.txt");
     errors.clear();
     lastError = null;
-    return new Lexer(inputSource, errors);
+    return new Lexer(inputSource, FileOptions.DEFAULT, errors);
+  }
+
+  private static class Token {
+    TokenKind kind;
+    int start;
+    int end;
+    Object value;
+
+    @Override
+    public String toString() {
+      return kind == TokenKind.STRING
+          ? "\"" + value + "\""
+          : value == null ? kind.toString() : value.toString();
+    }
   }
 
   private ArrayList<Token> allTokens(Lexer lexer) {
     ArrayList<Token> result = new ArrayList<>();
-    Token tok;
     do {
-      tok = lexer.nextToken();
-      result.add(tok.copy());
-    } while (tok.kind != TokenKind.EOF);
+      lexer.nextToken();
+      Token tok = new Token();
+      tok.kind = lexer.kind;
+      tok.start = lexer.start;
+      tok.end = lexer.end;
+      tok.value = lexer.value;
+      result.add(tok);
+    } while (lexer.kind != TokenKind.EOF);
 
-    for (Event error : errors) {
-      lastError =
-          error.getLocation().file() + ":" + error.getLocation().line() + ": " + error.getMessage();
+    for (SyntaxError error : errors) {
+      lastError = error.location().file() + ":" + error.location().line() + ": " + error.message();
     }
 
     return result;
@@ -67,8 +83,8 @@ public class LexerTest {
   }
 
   /**
-   * Lexes the specified input string, and returns a string containing just the
-   * linenumbers of each token.
+   * Lexes the specified input string, and returns a string containing just the line numbers of each
+   * token.
    */
   private String linenums(String input) {
     Lexer lexer = createLexer(input);
@@ -77,7 +93,7 @@ public class LexerTest {
       if (buf.length() > 0) {
         buf.append(' ');
       }
-      int line = lexer.createLocation(tok.left, tok.left).line();
+      int line = lexer.locs.getLocation(tok.start).line();
       buf.append(line);
     }
     return buf.toString();
@@ -125,11 +141,7 @@ public class LexerTest {
       if (buf.length() > 0) {
         buf.append(' ');
       }
-      buf.append('[')
-         .append(tok.left)
-         .append(',')
-         .append(tok.right)
-         .append(')');
+      buf.append('[').append(tok.start).append(',').append(tok.end).append(')');
     }
     return buf.toString();
   }
@@ -512,8 +524,23 @@ public class LexerTest {
                 + " instead.");
   }
 
-  @Test
-  public void testLexerLocationCodec() throws Exception {
-    new SerializationTester(createLexer("foo").createLocation(0, 2)).runTests();
+  /**
+   * Returns the first error whose string form contains the specified substring, or throws an
+   * informative AssertionError if there is none.
+   *
+   * <p>Exposed for use by other frontend tests.
+   */
+  static SyntaxError assertContainsError(List<SyntaxError> errors, String substr) {
+    for (SyntaxError error : errors) {
+      if (error.toString().contains(substr)) {
+        return error;
+      }
+    }
+    if (errors.isEmpty()) {
+      throw new AssertionError("no errors, want '" + substr + "'");
+    } else {
+      throw new AssertionError(
+          "error '" + substr + "' not found, but got these:\n" + Joiner.on("\n").join(errors));
+    }
   }
 }

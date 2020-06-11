@@ -14,20 +14,10 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RequiredProviders;
-import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
-import javax.annotation.Nullable;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 
 /**
  * Multiple {@link TransitiveInfoProvider}s bundled together.
@@ -45,16 +35,7 @@ import javax.annotation.Nullable;
  * @see TransitiveInfoProvider
  */
 public interface TransitiveInfoCollection
-    extends SkylarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
-
-  @Override
-  default Depset outputGroup(String group) {
-    OutputGroupInfo provider = OutputGroupInfo.get(this);
-    NestedSet<Artifact> result = provider != null
-        ? provider.getOutputGroup(group)
-        : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
-    return Depset.of(Artifact.TYPE, result);
-  }
+    extends StarlarkIndexable, ProviderCollection, TransitiveInfoCollectionApi {
 
   /**
    * Returns the label associated with this prerequisite.
@@ -62,21 +43,11 @@ public interface TransitiveInfoCollection
   Label getLabel();
 
   /**
-   * Returns the {@link BuildConfigurationValue.Key} naming the {@link BuildConfiguration} for which
-   * this transitive info collection is defined. Configuration is defined for all configured targets
-   * with exception of {@link InputFileConfiguredTarget} and {@link PackageGroupConfiguredTarget}
-   * for which it is always <b>null</b>.
-   */
-  @Nullable
-  BuildConfigurationValue.Key getConfigurationKey();
-
-  /**
    * Checks whether this {@link TransitiveInfoCollection} satisfies given {@link RequiredProviders}.
    */
   default boolean satisfies(RequiredProviders providers) {
     return providers.isSatisfiedBy(
-        aClass -> getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) != null,
-        id -> this.get(id) != null);
+        aClass -> getProvider(aClass) != null, id -> this.get(id) != null);
   }
 
   /**

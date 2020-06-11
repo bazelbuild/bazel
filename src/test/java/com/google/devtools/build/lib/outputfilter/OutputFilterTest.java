@@ -18,27 +18,20 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.buildtool.util.TestWorkspaceStatusModule;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.testutil.Suite;
-import com.google.devtools.build.lib.testutil.TestSpec;
-import com.google.devtools.build.lib.vfs.Path;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for the {@code --output_filter} option. */
-@TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
 public class OutputFilterTest extends BuildIntegrationTestCase {
   private EventCollector stderr = new EventCollector(EventKind.STDERR);
-  private Path workspaceScript;
 
   // Cast warnings are silenced by default.
   private void enableCastWarnings() throws Exception {
@@ -48,11 +41,6 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
   // Deprecation warnings are silenced by default.
   private void enableDeprecationWarnings() throws Exception {
     addOptions("--javacopt=\"-Xlint:deprecation\"");
-  }
-
-  @Override
-  protected BlazeModule getBuildInfoModule() {
-    return TestWorkspaceStatusModule.getModule();
   }
 
   @Override
@@ -165,8 +153,6 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
         "    int i = (int) 0;",
         "  }",
         "}");
-    workspaceScript = write("wrk", "echo STATUS_CMD_HAS_RUN >&2");
-    workspaceScript.setExecutable(true);
 
     // Always enable cast warnings.
     enableCastWarnings();
@@ -326,23 +312,6 @@ public class OutputFilterTest extends BuildIntegrationTestCase {
     assertEvent("D.java:6: warning: [cast] redundant cast to int");
     assertNoEvent("E.java:6: warning: [cast] redundant cast to int");
     assertNoEvent("ETest.java:6: warning: [cast] redundant cast to int");
-  }
-
-  @Test
-  public void testStatusCmdPrinted() throws Exception {
-    addOptions("--auto_output_filter=packages",
-               "--workspace_status_command=" + workspaceScript.getPathString());
-    CommandEnvironment env = runtimeWrapper.newCommand();
-    env.getReporter().addHandler(stderr);
-    buildTarget("//javatests/a", "//java/b");
-    assertEvent("STATUS_CMD_HAS_RUN");
-
-    addOptions("--auto_output_filter=subpackages",
-               "--workspace_status_command=" + workspaceScript.getPathString());
-    env = runtimeWrapper.newCommand();
-    env.getReporter().addHandler(stderr);
-    buildTarget("//javatests/a", "//java/b");
-    assertEvent("STATUS_CMD_HAS_RUN");
   }
 
   @Test

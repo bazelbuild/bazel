@@ -86,9 +86,20 @@ public final class RemoteOptions extends OptionsBase {
   public String remoteCache;
 
   @Option(
+      name = "experimental_remote_downloader",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "A URI of a remote downloader endpoint. The supported schemas are grpc and grpcs"
+              + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
+              + " Specify grpc:// schema to disable TLS.")
+  public String remoteDownloader;
+
+  @Option(
       name = "remote_header",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -101,7 +112,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_cache_header",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -115,7 +126,7 @@ public final class RemoteOptions extends OptionsBase {
   @Option(
       name = "remote_exec_header",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
@@ -125,6 +136,20 @@ public final class RemoteOptions extends OptionsBase {
               + "values for the same name will be converted to a comma-separated list.",
       allowMultiple = true)
   public List<Entry<String, String>> remoteExecHeaders;
+
+  @Option(
+      name = "remote_downloader_header",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify a header that will be included in remote downloader requests: "
+              + "--remote_downloader_header=Name=Value. "
+              + "Multiple headers can be passed by specifying the flag multiple times. Multiple "
+              + "values for the same name will be converted to a comma-separated list.",
+      allowMultiple = true)
+  public List<Entry<String, String>> remoteDownloaderHeaders;
 
   @Option(
       name = "remote_timeout",
@@ -385,7 +410,7 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "remote_default_exec_properties",
-      defaultValue = "[]",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       converter = AssignmentConverter.class,

@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Supplies the device broker type string, passed to the Android test runtime. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidDeviceBrokerInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -34,7 +34,7 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
   String NAME = "AndroidDeviceBrokerInfo";
 
   /** Provider for {@link AndroidDeviceBrokerInfoApi}. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -42,7 +42,7 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
       documented = false)
   interface AndroidDeviceBrokerInfoApiProvider extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidDeviceBrokerInfo",
         doc = "The <code>AndroidDeviceBrokerInfo</code> constructor.",
         documented = false,
@@ -56,7 +56,7 @@ public interface AndroidDeviceBrokerInfoApi extends StructApi {
                       + "devices")
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidDeviceBrokerInfoApi.class)
+    @StarlarkConstructor(objectType = AndroidDeviceBrokerInfoApi.class)
     AndroidDeviceBrokerInfoApi createInfo(String type) throws EvalException;
   }
 }

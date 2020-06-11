@@ -47,10 +47,7 @@ public final class FilesetEntry implements StarlarkValue, FilesetEntryApi {
 
   @Override
   public boolean isImmutable() {
-    // TODO(laszlocsomor): set this to true. I think we could do this right now, but am not sure.
-    // Maybe we have to verify that Skylark recognizes every member's type to be recursively
-    // immutable; as of 15/01/2016 this is not true for enum types in general, to name an example.
-    return false;
+    return true;
   }
 
   public static List<String> makeStringList(List<Label> labels) {

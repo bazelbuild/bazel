@@ -1,8 +1,8 @@
 ---
 layout: documentation
-title: Repository Rules
+title: Repository rules
 ---
-# Repository Rules
+# Repository rules
 
 An [external repository](../external.md) is a rule that can be used only
 in the `WORKSPACE` file and enables non-hermetic operation at the loading phase
@@ -11,7 +11,7 @@ own BUILD files and artifacts. They can be used to depend on third-party
 libraries (such as Maven packaged libraries) but also to generate BUILD files
 specific to the host Bazel is running on.
 
-## Repository Rule creation
+## Repository rule creation
 
 In a `.bzl` file, use the
 [repository_rule](lib/globals.html#repository_rule) function to create a new
@@ -50,11 +50,12 @@ Every repository rule requires an `implementation` function. It contains the
 actual logic of the rule and is executed strictly in the Loading Phase.
 
 The function has exactly one input parameter, `repository_ctx`. The function
-returns either `None` to signify that the rule is reproducible, or a dict with a
-set of parameters for that rule that would turn that rule into a reproducible
-one generating the same repository. For example, for a rule tracking a git
-repository that would mean returning a specific commit identifier instead of a
-floating branch that was originally specified.
+returns either `None` to signify that the rule is reproducible given the
+specified parameters, or a dict with a set of parameters for that rule that
+would turn that rule into a reproducible one generating the same repository. For
+example, for a rule tracking a git repository that would mean returning a
+specific commit identifier instead of a floating branch that was originally
+specified.
 
 The input parameter `repository_ctx` can be used to
 access attribute values, and non-hermetic functions (finding a binary,
@@ -118,7 +119,7 @@ definition has the `configure` attribute set, use `bazel sync --configure`.
 
 ## Examples
 
-- [C++ auto-configured toolchain](https://github.com/bazelbuild/bazel/blob/ac29b78000afdb95afc7e97efd2b1299ebea4dac/tools/cpp/cc_configure.bzl#L288):
+- [C++ auto-configured toolchain](https://cs.opensource.google/bazel/bazel/+/master:tools/cpp/cc_configure.bzl;drc=644b7d41748e09eff9e47cbab2be2263bb71f29a;l=176):
 it uses a repository rule to automatically create the
 C++ configuration files for Bazel by looking for the local C++ compiler, the
 environment and the flags the C++ compiler supports.

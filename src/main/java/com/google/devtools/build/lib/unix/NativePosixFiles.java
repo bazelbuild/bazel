@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.unix;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.UnixJniLoader;
+import com.google.devtools.build.lib.unix.jni.UnixJniLoader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.logging.LogManager;

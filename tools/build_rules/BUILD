@@ -12,8 +12,10 @@ filegroup(
     name = "embedded_tools_srcs",
     srcs = [
         "BUILD.tools",
+        "java_rules_skylark.bzl",
         "test_rules.bzl",
         "test_rules_private.bzl",
+        "utilities.bzl",
     ],
     visibility = ["//visibility:public"],
 )

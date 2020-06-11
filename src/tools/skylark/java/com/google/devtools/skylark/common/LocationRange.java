@@ -15,8 +15,6 @@
 package com.google.devtools.skylark.common;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.events.Location.LineAndColumn;
-import javax.annotation.Nullable;
 
 /**
  * Location range of a linter warning.
@@ -59,14 +57,6 @@ public class LocationRange {
     public Location(int line, int column) {
       this.line = line;
       this.column = column;
-    }
-
-    public static Location from(@Nullable LineAndColumn lac) {
-      // LineAndColumn may be null, e.g. if a StarlarkFile contains no statements:
-      if (lac == null) {
-        return new Location(1, 1);
-      }
-      return new Location(lac.line, lac.column);
     }
 
     public static int compare(Location l1, Location l2) {

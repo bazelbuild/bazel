@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -35,12 +36,12 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory.CoverageReportActionsWrapper;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -48,9 +49,11 @@ import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestRunnerAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
@@ -109,7 +112,13 @@ public final class CoverageReportActionBuilder {
         String locationMessage,
         boolean remotable,
         RunfilesSupplier runfilesSupplier) {
-      super(owner, inputs, outputs);
+      super(
+          owner,
+          /*tools = */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+          inputs,
+          runfilesSupplier,
+          outputs,
+          ActionEnvironment.EMPTY);
       this.command = command;
       this.remotable = remotable;
       this.locationMessage = locationMessage;
@@ -131,14 +140,15 @@ public final class CoverageReportActionBuilder {
             this,
             LOCAL_RESOURCES);
         List<SpawnResult> spawnResults =
-            actionExecutionContext.getContext(SpawnActionContext.class)
+            actionExecutionContext
+                .getContext(SpawnStrategyResolver.class)
                 .exec(spawn, actionExecutionContext);
         actionExecutionContext.getEventHandler().handle(Event.info(locationMessage));
         return ActionResult.create(spawnResults);
       } catch (ExecException e) {
         throw e.toActionExecutionException(
             "Coverage report generation failed: ",
-            actionExecutionContext.getVerboseFailures(),
+            actionExecutionContext.showVerboseFailures(getOwner().getLabel()),
             this);
       }
     }
@@ -223,7 +233,7 @@ public final class CoverageReportActionBuilder {
         lcovArtifact,
         Joiner.on('\n').join(filepaths),
         /*makeExecutable=*/ false,
-        FileWriteAction.Compression.DISALLOW);
+        Compression.DISALLOW);
   }
 
   /**

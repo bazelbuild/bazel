@@ -67,11 +67,11 @@ public abstract class OutputFormatterCallback<T> implements Callback<T> {
    * Use an {@code OutputFormatterCallback} with an already computed set of targets. Note that this
    * does not work in stream mode, as the {@code targets} would already be computed.
    *
-   * <p>The intended usage of this method is to use {@code StreamedFormatter} formaters in non
+   * <p>The intended usage of this method is to use {@code StreamedFormatter} formatters in non
    * streaming contexts.
    */
-  public static <T> void processAllTargets(OutputFormatterCallback<T> callback,
-      Iterable<T> targets) throws IOException, InterruptedException {
+  public static <T> void processAllTargets(OutputFormatterCallback<T> callback, Iterable<T> targets)
+      throws IOException, InterruptedException {
     boolean failFast = true;
     try {
       callback.start();

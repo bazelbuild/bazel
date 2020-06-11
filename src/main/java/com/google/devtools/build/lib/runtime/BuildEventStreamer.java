@@ -29,6 +29,7 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
@@ -39,9 +40,10 @@ import com.google.devtools.build.lib.analysis.extra.ExtraAction;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildCompletingEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
@@ -57,7 +59,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
@@ -287,19 +288,17 @@ public class BuildEventStreamer {
    * {@link BuildCompletingEvent} that caused the early end of the stream.
    */
   private synchronized void clearMissingStartEvent(BuildEventId id) {
-    if (pendingEvents.containsKey(BuildEventId.buildStartedId())) {
-      ImmutableSet.Builder<BuildEventId> children = ImmutableSet.<BuildEventId>builder();
+    if (pendingEvents.containsKey(BuildEventIdUtil.buildStartedId())) {
+      ImmutableSet.Builder<BuildEventId> children = ImmutableSet.builder();
       children.add(ProgressEvent.INITIAL_PROGRESS_UPDATE);
       children.add(id);
       children.addAll(
-          pendingEvents
-              .get(BuildEventId.buildStartedId())
-              .stream()
+          pendingEvents.get(BuildEventIdUtil.buildStartedId()).stream()
               .map(BuildEvent::getEventId)
-              .collect(ImmutableSet.<BuildEventId>toImmutableSet()));
+              .collect(ImmutableSet.toImmutableSet()));
       buildEvent(
           new AbortedEvent(
-              BuildEventId.buildStartedId(),
+              BuildEventIdUtil.buildStartedId(),
               children.build(),
               getLastAbortReason(),
               getAbortReasonDetails()));
@@ -371,12 +370,12 @@ public class BuildEventStreamer {
     halfCloseFuturesMap = halfCloseFuturesMapBuilder.build();
   }
 
-  private void maybeReportArtifactSet(CompletionContext ctx, NestedSetView<?> view) {
-    String name = artifactGroupNamer.maybeName(view);
+  private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {
+    String name = artifactGroupNamer.maybeName(set);
     if (name == null) {
       return;
     }
-    view = NamedArtifactGroup.expandView(ctx, view);
+    set = NamedArtifactGroup.expandSet(ctx, set);
 
     // We only split if the max number of entries is at least 2 (it must be at least a binary tree).
     // The method throws for smaller values.
@@ -384,16 +383,12 @@ public class BuildEventStreamer {
       // We only split the event after naming it to avoid splitting the same node multiple times.
       // Note that the artifactGroupNames keeps references to the individual pieces, so this can
       // double the memory consumption of large nested sets.
-      view = view.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
+      set = set.splitIfExceedsMaximumSize(besOptions.maxNamedSetEntries);
     }
-    for (NestedSetView<?> transitive : view.transitives()) {
-      maybeReportArtifactSet(ctx, transitive);
+    for (NestedSet<?> succ : set.getNonLeaves()) {
+      maybeReportArtifactSet(ctx, succ);
     }
-    post(new NamedArtifactGroup(name, ctx, view));
-  }
-
-  private void maybeReportArtifactSet(CompletionContext ctx, NestedSet<?> set) {
-    maybeReportArtifactSet(ctx, new NestedSetView<>(set));
+    post(new NamedArtifactGroup(name, ctx, set));
   }
 
   private void maybeReportConfiguration(BuildEvent configuration) {
@@ -428,7 +423,6 @@ public class BuildEventStreamer {
 
   @Subscribe
   @AllowConcurrentEvents
-  @SuppressWarnings("unchecked")
   public void buildEvent(BuildEvent event) {
     if (finalEventsToCome != null) {
       synchronized (this) {
@@ -459,14 +453,13 @@ public class BuildEventStreamer {
 
     if (event instanceof EventReportingArtifacts) {
       ReportedArtifacts reportedArtifacts = ((EventReportingArtifacts) event).reportedArtifacts();
-      for (NestedSet<?> artifactSet : reportedArtifacts.artifacts) {
-        maybeReportArtifactSet(
-            reportedArtifacts.completionContext, (NestedSet<Object>) artifactSet);
+      for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
+        maybeReportArtifactSet(reportedArtifacts.completionContext, artifactSet);
       }
     }
 
     if (event instanceof BuildCompletingEvent
-        && !event.getEventId().equals(BuildEventId.buildStartedId())) {
+        && !event.getEventId().equals(BuildEventIdUtil.buildStartedId())) {
       clearMissingStartEvent(event.getEventId());
     }
 
@@ -807,4 +800,3 @@ public class BuildEventStreamer {
     }
   }
 }
-

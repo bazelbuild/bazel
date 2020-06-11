@@ -25,42 +25,35 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
+import com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkModules;
+import com.google.devtools.build.lib.analysis.constraints.RuleContextConstraintSemantics;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionsProvider;
@@ -76,6 +69,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * Knows about every rule Blaze supports and the associated configuration options.
@@ -84,37 +79,7 @@ import javax.annotation.Nullable;
  * configuration options is guaranteed not to change over the life time of the Blaze server.
  */
 // This class has no subclasses except those created by the evil that is mockery.
-public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider {
-
-  /**
-   * Predicate for determining whether the analysis cache should be cleared, given the new and old
-   * value of an option which has changed and the values of the other new options.
-   */
-  @FunctionalInterface
-  public interface OptionsDiffPredicate {
-    public static final OptionsDiffPredicate ALWAYS_INVALIDATE =
-        (options, option, oldValue, newValue) -> true;
-
-    public boolean apply(
-        BuildOptions newOptions, OptionDefinition option, Object oldValue, Object newValue);
-  }
-
-  /**
-   * Custom dependency validation logic.
-   */
-  public interface PrerequisiteValidator {
-    /**
-     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
-     * prerequisite} through the attribute {@code attribute}.
-     *
-     * <p>Can be used for enforcing any organization-specific policies about the layout of the
-     * workspace.
-     */
-    void validate(
-        RuleContext.Builder contextBuilder,
-        ConfiguredTargetAndData prerequisite,
-        Attribute attribute);
-  }
+public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
 
   /**
    * A coherent set of options, fragments, aspects and rules; each of these may declare a dependency
@@ -154,15 +119,16 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     private OptionsDiffPredicate shouldInvalidateCacheForOptionDiff =
         OptionsDiffPredicate.ALWAYS_INVALIDATE;
     private PrerequisiteValidator prerequisiteValidator;
-    private final ImmutableList.Builder<Bootstrap> skylarkBootstraps = ImmutableList.builder();
-    private ImmutableMap.Builder<String, Object> skylarkAccessibleTopLevels =
+    private final ImmutableList.Builder<Bootstrap> starlarkBootstraps = ImmutableList.builder();
+    private ImmutableMap.Builder<String, Object> starlarkAccessibleTopLevels =
         ImmutableMap.builder();
     private final ImmutableList.Builder<SymlinkDefinition> symlinkDefinitions =
         ImmutableList.builder();
     private Set<String> reservedActionMnemonics = new TreeSet<>();
     private BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider =
         (BuildOptions options) -> ActionEnvironment.EMPTY;
-    private ConstraintSemantics constraintSemantics = new ConstraintSemantics();
+    private ConstraintSemantics<RuleContext> constraintSemantics =
+        new RuleContextConstraintSemantics();
 
     private ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy =
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE;
@@ -234,7 +200,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     /**
      * Adds a configuration fragment factory and all build options required by its fragment.
      *
-     * <p>Note that configuration fragments annotated with a Skylark name must have a unique name;
+     * <p>Note that configuration fragments annotated with a Starlark name must have a unique name;
      * no two different configuration fragments can share the same name.
      */
     public Builder addConfigurationFragment(ConfigurationFragmentFactory factory) {
@@ -259,13 +225,13 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       return this;
     }
 
-    public Builder addSkylarkBootstrap(Bootstrap bootstrap) {
-      this.skylarkBootstraps.add(bootstrap);
+    public Builder addStarlarkBootstrap(Bootstrap bootstrap) {
+      this.starlarkBootstraps.add(bootstrap);
       return this;
     }
 
-    public Builder addSkylarkAccessibleTopLevels(String name, Object object) {
-      this.skylarkAccessibleTopLevels.put(name, object);
+    public Builder addStarlarkAccessibleTopLevels(String name, Object object) {
+      this.starlarkAccessibleTopLevels.put(name, object);
       return this;
     }
 
@@ -290,7 +256,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
      * don't depend on rules that aren't compatible with the same environments. Defaults to
      * {@ConstraintSemantics}. See {@ConstraintSemantics} for more details.
      */
-    public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+    public Builder setConstraintSemantics(ConstraintSemantics<RuleContext> constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
       return this;
     }
@@ -458,8 +424,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
           toolchainTaggedTrimmingTransition,
           shouldInvalidateCacheForOptionDiff,
           prerequisiteValidator,
-          skylarkAccessibleTopLevels.build(),
-          skylarkBootstraps.build(),
+          starlarkAccessibleTopLevels.build(),
+          starlarkBootstraps.build(),
           symlinkDefinitions.build(),
           ImmutableSet.copyOf(reservedActionMnemonics),
           actionEnvironmentProvider,
@@ -553,6 +519,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
   private final PrerequisiteValidator prerequisiteValidator;
 
+  private final ImmutableMap<String, Object> nativeRuleSpecificBindings;
+
   private final ImmutableMap<String, Object> environment;
 
   private final ImmutableList<SymlinkDefinition> symlinkDefinitions;
@@ -563,7 +531,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
 
   private final ImmutableMap<String, Class<?>> configurationFragmentMap;
 
-  private final ConstraintSemantics constraintSemantics;
+  private final ConstraintSemantics<RuleContext> constraintSemantics;
 
   private final ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy;
 
@@ -584,12 +552,12 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
       PatchTransition toolchainTaggedTrimmingTransition,
       OptionsDiffPredicate shouldInvalidateCacheForOptionDiff,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
-      ImmutableList<Bootstrap> skylarkBootstraps,
+      ImmutableMap<String, Object> starlarkAccessibleJavaClasses,
+      ImmutableList<Bootstrap> starlarkBootstraps,
       ImmutableList<SymlinkDefinition> symlinkDefinitions,
       ImmutableSet<String> reservedActionMnemonics,
       BuildConfiguration.ActionEnvironmentProvider actionEnvironmentProvider,
-      ConstraintSemantics constraintSemantics,
+      ConstraintSemantics<RuleContext> constraintSemantics,
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -608,7 +576,9 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.shouldInvalidateCacheForOptionDiff = shouldInvalidateCacheForOptionDiff;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.environment = createEnvironment(skylarkAccessibleJavaClasses, skylarkBootstraps);
+    this.nativeRuleSpecificBindings =
+        createNativeRuleSpecificBindings(starlarkAccessibleJavaClasses, starlarkBootstraps);
+    this.environment = createEnvironment(nativeRuleSpecificBindings);
     this.symlinkDefinitions = symlinkDefinitions;
     this.reservedActionMnemonics = reservedActionMnemonics;
     this.actionEnvironmentProvider = actionEnvironmentProvider;
@@ -759,19 +729,24 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return BuildOptions.of(configurationOptions, optionsProvider);
   }
 
-  private static ImmutableMap<String, Object> createEnvironment(
-      ImmutableMap<String, Object> skylarkAccessibleTopLevels,
+  private static ImmutableMap<String, Object> createNativeRuleSpecificBindings(
+      ImmutableMap<String, Object> starlarkAccessibleTopLevels,
       ImmutableList<Bootstrap> bootstraps) {
-    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
-
-    // Among other symbols, this step adds the Starlark universe (e.g. None/True/len), for now.
-    SkylarkModules.addSkylarkGlobalsToBuilder(envBuilder);
-
-    envBuilder.putAll(skylarkAccessibleTopLevels.entrySet());
+    ImmutableMap.Builder<String, Object> bindings = ImmutableMap.builder();
+    bindings.putAll(starlarkAccessibleTopLevels);
     for (Bootstrap bootstrap : bootstraps) {
-      bootstrap.addBindingsToBuilder(envBuilder);
+      bootstrap.addBindingsToBuilder(bindings);
     }
+    return bindings.build();
+  }
 
+  private static ImmutableMap<String, Object> createEnvironment(
+      ImmutableMap<String, Object> nativeRuleSpecificBindings) {
+    ImmutableMap.Builder<String, Object> envBuilder = ImmutableMap.builder();
+    // Add predeclared symbols of the Bazel build language.
+    StarlarkModules.addStarlarkGlobalsToBuilder(envBuilder);
+    // Add all the extensions registered with the rule class provider.
+    envBuilder.putAll(nativeRuleSpecificBindings);
     return envBuilder.build();
   }
 
@@ -780,7 +755,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     ImmutableMap.Builder<String, Class<?>> mapBuilder = ImmutableMap.builder();
     for (ConfigurationFragmentFactory fragmentFactory : configurationFragmentFactories) {
       Class<? extends Fragment> fragmentClass = fragmentFactory.creates();
-      SkylarkModule fragmentModule = SkylarkInterfaceUtils.getSkylarkModule(fragmentClass);
+      StarlarkBuiltin fragmentModule = StarlarkInterfaceUtils.getStarlarkBuiltin(fragmentClass);
       if (fragmentModule != null) {
         mapBuilder.put(fragmentModule.name(), fragmentClass);
       }
@@ -789,42 +764,32 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
   }
 
   @Override
+  public ImmutableMap<String, Object> getNativeRuleSpecificBindings() {
+    // Include rule-related stuff like CcInfo, but not core stuff like rule(). Essentially, this
+    // is intended to include things that could in principle be migrated to Starlark (and hence
+    // should be overridable by @builtins); in practice it means anything specifically registered
+    // with the RuleClassProvider.
+    return nativeRuleSpecificBindings;
+  }
+
+  @Override
   public ImmutableMap<String, Object> getEnvironment() {
     return environment;
   }
 
   @Override
-  public StarlarkThread createRuleClassStarlarkThread(
+  public void setStarlarkThreadContext(
+      StarlarkThread thread,
       Label fileLabel,
-      Mutability mutability,
-      StarlarkSemantics starlarkSemantics,
-      StarlarkThread.PrintHandler printHandler,
-      String astFileContentHashCode,
-      Map<String, Extension> importMap,
-      ClassObject nativeModule,
       ImmutableMap<RepositoryName, RepositoryName> repoMapping) {
-    Map<String, Object> env = new HashMap<>(environment);
-    env.put("native", nativeModule);
-
-    StarlarkThread thread =
-        StarlarkThread.builder(mutability)
-            .setGlobals(Module.createForBuiltins(env).withLabel(fileLabel))
-            .setSemantics(starlarkSemantics)
-            .setFileContentHashCode(astFileContentHashCode)
-            .setImportedExtensions(importMap)
-            .build();
-    thread.setPrintHandler(printHandler);
-
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.LOADING,
             toolsRepository,
             configurationFragmentMap,
             repoMapping,
             new SymbolGenerator<>(fileLabel),
-            /* analysisRuleLabel= */ null)
+            /*analysisRuleLabel=*/ null)
         .storeInThread(thread);
-
-    return thread;
   }
 
   @Override
@@ -856,7 +821,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return symlinkDefinitions;
   }
 
-  public ConstraintSemantics getConstraintSemantics() {
+  public ConstraintSemantics<RuleContext> getConstraintSemantics() {
     return constraintSemantics;
   }
 
@@ -876,7 +841,7 @@ public /*final*/ class ConfiguredRuleClassProvider implements RuleClassProvider 
     return fragmentsBuilder.build();
   }
 
-  /** Returns a reserved set of action mnemonics. These cannot be used from a Skylark action. */
+  /** Returns a reserved set of action mnemonics. These cannot be used from a Starlark action. */
   public ImmutableSet<String> getReservedActionMnemonics() {
     return reservedActionMnemonics;
   }

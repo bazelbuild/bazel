@@ -14,18 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.core;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Interface for a build target. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "Target",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A BUILD target. It is essentially a <code>struct</code> with the following fields:"
             + "<ul><li><h3 id=\"modules.Target.label\">label</h3><code><a class=\"anchor\""
@@ -40,14 +36,4 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + " rule targets all additional providers provided by this target are accessible as"
             + " <code>struct</code> fields. These extra providers are defined in the"
             + " <code>struct</code> returned by the rule implementation function.</li></ul>")
-public interface TransitiveInfoCollectionApi extends StarlarkValue {
-
-  @SkylarkCallable(
-      name = "output_group",
-      documented = false, //  TODO(dslomov): document.
-      parameters = {
-        @Param(name = "group_name", type = String.class, doc = "Output group name", named = true)
-      },
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_NO_TARGET_OUTPUT_GROUP)
-  Depset outputGroup(String group);
-}
+public interface TransitiveInfoCollectionApi extends StarlarkValue {}

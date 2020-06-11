@@ -17,6 +17,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
@@ -31,13 +32,12 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.logging.Logger;
 
 /** Module providing the collection of the resolved values for the repository rules executed. */
 public final class RepositoryResolvedModule extends BlazeModule {
   public static final String EXPORTED_NAME = "resolved";
 
-  private static final Logger logger = Logger.getLogger(RepositoryResolvedModule.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private Map<String, Object> resolvedValues;
   private String resolvedFile;
   private ImmutableList<String> orderedNames;
@@ -83,7 +83,7 @@ public final class RepositoryResolvedModule extends BlazeModule {
             EXPORTED_NAME + " = " + getWorkspacePrettyPrinter().repr(resultBuilder.build()));
         writer.close();
       } catch (IOException e) {
-        logger.warning("IO Error writing to file " + resolvedFile + ": " + e);
+        logger.atWarning().withCause(e).log("IO Error writing to file %s", resolvedFile);
       }
     }
 

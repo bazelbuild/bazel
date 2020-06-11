@@ -21,12 +21,23 @@ import com.google.common.collect.ImmutableList;
 public final class CallExpression extends Expression {
 
   private final Expression function;
+  private final Location lparenLocation;
   private final ImmutableList<Argument> arguments;
+  private final int rparenOffset;
+
   private final int numPositionalArgs;
 
-  CallExpression(Expression function, ImmutableList<Argument> arguments) {
+  CallExpression(
+      FileLocations locs,
+      Expression function,
+      Location lparenLocation,
+      ImmutableList<Argument> arguments,
+      int rparenOffset) {
+    super(locs);
     this.function = Preconditions.checkNotNull(function);
+    this.lparenLocation = lparenLocation;
     this.arguments = arguments;
+    this.rparenOffset = rparenOffset;
 
     int n = 0;
     for (Argument arg : arguments) {
@@ -50,6 +61,25 @@ public final class CallExpression extends Expression {
   /** Returns the function arguments. */
   public ImmutableList<Argument> getArguments() {
     return arguments;
+  }
+
+  @Override
+  public int getStartOffset() {
+    return function.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return rparenOffset + 1;
+  }
+
+  public Location getLparenLocation() {
+    // Unlike all other getXXXLocation methods, this one returns a reference to
+    // a previously materialized Location. getLparenLocation is unique among
+    // locations because the tree-walking evaluator needs it frequently even
+    // in the absence of errors. When we switch to a compiled representation
+    // we can dispense with this optimization.
+    return lparenLocation;
   }
 
   @Override

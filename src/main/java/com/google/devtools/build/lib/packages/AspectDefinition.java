@@ -21,9 +21,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Type.LabelVisitor;
@@ -256,8 +258,9 @@ public final class AspectDefinition {
      * Asserts that this aspect can only be evaluated for rules that supply all of the providers
      * from at least one set of required providers.
      */
-    public Builder requireProviderSets(Iterable<ImmutableSet<Class<?>>> providerSets) {
-      for (ImmutableSet<Class<?>> providerSet : providerSets) {
+    public Builder requireProviderSets(
+        Iterable<ImmutableSet<Class<? extends TransitiveInfoProvider>>> providerSets) {
+      for (ImmutableSet<Class<? extends TransitiveInfoProvider>> providerSet : providerSets) {
         requiredProviders.addNativeSet(providerSet);
       }
       return this;
@@ -267,32 +270,32 @@ public final class AspectDefinition {
      * Asserts that this aspect can only be evaluated for rules that supply all of the specified
      * providers.
      */
-    public Builder requireProviders(Class<?>... providers) {
+    public Builder requireProviders(Class<? extends TransitiveInfoProvider>... providers) {
       requiredProviders.addNativeSet(ImmutableSet.copyOf(providers));
       return this;
     }
 
     /**
      * Asserts that this aspect can only be evaluated for rules that supply all of the specified
-     * Skylark providers.
+     * Starlark providers.
      */
-    public Builder requireSkylarkProviders(SkylarkProviderIdentifier... skylarkProviders) {
-      requiredProviders.addSkylarkSet(ImmutableSet.copyOf(skylarkProviders));
+    public Builder requireStarlarkProviders(StarlarkProviderIdentifier... starlarkProviders) {
+      requiredProviders.addStarlarkSet(ImmutableSet.copyOf(starlarkProviders));
       return this;
     }
 
     public Builder requireAspectsWithProviders(
-        Iterable<ImmutableSet<SkylarkProviderIdentifier>> providerSets) {
-      for (ImmutableSet<SkylarkProviderIdentifier> providerSet : providerSets) {
+        Iterable<ImmutableSet<StarlarkProviderIdentifier>> providerSets) {
+      for (ImmutableSet<StarlarkProviderIdentifier> providerSet : providerSets) {
         if (!providerSet.isEmpty()) {
-          requiredAspectProviders.addSkylarkSet(providerSet);
+          requiredAspectProviders.addStarlarkSet(providerSet);
         }
       }
       return this;
     }
 
     public Builder requireAspectsWithNativeProviders(
-        Class<?>... providers) {
+        Class<? extends TransitiveInfoProvider>... providers) {
       requiredAspectProviders.addNativeSet(ImmutableSet.copyOf(providers));
       return this;
     }
@@ -307,12 +310,10 @@ public final class AspectDefinition {
       return this;
     }
 
-    /**
-     * State that the aspect being built provides given providers.
-     */
-    public Builder advertiseProvider(ImmutableList<SkylarkProviderIdentifier> providers) {
-      for (SkylarkProviderIdentifier provider : providers) {
-        advertisedProviders.addSkylark(provider);
+    /** State that the aspect being built provides given providers. */
+    public Builder advertiseProvider(ImmutableList<StarlarkProviderIdentifier> providers) {
+      for (StarlarkProviderIdentifier provider : providers) {
+        advertisedProviders.addStarlark(provider);
       }
       return this;
     }
@@ -370,16 +371,42 @@ public final class AspectDefinition {
     /**
      * Adds an attribute to the aspect.
      *
-     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit
-     * (not available in the BUILD file, starting with '$') or late-bound (determined after the
+     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit (not
+     * available in the BUILD file, starting with '$') or late-bound (determined after the
      * configuration is available, starting with ':')
+     *
+     * <p>Aspect definition currently cannot handle {@link ComputedDefault} dependencies (type LABEL
+     * or LABEL_LIST), because all the dependencies are resolved from the aspect definition and the
+     * defining rule.
      */
     public Builder add(Attribute attribute) {
-      Preconditions.checkArgument(attribute.isImplicit() || attribute.isLateBound()
-          || (attribute.getType() == Type.STRING && attribute.checkAllowedValues()),
-          "Invalid attribute '%s' (%s)", attribute.getName(), attribute.getType());
-      Preconditions.checkArgument(!attributes.containsKey(attribute.getName()),
-          "An attribute with the name '%s' already exists.", attribute.getName());
+      Preconditions.checkArgument(
+          attribute.isImplicit()
+              || attribute.isLateBound()
+              || (attribute.getType() == Type.STRING && attribute.checkAllowedValues()),
+          "%s: Invalid attribute '%s' (%s)",
+          aspectClass.getName(),
+          attribute.getName(),
+          attribute.getType());
+
+      // Attributes specifying dependencies using ComputedDefault value are currently not supported.
+      // The limitation is in place because:
+      //  - blaze query requires that all possible values are knowable without BuildConguration
+      //  - aspects can attach to any rule
+      // Current logic in #forEachLabelDepFromAllAttributesOfAspect is not enough,
+      // however {Conservative,Precise}AspectResolver can probably be improved to make that work.
+      Preconditions.checkArgument(
+          !(attribute.getType().getLabelClass() == LabelClass.DEPENDENCY
+              && (attribute.getDefaultValueUnchecked() instanceof ComputedDefault)),
+          "%s: Invalid attribute '%s' (%s) with computed default dependencies",
+          aspectClass.getName(),
+          attribute.getName(),
+          attribute.getType());
+      Preconditions.checkArgument(
+          !attributes.containsKey(attribute.getName()),
+          "%s: An attribute with the name '%s' already exists.",
+          aspectClass.getName(),
+          attribute.getName());
       attributes.put(attribute.getName(), attribute);
       return this;
     }
@@ -419,12 +446,12 @@ public final class AspectDefinition {
      * configuration.
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method takes the
-     * Skylark module names of fragments instead of their classes.
+     * Starlark module names of fragments instead of their classes.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
         Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy
-          .requiresConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
+      configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
+          configurationFragmentNames);
       return this;
     }
 
@@ -434,16 +461,16 @@ public final class AspectDefinition {
      * is also readable by the aspect.
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(ConfigurationTransition, Class...)},
-     * this method takes the Skylark module names of fragments instead of their classes.
+     * this method takes the Starlark module names of fragments instead of their classes.
      *
      * <p>You probably don't want to use this, because aspects generally shouldn't read
-     * configurations other than their own. If you want to declare host config fragments, see
-     * {@link com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
+     * configurations other than their own. If you want to declare host config fragments, see {@link
+     * com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder}.
      */
-    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+    public Builder requiresConfigurationFragmentsByStarlarkBuiltinName(
         ConfigurationTransition transition, Collection<String> configurationFragmentNames) {
-      configurationFragmentPolicy.requiresConfigurationFragmentsBySkylarkModuleName(transition,
-          configurationFragmentNames);
+      configurationFragmentPolicy.requiresConfigurationFragmentsByStarlarkBuiltinName(
+          transition, configurationFragmentNames);
       return this;
     }
 

@@ -603,7 +603,7 @@ function test_incompatible_validate_top_level_header_inclusions() {
   local workspace="${FUNCNAME[0]}"
   mkdir -p "${workspace}"
 
-  touch "${workspace}/WORKSPACE"
+  create_workspace_with_default_repos "${workspace}/WORKSPACE"
   cat >> "${workspace}/BUILD" << EOF
 cc_library(
     name = "foo",
@@ -930,6 +930,148 @@ EOF
     fail "Should pass with fake toolchain"
   expect_not_log "An error occurred during the fetch of repository 'local_config_cc'"
   expect_log "@local_config_cc//:empty"
+}
+
+function setup_workspace_layout_with_external_directory() {
+  # Make the following layout to test builds in //external subpackages:
+  #
+  #├── baz
+  #│   ├── binary.cc
+  #│   └── BUILD
+  #└── external
+  #    └── foo
+  #        ├── BUILD
+  #        ├── lib.cc
+  #        └── lib.h
+  mkdir -p external/foo
+  cat > external/foo/BUILD <<EOF
+cc_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    hdrs = ["lib.h"],
+    visibility = ["//baz:__subpackages__"],
+)
+EOF
+  cat > external/foo/lib.cc <<EOF
+#include "external/foo/lib.h"
+#include <iostream>
+
+using std::cout;
+using std::endl;
+using std::string;
+
+HelloLib::HelloLib(const string& greeting) : greeting_(new string(greeting)) {
+}
+
+void HelloLib::greet(const string& thing) {
+  cout << *greeting_ << " " << thing << endl;
+}
+EOF
+
+  cat > external/foo/lib.h <<EOF
+#include <string>
+#include <memory>
+
+class HelloLib {
+ public:
+  explicit HelloLib(const std::string &greeting);
+  void greet(const std::string &thing);
+
+ private:
+  std::unique_ptr<const std::string> greeting_;
+};
+EOF
+
+  mkdir baz
+  cat > baz/BUILD <<EOF
+cc_binary(
+    name = "binary",
+    srcs = ["binary.cc"],
+    deps = ["//external/foo:lib"],
+)
+EOF
+  cat > baz/binary.cc <<EOF
+#include "external/foo/lib.h"
+#include <string>
+
+int main(int argc, char** argv) {
+  HelloLib lib("Hello");
+  std::string thing = "world";
+  if (argc > 1) {
+    thing = argv[1];
+  }
+  lib.greet(thing);
+  return 0;
+}
+EOF
+
+}
+
+function test_execroot_subdir_layout_fails_for_external_subpackages() {
+  setup_workspace_layout_with_external_directory
+
+  bazel build --experimental_sibling_repository_layout=false //baz:binary &> $TEST_log \
+    && fail "build should have failed with sources in the external directory" || true
+  expect_log "error:.*external/foo/lib.*"
+  expect_log "Target //baz:binary failed to build"
+}
+
+function test_execroot_sibling_layout_null_build_for_external_subpackages() {
+  setup_workspace_layout_with_external_directory
+  bazel build --experimental_sibling_repository_layout //baz:binary || fail "expected build success"
+
+  # Null build.
+  bazel build --experimental_sibling_repository_layout //baz:binary &> $TEST_log || fail "expected build success"
+  expect_log "INFO: 0 processes"
+}
+
+function test_execroot_sibling_layout_header_scanning_in_external_subpackage() {
+  setup_workspace_layout_with_external_directory
+  cat << 'EOF' > external/foo/BUILD
+cc_library(
+    name = "lib",
+    srcs = ["lib.cc"],
+    # missing header declaration
+    visibility = ["//baz:__subpackages__"],
+)
+EOF
+
+  bazel build --experimental_sibling_repository_layout --spawn_strategy=standalone //external/foo:lib &> $TEST_log \
+    && fail "build should not have succeeded with missing header file"
+
+  expect_log "undeclared inclusion(s) in rule '//external/foo:lib'" \
+     "could not find 'undeclared inclusion' error message in bazel output"
+}
+
+function test_incompatible_linkopts_to_linklibs() {
+  if is_darwin; then
+    # This only applies to the Unix toolchain.
+    return 0
+  fi
+  mkdir -p foo
+  cat << 'EOF' > foo/BUILD
+cc_library(
+    name = "foo",
+    srcs = ["foo.cc"],
+)
+EOF
+  touch foo/foo.cc
+
+  local -r object_file=".*foo.pic.o"
+  local stdcpp="-lstdc++"
+  local lm="-lm"
+
+  bazel build --incompatible_linkopts_to_linklibs //foo \
+    || fail "Build failed but should have succeeded"
+  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > $TEST_log
+
+  expect_log "$object_file$stdcpp$lm"
+
+  bazel build //foo \
+    || fail "Build failed but should have succeeded"
+  tr -d '\n' < bazel-bin/foo/libfoo.so-2.params > $TEST_log
+
+  expect_log "$stdcpp$lm$object_file"
 }
 
 run_suite "cc_integration_test"

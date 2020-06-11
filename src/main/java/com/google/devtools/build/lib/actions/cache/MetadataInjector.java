@@ -13,36 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions.cache;
 
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.vfs.FileStatus;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import java.util.Map;
 
 /** Supports metadata injection of action outputs into skyframe. */
 public interface MetadataInjector {
 
   /**
-   * Injects metadata of a file that is stored remotely.
+   * Injects the metadata of a file.
    *
-   * @param output a regular output file.
-   * @param digest the digest of the file.
-   * @param size the size of the file in bytes.
-   * @param locationIndex is only used in Blaze.
+   * <p>This can be used to save filesystem operations when the metadata is already known.
+   *
+   * @param output a regular output file
+   * @param metadata the remote file metadata
    */
-  void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex);
+  void injectFile(Artifact output, FileArtifactValue metadata);
 
   /**
-   * Inject the metadata of a tree artifact whose contents are stored remotely.
+   * Injects the metadata of a tree artifact.
    *
-   * @param output an output directory.
-   * @param children the metadata of the files stored in the directory. The paths must be relative
-   *     to the path of {@code output}.
+   * <p>This can be used to save filesystem operations when the metadata is already known.
+   *
+   * @param output an output directory {@linkplain Artifact#isTreeArtifact tree artifact}
+   * @param children the metadata of the files stored in the directory
    */
-  void injectRemoteDirectory(
-      Artifact.SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children);
+  void injectDirectory(SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children);
 
   /**
    * Marks an {@link Artifact} as intentionally omitted.
@@ -50,16 +48,5 @@ public interface MetadataInjector {
    * <p>This is used as an optimization to not download "orphaned artifacts" (=artifacts that no
    * action depends on) from a remote system.
    */
-  void markOmitted(ActionInput output);
-
-  /**
-   * Registers the given output as contents of a TreeArtifact, without injecting its digest. Prefer
-   * {@link #injectDigest} when the digest is available.
-   */
-  void addExpandedTreeOutput(TreeFileArtifact output);
-
-  /**
-   * Injects provided digest into the metadata handler, simultaneously caching lstat() data as well.
-   */
-  void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
+  void markOmitted(Artifact output);
 }

@@ -15,36 +15,36 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Interface for a configuration object which holds information about the build environment. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "configuration",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "This object holds information about the environment in which the build is running. See"
             + " the <a href='../rules.$DOC_EXT#configurations'>Rules page</a> for more on the"
             + " general concept of configurations.")
 public interface BuildConfigurationApi extends StarlarkValue {
 
-  @SkylarkCallable(name = "bin_dir", structField = true, documented = false)
+  @StarlarkMethod(name = "bin_dir", structField = true, documented = false)
   @Deprecated
   FileRootApi getBinDir();
 
-  @SkylarkCallable(name = "genfiles_dir", structField = true, documented = false)
+  @StarlarkMethod(name = "genfiles_dir", structField = true, documented = false)
   @Deprecated
   FileRootApi getGenfilesDir();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "host_path_separator",
       structField = true,
       doc = "Returns the separator for PATH environment variable, which is ':' on Unix.")
   String getHostPathSeparator();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "default_shell_env",
       structField = true,
       doc =
@@ -53,7 +53,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
   @Deprecated // Use getActionEnvironment instead.
   ImmutableMap<String, String> getLocalShellEnvironment();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "test_env",
       structField = true,
       doc =
@@ -62,7 +62,7 @@ public interface BuildConfigurationApi extends StarlarkValue {
               + " environment!")
   ImmutableMap<String, String> getTestEnv();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "coverage_enabled",
       structField = true,
       doc =

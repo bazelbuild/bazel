@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
@@ -30,10 +29,11 @@ import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput.EmptyActionInput;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -108,11 +108,10 @@ public class SpawnInputExpander {
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
-      ArtifactPathResolver pathResolver,
       boolean expandTreeArtifactsInRunfiles)
       throws IOException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
-        runfilesSupplier.getMappings(pathResolver);
+        runfilesSupplier.getMappings();
 
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> rootAndMappings :
         rootsAndMappings.entrySet()) {
@@ -126,7 +125,7 @@ public class SpawnInputExpander {
           if (expandTreeArtifactsInRunfiles && localArtifact.isTreeArtifact()) {
             List<ActionInput> expandedInputs =
                 ActionInputHelper.expandArtifacts(
-                    Collections.singletonList(localArtifact), artifactExpander);
+                    NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact), artifactExpander);
             for (ActionInput input : expandedInputs) {
               addMapping(
                   inputMap,
@@ -154,7 +153,6 @@ public class SpawnInputExpander {
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
       ArtifactExpander artifactExpander,
-      ArtifactPathResolver pathResolver,
       boolean expandTreeArtifactsInRunfiles)
       throws IOException {
     Map<PathFragment, ActionInput> inputMap = new HashMap<>();
@@ -163,7 +161,6 @@ public class SpawnInputExpander {
         runfilesSupplier,
         actionFileCache,
         artifactExpander,
-        pathResolver,
         expandTreeArtifactsInRunfiles);
     return inputMap;
   }
@@ -230,7 +227,6 @@ public class SpawnInputExpander {
   public SortedMap<PathFragment, ActionInput> getInputMapping(
       Spawn spawn,
       ArtifactExpander artifactExpander,
-      ArtifactPathResolver pathResolver,
       MetadataProvider actionInputFileCache,
       boolean expandTreeArtifactsInRunfiles)
       throws IOException {
@@ -242,7 +238,6 @@ public class SpawnInputExpander {
         spawn.getRunfilesSupplier(),
         actionInputFileCache,
         artifactExpander,
-        pathResolver,
         expandTreeArtifactsInRunfiles);
     addFilesetManifests(spawn.getFilesetMappings(), inputMap);
     return inputMap;

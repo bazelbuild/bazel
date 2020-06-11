@@ -18,29 +18,29 @@ import com.google.common.base.Ascii;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
- * Skylark String module.
+ * Starlark String module.
  *
- * <p>This module has special treatment in Skylark, as its methods represent methods represent for
+ * <p>This module has special treatment in Starlark, as its methods represent methods represent for
  * any 'string' objects in the language.
  *
- * <p>Methods of this class annotated with {@link SkylarkCallable} must have a positional-only
+ * <p>Methods of this class annotated with {@link StarlarkMethod} must have a positional-only
  * 'String self' parameter as the first parameter of the method.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "string",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A language built-in type to support strings. "
             + "Examples of string literals:<br>"
@@ -67,22 +67,38 @@ final class StringModule implements StarlarkValue {
 
   private StringModule() {}
 
+  // Returns s[start:stop:step], as if by Sequence.getSlice.
+  static String slice(String s, int start, int stop, int step) {
+    RangeList indices = new RangeList(start, stop, step);
+    int n = indices.size();
+    if (step == 1) { // common case
+      return s.substring(indices.at(0), indices.at(n));
+    } else {
+      char[] res = new char[n];
+      for (int i = 0; i < n; ++i) {
+        res[i] = s.charAt(indices.at(i));
+      }
+      return new String(res);
+    }
+  }
+
   // Emulate Python substring function
   // It converts out of range indices, and never fails
+  //
+  // TODO(adonovan): opt: avoid this function, as String.substring now allocates a copy (!)
   private static String pythonSubstring(String str, int start, Object end, String what)
       throws EvalException {
     if (start == 0 && EvalUtils.isNullOrNone(end)) {
       return str;
     }
-    start = EvalUtils.clampRangeEndpoint(start, str.length());
+    start = EvalUtils.toIndex(start, str.length());
     int stop;
     if (EvalUtils.isNullOrNone(end)) {
       stop = str.length();
     } else if (end instanceof Integer) {
-      stop = EvalUtils.clampRangeEndpoint((Integer) end, str.length());
+      stop = EvalUtils.toIndex((Integer) end, str.length());
     } else {
-      throw new EvalException(
-          null, "expected int for " + what + ", got " + EvalUtils.getDataTypeName(end));
+      throw new EvalException(null, "expected int for " + what + ", got " + Starlark.type(end));
     }
     if (start >= stop) {
       return "";
@@ -90,7 +106,7 @@ final class StringModule implements StarlarkValue {
     return str.substring(start, stop);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "join",
       doc =
           "Returns a string in which the string elements of the argument have been "
@@ -99,12 +115,7 @@ final class StringModule implements StarlarkValue {
               + "</pre>",
       parameters = {
         @Param(name = "self", type = String.class),
-        @Param(
-            name = "elements",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            type = Object.class,
-            doc = "The objects to join.")
+        @Param(name = "elements", type = Object.class, doc = "The objects to join.")
       })
   public String join(String self, Object elements) throws EvalException {
     Iterable<?> items = Starlark.toIterable(elements);
@@ -112,15 +123,14 @@ final class StringModule implements StarlarkValue {
     for (Object item : items) {
       if (!(item instanceof String)) {
         throw Starlark.errorf(
-            "expected string for sequence element %d, got '%s'",
-            i, EvalUtils.getDataTypeName(item));
+            "expected string for sequence element %d, got '%s'", i, Starlark.type(item));
       }
       i++;
     }
     return Joiner.on(self).join(items);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "lower",
       doc = "Returns the lower case version of this string.",
       parameters = {@Param(name = "self", type = String.class)})
@@ -128,7 +138,7 @@ final class StringModule implements StarlarkValue {
     return Ascii.toLowerCase(self);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "upper",
       doc = "Returns the upper case version of this string.",
       parameters = {@Param(name = "self", type = String.class)})
@@ -172,7 +182,7 @@ final class StringModule implements StarlarkValue {
     return stringLStrip(stringRStrip(self, chars), chars);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "lstrip",
       doc =
           "Returns a copy of the string where leading characters that appear in "
@@ -186,8 +196,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "chars",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
@@ -197,7 +205,7 @@ final class StringModule implements StarlarkValue {
     return stringLStrip(self, chars);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "rstrip",
       doc =
           "Returns a copy of the string where trailing characters that appear in "
@@ -211,8 +219,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "chars",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
@@ -222,7 +228,7 @@ final class StringModule implements StarlarkValue {
     return stringRStrip(self, chars);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "strip",
       doc =
           "Returns a copy of the string where leading or trailing characters that appear in "
@@ -237,8 +243,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "chars",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             doc = "The characters to remove, or all whitespace if None.",
             defaultValue = "None")
@@ -248,7 +252,7 @@ final class StringModule implements StarlarkValue {
     return stringStrip(self, chars);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "replace",
       doc =
           "Returns a copy of the string in which the occurrences "
@@ -256,36 +260,48 @@ final class StringModule implements StarlarkValue {
               + "restricting the number of replacements to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
+        @Param(name = "old", type = String.class, doc = "The string to be replaced."),
+        @Param(name = "new", type = String.class, doc = "The string to replace with."),
         @Param(
-            name = "old",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            type = String.class,
-            doc = "The string to be replaced."),
-        @Param(
-            name = "new",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            type = String.class,
-            doc = "The string to replace with."),
-        @Param(
-            name = "maxsplit",
+            name = "count",
             type = Integer.class,
-            noneable = true,
-            defaultValue = "None",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            doc = "The maximum number of replacements.")
-      })
-  public String replace(String self, String oldString, String newString, Object maxSplitO)
+            noneable = true, // TODO(#11244): Set false once incompatible flag is deleted.
+            defaultValue = "unbound",
+            doc =
+                "The maximum number of replacements. If omitted, there is no limit."
+                    + "<p>If <code>--incompatible_string_replace_count</code> is true, a negative "
+                    + "value is ignored (so there's no limit) and a <code>None</code> value is an "
+                    + "error. Otherwise, a negative value is treated as 0 and a <code>None</code> "
+                    + "value is ignored. (See also issue <a "
+                    + "href='https://github.com/bazelbuild/bazel/issues/11244'>#11244</a>.)")
+      },
+      useStarlarkThread = true)
+  public String replace(
+      String self, String oldString, String newString, Object countUnchecked, StarlarkThread thread)
       throws EvalException {
-    int maxSplit = Integer.MAX_VALUE;
-    if (maxSplitO != Starlark.NONE) {
-      maxSplit = Math.max(0, (Integer) maxSplitO);
+    int count = Integer.MAX_VALUE;
+
+    StarlarkSemantics semantics = thread.getSemantics();
+    if (semantics.incompatibleStringReplaceCount()) {
+      if (countUnchecked == Starlark.NONE) {
+        throw Starlark.errorf(
+            "Cannot pass a None count to string.replace(); omit the count argument instead. (You "
+                + "can temporarily opt out of this change by setting "
+                + "--incompatible_string_replace_count=false.)");
+      }
+      if (countUnchecked != Starlark.UNBOUND && (Integer) countUnchecked >= 0) {
+        count = (Integer) countUnchecked;
+      }
+    } else {
+      if (countUnchecked != Starlark.UNBOUND && countUnchecked != Starlark.NONE) {
+        // Negative has same effect as 0 below.
+        count = (Integer) countUnchecked;
+      }
     }
+
     StringBuilder sb = new StringBuilder();
     int start = 0;
-    for (int i = 0; i < maxSplit; i++) {
+    for (int i = 0; i < count; i++) {
       if (oldString.isEmpty()) {
         sb.append(newString);
         if (start < self.length()) {
@@ -306,24 +322,17 @@ final class StringModule implements StarlarkValue {
     return sb.toString();
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "split",
       doc =
           "Returns a list of all the words in the string, using <code>sep</code> as the "
               + "separator, optionally limiting the number of splits to <code>maxsplit</code>.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(
-            name = "sep",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            type = String.class,
-            doc = "The string to split on."),
+        @Param(name = "sep", type = String.class, doc = "The string to split on."),
         @Param(
             name = "maxsplit",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of splits.")
@@ -352,7 +361,7 @@ final class StringModule implements StarlarkValue {
     return StarlarkList.copyOf(thread.mutability(), res);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "rsplit",
       doc =
           "Returns a list of all the words in the string, using <code>sep</code> as the "
@@ -360,17 +369,10 @@ final class StringModule implements StarlarkValue {
               + "Except for splitting from the right, this method behaves like split().",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(
-            name = "sep",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            type = String.class,
-            doc = "The string to split on."),
+        @Param(name = "sep", type = String.class, doc = "The string to split on."),
         @Param(
             name = "maxsplit",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "The maximum number of splits.")
@@ -400,7 +402,7 @@ final class StringModule implements StarlarkValue {
     return StarlarkList.copyOf(thread.mutability(), res);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "partition",
       doc =
           "Splits the input string at the first occurrence of the separator "
@@ -411,8 +413,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sep",
             type = Object.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
@@ -431,7 +431,7 @@ final class StringModule implements StarlarkValue {
     return partitionWrapper(self, (String) sep, true);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "rpartition",
       doc =
           "Splits the input string at the last occurrence of the separator "
@@ -442,8 +442,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "sep",
             type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "unbound",
             doc = "The string to split on.")
       },
@@ -511,7 +509,7 @@ final class StringModule implements StarlarkValue {
     return Tuple.triple(a, b, c);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "capitalize",
       doc =
           "Returns a copy of the string with its first character (if any) capitalized and the rest "
@@ -524,7 +522,7 @@ final class StringModule implements StarlarkValue {
     return Character.toUpperCase(self.charAt(0)) + Ascii.toLowerCase(self.substring(1));
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "title",
       doc =
           "Converts the input string into title case, i.e. every word starts with an "
@@ -563,14 +561,15 @@ final class StringModule implements StarlarkValue {
       throws EvalException {
     String substr = pythonSubstring(self, start, end, msg);
     int subpos = forward ? substr.indexOf(sub) : substr.lastIndexOf(sub);
-    start = EvalUtils.clampRangeEndpoint(start, self.length());
-    return subpos < 0 ? subpos : subpos + start;
+    return subpos < 0
+        ? subpos //
+        : subpos + EvalUtils.toIndex(start, self.length());
   }
 
   private static final Pattern SPLIT_LINES_PATTERN =
       Pattern.compile("(?<line>.*)(?<break>(\\r\\n|\\r|\\n)?)");
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "rfind",
       doc =
           "Returns the last index where <code>sub</code> is found, or -1 if no such index exists, "
@@ -578,24 +577,15 @@ final class StringModule implements StarlarkValue {
               + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(
-            name = "sub",
-            type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            doc = "The substring to find."),
+        @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -604,7 +594,7 @@ final class StringModule implements StarlarkValue {
     return stringFind(false, self, sub, start, end, "'end' argument to rfind");
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "find",
       doc =
           "Returns the first index where <code>sub</code> is found, or -1 if no such index exists, "
@@ -612,33 +602,24 @@ final class StringModule implements StarlarkValue {
               + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(
-            name = "sub",
-            type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            doc = "The substring to find."),
+        @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
       })
-  public Integer invoke(String self, String sub, Integer start, Object end) throws EvalException {
+  public Integer find(String self, String sub, Integer start, Object end) throws EvalException {
     return stringFind(true, self, sub, start, end, "'end' argument to find");
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "rindex",
       doc =
           "Returns the last index where <code>sub</code> is found, or raises an error if no such "
@@ -646,24 +627,15 @@ final class StringModule implements StarlarkValue {
               + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(
-            name = "sub",
-            type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            doc = "The substring to find."),
+        @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -677,7 +649,7 @@ final class StringModule implements StarlarkValue {
     return res;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "index",
       doc =
           "Returns the first index where <code>sub</code> is found, or raises an error if no such "
@@ -685,24 +657,15 @@ final class StringModule implements StarlarkValue {
               + "<code>start</code> being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(
-            name = "sub",
-            type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            doc = "The substring to find."),
+        @Param(name = "sub", type = String.class, doc = "The substring to find."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -716,7 +679,7 @@ final class StringModule implements StarlarkValue {
     return res;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "splitlines",
       doc =
           "Splits the string at line boundaries ('\\n', '\\r\\n', '\\r') "
@@ -726,8 +689,6 @@ final class StringModule implements StarlarkValue {
         @Param(
             name = "keepends",
             type = Boolean.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "False",
             doc = "Whether the line breaks should be included in the resulting list.")
       })
@@ -750,7 +711,7 @@ final class StringModule implements StarlarkValue {
     return StarlarkList.immutableCopyOf(result);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "isalpha",
       doc =
           "Returns True if all characters in the string are alphabetic ([a-zA-Z]) and there is "
@@ -760,7 +721,7 @@ final class StringModule implements StarlarkValue {
     return matches(self, ALPHA, false);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "isalnum",
       doc =
           "Returns True if all characters in the string are alphanumeric ([a-zA-Z0-9]) and there "
@@ -770,7 +731,7 @@ final class StringModule implements StarlarkValue {
     return matches(self, ALNUM, false);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "isdigit",
       doc =
           "Returns True if all characters in the string are digits ([0-9]) and there is "
@@ -780,7 +741,7 @@ final class StringModule implements StarlarkValue {
     return matches(self, DIGIT, false);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "isspace",
       doc =
           "Returns True if all characters are white space characters and the string "
@@ -790,7 +751,7 @@ final class StringModule implements StarlarkValue {
     return matches(self, SPACE, false);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "islower",
       doc =
           "Returns True if all cased characters in the string are lowercase and there is "
@@ -801,7 +762,7 @@ final class StringModule implements StarlarkValue {
     return matches(self, UPPER.negate(), true);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "isupper",
       doc =
           "Returns True if all cased characters in the string are uppercase and there is "
@@ -812,7 +773,7 @@ final class StringModule implements StarlarkValue {
     return matches(self, LOWER.negate(), true);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "istitle",
       doc =
           "Returns True if the string is in title case and it contains at least one character. "
@@ -879,7 +840,7 @@ final class StringModule implements StarlarkValue {
   private static final CharMatcher CASED = ALPHA;
   private static final CharMatcher SPACE = CharMatcher.whitespace();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "count",
       doc =
           "Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in "
@@ -887,24 +848,15 @@ final class StringModule implements StarlarkValue {
               + "being inclusive and <code>end</code> being exclusive.",
       parameters = {
         @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(
-            name = "sub",
-            type = String.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            doc = "The substring to count."),
+        @Param(name = "sub", type = String.class, doc = "The substring to count."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Restrict to search from this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position before which to restrict to search.")
@@ -923,7 +875,7 @@ final class StringModule implements StarlarkValue {
     return count;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "elems",
       doc =
           "Returns an iterable value containing successive 1-element substrings of the string. "
@@ -938,7 +890,7 @@ final class StringModule implements StarlarkValue {
     return StarlarkList.immutableCopyOf(builder.build());
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "endswith",
       doc =
           "Returns True if the string ends with <code>sub</code>, otherwise False, optionally "
@@ -952,21 +904,15 @@ final class StringModule implements StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = Tuple.class, generic1 = String.class),
             },
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring to check."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "optional position at which to stop comparing.")
@@ -976,10 +922,7 @@ final class StringModule implements StarlarkValue {
     if (sub instanceof String) {
       return str.endsWith((String) sub);
     }
-
-    @SuppressWarnings("unchecked")
-    Tuple<Object> subs = (Tuple<Object>) sub;
-    for (String s : subs.getContents(String.class, "string")) {
+    for (String s : Sequence.cast(sub, String.class, "sub")) {
       if (str.endsWith(s)) {
         return true;
       }
@@ -990,7 +933,7 @@ final class StringModule implements StarlarkValue {
   // In Python, formatting is very complex.
   // We handle here the simplest case which provides most of the value of the function.
   // https://docs.python.org/3/library/string.html#formatstrings
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "format",
       doc =
           "Perform string interpolation. Format strings contain replacement fields "
@@ -1026,10 +969,10 @@ final class StringModule implements StarlarkValue {
     @SuppressWarnings("unchecked")
     List<Object> argObjects = (List<Object>) args.getImmutableList();
     return new FormatParser()
-        .format(self, argObjects, kwargs.getContents(String.class, Object.class, "kwargs"));
+        .format(self, argObjects, Dict.cast(kwargs, String.class, Object.class, "kwargs"));
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "startswith",
       doc =
           "Returns True if the string starts with <code>sub</code>, otherwise False, optionally "
@@ -1043,21 +986,15 @@ final class StringModule implements StarlarkValue {
               @ParamType(type = String.class),
               @ParamType(type = Tuple.class, generic1 = String.class),
             },
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             doc = "The substring(s) to check."),
         @Param(
             name = "start",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             defaultValue = "0",
             doc = "Test beginning at this position."),
         @Param(
             name = "end",
             type = Integer.class,
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true,
             defaultValue = "None",
             doc = "Stop comparing at this position.")
@@ -1068,10 +1005,7 @@ final class StringModule implements StarlarkValue {
     if (sub instanceof String) {
       return str.startsWith((String) sub);
     }
-
-    @SuppressWarnings("unchecked")
-    Tuple<Object> subs = (Tuple<Object>) sub;
-    for (String s : subs.getContents(String.class, "string")) {
+    for (String s : Sequence.cast(sub, String.class, "sub")) {
       if (str.startsWith(s)) {
         return true;
       }

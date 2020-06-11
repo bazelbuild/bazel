@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.common.options.Options;
 import java.util.Map;
-import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -380,42 +379,5 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   private static void verifyDeserialized(
       BuildConfiguration subject, BuildConfiguration deserialized) {
     assertThat(deserialized.getOptions()).isEqualTo(subject.getOptions());
-  }
-
-  @Test
-  public void testDescribe() throws Exception {
-    scratch.file(
-        "test/defs.bzl",
-        "def _rule_impl(ctx):",
-        "    return []",
-        "string_flag = rule(",
-        "    implementation = _rule_impl,",
-        "    build_setting = config.string()",
-        ")");
-    scratch.file(
-        "test/BUILD",
-        "load('//test:defs.bzl', 'string_flag')",
-        "string_flag(",
-        "    name = 'my_flag1',",
-        "    build_setting_default = '')",
-        "string_flag(",
-        "    name = 'my_flag2',",
-        "    build_setting_default = '')");
-
-    BuildConfiguration config = create(ImmutableMap.of("//test:my_flag1", "custom"));
-    StringBuilder sb = new StringBuilder();
-    config.describe(sb);
-    String desc = sb.toString();
-
-    // Just sample the expected lines. Testing against the full expected output would be too spammy
-    // and also brittle, as fragments and their options and default option values change.
-    String expected =
-        "fragments: .*com.google.devtools.build.lib.analysis.PlatformConfiguration.*"
-            + "Fragment com.google.devtools.build.lib.analysis.PlatformOptions \\{.*"
-            + "Fragment user-defined \\{.*"
-            + "  //test:my_flag1: custom.*"
-            + "\\}";
-
-    assertThat(desc).containsMatch(Pattern.compile(expected, Pattern.DOTALL));
   }
 }

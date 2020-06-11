@@ -1,18 +1,9 @@
 ---
 layout: documentation
-title: Query Language
+title: Query language
 ---
-<h1>The Bazel Query Reference</h1>
+<h1>The Bazel query reference</h1>
 
-
-<ul class="toc">
-  <li><a href="query.html#examples">Examples</a></li>
-  <li><a href="query.html#tokens">Tokens: The Lexical Syntax</a></li>
-  <li><a href="query.html#concepts">Bazel Query Language Concepts</a></li>
-  <li><a href="query.html#expressions">Expressions: Syntax and Semantics of the Grammar</a></li>
-  <li><a href="query.html#functions">Functions</a></li>
-  <li><a href="query.html#output-formats">Output Formats</a></li>
-</ul>
 
 <p>
   When you use <code>bazel query</code> to analyze build
@@ -51,7 +42,7 @@ title: Query Language
   <pre>kind("cc_library", deps(kind(".*test rule", foo/...)) except deps(//foo:foo_bin))</pre>
 
 
-<h2 id='tokens'>Tokens: The Lexical Syntax</h2>
+<h2 id='tokens'>Tokens: The lexical syntax</h2>
 
 <p>
   Expressions in the query language are composed of the following
@@ -149,7 +140,7 @@ title: Query Language
   Whitespace characters outside of a quoted word are ignored.
 </p>
 
-<h2 id='concepts'>Bazel Query Language Concepts</h2>
+<h2 id='concepts'>Bazel query language concepts</h2>
 <p>
   The Bazel query language is a language of expressions.  Every
   expression evaluates to a <b>partially-ordered set</b> of targets,
@@ -262,7 +253,7 @@ title: Query Language
   <code>dir/...</code>, etc.
 </p>
 
-<h3 id='sky-query'>Sky Query</h3>
+<h3 id='sky-query'>Sky query</h3>
 
 <p>
   Query has two different implementations, with slightly different features. The alternative one is
@@ -287,7 +278,7 @@ title: Query Language
   it is faster and uses less memory.
 </p>
 
-<h2 id='expressions'>Expressions: Syntax and Semantics of the Grammar</h2>
+<h2 id='expressions'>Expressions: Syntax and semantics of the grammar</h2>
 
 <p>
   This is the grammar of the Bazel query language, expressed in EBNF
@@ -575,7 +566,7 @@ x intersect (y union z)</pre>
   <code>deps(foo/...)</code> is the dependency graphs whose roots are
   all rules in every package beneath the <code>foo</code> directory.
   Please note that 'dependencies' means only rule and file targets
-  in this context, therefore the BUILD and Skylark files needed to
+  in this context, therefore the BUILD and Starlark files needed to
   create these targets are not included here. For that you should use the
   <a href="#buildfiles"><code>buildfiles</code></a> operator.
 </p>
@@ -589,10 +580,12 @@ x intersect (y union z)</pre>
 <p>
   The <code>deps</code> operator accepts an optional second argument,
   which is an integer literal specifying an upper bound on the depth
-  of the search.  So <code>deps(foo:*, 1)</code> evaluates to all the
-  direct prerequisites of any target in the <code>foo</code> package,
-  and <code>deps(foo:*, 2)</code> further includes the nodes directly
-  reachable from the nodes in <code>deps(foo:*, 1)</code>, and so on.
+  of the search. So <code>deps(foo:*, 0)</code> returns all targets
+  in the <code>foo</code> package, while <code>deps(foo:*, 1)</code>
+  further includes the direct prerequisites of any target in the
+  <code>foo</code> package, and <code>deps(foo:*, 2)</code> further
+  includes the nodes directly reachable from the nodes in
+  <code>deps(foo:*, 1)</code>, and so on.
   (These numbers correspond to the ranks shown in
   the <a href='#output-ranked'><code>minrank</code></a> output
   format.)  If the <var>depth</var> parameter is omitted, the search
@@ -1098,12 +1091,12 @@ genrule(
 <pre>expr ::= loadfiles(<var>expr</var>)</pre>
 <p>
   The <code>loadfiles(<var>x</var>)</code> operator returns the set of
-  Skylark files that are needed to load the packages of each target in
+  Starlark files that are needed to load the packages of each target in
   set <var>x</var>. In other words, for each package, it returns the
   .bzl files that are referenced from its BUILD files.
 </p>
 
-<h2 id='output-formats'>Output Formats</h2>
+<h2 id='output-formats'>Output formats</h2>
 
 <p>
   <code>bazel query</code> generates a graph.
@@ -1151,12 +1144,12 @@ genrule(
 <p>
   When this flag is <code>no</code> and <code>--output</code> is one of
   <code>build</code>, <code>label</code>, <code>label_kind</code>,
-  <code>location</code>, <code>package</code>, <code>proto</code>,
-  <code>record</code> or <code>xml</code>, the outputs will be printed in
-  arbitrary order. <b>This is generally the fastest option</b>. It is not
-  supported though when <code>--output</code> is one of <code>graph</code>,
-  <code>minrank</code> or <code>maxrank</code>: with these formats, bazel will
-  always print results ordered by the dependency order or rank.
+  <code>location</code>, <code>package</code>, <code>proto</code>, or
+  <code>xml</code>, the outputs will be printed in arbitrary order. <b>This is
+  generally the fastest option</b>. It is not supported though when
+  <code>--output</code> is one of <code>graph</code>, <code>minrank</code> or
+  <code>maxrank</code>: with these formats, bazel will always print results
+  ordered by the dependency order or rank.
 </p>
 <p>
   When this flag is <code>deps</code>, bazel will print results ordered by the
@@ -1179,7 +1172,7 @@ genrule(
   With this option, the representation of each target is as if it were
   hand-written in the BUILD language. All variables and function calls
   (e.g. glob, macros) are expanded, which is useful for seeing the effect
-  of Skylark macros. Additionally, each effective rule is annotated with
+  of Starlark macros. Additionally, each effective rule is annotated with
   the name of the macro (if any, see <code>generator_name</code> and
   <code>generator_function</code>) that produced it.
 </p>

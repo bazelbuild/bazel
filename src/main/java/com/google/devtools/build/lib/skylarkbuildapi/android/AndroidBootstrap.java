@@ -25,12 +25,10 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
-/**
- * {@link Bootstrap} for skylark objects related to Android rules.
- */
+/** {@link Bootstrap} for Starlark objects related to Android rules. */
 public class AndroidBootstrap implements Bootstrap {
 
-  private final AndroidSkylarkCommonApi<?, ?> androidCommon;
+  private final AndroidStarlarkCommonApi<?, ?> androidCommon;
   private final ApkInfoApiProvider apkInfoProvider;
   private final AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider;
   private final AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider;
@@ -41,7 +39,7 @@ public class AndroidBootstrap implements Bootstrap {
       androidApplicationResourceInfoApiProvider;
 
   public AndroidBootstrap(
-      AndroidSkylarkCommonApi<?, ?> androidCommon,
+      AndroidStarlarkCommonApi<?, ?> androidCommon,
       ApkInfoApiProvider apkInfoProvider,
       AndroidInstrumentationInfoApiProvider<?> androidInstrumentationInfoProvider,
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,

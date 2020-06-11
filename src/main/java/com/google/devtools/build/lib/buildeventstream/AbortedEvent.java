@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.cmdline.Label;
 import java.util.Collection;
 import javax.annotation.Nullable;

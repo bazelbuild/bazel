@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
@@ -23,7 +24,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyCcLinkParamsProviderA
 /** A target that provides C++ libraries to be linked into Python targets. */
 @Immutable
 @AutoCodec
-public final class PyCcLinkParamsProvider extends NativeInfo implements PyCcLinkParamsProviderApi {
+public final class PyCcLinkParamsProvider extends NativeInfo
+    implements PyCcLinkParamsProviderApi<Artifact> {
   public static final Provider PROVIDER = new Provider();
 
   private final CcInfo ccInfo;

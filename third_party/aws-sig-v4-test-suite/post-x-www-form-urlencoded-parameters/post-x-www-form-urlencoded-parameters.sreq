@@ -1,7 +1,0 @@
-POST / HTTP/1.1
-Content-Type:application/x-www-form-urlencoded; charset=utf8
-Host:example.amazonaws.com
-X-Amz-Date:20150830T123600Z
-Authorization: AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE/20150830/us-east-1/service/aws4_request, SignedHeaders=content-type;host;x-amz-date, Signature=1a72ec8f64bd914b0e42e42607c7fbce7fb2c7465f63e3092b3b0d39fa77a6fe
-
-Param1=value1

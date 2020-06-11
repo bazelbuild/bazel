@@ -13,7 +13,10 @@ filegroup(
     name = "test-deps",
     testonly = 1,
     srcs = ["//src:bazel"],
-    data = ["//src/tools/remote:worker"],
+    data = [
+        "//src/tools/remote:worker",
+        "//src/tools/remote:worker_deploy.jar",
+    ],
 )
 
 py_library(
@@ -70,6 +73,9 @@ py_test(
     size = "medium",
     srcs = ["bazel_external_repository_test.py"],
     data = glob(["testdata/bazel_external_repository_test/**"]),
+    tags = [
+        "requires-network",
+    ],
     deps = [":test_base"],
 )
 
@@ -172,6 +178,16 @@ py_test(
 )
 
 py_test(
+    name = "bazel_remote_cache_decompression_test",
+    srcs = ["remote/cache_decompression_test.py"],
+    main = "remote/cache_decompression_test.py",
+    tags = [
+        "no-sandbox",  # This test sets up mock cache on localhost.
+    ],
+    deps = [":test_base"],
+)
+
+py_test(
     name = "test_wrapper_test",
     srcs = select({
         "//src/conditions:windows": ["test_wrapper_test.py"],
@@ -210,6 +226,13 @@ py_test(
     name = "query_test",
     size = "medium",
     srcs = ["query_test.py"],
+    deps = [":test_base"],
+)
+
+py_test(
+    name = "action_replay_test",
+    size = "medium",
+    srcs = ["action_replay_test.py"],
     deps = [":test_base"],
 )
 

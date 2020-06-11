@@ -1,4 +1,5 @@
 load("@rules_java//java:defs.bzl", "java_import", "java_library", "java_plugin")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import", "distrib_jar_filegroup")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -11,7 +12,6 @@ filegroup(
         "//third_party/animal_sniffer:srcs",
         "//third_party/antlr:srcs",
         "//third_party/aws-sdk-auth-lite:srcs",
-        "//third_party/aws-sig-v4-test-suite:srcs",
         "//third_party/checker_framework_dataflow:srcs",
         "//third_party/checker_framework_javacutil:srcs",
         "//third_party/css/bootstrap:srcs",
@@ -19,12 +19,9 @@ filegroup(
         "//third_party/def_parser:srcs",
         "//third_party/grpc:srcs",
         "//third_party/ijar:srcs",
-        "//third_party/iossim:srcs",
         "//third_party/jarjar:srcs",
         "//third_party/java/android_databinding:srcs",
         "//third_party/java/aosp_gradle_core:srcs",
-        "//third_party/java/apkbuilder:srcs",
-        "//third_party/java/dd_plist:srcs",
         "//third_party/java/j2objc-annotations:srcs",
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jacoco:srcs",
@@ -39,7 +36,6 @@ filegroup(
         "//third_party/jformatstring:srcs",
         "//third_party/juniversalchardet:srcs",
         "//third_party/kotlin_stdlib:srcs",
-        "//third_party/nanopb:srcs",
         "//third_party/pprof:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/abseil:srcs",
@@ -66,7 +62,7 @@ filegroup(
 
 # This target only contains the jars that are used for building / running Bazel.
 # The target below is for the Android tools that are not shipped with Bazel.
-java_import(
+distrib_java_import(
     name = "android_common_25_0_0_lite",
     jars = [
         "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
@@ -76,6 +72,7 @@ java_import(
     deps = [
         "//third_party/jaxb",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -117,7 +114,7 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_codec",
     jars = ["apache_commons_codec/commons-codec-1.10.jar"],
 )
@@ -125,9 +122,10 @@ java_import(
 java_import(
     name = "apache_commons_collections",
     jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_io",
     jars = ["apache_commons_io/commons-io-2.4.jar"],
 )
@@ -135,30 +133,35 @@ java_import(
 java_import(
     name = "apache_commons_lang",
     jars = ["apache_commons_lang/commons-lang-2.6.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_compress",
     jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_logging",
     jars = ["apache_commons_logging/commons-logging-1.1.1.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_commons_pool2",
-    jars = ["apache_commons_pool2/commons-pool2-2.3.jar"],
+    jars = ["apache_commons_pool2/commons-pool2-2.8.0.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "apache_velocity",
     jars = ["apache_velocity/velocity-1.7.jar"],
     deps = [
         ":apache_commons_collections",
         ":apache_commons_lang",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -174,37 +177,38 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "asm",
-    jars = ["asm/asm-7.0.jar"],
-    srcjar = "asm/asm-7.0-sources.jar",
+    jars = ["asm/asm-8.0.jar"],
+    srcjar = "asm/asm-8.0-sources.jar",
+    enable_distributions = ["debian"],
 )
 
 java_import(
     name = "asm-analysis",
-    jars = ["asm/asm-analysis-7.0.jar"],
-    srcjar = "asm/asm-analysis-7.0-sources.jar",
+    jars = ["asm/asm-analysis-8.0.jar"],
+    srcjar = "asm/asm-analysis-8.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-commons",
-    jars = ["asm/asm-commons-7.0.jar"],
-    srcjar = "asm/asm-commons-7.0-sources.jar",
+    jars = ["asm/asm-commons-8.0.jar"],
+    srcjar = "asm/asm-commons-8.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
 java_import(
     name = "asm-tree",
-    jars = ["asm/asm-tree-7.0.jar"],
-    srcjar = "asm/asm-tree-7.0-sources.jar",
+    jars = ["asm/asm-tree-8.0.jar"],
+    srcjar = "asm/asm-tree-8.0-sources.jar",
     runtime_deps = [":asm"],
 )
 
 java_import(
     name = "asm-util",
-    jars = ["asm/asm-util-7.0.jar"],
-    srcjar = "asm/asm-util-7.0-sources.jar",
+    jars = ["asm/asm-util-8.0.jar"],
+    srcjar = "asm/asm-util-8.0-sources.jar",
     runtime_deps = [":asm-tree"],
 )
 
@@ -330,9 +334,10 @@ java_import(
     jars = ["compile_testing/compile-testing-0.18.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "gson",
     jars = ["gson/gson-2.8.0.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -371,18 +376,29 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "jackson2",
     jars = [
         "jackson2/jackson-core-2.8.6.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "jcip_annotations",
     jars = [
         "jcip_annotations/jcip-annotations-1.0-1.jar",
     ],
+    enable_distributions = ["debian"],
+)
+
+# For bootstrapping JavaBuilder
+distrib_jar_filegroup(
+    name = "jcip_annotations-jars",
+    srcs = [
+        "jcip_annotations/jcip-annotations-1.0-1.jar",
+    ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -397,13 +413,13 @@ filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
         "error_prone/error_prone_annotations-2.2.0.jar",
-        "guava/guava-25.1-jre.jar",
-        "jcip_annotations/jcip-annotations-1.0-1.jar",
-        "jsr305/jsr-305.jar",
+        ":guava-jars",
+        ":jcip_annotations-jars",
+        ":jsr305-jars",
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "guava",
     jars = ["guava/guava-25.1-jre.jar"],
     exports = [
@@ -411,45 +427,47 @@ java_import(
         ":jcip_annotations",
         ":jsr305",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
     name = "flogger",
     jars = [
-        "flogger/flogger-0.3.1.jar",
-        "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar",
+        "flogger/flogger-0.5.1.jar",
+        "flogger/flogger-system-backend-0.5.1.jar",
+        "flogger/google-extensions-0.5.1.jar",
     ],
 )
 
 filegroup(
     name = "flogger-jars",
     srcs = [
-        "flogger/flogger-0.3.1.jar",
-        "flogger/flogger-system-backend-0.3.1.jar",
-        "flogger/google-extensions-0.3.1.jar",
-    ],
-)
-
-java_import(
-    name = "instrumentation",
-    jars = [
-        "instrumentation/instrumentation-api-0.4.3.jar",
+        "flogger/flogger-0.5.1.jar",
+        "flogger/flogger-system-backend-0.5.1.jar",
+        "flogger/google-extensions-0.5.1.jar",
     ],
 )
 
 java_import(
     name = "opencensus-api",
     jars = [
-        "opencensus/opencensus-api-0.19.2.jar",
-        "opencensus/opencensus-contrib-grpc-metrics-0.19.2.jar",
+        "opencensus/opencensus-api-0.24.0.jar",
+        "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
+    ],
+)
+
+java_import(
+    name = "perfmark-api",
+    jars = [
+        "perfmark/perfmark-api-0.19.0.jar",
     ],
 )
 
 # For bootstrapping JavaBuilder
-filegroup(
+distrib_jar_filegroup(
     name = "guava-jars",
     srcs = ["guava/guava-25.1-jre.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -460,11 +478,12 @@ java_import(
 
 # javax.annotation.Generated is not included in the default root modules in 9,
 # see: http://openjdk.java.net/jeps/320.
-java_import(
+distrib_java_import(
     name = "javax_annotations",
     jars = ["javax_annotations/javax.annotation-api-1.3.2.jar"],
     neverlink = 1,  # @Generated is source-retention
     srcjar = "javax_annotations/javax.annotation-api-1.3.2-sources.jar",
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -472,15 +491,17 @@ java_import(
     jars = ["jimfs/jimfs-1.1.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "jsr305",
     jars = ["jsr305/jsr-305.jar"],
+    enable_distributions = ["debian"],
 )
 
 # For bootstrapping JavaBuilder
-filegroup(
+distrib_jar_filegroup(
     name = "jsr305-jars",
     srcs = ["jsr305/jsr-305.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -497,9 +518,14 @@ UNNECESSARY_DYNAMIC_LIBRARIES = select({
     "//src/conditions:arm": "*.so *.jnilib *.dll",
     "//src/conditions:linux_aarch64": "*.so *.jnilib *.dll",
     "//src/conditions:linux_ppc": "*.so *.jnilib *.dll",
-    # Play it safe -- better have a big binary than a slow binary
-    # zip -d does require an argument. Supply something bogus.
-    "//conditions:default": "*.bogusextension",
+    "//src/conditions:linux_s390x": "*.so *.jnilib *.dll",
+    "//src/conditions:freebsd": "*.so *.jnilib *.dll",
+    "//src/conditions:openbsd": "*.so *.jnilib *.dll",
+    # Default is to play it safe -- better have a big binary than a slow binary
+    #   The empty string means nothing is to be removed from the library;
+    #   the rule command tests for the empty string explictly to avoid
+    #   zip erroring when it finds nothing to remove.
+    "//conditions:default": "",
 })
 
 # Remove native libraries that are for a platform different from the one we are
@@ -508,32 +534,45 @@ genrule(
     name = "filter_netty_dynamic_libs",
     srcs = ["netty_tcnative/netty-tcnative-boringssl-static-2.0.24.Final.jar"],
     outs = ["netty_tcnative/netty-tcnative-filtered.jar"],
-    cmd = "cp $< $@ && zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES,
+    cmd = "cp $< $@ && " +
+          # End successfully if there is nothing to be deleted from the archive
+          "if [ -n '" + UNNECESSARY_DYNAMIC_LIBRARIES + "' ]; then " +
+          "zip -qd $@ " + UNNECESSARY_DYNAMIC_LIBRARIES + "; fi",
 )
 
-java_import(
+distrib_java_import(
     name = "netty",
     jars = ["netty/netty-all-4.1.34.Final.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "netty_tcnative",
     jars = ["netty_tcnative/netty-tcnative-filtered.jar"],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "tomcat_annotations_api",
     jars = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    enable_distributions = ["debian"],
 )
 
 # For bootstrapping JavaBuilder
-filegroup(
+distrib_jar_filegroup(
     name = "tomcat_annotations_api-jars",
     srcs = ["tomcat_annotations_api/tomcat-annotations-api-8.0.5.jar"],
+    enable_distributions = ["debian"],
+)
+
+java_import(
+    name = "java-diff-utils",
+    jars = ["java-diff-utils/java-diff-utils-4.0.jar"],
 )
 
 # Testing
 
+# TODO: Remove this target after migrating to java-diff-utils
 java_import(
     name = "diffutils",
     jars = ["diffutils/diffutils-1.3.0.jar"],
@@ -548,7 +587,7 @@ java_import(
     name = "junit4",
     jars = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.12.jar",
+        "junit/junit-4.13.jar",
     ],
 )
 
@@ -578,7 +617,10 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.45.jar"],
+    jars = ["truth/truth-1.0.1.jar"],
+    exports = [
+        ":truth8",
+    ],
     deps = [
         ":diffutils",
     ],
@@ -586,12 +628,13 @@ java_import(
 
 java_import(
     name = "truth8",
-    jars = ["truth8/truth-java8-extension-0.45.jar"],
+    jars = ["truth8/truth-java8-extension-1.0.1.jar"],
 )
 
-java_import(
+distrib_java_import(
     name = "xz",
     jars = ["xz/xz-1.5.jar"],
+    enable_distributions = ["debian"],
 )
 
 # To be used by the skylark example.
@@ -599,7 +642,7 @@ filegroup(
     name = "junit4-jars",
     srcs = [
         "hamcrest/hamcrest-core-1.3.jar",
-        "junit/junit-4.12.jar",
+        "junit/junit-4.13.jar",
     ],
 )
 
@@ -653,6 +696,11 @@ config_setting(
 config_setting(
     name = "freebsd",
     values = {"host_cpu": "freebsd"},
+)
+
+config_setting(
+    name = "openbsd",
+    values = {"host_cpu": "openbsd"},
 )
 
 config_setting(

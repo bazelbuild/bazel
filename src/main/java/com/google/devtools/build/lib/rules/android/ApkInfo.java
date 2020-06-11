@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
@@ -27,7 +26,7 @@ import javax.annotation.Nullable;
 @Immutable
 public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
 
-  private static final String SKYLARK_NAME = "ApkInfo";
+  private static final String STARLARK_NAME = "ApkInfo";
 
   /**
    * Provider instance for {@link ApkInfo}.
@@ -89,13 +88,12 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
       implements ApkInfoApiProvider {
 
     private ApkInfoProvider() {
-      super(SKYLARK_NAME, ApkInfo.class);
+      super(STARLARK_NAME, ApkInfo.class);
     }
 
     @Override
-    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs, Location loc)
-        throws EvalException {
-      return throwUnsupportedConstructorException(loc);
+    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) throws EvalException {
+      return throwUnsupportedConstructorException();
     }
   }
 }

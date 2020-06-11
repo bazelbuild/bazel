@@ -14,16 +14,16 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Encapsulates information about an analysis-phase error which would have occurred during a build.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AnalysisFailureInfo",
     doc =
         "<b>Experimental. This API is experimental and subject to change at any time</b><p>"
@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
 public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFailureApi>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "causes",
       doc =
           "A depset of <code>AnalysisFailure</code> objects describing the failures that "
@@ -55,6 +55,6 @@ public interface AnalysisFailureInfoApi<AnalysisFailureApiT extends AnalysisFail
   Depset /*<AnalysisFailureApiT>*/ getCauses();
 
   /** Provider class for {@link AnalysisFailureInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface AnalysisFailureInfoProviderApi extends ProviderApi {}
 }

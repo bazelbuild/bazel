@@ -13,16 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkState;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Ascii;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -94,7 +97,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
-  private final ImmutableMap<String, Optional<Label>> bytecodeOptimizers;
+  private final NamedLabel bytecodeOptimizer;
   private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
   private final Label runtimeLabel;
@@ -107,6 +110,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final boolean disallowResourceJars;
   private final boolean loadJavaRulesFromBzl;
   private final boolean disallowLegacyJavaToolchainFlags;
+  private final boolean experimentalTurbineAnnotationProcessing;
 
   // TODO(dmarting): remove once we have a proper solution for #2539
   private final boolean useLegacyBazelJavaTest;
@@ -161,19 +165,26 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     }
     this.translationTargets = translationsBuilder.build();
 
-    ImmutableMap.Builder<String, Optional<Label>> optimizersBuilder = ImmutableMap.builder();
-    for (Map.Entry<String, Label> optimizer : javaOptions.bytecodeOptimizers.entrySet()) {
-      String mnemonic = optimizer.getKey();
-      if (optimizer.getValue() == null && !"Proguard".equals(mnemonic)) {
-        throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
-      }
-      optimizersBuilder.put(mnemonic, Optional.fromNullable(optimizer.getValue()));
+    Map<String, Label> optimizers = javaOptions.bytecodeOptimizers;
+    checkState(
+        optimizers.size() <= 1,
+        "--experimental_bytecode_optimizers can only accept up to one mapping, but %s mappings "
+            + "were provided.",
+        optimizers.size());
+    Map.Entry<String, Label> optimizer = Iterables.getOnlyElement(optimizers.entrySet());
+    String mnemonic = optimizer.getKey();
+    Label optimizerLabel = optimizer.getValue();
+    if (optimizerLabel == null && !"Proguard".equals(mnemonic)) {
+      throw new InvalidConfigurationException("Must supply label for optimizer " + mnemonic);
     }
-    this.bytecodeOptimizers = optimizersBuilder.build();
+    this.bytecodeOptimizer = NamedLabel.create(mnemonic, Optional.fromNullable(optimizerLabel));
+
     this.pluginList = ImmutableList.copyOf(javaOptions.pluginList);
     this.requireJavaToolchainHeaderCompilerDirect =
         javaOptions.requireJavaToolchainHeaderCompilerDirect;
     this.disallowLegacyJavaToolchainFlags = javaOptions.disallowLegacyJavaToolchainFlags;
+    this.experimentalTurbineAnnotationProcessing =
+        javaOptions.experimentalTurbineAnnotationProcessing;
 
     if (javaOptions.disallowLegacyJavaToolchainFlags) {
       if (!javaOptions.javaBase.equals(javaOptions.defaultJavaBase())) {
@@ -205,7 +216,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   @Override
-  // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
+  // TODO(bazel-team): this is the command-line passed options, we should remove from Starlark
   // probably.
   public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
@@ -283,7 +294,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Returns the label provided with --proguard_top, if any. */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "proguard_top",
       doc = "Returns the label provided with --proguard_top, if any.",
       defaultInToolRepository = true)
@@ -318,7 +329,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   }
 
   /** Returns the label of the default java_toolchain rule */
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "java_toolchain",
       doc = "Returns the label of the default java_toolchain rule.",
       defaultLabel = "//tools/jdk:toolchain",
@@ -335,9 +346,21 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     return runtimeLabel;
   }
 
+  /** Stores a String name and an optional associated label. */
+  @AutoValue
+  public abstract static class NamedLabel {
+    public static NamedLabel create(String name, Optional<Label> label) {
+      return new AutoValue_JavaConfiguration_NamedLabel(name, label);
+    }
+
+    public abstract String name();
+
+    public abstract Optional<Label> label();
+  }
+
   /** Returns ordered list of optimizers to run. */
-  public ImmutableMap<String, Optional<Label>> getBytecodeOptimizers() {
-    return bytecodeOptimizers;
+  public NamedLabel getBytecodeOptimizer() {
+    return bytecodeOptimizer;
   }
 
   /**
@@ -415,5 +438,9 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
 
   public boolean loadJavaRulesFromBzl() {
     return loadJavaRulesFromBzl;
+  }
+
+  public boolean experimentalTurbineAnnotationProcessing() {
+    return experimentalTurbineAnnotationProcessing;
   }
 }

@@ -148,7 +148,7 @@ public class DownloadManager {
           // This is not a warning (and probably we even should drop the message); it is
           // perfectly fine to have a common rc-file pointing to a volume that is sometimes,
           // but not always mounted.
-          eventHandler.handle(Event.info("non-existent distir " + dir));
+          eventHandler.handle(Event.info("non-existent distdir " + dir));
         } else if (!dir.isDirectory()) {
           eventHandler.handle(Event.warn("distdir " + dir + " is not a directory"));
         } else {
@@ -187,7 +187,7 @@ public class DownloadManager {
 
     try {
       downloader.download(
-          urls, authHeaders, checksum, destination, eventHandler, clientEnv);
+          urls, authHeaders, checksum, canonicalId, destination, eventHandler, clientEnv);
     } catch (InterruptedIOException e) {
       throw new InterruptedException(e.getMessage());
     }

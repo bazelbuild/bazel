@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigAwareRuleClassBuilder
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaRule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -153,7 +153,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .allowedRuleClasses("java_plugin")
                 .allowedFileTypes())
-        .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .build();
   }

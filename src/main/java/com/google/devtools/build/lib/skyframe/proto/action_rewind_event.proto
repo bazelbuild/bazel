@@ -1,0 +1,51 @@
+// Copyright 2020 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package lib.skyframe;
+
+option java_package = "com.google.devtools.build.lib.skyframe.proto";
+option java_outer_classname = "ActionRewind";
+
+// Information about an action rewind event.
+message ActionRewindEvent {
+  // A description of the action that failed and will rewind.
+  ActionDescription action_description = 1;
+  // A list of lost inputs that caused the action to rewind. This may not
+  // contain all lost inputs that caused this action to rewind.
+  repeated LostInput lost_inputs = 2;
+  // The total number of lost inputs that caused this action to rewind.
+  int32 total_lost_inputs_count = 3;
+  // The total number of nodes or actions that were invalidated during this
+  // action rewind event.
+  int32 invalidated_nodes_count = 4;
+}
+
+// Information about a lost input that caused an action to rewind.
+message LostInput {
+  // The path of the lost input.
+  string path = 1;
+  // The expected digest of the lost input.
+  string digest = 2;
+}
+
+// A description of an action.
+message ActionDescription {
+  // The action mnemonic that describes the type of action executed.
+  string type = 1;
+  // The string notation of the action owner's label if it exists. Following the
+  // pattern of '//<package>:<target>'.
+  string rule_label = 2;
+}

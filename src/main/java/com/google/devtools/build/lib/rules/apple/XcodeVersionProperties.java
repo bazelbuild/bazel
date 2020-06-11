@@ -28,12 +28,12 @@ import javax.annotation.Nullable;
 @Immutable
 public class XcodeVersionProperties extends NativeInfo implements XcodePropertiesApi {
 
-  /** Skylark name for the XcodeVersionProperties provider. */
-  public static final String SKYLARK_NAME = "XcodeProperties";
+  /** Starlark name for the XcodeVersionProperties provider. */
+  public static final String STARLARK_NAME = "XcodeProperties";
 
-  /** Skylark constructor and identifier for XcodeVersionProperties provider. */
-  public static final NativeProvider<XcodeVersionProperties> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<XcodeVersionProperties>(XcodeVersionProperties.class, SKYLARK_NAME) {};
+  /** Starlark constructor and identifier for XcodeVersionProperties provider. */
+  public static final NativeProvider<XcodeVersionProperties> STARLARK_CONSTRUCTOR =
+      new NativeProvider<XcodeVersionProperties>(XcodeVersionProperties.class, STARLARK_NAME) {};
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
@@ -76,7 +76,7 @@ public class XcodeVersionProperties extends NativeInfo implements XcodePropertie
       @Nullable String defaultWatchosSdkVersion,
       @Nullable String defaultTvosSdkVersion,
       @Nullable String defaultMacosSdkVersion) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.xcodeVersion = Optional.fromNullable(xcodeVersion);
     this.defaultIosSdkVersion =
         Strings.isNullOrEmpty(defaultIosSdkVersion)

@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
@@ -129,7 +129,8 @@ public final class AndroidBinaryMobileInstall {
             .setProgressMessage(
                 "Generating incremental installation manifest for %s", ruleContext.getLabel())
             .setExecutable(
-                ruleContext.getExecutablePrerequisite("$build_incremental_dexmanifest", Mode.HOST))
+                ruleContext.getExecutablePrerequisite(
+                    "$build_incremental_dexmanifest", TransitionMode.HOST))
             .addOutput(incrementalDexManifest)
             .addInputs(shardDexZips)
             .addCommandLine(
@@ -243,7 +244,8 @@ public final class AndroidBinaryMobileInstall {
             .useDefaultShellEnvironment()
             .setMnemonic("AndroidStripResources")
             .setProgressMessage("Stripping resources from split main apk")
-            .setExecutable(ruleContext.getExecutablePrerequisite("$strip_resources", Mode.HOST))
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$strip_resources", TransitionMode.HOST))
             .addInput(resourceApk.getArtifact())
             .addOutput(splitMainApkResources)
             .addCommandLine(
@@ -321,7 +323,7 @@ public final class AndroidBinaryMobileInstall {
     String attribute =
         split ? "$incremental_split_stub_application" : "$incremental_stub_application";
 
-    TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute, Mode.TARGET);
+    TransitiveInfoCollection dep = ruleContext.getPrerequisite(attribute, TransitionMode.TARGET);
     if (dep == null) {
       ruleContext.attributeError(attribute, "Stub application cannot be found");
       return null;
@@ -380,7 +382,8 @@ public final class AndroidBinaryMobileInstall {
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$incremental_install", TransitionMode.HOST))
             // We cannot know if the user connected a new device, uninstalled the app from the
             // device
             // or did anything strange to it, so we always run this action.
@@ -432,7 +435,8 @@ public final class AndroidBinaryMobileInstall {
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .useDefaultShellEnvironment()
-            .setExecutable(ruleContext.getExecutablePrerequisite("$incremental_install", Mode.HOST))
+            .setExecutable(
+                ruleContext.getExecutablePrerequisite("$incremental_install", TransitionMode.HOST))
             .addTool(adb)
             .executeUnconditionally()
             .setMnemonic("AndroidInstall")

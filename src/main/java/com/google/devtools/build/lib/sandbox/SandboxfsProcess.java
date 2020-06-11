@@ -14,83 +14,12 @@
 
 package com.google.devtools.build.lib.sandbox;
 
-import static com.google.common.base.Preconditions.checkState;
-
-import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.List;
 
 /** Interface to interact with a sandboxfs instance. */
 interface SandboxfsProcess {
-
-  /** Represents a single mapping within a sandboxfs file system. */
-  @AutoValue
-  abstract class Mapping {
-    /**
-     * Path within the sandbox.  This looks like an absolute path but is treated as relative to the
-     * sandbox's root.
-     */
-    abstract PathFragment path();
-
-    /** Absolute path from the host's file system to map into the sandbox. */
-    abstract PathFragment target();
-
-    /** Whether the mapped path is writable or not. */
-    abstract boolean writable();
-
-    /** Constructs a new mapping builder. */
-    static Builder builder() {
-      return new AutoValue_SandboxfsProcess_Mapping.Builder();
-    }
-
-    /** Builder for a single mapping within a sandboxfs file system. */
-    @AutoValue.Builder
-    abstract static class Builder {
-      /**
-       * Sets the path within the sandbox on which this mapping will appear.  This looks like an
-       * absolute path but is treated as relative to the sandbox's root.
-       *
-       * @param path absolute path rooted at the sandbox's mount point
-       * @return the builder instance
-       */
-      abstract Builder setPath(PathFragment path);
-
-      /**
-       * Sets the path to which this mapping refers.  This is an absolute path into the host's
-       * file system.
-       *
-       * @param target absolute path into the host's file system
-       * @return the builder instance
-       */
-      abstract Builder setTarget(PathFragment target);
-
-      /**
-       * Sets whether this mapping is writable or not when accessed via the sandbox.
-       *
-       * @param writable whether the mapping is writable or not
-       * @return the builder instance
-       */
-      abstract Builder setWritable(boolean writable);
-
-      abstract Mapping autoBuild();
-
-      /**
-       * Constructs the mapping and validates field invariants.
-       *
-       * @return the constructed mapping.
-       */
-      public Mapping build() {
-        Mapping mapping = autoBuild();
-        checkState(mapping.path().isAbsolute(), "Mapping specifications are supposed to be "
-            + "absolute but %s is not", mapping.path());
-        checkState(mapping.target().isAbsolute(), "Mapping targets are supposed to be "
-            + "absolute but %s is not", mapping.target());
-        return mapping;
-      }
-    }
-  }
 
   /** Returns the path to the sandboxfs's mount point. */
   Path getMountPoint();
@@ -106,16 +35,52 @@ interface SandboxfsProcess {
    */
   void destroy();
 
+  /** Interface to create a single mapping definition within the sandbox. */
+  @FunctionalInterface
+  interface SandboxMapper {
+    /**
+     * Defines a single mapping within the sandbox being constructed.
+     *
+     * <p>Called only from within the context of a {@link SandboxCreator} instance, which carries
+     * the details of the specific sandbox being constructed.
+     *
+     * @param path the path within the sandbox to define as a mapping. sandboxfs expects this path
+     *     to be absolute.
+     * @param underlyingPath the path to which the mapping points to, which is outside of the
+     *     sandbox. sandboxfs expects this path to be absolute.
+     * @param writable whether the mapping is writable or read-only
+     * @throws IOException if the attempt to send the mapping to sandboxfs fails
+     */
+    void map(PathFragment path, PathFragment underlyingPath, boolean writable) throws IOException;
+  }
+
+  /** Interface to create all the mappings of a sandbox. */
+  @FunctionalInterface
+  interface SandboxCreator {
+    /**
+     * Creates all the mappings of a sandbox.
+     *
+     * <p>This lambda runs holding a big lock around sandboxfs and is called in the critical path of
+     * all running actions. As a result, this lambda should not block (which includes not doing any
+     * I/O other than writing to the sandboxfs stream via {@code mapper}).
+     *
+     * @param mapper a callback to send a single mapping definition to sandboxfs
+     * @throws IOException if calls to the mapper fail, or if the lambda desires to raise any other
+     *     problem during the construction of the sandbox
+     */
+    void create(SandboxMapper mapper) throws IOException;
+  }
+
   /**
-   * Creates a top-level directory with the given name and adds all given mappings inside it.
+   * Creates a top-level directory with the given name and delegates the set up of all mappings
+   * within that directory to the given {@code creator} lambda.
    *
    * @param name basename of the top-level directory to create
-   * @param mappings the collection of mappings to add, which must not have yet been previously
-   *     mapped and which will be contained within the given top-level directory
+   * @param creator a callback to populate the sandbox with mappings
    * @throws IOException if sandboxfs cannot be reconfigured either because of an error in the
    *     configuration or because we failed to communicate with the subprocess
    */
-  void createSandbox(String name, List<Mapping> mappings) throws IOException;
+  void createSandbox(String name, SandboxCreator creator) throws IOException;
 
   /**
    * Destroys a top-level directory and all of its contents.

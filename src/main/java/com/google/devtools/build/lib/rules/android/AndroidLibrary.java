@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -264,7 +264,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.naiveLinkOrder();
     Iterable<AndroidLibraryResourceClassJarProvider> providers =
         AndroidCommon.getTransitivePrerequisites(
-            ruleContext, Mode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);
+            ruleContext, TransitionMode.TARGET, AndroidLibraryResourceClassJarProvider.PROVIDER);
     for (AndroidLibraryResourceClassJarProvider resourceJarProvider : providers) {
       builder.addTransitive(resourceJarProvider.getResourceClassJars());
     }

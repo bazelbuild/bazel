@@ -28,6 +28,7 @@
 #                           coverage collection (e.g. gcda files, profraw).
 # - COVERAGE_MANIFEST       Location of the instrumented file manifest.
 # - COVERAGE_GCOV_PATH      Location of gcov. This is set by the TestRunner.
+# - COVERAGE_GCOV_OPTIONS   Additional options to pass to gcov.
 # - ROOT                    Location from where the code coverage collection
 #                           was invoked.
 #
@@ -55,7 +56,15 @@ function init_gcov() {
   # we would need to invoke it with "llvm-cov gcov").
   # For more details see https://llvm.org/docs/CommandGuide/llvm-cov.html.
   GCOV="${COVERAGE_DIR}/gcov"
-  ln -s "${COVERAGE_GCOV_PATH}" "${GCOV}"
+  if [ ! -f "${COVERAGE_GCOV_PATH}" ]; then
+    echo "GCov does not exist at the given path: '${COVERAGE_GCOV_PATH}'"
+    exit 1
+  fi
+  # When using a tool from a toolchain COVERAGE_GCOV_PATH will be a relative
+  # path. To make it work on different working directories it's required to
+  # convert the path to an absolute one.
+  COVERAGE_GCOV_PATH_ABS="$(cd "${COVERAGE_GCOV_PATH%/*}" && pwd)/${COVERAGE_GCOV_PATH##*/}"
+  ln -s "${COVERAGE_GCOV_PATH_ABS}" "${GCOV}"
 }
 
 # Computes code coverage data using the clang generated metadata found under
@@ -114,25 +123,12 @@ function gcov_coverage() {
           # Don't generate branch coverage (-b) because of a gcov issue that
           # segfaults when both -i and -b are used (see
           # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=84879).
-          "${GCOV}" -i -o "$(dirname ${gcda})" "${gcda}" &> "$gcov_log"
+          "${GCOV}" -i $COVERAGE_GCOV_OPTIONS -o "$(dirname ${gcda})" "${gcda}"
 
-          # Go through all the files that were created by the gcov command above
-          # and append their content to the output .gcov file.
-          #
-          # For each source file gcov outputs to stdout something like this:
-          #
-          # File 'examples/cpp/hello-lib.cc'
-          # Lines executed:100.00% of 8
-          # Creating 'hello-lib.cc.gcov'
-          #
-          # We grep the names of the files that were created from that output.
-          cat "$gcov_log" | grep "Creating" | cut -d " " -f 2 | cut -d"'" -f2 | \
-              while read gcov_file; do
-            echo "Processing $gcov_file"
-            cat "$gcov_file" >> "$output_file"
-            # Remove the intermediate gcov file because it is not useful anymore.
-            rm -f "$gcov_file"
-          done
+          # Append all .gcov files in the current directory to the output file.
+          cat *.gcov >> "$output_file"
+          # Delete the .gcov files.
+          rm *.gcov
       fi
     fi
   done < "${COVERAGE_MANIFEST}"

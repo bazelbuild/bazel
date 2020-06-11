@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -55,7 +56,7 @@ public class ConfigFeatureFlagTransitionFactory implements TransitionFactory<Rul
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       if (!options.contains(ConfigFeatureFlagOptions.class)) {
         return options;
       }

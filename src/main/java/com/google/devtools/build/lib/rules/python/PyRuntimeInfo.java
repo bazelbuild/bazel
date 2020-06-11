@@ -18,16 +18,17 @@ import static com.google.devtools.build.lib.syntax.Starlark.NONE;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyRuntimeInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
-import com.google.devtools.build.lib.syntax.Depset.TypeException;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -156,9 +157,8 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
   public NestedSet<Artifact> getFiles() {
     try {
       return files == null ? null : files.getSet(Artifact.class);
-    } catch (TypeException e) {
-      throw new IllegalStateException(
-          "'files' depset was found to be invalid type " + files.getContentType(), e);
+    } catch (Depset.TypeException ex) {
+      throw new IllegalStateException("for files, " + ex.getMessage());
     }
   }
 
@@ -191,35 +191,35 @@ public final class PyRuntimeInfo implements Info, PyRuntimeInfoApi<Artifact> {
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException {
       String interpreterPath =
           interpreterPathUncast == NONE ? null : (String) interpreterPathUncast;
       Artifact interpreter = interpreterUncast == NONE ? null : (Artifact) interpreterUncast;
       Depset filesDepset = null;
       if (filesUncast != NONE) {
-        filesDepset = (Depset) filesUncast;
         // Validate type of filesDepset.
-        filesDepset.getSetFromParam(Artifact.class, "files");
+        Depset.cast(filesUncast, Artifact.class, "files");
+        filesDepset = (Depset) filesUncast;
       }
 
       if ((interpreter == null) == (interpreterPath == null)) {
-        throw new EvalException(
-            loc,
+        throw Starlark.errorf(
             "exactly one of the 'interpreter' or 'interpreter_path' arguments must be specified");
       }
       boolean isInBuildRuntime = interpreter != null;
       if (!isInBuildRuntime && filesDepset != null) {
-        throw new EvalException(loc, "cannot specify 'files' if 'interpreter_path' is given");
+        throw Starlark.errorf("cannot specify 'files' if 'interpreter_path' is given");
       }
 
       PythonVersion parsedPythonVersion;
       try {
         parsedPythonVersion = PythonVersion.parseTargetValue(pythonVersion);
       } catch (IllegalArgumentException ex) {
-        throw new EvalException(loc, "illegal value for 'python_version'", ex);
+        throw Starlark.errorf("illegal value for 'python_version': %s", ex.getMessage());
       }
 
+      Location loc = thread.getCallerLocation();
       if (isInBuildRuntime) {
         if (filesDepset == null) {
           filesDepset = Depset.of(Artifact.TYPE, NestedSetBuilder.emptySet(Order.STABLE_ORDER));

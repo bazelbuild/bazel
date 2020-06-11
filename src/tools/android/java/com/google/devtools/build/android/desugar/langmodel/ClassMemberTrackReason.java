@@ -16,99 +16,79 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-import com.google.common.hash.Hashing;
-import java.util.EnumSet;
+import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableSet;
+import java.util.Collection;
 import org.objectweb.asm.Opcodes;
 
 /**
  * Used to track the declaration and invocation information of a class member, including fields,
  * constructors and methods.
  */
-public final class ClassMemberTrackReason {
+@AutoValue
+abstract class ClassMemberTrackReason {
 
-  private boolean hasDeclReason;
-  private int ownerAccess;
-  private int memberAccess;
-  private final EnumSet<MemberUseKind> useAccesses = EnumSet.noneOf(MemberUseKind.class);
+  abstract boolean hasDeclReason();
 
-  ClassMemberTrackReason setDeclAccess(int ownerAccess, int memberAccess) {
-    this.ownerAccess = ownerAccess;
-    this.memberAccess = memberAccess;
-    this.hasDeclReason = true;
-    return this;
+  abstract int ownerAccess();
+
+  abstract int memberAccess();
+
+  abstract ImmutableSet<MemberUseKind> useAccesses();
+
+  public static ClassMemberTrackReasonBuilder builder() {
+    return new AutoValue_ClassMemberTrackReason.Builder()
+        .setHasDeclReason(false)
+        .setOwnerAccess(0)
+        .setMemberAccess(0);
   }
 
-  ClassMemberTrackReason addUseAccess(int invokeOpcode) {
-    this.useAccesses.add(MemberUseKind.fromValue(invokeOpcode));
-    return this;
+  abstract ClassMemberTrackReasonBuilder toBuilder();
+
+  final boolean hasInterfaceDeclReason() {
+    return hasDeclReason() && (ownerAccess() & Opcodes.ACC_INTERFACE) != 0;
   }
 
-  boolean hasDeclReason() {
-    return hasDeclReason;
+  final boolean hasMemberUseReason() {
+    return !useAccesses().isEmpty();
   }
 
-  boolean hasInterfaceDeclReason() {
-    return hasDeclReason && (ownerAccess & Opcodes.ACC_INTERFACE) != 0;
-  }
+  /** The builder for {@link ClassMemberTrackReason}. */
+  @AutoValue.Builder
+  abstract static class ClassMemberTrackReasonBuilder {
 
-  boolean hasMemberUseReason() {
-    return !useAccesses.isEmpty();
-  }
+    abstract ClassMemberTrackReasonBuilder setHasDeclReason(boolean value);
 
-  int getOwnerAccess() {
-    return ownerAccess;
-  }
+    abstract ClassMemberTrackReasonBuilder setOwnerAccess(int value);
 
-  int getMemberAccess() {
-    return memberAccess;
-  }
+    abstract ClassMemberTrackReasonBuilder setMemberAccess(int value);
 
-  EnumSet<MemberUseKind> getUseAccesses() {
-    return useAccesses;
-  }
+    abstract ClassMemberTrackReasonBuilder setUseAccesses(Collection<MemberUseKind> value);
 
-  ClassMemberTrackReason mergeFrom(ClassMemberTrackReason otherClassMemberTrackReason) {
-    if (!hasDeclReason() && otherClassMemberTrackReason.hasDeclReason()) {
-      ownerAccess = otherClassMemberTrackReason.getOwnerAccess();
-      memberAccess = otherClassMemberTrackReason.getMemberAccess();
-      hasDeclReason = true;
+    abstract ImmutableSet.Builder<MemberUseKind> useAccessesBuilder();
+
+    final ClassMemberTrackReasonBuilder setDeclAccess(int ownerAccess, int memberAccess) {
+      return setHasDeclReason(true).setOwnerAccess(ownerAccess).setMemberAccess(memberAccess);
     }
-    useAccesses.addAll(otherClassMemberTrackReason.getUseAccesses());
-    return this;
-  }
 
-  @Override
-  public int hashCode() {
-    return Hashing.sha256()
-        .newHasher()
-        .putBoolean(hasDeclReason)
-        .putInt(ownerAccess)
-        .putInt(memberAccess)
-        .putInt(useAccesses.hashCode())
-        .hash()
-        .asInt();
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (obj == this) {
-      return true;
+    final ClassMemberTrackReasonBuilder addUseAccess(int invokeOpcode) {
+      useAccessesBuilder().add(MemberUseKind.fromValue(invokeOpcode));
+      return this;
     }
-    if (obj instanceof ClassMemberTrackReason) {
-      ClassMemberTrackReason other = (ClassMemberTrackReason) obj;
-      return this.hasDeclReason == other.hasDeclReason
-          && this.ownerAccess == other.ownerAccess
-          && this.memberAccess == other.memberAccess
-          && this.useAccesses.equals(other.useAccesses);
+
+    final ClassMemberTrackReasonBuilder addAllUseAccesses(Collection<MemberUseKind> values) {
+      useAccessesBuilder().addAll(values);
+      return this;
     }
-    return false;
-  }
 
-  @Override
-  public String toString() {
-    return String.format(
-        "%s{hasDeclReason=%s, ownerAccess=%d, memberAccess=%d, useAccesses=%s}",
-        getClass().getSimpleName(), hasDeclReason, ownerAccess, memberAccess, useAccesses);
-  }
+    final ClassMemberTrackReasonBuilder mergeFrom(ClassMemberTrackReason otherReason) {
+      if (otherReason.hasDeclReason()) {
+        setDeclAccess(otherReason.ownerAccess(), otherReason.memberAccess());
+      }
+      addAllUseAccesses(otherReason.useAccesses());
+      return this;
+    }
 
+    abstract ClassMemberTrackReason build();
+  }
 }

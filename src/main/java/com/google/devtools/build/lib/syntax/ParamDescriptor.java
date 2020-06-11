@@ -15,47 +15,41 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 
 /** A value class for storing {@link Param} metadata to avoid using Java proxies. */
 final class ParamDescriptor {
 
   private final String name;
   @Nullable private final Object defaultValue;
-  private final Class<?> type;
-  private final Class<?> generic1;
   private final boolean noneable;
   private final boolean named;
   private final boolean positional;
-  // While the type can be inferred completely by the Param annotation, this tuple allows for the
-  // type of a given parameter to be determined only once, as it is an expensive operation.
-  private final SkylarkType skylarkType;
+  private final List<Class<?>> allowedClasses; // non-empty
   // The semantics flag responsible for disabling this parameter, or null if enabled.
   // It is an error for Starlark code to supply a value to a disabled parameter.
-  @Nullable private final FlagIdentifier disabledByFlag;
+  @Nullable private final String disabledByFlag;
 
   private ParamDescriptor(
       String name,
-      @Nullable String defaultExpr,
-      Class<?> type,
-      Class<?> generic1,
+      String defaultExpr,
       boolean noneable,
       boolean named,
       boolean positional,
-      SkylarkType skylarkType,
-      @Nullable FlagIdentifier disabledByFlag) {
+      List<Class<?>> allowedClasses,
+      @Nullable String disabledByFlag) {
     this.name = name;
     this.defaultValue = defaultExpr.isEmpty() ? null : evalDefault(name, defaultExpr);
-    this.type = type;
-    this.generic1 = generic1;
     this.noneable = noneable;
     this.named = named;
     this.positional = positional;
-    this.skylarkType = skylarkType;
+    this.allowedClasses = allowedClasses;
     this.disabledByFlag = disabledByFlag;
   }
 
@@ -64,31 +58,42 @@ final class ParamDescriptor {
    * given semantics.
    */
   static ParamDescriptor of(Param param, StarlarkSemantics starlarkSemantics) {
-    Class<?> type = param.type();
-    Class<?> generic = param.generic1();
-    boolean noneable = param.noneable();
-
     String defaultExpr = param.defaultValue();
-    FlagIdentifier disabledByFlag = null;
+    String disabledByFlag = null;
     if (!starlarkSemantics.isFeatureEnabledBasedOnTogglingFlags(
         param.enableOnlyWithFlag(), param.disableWithFlag())) {
       defaultExpr = param.valueWhenDisabled();
       disabledByFlag =
-          param.enableOnlyWithFlag() != FlagIdentifier.NONE
+          !param.enableOnlyWithFlag().isEmpty()
               ? param.enableOnlyWithFlag()
               : param.disableWithFlag();
+      Preconditions.checkState(!disabledByFlag.isEmpty());
+    }
+
+    // Compute set of allowed classes.
+    ParamType[] allowedTypes = param.allowedTypes();
+    List<Class<?>> allowedClasses = new ArrayList<>();
+    if (allowedTypes.length > 0) {
+      for (ParamType pt : allowedTypes) {
+        allowedClasses.add(pt.type());
+      }
+    } else {
+      allowedClasses.add(param.type());
+    }
+    if (param.noneable()) {
+      // A few annotations redundantly declare NoneType.
+      if (!allowedClasses.contains(NoneType.class)) {
+        allowedClasses.add(NoneType.class);
+      }
     }
 
     return new ParamDescriptor(
         param.name(),
         defaultExpr,
-        type,
-        generic,
-        noneable,
-        param.named()
-            || (param.legacyNamed() && !starlarkSemantics.incompatibleRestrictNamedParams()),
+        param.noneable(),
+        param.named(),
         param.positional(),
-        getType(type, generic, param.allowedTypes(), noneable),
+        allowedClasses,
         disabledByFlag);
   }
 
@@ -97,37 +102,13 @@ final class ParamDescriptor {
     return name;
   }
 
-  /** @see Param#type() */
-  Class<?> getType() {
-    return type;
+  /** Returns a description of allowed argument types suitable for an error message. */
+  String getTypeErrorMessage() {
+    return allowedClasses.stream().map(Starlark::classType).collect(Collectors.joining(" or "));
   }
 
-  private static SkylarkType getType(
-      Class<?> type, Class<?> generic, ParamType[] allowedTypes, boolean noneable) {
-    SkylarkType result = SkylarkType.BOTTOM;
-    if (allowedTypes.length > 0) {
-      Preconditions.checkState(Object.class.equals(type));
-      for (ParamType paramType : allowedTypes) {
-        Class<?> generic1 = paramType.generic1();
-        SkylarkType t =
-            generic1 != Object.class
-                ? SkylarkType.of(paramType.type(), generic1)
-                : SkylarkType.of(paramType.type());
-        result = SkylarkType.Union.of(result, t);
-      }
-    } else {
-      result = generic != Object.class ? SkylarkType.of(type, generic) : SkylarkType.of(type);
-    }
-
-    if (noneable) {
-      result = SkylarkType.Union.of(result, SkylarkType.NONE);
-    }
-    return result;
-  }
-
-  /** @see Param#generic1() */
-  Class<?> getGeneric1() {
-    return generic1;
+  List<Class<?>> getAllowedClasses() {
+    return allowedClasses;
   }
 
   /** @see Param#noneable() */
@@ -151,13 +132,9 @@ final class ParamDescriptor {
     return defaultValue;
   }
 
-  SkylarkType getSkylarkType() {
-    return skylarkType;
-  }
-
   /** Returns the flag responsible for disabling this parameter, or null if it is enabled. */
   @Nullable
-  FlagIdentifier disabledByFlag() {
+  String disabledByFlag() {
     return disabledByFlag;
   }
 
@@ -169,7 +146,14 @@ final class ParamDescriptor {
 
   // Evaluates the default value expression for a parameter.
   private static Object evalDefault(String name, String expr) {
-    // Common cases; also needed for bootstrapping UNIVERSE.
+    // Values required by defaults of functions in UNIVERSE must
+    // be handled without depending on the evaluator, or even
+    // on defaultValueCache, because JVM global variable initialization
+    // is such a mess. (Specifically, it's completely dynamic,
+    // so if two or more variables are mutually dependent, like
+    // defaultValueCache and UNIVERSE would be, you have to write
+    // code that works in all possible dynamic initialization orders.)
+    // Better not to go there.
     if (expr.equals("None")) {
       return Starlark.NONE;
     } else if (expr.equals("True")) {
@@ -178,32 +162,66 @@ final class ParamDescriptor {
       return false;
     } else if (expr.equals("unbound")) {
       return Starlark.UNBOUND;
+    } else if (expr.equals("0")) {
+      return 0;
+    } else if (expr.equals("1")) {
+      return 1;
+    } else if (expr.equals("[]")) {
+      return StarlarkList.empty();
+    } else if (expr.equals("()")) {
+      return Tuple.empty();
+    } else if (expr.equals("\" \"")) {
+      return " ";
     }
 
     Object x = defaultValueCache.get(expr);
     if (x != null) {
       return x;
     }
-    try (Mutability mutability = Mutability.create("initialization")) {
+
+    // We can't evaluate Starlark code until UNIVERSE is bootstrapped.
+    if (Starlark.UNIVERSE == null) {
+      throw new IllegalStateException("no bootstrap value for " + name + "=" + expr);
+    }
+
+    Module module = Module.create();
+    try (Mutability mu = Mutability.create("Builtin param default init")) {
       // Note that this Starlark thread ignores command line flags.
-      StarlarkThread thread =
-          StarlarkThread.builder(mutability)
-              .useDefaultSemantics()
-              .setGlobals(Module.createForBuiltins(Starlark.UNIVERSE))
-              .build();
-      thread.getGlobals().put("unbound", Starlark.UNBOUND);
-      x = EvalUtils.eval(ParserInput.fromLines(expr), thread);
-      defaultValueCache.put(expr, x);
-      return x;
-    } catch (Exception ex) {
-      if (ex instanceof InterruptedException) {
-        Thread.currentThread().interrupt();
-      }
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+
+      // Disable polling of the java.lang.Thread.interrupt flag during
+      // Starlark evaluation. Assuming the expression does not call a
+      // built-in that throws InterruptedException, this allows us to
+      // assert that InterruptedException "can't happen".
+      //
+      // Bazel Java threads are routinely interrupted during Starlark execution,
+      // and the Starlark interpreter may be in a call to LoadingCache (in CallUtils).
+      // LoadingCache computes the cache entry in the same thread that first
+      // requested the entry, propagating undesirable thread state (which Einstein
+      // called "spooky action at a distance") from an arbitrary application thread
+      // to here, which is logically one-time initialization code.
+      //
+      // A simpler non-solution would be to use a "clean" pool thread
+      // to compute each cache entry; we could safely assume such a thread
+      // is never interrupted. However, this runs afoul of JVM class initialization:
+      // the initialization of Starlark.UNIVERSE depends on Starlark.UNBOUND
+      // because of the reference above. That's fine if they are initialized by
+      // the same thread, as JVM class initialization locks are reentrant,
+      // but the reference deadlocks if made from another thread.
+      // See https://docs.oracle.com/javase/specs/jls/se12/html/jls-12.html#jls-12.4
+      thread.ignoreThreadInterrupts();
+
+      x = EvalUtils.eval(ParserInput.fromLines(expr), FileOptions.DEFAULT, module, thread);
+    } catch (InterruptedException ex) {
+      throw new IllegalStateException(ex); // can't happen
+    } catch (SyntaxError.Exception | EvalException ex) {
       throw new IllegalArgumentException(
           String.format(
-              "while evaluating default value '%s' of parameter '%s': %s",
-              expr, name, ex.getMessage()));
+              "failed to evaluate default value '%s' of parameter '%s': %s",
+              expr, name, ex.getMessage()),
+          ex);
     }
+    defaultValueCache.put(expr, x);
+    return x;
   }
-
 }

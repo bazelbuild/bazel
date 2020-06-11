@@ -28,13 +28,13 @@ import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.Map;
 import org.junit.Before;
@@ -44,7 +44,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for manual trimming of feature flags with the transitive_configs attribute. */
 @RunWith(JUnit4.class)
-public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
+public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
 
   @Before
   public void enableManualTrimming() throws Exception {
@@ -60,7 +60,7 @@ public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetterRule());
     TestRuleClassProvider.addStandardRules(builder);
@@ -541,7 +541,10 @@ public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
     ConfiguredTarget target = getConfiguredTarget("//test:target");
     RuleContext ruleContext = getRuleContext(target);
     BuildConfiguration childConfiguration =
-        Iterables.getOnlyElement(ruleContext.getPrerequisiteConfiguredTargetAndTargets("exports_flag", Mode.TARGET)).getConfiguration();
+        Iterables.getOnlyElement(
+                ruleContext.getPrerequisiteConfiguredTargetAndTargets(
+                    "exports_flag", TransitionMode.TARGET))
+            .getConfiguration();
 
     Label childLabel = Label.parseAbsoluteUnchecked("//test:read_flag");
     assertThat(getFlagMapFromConfiguration(childConfiguration).keySet())
@@ -885,7 +888,45 @@ public final class FeatureFlagManualTrimmingTest extends SkylarkTestCase {
     BuildOptions depOptions =
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
             .create((Rule) getTarget("//test:dep"))
-            .patch(topLevelOptions);
+            .patch(topLevelOptions, eventCollector);
     assertThat(depOptions).isSameInstanceAs(topLevelOptions);
+  }
+
+  @Test
+  public void featureFlagSetAndInTransitiveConfigs_GetsSetValueWhenTrimTest() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load(':read_flags.bzl', 'read_flags')",
+        "feature_flag_setter(",
+        "    name = 'target',",
+        "    deps = [':reader'],",
+        "    flag_values = {",
+        "        ':trimmed_flag': 'left',",
+        "        ':used_flag': 'configured',",
+        "    },",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "read_flags(",
+        "    name = 'reader',",
+        "    flags = [':used_flag'],",
+        "    transitive_configs = [':used_flag'],",
+        ")",
+        "config_feature_flag(",
+        "    name = 'trimmed_flag',",
+        "    allowed_values = ['default', 'left', 'right'],",
+        "    default_value = 'default',",
+        ")",
+        "config_feature_flag(",
+        "    name = 'used_flag',",
+        "    allowed_values = ['default', 'configured', 'other'],",
+        "    default_value = 'default',",
+        ")");
+    enableManualTrimmingAnd("--trim_test_configuration");
+
+    Artifact targetFlags =
+        Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget("//test:target")).toList());
+
+    Label usedFlag = Label.parseAbsolute("//test:used_flag", ImmutableMap.of());
+    assertThat(getFlagValuesFromOutputFile(targetFlags)).containsEntry(usedFlag, "configured");
   }
 }

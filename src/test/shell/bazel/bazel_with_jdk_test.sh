@@ -122,9 +122,6 @@ function test_bazel_license_prints_jdk_license() {
 
   expect_log '"CLASSPATH" EXCEPTION TO THE GPL' || \
       fail "'bazel license' did not print an expected string from LICENSE"
-
-  expect_log "which may be included with JRE [0-9]\+, JDK [0-9]\+, and OpenJDK [0-9]\+" || \
-      fail "'bazel license' did not print an expected string from THIRD_PARTY_README"
 }
 
 run_suite "bazel test suite"

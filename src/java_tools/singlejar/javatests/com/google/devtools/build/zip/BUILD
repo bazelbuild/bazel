@@ -10,7 +10,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -27,4 +27,5 @@ java_test(
 filegroup(
     name = "srcs",
     srcs = glob(["*.java"]) + ["BUILD"],
+    visibility = ["//src:__subpackages__"],
 )

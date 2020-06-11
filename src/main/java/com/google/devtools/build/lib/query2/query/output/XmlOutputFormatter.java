@@ -210,7 +210,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       elem = doc.createElement("source-file");
       InputFile inputFile = (InputFile) target;
       if (inputFile.getName().equals("BUILD")) {
-        addSkylarkFilesToElement(doc, elem, inputFile);
+        addStarlarkFilesToElement(doc, elem, inputFile);
         addFeaturesToElement(doc, elem, inputFile);
         elem.setAttribute("package_contains_errors",
             String.valueOf(inputFile.getPackage().containsErrors()));
@@ -272,14 +272,14 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
   }
 
-  private void addSkylarkFilesToElement(Document doc, Element parent, InputFile inputFile)
+  private void addStarlarkFilesToElement(Document doc, Element parent, InputFile inputFile)
       throws InterruptedException {
     Iterable<Label> dependencies =
         aspectResolver.computeBuildFileDependencies(inputFile.getPackage());
 
-    for (Label skylarkFileDep : dependencies) {
+    for (Label starlarkFileDep : dependencies) {
       Element elem = doc.createElement("load");
-      elem.setAttribute("name", skylarkFileDep.toString());
+      elem.setAttribute("name", starlarkFileDep.toString());
       parent.appendChild(elem);
     }
   }

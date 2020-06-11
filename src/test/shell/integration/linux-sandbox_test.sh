@@ -274,6 +274,27 @@ function test_stats_high_user_time_and_high_system_time() {
   assert_linux_sandbox_exec_time 10 25 10 25
 }
 
+function test_child_receives_sigterm() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -- /bin/bash -c \
+    'trap "echo childsigterm; exit 1" SIGTERM; touch marker; sleep 1000' &> $TEST_log &
+  local sandbox_pid=$!
+  until test -f "$SANDBOX_DIR/marker"; do sleep 1; done
+  kill -SIGTERM "${sandbox_pid}"
+  wait "${sandbox_pid}" || code=$?
+  assert_equals 143 "$code" # SIGNAL_BASE + SIGTERM = 128 + 15
+  expect_log "childsigterm"
+}
+
+function test_child_ignores_sigterm() {
+  $linux_sandbox $SANDBOX_DEFAULT_OPTS -t 2 -- /bin/bash -c \
+    'trap "" SIGTERM; touch marker; sleep 1000' &> $TEST_log &
+  local sandbox_pid=$!
+  until test -f "$SANDBOX_DIR/marker"; do sleep 1; done
+  kill -SIGTERM "${sandbox_pid}"
+  wait "${sandbox_pid}" || code=$?
+  assert_equals 143 "$code" # SIGNAL_BASE + SIGTERM = 128 + 15
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 [[ "$(uname -s)" = Linux ]] || exit 0
 check_sandbox_allowed || exit 0

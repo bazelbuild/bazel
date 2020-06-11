@@ -15,26 +15,27 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkGlobalLibrary;
+import net.starlark.java.annot.StarlarkMethod;
 
-/** A collection of global skylark build API functions that apply to WORKSPACE files. */
-@SkylarkGlobalLibrary
+/** A collection of global Starlark build API functions that apply to WORKSPACE files. */
+@StarlarkGlobalLibrary
 public interface WorkspaceGlobalsApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "workspace",
       doc =
-          "<p>This command can only be used in a <code>WORKSPACE</code> file and must come "
-              + "before all other commands in the <code>WORKSPACE</code> file. "
-              + "Each <code>WORKSPACE</code> file should have a <code>workspace</code> command.</p>"
+          "<p>This function can only be used in a <code>WORKSPACE</code> file and must be declared "
+              + "before all other functions in the <code>WORKSPACE</code> file. "
+              + "Each <code>WORKSPACE</code> file should have a <code>workspace</code> "
+              + "function.</p>"
               + "<p>Sets the name for this workspace. "
               + "Workspace names should be a Java-package-style "
               + "description of the project, using underscores as separators, e.g., "
@@ -77,18 +78,49 @@ public interface WorkspaceGlobalsApi {
                     + "\nManaged directories must be excluded from the source tree by listing"
                     + " them (or their parent directories) in the .bazelignore file."),
       },
-      useLocation = true,
       useStarlarkThread = true)
   NoneType workspace(
       String name,
       Dict<?, ?> managedDirectories, // <String, Sequence<String>>
-      Location loc,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
+      name = "toplevel_output_directories",
+      doc =
+          "Exclude directories under workspace from symlinking into execroot.\n"
+              + "<p>Normally, source directories are symlinked to the execroot, so that the"
+              + " actions can access the input (source) files.<p/><p>In the case of Ninja"
+              + " execution (enabled with --experimental_ninja_actions flag), it is typical that"
+              + " the directory with build-related files contains source files for the build, and"
+              + " Ninja prescribes creation of the outputs in that same directory.</p><p>Since"
+              + " commands in the Ninja file use relative paths to address source files and"
+              + " directories, we must still allow the execution in the same-named directory under"
+              + " the execroot. But we must avoid populating the underlying source directory with"
+              + " output files.</p><p>This method can be used to specify that Ninja build"
+              + " configuration directories should not be symlinked to the execroot. It is not"
+              + " expected that there could be other use cases for using this method.</p>",
+      allowReturnNones = true,
+      parameters = {
+        @Param(
+            name = "paths",
+            type = Sequence.class,
+            generic1 = String.class,
+            doc = "",
+            named = true,
+            positional = false)
+      },
+      useStarlarkThread = true,
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_NINJA_ACTIONS)
+  NoneType dontSymlinkDirectoriesInExecroot(Sequence<?> paths, StarlarkThread thread)
+      throws EvalException, InterruptedException;
+
+  @StarlarkMethod(
       name = "register_execution_platforms",
-      doc = "Registers a platform so that it is available to execute actions.",
+      doc =
+          "Register an already-defined platform so that Bazel can use it as an "
+              + "<a href=\"../../toolchains.html#toolchain-resolution\">execution platform</a> "
+              + "during <a href=\"../../toolchains.html\">toolchain resolution</a>.",
       allowReturnNones = true,
       extraPositionals =
           @Param(
@@ -96,17 +128,18 @@ public interface WorkspaceGlobalsApi {
               type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the platforms to register."),
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType registerExecutionPlatforms(
-      Sequence<?> platformLabels, Location location, StarlarkThread thread)
+  NoneType registerExecutionPlatforms(Sequence<?> platformLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "register_toolchains",
       doc =
-          "Registers a toolchain created with the toolchain() rule so that it is available for "
-              + "toolchain resolution.",
+          "Register an already-defined toolchain so that Bazel can use it during "
+              + "<a href=\"../../toolchains.html\">toolchain resolution</a>. See examples of "
+              + "<a href=\"../../toolchains.html#defining-toolchains\">defining</a> and "
+              + "<a href=\"../../toolchains.html#registering-and-building-with-toolchains\">"
+              + "registering toolchains</a>.",
       allowReturnNones = true,
       extraPositionals =
           @Param(
@@ -114,12 +147,11 @@ public interface WorkspaceGlobalsApi {
               type = Sequence.class,
               generic1 = String.class,
               doc = "The labels of the toolchains to register."),
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType registerToolchains(Sequence<?> toolchainLabels, Location location, StarlarkThread thread)
+  NoneType registerToolchains(Sequence<?> toolchainLabels, StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bind",
       doc =
           "<p>Warning: use of <code>bind()</code> is not recommended. See <a"
@@ -143,8 +175,7 @@ public interface WorkspaceGlobalsApi {
             defaultValue = "None",
             doc = "The real label to be aliased")
       },
-      useLocation = true,
       useStarlarkThread = true)
-  NoneType bind(String name, Object actual, Location loc, StarlarkThread thread)
+  NoneType bind(String name, Object actual, StarlarkThread thread)
       throws EvalException, InterruptedException;
 }

@@ -15,17 +15,21 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.util.TestAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -299,7 +303,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   }
 
   @Test
-  public void testMissingSourceFileIsAnError() throws Exception {
+  public void testMissingSourceFileIsAnError() {
     // A missing input to an action must be treated as an error because there's
     // a risk that the action that consumes it will succeed, but with a
     // different behavior (imagine that it globs over the directory, for
@@ -311,7 +315,12 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     // to allow the action to proceed to execution in this case.)
 
     reporter.removeHandler(failFastHandler);
-    Artifact in = createSourceArtifact("in"); // doesn't exist
+    // doesn't exist
+    Artifact in =
+        new Artifact.SourceArtifact(
+            ArtifactRoot.asSourceRoot(Root.fromPath(fileSystem.getPath("/src"))),
+            PathFragment.create("in/in"),
+            () -> Label.parseAbsoluteUnchecked("//in:in"));
     Artifact out = createDerivedArtifact("out");
 
     registerAction(new TestAction(TestAction.NO_EFFECT, asNestedSet(in), ImmutableSet.of(out)));

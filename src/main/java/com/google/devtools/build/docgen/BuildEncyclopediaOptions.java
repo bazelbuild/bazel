@@ -34,14 +34,13 @@ public class BuildEncyclopediaOptions extends OptionsBase {
   public String productName;
 
   @Option(
-    name = "input_dir",
-    abbrev = 'i',
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "An input directory to read source files"
-  )
+      name = "input_dir",
+      abbrev = 'i',
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "An input directory to read source files")
   public List<String> inputDirs;
 
   @Option(

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -70,7 +69,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         "        'android_21/x86/userdata.img.tar.gz'",
         "    ],",
         ")");
-    setSkylarkSemanticsOptions("--experimental_google_legacy_api");
+    setStarlarkSemanticsOptions("--experimental_google_legacy_api");
   }
 
   private FilesToRunProvider getToolDependency(String label) throws Exception {
@@ -104,7 +103,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
             ")");
 
     Set<String> outputBasenames = new HashSet<>();
-    for (Artifact outArtifact : getFilesToBuild(target)) {
+    for (Artifact outArtifact : getFilesToBuild(target).toList()) {
       outputBasenames.add(outArtifact.getPath().getBaseName());
     }
 
@@ -113,7 +112,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
         .containsExactly("nexus_6", "userdata_images.dat", "emulator-meta-data.pb");
 
     Runfiles runfiles = getDefaultRunfiles(target);
-    assertThat(ActionsTestUtil.execPaths(runfiles.getUnconditionalArtifacts()))
+    assertThat(ActionsTestUtil.execPaths(runfiles.getArtifacts()))
         .containsAtLeast(
             getToolDependencyExecPathString("//tools/android/emulator:support_file1"),
             getToolDependencyExecPathString("//tools/android/emulator:support_file2"));
@@ -129,13 +128,10 @@ public class AndroidDeviceTest extends BuildViewTestCase {
 
     Iterable<String> biosFilesExecPathStrings =
         Iterables.transform(
-            getToolDependency("//tools/android/emulator:emulator_x86_bios").getFilesToRun(),
-            new Function<Artifact, String>() {
-              @Override
-              public String apply(Artifact artifact) {
-                return artifact.getExecPathString();
-              }
-            });
+            getToolDependency("//tools/android/emulator:emulator_x86_bios")
+                .getFilesToRun()
+                .toList(),
+            (artifact) -> artifact.getExecPathString());
 
     assertWithMessage("Invalid boot commandline.")
         .that(action.getArguments())
@@ -266,7 +262,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
             ")");
 
     Set<String> outputBasenames = new HashSet<>();
-    for (Artifact outArtifact : getFilesToBuild(target)) {
+    for (Artifact outArtifact : getFilesToBuild(target).toList()) {
       outputBasenames.add(outArtifact.getPath().getBaseName());
     }
 
@@ -284,7 +280,9 @@ public class AndroidDeviceTest extends BuildViewTestCase {
     String systemImageString = Joiner.on(" ").join(SYSTEM_IMAGE_FILES);
     Iterable<String> biosFilesExecPathStrings =
         Iterables.transform(
-            getToolDependency("//tools/android/emulator:emulator_x86_bios").getFilesToRun(),
+            getToolDependency("//tools/android/emulator:emulator_x86_bios")
+                .getFilesToRun()
+                .toList(),
             Artifact::getExecPathString);
 
     assertWithMessage("Invalid boot commandline.")
@@ -357,7 +355,8 @@ public class AndroidDeviceTest extends BuildViewTestCase {
                 "android_sdk_path=\"${WORKSPACE_DIR}/%s\"",
                 getToolDependencyRunfilesPathString("//tools/android/emulator:sdk_path")));
 
-    assertThat(target.getProvider(RunfilesProvider.class).getDefaultRunfiles().getArtifacts())
+    assertThat(
+            target.getProvider(RunfilesProvider.class).getDefaultRunfiles().getArtifacts().toList())
         .contains(getToolDependency("//tools/android/emulator:unified_launcher").getExecutable());
   }
 
@@ -623,7 +622,7 @@ public class AndroidDeviceTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testAndroidDeviceBrokerInfoExposedToSkylark() throws Exception {
+  public void testAndroidDeviceBrokerInfoExposedToStarlark() throws Exception {
     scratch.file(
         "tools/android/emulated_device/BUILD",
         "android_device(",

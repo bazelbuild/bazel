@@ -15,16 +15,17 @@
 package com.google.devtools.build.lib.analysis.skylark;
 
 import static com.google.devtools.build.lib.analysis.skylark.FunctionTransitionUtil.applyAndValidate;
-import static com.google.devtools.build.lib.analysis.skylark.SkylarkAttributesCollection.ERROR_MESSAGE_FOR_NO_ATTR;
+import static com.google.devtools.build.lib.analysis.skylark.StarlarkAttributesCollection.ERROR_MESSAGE_FOR_NO_ATTR;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
@@ -36,7 +37,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.Map;
 
 /**
  * This class implements {@link TransitionFactory} to provide a starlark-defined transition that
@@ -47,7 +48,7 @@ import java.util.List;
  * <p>For starlark defined rule class transitions, see {@link StarlarkRuleTransitionProvider}.
  *
  * <p>TODO(bazel-team): Consider allowing dependency-typed attributes to actually return providers
- * instead of just labels (see {@link SkylarkAttributesCollection#addAttribute}).
+ * instead of just labels (see {@link StarlarkAttributesCollection#addAttribute}).
  */
 public class StarlarkAttributeTransitionProvider
     implements TransitionFactory<AttributeTransitionData>, SplitTransitionProviderApi {
@@ -92,7 +93,7 @@ public class StarlarkAttributeTransitionProvider
       LinkedHashMap<String, Object> attributes = new LinkedHashMap<>();
       for (String attribute : attributeMap.getAttributeNames()) {
         Object val = attributeMap.get(attribute, attributeMap.getAttributeType(attribute));
-        attributes.put(Attribute.getSkylarkName(attribute), Starlark.fromJava(val, null));
+        attributes.put(Attribute.getStarlarkName(attribute), Starlark.fromJava(val, null));
       }
       attrObject = StructProvider.STRUCT.create(attributes, ERROR_MESSAGE_FOR_NO_ATTR);
     }
@@ -102,20 +103,24 @@ public class StarlarkAttributeTransitionProvider
      *     error was encountered during transition application/validation.
      */
     @Override
-    public final List<BuildOptions> split(BuildOptions buildOptions) {
-      List<BuildOptions> toReturn;
+    public final Map<String, BuildOptions> split(
+        BuildOptions buildOptions, EventHandler eventHandler) {
       try {
-        toReturn = applyAndValidate(buildOptions, starlarkDefinedConfigTransition, attrObject);
-      } catch (InterruptedException | EvalException e) {
-        starlarkDefinedConfigTransition
-            .getEventHandler()
-            .handle(
-                Event.error(
-                    starlarkDefinedConfigTransition.getLocationForErrorReporting(),
-                    e.getMessage()));
-        return ImmutableList.of(buildOptions.clone());
+        return applyAndValidate(
+            buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        eventHandler.handle(
+            Event.error(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                "Starlark transition interrupted during attribute transition implementation"));
+        return ImmutableMap.of("error", buildOptions.clone());
+      } catch (EvalException e) {
+        eventHandler.handle(
+            Event.error(
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(), e.getMessage()));
+        return ImmutableMap.of("error", buildOptions.clone());
       }
-      return toReturn;
     }
   }
 }

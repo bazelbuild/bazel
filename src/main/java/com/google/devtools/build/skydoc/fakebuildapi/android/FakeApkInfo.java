@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ApkInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -47,12 +46,12 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 
@@ -65,7 +64,7 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
   public static class FakeApkInfoProvider implements ApkInfoApiProvider {
 
     @Override
-    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs, Location loc) {
+    public ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) {
       return new FakeApkInfo();
     }
 

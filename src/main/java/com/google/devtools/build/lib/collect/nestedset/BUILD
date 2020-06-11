@@ -4,31 +4,37 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 # Library of collection utilities.
+
 java_library(
     name = "nestedset",
     srcs = [
+        "Depset.java",
         "NestedSet.java",
         "NestedSetBuilder.java",
         "NestedSetCodecWithStore.java",
+        "NestedSetExpander.java",
         "NestedSetStore.java",
-        "NestedSetView.java",
         "NestedSetVisitor.java",
         "Order.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:bug-report",
-        "//src/main/java/com/google/devtools/build/lib:exitcode-external",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/collect/compacthashset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:constants",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/com/google/devtools/build/lib/util:exit_code",
+        "//src/main/java/net/starlark/java/annot",
         "//third_party:auto_value",
+        "//third_party:error_prone_annotations",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
@@ -68,8 +74,8 @@ java_library(
     ],
     deps = [
         ":nestedset",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
     ],

@@ -1,6 +1,8 @@
 # Bazel - Google's Build System
 
+load("//tools/distributions:distribution_rules.bzl", "distrib_jar_filegroup")
 load("//tools/python:private/defs.bzl", "py_binary")
+load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 package(default_visibility = ["//scripts/release:__pkg__"])
 
@@ -59,6 +61,30 @@ filegroup(
     ],
 )
 
+pkg_tar(
+    name = "bootstrap-jars",
+    srcs = [
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_protobuf//:protobuf_java_util",
+    ],
+    remap_paths = {
+        "..": "derived/jars",
+    },
+    strip_prefix = ".",
+    # Public but bazel-only visibility.
+    visibility = ["//:__subpackages__"],
+)
+
+distrib_jar_filegroup(
+    name = "bootstrap-derived-java-jars",
+    srcs = glob(
+        ["derived/jars/**/*.jar"],
+        allow_empty = True,
+    ),
+    enable_distributions = ["debian"],
+    visibility = ["//:__subpackages__"],
+)
+
 filegroup(
     name = "bootstrap-derived-java-srcs",
     srcs = glob(
@@ -67,8 +93,6 @@ filegroup(
     ),
     visibility = ["//:__subpackages__"],
 )
-
-load("@rules_pkg//:pkg.bzl", "pkg_tar")
 
 pkg_tar(
     name = "bazel-srcs",
@@ -102,6 +126,7 @@ genrule(
     name = "bazel-distfile",
     srcs = [
         ":bazel-srcs",
+        ":bootstrap-jars",
         ":platforms-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
@@ -118,6 +143,7 @@ genrule(
     name = "bazel-distfile-tar",
     srcs = [
         ":bazel-srcs",
+        ":bootstrap-jars",
         ":platforms-srcs",
         "//src:derived_java_srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
@@ -153,7 +179,7 @@ platform(
     constraint_values = [
         ":highcpu_machine",
     ],
-    parents = ["@bazel_tools//platforms:host_platform"],
+    parents = ["@local_config_platform//:host"],
 )
 
 REMOTE_PLATFORMS = ("rbe_ubuntu1604_java8", "rbe_ubuntu1804_java11")

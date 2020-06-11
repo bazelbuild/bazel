@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * Rule definition for environment rules (for Bazel's constraint enforcement system).
  */
 public class EnvironmentRule implements RuleDefinition {
-  public static final String RULE_NAME = "environment";
 
   public static final String FULFILLS_ATTRIBUTE = "fulfills";
 
@@ -58,7 +57,7 @@ public class EnvironmentRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(
             attr(FULFILLS_ATTRIBUTE, BuildType.LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .nonconfigurable(
                     "used for defining constraint models - this shouldn't be configured"))
@@ -70,7 +69,7 @@ public class EnvironmentRule implements RuleDefinition {
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name(EnvironmentRule.RULE_NAME)
+        .name(ConstraintConstants.ENVIRONMENT_RULE)
         .ancestors(BaseRuleClasses.BaseRule.class)
         .factoryClass(Environment.class)
         .build();

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.java.proto;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.TransitionMode.TARGET;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;

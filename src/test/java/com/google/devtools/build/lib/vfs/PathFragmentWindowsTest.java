@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.lib.vfs.PathFragment.create;
+import static org.junit.Assert.assertThrows;
 
 import java.io.File;
 import org.junit.Test;

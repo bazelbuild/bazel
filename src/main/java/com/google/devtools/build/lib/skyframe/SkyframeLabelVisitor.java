@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframeTransitivePackageLoader;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -164,9 +163,12 @@ public final class SkyframeLabelVisitor implements TransitivePackageLoader {
 
   private static void errorAboutLoadingFailure(
       Label topLevelLabel, @Nullable Throwable throwable, ExtendedEventHandler eventHandler) {
-    eventHandler.handle(Event.error(
-        "Loading of target '" + topLevelLabel + "' failed; build aborted" +
-            (throwable == null ? "" : ": " + throwable.getMessage())));
+    eventHandler.handle(
+        Event.error(
+            "Loading of target '"
+                + topLevelLabel
+                + "' failed"
+                + (throwable == null ? "" : ": " + throwable.getMessage())));
   }
 
   private static void warnAboutLoadingFailure(Label label, ExtendedEventHandler eventHandler) {

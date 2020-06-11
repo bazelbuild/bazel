@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Matchers.eq;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -85,6 +86,8 @@ public class AbstractSpawnStrategyTest {
     MockitoAnnotations.initMocks(this);
     scratch = new Scratch(fs);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/execroot")));
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    when(actionExecutionContext.getEventHandler()).thenReturn(eventHandler);
   }
 
   @Test
@@ -146,7 +149,6 @@ public class AbstractSpawnStrategyTest {
     verify(spawnRunner, never()).execAsync(any(Spawn.class), any(SpawnExecutionContext.class));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testCacheMiss() throws Exception {
     SpawnCache cache = mock(SpawnCache.class);
@@ -172,7 +174,6 @@ public class AbstractSpawnStrategyTest {
     verify(entry).store(eq(spawnResult));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   public void testCacheMissWithNonZeroExit() throws Exception {
     SpawnCache cache = mock(SpawnCache.class);

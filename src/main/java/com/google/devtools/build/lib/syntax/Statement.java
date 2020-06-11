@@ -31,6 +31,10 @@ public abstract class Statement extends Node {
     RETURN,
   }
 
+  Statement(FileLocations locs) {
+    super(locs);
+  }
+
   /**
    * Kind of the statement. This is similar to using instanceof, except that it's more efficient and
    * can be used in a switch/case.

@@ -16,41 +16,41 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A provider of information about this target's manifest. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidManifestInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Information about the Android manifest provided by a rule.",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi {
 
   /** The name of the provider for this info object. */
   String NAME = "AndroidManifestInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "manifest",
       doc = "This target's manifest, merged with manifests from dependencies",
       documented = false,
       structField = true)
   FileT getManifest();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "package",
       doc = "This target's package",
       documented = false,
       structField = true)
   String getPackage();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "exports_manifest",
       doc = "If this manifest should be exported to targets that depend on it",
       documented = false,
@@ -58,10 +58,10 @@ public interface AndroidManifestInfoApi<FileT extends FileApi> extends StructApi
   boolean exportsManifest();
 
   /** Provider for {@link AndroidManifestInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "AndroidManifestInfo",
         doc = "The <code>AndroidManifestInfo</code> constructor.",
         documented = false,

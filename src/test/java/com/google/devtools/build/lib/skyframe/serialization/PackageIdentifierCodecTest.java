@@ -27,7 +27,7 @@ public class PackageIdentifierCodecTest {
 
   @Test
   public void testCodec() throws Exception {
-    new SerializationTester(PackageIdentifier.create("@foo", PathFragment.create("bar")))
+    new SerializationTester(PackageIdentifier.create("@foo", PathFragment.create("bar/baz")))
         .runTests();
   }
 }

@@ -19,7 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Arrays;
 import java.util.List;
@@ -39,15 +39,17 @@ public class NinjaLexer {
               NinjaToken.POOL)
           .collect(ImmutableMap.toImmutableMap(token -> token.getBytes()[0], nt -> nt));
 
-  private final ByteBufferFragment fragment;
+  private final FileFragment fragment;
   private NinjaLexerStep step;
   private final List<Pair<Integer, Integer>> ranges;
   private final List<NinjaToken> tokens;
   /** Flag to give a hint how letters should be interpreted (as text, identifier, path). */
   private TextKind expectedTextKind = TextKind.IDENTIFIER;
 
+  private boolean interpretPoolAsVariable = false;
+
   /** @param fragment fragment to do the lexing on */
-  public NinjaLexer(ByteBufferFragment fragment) {
+  public NinjaLexer(FileFragment fragment) {
     this.fragment = fragment;
     step = new NinjaLexerStep(fragment, 0);
     ranges = Lists.newArrayList();
@@ -80,15 +82,13 @@ public class NinjaLexer {
       byte b = step.startByte();
       switch (b) {
         case ' ':
+        case '\t':
           step.skipSpaces();
           if (step.getPosition() == 0
               || NinjaToken.NEWLINE.equals(Iterables.getLast(tokens, null))) {
             return push(NinjaToken.INDENT);
           }
           break;
-        case '\t':
-          step.forceError("Tabs are not allowed, use spaces.");
-          return push(NinjaToken.ERROR);
         case '\r':
           expectedTextKind = TextKind.IDENTIFIER;
           step.processLineFeedNewLine();
@@ -141,7 +141,9 @@ public class NinjaLexer {
               if (step.getError() == null) {
                 byte[] bytes = step.getBytes();
                 NinjaToken keywordToken = KEYWORD_MAP.get(bytes[0]);
-                if (keywordToken != null && Arrays.equals(keywordToken.getBytes(), bytes)) {
+                if (keywordToken != null
+                    && !(interpretPoolAsVariable && NinjaToken.POOL.equals(keywordToken))
+                    && Arrays.equals(keywordToken.getBytes(), bytes)) {
                   return push(keywordToken);
                 }
               }
@@ -203,6 +205,11 @@ public class NinjaLexer {
     this.expectedTextKind = expectedTextKind;
   }
 
+  /** When the keyword 'pool' is met, interpret it as identifier, not as a keyword. */
+  public void interpretPoolAsVariable() {
+    this.interpretPoolAsVariable = true;
+  }
+
   /** Undo the previously read token. */
   public void undo() {
     Preconditions.checkState(ranges.size() == tokens.size());
@@ -216,7 +223,7 @@ public class NinjaLexer {
     return step.getError();
   }
 
-  public ByteBufferFragment getFragment() {
+  public FileFragment getFragment() {
     return fragment;
   }
 

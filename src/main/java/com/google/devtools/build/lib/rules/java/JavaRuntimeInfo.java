@@ -20,19 +20,18 @@ import static com.google.devtools.build.lib.rules.java.JavaRuleClasses.JAVA_RUNT
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -57,18 +56,24 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
         javaBinaryRunfilesPath);
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   // Helper methods to access an instance of JavaRuntimeInfo.
 
   public static JavaRuntimeInfo forHost(RuleContext ruleContext) {
-    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.HOST);
+    return from(ruleContext, HOST_JAVA_RUNTIME_ATTRIBUTE_NAME, TransitionMode.HOST);
   }
 
   public static JavaRuntimeInfo from(RuleContext ruleContext) {
-    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, RuleConfiguredTarget.Mode.TARGET);
+    return from(ruleContext, JAVA_RUNTIME_ATTRIBUTE_NAME, TransitionMode.TARGET);
   }
 
   @Nullable
-  private static JavaRuntimeInfo from(RuleContext ruleContext, String attributeName, Mode mode) {
+  private static JavaRuntimeInfo from(
+      RuleContext ruleContext, String attributeName, TransitionMode mode) {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL)) {
       return null;
     }
@@ -160,12 +165,12 @@ public final class JavaRuntimeInfo extends ToolchainInfo implements JavaRuntimeI
   }
 
   @Override
-  public Depset skylarkJavaBaseInputs() {
+  public Depset starlarkJavaBaseInputs() {
     return Depset.of(Artifact.TYPE, javaBaseInputs());
   }
 
-  // Not all of JavaRuntimeInfo is exposed to Skylark, which makes implementing deep equality
-  // impossible: if Java-only parts are considered, the behavior is surprising in Skylark, if they
+  // Not all of JavaRuntimeInfo is exposed to Starlark, which makes implementing deep equality
+  // impossible: if Java-only parts are considered, the behavior is surprising in Starlark, if they
   // are not, the behavior is surprising in Java. Thus, object identity it is.
   @Override
   public boolean equals(Object other) {

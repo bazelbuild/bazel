@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
+import static java.util.stream.Collectors.toList;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -24,10 +25,12 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.rules.cpp.CcInfo;
+import com.google.devtools.build.lib.rules.objc.J2ObjcAspect.J2ObjcCcInfo;
 import java.util.List;
 
 /**
@@ -45,11 +48,18 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       ImmutableList.of("java_import", "java_library", "java_proto_library", "proto_library");
 
   private ObjcCommon common(RuleContext ruleContext) throws InterruptedException {
-    return new ObjcCommon.Builder(ruleContext)
+    List<J2ObjcCcInfo> j2objcCcInfos =
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, J2ObjcCcInfo.class);
+    return new ObjcCommon.Builder(ObjcCommon.Purpose.LINK_ONLY, ruleContext)
         .setCompilationAttributes(
             CompilationAttributes.Builder.fromRuleContext(ruleContext).build())
-        .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", Mode.TARGET))
-        .addDeps(ruleContext.getPrerequisiteConfiguredTargetAndTargets("jre_deps", Mode.TARGET))
+        .addDeps(
+            ruleContext.getPrerequisiteConfiguredTargetAndTargets("deps", TransitionMode.TARGET))
+        .addDeps(
+            ruleContext.getPrerequisiteConfiguredTargetAndTargets(
+                "jre_deps", TransitionMode.TARGET))
+        .addDepCcHeaderProviders(
+            j2objcCcInfos.stream().map(J2ObjcCcInfo::getCcInfo).collect(toList()))
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setHasModuleMap()
         .build();
@@ -70,10 +80,12 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .build();
 
     ObjcCommon common = common(ruleContext);
-    ObjcProvider objcProvider = common.getObjcProvider();
+    ObjcProvider objcProvider = common.getObjcProviderBuilder().build();
 
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = J2ObjcMappingFileProvider.union(
-        ruleContext.getPrerequisites("deps", Mode.TARGET, J2ObjcMappingFileProvider.class));
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider =
+        J2ObjcMappingFileProvider.union(
+            ruleContext.getPrerequisites(
+                "deps", TransitionMode.TARGET, J2ObjcMappingFileProvider.class));
 
     CompilationArtifacts moduleMapCompilationArtifacts =
         new CompilationArtifacts.Builder()
@@ -97,7 +109,11 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
         .addNativeDeclaredProvider(objcProvider)
-        .addSkylarkTransitiveInfo(ObjcProvider.SKYLARK_NAME, objcProvider)
+        .addNativeDeclaredProvider(
+            CcInfo.builder()
+                .setCcCompilationContext(objcProvider.getCcCompilationContext())
+                .build())
+        .addStarlarkTransitiveInfo(ObjcProvider.STARLARK_NAME, objcProvider)
         .build();
   }
 

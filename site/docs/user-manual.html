@@ -1,14 +1,14 @@
 ---
 layout: documentation
-title: User Manual
+title: User manual
 ---
-<h1>Commands and Options</h1>
+<h1>Commands and options</h1>
 
-<h2 id='target-patterns'>Target Syntax</h2>
+<h2 id='target-patterns'>Target syntax</h2>
 
 Some commands, like <code>build</code> or <code>test</code>, can operate
 on a list of targets. They use a syntax more flexible than labels, which is
-documented in the "<a href="guide.html#target-patterns">Specifying
+documented in the "<a href="guide.html#specifying-targets-to-build">Specifying
 targets to build</a>" section of the User's Guide.
 
 <h2>Options</h2>
@@ -26,7 +26,7 @@ targets to build</a>" section of the User's Guide.
   identified in the on-line help with the text 'may be used multiple times'.
 </p>
 
-<h3>Options that affect how packages are located</h3>
+<h3>Package location</h3>
 
 <h4 id='flag--package_path'><code class='flag'>--package_path</code></h4>
 <p>
@@ -92,7 +92,7 @@ Package path elements may be specified in three formats:
   % touch WORKSPACE
   % bazel build --package_path /some/other/path //foo
 </pre>
-<h3 id='checking-options'>Error checking options</h3>
+<h3 id='checking-options'>Error checking</h3>
 <p>
   These options control Bazel's error-checking and/or warnings.
 </p>
@@ -157,7 +157,7 @@ Package path elements may be specified in three formats:
   </tr>
 </table>
 
-<h3 id='flags-options'>Flags options</h3>
+<h3 id='flags-options'>Tool flags</h3>
 <p>
   These options control which options Bazel will pass to other tools.
 </p>
@@ -289,7 +289,9 @@ Package path elements may be specified in three formats:
   Note also that Bazel's <code class='flag'>--strip</code> option corresponds with ld's <code>--strip-debug</code> option:
   it only strips debugging information.  If for some reason you want to strip <em>all</em> symbols,
   not just <em>debug</em> symbols, you would need to use ld's <code>--strip-all</code> option,
-  which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel.
+  which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel. Also be
+  aware that setting Bazel's <code class='flag'>--strip</code> flag will override
+  <code class='flag'>--linkopt=-Wl,--strip-all</code>, so you should only set one or the other.
 </p>
 
 <h4 id='flag--stripopt'><code class='flag'>--stripopt <var>strip-option</var></code></h4>
@@ -447,7 +449,7 @@ Package path elements may be specified in three formats:
   </li>
 </ul>
 
-<h3 id='semantics-options'>Semantics options</h3>
+<h3 id='semantics-options'>Build semantics</h3>
 <p>
   These options affect the build commands and/or the output file contents.
 </p>
@@ -491,6 +493,18 @@ the compilation of binaries during the build.
   used CROSSTOOL file.
 </p>
 
+<h4 id='flag--action_env'>
+  <code class='flag'>--action_env=<var>VAR=VALUE</var></code>
+</h4>
+<p>
+  Specifies the set of environment variables available during the execution of all actions.
+  Variables can be either specified by name, in which case the value will be taken from the
+  invocation environment, or by the `name=value` pair which sets the value independent of the
+  invocation environment.
+
+  This `--action_env` flag can be specified multiple times. If a value is assigned to the same
+  variable across multiple `--action_env` flags, the latest assignment wins.
+</p>
 
 <h4 id='flag--experimental_action_listener'>
   <code class='flag'>--experimental_action_listener=<var>label</var></code>
@@ -791,7 +805,7 @@ The default is <code>armeabi-v7a</code>.
   option.
 </p>
 
-<h3 id='strategy-options'>Build strategy options</h3>
+<h3 id='strategy-options'>Execution strategy</h3>
 <p>
   These options affect how Bazel will execute the build.
   They should not have any significant effect on the output files
@@ -888,7 +902,7 @@ other flags for specifying strategy.
   that will use up more resources (RAM or CPU) than are available,
   based on some (very crude) estimates of the resource consumption
   of each job.  The behavior of the scheduler can be controlled by
-  the <code class='flag'>--ram_utilization_factor</code> option.
+  the <code class='flag'>--local_ram_resources</code> option.
 </p>
 
 <h4 id='flag--progress_report_interval'><code class='flag'>--progress_report_interval <var>n</var></code></h4>
@@ -905,20 +919,6 @@ other flags for specifying strategy.
   that progress is reported once every minute.
 </p>
 
-<h4 id='flag--ram_utilization_factor'><code class='flag'>--ram_utilization_factor</code> <var>percentage</var></h4>
-<p>
-  This option, which takes an integer argument, specifies what percentage
-  of the system's RAM Bazel should try to use for its subprocesses.
-  This option affects how many processes Bazel will try to run
-  in parallel.  The default value is 67.
-  If you run several Bazel builds in parallel, using a lower
-  value for this option may avoid thrashing and thus improve overall
-  throughput. Using a value higher than the default is NOT recommended. Note
-  that Bazel's estimates are very coarse, so the actual RAM usage may be much
-  higher or much lower than specified. Note also that this option does not
-  affect the amount of memory that the Bazel server itself will use.
-</p>
-
 <h4 id='flag--local_{ram,cpu}_resources'><code class='flag'>--local_{ram,cpu}_resources</code>
   <var>resources or resource expression</var></h4>
 <p>
@@ -930,9 +930,6 @@ other flags for specifying strategy.
   <code class='flag'>--local_cpu_resources=HOST_CPUS-1</code>).
   The flags are independent; one or both may be set. By default Bazel will estimate amount of RAM
   and number of CPU cores directly from system configuration.
-</p>
-<p>
-  If this option is used, Bazel will ignore --ram_utilization_factor.
 </p>
 
 <h4 id='flag--build_runfile_links'><code class='flag'>--[no]build_runfile_links</code></h4>
@@ -1034,7 +1031,7 @@ memory-saving mode</a>.
   unnecessarily.
 </p>
 
-<h3 id='output-selection-options'>Output selection options</h3>
+<h3 id='output-selection-options'>Output selection</h3>
 <p>
   These options determine what to build or test.
 </p>
@@ -1241,7 +1238,7 @@ memory-saving mode</a>.
   but not all frameworks support it.
 </p>
 
-<h3 id='verbosity'>Verbosity options: options that control what Bazel prints</h3>
+<h3 id='verbosity'>Verbosity</h3>
 
 These options control the verbosity of Bazel's output,
 either to the terminal, or to additional log files.
@@ -1396,8 +1393,7 @@ either to the terminal, or to additional log files.
   for copying and pasting to a shell prompt.
 </p>
 
-<h3 id='workspace_status'>Options that control how Bazel embeds workspace status information
-into binaries ("stamping")</h3>
+<h3 id='workspace_status'>Workspace status</h3>
 
 <p>
   Use these options to "stamp" Bazel-built binaries: to embed additional information into the
@@ -1524,7 +1520,7 @@ echo "STABLE_USER_NAME $USER"
   built for the host configuration, regardless of the stamp attribute.
 </p>
 
-<h3 id='platform_build_options'>Platform options</h3>
+<h3 id='platform_build_options'>Platform</h3>
 
 <p>
   Use these options to control the host and target platforms that configure how builds work, and to
@@ -1568,18 +1564,11 @@ echo "STABLE_USER_NAME $USER"
 <h4 id="flag--toolchain_resolution_debug"><code class='flag'>--toolchain_resolution_debug=false</code></h4>
 <p>
   Print debug information while finding toolchains for a rule. This might help
-  developers of Bazel or Skylark rules with debugging failures due to missing
+  developers of Bazel or Starlark rules with debugging failures due to missing
   toolchains.
 </p>
 
-<h4 id="flag--enabled_toolchain_types"><code class='flag'>--enabled_toolchain_types <var>labels</var></code></h4>
-<p>
-  Enable toolchain resolution for the given toolchain type, if the rules used support that.
-  This does not directly change the core Bazel machinery, but is a signal to participating rule
-  implementations that toolchain resolution should be used.
-</p>
-
-<h3 id='misc_build_options'>Miscellaneous options</h3>
+<h3 id='misc_build_options'>Miscellaneous</h3>
 
 <h4 id='flag--symlink_prefix'><code class='flag'>--symlink_prefix <var>string</var></code></h4>
 <p>
@@ -1642,6 +1631,38 @@ echo "STABLE_USER_NAME $USER"
     incremental builds slower.
 </p>
 
+<h4 id='flag--starlark_cpu_profile'><code class='flag'>--starlark_cpu_profile=<i>file</i></code></h4>
+<p>
+  This flag, whose value is the name of a file, causes Bazel to gather
+  statistics about CPU usage by all Starlark threads,
+  and write the profile, in <a href='https://github.com/google/pprof'>pprof</a> format,
+  to the named file.
+
+  Use this option to help identify Starlark functions that
+  make loading and analysis slow due to excessive computation. For example:
+</p>
+<pre>
+$ bazel build --nobuild --starlark_cpu_profile=/tmp/pprof.gz my/project/...
+$ pprof /tmp/pprof.gz
+(pprof) top
+Type: CPU
+Time: Feb 6, 2020 at 12:06pm (PST)
+Duration: 5.26s, Total samples = 3.34s (63.55%)
+Showing nodes accounting for 3.34s, 100% of 3.34s total
+      flat  flat%   sum%        cum   cum%
+     1.86s 55.69% 55.69%      1.86s 55.69%  sort_source_files
+     1.02s 30.54% 86.23%      1.02s 30.54%  expand_all_combinations
+     0.44s 13.17% 99.40%      0.44s 13.17%  range
+     0.02s   0.6%   100%      3.34s   100%  sorted
+         0     0%   100%      1.38s 41.32%  my/project/main/BUILD
+         0     0%   100%      1.96s 58.68%  my/project/library.bzl
+         0     0%   100%      3.34s   100%  main
+</pre>
+<p>
+  For different views of the same data, try the <code>pprof</code> commands <code>svg</code>,
+  <code>web</code>, and <code>list</code>.
+</p>
+
 <h2 id='bazel-releng'>Using Bazel for releases</h2>
 <p>
   Bazel is used both by software engineers during the development
@@ -1665,7 +1686,7 @@ echo "STABLE_USER_NAME $USER"
 </ul>
 
 <p>
-  These options (q.v.) are also important:
+  These options are also important:
 </p>
 
 <ul>
@@ -1679,7 +1700,7 @@ echo "STABLE_USER_NAME $USER"
   </li>
 </ul>
 
-<h2 id='test'>Running tests with Bazel</h2>
+<h2 id='test'>Running tests</h2>
 <p>
   To build and run tests with bazel, type <code>bazel test</code> followed by
   the name of the test targets.
@@ -1990,11 +2011,10 @@ Some caveats apply:
 Examples:
 </p>
 <pre>
-        --run_under=/usr/bin/valgrind
         --run_under=/usr/bin/strace
         --run_under='/usr/bin/strace -c'
+        --run_under=/usr/bin/valgrind
         --run_under='/usr/bin/valgrind --quiet --num-callers=20'
-
 </pre>
 
 <h4>Test selection</h4>
@@ -2015,7 +2035,7 @@ Examples:
 </p>
 
 
-<h3 id='clean'>Deleting the outputs of a build</h3>
+<h3 id='clean'>Cleaning build outputs</h3>
 
 <h4>The <code>clean</code> command</h4>
 
@@ -2070,7 +2090,7 @@ Examples:
 </p>
 
 
-<h2 id='run'>Running executables with Bazel</h2>
+<h2 id='run'>Running executables</h2>
 <p>
   The <code>bazel run</code> command is similar to <code>bazel build</code>, except
   it is used to build <em>and run</em> a single target.  Here is a typical session:
@@ -2147,11 +2167,11 @@ a user-friendly way.
   <code>bazel run</code> can also execute test binaries, which has the effect of
   running the test in a close approximation of the environment described at
   <a href='test-encyclopedia.html'>Writing Tests</a>. Note that none of the
-  <code>--test_*</code>code> arguments have an effect when running a test in this manner except
+  <code>--test_*</code> arguments have an effect when running a test in this manner except
   <code>--test_arg</code> .
 </p>
 
-<h2 id='query'>Querying the dependency graph with Bazel</h2>
+<h2 id='query'>Querying the dependency graph</h2>
 
 <p>
   Bazel includes a query language for asking questions about the
@@ -2197,7 +2217,7 @@ a user-friendly way.
   bazel query --output location 'kind(genrule, deps(kind(".*_test rule", foo/bar/pebl/...)))'
 </pre>
 
-<h2 id='aquery'>Querying the action graph with Bazel</h2>
+<h2 id='aquery'>Querying the action graph</h2>
 
 <b>Caution</b>: The aquery command is still experimental and its API will change.
 
@@ -2226,9 +2246,9 @@ a user-friendly way.
   More details on aquery can be found <a href="aquery.html">here</a>.
 </p>
 
-<h2 id='misc'>Miscellaneous Bazel commands and options</h2>
+<h2 id='misc'>Miscellaneous commands and options</h2>
 
-<h3 id='help'>The <code>help</code> command</h3>
+<h3 id='help'><code>help</code></h3>
 
 <p>
   The <code>help</code> command provides on-line help.  By default, it
@@ -2248,7 +2268,7 @@ a user-friendly way.
   and full description of each option is also printed.
 </p>
 
-<h3 id='shutdown'>The <code>shutdown</code> command</h3>
+<h3 id='shutdown'><code>shutdown</code></h3>
 
 <p>
   Bazel server processes (see <a href='guide.html#client/server'>Client/server
@@ -2271,7 +2291,7 @@ a user-friendly way.
   occasion; performing a conditional restart preempts this condition.
 </p>
 
-<h3 id='info'>The <code>info</code> command</h3>
+<h3 id='info'><code>info</code></h3>
 
 <p>
   The <code>info</code> command prints various values associated with
@@ -2321,9 +2341,14 @@ a user-friendly way.
     generated as a result of build commands. If the workspace directory is
     writable, a symlink named <code>bazel-out</code> is placed there pointing
     to this directory.
-    </li>
+  </li>
   <li><code>server_pid</code>: the process ID of the Bazel server
-     process. </li>
+     process.
+  </li>
+  <li><code>server_log</code>: the absolute path to the Bazel server's debug log file.
+    This file contains debugging information for all commands over the lifetime of the
+    Bazel server, and is intended for human consumption by Bazel developers and power users.
+  </li>
   <li><code>command_log</code>: the absolute path to the command log file;
     this contains the interleaved stdout and stderr streams of the most recent
     Bazel command. Note that running <code>bazel info</code> will overwrite the
@@ -2408,7 +2433,12 @@ a user-friendly way.
   (e.g. you are building from a read-only directory).
 </p>
 
-<h3 id='version'>The <code>version</code> command</h3>
+<pre>% bazel info --cpu=piii bazel-bin
+/var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/piii-opt/bin
+% bazel info --cpu=k8 bazel-bin
+/var/tmp/_bazel_johndoe/fbd0e8a34f61ce5d491e3da69d959fe6/execroot/io_bazel/bazel-out/k8-opt/bin
+</pre>
+<h3 id='version'><code>version</code> and <code>--version</code></h3>
 
 <p>
   The version command prints version details about the built Bazel
@@ -2427,17 +2457,14 @@ a user-friendly way.
   </li>
 </ul>
 
-<h3 id='--version'><code>bazel --version</code></h3>
 <p>
   <code>bazel --version</code>, with no other args, will emit the same output as
   <code>bazel version --gnu_format</code>, except without the side-effect of potentially starting
-  a Bazel server or unpacking the server archive.
-</p>
-<p>
-  <code>bazel --version</code> can be run from anywhere - it does not require a workspace directory.
+  a Bazel server or unpacking the server archive. <code>bazel --version</code> can be run from
+  anywhere - it does not require a workspace directory.
 </p>
 
-<h3 id='mobile-install'>The <code>mobile-install</code> command</h3>
+<h3 id='mobile-install'><code>mobile-install</code></h3>
 <p>
   The <code>mobile-install</code> command installs apps to mobile devices.
   Currently only Android devices running ART are supported.
@@ -2525,7 +2552,7 @@ adb -s deadbeef install ...
 </p>
 
 
-<h3 id='dump'>The <code>dump</code> command</h3>
+<h3 id='dump'><code>dump</code></h3>
 
 <p>
   The <code>dump</code> command prints to stdout a dump of the
@@ -2547,7 +2574,7 @@ adb -s deadbeef install ...
   <li><code class='flag'>--packages</code> dumps package cache content.</li>
   <li><code class='flag'>--skyframe</code> dumps state of internal Bazel dependency graph.</li>
   <li><code class='flag'>--rules</code> dumps rule summary for each rule and aspect class,
-    including counts and action counts. This includes both native and Skylark rules.
+    including counts and action counts. This includes both native and Starlark rules.
     If memory tracking is enabled, then the rules' memory consumption is also printed.</li>
   <li><code class='flag'>--skylark_memory</code> dumps a
     <href a=https://github.com/google/pprof>pprof</href> compatible .gz file to the specified path.
@@ -2594,13 +2621,13 @@ adb -s deadbeef install ...
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --rules
 
-    # Dump Skylark heap and analyze it with pprof
+    # Dump Starlark heap and analyze it with pprof
     % bazel --host_jvm_args=-javaagent:$BAZEL/third_party/allocation_instrumenter/java-allocation-instrumenter-3.0.1.jar \
     --host_jvm_args=-DRULE_MEMORY_TRACKER=1 \
     dump --skylark_memory=$HOME/prof.gz
     % pprof -flame $HOME/prof.gz
   </pre>
-<h3 id='analyze-profile'>The <code>analyze-profile</code> command</h3>
+<h3 id='analyze-profile'><code>analyze-profile</code></h3>
 
 <p>
   The <code>analyze-profile</code> command analyzes data previously gathered
@@ -2623,7 +2650,7 @@ adb -s deadbeef install ...
       <li><code id='flag--html_details'>--html_details</code> adds more fine-grained
       information on actions and rules to the HTML visualization</li>
         <ul>
-          <li><code id='flag--html_histograms'>--html_histograms</code> adds histograms for Skylark
+          <li><code id='flag--html_histograms'>--html_histograms</code> adds histograms for Starlark
           functions clicked in the statistics table. This will increase file size massively</li>
           <li><code id='flag--nochart'>--nochart</code> hides the task chart from generated HTML
           </li>
@@ -2647,7 +2674,7 @@ adb -s deadbeef install ...
 
 </p>
 
-<h3 id='canonicalize'>The <code>canonicalize-flags</code> command</h3>
+<h3 id='canonicalize'><code>canonicalize-flags</code></h3>
 
 <p>
   The <code>canonicalize-flags</code> command, which takes a list of options for
@@ -2665,7 +2692,7 @@ adb -s deadbeef install ...
   ensure that the effect is identical.
 </p>
 
-<h3 id='startup_options'>Bazel startup options</h3>
+<h3 id='startup_options'>Startup options</h3>
 
 <p>
   The options described in this section affect the startup of the Java
@@ -2703,9 +2730,10 @@ adb -s deadbeef install ...
 </p>
 
 <p>For example:</p>
-<pre>
-  % bazel --output_base /tmp/1 build //foo  &amp;  bazel --output_base /tmp/2 build //bar
-</pre>
+<pre><code>
+  OUTPUT_BASE=/var/tmp/google/_bazel_johndoe/custom_output_base
+  % bazel --output_base $OUTPUT_BASE build //foo  &amp;  bazel --output_base $OUTPUT_BASE build //bar
+</code></pre>
 <p>
   In this command, the two Bazel commands run concurrently (because of
   the shell <code>&amp;</code> operator), each using a different Bazel
@@ -2723,19 +2751,13 @@ adb -s deadbeef install ...
 
 <h4 id='flag--output_user_root'><code class='flag'>--output_user_root=<var>dir</var></code></h4>
 <p>
-  By default, the <code>output_base</code> value is chosen to as to
-  avoid conflicts between multiple users building in the same workspace directory.
-  In some situations, though, it is desirable to build from a directory
-  shared between multiple users; release engineers often do this.  In
-  those cases it may be useful to deliberately override the default so
-  as to ensure "conflicts" (i.e., sharing) between multiple users.
-  Use the <code class='flag'>--output_user_root</code> option to achieve this: the
-  output base is placed in a subdirectory of the output user root,
-  with a unique name based on the workspace, so the result of using an
-  output user root that is not a function of <code>$USER</code> is
-  sharing.  Of course, it is important to ensure (via umask and group
-  membership) that all the cooperating users can read/write each
-  others files.
+  Points to the root directory where output bases are created unless
+  overriden with <code class='flag'>--output_base</code>. The directory
+  must either not exist or be owned by the calling user. In the past,
+  this was allowed to point to a directory shared among various users
+  but it's not allowed any longer. (We can reconsider allowing this once
+  <a href='https://github.com/bazelbuild/bazel/issues/11100'>#11100</a>
+  is addressed.)
 </p>
 <p>
   If the <code class='flag'>--output_base</code> option is specified, it overrides
@@ -2760,7 +2782,7 @@ adb -s deadbeef install ...
   This option should appear before any Bazel command, for example:
 </p>
 <pre>
-  % bazel --server_javabase=/usr/local/buildtools/java/jdk9 build //foo
+  % bazel --server_javabase=/usr/local/buildtools/java/jdk11 build //foo
 </pre>
 <p>
   This flag does <i>not</i> affect the JVMs used by Bazel subprocesses such as applications, tests,

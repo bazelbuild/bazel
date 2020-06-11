@@ -14,11 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Strings;
-import com.google.devtools.build.lib.events.Location;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Formattable;
-import java.util.Formatter;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
@@ -131,28 +128,6 @@ public abstract class Printer {
   }
 
   private Printer() {}
-
-  /**
-   * Perform Python-style string formatting, lazily.
-   *
-   * @param pattern a format string.
-   * @param arguments positional arguments.
-   * @return the formatted string.
-   */
-  static Formattable formattable(final String pattern, Object... arguments) {
-    final List<Object> args = Arrays.asList(arguments);
-    return new Formattable() {
-      @Override
-      public String toString() {
-        return Starlark.formatWithList(pattern, args);
-      }
-
-      @Override
-      public void formatTo(Formatter formatter, int flags, int width, int precision) {
-        Printer.getPrinter(formatter.out()).formatWithList(pattern, args);
-      }
-    };
-  }
 
   /**
    * Append a char to a buffer. In case of {@link IOException} throw an {@link AssertionError}
@@ -285,7 +260,7 @@ public abstract class Printer {
     @Override
     public BasePrinter repr(Object o) {
       if (o == null) {
-        // Java null is not a valid Skylark value, but sometimes printers are used on non-Skylark
+        // Java null is not a valid Starlark value, but sometimes printers are used on non-Starlark
         // values such as Locations or ASTs.
         this.append("null");
 
@@ -306,22 +281,22 @@ public abstract class Printer {
 
         // -- non-Starlark values --
 
-      } else if (o instanceof Map<?, ?>) {
+      } else if (o instanceof Map) {
         Map<?, ?> dict = (Map<?, ?>) o;
         this.printList(dict.entrySet(), "{", ", ", "}", null);
 
-      } else if (o instanceof List<?>) {
+      } else if (o instanceof List) {
         List<?> seq = (List<?>) o;
         this.printList(seq, false);
 
-      } else if (o instanceof Map.Entry<?, ?>) {
+      } else if (o instanceof Map.Entry) {
         Map.Entry<?, ?> entry = (Map.Entry<?, ?>) o;
         this.repr(entry.getKey());
         this.append(": ");
         this.repr(entry.getValue());
 
-      } else if (o instanceof Class<?>) {
-        this.append(EvalUtils.getDataTypeNameFromClass((Class<?>) o));
+      } else if (o instanceof Class) {
+        this.append(Starlark.classType((Class<?>) o));
 
       } else if (o instanceof Node || o instanceof Location) {
         // AST node objects and locations are printed in tracebacks and error messages,
@@ -334,7 +309,7 @@ public abstract class Printer {
         // but Starlark code cannot access values of o that would reach here,
         // and native code is already trusted to be deterministic.
         // TODO(adonovan): replace this with a default behavior of this.append(o),
-        // once we require that all @Skylark-annotated classes implement StarlarkValue.
+        // once we require that all @Starlark-annotated classes implement StarlarkValue.
         // (After all, Java code can call String.format, which also calls toString.)
         this.append("<unknown object " + o.getClass().getName() + ">");
       }
@@ -343,7 +318,7 @@ public abstract class Printer {
     }
 
     /**
-     * Write a properly escaped Skylark representation of a string to a buffer.
+     * Write a properly escaped Starlark representation of a string to a buffer.
      *
      * @param s the string a representation of which to repr.
      * @return this printer.
@@ -431,7 +406,7 @@ public abstract class Printer {
     }
 
     /**
-     * Print a Skylark list or tuple of object representations
+     * Print a Starlark list or tuple of object representations
      *
      * @param list the contents of the list or tuple
      * @param isTuple if true the list will be formatted with parentheses and with a trailing comma

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import javax.annotation.Nullable;
 
@@ -129,8 +128,7 @@ public class AndroidResourceMergingActionBuilder {
         .addInput(
             "--primaryData",
             AndroidDataConverter.COMPILED_RESOURCE_CONVERTER.map(primary),
-            Iterables.concat(
-                primary.getArtifacts(), ImmutableList.of(primary.getCompiledSymbols())));
+            ImmutableList.of(primary.getCompiledSymbols()));
 
     if (dependencies != null) {
       builder.addTransitiveFlag(
@@ -141,7 +139,6 @@ public class AndroidResourceMergingActionBuilder {
       if (omitTransitiveDependenciesFromAndroidRClasses) {
         for (ValidatedAndroidResources resources :
             dependencies.getDirectResourceContainers().toList()) {
-          builder.addInputs(resources.getResources());
           builder.maybeAddInput(resources.getCompiledSymbols());
         }
       } else {
@@ -150,7 +147,6 @@ public class AndroidResourceMergingActionBuilder {
                 "--data",
                 dependencies.getTransitiveResourceContainers(),
                 AndroidDataConverter.COMPILED_RESOURCE_CONVERTER)
-            .addTransitiveInputValues(dependencies.getTransitiveResources())
             .addTransitiveInputValues(dependencies.getTransitiveCompiledSymbols());
       }
     }

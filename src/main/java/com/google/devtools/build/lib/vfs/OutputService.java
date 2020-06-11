@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -35,7 +34,6 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /**
@@ -81,11 +79,19 @@ public interface OutputService {
   String getFilesSystemName();
 
   /**
+   * Returns true if Bazel should trust (and not verify) build artifacts that were last seen
+   * remotely and do not exist locally.
+   */
+  public default boolean shouldTrustRemoteArtifacts() {
+    return true;
+  }
+
+  /**
    * Start the build.
    *
    * @param buildId the UUID build identifier
-   * @param finalizeActions whether this build is finalizing actions so that the output service
-   *                        can track output tree modifications
+   * @param finalizeActions whether this build is finalizing actions so that the output service can
+   *     track output tree modifications
    * @return a ModifiedFileSet of changed output files.
    * @throws BuildFailedException if build preparation failed
    * @throws InterruptedException
@@ -150,7 +156,7 @@ public interface OutputService {
    *     com.google.devtools.build.lib.pkgcache.PathPackageLocator})
    * @param inputArtifactData information about required inputs to the action
    * @param outputArtifacts required outputs of the action
-   * @param sourceArtifactFactory obtains source artifacts from source exec paths
+   * @param trackFailedRemoteReads whether to track failed remote reads to make LostInput exceptions
    * @return an action-scoped filesystem if {@link #supportsActionFileSystem} is not {@code NONE}
    */
   @Nullable
@@ -161,7 +167,7 @@ public interface OutputService {
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      Function<PathFragment, SourceArtifact> sourceArtifactFactory) {
+      boolean trackFailedRemoteReads) {
     return null;
   }
 

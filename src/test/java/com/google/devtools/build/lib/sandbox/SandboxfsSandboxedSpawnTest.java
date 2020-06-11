@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -68,10 +68,12 @@ public class SandboxfsSandboxedSpawnTest {
         new SandboxfsSandboxedSpawn(
             sandboxfs,
             outerDir,
+            "workspace",
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+                ImmutableSet.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
@@ -90,6 +92,30 @@ public class SandboxfsSandboxedSpawnTest {
   }
 
   @Test
+  public void testExecRootContainsWorkspaceName() throws Exception {
+    Path helloTxt = workspaceDir.getRelative("hello.txt");
+    FileSystemUtils.createEmptyFile(helloTxt);
+
+    SandboxedSpawn spawn =
+        new SandboxfsSandboxedSpawn(
+            sandboxfs,
+            outerDir,
+            "some-workspace-name",
+            ImmutableList.of("/bin/true"),
+            ImmutableMap.of(),
+            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
+            SandboxOutputs.create(ImmutableSet.of(), ImmutableSet.of()),
+            ImmutableSet.of(),
+            /* mapSymlinkTargets= */ false,
+            new SynchronousTreeDeleter(),
+            /* statisticsPath= */ null);
+    spawn.createFileSystem();
+    Path execRoot = spawn.getSandboxExecRoot();
+
+    assertThat(execRoot.getPathString()).contains("/some-workspace-name");
+  }
+
+  @Test
   public void testDelete() throws Exception {
     Path helloTxt = workspaceDir.getRelative("hello.txt");
     FileSystemUtils.createEmptyFile(helloTxt);
@@ -98,10 +124,12 @@ public class SandboxfsSandboxedSpawnTest {
         new SandboxfsSandboxedSpawn(
             sandboxfs,
             outerDir,
+            "workspace",
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
             new SandboxInputs(
                 ImmutableMap.of(PathFragment.create("such/input.txt"), helloTxt),
+                ImmutableSet.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),
@@ -132,9 +160,10 @@ public class SandboxfsSandboxedSpawnTest {
         new SandboxfsSandboxedSpawn(
             sandboxfs,
             outerDir,
+            "workspace",
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
-            new SandboxInputs(ImmutableMap.of(), ImmutableMap.of()),
+            new SandboxInputs(ImmutableMap.of(), ImmutableSet.of(), ImmutableMap.of()),
             SandboxOutputs.create(ImmutableSet.of(outputFile), ImmutableSet.of()),
             ImmutableSet.of(),
             /* mapSymlinkTargets= */ false,
@@ -187,6 +216,7 @@ public class SandboxfsSandboxedSpawnTest {
         new SandboxfsSandboxedSpawn(
             sandboxfs,
             outerDir,
+            "workspace",
             ImmutableList.of("/bin/true"),
             ImmutableMap.of(),
             new SandboxInputs(
@@ -197,6 +227,7 @@ public class SandboxfsSandboxedSpawnTest {
                     PathFragment.create("such/link-1.txt"), linkToInput1,
                     PathFragment.create("such/link-to-link.txt"), linkToLink,
                     PathFragment.create("such/abs-link.txt"), linkToAbsolutePath),
+                ImmutableSet.of(),
                 ImmutableMap.of()),
             SandboxOutputs.create(
                 ImmutableSet.of(PathFragment.create("very/output.txt")), ImmutableSet.of()),

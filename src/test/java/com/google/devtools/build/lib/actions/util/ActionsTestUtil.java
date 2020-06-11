@@ -45,13 +45,14 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -62,16 +63,21 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
+import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceUsage;
@@ -107,10 +113,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/**
- * A bunch of utilities that are useful for test concerning actions, artifacts,
- * etc.
- */
+/** A bunch of utilities that are useful for tests concerning actions, artifacts, etc. */
 public final class ActionsTestUtil {
 
   private final ActionGraph actionGraph;
@@ -155,6 +158,7 @@ public final class ActionsTestUtil {
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
+        /*rewindingEnabled=*/ false,
         LostInputsCheck.NONE,
         fileOutErr,
         eventHandler,
@@ -164,7 +168,8 @@ public final class ActionsTestUtil {
             ? createDummyArtifactExpander()
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.DEFAULT);
   }
 
   public static ActionExecutionContext createContext(ExtendedEventHandler eventHandler) {
@@ -175,6 +180,7 @@ public final class ActionsTestUtil {
         ActionInputPrefetcher.NONE,
         new ActionKeyContext(),
         /*metadataHandler=*/ null,
+        /*rewindingEnabled=*/ false,
         LostInputsCheck.NONE,
         /*fileOutErr=*/ null,
         eventHandler,
@@ -182,7 +188,8 @@ public final class ActionsTestUtil {
         /*topLevelFilesets=*/ ImmutableMap.of(),
         createDummyArtifactExpander(),
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.DEFAULT);
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(
@@ -192,19 +199,22 @@ public final class ActionsTestUtil {
       FileOutErr fileOutErr,
       Path execRoot,
       MetadataHandler metadataHandler,
-      BuildDriver buildDriver) {
+      BuildDriver buildDriver,
+      NestedSetExpander nestedSetExpander) {
     return ActionExecutionContext.forInputDiscovery(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         metadataHandler,
+        /*rewindingEnabled=*/ false,
         LostInputsCheck.NONE,
         fileOutErr,
         eventHandler,
         ImmutableMap.of(),
         new BlockingSkyFunctionEnvironment(buildDriver, eventHandler),
-        /*actionFileSystem=*/ null);
+        /*actionFileSystem=*/ null,
+        nestedSetExpander);
   }
 
   private static ArtifactExpander createDummyArtifactExpander() {
@@ -236,10 +246,12 @@ public final class ActionsTestUtil {
         : new Artifact.DerivedArtifact(root, execPath, NULL_ARTIFACT_OWNER);
   }
 
-  public static TreeFileArtifact createTreeFileArtifactWithNoGeneratingAction(
-      SpecialArtifact parent, String relativePath) {
-    return ActionInputHelper.treeFileArtifactWithNoGeneratingActionSet(
-        parent, PathFragment.create(relativePath), parent.getArtifactOwner());
+  public static SpecialArtifact createTreeArtifactWithGeneratingAction(
+      ArtifactRoot root, PathFragment execPath) {
+    SpecialArtifact treeArtifact =
+        new SpecialArtifact(root, execPath, NULL_ARTIFACT_OWNER, SpecialArtifactType.TREE);
+    treeArtifact.setGeneratingActionKey(NULL_ACTION_LOOKUP_DATA);
+    return treeArtifact;
   }
 
   public static void assertNoArtifactEndingWith(RuleConfiguredTarget target, String path) {
@@ -249,6 +261,11 @@ public final class ActionsTestUtil {
         assertThat(output.getExecPathString()).doesNotMatch(endPattern);
       }
     }
+  }
+
+  public static ArtifactRoot createArtifactRootFromTwoPaths(Path root, Path execPath) {
+    return ArtifactRoot.asDerivedRoot(
+        root, execPath.relativeTo(root).getSegments().toArray(new String[0]));
   }
 
   /**
@@ -310,18 +327,14 @@ public final class ActionsTestUtil {
     public boolean inErrorBubblingForTesting() {
       return false;
     }
-  }
-
-  static class NullArtifactOwner implements ArtifactOwner {
-    private NullArtifactOwner() {}
 
     @Override
-    public Label getLabel() {
-      return NULL_LABEL;
+    public boolean restartPermitted() {
+      return false;
     }
   }
 
-  @AutoCodec
+  @SerializationConstant
   public static final ActionLookupKey NULL_ARTIFACT_OWNER =
       new ActionLookupValue.ActionLookupKey() {
         @Override
@@ -335,6 +348,9 @@ public final class ActionsTestUtil {
         }
       };
 
+  public static final ActionTemplateExpansionKey NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER =
+      ActionTemplateExpansionValue.key(NULL_ARTIFACT_OWNER, /*actionIndex=*/ 0);
+
   public static final Artifact DUMMY_ARTIFACT =
       new Artifact.SourceArtifact(
           ArtifactRoot.asSourceRoot(Root.absoluteRoot(new InMemoryFileSystem())),
@@ -344,17 +360,19 @@ public final class ActionsTestUtil {
   public static final ActionOwner NULL_ACTION_OWNER =
       ActionOwner.create(
           NULL_LABEL,
-          ImmutableList.<AspectDescriptor>of(),
-          null,
+          ImmutableList.of(),
+          new Location("dummy-file", 0, 0),
           "dummy-configuration-mnemonic",
-          null,
+          "dummy-kind",
           "dummy-configuration",
+          new BuildConfigurationEvent(
+              BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+              BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
           null,
-          null,
-          ImmutableMap.<String, String>of(),
+          ImmutableMap.of(),
           null);
 
-  @AutoCodec
+  @SerializationConstant
   public static final ActionLookupData NULL_ACTION_LOOKUP_DATA =
       ActionLookupData.create(NULL_ARTIFACT_OWNER, 0);
 
@@ -412,12 +430,85 @@ public final class ActionsTestUtil {
   }
 
   /**
+   * A mocked action containing the inputs and outputs of the action and determines whether or not
+   * the action is a middleman. Used for tests that do not need to execute the action.
+   */
+  public static class MockAction extends AbstractAction {
+
+    private final boolean middleman;
+    private final boolean isShareable;
+
+    public MockAction(Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs) {
+      this(inputs, outputs, /*middleman=*/ false, /*isShareable=*/ true);
+    }
+
+    public MockAction(
+        Iterable<Artifact> inputs, ImmutableSet<Artifact> outputs, boolean middleman) {
+      this(inputs, outputs, middleman, /*isShareable*/ true);
+    }
+
+    public MockAction(
+        Iterable<Artifact> inputs,
+        ImmutableSet<Artifact> outputs,
+        boolean middleman,
+        boolean isShareable) {
+      super(
+          NULL_ACTION_OWNER,
+          NestedSetBuilder.<Artifact>stableOrder().addAll(inputs).build(),
+          outputs);
+      this.middleman = middleman;
+      this.isShareable = isShareable;
+    }
+
+    @Override
+    public MiddlemanType getActionType() {
+      return middleman ? MiddlemanType.AGGREGATING_MIDDLEMAN : super.getActionType();
+    }
+
+    @Override
+    public String getMnemonic() {
+      return "Mock action";
+    }
+
+    @Override
+    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+      fp.addString("Mock Action " + getPrimaryOutput());
+    }
+
+    @Override
+    public ActionResult execute(ActionExecutionContext actionExecutionContext) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean isShareable() {
+      return isShareable;
+    }
+  }
+
+  /**
+   * For a bunch of actions, gets the basenames of the paths and accumulates them in a space
+   * separated string, like <code>foo.o bar.o baz.a</code>.
+   */
+  public static String baseNamesOf(NestedSet<Artifact> artifacts) {
+    return baseNamesOf(artifacts.toList());
+  }
+
+  /**
    * For a bunch of actions, gets the basenames of the paths and accumulates
    * them in a space separated string, like <code>foo.o bar.o baz.a</code>.
    */
   public static String baseNamesOf(Iterable<Artifact> artifacts) {
     List<String> baseNames = baseArtifactNames(artifacts);
     return Joiner.on(' ').join(baseNames);
+  }
+
+  /**
+   * For a bunch of actions, gets the basenames of the paths, sorts them in alphabetical order and
+   * accumulates them in a space separated string, for example <code>bar.o baz.a foo.o</code>.
+   */
+  public static String sortedBaseNamesOf(NestedSet<Artifact> artifacts) {
+    return sortedBaseNamesOf(artifacts.toList());
   }
 
   /**
@@ -431,20 +522,32 @@ public final class ActionsTestUtil {
     return Joiner.on(' ').join(baseNames);
   }
 
-  /**
-   * For a bunch of artifacts, gets the basenames and accumulates them in a
-   * List.
-   */
+  /** For a bunch of artifacts, gets the basenames and accumulates them in a List. */
+  public static List<String> baseArtifactNames(NestedSet<Artifact> artifacts) {
+    return transform(artifacts.toList(), artifact -> artifact.getExecPath().getBaseName());
+  }
+
+  /** For a bunch of artifacts, gets the basenames and accumulates them in a List. */
   public static List<String> baseArtifactNames(Iterable<Artifact> artifacts) {
     return transform(artifacts, artifact -> artifact.getExecPath().getBaseName());
   }
 
-  /**
-   * For a bunch of artifacts, gets the exec paths and accumulates them in a
-   * List.
-   */
+  /** For a bunch of artifacts, gets the exec paths and accumulates them in a List. */
+  public static List<String> execPaths(NestedSet<Artifact> artifacts) {
+    return execPaths(artifacts.toList());
+  }
+
+  /** For a bunch of artifacts, gets the exec paths and accumulates them in a List. */
   public static List<String> execPaths(Iterable<Artifact> artifacts) {
     return transform(artifacts, Artifact::getExecPathString);
+  }
+
+  /**
+   * For a bunch of artifacts, gets the pretty printed names and accumulates them in a List. Note
+   * that this returns the root-relative paths, not the exec paths.
+   */
+  public static List<String> prettyArtifactNames(NestedSet<Artifact> artifacts) {
+    return prettyArtifactNames(artifacts.toList());
   }
 
   /**
@@ -474,6 +577,14 @@ public final class ActionsTestUtil {
    * Returns the closure of the predecessors of any of the given types, joining the basenames of the
    * artifacts into a space-separated string like "libfoo.a libbar.a libbaz.a".
    */
+  public String predecessorClosureOf(NestedSet<Artifact> artifacts, FileType... types) {
+    return predecessorClosureOf(artifacts.toList(), types);
+  }
+
+  /**
+   * Returns the closure of the predecessors of any of the given types, joining the basenames of the
+   * artifacts into a space-separated string like "libfoo.a libbar.a libbaz.a".
+   */
   public String predecessorClosureOf(Iterable<Artifact> artifacts, FileType... types) {
     Set<Artifact> visited = artifactClosureOf(artifacts);
     return baseNamesOf(FileType.filter(visited, types));
@@ -482,6 +593,12 @@ public final class ActionsTestUtil {
   /** Returns the closure of the predecessors of any of the given types. */
   public Collection<String> predecessorClosureAsCollection(Artifact artifact, FileType... types) {
     return predecessorClosureAsCollection(Collections.singleton(artifact), types);
+  }
+
+  /** Returns the closure of the predecessors of any of the given types. */
+  public Collection<String> predecessorClosureAsCollection(
+      NestedSet<Artifact> artifacts, FileType... types) {
+    return predecessorClosureAsCollection(artifacts.toList(), types);
   }
 
   /** Returns the closure of the predecessors of any of the given types. */
@@ -504,12 +621,17 @@ public final class ActionsTestUtil {
    * Returns the closure over the input files of an action.
    */
   public Set<Artifact> inputClosureOf(ActionAnalysisMetadata action) {
-    return artifactClosureOf(action.getInputs());
+    return artifactClosureOf(action.getInputs().toList());
   }
 
   /** Returns the closure over the input files of an artifact. */
   public Set<Artifact> artifactClosureOf(Artifact artifact) {
     return artifactClosureOf(Collections.singleton(artifact));
+  }
+
+  /** Returns the closure over the input files of a set of artifacts. */
+  public Set<Artifact> artifactClosureOf(NestedSet<Artifact> artifacts) {
+    return artifactClosureOf(artifacts.toList());
   }
 
   /** Returns the closure over the input files of a set of artifacts. */
@@ -523,7 +645,7 @@ public final class ActionsTestUtil {
       }
       ActionAnalysisMetadata generatingAction = actionGraph.getGeneratingAction(current);
       if (generatingAction != null) {
-        Iterables.addAll(toVisit, generatingAction.getInputs());
+        toVisit.addAll(generatingAction.getInputs().toList());
       }
     }
     return visited;
@@ -569,7 +691,8 @@ public final class ActionsTestUtil {
       }
       ActionAnalysisMetadata generatingAction = actionGraph.getGeneratingAction(current);
       if (generatingAction != null) {
-        Iterables.addAll(toVisit, Iterables.filter(generatingAction.getInputs(), allowedArtifacts));
+        Iterables.addAll(
+            toVisit, Iterables.filter(generatingAction.getInputs().toList(), allowedArtifacts));
         if (actionClass.isInstance(generatingAction)) {
           actions.add(actionClass.cast(generatingAction));
         }
@@ -587,8 +710,15 @@ public final class ActionsTestUtil {
    * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
    * suffix and returns its generating Action.
    */
-  public Action getActionForArtifactEndingWith(
-      Iterable<Artifact> artifacts, String suffix) {
+  public Action getActionForArtifactEndingWith(NestedSet<Artifact> artifacts, String suffix) {
+    return getActionForArtifactEndingWith(artifacts.toList(), suffix);
+  }
+
+  /**
+   * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
+   * suffix and returns its generating Action.
+   */
+  public Action getActionForArtifactEndingWith(Iterable<Artifact> artifacts, String suffix) {
     Artifact a = getFirstArtifactEndingWith(artifacts, suffix);
 
     if (a == null) {
@@ -605,6 +735,15 @@ public final class ActionsTestUtil {
     } else {
       return null;
     }
+  }
+
+  /**
+   * Looks in the given artifacts Iterable for the first Artifact whose path ends with the given
+   * suffix and returns the Artifact.
+   */
+  public static Artifact getFirstArtifactEndingWith(
+      NestedSet<? extends Artifact> artifacts, String suffix) {
+    return getFirstArtifactEndingWith(artifacts.toList(), suffix);
   }
 
   /**
@@ -641,7 +780,7 @@ public final class ActionsTestUtil {
    * specified basename. An assertion error is raised if none is found.
    */
   public static Artifact getInput(ActionAnalysisMetadata action, String basename) {
-    for (Artifact artifact : action.getInputs()) {
+    for (Artifact artifact : action.getInputs().toList()) {
       if (artifact.getExecPath().getBaseName().equals(basename)) {
         return artifact;
       }
@@ -790,10 +929,23 @@ public final class ActionsTestUtil {
   }
 
   /**
+   * A {@link MetadataHandler} for tests that throws {@link UnsupportedOperationException} for its
+   * operations.
+   */
+  public static final MetadataHandler THROWING_METADATA_HANDLER =
+      new FakeMetadataHandlerBase() {
+        @Override
+        public String toString() {
+          return "THROWING_METADATA_HANDLER";
+        }
+      };
+
+  /**
    * A {@link MetadataHandler} all of whose operations throw an exception.
    *
-   * <p>This is to be used as a base class by other test programs that need to implement only a
-   * few of the hooks required by the scenario under test.
+   * <p>This is to be used as a base class by other test programs that need to implement only a few
+   * of the hooks required by the scenario under test. Tests that need an instance but do not need
+   * any functionality can use {@link #THROWING_METADATA_HANDLER}.
    */
   public static class FakeMetadataHandlerBase implements MetadataHandler {
     @Override
@@ -812,33 +964,29 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void addExpandedTreeOutput(TreeFileArtifact output) {
+    public ImmutableSet<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public Iterable<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
+    public FileArtifactValue constructMetadataForDigest(
+        Artifact output, FileStatus statNoFollow, byte[] digest) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest) {
+    public void injectFile(Artifact output, FileArtifactValue metadata) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public void injectRemoteFile(Artifact output, byte[] digest, long size, int locationIndex) {
+    public void injectDirectory(
+        SpecialArtifact treeArtifact, Map<TreeFileArtifact, FileArtifactValue> children) {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    public void injectRemoteDirectory(
-        SpecialArtifact treeArtifact, Map<PathFragment, RemoteFileArtifactValue> children) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void markOmitted(ActionInput output) {
+    public void markOmitted(Artifact output) {
       throw new UnsupportedOperationException();
     }
 

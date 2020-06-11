@@ -33,7 +33,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -264,10 +264,8 @@ public class BaseRuleClasses {
    */
   public static final String TAGGED_TRIMMING_ATTR = "transitive_configs";
 
-  /**
-   * Share common attributes across both base and Skylark base rules.
-   */
-  public static RuleClass.Builder commonCoreAndSkylarkAttributes(RuleClass.Builder builder) {
+  /** Share common attributes across both base and Starlark base rules. */
+  public static RuleClass.Builder commonCoreAndStarlarkAttributes(RuleClass.Builder builder) {
     return builder
         // The visibility attribute is special: it is a nodep label, and loading the
         // necessary package groups is handled by {@link LabelVisitor#visitTargetVisibility}.
@@ -315,7 +313,7 @@ public class BaseRuleClasses {
                 .value(ACTION_LISTENER))
         .add(
             attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
@@ -323,7 +321,7 @@ public class BaseRuleClasses {
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
             attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
-                .allowedRuleClasses(EnvironmentRule.RULE_NAME)
+                .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
@@ -331,7 +329,14 @@ public class BaseRuleClasses {
                     "special logic for constraints and select: see ConstraintSemantics"))
         .add(
             attr(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, LABEL_LIST)
-                .nonconfigurable("stores configurability keys"));
+                .nonconfigurable("stores configurability keys"))
+        .add(
+            attr(RuleClass.APPLICABLE_LICENSES_ATTR, LABEL_LIST)
+                .cfg(HostTransition.createFactory())
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                // TODO(b/148601291): Require provider to be "LicenseInfo".
+                .dontCheckConstraints()
+                .nonconfigurable("applicable_licenses is not configurable"));
   }
 
   public static RuleClass.Builder nameAttribute(RuleClass.Builder builder) {
@@ -371,7 +376,7 @@ public class BaseRuleClasses {
   public static final class BaseRule implements RuleDefinition {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return commonCoreAndSkylarkAttributes(builder)
+      return commonCoreAndStarlarkAttributes(builder)
           .add(
               attr("licenses", LICENSE)
                   .nonconfigurable("Used in core loading phase logic with no access to configs"))
@@ -398,15 +403,13 @@ public class BaseRuleClasses {
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($make_variable_expanding_rule).ATTRIBUTE(toolchains) -->
-          The set of toolchains that supply <a href="${link make-variables}">"Make variables"</a>
-          that this target can use in some of its attributes. Some rules have toolchains whose Make
-          variables they can use by default.
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(attr("toolchains", LABEL_LIST)
-              .allowedFileTypes(FileTypeSet.NO_FILE)
-              .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
-              .dontCheckConstraints())
+          // Documented in
+          // com/google/devtools/build/docgen/templates/attributes/common/toolchains.html.
+          .add(
+              attr("toolchains", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.NO_FILE)
+                  .mandatoryProviders(ImmutableList.of(TemplateVariableInfo.PROVIDER.id()))
+                  .dontCheckConstraints())
           .build();
     }
 

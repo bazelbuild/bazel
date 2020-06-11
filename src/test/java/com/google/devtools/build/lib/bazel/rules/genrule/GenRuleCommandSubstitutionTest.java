@@ -40,7 +40,7 @@ public class GenRuleCommandSubstitutionTest extends BuildViewTestCase {
 
   private String getGenruleCommand(String genrule) throws Exception {
     return ((SpawnAction)
-            getGeneratingAction(getFilesToBuild(getConfiguredTarget(genrule)).iterator().next()))
+            getGeneratingAction(getFilesToBuild(getConfiguredTarget(genrule)).toList().get(0)))
         .getArguments()
         .get(2);
   }

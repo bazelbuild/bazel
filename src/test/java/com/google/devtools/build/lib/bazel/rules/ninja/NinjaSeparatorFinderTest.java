@@ -16,9 +16,9 @@
 package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.IncorrectSeparatorException;
 import com.google.devtools.build.lib.bazel.rules.ninja.file.NinjaSeparatorFinder;
 import java.nio.ByteBuffer;
@@ -61,17 +61,17 @@ public class NinjaSeparatorFinderTest {
     // Test for incorrect separators.
     byte[] bytes = "a\rb".getBytes(StandardCharsets.ISO_8859_1);
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
-    ByteBufferFragment fragment = new ByteBufferFragment(buffer, 0, buffer.limit());
+    FileFragment fragment = new FileFragment(buffer, 0, 0, buffer.limit());
     assertThrows(
         IncorrectSeparatorException.class,
-        () -> NinjaSeparatorFinder.INSTANCE.findNextSeparator(fragment, 0, -1));
+        () -> NinjaSeparatorFinder.findNextSeparator(fragment, 0, -1));
   }
 
   private static void doTestIsSeparator(String s, int expected) throws IncorrectSeparatorException {
     byte[] bytes = s.getBytes(StandardCharsets.ISO_8859_1);
     ByteBuffer buffer = ByteBuffer.wrap(bytes);
-    ByteBufferFragment fragment = new ByteBufferFragment(buffer, 0, buffer.limit());
-    int result = NinjaSeparatorFinder.INSTANCE.findNextSeparator(fragment, 0, -1);
+    FileFragment fragment = new FileFragment(buffer, 0, 0, buffer.limit());
+    int result = NinjaSeparatorFinder.findNextSeparator(fragment, 0, -1);
     assertThat(result).isEqualTo(expected);
   }
 }

@@ -1,19 +1,12 @@
-load("@rules_java//java:defs.bzl", "java_proto_library")
-load("//tools/build_rules:genproto.bzl", "cc_grpc_library")
-load("//tools/build_rules:utilities.bzl", "java_library_srcs")
-load("//third_party/protobuf/3.6.1:protobuf.bzl", "py_proto_library")
-load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@rules_cc//cc:defs.bzl", "cc_proto_library")
+load("@rules_java//java:defs.bzl", "java_proto_library")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
+load("//third_party/grpc/bazel:cc_grpc_library.bzl", "cc_grpc_library")
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
 package(default_visibility = ["//visibility:public"])
-
-exports_files(
-    ["execution_statitics.proto"],
-    visibility = [
-        "//src/test/shell/integration:process_wrapper_test",
-    ],
-)
 
 FILES = [
     "action_cache",
@@ -21,7 +14,6 @@ FILES = [
     "bazel_flags",
     "build",
     "builtin",
-    "command_server",
     "crosstool_config",
     "deps",
     "desugar_deps",
@@ -97,6 +89,38 @@ java_library_srcs(
     deps = [":analysis_v2_java_proto"],
 )
 
+proto_library(
+    name = "command_server_proto",
+    srcs = ["command_server.proto"],
+    deps = [":failure_details_proto"],
+)
+
+java_proto_library(
+    name = "command_server_java_proto",
+    deps = [":command_server_proto"],
+)
+
+java_library_srcs(
+    name = "command_server_java_proto_srcs",
+    deps = [":command_server_java_proto"],
+)
+
+proto_library(
+    name = "failure_details_proto",
+    srcs = ["failure_details.proto"],
+    deps = ["@com_google_protobuf//:descriptor_proto"],
+)
+
+java_proto_library(
+    name = "failure_details_java_proto",
+    deps = [":failure_details_proto"],
+)
+
+java_library_srcs(
+    name = "failure_details_java_proto_srcs",
+    deps = [":failure_details_java_proto"],
+)
+
 # This new option tagging method is in flux while being applied to the options
 # in the Bazel code base. The visibility should not be changed to allow external
 # dependencies until the interface has stabilized and can commit to maintaining
@@ -170,9 +194,19 @@ java_grpc_library(
     deps = [":command_server_java_proto"],
 )
 
-cc_grpc_library(
+cc_proto_library(
     name = "command_server_cc_proto",
-    src = "command_server.proto",
+    deps = [":command_server_proto"],
+)
+
+cc_grpc_library(
+    name = "command_server_cc_grpc",
+    srcs = [":command_server_proto"],
+    extra_cc_library_kwargs = {"defines": ["GRPC_USE_PROTO_LITE=ON"]},
+    deps = [
+        ":command_server_cc_proto",
+        "//third_party/grpc:grpc++_unsecure",
+    ],
 )
 
 py_proto_library(
@@ -215,6 +249,27 @@ java_library_srcs(
     deps = [":remote_execution_log_java_proto"],
 )
 
+proto_library(
+    name = "xcode_proto",
+    srcs = ["xcode_config.proto"],
+    visibility = ["//visibility:public"],
+)
+
+java_proto_library(
+    name = "xcode_java_proto",
+    deps = [":xcode_proto"],
+)
+
+cc_proto_library(
+    name = "xcode_cc_proto",
+    deps = [":xcode_proto"],
+)
+
+java_library_srcs(
+    name = "xcode_java_proto_srcs",
+    deps = [":xcode_java_proto"],
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
@@ -227,8 +282,11 @@ filegroup(
         ":analysis_v2_java_proto_srcs",
         ":command_line_java_proto_srcs",
         ":command_server_java_grpc_srcs",
+        ":command_server_java_proto_srcs",
+        ":failure_details_java_proto_srcs",
         ":option_filters_java_proto_srcs",
         ":profile_java_proto_srcs",
         ":remote_execution_log_java_proto_srcs",
+        ":xcode_java_proto_srcs",
     ],
 )

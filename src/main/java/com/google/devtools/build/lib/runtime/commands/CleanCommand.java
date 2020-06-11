@@ -14,6 +14,10 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
+import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -24,10 +28,17 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.StarlarkOptionsParser;
+import com.google.devtools.build.lib.runtime.commands.events.CleanStartingEvent;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.CleanCommand.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,19 +51,18 @@ import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.logging.LogManager;
-import java.util.logging.Logger;
 
 /** Implements 'blaze clean'. */
 @Command(
-  name = "clean",
-  builds = true, // Does not, but people expect build options to be there
-  writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
-  options = {CleanCommand.Options.class},
-  help = "resource:clean.txt",
-  shortDescription = "Removes output files and optionally stops the server.",
-  // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
-  inherits = {BuildCommand.class}
-)
+    name = "clean",
+    builds = true, // Does not, but people expect build options to be there
+    allowResidue = true, // Does not, but need to allow so we can ignore Starlark options.
+    writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
+    options = {CleanCommand.Options.class},
+    help = "resource:clean.txt",
+    shortDescription = "Removes output files and optionally stops the server.",
+    // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
+    inherits = {BuildCommand.class})
 public final class CleanCommand implements BlazeCommand {
   /** An interface for special options for the clean command. */
   public static class Options extends OptionsBase {
@@ -96,19 +106,6 @@ public final class CleanCommand implements BlazeCommand {
     public boolean async;
   }
 
-  /** Posted on the public event stream to announce that a clean is happening. */
-  public static class CleanStartingEvent {
-    private final OptionsParsingResult optionsParsingResult;
-
-    public CleanStartingEvent(OptionsParsingResult optionsParsingResult) {
-      this.optionsParsingResult = optionsParsingResult;
-    }
-
-    public OptionsParsingResult getOptionsProvider() {
-      return optionsParsingResult;
-    }
-  }
-
   private final OS os;
 
   public CleanCommand() {
@@ -120,10 +117,28 @@ public final class CleanCommand implements BlazeCommand {
     this.os = os;
   }
 
-  private static final Logger logger = Logger.getLogger(CleanCommand.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    // Assert that the only residue is starlark options and ignore them.
+    Pair<ImmutableList<String>, ImmutableList<String>> starlarkOptionsAndResidue =
+        StarlarkOptionsParser.removeStarlarkOptions(options.getResidue());
+    ImmutableList<String> removedStarlarkOptions = starlarkOptionsAndResidue.getFirst();
+    ImmutableList<String> residue = starlarkOptionsAndResidue.getSecond();
+    if (!removedStarlarkOptions.isEmpty()) {
+      env.getReporter()
+          .handle(
+              Event.warn(
+                  "Blaze clean does not support starlark options. Ignoring options: "
+                      + removedStarlarkOptions));
+    }
+    if (!residue.isEmpty()) {
+      String message = "Unrecognized arguments: " + Joiner.on(' ').join(residue);
+      env.getReporter().handle(Event.error(message));
+      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+    }
+
     Options cleanOptions = options.getOptions(Options.class);
     boolean async = cleanOptions.async;
     env.getEventBus().post(new NoBuildEvent());
@@ -160,15 +175,15 @@ public final class CleanCommand implements BlazeCommand {
               .getOptions(BuildRequestOptions.class)
               .getSymlinkPrefix(env.getRuntime().getProductName());
       return actuallyClean(env, env.getOutputBase(), cleanOptions.expunge, async, symlinkPrefix);
-    } catch (IOException e) {
+    } catch (CleanException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-    } catch (CommandException | ExecException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.RUN_FAILURE);
+      return BlazeCommandResult.failureDetail(e.getFailureDetail());
     } catch (InterruptedException e) {
-      env.getReporter().handle(Event.error("clean interrupted"));
-      return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+      String message = "clean interrupted";
+      env.getReporter().handle(Event.error(message));
+      return BlazeCommandResult.detailedExitCode(
+          InterruptedFailureDetails.detailedExitCode(
+              message, FailureDetails.Interrupted.Code.CLEAN_COMMAND));
     }
   }
 
@@ -190,7 +205,7 @@ public final class CleanCommand implements BlazeCommand {
             "exec >&- 2>&- <&- && (/usr/bin/setsid /bin/rm -rf %s &)&",
             ShellEscaper.escapeString(tempPath.getPathString()));
 
-    logger.info("Executing shell command " + ShellEscaper.escapeString(command));
+    logger.atInfo().log("Executing shell command %s", ShellEscaper.escapeString(command));
 
     // Doesn't throw iff command exited and was successful.
     new CommandBuilder()
@@ -203,25 +218,36 @@ public final class CleanCommand implements BlazeCommand {
 
   private BlazeCommandResult actuallyClean(
       CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
-      throws IOException, CommandException, ExecException,
-          InterruptedException {
+      throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
     String workspaceDirectory = env.getWorkspace().getBaseName();
     if (env.getOutputService() != null) {
-      env.getOutputService().clean();
+      try {
+        env.getOutputService().clean();
+      } catch (ExecException e) {
+        throw new CleanException(Code.OUTPUT_SERVICE_CLEAN_FAILURE, e);
+      }
     }
-    env.getBlazeWorkspace().clearCaches();
+    try {
+      env.getBlazeWorkspace().clearCaches();
+    } catch (IOException e) {
+      throw new CleanException(Code.ACTION_CACHE_CLEAN_FAILURE, e);
+    }
     if (expunge && !async) {
-      logger.info("Expunging...");
+      logger.atInfo().log("Expunging...");
       runtime.prepareForAbruptShutdown();
       // Close java.log.
       LogManager.getLogManager().reset();
       // Close the default stdout/stderr.
-      if (FileDescriptor.out.valid()) {
-        new FileOutputStream(FileDescriptor.out).close();
-      }
-      if (FileDescriptor.err.valid()) {
-        new FileOutputStream(FileDescriptor.err).close();
+      try {
+        if (FileDescriptor.out.valid()) {
+          new FileOutputStream(FileDescriptor.out).close();
+        }
+        if (FileDescriptor.err.valid()) {
+          new FileOutputStream(FileDescriptor.err).close();
+        }
+      } catch (IOException e) {
+        throw new CleanException(Code.OUT_ERR_CLOSE_FAILURE, e);
       }
       // Close the redirected stdout/stderr.
       System.out.close();
@@ -231,22 +257,42 @@ public final class CleanCommand implements BlazeCommand {
       // and links right before we exit. Once the lock file is gone there will
       // be a small possibility of a server race if a client is waiting, but
       // all significant files will be gone by then.
-      outputBase.deleteTreesBelow();
-      outputBase.deleteTree();
+      try {
+        outputBase.deleteTreesBelow();
+        outputBase.deleteTree();
+      } catch (IOException e) {
+        throw new CleanException(Code.OUTPUT_BASE_DELETE_FAILURE, e);
+      }
     } else if (expunge && async) {
-      logger.info("Expunging asynchronously...");
+      logger.atInfo().log("Expunging asynchronously...");
       runtime.prepareForAbruptShutdown();
-      asyncClean(env, outputBase, "Output base");
+      try {
+        asyncClean(env, outputBase, "Output base");
+      } catch (IOException e) {
+        throw new CleanException(Code.OUTPUT_BASE_TEMP_MOVE_FAILURE, e);
+      } catch (CommandException e) {
+        throw new CleanException(Code.ASYNC_OUTPUT_BASE_DELETE_FAILURE, e);
+      }
     } else {
-      logger.info("Output cleaning...");
+      logger.atInfo().log("Output cleaning...");
       env.getBlazeWorkspace().resetEvaluator();
       Path execroot = outputBase.getRelative("execroot");
       if (execroot.exists()) {
-        logger.finest("Cleaning " + execroot + (async ? " asynchronously..." : ""));
+        logger.atFinest().log("Cleaning %s%s", execroot, async ? " asynchronously..." : "");
         if (async) {
-          asyncClean(env, execroot, "Output tree");
+          try {
+            asyncClean(env, execroot, "Output tree");
+          } catch (IOException e) {
+            throw new CleanException(Code.EXECROOT_TEMP_MOVE_FAILURE, e);
+          } catch (CommandException e) {
+            throw new CleanException(Code.ASYNC_EXECROOT_DELETE_FAILURE, e);
+          }
         } else {
-          execroot.deleteTreesBelow();
+          try {
+            execroot.deleteTreesBelow();
+          } catch (IOException e) {
+            throw new CleanException(Code.EXECROOT_DELETE_FAILURE, e);
+          }
         }
       }
     }
@@ -261,9 +307,25 @@ public final class CleanCommand implements BlazeCommand {
 
     // shutdown on expunge cleans
     if (expunge) {
-      return BlazeCommandResult.shutdown(ExitCode.SUCCESS);
+      return BlazeCommandResult.shutdownOnSuccess();
     }
     System.gc();
-    return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+    return BlazeCommandResult.success();
+  }
+
+  private static class CleanException extends Exception {
+    private final FailureDetails.CleanCommand.Code detailedCode;
+
+    private CleanException(FailureDetails.CleanCommand.Code detailedCode, Exception e) {
+      super(Strings.nullToEmpty(e.getMessage()), e);
+      this.detailedCode = detailedCode;
+    }
+
+    private FailureDetail getFailureDetail() {
+      return FailureDetail.newBuilder()
+          .setMessage(getMessage())
+          .setCleanCommand(FailureDetails.CleanCommand.newBuilder().setCode(detailedCode))
+          .build();
+    }
   }
 }

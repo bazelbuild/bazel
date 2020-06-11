@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -859,7 +858,7 @@ public class CppLinkActionBuilder {
 
     NestedSet<Artifact> expandedLinkerArtifacts =
         getArtifactsPossiblyLtoMapped(
-            collectedLibrariesToLink.getExpandedLinkerInputs(), ltoMapping);
+            collectedLibrariesToLink.getExpandedLinkerInputs().toList(), ltoMapping);
 
     CcToolchainVariables variables;
     try {
@@ -958,7 +957,7 @@ public class CppLinkActionBuilder {
 
     linkCommandLineBuilder.setBuildVariables(buildVariables);
     if (CppHelper.doNotSplitLinkingCmdLine(
-        actionConstructionContext.getAnalysisEnvironment().getSkylarkSemantics(), toolchain)) {
+        actionConstructionContext.getAnalysisEnvironment().getStarlarkSemantics(), toolchain)) {
       linkCommandLineBuilder.doNotSplitLinkingCmdLine();
     }
     LinkCommandLine linkCommandLine = linkCommandLineBuilder.build();
@@ -1006,8 +1005,7 @@ public class CppLinkActionBuilder {
               paramFileActionInputs,
               paramFile,
               linkCommandLine.paramCmdLine(),
-              ParameterFile.ParameterFileType.UNQUOTED,
-              ISO_8859_1);
+              ParameterFile.ParameterFileType.UNQUOTED);
       actionConstructionContext.registerAction(parameterFileWriteAction);
     }
 
@@ -1065,7 +1063,7 @@ public class CppLinkActionBuilder {
     inputsBuilder.addTransitive(linkstampObjectArtifacts);
 
     ImmutableSet<Artifact> fakeLinkerInputArtifacts =
-        collectedLibrariesToLink.getExpandedLinkerInputs().stream()
+        collectedLibrariesToLink.getExpandedLinkerInputs().toList().stream()
             .filter(LinkerInput::isFake)
             .map(LinkerInput::getArtifact)
             .collect(ImmutableSet.toImmutableSet());
@@ -1249,7 +1247,6 @@ public class CppLinkActionBuilder {
   /** Sets the C++ runtime library inputs for the action. */
   public CppLinkActionBuilder setRuntimeInputs(
       ArtifactCategory runtimeType, Artifact middleman, NestedSet<Artifact> inputs) {
-    Preconditions.checkArgument((middleman == null) == inputs.isEmpty());
     this.toolchainLibrariesType = runtimeType;
     this.runtimeMiddleman = middleman;
     this.toolchainLibrariesInputs = inputs;

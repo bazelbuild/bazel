@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.AbortedEvent;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
 import com.google.devtools.build.lib.buildtool.buildevent.NoAnalyzeEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
+import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -116,7 +117,7 @@ public final class AnalysisPhaseRunner {
           .injectExtraPrecomputedValues(
               ImmutableList.of(
                   PrecomputedValue.injected(
-                      PrecomputedValue.BUILD_INFO_FACTORIES,
+                      BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                       env.getRuntime().getRuleClassProvider().getBuildInfoFactoriesAsMap())));
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
@@ -125,12 +126,7 @@ public final class AnalysisPhaseRunner {
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-        module.afterAnalysis(
-            env,
-            request,
-            buildOptions,
-            analysisResult.getTargetsToBuild(),
-            analysisResult.getAspects());
+        module.afterAnalysis(env, request, buildOptions, analysisResult.getTargetsToBuild());
       }
 
       reportTargets(env, analysisResult);
@@ -143,7 +139,7 @@ public final class AnalysisPhaseRunner {
         env.getEventBus()
             .post(
                 new AbortedEvent(
-                    BuildEventId.targetCompleted(label, config.getEventId()),
+                    BuildEventIdUtil.targetCompleted(label, config.getEventId()),
                     AbortReason.SKIPPED,
                     String.format("Target %s build was skipped.", label),
                     label));

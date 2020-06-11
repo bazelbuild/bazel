@@ -202,13 +202,15 @@ copies of N/2 elements is O(N^2) memory.
 Bazel is heavily affected by both of these scenarios, so we introduced a set of
 custom collection classes that effectively compress the information in memory by
 avoiding the copy at each step. Almost all of these data structures have set
-semantics, so we called the class NestedSet. The majority of changes to reduce
-Bazel's memory consumption over the past several years were changes to use
-NestedSet instead of whatever was previously used.
+semantics, so we called it
+[depset](https://docs.bazel.build/versions/master/skylark/lib/depset.html)
+(also known as `NestedSet` in the internal implementation). The majority of
+changes to reduce Bazel's memory consumption over the past several years were
+changes to use depsets instead of whatever was previously used.
 
-Unfortunately, usage of NestedSet does not automatically solve all the issues;
-in particular, even just iterating over a NestedSet in each rule re-introduces
-quadratic time consumption. NestedSet also has some helper methods to facilitate
-interoperability with normal collections classes; unfortunately, accidentally
-passing a NestedSet to one of these methods leads to copying behavior, and
-reintroduces quadratic memory consumption.
+Unfortunately, usage of depsets does not automatically solve all the issues;
+in particular, even just iterating over a depset in each rule re-introduces
+quadratic time consumption. Internally, NestedSets also has some helper methods
+to facilitate interoperability with normal collections classes; unfortunately,
+accidentally passing a NestedSet to one of these methods leads to copying
+behavior, and reintroduces quadratic memory consumption.

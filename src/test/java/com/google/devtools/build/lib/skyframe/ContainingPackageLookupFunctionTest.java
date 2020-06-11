@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
@@ -110,9 +109,10 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         new PackageLookupFunction(
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
-        SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null));
+        SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null, null));
     skyFunctions.put(
         SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction(
@@ -139,9 +139,13 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fileSystem),
             directories,
-            /*skylarkImportLookupFunctionForInlining=*/ null));
-    skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+            /*bzlLoadFunctionForInlining=*/ null));
+    skyFunctions.put(
+        SkyFunctions.EXTERNAL_PACKAGE,
+        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(
+        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+        new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
@@ -155,7 +159,8 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
             new AtomicBoolean(true),
             ImmutableMap::of,
             directories,
-            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES));
+            ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
 
     differencer = new SequencedRecordingDifferencer();
@@ -163,7 +168,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
         differencer, ImmutableMap.<RepositoryName, PathFragment>of());
     RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING.set(

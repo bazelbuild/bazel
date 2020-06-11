@@ -77,7 +77,7 @@ public final class CcImportRule implements RuleDefinition {
             attr("hdrs", LABEL_LIST)
                 .orderIndependent()
                 .direct_compile_time_input()
-                .allowedFileTypes(CppFileTypes.CPP_HEADER))
+                .allowedFileTypes(FileTypeSet.ANY_FILE))
         /*<!-- #BLAZE_RULE(cc_import).ATTRIBUTE(system_provided) -->
         If 1, it indicates the shared library required at runtime is provided by the system. In
         this case, <code>interface_library</code> should be specified and

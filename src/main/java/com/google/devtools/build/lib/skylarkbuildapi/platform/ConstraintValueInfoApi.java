@@ -16,23 +16,25 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Info object representing a value for a constraint setting that can be used to define a platform.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ConstraintValueInfo",
     doc =
-        "A value for a constraint setting that can be used to define a platform. "
+        "A value for a constraint setting that can be used to define a platform. See "
+            + "<a href='../../platforms.html#defining-constraints-and-platforms'>Defining "
+            + "Constraints and Platforms</a> for more information."
             + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface ConstraintValueInfoApi extends StructApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "constraint",
       doc =
           "The <a href=\"ConstraintSettingInfo.html\">ConstraintSettingInfo</a> this value can be "
@@ -41,7 +43,7 @@ public interface ConstraintValueInfoApi extends StructApi {
       enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_PLATFORM_API)
   ConstraintSettingInfoApi constraint();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "label",
       doc = "The label of the target that created this constraint value.",
       structField = true,

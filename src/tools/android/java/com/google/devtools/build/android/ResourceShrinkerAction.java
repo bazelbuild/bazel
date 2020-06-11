@@ -131,15 +131,14 @@ public class ResourceShrinkerAction {
     public Path primaryManifest;
 
     @Option(
-      name = "dependencyManifest",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "input",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Paths to the manifests of the dependencies. Specify one path per flag."
-    )
+        name = "dependencyManifest",
+        allowMultiple = true,
+        defaultValue = "null",
+        category = "input",
+        converter = PathConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Paths to the manifests of the dependencies. Specify one path per flag.")
     public List<Path> dependencyManifests;
 
     @Option(

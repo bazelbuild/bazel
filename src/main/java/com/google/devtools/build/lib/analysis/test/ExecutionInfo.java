@@ -27,7 +27,7 @@ import java.util.Map;
 @Immutable
 public final class ExecutionInfo extends NativeInfo implements ExecutionInfoApi {
 
-  /** Skylark constructor and identifier for ExecutionInfo. */
+  /** Starlark constructor and identifier for ExecutionInfo. */
   public static final NativeProvider<ExecutionInfo> PROVIDER =
       new NativeProvider<ExecutionInfo>(ExecutionInfo.class, "ExecutionInfo") {};
 

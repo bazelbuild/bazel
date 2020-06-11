@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.packages.Provider;
 import javax.annotation.concurrent.Immutable;
 
 /**
@@ -25,12 +23,13 @@ import javax.annotation.concurrent.Immutable;
  * <p>We have three kinds of provider identifiers:
  *
  * <ul>
- *   <li>Declared providers. They are exposed to Skylark and identified by {@link Provider.Key}.
- *       Provider instances are {@link Info}s.
+ *   <li>Declared providers. They are exposed to Starlark and identified by {@link
+ *       com.google.devtools.build.lib.packages.Provider.Key}. Provider instances are {@link
+ *       com.google.devtools.build.lib.packages.Info}s.
  *   <li>Native providers. They are identified by their {@link Class} and their instances are
  *       instances of that class. They should implement {@link TransitiveInfoProvider} marker
  *       interface.
- *   <li>Legacy Skylark providers (deprecated). They are identified by simple strings, and their
+ *   <li>Legacy Starlark providers (deprecated). They are identified by simple strings, and their
  *       instances are more-less random objects.
  * </ul>
  */
@@ -52,7 +51,7 @@ public interface TransitiveInfoProviderMap extends ProviderCollection {
    * <ul>
    *   <li>{@code Class<? extends TransitiveInfoProvider>}
    *   <li>String
-   *   <li>{@link Provider.Key}
+   *   <li>{@link com.google.devtools.build.lib.packages.Provider.Key}
    * </ul>
    *
    * Low-level method, use with care.

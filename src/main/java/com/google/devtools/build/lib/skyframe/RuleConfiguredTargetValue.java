@@ -31,8 +31,7 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 @AutoCodec(explicitlyAllowClass = RuleConfiguredTarget.class)
-public final class RuleConfiguredTargetValue extends ActionLookupValue
-    implements ConfiguredTargetValue {
+public final class RuleConfiguredTargetValue implements ActionLookupValue, ConfiguredTargetValue {
 
   // This variable is non-final because it may be clear()ed to save memory. It is null only after
   // clear(true) is called.

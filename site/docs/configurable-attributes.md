@@ -1,32 +1,9 @@
 ---
 layout: documentation
-title: Configurable Build Attributes
+title: Configurable build attributes
 ---
 
-# Configurable Build Attributes
-
-### Contents
-* [Example](#example)
-* [Configuration Conditions](#configuration-conditions)
-* [Defaults](#defaults)
-* [Custom Keys](#custom-keys)
-* [Platforms](#platforms)
-* [Short Keys](#short-keys)
-* [Multiple Selects](#multiple-selects)
-* [OR Chaining](#or-chaining)
-  * [selects.with_or](#selects-with-or)
-  * [selects.config_setting_group](#selects-config-setting-or-group)
-* [AND Chaining](#and-chaining)
-* [Custom Error Messages](#custom-error-messages)
-* [Rules Compatibility](#rules)
-* [Bazel Query and Cquery](#query)
-* [FAQ](#faq)
-  * [Why doesn't select() work in macros?](#macros-select)
-  * [Why does select() always return true?](#boolean-select)
-  * [Can I read select() like a dict?](#inspectable-select)
-  * [Why doesn't select() work with bind()?](#bind-select)
-
-&nbsp;
+# Configurable build attributes
 
 **_Configurable attributes_**, commonly known as [`select()`](
 be/functions.html#select), is a Bazel feature that lets users toggle the values
@@ -90,6 +67,7 @@ command line. Specficially, `deps` becomes:
     <td><code>[":generic_lib"]</code></td>
   </tr>
 </table>
+
 `select()` serves as a placeholder for a value that will be chosen based on
 *configuration conditions*. These conditions are labels that refer to
 [`config_setting`](be/general.html#config_setting) targets. By using `select()`
@@ -115,7 +93,7 @@ beneath them. This will affect how conditions are matched within those targets
 but not within the attribute that causes the change. That is, a `select` in the
 `tools` attribute of a `genrule` will work the same as a `select` in the `srcs`.
 
-## Configuration Conditions
+## Configuration conditions
 
 Each key in a configurable attribute is a label reference to a
 [`config_setting`](be/general.html#config_setting) target. This is just a
@@ -194,7 +172,7 @@ Conditions checked:
 `select()` can include a [`no_match_error`](#custom-error-messages) for custom
 failure messages.
 
-## Custom Keys
+## Custom keys
 
 Since `config_setting` currently only supports built-in Bazel flags, the level
 of custom conditioning it can support is limited. For example, there's no Bazel
@@ -202,7 +180,7 @@ flag for `IncludeSpecialProjectFeatureX`.
 
 Plans for [truly custom flags](
 https://docs.google.com/document/d/1vc8v-kXjvgZOdQdnxPTaV0rrLxtP2XwnD2tAZlYJOqw/edit?usp=sharing)
-are underway. In the meantime, [`--define`](user-manual.html#flag--define) is
+are underway. In the meantime, [`--define`](command-line-reference.html#flag--define) is
 the best approach for these purposes.
 `--define` is a bit awkward to use and wasn't originally designed for this
 purpose. We recommend using it sparingly until true custom flags are available.
@@ -326,7 +304,7 @@ bazel build //my_app:my_rocks --define color=white --define texture=smooth --def
 Platforms are still under development. See the [documentation](platforms.html)
 and [roadmap](https://bazel.build/roadmaps/platforms.html) for details.
 
-## Short Keys
+## Short keys
 
 Since configuration keys are target labels, their names can get long and
 unwieldy. This can be mitigated with local variable definitions:
@@ -408,7 +386,7 @@ genrule(
 )
 ```
 
-## Multiple Selects
+## Multiple `select` functions
 
 `select` can appear multiple times in the same attribute:
 
@@ -455,7 +433,7 @@ Note that this approach doesn't work for non-deps attributes (like
 If you just need a `select` to match when multiple conditions match, see [AND
 chaining](#and-chaining).
 
-## OR Chaining
+## OR chaining
 
 Consider the following:
 
@@ -565,7 +543,7 @@ Note that it's an error for multiple conditions to match unless one is a
 "specialization" of the other. See [select()](be/functions.html#select)
 documentation for details.
 
-## And Chaining
+## And chaining
 
 If you need a `select` path to match when multiple conditions match, use the
 [Skylib](https://github.com/bazelbuild/bazel-skylib) macro
@@ -602,7 +580,7 @@ Unlike OR chaining, existing `config_setting`s can't be `AND`ed together
 directly inside a `select`: you have to explicitly declare the
 `config_setting_group`.
 
-## Custom Error Messages
+## Custom error messages
 
 By default, when no condition matches, the owning target fails with the error:
 
@@ -635,7 +613,7 @@ ERROR: Configurable attribute "deps" doesn't match this configuration: Please
 build with an Android or Windows toolchain
 ```
 
-## <a name="rules"></a>Rules Compatibility
+## <a name="rules"></a>Rules compatibility
 Rule implementations receive the *resolved values* of configurable
 attributes. For example, given:
 
@@ -674,7 +652,7 @@ select({"foo": "val_with_suffix"}, ...)
 This is for two reasons.
 
 First, macros that need to know which path a `select` will choose *cannot work*
-because macros are evaluated in Bazel's [loading phase](user-manual.html#loading-phase),
+because macros are evaluated in Bazel's [loading phase](guide.html#loading-phase),
 which occurs before flag values are known.
 This is a core Bazel design restriction that's unlikely to change any time soon.
 
@@ -682,9 +660,9 @@ Second, macros that just need to iterate over *all* `select` paths, while
 technically feasible, lack a coherent UI. Further design is necessary to change
 this.
 
-## <a name="query"></a>Bazel Query and Cquery
+## <a name="query"></a>Bazel query and cquery
 Bazel `query` operates over Bazel's [loading phase](
-user-manual.html#loading-phase). This means it doesn't know what command line
+guide.html#loading-phase). This means it doesn't know what command line
 flags will be applied to a target since those flags aren't evaluated until later
 in the build (during the [analysis phase](user-manual.html#analysis-phase)). So
 the [`query`](query.html) command can't accurately determine which path a
@@ -733,7 +711,7 @@ $ bazel cquery 'deps(//myproject:my_lib)' --define dog=pug
 
 ## FAQ
 
-## <a name="macros-select"></a>Why doesn't select() work in macros?
+### <a name="macros-select"></a>Why doesn't select() work in macros?
 select() *does* work in rules! See [Rules compatibility](#rules) for
 details.
 
@@ -844,7 +822,7 @@ DEBUG: /myworkspace/myproject/defs.bzl:23:3: Invoking macro sad_macro_less_sad.
 DEBUG: /myworkspace/myproject/defs.bzl:15:3: My name is sad_macro_less_sad with custom message: FIRST STRING.
 ```
 
-## <a name="boolean-select"></a>Why does select() always return true?
+### <a name="boolean-select"></a>Why does select() always return true?
 Because *macros* (but not rules) by definition
 [can't evaluate select(s)](#macros-select), any attempt to do so
 usually produces an error:
@@ -888,7 +866,7 @@ So what they're really evaluting is the `select()` object itself. According to
 [Pythonic](https://docs.python.org/release/2.5.2/lib/truth.html) design
 standards, all objects aside from a very small number of exceptions
 automatically return true.
-## <a name="inspectable-select"></a>Can I read select() like a dict?
+### <a name="inspectable-select"></a>Can I read select() like a dict?
 Fine. Macros [can't](#macros-select) evaluate select(s) because
 macros are evaluated before Bazel knows what the command line flags are.
 
@@ -946,7 +924,7 @@ def selecty_genrule(name, select_cmd):
     )
 ```
 
-## <a name="bind-select"></a>Why doesn't select() work with bind()?
+### <a name="bind-select"></a>Why doesn't select() work with bind()?
 
 Because [`bind()`](be/workspace.html#bind) is a WORKSPACE rule, not a BUILD rule.
 
@@ -988,3 +966,49 @@ alias(
 With this setup, you can pass `--define ssl_library=alternative`, and any target
 that depends on either `//:ssl` or `//external:ssl` will see the alternative
 located at `@alternative//:ssl`.
+
+### Why doesn't my select() choose what I expect?
+If `//my:target` has a `select()` that doesn't choose the condition you expect,
+you can debug with [cquery](cquery.html) and `bazel config`:
+
+If `//my:target` is what you're building, run:
+
+```sh
+$ bazel cquery //my:target <desired build flags>
+//my:target (12e23b9a2b534a)
+```
+
+Alternatively, if you're building some other target `//foo` that depends on
+`//my:target` somewhere in its subgraph, run:
+
+```sh
+$ bazel cquery 'somepath(//foo, //my:target)' <desired build flags>
+//foo:foo   (3ag3193fee94a2)
+//foo:intermediate_dep (12e23b9a2b534a)
+//my:target (12e23b9a2b534a)
+```
+
+The "`(12e23b9a2b534a)`" that appears next to `//my:target` is a *hash* of the
+configuration that resolves the `select()`. You can inspect its values with
+`bazel config`:
+
+```sh
+$ bazel config 12e23b9a2b534a
+BuildConfiguration 12e23b9a2b534a
+Fragment com.google.devtools.build.lib.analysis.config.CoreOptions {
+  cpu: darwin
+  compilation_mode: fastbuild
+  ...
+}
+Fragment com.google.devtools.build.lib.rules.cpp.CppOptions {
+  linkopt: [-Dfoo=bar]
+  ...
+}
+...
+```
+
+Then compare this output against the settings that match the `config_setting`s.
+
+It's possible for `//my:target` to exist in multiple configurations in the same
+build. See the [cquery docs](cquery.html) for guidance on using `somepath` to
+get the right one.

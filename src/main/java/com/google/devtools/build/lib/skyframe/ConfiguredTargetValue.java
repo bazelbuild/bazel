@@ -14,52 +14,17 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.skyframe.NotComparableSkyValue;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
-/** A {@link SkyValue} for a {@link ConfiguredTarget}. */
-public interface ConfiguredTargetValue extends NotComparableSkyValue {
-  static SkyKey key(Label label, BuildConfiguration configuration) {
-    return ConfiguredTargetKey.of(label, configuration);
-  }
+/** A {@link com.google.devtools.build.skyframe.SkyValue} for a {@link ConfiguredTarget}. */
+public interface ConfiguredTargetValue extends ConfiguredObjectValue {
 
-  /**
-   * Returns the configured target for this value.
-   */
+  /** Returns the configured target for this value. */
   ConfiguredTarget getConfiguredTarget();
 
-  /**
-   * Returns the set of packages transitively loaded by this value. Must only be used for
-   * constructing the package -> source root map needed for some builds. If the caller has not
-   * specified that this map needs to be constructed (via the constructor argument in {@link
-   * ConfiguredTargetFunction#ConfiguredTargetFunction}), calling this will crash.
-   */
-  NestedSet<Package> getTransitivePackagesForPackageRootResolution();
-
-  /** Returns the actions registered by the configured target for this value. */
-  ImmutableList<ActionAnalysisMetadata> getActions();
-
-  /**
-   * Returns the number of {@link Action} objects present in this value.
-   */
-  int getNumActions();
-
-  /**
-   * Clears configured target data from this value, leaving only the artifact->generating action
-   * map.
-   *
-   * <p>Should only be used when user specifies --discard_analysis_cache. Must be called at most
-   * once per value, after which {@link #getConfiguredTarget} and {@link #getActions} cannot be
-   * called.
-   */
-  void clear(boolean clearEverything);
+  @Override
+  default ConfiguredTarget getConfiguredObject() {
+    return getConfiguredTarget();
+  }
 }

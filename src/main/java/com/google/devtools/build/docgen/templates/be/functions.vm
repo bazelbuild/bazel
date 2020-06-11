@@ -60,9 +60,8 @@ file, before any rule.</p>
         <p>Every rule in this package has the visibility specified in this
         attribute, unless otherwise specified in the <code>visibility</code>
         attribute of the rule. For detailed information about the syntax of this
-        attribute, see the documentation of the
-        <a href="common-definitions.html#common.visibility">visibility</a>
-        attribute. The package default visibility does not apply to
+        attribute, see the documentation of <a href="../visibility.md">visibility</a>.
+        The package default visibility does not apply to
         <a href="#exports_files">exports_files</a>, which is
         public by default.</p>
       </td>
@@ -253,18 +252,21 @@ package_group(
 
 <p>
   <code>exports_files()</code> specifies a list of files belonging to
-  this package that are exported to other packages but not otherwise
-  mentioned in the BUILD file.
+  this package that are exported to other packages.
 </p>
 
 <p>
-  The BUILD file for a package may only refer to files belonging to another
-  package if they are mentioned somewhere in the other packages's BUILD file,
-  whether as an input to a rule or an explicit or implicit output from a rule.
-  The remaining files are not associated with a specific rule but are just "data",
-  and for these, <code>exports_files</code> ensures that they may be referenced by
-  other packages.  (One kind of data for which this is particularly useful are
-  shell scripts.)
+  The BUILD file for a package may only refer directly to source files belonging
+  to another package if they are explicitly exported with an
+  <code>exports_files()</code> statement. Read more about
+  <a href="../visibility.md#visibility-of-a-file">visibility of files</a>.
+</p>
+   <p>
+  As a legacy behaviour, also files mentioned as input to a rule are exported
+  with the default visibility until the flag
+  <a href="https://github.com/bazelbuild/bazel/issues/10225"><code>--incompatible_no_implicit_file_export</code></a>
+  is flipped. However, this behavior should not be relied upon and actively
+  migrated away from.
 </p>
 
 <h3 id="exports_files_args">Arguments</h3>
@@ -301,30 +303,65 @@ exports_files(["golden.txt"])
 
 <h2 id="glob">glob</h2>
 
-<pre>glob(include, exclude=[], exclude_directories=1)</pre>
+<pre>glob(include, exclude=[], exclude_directories=1, allow_empty=True)</pre>
 
 <p>
-Glob is a helper function that can be used anywhere a list of filenames
-is expected.  It takes one or two lists of filename patterns containing
-the <code>*</code> wildcard: as per the Unix shell, this wildcard
-matches any string excluding the directory separator <code>/</code>.
-In addition filename patterns can contain the recursive <code>**</code>
-wildcard. This wildcard will match zero or more complete
-path segments separated by the directory separator <code>/</code>.
-This wildcard can only be used as a complete path segment. For example,
-<code>"x/**/*.java"</code> is valid, but <code>"test**/testdata.xml"</code>
-and <code>"**.java"</code> are both invalid. No other wildcards are supported.
+Glob is a helper function that finds all files that match certain path patterns,
+and returns a list of their paths. Glob only searches files in its own package,
+and looks only for source files (not generated files nor other targets).
 </p>
+
 <p>
-Glob returns a sorted list of every file in the current package that:
+A source file's Label is included in the result if the file's package-relative
+path matches any of the <code>include</code> patterns and none of the
+<code>exclude</code> patterns.
 </p>
+
+<p>
+The <code>include</code> and <code>exclude</code> lists contain path patterns
+that are relative to the current package. Every pattern may consist of one or
+more path segments. As usual with Unix paths, these segments are separated by
+<code>/</code>. Segments may contain the <code>*</code> wildcard: this matches
+any substring in the path segment (even the empty substring), excluding the
+directory separator <code>/</code>. This wildcard can be used multiple times
+within one path segment. Additionally, the <code>**</code> wildcard can match
+zero or more complete path segments, but it must be declared as a standalone
+path segment.
+</p>
+
+Examples:
 <ul>
-  <li>Matches at least one pattern in <code>include</code>. </li>
-  <li>Does not match any of the patterns in <code>exclude</code> (default []).</li>
+<li><code>foo/bar.txt</code> matches exactly the <code>foo/bar.txt</code> file
+in this package</li>
+<li><code>foo/*.txt</code> matches every file in the <code>foo/</code> directory
+if the file ends with
+<code>.txt</code> (unless <code>foo/</code> is a subpackage)</li>
+<li><code>foo/a*.htm*</code> matches every file in the <code>foo/</code>
+directory that starts with <code>a</code>, then has an arbitrary string (could
+be empty), then has <code>.htm</code>, and ends with another arbitrary string;
+such as <code>foo/axx.htm</code> and <code>foo/a.html</code> or
+<code>foo/axxx.html</code></li>
+<li><code>**/a.txt</code> matches every <code>a.txt</code> file in every
+subdirectory of this package</li>
+<li><code>**/bar/**/*.txt</code> matches every <code>.txt</code> file in every
+subdirectory of this package, if at least one directory on the resulting path is
+called <code>bar</code>, such as <code>xxx/bar/yyy/zzz/a.txt</code> or
+<code>bar/a.txt</code> (remember that <code>**</code> also matches zero
+segments) or <code>bar/zzz/a.txt</code></li>
+<li><code>**</code> matches every file in every subdirectory of this
+package</li>
+<li><code>foo**/a.txt</code> is an invalid pattern, because <code>**</code> must
+stand on its own as a segment</li>
 </ul>
+
 <p>
 If the <code>exclude_directories</code> argument is enabled (set to 1), files of
 type directory will be omitted from the results (default 1).
+</p>
+<p>
+If the <code>allow_empty</code> argument is set to <code>False</code>, the
+<code>glob</code> function will error-out if the result would otherwise be the
+empty list.
 </p>
 <p>
 There are several important limitations and caveats:
@@ -332,17 +369,33 @@ There are several important limitations and caveats:
 
 <ol>
   <li>
+    <p>
     Since <code>glob()</code> runs during BUILD file evaluation,
     <code>glob()</code> matches files only in your source tree, never
     generated files.  If you are building a target that requires both
-    source and generated files, create a list of generated
-    files. This list can be specified by using the labels for the generated
-    files or using the label
-    for the target that produces the generated files.
-    Use <code>+</code> to add the list of
-    generated files to the result of the <code>glob()</code> call as shown in
-    the <a href="#glob_example">example</a>
-    below with the target <code>:gen_java_srcs</code>.
+    source and generated files, you must append an explicit list of generated
+    files to the glob. See the <a href="#glob_example">example</a>
+    below with <code>:mylib</code> and <code>:gen_java_srcs</code>.
+    </p>
+  </li>
+
+  <li>
+    <p>
+      If a rule has the same name as a matched source file, the rule will
+      "shadow" the file.
+    </p>
+    <p>
+      To understand this, remember that <code>glob()</code> returns a list of
+      paths, so using <code>glob()</code> in other rules' attribute (e.g.
+      <code>srcs = glob(["*.cc"])</code>) has the same effect as listing the
+      matched paths explicitly.  If for example <code>glob()</code> yields
+      <code>["Foo.java", "bar/Baz.java"]</code> but there's also a rule in the
+      package called "Foo.java" (which is allowed, though Bazel warns about it),
+      then the consumer of the <code>glob()</code> will use the "Foo.java" rule
+      (its outputs) instead of the "Foo.java" file. See
+      <a href="https://github.com/bazelbuild/bazel/issues/10395#issuecomment-583714657">GitHub
+      issue #10395</a> for more details.
+    </p>
   </li>
 
   <li>
@@ -351,9 +404,12 @@ There are several important limitations and caveats:
   </li>
 
   <li>
+    <p>
     Labels are not allowed to cross the package boundary and glob does
     not match files in subpackages.
+    </p>
 
+    <p>
     For example, the glob expression <code>**/*.cc</code> in package
     <code>x</code> does not include <code>x/y/z.cc</code> if
     <code>x/y</code> exists as a package (either as
@@ -364,6 +420,7 @@ There are several important limitations and caveats:
     <code>x/y</code> or it was marked as deleted using the
     <a href="../user-manual.html#flag--deleted_packages">--deleted_packages</a>
     flag.
+    </p>
 
   </li>
 
@@ -377,10 +434,11 @@ There are several important limitations and caveats:
     with a compound pattern, your pattern needs to begin with a <code>.</code>. For example,
     <code>*</code> and <code>.*.txt</code> will match <code>.foo.txt</code>, but <code>*.txt</code>
     will not.
-  </li>
-  <li>
-    If a rule and a source file with the same name both exist in the package, the glob will
-    return the outputs of the rule instead of the source file.
+
+    Hidden directories are also matched in the same manner. Hidden directories
+    may include files that are not required as inputs, and can increase the
+    number of unnecessarily globbed files and memory consumption. To exclude
+    hidden directories, add them to the "exclude" list argument.
   </li>
 
   <li>

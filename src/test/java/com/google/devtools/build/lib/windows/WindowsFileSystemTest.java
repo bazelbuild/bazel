@@ -51,7 +51,9 @@ public class WindowsFileSystemTest {
 
   @Before
   public void loadJni() throws Exception {
-    fs = new WindowsFileSystem(DigestHashFunction.getDefaultUnchecked());
+    fs =
+        new WindowsFileSystem(
+            DigestHashFunction.getDefaultUnchecked(), /*createSymbolicLinks=*/ false);
     scratchRoot = fs.getPath(System.getenv("TEST_TMPDIR")).getRelative("x");
     testUtil = new WindowsTestUtil(scratchRoot.getPathString());
     cleanupScratchDir();
@@ -96,7 +98,7 @@ public class WindowsFileSystemTest {
     assertThat(juncBadPath.exists(Symlinks.NOFOLLOW)).isTrue();
     // TODO(bazel-team): fix https://github.com/bazelbuild/bazel/issues/1690 and uncomment the
     // assertion below.
-    //assertThat(fs.isSymbolicLink(juncBadPath)).isTrue();
+    // assertThat(fs.isSymbolicLink(juncBadPath)).isTrue();
     assertThat(fs.isDirectory(juncBadPath, /* followSymlinks */ true)).isFalse();
     assertThat(fs.isDirectory(juncBadPath, /* followSymlinks */ false)).isFalse();
 
@@ -330,6 +332,25 @@ public class WindowsFileSystemTest {
       assertThat(p.isSymbolicLink()).isFalse();
       assertThat(p.isFile()).isTrue();
     }
+  }
+
+  @Test
+  public void testCreateSymbolicLinkWithRealSymlinks() throws Exception {
+    fs =
+        new WindowsFileSystem(
+            DigestHashFunction.getDefaultUnchecked(), /*createSymbolicLinks=*/ true);
+    java.nio.file.Path helloPath = testUtil.scratchFile("hello.txt", "hello");
+    PathFragment targetFragment = PathFragment.create(helloPath.toString());
+    Path linkPath = scratchRoot.getRelative("link.txt");
+    fs.createSymbolicLink(linkPath, targetFragment);
+
+    assertThat(linkPath.isSymbolicLink()).isTrue();
+    assertThat(linkPath.readSymbolicLink()).isEqualTo(targetFragment);
+
+    // Assert deleting the symbolic link keeps the target file.
+    linkPath.delete();
+    assertThat(linkPath.exists()).isFalse();
+    assertThat(helloPath.toFile().exists()).isTrue();
   }
 
   @Test

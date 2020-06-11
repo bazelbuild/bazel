@@ -86,7 +86,7 @@ public abstract class MultisetSemaphore<T> {
     public Builder maxNumUniqueValues(int maxNumUniqueValues) {
       Preconditions.checkState(
           maxNumUniqueValues > 0,
-          "maxNumUniqueValues must be positive (was %d)",
+          "maxNumUniqueValues must be positive (was %s)",
           maxNumUniqueValues);
       this.maxNumUniqueValues = maxNumUniqueValues;
       return this;

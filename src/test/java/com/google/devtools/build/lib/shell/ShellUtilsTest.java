@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.shell.ShellUtils.prettyPrintArgv;
 import static com.google.devtools.build.lib.shell.ShellUtils.shellEscape;
 import static com.google.devtools.build.lib.shell.ShellUtils.tokenize;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import java.util.ArrayList;
 import java.util.Arrays;

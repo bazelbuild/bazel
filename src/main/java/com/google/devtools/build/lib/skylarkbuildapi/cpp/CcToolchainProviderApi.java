@@ -15,24 +15,24 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Information about the C++ toolchain. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "CcToolchainInfo",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc = "Information about the C++ compiler being used.")
 public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureConfigurationApi>
     extends ToolchainInfoApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "needs_pic_for_dynamic_libraries",
       doc =
           "Returns true if this rule's compilations should apply -fPIC, false otherwise. "
@@ -48,13 +48,13 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       })
   boolean usePicForDynamicLibrariesFromStarlark(FeatureConfigurationT featureConfigurationApi);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "built_in_include_directories",
       doc = "Returns the list of built-in directories of the compiler.",
       structField = true)
   public ImmutableList<String> getBuiltInIncludeDirectoriesAsStrings();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "all_files",
       doc =
           "Returns all toolchain files (so they can be passed to actions using this "
@@ -62,7 +62,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
       structField = true)
   public Depset getAllFilesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "static_runtime_lib",
       doc =
           "Returns the files from `static_runtime_lib` attribute (so they can be passed to actions "
@@ -81,7 +81,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
   public Depset getStaticRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dynamic_runtime_lib",
       doc =
           "Returns the files from `dynamic_runtime_lib` attribute (so they can be passed to"
@@ -100,7 +100,7 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
   public Depset getDynamicRuntimeLibForStarlark(FeatureConfigurationT featureConfiguration)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "sysroot",
       structField = true,
       allowReturnNones = true,
@@ -111,23 +111,31 @@ public interface CcToolchainProviderApi<FeatureConfigurationT extends FeatureCon
   @Nullable
   public String getSysroot();
 
-  @SkylarkCallable(name = "compiler", structField = true, doc = "C++ compiler.",
+  @StarlarkMethod(
+      name = "compiler",
+      structField = true,
+      doc = "C++ compiler.",
       allowReturnNones = true)
   public String getCompiler();
 
-  @SkylarkCallable(name = "libc", structField = true, doc = "libc version string.",
+  @StarlarkMethod(
+      name = "libc",
+      structField = true,
+      doc = "libc version string.",
       allowReturnNones = true)
   public String getTargetLibc();
 
-  @SkylarkCallable(name = "cpu", structField = true, doc = "Target CPU of the C++ toolchain.",
+  @StarlarkMethod(
+      name = "cpu",
+      structField = true,
+      doc = "Target CPU of the C++ toolchain.",
       allowReturnNones = true)
   public String getTargetCpu();
 
-  @SkylarkCallable(
-    name = "target_gnu_system_name",
-    structField = true,
-    doc = "The GNU System Name.",
-    allowReturnNones = true
-  )
+  @StarlarkMethod(
+      name = "target_gnu_system_name",
+      structField = true,
+      doc = "The GNU System Name.",
+      allowReturnNones = true)
   public String getTargetGnuSystemName();
 }

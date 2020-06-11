@@ -19,10 +19,12 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
@@ -188,6 +190,54 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             .add(attr("attr", STRING))
             .build();
     assertThat(child.getRequiredToolchains()).contains(mockToolchainType);
+  }
+
+  @Test
+  public void testExecGroupsAreInherited() throws Exception {
+    Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
+    Label mockConstraint = Label.parseAbsoluteUnchecked("//mock_constraint");
+    ExecGroup parentGroup =
+        new ExecGroup(ImmutableSet.of(mockToolchainType), ImmutableSet.of(mockConstraint));
+    ExecGroup childGroup = new ExecGroup(ImmutableSet.of(), ImmutableSet.of());
+    RuleClass parent =
+        new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
+            .add(attr("tags", STRING_LIST))
+            .addExecGroups(ImmutableMap.of("group", parentGroup))
+            .build();
+    RuleClass child =
+        new RuleClass.Builder("child", RuleClassType.NORMAL, false, parent)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .add(attr("attr", STRING))
+            .addExecGroups(ImmutableMap.of("child-group", childGroup))
+            .build();
+    assertThat(child.getExecGroups().get("group")).isEqualTo(parentGroup);
+    assertThat(child.getExecGroups().get("child-group")).isEqualTo(childGroup);
+  }
+
+  @Test
+  public void testDuplicateExecGroupNamesErrors() throws Exception {
+    RuleClass a =
+        new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .addExecGroups(
+                ImmutableMap.of("blueberry", new ExecGroup(ImmutableSet.of(), ImmutableSet.of())))
+            .add(attr("tags", STRING_LIST))
+            .build();
+    RuleClass b =
+        new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .addExecGroups(
+                ImmutableMap.of("blueberry", new ExecGroup(ImmutableSet.of(), ImmutableSet.of())))
+            .add(attr("tags", STRING_LIST))
+            .build();
+    IllegalArgumentException e =
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new RuleClass.Builder("ruleC", RuleClassType.NORMAL, false, a, b).build());
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "An execution group named 'blueberry' is inherited multiple times in ruleC ruleclass");
   }
 
   @Test

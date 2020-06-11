@@ -18,15 +18,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Whitelist;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.skylark.annotations.SkylarkConfigurationField;
+import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
@@ -40,11 +39,11 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /** Configuration fragment for Android rules. */
 @Immutable
-public class AndroidConfiguration extends BuildConfiguration.Fragment
-    implements AndroidConfigurationApi {
+public class AndroidConfiguration extends Fragment implements AndroidConfigurationApi {
 
   /**
    * Converter for {@link
@@ -77,14 +76,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       extends EnumConverter<ManifestMergerOrder> {
     public ManifestMergerOrderConverter() {
       super(ManifestMergerOrder.class, "android manifest merger order");
-    }
-  }
-
-  // TODO(b/142520065): Remove.
-  /** Converter for {@link AndroidAaptVersion} */
-  public static final class AndroidAaptConverter extends EnumConverter<AndroidAaptVersion> {
-    public AndroidAaptConverter() {
-      super(AndroidAaptVersion.class, "android androidAaptVersion");
     }
   }
 
@@ -179,12 +170,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     ALPHABETICAL_BY_CONFIGURATION,
     /** Library manifests come before the manifests of their dependencies. */
     DEPENDENCY;
-  }
-
-  /** Types of android manifest mergers. */
-  @Deprecated
-  public enum AndroidAaptVersion {
-    AAPT2;
   }
 
   /** Android configuration options. */
@@ -615,22 +600,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
                 + "before the manifests of its dependencies.")
     public ManifestMergerOrder manifestMergerOrder;
 
-    // TODO(b/142520065): Remove.
-    @Option(
-        name = "android_aapt",
-        defaultValue = "aapt2",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        converter = AndroidAaptConverter.class,
-        help =
-            "Selects the version of androidAaptVersion to use for android_binary rules."
-                + "Flag to help the test and transition to aapt2.")
-    public AndroidAaptVersion androidAaptVersion;
-
     @Option(
         name = "apk_signing_method",
         converter = ApkSigningMethodConverter.class,
@@ -798,11 +767,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
           "--strategy=AndroidAssetMerger=worker",
           "--strategy=AndroidResourceMerger=worker",
           "--strategy=AndroidCompiledResourceMerger=worker",
-          // TODO(jingwen): ManifestMerger prints to stdout when there's a manifest merge
-          // conflict. The worker protocol does not like this because it uses std i/o to
-          // for communication. To get around this, re-configure manifest merger to *not*
-          // use stdout for merge conflict warnings.
-          // "--strategy=ManifestMerger=worker",
+          "--strategy=ManifestMerger=worker",
+          "--strategy=AndroidManifestMerger=worker",
+          "--strategy=Aapt2Optimize=worker",
+          "--strategy=AARGenerator=worker",
         })
     public Void persistentResourceProcessor;
 
@@ -883,6 +851,29 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         help = "Use R.txt from the merging action, instead of from the validation action.")
     public boolean useRTxtFromMergedResources;
 
+    @Option(
+        name = "legacy_main_dex_list_generator",
+        // TODO(b/147692286): Update this default value to R8's GenerateMainDexList binary after
+        // migrating usage.
+        defaultValue = "null",
+        converter = LabelConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies a binary to use to generate the list of classes that must be in the main"
+                + " dex when compiling legacy multidex.")
+    public Label legacyMainDexListGenerator;
+
+    @Option(
+        name = "experimental_disable_instrumentation_manifest_merge",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help =
+            "Disables manifest merging when an android_binary has instruments set (i.e. is used "
+                + "for instrumentation testing).")
+    public boolean disableInstrumentationManifestMerging;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -905,7 +896,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
       host.useWorkersWithDexbuilder = useWorkersWithDexbuilder;
       host.manifestMerger = manifestMerger;
       host.manifestMergerOrder = manifestMergerOrder;
-      host.androidAaptVersion = androidAaptVersion;
       host.allowAndroidLibraryDepsWithoutSrcs = allowAndroidLibraryDepsWithoutSrcs;
       host.oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest =
           oneVersionEnforcementUseTransitiveJarsForBinaryUnderTest;
@@ -979,6 +969,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
   private final boolean alwaysFilterDuplicateClassesFromAndroidTest;
   private final boolean filterLibraryJarWithProgramJar;
   private final boolean useRTxtFromMergedResources;
+  private final Label legacyMainDexListGenerator;
+  private final boolean disableInstrumentationManifestMerging;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -1032,11 +1024,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
         options.alwaysFilterDuplicateClassesFromAndroidTest;
     this.filterLibraryJarWithProgramJar = options.filterLibraryJarWithProgramJar;
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
-
-    if (options.androidAaptVersion != AndroidAaptVersion.AAPT2) {
-      throw new InvalidConfigurationException(
-          "--android_aapt is no longer available for setting aapt version to aapt");
-    }
+    this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
+    this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1058,7 +1047,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
     return cpu;
   }
 
-  @SkylarkConfigurationField(
+  @StarlarkConfigurationField(
       name = "android_sdk_label",
       doc = "Returns the target denoted by the value of the --android_sdk flag",
       defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
@@ -1282,5 +1271,19 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment
 
   boolean useRTxtFromMergedResources() {
     return useRTxtFromMergedResources;
+  }
+
+  public boolean disableInstrumentationManifestMerging() {
+    return disableInstrumentationManifestMerging;
+  }
+
+  /** Returns the label provided with --legacy_main_dex_list_generator, if any. */
+  // TODO(b/147692286): Move R8's main dex list tool into tool repository.
+  @StarlarkConfigurationField(
+      name = "legacy_main_dex_list_generator",
+      doc = "Returns the label provided with --legacy_main_dex_list_generator, if any.")
+  @Nullable
+  public Label getLegacyMainDexListGenerator() {
+    return legacyMainDexListGenerator;
   }
 }

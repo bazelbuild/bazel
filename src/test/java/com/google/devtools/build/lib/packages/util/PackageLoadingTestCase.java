@@ -35,15 +35,15 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -66,7 +66,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   private static final int GLOBBING_THREADS = 7;
 
   protected LoadingMock loadingMock;
-  private PackageCacheOptions packageCacheOptions;
+  private PackageOptions packageOptions;
   private StarlarkSemanticsOptions starlarkSemanticsOptions;
   protected ConfiguredRuleClassProvider ruleClassProvider;
   protected PackageFactory packageFactory;
@@ -77,8 +77,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   @Before
   public final void initializeSkyframeExecutor() throws Exception {
     loadingMock = LoadingMock.get();
-    packageCacheOptions = parsePackageCacheOptions();
-    starlarkSemanticsOptions = parseSkylarkSemanticsOptions();
+    packageOptions = parsePackageOptions();
+    starlarkSemanticsOptions = parseStarlarkSemanticsOptions();
     List<RuleDefinition> extraRules = getExtraRules();
     if (!extraRules.isEmpty()) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
@@ -125,7 +125,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
                 Optional.<RootedPath>absent())));
-    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+    SkyframeExecutorTestHelper.process(skyframeExecutor);
     return skyframeExecutor;
   }
 
@@ -134,10 +134,10 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   }
 
   protected void setUpSkyframe(RuleVisibility defaultVisibility) {
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = defaultVisibility;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = GLOBBING_THREADS;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = defaultVisibility;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = GLOBBING_THREADS;
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -148,7 +148,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             outputBase,
             ImmutableList.of(Root.fromPath(rootDirectory)),
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-        packageCacheOptions,
+        packageOptions,
         Options.getDefaults(StarlarkSemanticsOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -160,34 +160,32 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             outputBase,
-            packageCacheOptions.packagePath,
+            packageOptions.packagePath,
             reporter,
             rootDirectory,
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = GLOBBING_THREADS;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = GLOBBING_THREADS;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions,
+        packageOptions,
         starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-    skyframeExecutor.setDeletedPackages(
-        ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
   }
 
-  private static PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
-    OptionsParser parser =
-        OptionsParser.builder().optionsClasses(PackageCacheOptions.class).build();
+  private static PackageOptions parsePackageOptions(String... options) throws Exception {
+    OptionsParser parser = OptionsParser.builder().optionsClasses(PackageOptions.class).build();
     parser.parse("--default_visibility=public");
     parser.parse(options);
-    return parser.getOptions(PackageCacheOptions.class);
+    return parser.getOptions(PackageOptions.class);
   }
 
-  private static StarlarkSemanticsOptions parseSkylarkSemanticsOptions(String... options)
+  private static StarlarkSemanticsOptions parseStarlarkSemanticsOptions(String... options)
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
@@ -195,13 +193,13 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     return parser.getOptions(StarlarkSemanticsOptions.class);
   }
 
-  protected void setPackageCacheOptions(String... options) throws Exception {
-    packageCacheOptions = parsePackageCacheOptions(options);
+  protected void setPackageOptions(String... options) throws Exception {
+    packageOptions = parsePackageOptions(options);
     setUpSkyframe();
   }
 
-  protected void setSkylarkSemanticsOptions(String... options) throws Exception {
-    starlarkSemanticsOptions = parseSkylarkSemanticsOptions(options);
+  protected void setStarlarkSemanticsOptions(String... options) throws Exception {
+    starlarkSemanticsOptions = parseStarlarkSemanticsOptions(options);
     setUpSkyframe();
   }
 

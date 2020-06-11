@@ -14,7 +14,7 @@ filegroup(
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/buildjar:srcs",
         "//src/java_tools/buildjar/javatests/com/google/devtools/build/java/turbine:srcs",
     ],
-    visibility = ["//:__subpackages__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 package_group(
@@ -57,12 +57,7 @@ filegroup(
 # This toolchain is used to bootstrap Bazel.
 java_toolchain(
     name = "bootstrap_toolchain",
-    # javac -extdirs is implemented by appending the contents to the platform
-    # class path after -bootclasspath. For convenience, we currently have a
-    # single jar that contains the contents of both the bootclasspath and
-    # extdirs.
     bootclasspath = ["//tools/jdk:platformclasspath.jar"],
-    extclasspath = [],
     genclass = ["bootstrap_genclass_deploy.jar"],
     ijar = ["//third_party/ijar"],
     javabuilder = ["bootstrap_VanillaJavaBuilder_deploy.jar"],

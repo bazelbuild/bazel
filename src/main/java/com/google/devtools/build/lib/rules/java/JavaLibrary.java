@@ -188,19 +188,20 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .addProvider(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider)
             // TODO(bazel-team): this should only happen for java_plugin
             .addProvider(JavaPluginInfoProvider.class, pluginInfoProvider)
+            .maybeTransitiveOnlyRuntimeJarsToJavaInfo(common.getDependencies(), true)
             .setRuntimeJars(javaArtifacts.getRuntimeJars())
             .setJavaConstraints(JavaCommon.getConstraints(ruleContext))
             .setNeverlink(neverLink)
             .build();
 
     builder
-        .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+        .addStarlarkTransitiveInfo(
+            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addProvider(
             RunfilesProvider.simple(
                 JavaCommon.getRunfiles(ruleContext, semantics, javaArtifacts, neverLink)))
         .setFilesToBuild(filesToBuild)
-        .addProvider(new JavaNativeLibraryProvider(transitiveJavaNativeLibraries))
+        .addNativeDeclaredProvider(new JavaNativeLibraryInfo(transitiveJavaNativeLibraries))
         .addProvider(JavaSourceInfoProvider.fromJavaTargetAttributes(attributes, semantics))
         .addNativeDeclaredProvider(new ProguardSpecProvider(proguardSpecs))
         .addNativeDeclaredProvider(javaInfo)

@@ -44,6 +44,9 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
 
     Preconditions.checkNotNull(transitionFactory1);
     Preconditions.checkNotNull(transitionFactory2);
+    Preconditions.checkArgument(
+        !transitionFactory1.isSplit() || !transitionFactory2.isSplit(),
+        "can't compose two split transition factories");
 
     if (isFinal(transitionFactory1)) {
       // Since no other transition can be composed with transitionFactory1, use it directly.
@@ -91,6 +94,11 @@ public abstract class ComposingTransitionFactory<T> implements TransitionFactory
   @Override
   public boolean isHost() {
     return transitionFactory1().isHost() || transitionFactory2().isHost();
+  }
+
+  @Override
+  public boolean isTool() {
+    return transitionFactory1().isTool() || transitionFactory2().isTool();
   }
 
   @Override

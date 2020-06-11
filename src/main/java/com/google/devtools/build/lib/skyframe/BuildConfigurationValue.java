@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentClassSet;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -85,7 +86,7 @@ public class BuildConfigurationValue implements SkyValue {
   public static Key keyWithPlatformMapping(
       PlatformMappingValue platformMappingValue,
       BuildOptions defaultBuildOptions,
-      Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+      Set<Class<? extends Fragment>> fragments,
       BuildOptions.OptionsDiffForReconstruction optionsDiff)
       throws OptionsParsingException {
     return platformMappingValue.map(
@@ -104,7 +105,7 @@ public class BuildConfigurationValue implements SkyValue {
    */
   @ThreadSafe
   static Key keyWithoutPlatformMapping(
-      Set<Class<? extends BuildConfiguration.Fragment>> fragments,
+      Set<Class<? extends Fragment>> fragments,
       BuildOptions.OptionsDiffForReconstruction optionsDiff) {
     return Key.create(
         FragmentClassSet.of(
@@ -154,7 +155,7 @@ public class BuildConfigurationValue implements SkyValue {
     }
 
     @VisibleForTesting
-    public ImmutableSortedSet<Class<? extends BuildConfiguration.Fragment>> getFragments() {
+    public ImmutableSortedSet<Class<? extends Fragment>> getFragments() {
       return fragments.fragmentClasses();
     }
 

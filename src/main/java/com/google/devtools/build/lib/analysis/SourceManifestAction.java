@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -135,7 +135,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
       Artifact primaryOutput,
       Runfiles runfiles,
       boolean remotableSourceManifestActions) {
-    super(owner, getDependencies(runfiles), primaryOutput, false);
+    super(owner, NestedSetBuilder.emptySet(Order.STABLE_ORDER), primaryOutput, false);
     this.manifestWriter = manifestWriter;
     this.runfiles = runfiles;
     this.remotableSourceManifestActions = remotableSourceManifestActions;
@@ -144,39 +144,20 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   @VisibleForTesting
   public void writeOutputFile(OutputStream out, EventHandler eventHandler)
       throws IOException {
-    writeFile(out,
-        runfiles.getRunfilesInputs(
-            eventHandler,
-            getOwner().getLocation(),
-            ArtifactPathResolver.IDENTITY));
+    writeFile(out, runfiles.getRunfilesInputs(eventHandler, getOwner().getLocation()));
   }
 
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException {
     final Map<PathFragment, Artifact> runfilesInputs =
-        runfiles.getRunfilesInputs(ctx.getEventHandler(), getOwner().getLocation(),
-            ctx.getPathResolver());
+        runfiles.getRunfilesInputs(ctx.getEventHandler(), getOwner().getLocation());
     return out -> writeFile(out, runfilesInputs);
   }
 
   @Override
   public boolean isRemotable() {
     return remotableSourceManifestActions || manifestWriter.isRemotable();
-  }
-
-  /**
-   * Returns the input dependencies for this action. Note we don't need to create the symlink target
-   * Artifacts before we write the output manifest, so this Action does not have to depend on them.
-   * The only necessary dependencies are pruning manifests, which must be read to properly prune the
-   * tree.
-   */
-  public static NestedSet<Artifact> getDependencies(Runfiles runfiles) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (Runfiles.PruningManifest manifest : runfiles.getPruningManifests().toList()) {
-      builder.add(manifest.getManifestFile());
-    }
-    return builder.build();
   }
 
   /**

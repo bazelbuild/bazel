@@ -5,7 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 # Library of collection utilities.
@@ -15,6 +15,7 @@ java_library(
         "*.java",
     ]),
     deps = [
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

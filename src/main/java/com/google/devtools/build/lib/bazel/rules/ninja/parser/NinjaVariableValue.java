@@ -16,7 +16,9 @@
 package com.google.devtools.build.lib.bazel.rules.ninja.parser;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -61,6 +63,35 @@ public class NinjaVariableValue {
   }
 
   /**
+   * Returns a "reduced" representation of this value by expanding all variables for which an
+   * expanded value is available. If the given expansion function returns null for any part of the
+   * value, that part will remain unexpanded in the returned value.
+   */
+  public NinjaVariableValue reduce(Function<String, String> expander) {
+    NinjaVariableValue.Builder builder = builder();
+    for (Function<Function<String, String>, String> part : parts) {
+      String result = part.apply(expander);
+      if (result != null) {
+        builder.addText(result);
+      } else {
+        builder.addPart(part);
+      }
+    }
+    return builder.build();
+  }
+
+  /**
+   * Returns the fully expanded string that this value represents, given a map from variable name to
+   * expanded value.
+   *
+   * <p>If this value contains an unexpanded variable for which no value is present in the given
+   * map, the empty string is used as the value of that variable.
+   */
+  public String expandValue(ImmutableMap<String, String> map) {
+    return getExpandedValue(s -> Strings.nullToEmpty(map.get(s)));
+  }
+
+  /**
    * Compute the presentation of this value, replacing the variable references with ${reference}.
    */
   public String getRawText() {
@@ -89,6 +120,12 @@ public class NinjaVariableValue {
     /** Add reference to variable <code>name</code>. */
     public Builder addVariable(String name) {
       builder.add(expander -> expander.apply(name));
+      isPrimitive = false;
+      return this;
+    }
+
+    private Builder addPart(Function<Function<String, String>, String> part) {
+      builder.add(part);
       isPrimitive = false;
       return this;
     }

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -24,11 +25,10 @@ import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Set;
-import java.util.logging.Logger;
 
 /** A proxy that talks to the multiplexer */
 final class WorkerProxy extends Worker {
-  private static final Logger logger = Logger.getLogger(WorkerProxy.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private WorkerMultiplexer workerMultiplexer;
   private String recordingStreamMessage;
 
@@ -65,11 +65,11 @@ final class WorkerProxy extends Worker {
     try {
       WorkerMultiplexerManager.removeInstance(workerKey.hashCode());
     } catch (InterruptedException e) {
-      logger.warning(
+      logger.atWarning().withCause(e).log(
           "InterruptedException was caught while destroying multiplexer. "
               + "It could because the multiplexer was interrupted.");
     } catch (UserExecException e) {
-      logger.warning(e.toString());
+      logger.atWarning().withCause(e).log("Exception");
     }
   }
 
@@ -85,7 +85,7 @@ final class WorkerProxy extends Worker {
        * override. InterruptedException will happen when Bazel is waiting for semaphore but user
        * terminates the process, so we do nothing here.
        */
-      logger.warning(
+      logger.atWarning().withCause(e).log(
           "InterruptedException was caught while sending worker request. "
               + "It could because the multiplexer was interrupted.");
     }
@@ -111,7 +111,7 @@ final class WorkerProxy extends Worker {
        * override. InterruptedException will happen when Bazel is waiting for semaphore but user
        * terminates the process, so we do nothing here.
        */
-      logger.warning(
+      logger.atWarning().withCause(e).log(
           "InterruptedException was caught while waiting for work response. "
               + "It could because the multiplexer was interrupted.");
     }

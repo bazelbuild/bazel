@@ -14,10 +14,11 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NativeProvider.NativeKey;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import javax.annotation.Nullable;
 
 /**
@@ -28,8 +29,8 @@ import javax.annotation.Nullable;
  *
  * <p>Implementations of native declared providers should subclass this class, and define a method
  * in the subclass definition to create instances of its corresponding Info object. The method
- * should be annotated with {@link SkylarkCallable} with {@link SkylarkCallable#selfCall} set to
- * true, and with {@link SkylarkConstructor} for the info type it constructs.
+ * should be annotated with {@link StarlarkMethod} with {@link StarlarkMethod#selfCall} set to true,
+ * and with {@link StarlarkConstructor} for the info type it constructs.
  */
 @Immutable
 public abstract class BuiltinProvider<T extends Info> implements Provider {
@@ -91,18 +92,15 @@ public abstract class BuiltinProvider<T extends Info> implements Provider {
   }
 
   /**
-   * Convenience method for subclasses of this class to throw a consistent error when
-   * a provider is unable to be constructed from skylark.
+   * Convenience method for subclasses of this class to throw a consistent error when a provider is
+   * unable to be constructed from Starlark.
    */
-  protected T throwUnsupportedConstructorException(Location loc) throws EvalException {
-    throw new EvalException(
-        loc, String.format("'%s' cannot be constructed from Starlark", getPrintableName()));
+  protected final T throwUnsupportedConstructorException() throws EvalException {
+    throw Starlark.errorf("'%s' cannot be constructed from Starlark", getPrintableName());
   }
 
-  /**
-   * Returns the identifier of this provider.
-   */
-  public SkylarkProviderIdentifier id() {
-    return SkylarkProviderIdentifier.forKey(getKey());
+  /** Returns the identifier of this provider. */
+  public StarlarkProviderIdentifier id() {
+    return StarlarkProviderIdentifier.forKey(getKey());
   }
 }

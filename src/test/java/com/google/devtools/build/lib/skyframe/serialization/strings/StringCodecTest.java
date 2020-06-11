@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.skyframe.serialization.strings;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.UnsafeJdk9StringCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
@@ -37,17 +38,18 @@ public class StringCodecTest {
 
   @Test
   public void sizeOk() throws Exception {
+    ObjectCodec<String> slowCodec = new StringCodec();
+    ObjectCodec<String> fastCodec =
+        UnsafeJdk9StringCodec.canUseUnsafeCodec() ? new UnsafeJdk9StringCodec() : slowCodec;
     for (String str :
         ImmutableList.of(
             "//a/b/c/d/e/f/g/h/ijklmn:opqrstuvw.xyz",
             "java/com/google/devtools/build/lib/util/more/strings",
             "java/com/google/devtools/build/lib/util/more/strings/náme_with_àccent")) {
       ByteString withSimple =
-          TestUtils.toBytesMemoized(
-              str, new ObjectCodecRegistry.Builder().add(StringCodecs.simple()).build());
+          TestUtils.toBytesMemoized(str, new ObjectCodecRegistry.Builder().add(slowCodec).build());
       ByteString withUnsafe =
-          TestUtils.toBytesMemoized(
-              str, new ObjectCodecRegistry.Builder().add(StringCodecs.asciiOptimized()).build());
+          TestUtils.toBytesMemoized(str, new ObjectCodecRegistry.Builder().add(fastCodec).build());
       assertWithMessage(str + " too big").that(withUnsafe.size()).isAtMost(withSimple.size());
     }
   }

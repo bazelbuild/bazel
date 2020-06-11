@@ -1126,12 +1126,9 @@ EOF
   assert_contains "id: 1" output
   assert_not_contains "id: \"1\"" output
 
-  # Verify that it consists of action_graph_components.
-  assert_contains "action_graph_components {" output
-
   # Verify that paths are broken down to path fragments.
-  assert_contains "path_fragment {" output
-
+  assert_contains "path_fragments {" output
+  assert_contains "primary_output_id" output
   # Verify that the appropriate action was included.
   assert_contains "label: \"dummy.txt\"" output
   assert_contains "mnemonic: \"Genrule\"" output
@@ -1159,7 +1156,7 @@ EOF
   assert_not_contains "\"id\": \"1\"" output
 
   # Verify that paths are broken down to path fragments.
-  assert_contains "\"pathFragment\": {" output
+  assert_contains "\"pathFragments\": \[{" output
 
   # Verify that the appropriate action was included.
   assert_contains "\"label\": \"dummy.txt\"" output
@@ -1167,4 +1164,64 @@ EOF
   assert_contains "\"mnemonic\": \".*-fastbuild\"" output
   assert_contains "echo unused" output
 }
+
+function test_aquery_textproto_v2_skyframe_state() {
+    local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  bazel clean
+
+  bazel aquery --incompatible_proto_output_v2 --output=textproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_not_contains "actions" output
+
+  bazel build --nobuild "//$pkg:foo"
+
+  bazel aquery --incompatible_proto_output_v2 --output=textproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_once "actions {"
+  assert_contains "input_dep_set_ids: 1" output
+  assert_contains "output_ids: 3" output
+  assert_contains "mnemonic: \"Genrule\"" output
+}
+
+function test_aquery_json_v2_skyframe_state() {
+    local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  bazel clean
+
+  bazel aquery --incompatible_proto_output_v2 --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+  assert_not_contains "actions" output
+
+  bazel build --nobuild "//$pkg:foo"
+
+  bazel aquery --incompatible_proto_output_v2 --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  expect_log_once "\"actionKey\":"
+}
+
 run_suite "${PRODUCT_NAME} action graph query tests"

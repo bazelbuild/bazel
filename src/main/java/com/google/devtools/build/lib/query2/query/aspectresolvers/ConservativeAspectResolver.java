@@ -40,6 +40,9 @@ public class ConservativeAspectResolver implements AspectResolver {
       return ImmutableMultimap.of();
     }
     Rule rule = (Rule) target;
+    if (!rule.hasAspects()) {
+      return ImmutableMultimap.of();
+    }
 
     Multimap<Attribute, Label> result = LinkedHashMultimap.create();
     for (Attribute attribute : rule.getAttributes()) {
@@ -55,6 +58,6 @@ public class ConservativeAspectResolver implements AspectResolver {
   @Override
   public Set<Label> computeBuildFileDependencies(Package pkg) {
     // We do a conservative estimate precisely so that we don't depend on any other BUILD files.
-    return ImmutableSet.copyOf(pkg.getSkylarkFileDependencies());
+    return ImmutableSet.copyOf(pkg.getStarlarkFileDependencies());
   }
 }

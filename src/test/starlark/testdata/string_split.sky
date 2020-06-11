@@ -17,7 +17,7 @@ assert_eq('google_or_gogol'.rsplit('go'), ['', 'ogle_or_', '', 'l'])
 assert_eq('foo/bar.lisp'.rsplit('.'), ['foo/bar', 'lisp'])
 assert_eq('foo/bar.?lisp'.rsplit('.?'), ['foo/bar', 'lisp'])
 assert_eq('fwe$foo'.rsplit('$'), ['fwe', 'foo'])
-assert_eq('windows'.rsplit('\w'), ['windows'])
+assert_eq('windows'.rsplit('\\w'), ['windows'])
 
 # rsplit no match
 assert_eq(''.rsplit('o'), [''])

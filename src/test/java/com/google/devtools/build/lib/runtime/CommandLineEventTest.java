@@ -461,7 +461,7 @@ public class CommandLineEventTest {
         "--experimental_tool_command_line=" + BaseEncoding.base64().encode(original.toByteArray()));
 
     ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
-    StructuredCommandLineId id = event.getEventId().asStreamProto().getStructuredCommandLine();
+    StructuredCommandLineId id = event.getEventId().getStructuredCommandLine();
     CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
 
     assertThat(id.getCommandLineLabel()).isEqualTo("tool");
@@ -492,7 +492,7 @@ public class CommandLineEventTest {
         "--experimental_tool_command_line=" + BaseEncoding.base64().encode(original.toByteArray()));
 
     ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
-    StructuredCommandLineId id = event.getEventId().asStreamProto().getStructuredCommandLine();
+    StructuredCommandLineId id = event.getEventId().getStructuredCommandLine();
     CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
 
     assertThat(id.getCommandLineLabel()).isEqualTo("tool");
@@ -516,7 +516,7 @@ public class CommandLineEventTest {
     parser.parse("--experimental_tool_command_line=The quick brown fox jumps over the lazy dog");
 
     ToolCommandLineEvent event = parser.getOptions(CommonCommandOptions.class).toolCommandLine;
-    StructuredCommandLineId id = event.getEventId().asStreamProto().getStructuredCommandLine();
+    StructuredCommandLineId id = event.getEventId().getStructuredCommandLine();
     CommandLine line = event.asStreamProto(null).getStructuredCommandLine();
 
     assertThat(id.getCommandLineLabel()).isEqualTo("tool");

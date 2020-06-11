@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,7 +29,7 @@ public class OrderTest {
   @Test
   public void testParsing() throws Exception {
     for (Order current : Order.values()) {
-      assertThat(Order.parse(current.getSkylarkName())).isEqualTo(current);
+      assertThat(Order.parse(current.getStarlarkName())).isEqualTo(current);
     }
   }
 

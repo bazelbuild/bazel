@@ -14,46 +14,44 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** An interface for a set of runfiles. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "runfiles",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A container of information regarding a set of files required at runtime execution. This"
             + " object should be passed via <a href=\"DefaultInfo.html\">DefaultInfo</a> in order"
             + " to tell the build system about the runfiles needed by the outputs produced by the"
-            + " rule. See <a href=\"../rules.html#runfiles\">runfiles guide</a> for details.")
+            + " rule. "
+            + "<p>See <a href=\"../rules.html#runfiles\">runfiles guide</a> for details.")
 public interface RunfilesApi extends StarlarkValue {
 
-  @SkylarkCallable(
-      name = "files",
-      doc = "Returns the set of runfiles as files.",
-      structField = true)
+  @StarlarkMethod(name = "files", doc = "Returns the set of runfiles as files.", structField = true)
   Depset /*<? extends FileApi>*/ getArtifactsForStarlark();
 
-  @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
+  @StarlarkMethod(name = "symlinks", doc = "Returns the set of symlinks.", structField = true)
   Depset /*<? extends SymlinkEntryApi>*/ getSymlinksForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "root_symlinks",
       doc = "Returns the set of root symlinks.",
       structField = true)
   Depset /*<? extends SymlinkEntryApi>*/ getRootSymlinksForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "empty_filenames",
       doc = "Returns names of empty files to create.",
       structField = true)
   Depset /*<String>*/ getEmptyFilenamesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge",
       doc =
           "Returns a new runfiles object that includes all the contents of this one and the "

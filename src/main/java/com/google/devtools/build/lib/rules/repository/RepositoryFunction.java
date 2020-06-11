@@ -29,19 +29,19 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.repository.ExternalPackageException;
-import com.google.devtools.build.lib.repository.ExternalPackageUtil;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.repository.ExternalRuleNotFoundException;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -203,7 +203,13 @@ public abstract class RepositoryFunction {
   public boolean verifyMarkerData(Rule rule, Map<String, String> markerData, Environment env)
       throws InterruptedException, RepositoryFunctionException {
     return verifyEnvironMarkerData(markerData, env, getEnviron(rule))
-        && verifyMarkerDataForFiles(rule, markerData, env);
+        && verifyMarkerDataForFiles(rule, markerData, env)
+        && verifySemanticsMarkerData(markerData, env);
+  }
+
+  protected boolean verifySemanticsMarkerData(Map<String, String> markerData, Environment env)
+      throws InterruptedException {
+    return true;
   }
 
   private static boolean verifyLabelMarkerData(Rule rule, String key, String value, Environment env)
@@ -527,7 +533,7 @@ public abstract class RepositoryFunction {
   }
 
   protected static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
-    return directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME);
+    return directories.getOutputBase().getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
   }
 
   /**
@@ -542,7 +548,11 @@ public abstract class RepositoryFunction {
    * encourage nor optimize for since it is not common. So the set of external files is small.
    */
   public static void addExternalFilesDependencies(
-      RootedPath rootedPath, boolean isDirectory, BlazeDirectories directories, Environment env)
+      RootedPath rootedPath,
+      boolean isDirectory,
+      BlazeDirectories directories,
+      Environment env,
+      ExternalPackageHelper externalPackageHelper)
       throws InterruptedException {
     Path externalRepoDir = getExternalRepositoryDirectory(directories);
     PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
@@ -558,7 +568,7 @@ public abstract class RepositoryFunction {
       // dependency already but we want to catch RepositoryNotFoundException, so invoke
       // #getRuleByName
       // first.
-      Rule rule = ExternalPackageUtil.getRuleByName(repositoryName, env);
+      Rule rule = externalPackageHelper.getRuleByName(repositoryName, env);
       if (rule == null) {
         // Still an override might change the content of the repository.
         RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.get(env);

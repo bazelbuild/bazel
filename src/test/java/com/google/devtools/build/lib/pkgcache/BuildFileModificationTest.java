@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -101,38 +101,36 @@ public class BuildFileModificationTest extends FoundationTestCase {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
                 Optional.<RootedPath>absent())));
-    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+    SkyframeExecutorTestHelper.process(skyframeExecutor);
     OptionsParser parser =
         OptionsParser.builder()
-            .optionsClasses(PackageCacheOptions.class, StarlarkSemanticsOptions.class)
+            .optionsClasses(PackageOptions.class, StarlarkSemanticsOptions.class)
             .build();
     setUpSkyframe(
-        parser.getOptions(PackageCacheOptions.class),
-        parser.getOptions(StarlarkSemanticsOptions.class));
+        parser.getOptions(PackageOptions.class), parser.getOptions(StarlarkSemanticsOptions.class));
   }
 
   private void setUpSkyframe(
-      PackageCacheOptions packageCacheOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
+      PackageOptions packageOptions, StarlarkSemanticsOptions starlarkSemanticsOptions) {
     PathPackageLocator pkgLocator =
         PathPackageLocator.create(
             null,
-            packageCacheOptions.packagePath,
+            packageOptions.packagePath,
             reporter,
             rootDirectory,
             rootDirectory,
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions,
+        packageOptions,
         starlarkSemanticsOptions,
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
         new TimestampGranularityMonitor(clock));
     skyframeExecutor.setActionEnv(ImmutableMap.<String, String>of());
-    skyframeExecutor.setDeletedPackages(
-        ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
+    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageOptions.getDeletedPackages()));
   }
 
   @Override

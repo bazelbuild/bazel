@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.PersistentMap;
 import com.google.devtools.build.lib.util.StringIndexer;
 import com.google.devtools.build.lib.util.VarInt;
@@ -34,13 +35,13 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 
 /**
  * An implementation of the ActionCache interface that uses a {@link StringIndexer} to reduce memory
@@ -51,8 +52,8 @@ import java.util.logging.Logger;
 public class CompactPersistentActionCache implements ActionCache {
   private static final int SAVE_INTERVAL_SECONDS = 3;
   // Log if periodically saving the action cache incurs more than 5% overhead.
-  private static final int MIN_TIME_FOR_LOGGING_MILLIS =
-      (int) (TimeUnit.SECONDS.toMillis(SAVE_INTERVAL_SECONDS) * 0.05);
+  private static final Duration MIN_TIME_FOR_LOGGING =
+      Duration.ofSeconds(SAVE_INTERVAL_SECONDS).dividedBy(20);
 
   // Key of the action cache record that holds information used to verify referential integrity
   // between action cache and string indexer. Must be < 0 to avoid conflict with real action
@@ -62,9 +63,6 @@ public class CompactPersistentActionCache implements ActionCache {
   private static final int NO_INPUT_DISCOVERY_COUNT = -1;
 
   private static final int VERSION = 12;
-
-  private static final Logger logger =
-      Logger.getLogger(CompactPersistentActionCache.class.getName());
 
   private final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
@@ -97,7 +95,7 @@ public class CompactPersistentActionCache implements ActionCache {
     @Override
     protected void markAsDirty() {
       try (AutoProfiler p =
-          AutoProfiler.logged("slow write to journal", logger, MIN_TIME_FOR_LOGGING_MILLIS)) {
+          GoogleAutoProfilerUtils.logged("slow write to journal", MIN_TIME_FOR_LOGGING)) {
         super.markAsDirty();
       }
     }
@@ -211,6 +209,8 @@ public class CompactPersistentActionCache implements ActionCache {
           .glob()) {
         path.renameTo(path.getParentDirectory().getChild(path.getBaseName() + ".bad"));
       }
+    } catch (UnixGlob.BadPattern ex) {
+      throw new IllegalStateException(ex); // can't happen
     } catch (IOException e) {
       // do nothing
     }

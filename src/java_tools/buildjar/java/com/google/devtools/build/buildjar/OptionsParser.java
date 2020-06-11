@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Splitter;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.buildjar.javac.JavacOptions;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,7 +27,6 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -73,7 +73,6 @@ public final class OptionsParser {
   private String sourceGenDir;
   private String generatedSourcesOutputJar;
   private String manifestProtoPath;
-  private final Set<String> sourceRoots = new HashSet<>();
 
   private final List<String> sourceFiles = new ArrayList<>();
   private final List<String> sourceJars = new ArrayList<>();
@@ -81,7 +80,7 @@ public final class OptionsParser {
   private final List<String> classPath = new ArrayList<>();
   private final List<String> sourcePath = new ArrayList<>();
   private final List<String> bootClassPath = new ArrayList<>();
-  private final List<String> extClassPath = new ArrayList<>();
+  private String system;
 
   private final List<String> processorPath = new ArrayList<>();
   private final List<String> processorNames = new ArrayList<>();
@@ -102,6 +101,8 @@ public final class OptionsParser {
 
   @Nullable private String profile;
 
+  @Nullable private final JavacOptions normalizer;
+
   /**
    * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
    * both compilation and annotation processing.
@@ -110,6 +111,19 @@ public final class OptionsParser {
    * @throws InvalidCommandLineException on any command line error.
    */
   public OptionsParser(List<String> args) throws InvalidCommandLineException, IOException {
+    this(args, null);
+  }
+
+  /**
+   * Constructs an {@code OptionsParser} from a list of command args. Sets the same JavacRunner for
+   * both compilation and annotation processing.
+   *
+   * @param args the list of command line args.
+   * @throws InvalidCommandLineException on any command line error.
+   */
+  public OptionsParser(List<String> args, @Nullable JavacOptions normalizer)
+      throws InvalidCommandLineException, IOException {
+    this.normalizer = normalizer;
     processCommandlineArgs(expandArguments(args));
   }
 
@@ -161,9 +175,6 @@ public final class OptionsParser {
         case "--output_manifest_proto":
           manifestProtoPath = getArgument(argQueue, arg);
           break;
-        case "--source_roots":
-          collectFlagArguments(sourceRoots, argQueue, "-");
-          break;
         case "--sources":
           collectFlagArguments(sourceFiles, argQueue, "-");
           break;
@@ -180,6 +191,9 @@ public final class OptionsParser {
         case "--bootclasspath":
           collectFlagArguments(bootClassPath, argQueue, "-");
           break;
+        case "--system":
+          system = getArgument(argQueue, arg);
+          break;
         case "--processorpath":
           collectFlagArguments(processorPath, argQueue, "-");
           break;
@@ -191,7 +205,8 @@ public final class OptionsParser {
           break;
         case "--extclasspath":
         case "--extdir":
-          collectFlagArguments(extClassPath, argQueue, "-");
+          // TODO(b/149114743): delete once Blaze stops passing the flag
+          collectFlagArguments(new ArrayList<>(), argQueue, "-");
           break;
         case "--output":
           outputJar = getArgument(argQueue, arg);
@@ -358,7 +373,7 @@ public final class OptionsParser {
   }
 
   public List<String> getJavacOpts() {
-    return javacOpts;
+    return normalizer != null ? normalizer.normalize(javacOpts) : javacOpts;
   }
 
   public Set<String> directJars() {
@@ -405,10 +420,6 @@ public final class OptionsParser {
     return manifestProtoPath;
   }
 
-  public Set<String> getSourceRoots() {
-    return sourceRoots;
-  }
-
   public List<String> getSourceFiles() {
     return sourceFiles;
   }
@@ -425,12 +436,12 @@ public final class OptionsParser {
     return bootClassPath;
   }
 
-  public List<String> getSourcePath() {
-    return sourcePath;
+  public String getSystem() {
+    return system;
   }
 
-  public List<String> getExtClassPath() {
-    return extClassPath;
+  public List<String> getSourcePath() {
+    return sourcePath;
   }
 
   public List<String> getProcessorPath() {

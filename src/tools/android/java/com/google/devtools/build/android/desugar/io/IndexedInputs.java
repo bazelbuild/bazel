@@ -36,8 +36,7 @@ public class IndexedInputs {
    * Parent {@link IndexedInputs} to use before to search a file name into this {@link
    * IndexedInputs}.
    */
-  @Nullable
-  private final IndexedInputs parent;
+  @Nullable private final IndexedInputs parent;
 
   /** Index a list of input files without a parent {@link IndexedInputs}. */
   public IndexedInputs(List<InputFileProvider> inputProviders) {

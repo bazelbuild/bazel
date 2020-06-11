@@ -93,7 +93,8 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         new PackageLookupFunction(
             deletedPackages,
             CrossRepositoryLabelViolationStrategy.ERROR,
-            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY));
+            BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
@@ -116,9 +117,13 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
                 .getPackageFactoryBuilderForTesting(directories)
                 .build(ruleClassProvider, fileSystem),
             directories,
-            /*skylarkImportLookupFunctionForInlining=*/ null));
-    skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
-    skyFunctions.put(SkyFunctions.LOCAL_REPOSITORY_LOOKUP, new LocalRepositoryLookupFunction());
+            /*bzlLoadFunctionForInlining=*/ null));
+    skyFunctions.put(
+        SkyFunctions.EXTERNAL_PACKAGE,
+        new ExternalPackageFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
+    skyFunctions.put(
+        SkyFunctions.LOCAL_REPOSITORY_LOOKUP,
+        new LocalRepositoryLookupFunction(BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
 
@@ -126,12 +131,12 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT_SEMANTICS);
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.<RootedPath>absent());
   }
 
-  private SkyKey createKey(RootedPath directory) {
+  private static SkyKey createKey(RootedPath directory) {
     return LocalRepositoryLookupValue.key(directory);
   }
 

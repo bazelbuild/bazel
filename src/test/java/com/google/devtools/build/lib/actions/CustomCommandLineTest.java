@@ -15,14 +15,13 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.actions.CustomCommandLine.builder;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
-import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -31,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
@@ -49,16 +49,14 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class CustomCommandLineTest {
-
-  private Scratch scratch;
   private ArtifactRoot rootDir;
   private Artifact artifact1;
   private Artifact artifact2;
 
   @Before
   public void createArtifacts() throws Exception  {
-    scratch = new Scratch();
-    rootDir = ArtifactRoot.asDerivedRoot(scratch.dir("/exec/root"), scratch.dir("/exec/root/dir"));
+    Scratch scratch = new Scratch();
+    rootDir = ArtifactRoot.asDerivedRoot(scratch.dir("/exec/root"), "dir");
     artifact1 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file1.txt"));
     artifact2 = ActionsTestUtil.createArtifact(rootDir, scratch.file("/exec/root/dir/file2.txt"));
   }
@@ -902,11 +900,9 @@ public class CustomCommandLineTest {
             .build();
 
     TreeFileArtifact treeFileArtifactOne =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifactOne, "children/child1");
+        TreeFileArtifact.createTreeOutput(treeArtifactOne, "children/child1");
     TreeFileArtifact treeFileArtifactTwo =
-        ActionsTestUtil.createTreeFileArtifactWithNoGeneratingAction(
-            treeArtifactTwo, "children/child2");
+        TreeFileArtifact.createTreeOutput(treeArtifactTwo, "children/child2");
 
     CustomCommandLine commandLine = commandLineTemplate.evaluateTreeFileArtifacts(
         ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo));
@@ -917,6 +913,37 @@ public class CustomCommandLineTest {
             "dir/myArtifact/treeArtifact1/children/child1",
             "--argTwo",
             "dir/myArtifact/treeArtifact2/children/child2")
+        .inOrder();
+  }
+
+  @Test
+  public void testTreeFileArtifactParentRelativePathArgs() throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("myArtifact/treeArtifact");
+
+    TreeFileArtifact treeFileArtifactOne =
+        TreeFileArtifact.createTreeOutput(treeArtifact, "children/child1");
+    TreeFileArtifact treeFileArtifactTwo =
+        TreeFileArtifact.createTreeOutput(treeArtifact, "children/child2");
+
+    CommandLineItem.MapFn<Artifact> expandParentRelativePath =
+        (src, args) -> {
+          try {
+            args.accept(src.getTreeRelativePathString());
+          } catch (EvalException e) {
+            new IllegalStateException("Unexpected EvalException thown.");
+          }
+        };
+
+    CustomCommandLine commandLineTemplate =
+        builder()
+            .addAll(
+                VectorArg.SimpleVectorArg.of(
+                        ImmutableList.of(treeFileArtifactOne, treeFileArtifactTwo))
+                    .mapped(expandParentRelativePath))
+            .build();
+
+    assertThat(commandLineTemplate.arguments())
+        .containsExactly("children/child1", "children/child2")
         .inOrder();
   }
 
@@ -972,12 +999,8 @@ public class CustomCommandLineTest {
   }
 
   private SpecialArtifact createTreeArtifact(String rootRelativePath) {
-    PathFragment relpath = PathFragment.create(rootRelativePath);
-    return new SpecialArtifact(
-        rootDir,
-        rootDir.getExecPath().getRelative(relpath),
-        ActionsTestUtil.NULL_ACTION_LOOKUP_DATA.getActionLookupKey(),
-        SpecialArtifactType.TREE);
+    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        rootDir, rootDir.getExecPath().getRelative(rootRelativePath));
   }
 
   private static <T> ImmutableList<T> list(T... objects) {

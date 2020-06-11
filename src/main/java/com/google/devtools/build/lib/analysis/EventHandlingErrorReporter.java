@@ -16,17 +16,17 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
+import com.google.devtools.build.lib.syntax.Location;
 
 /**
  * Base class for implementations of {@link
  * com.google.devtools.build.lib.packages.RuleErrorConsumer}.
  *
  * <p>Do not create new implementations of this class - instead, use {@link RuleContext} in Native
- * rule definitions, and {@link com.google.devtools.build.lib.analysis.skylark.SkylarkErrorReporter}
- * in Skylark API definitions. For use in testing, implement {@link RuleErrorConsumer} instead.
+ * rule definitions, and {@link StarlarkErrorReporter} in Starlark API definitions. For use in
+ * testing, implement {@link RuleErrorConsumer} instead.
  */
 public abstract class EventHandlingErrorReporter implements RuleErrorConsumer {
   private final String ruleClassNameForLogging;

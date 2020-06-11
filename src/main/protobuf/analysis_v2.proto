@@ -23,22 +23,14 @@ option java_outer_classname = "AnalysisProtosV2";
 
 // Container for the action graph properties.
 message ActionGraphContainer {
-  repeated ActionGraphComponent action_graph_components = 1;
-}
-
-// One single component of the final action graph, classified by Discriminator.
-message ActionGraphComponent {
-  oneof component {
-    Artifact artifact = 1;
-    Action action = 2;
-    Target target = 3;
-    DepSetOfFiles dep_set_of_files = 4;
-    Configuration configuration = 5;
-    AspectDescriptor aspect_descriptor = 6;
-    RuleClass rule_class = 7;
-    PathFragment path_fragment = 8;
-    Target configured_target = 9;
-  }
+  repeated Artifact artifacts = 1;
+  repeated Action actions = 2;
+  repeated Target targets = 3;
+  repeated DepSetOfFiles dep_set_of_files = 4;
+  repeated Configuration configuration = 5;
+  repeated AspectDescriptor aspect_descriptors = 6;
+  repeated RuleClass rule_classes = 7;
+  repeated PathFragment path_fragments = 8;
 }
 
 // Represents a single artifact, whether it's a source file or a derived output
@@ -105,6 +97,9 @@ message Action {
 
   // The list of param files. This will be only set if explicitly requested.
   repeated ParamFile param_files = 12;
+
+  // The id to an Artifact that is the primary output of this action.
+  uint32 primary_output_id = 13;
 }
 
 // Represents a single target (without configuration information) that is
@@ -137,7 +132,7 @@ message AspectDescriptor {
   uint32 id = 1;
 
   // The name of the corresponding aspect. For native aspects, it's the Java
-  // class name, for Skylark aspects it's the bzl file followed by a % sign
+  // class name, for Starlark aspects it's the bzl file followed by a % sign
   // followed by the name of the aspect.
   string name = 2;
 

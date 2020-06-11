@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.exec.ExecutionOptions.LocalTestJobsConverter;
 import com.google.devtools.common.options.OptionsParsingException;

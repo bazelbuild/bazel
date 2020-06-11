@@ -34,6 +34,7 @@ import io.netty.channel.kqueue.KQueueDomainSocketChannel;
 import io.netty.channel.kqueue.KQueueEventLoopGroup;
 import io.netty.channel.unix.DomainSocketAddress;
 import io.netty.handler.ssl.SslContext;
+import io.netty.handler.ssl.SslContextBuilder;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -54,23 +55,25 @@ public final class GoogleAuthUtils {
       String target,
       String proxy,
       AuthAndTLSOptions options,
-      @Nullable ClientInterceptor interceptor)
+      @Nullable List<ClientInterceptor> interceptors)
       throws IOException {
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(options);
 
-    final SslContext sslContext =
-        isTlsEnabled(target) ? createSSlContext(options.tlsCertificate) : null;
+    SslContext sslContext =
+        isTlsEnabled(target)
+            ? createSSlContext(
+                options.tlsCertificate, options.tlsClientCertificate, options.tlsClientKey)
+            : null;
 
     String targetUrl = convertTargetScheme(target);
-
     try {
       NettyChannelBuilder builder =
           newNettyChannelBuilder(targetUrl, proxy)
               .negotiationType(
                   isTlsEnabled(target) ? NegotiationType.TLS : NegotiationType.PLAINTEXT);
-      if (interceptor != null) {
-        builder.intercept(interceptor);
+      if (interceptors != null) {
+        builder.intercept(interceptors);
       }
       if (sslContext != null) {
         builder.sslContext(sslContext);
@@ -104,22 +107,39 @@ public final class GoogleAuthUtils {
     return !target.startsWith("grpc://");
   }
 
-  private static SslContext createSSlContext(@Nullable String rootCert) throws IOException {
-    if (rootCert == null) {
+  private static SslContext createSSlContext(
+      @Nullable String rootCert, @Nullable String clientCert, @Nullable String clientKey)
+      throws IOException {
+    SslContextBuilder sslContextBuilder;
+    try {
+      sslContextBuilder = GrpcSslContexts.forClient();
+    } catch (Exception e) {
+      String message = "Failed to init TLS infrastructure: " + e.getMessage();
+      throw new IOException(message, e);
+    }
+    if (rootCert != null) {
       try {
-        return GrpcSslContexts.forClient().build();
-      } catch (Exception e) {
-        String message = "Failed to init TLS infrastructure: " + e.getMessage();
-        throw new IOException(message, e);
-      }
-    } else {
-      try {
-        return GrpcSslContexts.forClient().trustManager(new File(rootCert)).build();
+        sslContextBuilder.trustManager(new File(rootCert));
       } catch (Exception e) {
         String message = "Failed to init TLS infrastructure using '%s' as root certificate: %s";
         message = String.format(message, rootCert, e.getMessage());
         throw new IOException(message, e);
       }
+    }
+    if (clientCert != null && clientKey != null) {
+      try {
+        sslContextBuilder.keyManager(new File(clientCert), new File(clientKey));
+      } catch (Exception e) {
+        String message = "Failed to init TLS infrastructure using '%s' as client certificate: %s";
+        message = String.format(message, clientCert, e.getMessage());
+        throw new IOException(message, e);
+      }
+    }
+    try {
+      return sslContextBuilder.build();
+    } catch (Exception e) {
+      String message = "Failed to init TLS infrastructure: " + e.getMessage();
+      throw new IOException(message, e);
     }
   }
 

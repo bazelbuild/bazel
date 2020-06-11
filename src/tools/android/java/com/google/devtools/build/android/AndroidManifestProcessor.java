@@ -112,7 +112,8 @@ public class AndroidManifestProcessor {
       Map<String, String> values,
       String customPackage,
       Path output,
-      Path logFile)
+      Path logFile,
+      boolean logWarnings)
       throws ManifestProcessingException {
     if (mergeeManifests.isEmpty() && values.isEmpty() && Strings.isNullOrEmpty(customPackage)) {
       return manifest;
@@ -170,7 +171,9 @@ public class AndroidManifestProcessor {
       }
       switch (mergingReport.getResult()) {
         case WARNING:
-          mergingReport.log(stdLogger);
+          if (logWarnings) {
+            mergingReport.log(stdLogger);
+          }
           Files.createDirectories(output.getParent());
           writeMergedManifest(mergedManifestKind, mergingReport, output);
           break;
@@ -200,7 +203,8 @@ public class AndroidManifestProcessor {
       int versionCode,
       String versionName,
       MergedAndroidData primaryData,
-      Path processedManifest) {
+      Path processedManifest,
+      boolean logWarnings) {
 
     ManifestMerger2.MergeType mergeType =
         variantType == VariantType.DEFAULT
@@ -217,7 +221,8 @@ public class AndroidManifestProcessor {
           primaryData.getManifest(),
           processedManifest,
           mergeType,
-          newManifestPackage);
+          newManifestPackage,
+          logWarnings);
       return new MergedAndroidData(
           primaryData.getResourceDir(), primaryData.getAssetDir(), processedManifest);
     }
@@ -230,7 +235,8 @@ public class AndroidManifestProcessor {
       int versionCode,
       String versionName,
       Path manifest,
-      Path processedManifest) {
+      Path processedManifest,
+      boolean logWarnings) {
 
     if (versionCode != -1 || versionName != null || applicationId != null) {
       processManifest(
@@ -239,7 +245,8 @@ public class AndroidManifestProcessor {
           manifest,
           processedManifest,
           MergeType.APPLICATION,
-          applicationId);
+          applicationId,
+          logWarnings);
       return processedManifest;
     }
     return manifest;
@@ -247,7 +254,7 @@ public class AndroidManifestProcessor {
 
   /** Processes the manifest for a library and return the manifest Path. */
   public Path processLibraryManifest(
-      String newManifestPackage, Path manifest, Path processedManifest) {
+      String newManifestPackage, Path manifest, Path processedManifest, boolean logWarnings) {
 
     if (newManifestPackage != null) {
       processManifest(
@@ -256,7 +263,8 @@ public class AndroidManifestProcessor {
           manifest,
           processedManifest,
           MergeType.LIBRARY,
-          newManifestPackage);
+          newManifestPackage,
+          logWarnings);
       return processedManifest;
     }
     return manifest;
@@ -268,7 +276,8 @@ public class AndroidManifestProcessor {
       Path primaryManifest,
       Path processedManifest,
       MergeType mergeType,
-      String newManifestPackage) {
+      String newManifestPackage,
+      boolean logWarnings) {
     try {
       Files.createDirectories(processedManifest.getParent());
 
@@ -296,7 +305,9 @@ public class AndroidManifestProcessor {
       MergingReport mergingReport = manifestMergerInvoker.merge();
       switch (mergingReport.getResult()) {
         case WARNING:
-          mergingReport.log(stdLogger);
+          if (logWarnings) {
+            mergingReport.log(stdLogger);
+          }
           writeMergedManifest(mergedManifestKind, mergingReport, processedManifest);
           break;
         case SUCCESS:

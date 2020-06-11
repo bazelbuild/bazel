@@ -25,9 +25,6 @@ Example uses of depsets include:
 If you don't need the merge operation, consider using another type, such as
 [list](lib/list.html) or [dict](lib/dict.html).
 
-* ToC
-{:toc}
-
 ## Full example
 
 
@@ -261,7 +258,7 @@ duplicate elements in different nodes of the DAG.
 def create(order):
   cd = depset(["c", "d"], order = order)
   gh = depset(["g", "h"], order = order)
-  return depset(["a", "b", "e", "f"], transitive = [cd, gh])
+  return depset(["a", "b", "e", "f"], transitive = [cd, gh], order = order)
 
 print(create("postorder").to_list())  # ["c", "d", "g", "h", "a", "b", "e", "f"]
 print(create("preorder").to_list())   # ["a", "b", "e", "f", "c", "d", "g", "h"]
@@ -287,13 +284,6 @@ the depset is created with the constructor’s `order` keyword argument. If this
 argument is omitted, the depset has the special `default` order, in which case
 there are no guarantees about the order of any of its elements (except that it
 is deterministic).
-
-For safety, depsets with different orders cannot be merged with the `+` operator
-unless one of them uses the default order; the resulting depset’s order is the
-same as the left operand. Note that when two depsets of different order are
-merged in this way, the child may appear to have had its elements rearranged
-when it is traversed via the parent. **The `+` operator is deprecated, anyway;
-use the `transitive` argument instead.**
 
 ## Performance
 

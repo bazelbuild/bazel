@@ -36,7 +36,7 @@ class Md5Digest {
   Md5Digest(const Md5Digest& original);
 
   // the MD5 digest is always 128 bits = 16 bytes
-  static const int kDigestLength = 16;
+  static constexpr int kDigestLength = 16;
 
   // Resets the context so that it can be used to calculate another
   // MD5 digest. The context is in the same state as if it had just

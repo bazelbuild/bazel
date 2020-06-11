@@ -17,6 +17,7 @@ syntax = "proto3";
 package build_event_stream;
 
 import "src/main/protobuf/command_line.proto";
+import "src/main/protobuf/failure_details.proto";
 import "src/main/protobuf/invocation_policy.proto";
 
 option java_package = "com.google.devtools.build.lib.buildeventstream";
@@ -473,6 +474,9 @@ message ActionExecuted {
 
   // List of paths to log files
   repeated File action_metadata_logs = 10;
+
+  // Only populated if success = false, and sometimes not even then.
+  failure_details.FailureDetail failure_detail = 11;
 }
 
 // Collection of all output files belonging to that output group.
@@ -512,11 +516,21 @@ message TargetComplete {
   // new clients should not use it.
   repeated File important_output = 4 [deprecated = true];
 
+  // Report output artifacts (referenced transitively via output_group) which
+  // emit directories instead of singleton files. These directory_output entries
+  // will never include a uri.
+  repeated File directory_output = 8;
+
   // List of tags associated with this configured target.
   repeated string tag = 3;
 
   // The timeout specified for test actions under this configured target.
   int64 test_timeout_seconds = 7;
+
+  // Failure information about the target, only populated if success is false,
+  // and sometimes not even then. Equal to one of the ActionExecuted
+  // failure_detail fields for one of the root cause ActionExecuted events.
+  failure_details.FailureDetail failure_detail = 9;
 }
 
 enum TestStatus {
@@ -687,6 +701,10 @@ message BuildMetrics {
     // --bep_publish_used_heap_size_post_build is set,
     // since it forces a full GC.
     int64 used_heap_size_post_build = 1;
+
+    // Size of the peak JVM heap size in bytes post GC. Note that this reports 0
+    // if there was no major GC during the build.
+    int64 peak_post_gc_heap_size = 2;
   }
   MemoryMetrics memory_metrics = 2;
 

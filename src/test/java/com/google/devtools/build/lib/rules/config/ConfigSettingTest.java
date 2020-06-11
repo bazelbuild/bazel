@@ -18,10 +18,10 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -110,16 +110,16 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @AutoCodec
-  static class DummyTestOptionsFragment extends BuildConfiguration.Fragment {}
+  static class DummyTestOptionsFragment extends Fragment {}
 
   private static class DummyTestOptionsLoader implements ConfigurationFragmentFactory {
     @Override
-    public BuildConfiguration.Fragment create(BuildOptions buildOptions) {
+    public Fragment create(BuildOptions buildOptions) {
       return new DummyTestOptionsFragment();
     }
 
     @Override
-    public Class<? extends BuildConfiguration.Fragment> creates() {
+    public Class<? extends Fragment> creates() {
       return DummyTestOptionsFragment.class;
     }
 
@@ -130,7 +130,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new FeatureFlagSetterRule());
@@ -342,7 +342,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
     checkError(
         "foo",
         "none",
-        "ERROR /workspace/foo/BUILD:1:1: //foo:none: "
+        "ERROR /workspace/foo/BUILD:1:15: //foo:none: "
             + "expected value of type 'string' for dict value element, but got None (NoneType)",
         "config_setting(",
         "    name = 'none',",
@@ -388,6 +388,20 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:match").matches()).isFalse();
     useConfiguration("--define", "foo=nope", "--define", "bar=baz", "--define", "foo=bar");
     assertThat(getConfigMatchingProvider("//test:match").matches()).isTrue();
+  }
+
+  @Test
+  public void invalidDefineProducesError() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "config_setting(",
+        "    name = 'match',",
+        "    values = {",
+        "        'define': 'foo',", // Value should be "foo=<something>".
+        "    })");
+
+    checkError(
+        "//test:match", "Variable definitions must be in the form of a 'name=value' assignment");
   }
 
   @Test
@@ -1393,8 +1407,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromDefault() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1415,7 +1427,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_matchesFromCommandLine() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
 
     scratch.file(
@@ -1442,8 +1453,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
    */
   @Test
   public void buildsettings_convertedType() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1464,7 +1473,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_doesntMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration(ImmutableMap.of("//test:cheese", "gouda"));
 
     scratch.file(
@@ -1487,8 +1495,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettings_badType() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file(
         "test/build_settings.bzl",
         "def _impl(ctx):",
@@ -1512,8 +1518,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void notBuildSettingOrFeatureFlag() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
-
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
@@ -1538,7 +1542,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsMatch_featureFlagsMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1568,7 +1571,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsMatch_featureFlagsDontMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1598,7 +1600,6 @@ public class ConfigSettingTest extends BuildViewTestCase {
 
   @Test
   public void buildsettingsDontMatch_featureFlagsMatch() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
 
     scratch.file(
@@ -1951,5 +1952,66 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertThat(getConfigMatchingProvider("//test:matches_one").matches()).isTrue();
     assertThat(getConfigMatchingProvider("//test:matches_two").matches()).isTrue();
     assertThat(getConfigMatchingProvider("//test:doesntmatch").matches()).isFalse();
+  }
+
+  @Test
+  public void canOnlyMatchSingleValueInMultiValueFlags() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_list_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string_list(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_list_flag')",
+        "string_list_flag(name = 'gouda', build_setting_default = ['smoked'])",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':gouda': 'smoked,fresh',",
+        "    },",
+        ")",
+        "filegroup(",
+        "  name = 'fg',",
+        "  srcs = select({",
+        "      ':match': []",
+        "  }),",
+        ")");
+    reporter.removeHandler(failFastHandler); // expect errors
+    assertThat(getConfiguredTarget("//test:fg")).isNull();
+    assertContainsEvent(
+        "\"smoked,fresh\" not a valid value for flag //test:gouda. "
+            + "Only single, exact values are allowed");
+  }
+
+  @Test
+  public void singleValueThatLooksLikeMultiValueIsOkay() throws Exception {
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(",
+        "  implementation = _impl,",
+        "  build_setting = config.string(flag = True))");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "string_flag(name = 'gouda', build_setting_default = 'smoked,fresh')",
+        "config_setting(",
+        "    name = 'match',",
+        "    flag_values = {",
+        "        ':gouda': 'smoked,fresh',",
+        "    },",
+        ")",
+        "filegroup(",
+        "  name = 'fg',",
+        "  srcs = select({",
+        "      ':match': []",
+        "  }),",
+        ")");
+    assertThat(getConfiguredTarget("//test:fg")).isNotNull();
+    assertNoEvents();
   }
 }

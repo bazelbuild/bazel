@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.util.concurrent.Callables;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.testutil.TimestampGranularityUtils;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -199,10 +199,11 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       // tests we assume that the input file is short, maybe just 10 bytes long.
       byte[] input = new byte[10];
       int inputLen = 0;
-      try (InputStream in = Iterables.getOnlyElement(getInputs()).getPath().getInputStream()) {
+      try (InputStream in = getInputs().getSingleton().getPath().getInputStream()) {
         inputLen = in.read(input);
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, false);
+        throw new ActionExecutionException(
+            e, this, false, CrashFailureDetails.detailedExitCodeForThrowable(e));
       }
 
       // This action then writes the contents of the input to the (only) output file, and appends an
@@ -211,7 +212,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         out.write(input, 0, inputLen);
         out.write('x');
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, false);
+        throw new ActionExecutionException(
+            e, this, false, CrashFailureDetails.detailedExitCodeForThrowable(e));
       }
       return ActionResult.EMPTY;
     }
@@ -365,7 +367,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   }
 
   /** Sanity check: ensure that a file's ctime was updated from an older value. */
-  private void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
+  private static void checkCtimeUpdated(Path path, long oldCtime) throws IOException {
     if (oldCtime >= path.stat().getLastChangeTime()) {
       throw new IllegalStateException(String.format("path=(%s), ctime=(%d)", path, oldCtime));
     }
@@ -439,7 +441,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
 
     // Sanity check that our invalidation receiver is working correctly. We'll rely on it again.
     SkyKey actionKey = ActionLookupData.create(ACTION_LOOKUP_KEY, 0);
@@ -468,7 +471,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
 
     if (expectActionIs.dirtied()) {
       assertThat(progressReceiver.wasInvalidated(actionKey)).isTrue();
@@ -499,7 +503,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     return RootedPath.toRootedPath(Root.fromPath(rootDirectory), PathFragment.create("action.dep"));
   }
 
-  private void appendToFile(Path path) throws Exception {
+  private static void appendToFile(Path path) throws Exception {
     try (OutputStream stm = path.getOutputStream(/*append=*/ true)) {
       stm.write("blah".getBytes(StandardCharsets.UTF_8));
     }
@@ -695,7 +699,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       try (InputStream in = getPrimaryInput().getPath().getInputStream()) {
         inputLen = in.read(input, 0, input.length);
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, false);
+        throw new ActionExecutionException(
+            e, this, false, CrashFailureDetails.detailedExitCodeForThrowable(e));
       }
       return new Buffer(input, inputLen);
     }
@@ -707,7 +712,8 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         }
         out.write(data.getBytes(StandardCharsets.UTF_8), 0, data.length());
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, false);
+        throw new ActionExecutionException(
+            e, this, false, CrashFailureDetails.detailedExitCodeForThrowable(e));
       }
     }
 
@@ -881,6 +887,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         null,
         options,
         null,
-        null);
+        null,
+        /* trustRemoteArtifacts= */ false);
   }
 }

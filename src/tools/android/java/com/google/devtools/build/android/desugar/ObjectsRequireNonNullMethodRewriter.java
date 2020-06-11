@@ -33,7 +33,7 @@ public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
   private final CoreLibraryRewriter rewriter;
 
   public ObjectsRequireNonNullMethodRewriter(ClassVisitor cv, CoreLibraryRewriter rewriter) {
-    super(Opcodes.ASM7, cv);
+    super(Opcodes.ASM8, cv);
     this.rewriter = rewriter;
   }
 
@@ -47,7 +47,7 @@ public class ObjectsRequireNonNullMethodRewriter extends ClassVisitor {
   private class ObjectsMethodInlinerMethodVisitor extends MethodVisitor {
 
     public ObjectsMethodInlinerMethodVisitor(MethodVisitor mv) {
-      super(Opcodes.ASM7, mv);
+      super(Opcodes.ASM8, mv);
     }
 
     @Override

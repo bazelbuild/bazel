@@ -17,6 +17,7 @@ import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import java.util.List;
 
 /** Defines the options specific to Bazel's sync command */
 public class SyncOptions extends OptionsBase {
@@ -27,4 +28,15 @@ public class SyncOptions extends OptionsBase {
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help = "Only sync repositories marked as 'configure' for system-configuration purpose.")
   public boolean configure;
+
+  @Option(
+      name = "only",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "If this option is given, only sync the repositories specified with this option."
+              + " Still consider all (or all configure-like, of --configure is given) outdated.")
+  public List<String> only;
 }

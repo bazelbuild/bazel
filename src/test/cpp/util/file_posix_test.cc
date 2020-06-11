@@ -322,4 +322,63 @@ TEST(FilePosixTest, ForEachDirectoryEntry) {
   rmdir(root.c_str());
 }
 
+TEST(FileTest, TestRemoveRecursivelyPosix) {
+  const char* tempdir_cstr = getenv("TEST_TMPDIR");
+  ASSERT_NE(tempdir_cstr, nullptr);
+  string tempdir(tempdir_cstr);
+  ASSERT_TRUE(PathExists(tempdir));
+
+  string unwritable_dir(JoinPath(tempdir, "test_rmr_unwritable"));
+  EXPECT_TRUE(MakeDirectories(unwritable_dir, 0700));
+  EXPECT_TRUE(WriteFile("junkdata", 8, JoinPath(unwritable_dir, "file")));
+  ASSERT_EQ(0, chmod(unwritable_dir.c_str(), 0500));
+  EXPECT_FALSE(RemoveRecursively(unwritable_dir));
+
+  string symlink_target_dir(JoinPath(tempdir, "test_rmr_symlink_target_dir"));
+  EXPECT_TRUE(MakeDirectories(symlink_target_dir, 0700));
+  string symlink_target_dir_file(JoinPath(symlink_target_dir, "file"));
+  EXPECT_TRUE(WriteFile("junkdata", 8, symlink_target_dir_file));
+  string symlink_dir(JoinPath(tempdir, "test_rmr_symlink_dir"));
+  EXPECT_EQ(0, symlink(symlink_target_dir.c_str(), symlink_dir.c_str()));
+  EXPECT_TRUE(RemoveRecursively(symlink_dir));
+  EXPECT_FALSE(PathExists(symlink_dir));
+  EXPECT_TRUE(PathExists(symlink_target_dir));
+  EXPECT_TRUE(PathExists(symlink_target_dir_file));
+
+  string dir_with_symlinks(JoinPath(tempdir, "test_rmr_dir_w_symlinks"));
+  EXPECT_TRUE(MakeDirectories(dir_with_symlinks, 0700));
+  string file_symlink_target(JoinPath(tempdir, "test_rmr_dir_w_symlinks_file"));
+  EXPECT_TRUE(WriteFile("junkdata", 8, file_symlink_target));
+  EXPECT_EQ(0, symlink(file_symlink_target.c_str(),
+                       JoinPath(dir_with_symlinks, "file").c_str()));
+  string dir_symlink_target(JoinPath(tempdir, "test_rmr_dir_w_symlinks_dir"));
+  EXPECT_TRUE(MakeDirectories(dir_symlink_target, 0700));
+  string dir_symlink_target_file(JoinPath(dir_symlink_target, "file"));
+  EXPECT_TRUE(WriteFile("junkdata", 8, dir_symlink_target_file));
+  EXPECT_EQ(0, symlink(dir_symlink_target.c_str(),
+                       JoinPath(dir_with_symlinks, "dir").c_str()));
+  EXPECT_TRUE(RemoveRecursively(dir_with_symlinks));
+  EXPECT_FALSE(PathExists(dir_with_symlinks));
+  EXPECT_TRUE(PathExists(dir_symlink_target));
+  EXPECT_TRUE(PathExists(dir_symlink_target_file));
+  EXPECT_TRUE(PathExists(file_symlink_target));
+}
+
+TEST(FileTest, TestCreateTempDirDoesntClobberParentPerms) {
+  const char* tempdir_cstr = getenv("TEST_TMPDIR");
+  ASSERT_NE(tempdir_cstr, nullptr);
+  string tempdir(tempdir_cstr);
+  ASSERT_TRUE(PathExists(tempdir));
+
+  string existing_parent_dir(JoinPath(tempdir, "existing"));
+  ASSERT_TRUE(MakeDirectories(existing_parent_dir, 0700));
+  string prefix(JoinPath(existing_parent_dir, "mytmp"));
+  string result(CreateTempDir(prefix));
+  ASSERT_EQ(0, result.find(prefix));
+  EXPECT_TRUE(PathExists(result));
+  struct stat filestat = {};
+  ASSERT_EQ(0, stat(existing_parent_dir.c_str(), &filestat));
+  ASSERT_EQ(mode_t(0700), filestat.st_mode & 0777);
+}
+
 }  // namespace blaze_util

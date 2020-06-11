@@ -138,7 +138,7 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  public String getSkylarkContent() throws IOException {
+  public String getStarlarkContent() throws IOException {
     return getFileContents();
   }
 
@@ -169,9 +169,10 @@ public final class TemplateExpansionAction extends AbstractAction {
             return this;
           }
         } catch (ExecException e) {
+          Label label = getOwner().getLabel();
           throw e.toActionExecutionException(
-              "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",
-              actionExecutionContext.getVerboseFailures(),
+              "Error expanding template '" + Label.print(label) + "'",
+              actionExecutionContext.showVerboseFailures(label),
               TemplateExpansionAction.this);
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
@@ -214,7 +215,7 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  public Dict<String, String> getSkylarkSubstitutions() {
+  public Dict<String, String> getStarlarkSubstitutions() {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     for (Substitution entry : substitutions) {
       builder.put(entry.getKey(), entry.getValue());

@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -36,13 +36,15 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.BuildInfoCollectionFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -72,14 +74,13 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public static final class TestOptions extends OptionsBase {
     @Option(
-      name = "multi_cpu",
-      converter = Converters.CommaSeparatedOptionListConverter.class,
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "",
-      help = "Additional target CPUs."
-    )
+        name = "multi_cpu",
+        converter = Converters.CommaSeparatedOptionListConverter.class,
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        help = "Additional target CPUs.")
     public List<String> multiCpus;
   }
 
@@ -111,15 +112,15 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             analysisMock.getProductName());
 
     mockToolsConfig = new MockToolsConfig(rootDirectory);
-    mockToolsConfig.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
-    mockToolsConfig.create("/bazel_tools_workspace/tools/build_defs/repo/BUILD");
+    mockToolsConfig.create("bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
+    mockToolsConfig.create("bazel_tools_workspace/tools/build_defs/repo/BUILD");
     mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
+        "bazel_tools_workspace/tools/build_defs/repo/utils.bzl",
         "def maybe(repo_rule, name, **kwargs):",
         "  if name not in native.existing_rules():",
         "    repo_rule(name = name, **kwargs)");
     mockToolsConfig.create(
-        "/bazel_tools_workspace/tools/build_defs/repo/http.bzl",
+        "bazel_tools_workspace/tools/build_defs/repo/http.bzl",
         "def http_archive(**kwargs):",
         "  pass",
         "",
@@ -146,7 +147,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             .setWorkspaceStatusActionFactory(workspaceStatusActionFactory)
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
-    TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+    SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
@@ -162,14 +163,14 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
                 RepositoryDelegatorFunction.DEPENDENCY_FOR_UNCONDITIONAL_FETCHING,
                 RepositoryDelegatorFunction.DONT_FETCH_UNCONDITIONALLY),
             PrecomputedValue.injected(
-                PrecomputedValue.BUILD_INFO_FACTORIES,
+                BuildInfoCollectionFunction.BUILD_INFO_FACTORIES,
                 ruleClassProvider.getBuildInfoFactoriesAsMap())));
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
-        packageCacheOptions,
+        packageOptions,
         Options.getDefaults(StarlarkSemanticsOptions.class),
         UUID.randomUUID(),
         ImmutableMap.<String, String>of(),
@@ -205,7 +206,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   /**
    * Variation of {@link #createCollection(String...)} that also supports Starlark-defined options.
    *
-   * @param starlarkOptions map of skylark-defined options where the keys are option names (in the
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */
@@ -244,7 +245,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   /**
    * Variation of {@link #create(String...)} that also supports Starlark-defined options.
    *
-   * @param starlarkOptions map of skylark-defined options where the keys are option names (in the
+   * @param starlarkOptions map of Starlark-defined options where the keys are option names (in the
    *     form of label-like strings) and the values are option values
    * @param args native option name/pair descriptions in command line form (e.g. "--cpu=k8")
    */

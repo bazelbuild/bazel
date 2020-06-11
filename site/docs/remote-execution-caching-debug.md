@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Debugging Remote Cache Hits for Remote Execution
+title: Debugging remote cache hits for remote execution
 ---
 
-# Debugging Remote Cache Hits for Remote Execution
+# Debugging remote cache hits for remote execution
 
 This page describes how to check your cache hit rate and how to investigate
 cache misses in the context of remote execution.
@@ -11,12 +11,6 @@ cache misses in the context of remote execution.
 This page assumes that you have a build and/or test that successfully
 utilizes remote execution, and you want to ensure that you are effectively
 utilizing remote cache.
-
-## Contents
-
-* [Checking your cache hit rate](#checking-your-cache-hit-rate)
-* [Troubleshooting cache hits](#troubleshooting-cache-hits)
-* [Comparing the execution logs](#comparing-the-execution-logs)
 
 ## Checking your cache hit rate
 
@@ -40,7 +34,7 @@ run `bazel clean` followed by your build/test command.
 
 If you are not getting the cache hit rate you are expecting, do the following:
 
-### Ensure re-running the same build/test command produces cache hits.
+### Ensure re-running the same build/test command produces cache hits
 
 1. Run the build(s) and/or test(s) that you expect to populate the cache. The
    first time a new build is run on a particular stack, we expect no remote

@@ -13,20 +13,21 @@ title: Configuring C++ toolchains
 This tutorial uses an example scenario to describe how to configure C++
 toolchains for a project. It's based on an
 [example C++ project](https://github.com/bazelbuild/examples/tree/master/cpp-tutorial/stage1)
-that builds error-free using `gcc`, `clang`, and `msvc`.
+that builds error-free using `clang`.
 
 In this tutorial, you will create a Starlark rule that provides additional
 configuration for the `cc_toolchain` so that Bazel can build the application
-with `emscripten`. The expected outcome is to run
-`bazel build --config=asmjs //main:helloworld.js` on a Linux machine and build the
-C++ application using [`emscripten`](https://kripken.github.io/emscripten-site/)
-targeting [`asm.js`](http://asmjs.org/).
+with `clang`. The expected outcome is to run
+`bazel build --config=clang_config //main:hello-world` on a Linux machine and
+build the C++ application. For additional details please visit
+[C++ toolchain configuration](../cc-toolchain-config-reference.html)
 
 ## Setting up the build environment
 
 This tutorial assumes you are on Linux on which you have successfully built
 C++ applications - in other words, we assume that appropriate tooling and
-libraries have been installed.
+libraries have been installed. The tutorial uses `clang version 9.0.1` which you
+can install on your system.
 
 Set up your build environment as follows:
 
@@ -40,9 +41,9 @@ Set up your build environment as follows:
 
 3.  Add the following `cc_binary` target to the `main/BUILD` file:
 
-    ```
+    ```python
     cc_binary(
-        name = "helloworld.js",
+        name = "hello-world",
         srcs = ["hello-world.cc"],
     )
     ```
@@ -53,23 +54,36 @@ Set up your build environment as follows:
     ```
     # Use our custom-configured c++ toolchain.
 
-    build:asmjs --crosstool_top=//toolchain:emscripten
+    build:clang_config --crosstool_top=//toolchain:clang_suite
 
     # Use --cpu as a differentiator.
 
-    build:asmjs --cpu=asmjs
+    build:clang_config --cpu=k8
 
     # Use the default Bazel C++ toolchain to build the tools used during the
     # build.
 
-    build:asmjs --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
+    build:clang_config --host_crosstool_top=@bazel_tools//tools/cpp:toolchain
     ```
 
-In this example, we are using the `--cpu` flag as a differentiator, since
-`emscripten` can target both `asmjs` and Web assembly. We are not configuring a
-Web assembly toolchain, however. Since Bazel uses many internal tools written in
-C++, such as process-wrapper, we are specifying a "sane" C++ toolchain for the
-host platform.
+For an entry `build:{config_name} --flag=value`, the command line flag
+`--config={config_name}` will be associated with that particular flag. See
+documentation for the flags used:
+[crosstool_top](../user-manual.html#flag--crosstool_top),
+[cpu](../user-manual.html#flag--cpu) and
+[host_crosstool_top](../user-manual.html#flag--host_crosstool_top).
+
+What this means is that when we build our [target](../build-ref.html#targets)
+with `bazel build --config=clang_config //main:hello-world` Bazel will use our
+custom toolchain from the
+[cc_toolchain_suite](../be/c-cpp.html#cc_toolchain_suite)
+`//toolchain:clang_suite`. The suite may list different [toolchains](../be/c-cpp.html#cc_toolchain)
+for different CPUs, that's why we differentiate with the flag `--cpu=k8`.
+
+Since Bazel uses many internal tools written in
+C++ during the build, such as process-wrapper, we are specifying the
+pre-existing default C++ toolchain for the host platform, so that these tools
+are built using that toolchain instead of the one created in this tutorial.
 
 ## Configuring the C++ toolchain
 
@@ -78,14 +92,16 @@ each error one by one as described below.
 
 **Note:** This tutorial assumes you're using Bazel 0.23 or later. If you're
 using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
+It also assumes `clang version 9.0.1`, although the details should only change
+slightly between different versions of clang.
 
 1.  Run the build with the following command:
 
     ```
-    bazel build --config=asmjs //main:helloworld.js
+    bazel build --config=clang_config //main:hello-world
     ```
 
-    Because you specified `--crosstool_top=//toolchain:emscripten` in the
+    Because you specified `--crosstool_top=//toolchain:clang_suite` in the
     `.bazelrc` file, Bazel throws the following error:
 
     ```
@@ -96,37 +112,38 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     and an empty `BUILD` file inside the `toolchain` directory.
 
 2.  Run the build again. Because the `toolchain` package does not yet define the
-    `emscripten` target, Bazel throws the following error:
+    `clang_suite` target, Bazel throws the following error:
 
     ```
-    No such target '//toolchain:emscripten': target 'emscripten' not declared in
-    package 'toolchain' defined by .../toolchain/BUILD
+    No such target '//toolchain:clang_suite': target 'clang_suite' not declared
+    in package 'toolchain' defined by .../toolchain/BUILD
     ```
 
     In the `toolchain/BUILD` file, define an empty filegroup as follows:
 
-    ```
-    package(default_visibility = ['//visibility:public'])
-    filegroup(name = "emscripten")
+    ```python
+    package(default_visibility = ["//visibility:public"])
+
+    filegroup(name = "clang_suite")
     ```
 
 3.  Run the build again. Bazel throws the following error:
 
     ```
-    '//toolchain:emscripten' does not have mandatory providers: 'ToolchainInfo'
+    '//toolchain:clang_suite' does not have mandatory providers: 'ToolchainInfo'
     ```
 
     Bazel discovered that the `--crosstool_top` flag points to a rule that
-    doesn't provide the necessary `ToolchainInfo` provider. So we need to point
-    `--crosstool_top` to a rule that does provide `ToolchainInfo` - that is the
-    `cc_toolchain_suite` rule. In the `toolchain/BUILD` file, replace the empty
-    filegroup with the following:
+    doesn't provide the necessary [`ToolchainInfo`](../skylark/lib/ToolchainInfo.html)
+    provider. So we need to point `--crosstool_top` to a rule that does provide
+    `ToolchainInfo` - that is the `cc_toolchain_suite` rule. In the
+    `toolchain/BUILD` file, replace the empty filegroup with the following:
 
-    ```
+    ```python
     cc_toolchain_suite(
-        name = "emscripten",
+        name = "clang_suite",
         toolchains = {
-            "asmjs": ":asmjs_toolchain",
+            "k8": ":k8_toolchain",
         },
     )
     ```
@@ -139,21 +156,20 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
 4.  Run the build again. Bazel throws the following error:
 
     ```
-    Rule '//toolchain:asmjs_toolchain_config' does not exist
+    Rule '//toolchain:k8_toolchain' does not exist
     ```
 
     Now you need to define `cc_toolchain` targets for every value in the
-    `cc_toolchain_suite.toolchains` attribute. This is where you specify the
-    files that comprise the toolchain so that Bazel can set up sandboxing. Add
-    the following to the `toolchain/BUILD` file:
+    `cc_toolchain_suite.toolchains` attribute. Add the following to the
+    `toolchain/BUILD` file:
 
-    ```
+    ```python
     filegroup(name = "empty")
 
     cc_toolchain(
-        name = "asmjs_toolchain",
-        toolchain_identifier = "asmjs-toolchain",
-        toolchain_config = ":asmjs_toolchain_config",
+        name = "k8_toolchain",
+        toolchain_identifier = "k8-toolchain",
+        toolchain_config = ":k8_toolchain_config",
         all_files = ":empty",
         compiler_files = ":empty",
         dwp_files = ":empty",
@@ -167,19 +183,19 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
 5.  Run the build again. Bazel throws the following error:
 
     ```
-    Rule '//toolchain:asmjs-toolchain' does not exist
+    Rule '//toolchain:k8_toolchain_config' does not exist
     ```
 
-    Let's add a ":asmjs-toolchain-config" target to the `toolchain/BUILD` file:
+    Let's add a ":k8_toolchain_config" target to the `toolchain/BUILD` file:
 
-    ```
-    filegroup(name = "asmjs_toolchain_config")
+    ```python
+    filegroup(name = "k8_toolchain_config")
     ```
 
 6.  Run the build again. Bazel throws the following error:
 
     ```
-    '//toolchain:asmjs_toolchain_config' does not have mandatory providers:
+    '//toolchain:k8_toolchain_config' does not have mandatory providers:
     'CcToolchainConfigInfo'
     ```
 
@@ -187,16 +203,17 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     toolchains. We are going to create a Starlark rule that will provide
     `CcToolchainConfigInfo`. Create a `toolchain/cc_toolchain_config.bzl`
     file with the following content:
-    ```
+
+    ```python
     def _impl(ctx):
         return cc_common.create_cc_toolchain_config_info(
             ctx = ctx,
-            toolchain_identifier = "asmjs-toolchain",
-            host_system_name = "i686-unknown-linux-gnu",
-            target_system_name = "asmjs-unknown-emscripten",
-            target_cpu = "asmjs",
+            toolchain_identifier = "k8-toolchain",
+            host_system_name = "local",
+            target_system_name = "local",
+            target_cpu = "k8",
             target_libc = "unknown",
-            compiler = "emscripten",
+            compiler = "clang",
             abi_version = "unknown",
             abi_libc_version = "unknown",
         )
@@ -213,24 +230,24 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     the newly implemented `cc_toolchain_config` rule. Add a load statement to
     `toolchains/BUILD`:
 
-    ```
+    ```python
     load(":cc_toolchain_config.bzl", "cc_toolchain_config")
     ```
 
-    And replace the "asmjs_toolchain_config" filegroup with a declaration of a
+    And replace the "k8_toolchain_config" filegroup with a declaration of a
     `cc_toolchain_config` rule:
 
-    ```
-    cc_toolchain_config(name = "asmjs_toolchain_config")
+    ```python
+    cc_toolchain_config(name = "k8_toolchain_config")
     ```
 
 7.  Run the build again. Bazel throws the following error:
 
     ```
-    .../BUILD:1:1: C++ compilation of rule '//:helloworld.js' failed (Exit 1)
+    .../BUILD:1:1: C++ compilation of rule '//:hello-world' failed (Exit 1)
     src/main/tools/linux-sandbox-pid1.cc:421:
     "execvp(toolchain/DUMMY_GCC_TOOL, 0x11f20e0)": No such file or directory
-    Target //:helloworld.js failed to build`
+    Target //:hello-world failed to build`
     ```
 
     At this point, Bazel has enough information to attempt building the code but
@@ -239,23 +256,24 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
     tools to use. For that, we'll need the tool_path() constructor from
     [`@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl`](https://source.bazel.build/bazel/+/4eea5c62a566d21832c93e4c18ec559e75d5c1ce:tools/cpp/cc_toolchain_config_lib.bzl;l=400):
 
-    ```
+    ```python
     # toolchain/cc_toolchain_config.bzl:
+    # NEW
     load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl", "tool_path")
 
     def _impl(ctx):
-        tool_paths = [
+        tool_paths = [ # NEW
             tool_path(
                 name = "gcc",
-                path = "emcc.sh",
+                path = "/usr/bin/clang",
             ),
             tool_path(
                 name = "ld",
-                path = "emcc.sh",
+                path = "/usr/bin/ld",
             ),
             tool_path(
                 name = "ar",
-                path = "/bin/false",
+                path = "/usr/bin/ar",
             ),
             tool_path(
                 name = "cpp",
@@ -280,346 +298,189 @@ using an older release of Bazel, look for the "Configuring CROSSTOOL" tutorial.
         ]
         return cc_common.create_cc_toolchain_config_info(
             ctx = ctx,
-            toolchain_identifier = "asmjs-toolchain",
-            host_system_name = "i686-unknown-linux-gnu",
-            target_system_name = "asmjs-unknown-emscripten",
-            target_cpu = "asmjs",
+            toolchain_identifier = "local",
+            host_system_name = "local",
+            target_system_name = "local",
+            target_cpu = "k8",
             target_libc = "unknown",
-            compiler = "emscripten",
+            compiler = "clang",
             abi_version = "unknown",
             abi_libc_version = "unknown",
-            tool_paths = tool_paths,
+            tool_paths = tool_paths, # NEW
         )
     ```
 
-    You may notice the `emcc.sh` wrapper script, which delegates to the external
-    `emcc.py` file. Create the script in the `toolchain` package directory with
-    the following contents and set its executable bit:
-
-    ```
-    #!/bin/bash
-    set -euo pipefail
-    python external/emscripten_toolchain/emcc.py "$@"
-    ```
-
-    Paths specified in the `tool_paths` list are relative to the package where
-    the `cc_toolchain_config` target is specified.
-
-    The `emcc.py` file does not yet exist in the workspace directory. To obtain
-    it, you can either check the `emscripten` toolchain in with your project or
-    pull it from its GitHub repository. This tutorial uses the latter approach.
-    To pull the toolchain from the GitHub repository, add the following
-    `http_archive` repository definitions to your `WORKSPACE` file:
-
-    ```
-    load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-    http_archive(
-      name = 'emscripten_toolchain',
-      url = 'https://github.com/kripken/emscripten/archive/1.37.22.tar.gz',
-      build_file = '//:emscripten-toolchain.BUILD',
-      strip_prefix = "emscripten-1.37.22",
-    )
-
-    http_archive(
-      name = 'emscripten_clang',
-      url = 'https://s3.amazonaws.com/mozilla-games/emscripten/packages/llvm/tag/linux_64bit/emscripten-llvm-e1.37.22.tar.gz',
-      build_file = '//:emscripten-clang.BUILD',
-      strip_prefix = "emscripten-llvm-e1.37.22",
-    )
-    ```
-
-    In the workspace directory root, create the `emscripten-toolchain.BUILD` and
-    `emscripten-clang.BUILD` files that expose these repositories as filegroups
-    and establish their visibility across the build.
-
-    In the workspace directory root, make sure that a `BUILD` file is present.
-    If not, create an empty one.
-
-    ```
-    touch BUILD
-    ```
-
-    First create the `emscripten-toolchain.BUILD` file with the following
-    contents:
-
-    ```
-    package(default_visibility = ['//visibility:public'])
-
-    filegroup(
-      name = "all",
-      srcs = glob(["**/*"]),
-    )
-    ```
-
-    Next, create the `emscripten-clang.BUILD` file with the following contents:
-
-    ```
-    package(default_visibility = ['//visibility:public'])`
-
-    filegroup(
-      name = "all",
-      srcs = glob(["**/*"]),
-    )
-    ```
-
-    You may notice that the targets simply parse all of the files contained in
-    the archives pulled by the `http_archive` repository rules. In a real
-    world scenario, you would likely want to be more selective and granular by
-    only parsing the files needed by the build and splitting them by action,
-    such as compilation, linking, and so on. For the sake of simplicity, this
-    tutorial omits this step.
+    Make sure that `/usr/bin/clang` and `/usr/bin/ld` are the correct paths
+    for your system.
 
 8.  Run the build again. Bazel throws the following error:
-
-    ```
-    "execvp(toolchain/emcc.sh, 0x12bd0e0)": No such file or directory
-    ```
-
-    You now need to make Bazel aware of the artifacts you added in the previous
-    step. In particular, the `emcc.sh` script must also be explicitly listed as
-    a dependency of the corresponding `cc_toolchain` rule. Modify the
-    `toolchain/BUILD` file to look as follows:
-
-    ```
-    package(default_visibility = ["//visibility:public"])
-
-    load(":cc_toolchain_config.bzl", "cc_toolchain_config")
-
-    cc_toolchain_config(name = "asmjs_toolchain_config")
-
-    cc_toolchain_suite(
-        name = "emscripten",
-        toolchains = {
-            "asmjs": ":asmjs_toolchain",
-        },
-    )
-
-    filegroup(
-        name = "all",
-        srcs = [
-            "emcc.sh",
-            "@emscripten_clang//:all",
-            "@emscripten_toolchain//:all",
-        ],
-    )
-
-    cc_toolchain(
-       name = "asmjs_toolchain",
-       toolchain_identifier = "asmjs-toolchain",
-       toolchain_config = ":asmjs_toolchain_config",
-       all_files = ":all",
-       compiler_files = ":all",
-       dwp_files = ":empty",
-       linker_files = ":all",
-       objcopy_files = ":empty",
-       strip_files = ":empty",
-       supports_param_files = 0,
-    )
-    ```
-
-    Congratulations! You are now using the `emscripten` toolchain to build your
-    C++ sample code.  The next steps are optional but are included for
-    completeness.
-
-
-9.  (Optional) Run the build again. Bazel throws the following error:
-
      ```
-     ERROR: .../BUILD:1:1: C++ compilation of rule '//:helloworld.js' failed (Exit 1)
+     ..../BUILD:3:1: undeclared inclusion(s) in rule '//main:hello-world':
+     this rule is missing dependency declarations for the following files included by 'main/hello-world.cc':
+     '/usr/include/c++/9/ctime'
+     '/usr/include/x86_64-linux-gnu/c++/9/bits/c++config.h'
+     '/usr/include/x86_64-linux-gnu/c++/9/bits/os_defines.h'
+     ....
      ```
+     Bazel needs to know where to search for included headers. There are
+     multiple ways to solve this like using the `includes` attribute of
+     `cc_binary`, but here we will solve it at the toolchain level with the
+     [`cxx_builtin_include_directories`](../skylark/lib/cc_common.html#create_cc_toolchain_config_info)
+     parameter of `cc_common.create_cc_toolchain_config_info`. Beware that if
+     you are using a different version of `clang`, the include path will be
+     different. These paths may also be different depending on the distribution.
 
-     The next step is to make the toolchain deterministic and hermetic - that
-     is, limit it to only touch files it's supposed to touch and ensure it
-     doesn't write temporary data outside the sandbox.
+     Modify the return value in `toolchain/cc_toolchain_config.bzl` to look
+     like this:
 
-     You also need to ensure the toolchain does not assume the existence of your
-     home directory with its configuration files and that it does not depend on
-     unspecified environment variables.
-
-     For our example project, make the following modifications to the
-     `toolchain/BUILD` file:
-
-     ```
-     filegroup(
-       name = "all",
-       srcs = [
-         "emcc.sh",
-         "@emscripten_toolchain//:all",
-         "@emscripten_clang//:all",
-         ":emscripten_cache_content"
-         ],
-      )
-
-     filegroup(
-       name = "emscripten_cache_content",
-       srcs = glob(["emscripten_cache/**/*"]),
+     ```python
+     return cc_common.create_cc_toolchain_config_info(
+          ctx = ctx,
+          cxx_builtin_include_directories = [ # NEW
+            "/usr/lib/llvm-9/lib/clang/9.0.1/include",
+            "/usr/include",
+          ],
+          toolchain_identifier = "local",
+          host_system_name = "local",
+          target_system_name = "local",
+          target_cpu = "k8",
+          target_libc = "unknown",
+          compiler = "clang",
+          abi_version = "unknown",
+          abi_libc_version = "unknown",
+          tool_paths = tool_paths,
      )
      ```
 
-     Since `emscripten` caches standard library files, you can save time by not
-     compiling `stdlib` for every action and also prevent it from storing
-     temporary data in random place, check in the precompiled bitcode files into
-     the `toolchain/emscript_cache directory`. You can create them by calling
-     the following from the `emscripten_clang` repository (or let `emscripten`
-     create them in `~/.emscripten_cache`):
+9. Run the build command again, you will see an error like:
+    ```
+    /usr/bin/ld: bazel-out/k8-fastbuild/bin/main/_objs/hello-world/hello-world.o: in function `print_localtime()':
+    hello-world.cc:(.text+0x68): undefined reference to `std::cout'
+    ```
+    The reason for this is because the linker is missing the C++ standard library
+    and it can't find its symbols. There are many ways to solve this, like using
+    the `linkopts` attribute of `cc_binary`. Here we will solve it making sure
+    that any target using our toolchain doesn't have to specify this flag. Copy
+    the following code to `cc_toolchain_config.bzl`.
 
-     ```
-     python embuilder.py build dlmalloc libcxx libc gl libcxxabi libcxx_noexcept wasm-libc
-     ```
-
-     Copy those files to `toolchain/emscripten_cache`.
-     Also update the `emcc.sh` script to look as follows:
-
-     ```
-     #!/bin/bash
-
-     set -euo pipefail
-
-     export LLVM_ROOT='external/emscripten_clang'
-     export EMSCRIPTEN_NATIVE_OPTIMIZER='external/emscripten_clang/optimizer'
-     export BINARYEN_ROOT='external/emscripten_clang/'
-     export NODE_JS=''
-     export EMSCRIPTEN_ROOT='external/emscripten_toolchain'
-     export SPIDERMONKEY_ENGINE=''
-     export EM_EXCLUSIVE_CACHE_ACCESS=1
-     export EMCC_SKIP_SANITY_CHECK=1
-     export EMCC_WASM_BACKEND=0
-
-     mkdir -p "tmp/emscripten_cache"
-
-     export EM_CACHE="tmp/emscripten_cache"
-     export TEMP_DIR="tmp"
-
-     # Prepare the cache content so emscripten doesn't keep rebuilding it
-     cp -r toolchain/emscripten_cache/* tmp/emscripten_cache
-
-     # Run emscripten to compile and link
-     python external/emscripten_toolchain/emcc.py "$@"
-
-     # Remove the first line of .d file
-     find . -name "*.d" -exec sed -i '2d' {} \;
-     ```
-
-     Bazel can now properly compile the sample C++ code in `hello-world.cc`.
-
-
-10.  (Optional) Run the build again. Bazel throws the following error:
-
-     ```
-     ..../BUILD:1:1: undeclared inclusion(s) in rule '//:helloworld.js':
-     this rule is missing dependency declarations for the following files included by 'helloworld.cc':
-     '.../external/emscripten_toolchain/system/include/libcxx/stdio.h'
-     '.../external/emscripten_toolchain/system/include/libcxx/__config'
-     '.../external/emscripten_toolchain/system/include/libc/stdio.h'
-     '.../external/emscripten_toolchain/system/include/libc/features.h'
-     '.../external/emscripten_toolchain/system/include/libc/bits/alltypes.h'
-     ```
-
-     At this point you have successfully compiled the example C++ code. The
-     error above occurs because Bazel uses a `.d` file produced by the compiler
-     to verify that all includes have been declared and to prune action inputs.
-
-     In the `.d` file, Bazel discovered that our source code references system
-     headers that have not been explicitly declared in the `BUILD` file. This in
-     and of itself is not a problem and you can easily fix this by adding the
-     target folders as `-isystem` directories. For this, you'll need to add
-     a [`feature`](https://source.bazel.build/bazel/+/4eea5c62a566d21832c93e4c18ec559e75d5c1ce:tools/cpp/cc_toolchain_config_lib.bzl;l=336) to the `CcToolchainConfigInfo`.
-     Modify `toolchain/cc_toolchain_config.bzl` to look like this:
-     ```
-     load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
+     ```python
+      # NEW
+      load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+      # NEW
+      load(
+          "@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl",
           "feature",
           "flag_group",
           "flag_set",
-          "tool_path")
-     load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+          "tool_path",
+      )
 
-     def _impl(ctx):
-         tool_paths = [
-             tool_path(
-                 name = "gcc",
-                 path = "emcc.sh",
-             ),
-             tool_path(
-                 name = "ld",
-                 path = "emcc.sh",
-             ),
-             tool_path(
-                 name = "ar",
-                 path = "/bin/false",
-             ),
-             tool_path(
-                 name = "cpp",
-                 path = "/bin/false",
-             ),
-             tool_path(
-                 name = "gcov",
-                 path = "/bin/false",
-             ),
-             tool_path(
-                 name = "nm",
-                 path = "/bin/false",
-             ),
-             tool_path(
-                 name = "objdump",
-                 path = "/bin/false",
-             ),
-             tool_path(
-                 name = "strip",
-                 path = "/bin/false",
-             ),
-         ]
-         toolchain_include_directories_feature = feature(
-             name = "toolchain_include_directories",
-             enabled = True,
-             flag_sets = [
-                 flag_set(
-                     actions = [
-                         ACTION_NAMES.assemble,
-                         ACTION_NAMES.preprocess_assemble,
-                         ACTION_NAMES.linkstamp_compile,
-                         ACTION_NAMES.c_compile,
-                         ACTION_NAMES.cpp_compile,
-                         ACTION_NAMES.cpp_header_parsing,
-                         ACTION_NAMES.cpp_module_compile,
-                         ACTION_NAMES.cpp_module_codegen,
-                         ACTION_NAMES.lto_backend,
-                         ACTION_NAMES.clif_match,
-                     ],
-                     flag_groups = [
-                         flag_group(
-                             flags = [
-                                 "-isystem",
-                                 "external/emscripten_toolchain/system/include/libcxx",
-                                 "-isystem",
-                                 "external/emscripten_toolchain/system/include/libc",
-                             ],
-                         ),
-                     ],
-                 ),
-             ],
-         )
+      all_link_actions = [ # NEW
+          ACTION_NAMES.cpp_link_executable,
+          ACTION_NAMES.cpp_link_dynamic_library,
+          ACTION_NAMES.cpp_link_nodeps_dynamic_library,
+      ]
 
-         return cc_common.create_cc_toolchain_config_info(
-             ctx = ctx,
-             toolchain_identifier = "asmjs-toolchain",
-             host_system_name = "i686-unknown-linux-gnu",
-             target_system_name = "asmjs-unknown-emscripten",
-             target_cpu = "asmjs",
-             target_libc = "unknown",
-             compiler = "emscripten",
-             abi_version = "unknown",
-             abi_libc_version = "unknown",
-             tool_paths = tool_paths,
-             features = [toolchain_include_directories_feature],
-         )
+      def _impl(ctx):
+          tool_paths = [
+              tool_path(
+                  name = "gcc",
+                  path = "/usr/bin/clang",
+              ),
+              tool_path(
+                  name = "ld",
+                  path = "/usr/bin/ld",
+              ),
+              tool_path(
+                  name = "ar",
+                  path = "/bin/false",
+              ),
+              tool_path(
+                  name = "cpp",
+                  path = "/bin/false",
+              ),
+              tool_path(
+                  name = "gcov",
+                  path = "/bin/false",
+              ),
+              tool_path(
+                  name = "nm",
+                  path = "/bin/false",
+              ),
+              tool_path(
+                  name = "objdump",
+                  path = "/bin/false",
+              ),
+              tool_path(
+                  name = "strip",
+                  path = "/bin/false",
+              ),
+          ]
 
-     cc_toolchain_config = rule(
-         implementation = _impl,
-         attrs = {},
-         provides = [CcToolchainConfigInfo],
-     )
+          features = [ # NEW
+              feature(
+                  name = "default_linker_flags",
+                  enabled = True,
+                  flag_sets = [
+                      flag_set(
+                          actions = all_link_actions,
+                          flag_groups = ([
+                              flag_group(
+                                  flags = [
+                                      "-lstdc++",
+                                  ],
+                              ),
+                          ]),
+                      ),
+                  ],
+              ),
+          ]
+
+          return cc_common.create_cc_toolchain_config_info(
+              ctx = ctx,
+              features = features, # NEW
+              cxx_builtin_include_directories = [
+                  "/usr/lib/llvm-9/lib/clang/9.0.1/include",
+                  "/usr/include",
+              ],
+              toolchain_identifier = "local",
+              host_system_name = "local",
+              target_system_name = "local",
+              target_cpu = "k8",
+              target_libc = "unknown",
+              compiler = "clang",
+              abi_version = "unknown",
+              abi_libc_version = "unknown",
+              tool_paths = tool_paths,
+          )
+
+      cc_toolchain_config = rule(
+          implementation = _impl,
+          attrs = {},
+          provides = [CcToolchainConfigInfo],
+      )
      ```
+10. If you run `bazel build --config=clang_config //main:hello-world`, it should
+    finally build.
 
-11.  (Optional) Run the build again. With this final change, the build now
-     completes error-free.
+In this tutorial you have learned how to configure a basic C++ toolchain. But
+toolchains are much more powerful than this simple example. You can visit
+[C++ toolchain configuration](../cc-toolchain-config-reference.html)
+to learn more about them.
+
+The key take-aways are:
+- You need to specify a `--crosstool_top` flag in the command line which should
+  point to a `cc_toolchain_suite`
+- You can create a shortcut for a particular configuration using the `.bazelrc`
+  file
+- The cc_toolchain_suite may list `cc_toolchains` for different CPUs and
+  compilers. You can use command line flags like `--cpu` to differentiate.
+- You have to let the toolchain know where the tools live. In this tutorial
+  we have a simplified version where we access the tools from the system. If you
+  are interested in a more self-contained approach you can read about workspaces
+  [here](../be/workspace.html). Your tools
+  could come from a different workspace and you would have to make their files
+  available to the `cc_toolchain` via target dependencies on attributes like
+  `compiler_files`. The `tool_paths` would need to be changed as well.
+- You can create features to customize which flags should be passed to different
+  actions, be it linking or any other type of action.

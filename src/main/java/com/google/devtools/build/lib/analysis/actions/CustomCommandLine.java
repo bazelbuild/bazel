@@ -21,7 +21,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -123,20 +122,20 @@ public final class CustomCommandLine extends CommandLine {
    *   <li>Simply add all arguments
    * </ul>
    *
-   * <pre>
-   *   Examples:
+   * <pre>{@code
+   * Examples:
    *
-   *   List<String> values = ImmutableList.of("1", "2", "3");
+   * List<String> values = ImmutableList.of("1", "2", "3");
    *
-   *   commandBuilder.addAll(VectorArg.format("-l%s").each(values))
-   *   -> ["-l1", "-l2", "-l3"]
+   * commandBuilder.addAll(VectorArg.format("-l%s").each(values))
+   * -> ["-l1", "-l2", "-l3"]
    *
-   *   commandBuilder.addAll(VectorArg.addBefore("-l").each(values))
-   *   -> ["-l", "1", "-l", "2", "-l", "3"]
+   * commandBuilder.addAll(VectorArg.addBefore("-l").each(values))
+   * -> ["-l", "1", "-l", "2", "-l", "3"]
    *
-   *   commandBuilder.addAll(VectorArg.join(":").each(values))
-   *   -> ["1:2:3"]
-   * </pre>
+   * commandBuilder.addAll(VectorArg.join(":").each(values))
+   * -> ["1:2:3"]
+   * }</pre>
    */
   @AutoCodec
   public static class VectorArg<T> {
@@ -172,7 +171,7 @@ public final class CustomCommandLine extends CommandLine {
      */
     @AutoCodec
     public static class SimpleVectorArg<T> extends VectorArg<T> {
-      private final Iterable<T> values;
+      private final Object values;
 
       private SimpleVectorArg(Builder builder, @Nullable Collection<T> values) {
         this(
@@ -205,7 +204,7 @@ public final class CustomCommandLine extends CommandLine {
           String formatEach,
           String beforeEach,
           String joinWith,
-          @Nullable Iterable<T> values) {
+          @Nullable Object values) {
         super(isNestedSet, isEmpty, count, formatEach, beforeEach, joinWith);
         this.values = values;
       }
@@ -218,7 +217,7 @@ public final class CustomCommandLine extends CommandLine {
 
     /** A vector arg that maps some type T to strings. */
     static class MappedVectorArg<T> extends VectorArg<String> {
-      private final Iterable<T> values;
+      private final Object values;
       private final CommandLineItem.MapFn<? super T> mapFn;
 
       private MappedVectorArg(SimpleVectorArg<T> other, CommandLineItem.MapFn<? super T> mapFn) {
@@ -292,9 +291,9 @@ public final class CustomCommandLine extends CommandLine {
       }
     }
 
-    @SuppressWarnings("unchecked")
     private static void push(List<Object> arguments, VectorArg<?> vectorArg) {
-      final Iterable<?> values;
+      // This is either a Collection or a NestedSet.
+      final Object values;
       final CommandLineItem.MapFn<?> mapFn;
       if (vectorArg instanceof SimpleVectorArg) {
         values = ((SimpleVectorArg) vectorArg).values;
@@ -323,7 +322,7 @@ public final class CustomCommandLine extends CommandLine {
       } else {
         // Simply expand any ordinary collection into the argv
         arguments.add(vectorArg.count);
-        Iterables.addAll(arguments, values);
+        arguments.addAll((Collection<?>) values);
       }
       if (vectorArgFragment.hasFormatEach) {
         arguments.add(vectorArg.formatEach);
@@ -445,7 +444,7 @@ public final class CustomCommandLine extends CommandLine {
           int count = (Integer) arguments.get(argi++);
           if (mapFn != null) {
             for (int i = 0; i < count; ++i) {
-              mapFn.expandToCommandLine(arguments.get(argi++), fingerprint);
+              mapFn.expandToCommandLine(arguments.get(argi++), fingerprint::addString);
             }
           } else {
             for (int i = 0; i < count; ++i) {
@@ -1080,9 +1079,9 @@ public final class CustomCommandLine extends CommandLine {
     }
 
     /**
-     * Adds the arguments for all {@link TreeFileArtifact}s under
-     * {@code treeArtifact}, one argument per file. Using {@code expandingFunction} to expand each
-     * {@link TreeFileArtifact} to expected argument.
+     * Adds the arguments for all {@link TreeFileArtifact}s under {@code treeArtifact}, one argument
+     * per file. Using {@code expandFunction} to expand each {@link TreeFileArtifact} to expected
+     * argument.
      *
      * @param treeArtifact the TreeArtifact containing the {@link TreeFileArtifact}s to add.
      * @param expandFunction the function to generate the argument for each{@link TreeFileArtifact}.
@@ -1245,7 +1244,9 @@ public final class CustomCommandLine extends CommandLine {
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
       Object substitutedArg = substituteTreeFileArtifactArgvFragment(arg);
-      if (substitutedArg instanceof Iterable) {
+      if (substitutedArg instanceof NestedSet) {
+        evalSimpleVectorArg(((NestedSet<?>) substitutedArg).toList(), builder);
+      } else if (substitutedArg instanceof Iterable) {
         evalSimpleVectorArg((Iterable<?>) substitutedArg, builder);
       } else if (substitutedArg instanceof ArgvFragment) {
         if (artifactExpander != null
@@ -1286,32 +1287,24 @@ public final class CustomCommandLine extends CommandLine {
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint) {
     int count = arguments.size();
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
       Object substitutedArg = substituteTreeFileArtifactArgvFragment(arg);
-      if (substitutedArg instanceof Iterable) {
-        addSimpleVectorArgToFingerprint(
-            (Iterable<?>) substitutedArg, actionKeyContext, fingerprint);
+      if (substitutedArg instanceof NestedSet) {
+        actionKeyContext.addNestedSetToFingerprint(fingerprint, (NestedSet<Object>) substitutedArg);
+      } else if (substitutedArg instanceof Iterable) {
+        for (Object value : (Iterable<Object>) substitutedArg) {
+          fingerprint.addString(CommandLineItem.expandToCommandLine(value));
+        }
       } else if (substitutedArg instanceof ArgvFragment) {
         i =
             ((ArgvFragment) substitutedArg)
                 .addToFingerprint(arguments, i, actionKeyContext, fingerprint);
       } else {
         fingerprint.addString(CommandLineItem.expandToCommandLine(substitutedArg));
-      }
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private void addSimpleVectorArgToFingerprint(
-      Iterable<?> arg, ActionKeyContext actionKeyContext, Fingerprint fingerprint) {
-    if (arg instanceof NestedSet) {
-      actionKeyContext.addNestedSetToFingerprint(fingerprint, (NestedSet<Object>) arg);
-    } else {
-      for (Object value : arg) {
-        fingerprint.addString(CommandLineItem.expandToCommandLine(value));
       }
     }
   }

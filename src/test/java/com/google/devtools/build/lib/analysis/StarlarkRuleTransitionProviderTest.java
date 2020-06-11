@@ -18,15 +18,16 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -100,7 +101,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationFragment(new DummyTestLoader());
@@ -217,7 +218,6 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testBuildSettingCannotTransition() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=true");
     writeWhitelistFile();
     scratch.file(
         "test/transitions.bzl",
@@ -436,8 +436,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testCannotTransitionOnBuildSettingWithoutFlag() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=false", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=false");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -456,8 +455,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_fromDefault() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -480,8 +478,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_fromCommandLine() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -506,8 +503,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_badValue() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -529,8 +525,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_noSuchTarget() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -551,8 +546,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_noSuchPackage() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -571,8 +565,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_notABuildSetting() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
         "test/transitions.bzl",
@@ -617,8 +610,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_dontStoreDefault() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -639,8 +631,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionReadsBuildSetting_fromDefault() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -663,8 +654,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionReadsBuildSetting_fromCommandLine() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -689,8 +679,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionReadsBuildSetting_notABuildSetting() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
         "test/transitions.bzl",
@@ -735,8 +724,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionReadsBuildSetting_noSuchTarget() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -757,8 +745,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testAliasedBuildSetting() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -793,8 +780,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testAliasedBuildSetting_chainedAliases() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -830,8 +816,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testAliasedBuildSetting_configuredActualValue() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -876,8 +861,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testAliasedBuildSetting_cyclicalAliases() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -903,8 +887,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testAliasedBuildSetting_setAliasAndActual() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -939,8 +922,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testAliasedBuildSetting_outputReturnMismatch() throws Exception {
-    setSkylarkSemanticsOptions(
-        "--experimental_starlark_config_transitions=true", "--experimental_build_setting_api");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     scratch.file(
         "test/transitions.bzl",
         "def _transition_impl(settings, attr):",
@@ -973,7 +955,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testOneParamTransitionFunctionApiFails() throws Exception {
-    setSkylarkSemanticsOptions("--experimental_starlark_config_transitions=true");
+    setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
         "test/transitions.bzl",
@@ -999,7 +981,7 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test");
-    assertContainsEvent("too many (2) positional arguments in call to _impl(settings)");
+    assertContainsEvent("_impl() accepts no more than 1 positional argument but got 2");
   }
 
   @Test
@@ -1008,9 +990,9 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     scratch.file(
         "test/transitions.bzl",
         "def _impl(settings, attr):",
-        "  return {'//command_line_option:experimental_build_setting_api': True}",
+        "  return {'//command_line_option:experimental_something_something': True}",
         "my_transition = transition(implementation = _impl, inputs = [],",
-        "  outputs = ['//command_line_option:experimental_build_setting_api'])");
+        "  outputs = ['//command_line_option:experimental_something_something'])");
     scratch.file(
         "test/rules.bzl",
         "load('//test:transitions.bzl', 'my_transition')",
@@ -1202,5 +1184,186 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     assertContainsEvent(
         "transition outputs [//command_line_option:test_arg] were "
             + "not defined by transition function");
+  }
+
+  @Test
+  public void composingTransitionReportsAllStarlarkErrors() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/build_settings.bzl",
+        "def _impl(ctx):",
+        "  return []",
+        "string_flag = rule(implementation = _impl, build_setting = config.string(flag=True))");
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {}",
+        "attr_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//test:attr_transition_output_flag'])",
+        "self_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//test:self_transition_output_flag'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'attr_transition', 'self_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "rule_with_attr_transition = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "    'deps': attr.label_list(cfg = attr_transition),",
+        "  })",
+        "rule_with_self_transition = rule(",
+        "  implementation = _impl,",
+        "  cfg = self_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_attr_transition', 'rule_with_self_transition')",
+        "load('//test:build_settings.bzl', 'string_flag')",
+        "string_flag(name = 'attr_transition_output_flag', build_setting_default='')",
+        "string_flag(name = 'self_transition_output_flag', build_setting_default='')",
+        "rule_with_attr_transition(name = 'buildme', deps = [':adep'])",
+        "rule_with_self_transition(name = 'adep')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:buildme");
+    assertContainsEvent(
+        "transition outputs [//test:attr_transition_output_flag] were not defined by transition "
+            + "function");
+    assertContainsEvent(
+        "transition outputs [//test:self_transition_output_flag] were not defined by transition "
+            + "function");
+  }
+
+  @Test
+  public void testTransitionOnDefine() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:define': 'chonky=true'}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:define'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("Starlark transition on --define not supported - try using build settings");
+  }
+
+  @Test
+  public void successfulTypeConversionOfNativeListOption() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:platforms': ['//test:my_platform']}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:platforms'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "platform(name = 'my_platform')",
+        "my_rule(name = 'test')");
+
+    getConfiguredTarget("//test");
+    assertNoEvents();
+  }
+
+  @Test
+  public void failedTypeConversionOfNativeListOption() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:platforms': ['this is not a valid label::']}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:platforms'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "platform(name = 'my_platform')",
+        "my_rule(name = 'test')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test");
+    assertContainsEvent("invalid target name ':': target names may not contain ':'");
+  }
+
+  @Test
+  public void successfulTypeConversionOfNativeListOptionEmptyList() throws Exception {
+    writeWhitelistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:fission': []}",
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:fission'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "platform(name = 'my_platform')",
+        "my_rule(name = 'test')");
+
+    ConfiguredTarget ct = getConfiguredTarget("//test");
+    assertNoEvents();
+    assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).fissionModes).isEmpty();
   }
 }

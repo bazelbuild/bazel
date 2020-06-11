@@ -16,14 +16,14 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
- * A value class to store Methods with their corresponding {@link SkylarkCallable} annotation
+ * A value class to store Methods with their corresponding {@link StarlarkMethod} annotation
  * metadata. This is needed because the annotation is sometimes in a superclass.
  *
  * <p>The annotation metadata is duplicated in this class to avoid usage of Java dynamic proxies
@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
  */
 final class MethodDescriptor {
   private final Method method;
-  private final SkylarkCallable annotation;
+  private final StarlarkMethod annotation;
 
   private final String name;
   private final String doc;
@@ -42,13 +42,12 @@ final class MethodDescriptor {
   private final boolean extraKeywords;
   private final boolean selfCall;
   private final boolean allowReturnNones;
-  private final boolean useLocation;
   private final boolean useStarlarkThread;
   private final boolean useStarlarkSemantics;
 
   private MethodDescriptor(
       Method method,
-      SkylarkCallable annotation,
+      StarlarkMethod annotation,
       String name,
       String doc,
       boolean documented,
@@ -58,7 +57,6 @@ final class MethodDescriptor {
       boolean extraKeywords,
       boolean selfCall,
       boolean allowReturnNones,
-      boolean useLocation,
       boolean useStarlarkThread,
       boolean useStarlarkSemantics) {
     this.method = method;
@@ -72,19 +70,18 @@ final class MethodDescriptor {
     this.extraKeywords = extraKeywords;
     this.selfCall = selfCall;
     this.allowReturnNones = allowReturnNones;
-    this.useLocation = useLocation;
     this.useStarlarkThread = useStarlarkThread;
     this.useStarlarkSemantics = useStarlarkSemantics;
   }
 
-  /** Returns the SkylarkCallable annotation corresponding to this method. */
-  SkylarkCallable getAnnotation() {
+  /** Returns the StarlarkMethod annotation corresponding to this method. */
+  StarlarkMethod getAnnotation() {
     return annotation;
   }
 
-  /** @return Skylark method descriptor for provided Java method and signature annotation. */
+  /** @return Starlark method descriptor for provided Java method and signature annotation. */
   static MethodDescriptor of(
-      Method method, SkylarkCallable annotation, StarlarkSemantics semantics) {
+      Method method, StarlarkMethod annotation, StarlarkSemantics semantics) {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
@@ -102,7 +99,6 @@ final class MethodDescriptor {
         !annotation.extraKeywords().name().isEmpty(),
         annotation.selfCall(),
         annotation.allowReturnNones(),
-        annotation.useLocation(),
         annotation.useStarlarkThread(),
         annotation.useStarlarkSemantics());
   }
@@ -170,7 +166,7 @@ final class MethodDescriptor {
     return Starlark.fromJava(result, mu);
   }
 
-  /** @see SkylarkCallable#name() */
+  /** @see StarlarkMethod#name() */
   String getName() {
     return name;
   }
@@ -179,27 +175,22 @@ final class MethodDescriptor {
     return method;
   }
 
-  /** @see SkylarkCallable#structField() */
+  /** @see StarlarkMethod#structField() */
   boolean isStructField() {
     return structField;
   }
 
-  /** @see SkylarkCallable#useStarlarkThread() */
+  /** @see StarlarkMethod#useStarlarkThread() */
   boolean isUseStarlarkThread() {
     return useStarlarkThread;
   }
 
-  /** @see SkylarkCallable#useStarlarkSemantics() */
+  /** @see StarlarkMethod#useStarlarkSemantics() */
   boolean isUseStarlarkSemantics() {
     return useStarlarkSemantics;
   }
 
-  /** @see SkylarkCallable#useLocation() */
-  boolean isUseLocation() {
-    return useLocation;
-  }
-
-  /** @see SkylarkCallable#allowReturnNones() */
+  /** @see StarlarkMethod#allowReturnNones() */
   boolean isAllowReturnNones() {
     return allowReturnNones;
   }
@@ -209,12 +200,12 @@ final class MethodDescriptor {
     return extraPositionals;
   }
 
-  /** @see SkylarkCallable#extraKeywords() */
+  /** @see StarlarkMethod#extraKeywords() */
   boolean acceptsExtraKwargs() {
     return extraKeywords;
   }
 
-  /** @see SkylarkCallable#parameters() */
+  /** @see StarlarkMethod#parameters() */
   ParamDescriptor[] getParameters() {
     return parameters;
   }
@@ -229,17 +220,17 @@ final class MethodDescriptor {
     return -1;
   }
 
-  /** @see SkylarkCallable#documented() */
+  /** @see StarlarkMethod#documented() */
   boolean isDocumented() {
     return documented;
   }
 
-  /** @see SkylarkCallable#doc() */
+  /** @see StarlarkMethod#doc() */
   String getDoc() {
     return doc;
   }
 
-  /** @see SkylarkCallable#selfCall() */
+  /** @see StarlarkMethod#selfCall() */
   boolean isSelfCall() {
     return selfCall;
   }

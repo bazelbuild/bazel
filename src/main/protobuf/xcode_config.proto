@@ -1,0 +1,67 @@
+// Copyright 2020 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto3";
+
+package xcode_config;
+
+option java_package = "com.google.devtools.build.lib.xcode.proto";
+
+// Information about a single Xcode version.
+message XcodeVersionInfo {
+  // The canonical version number for this Xcode.
+  string version = 1;
+
+  // The aliases for this version, if present.
+  repeated string aliases = 2;
+
+  // Next ID: 3
+}
+
+// Information about the Xcode config, its dependencies and the selected Xcode.
+message XcodeConfigRuleInfo {
+  enum Availability {
+    UNKNOWN = 0;
+    LOCAL = 1;
+    REMOTE = 2;
+    BOTH = 3;
+  }
+
+  // The Xcode version selected from this configuration to be used in the build.
+  string selected_version = 1;
+
+  // The availability of the selected Xcode version.
+  Availability selected_version_availability = 2;
+
+  // The explicitly listed (location-agnostic) Xcode versions in this
+  // config, if there are any. A config will have either explicit versions or
+  // both local and remote versions.
+  repeated XcodeVersionInfo explicit_versions = 3;
+
+  // The remote Xcode versions in this config, if there are any.
+  repeated XcodeVersionInfo remote_versions = 4;
+
+  // The local Xcode versions in this config, if there are any.
+  repeated XcodeVersionInfo local_versions = 5;
+
+  // The mutually available Xcode versions in this config, if there are any.
+  repeated XcodeVersionInfo mutual_versions = 6;
+
+  // The default version of this Xcode config (explicit or local).
+  string default_version = 7;
+
+  // The value of the --xcode_version flag, if set.
+  string xcode_version_flag = 8;
+
+  // Next ID: 9
+}

@@ -48,7 +48,7 @@ public class CompositeRunfilesSupplierTest {
   public final void createMocks() throws IOException {
     Scratch scratch = new Scratch();
     execRoot = scratch.getFileSystem().getPath("/");
-    rootDir = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/fake/root/dont/matter"));
+    rootDir = ArtifactRoot.asDerivedRoot(execRoot, "fake", "root", "dont", "matter");
 
     mockFirst = mock(RunfilesSupplier.class);
     mockSecond = mock(RunfilesSupplier.class);
@@ -78,8 +78,8 @@ public class CompositeRunfilesSupplierTest {
     when(mockSecond.getArtifacts()).thenReturn(mkArtifacts(rootDir, "second", "shared"));
 
     RunfilesSupplier underTest = CompositeRunfilesSupplier.of(mockFirst, mockSecond);
-    assertThat(underTest.getArtifacts()).containsExactlyElementsIn(
-        mkArtifacts(rootDir, "first", "second", "shared"));
+    assertThat(underTest.getArtifacts().toList())
+        .containsExactlyElementsIn(mkArtifacts(rootDir, "first", "second", "shared").toList());
   }
 
   @Test
@@ -107,19 +107,24 @@ public class CompositeRunfilesSupplierTest {
     Map<PathFragment, Artifact> firstSharedMappings = mkMappings(rootDir, "shared1", "shared2");
     Map<PathFragment, Artifact> secondSharedMappings = mkMappings(rootDir, "lost1", "lost2");
 
-    when(mockFirst.getMappings(ArtifactPathResolver.IDENTITY)).thenReturn(ImmutableMap.of(
-        first, firstMappings,
-        shared, firstSharedMappings));
-    when(mockSecond.getMappings(ArtifactPathResolver.IDENTITY)).thenReturn(ImmutableMap.of(
-        second, secondMappings,
-        shared, secondSharedMappings));
+    when(mockFirst.getMappings())
+        .thenReturn(
+            ImmutableMap.of(
+                first, firstMappings,
+                shared, firstSharedMappings));
+    when(mockSecond.getMappings())
+        .thenReturn(
+            ImmutableMap.of(
+                second, secondMappings,
+                shared, secondSharedMappings));
 
     // We expect the mappings for shared added by mockSecond to be dropped.
     RunfilesSupplier underTest = CompositeRunfilesSupplier.of(mockFirst, mockSecond);
-    assertThat(underTest.getMappings(ArtifactPathResolver.IDENTITY)).containsExactly(
-        first, firstMappings,
-        second, secondMappings,
-        shared, firstSharedMappings);
+    assertThat(underTest.getMappings())
+        .containsExactly(
+            first, firstMappings,
+            second, secondMappings,
+            shared, firstSharedMappings);
   }
 
   @Test
@@ -135,19 +140,24 @@ public class CompositeRunfilesSupplierTest {
     Map<PathFragment, Artifact> firstSharedMappings = mkMappings(rootDir, "shared1", "shared2");
     Map<PathFragment, Artifact> secondSharedMappings = mkMappings(rootDir, "lost1", "lost2");
 
-    when(mockFirst.getMappings(ArtifactPathResolver.IDENTITY)).thenReturn(ImmutableMap.of(
-        first, firstMappings,
-        shared, firstSharedMappings));
-    when(mockSecond.getMappings(ArtifactPathResolver.IDENTITY)).thenReturn(ImmutableMap.of(
-        second, secondMappings,
-        shared, secondSharedMappings));
+    when(mockFirst.getMappings())
+        .thenReturn(
+            ImmutableMap.of(
+                first, firstMappings,
+                shared, firstSharedMappings));
+    when(mockSecond.getMappings())
+        .thenReturn(
+            ImmutableMap.of(
+                second, secondMappings,
+                shared, secondSharedMappings));
 
     // We expect the mappings for shared added by mockSecond to be dropped.
     RunfilesSupplier underTest = CompositeRunfilesSupplier.of(mockFirst, mockSecond);
-    assertThat(underTest.getMappings(ArtifactPathResolver.IDENTITY)).containsExactly(
-        first, firstMappings,
-        second, secondMappings,
-        shared, firstSharedMappings);
+    assertThat(underTest.getMappings())
+        .containsExactly(
+            first, firstMappings,
+            second, secondMappings,
+            shared, firstSharedMappings);
    }
 
   private static Map<PathFragment, Artifact> mkMappings(ArtifactRoot rootDir, String... paths) {

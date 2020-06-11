@@ -132,18 +132,18 @@ alias(
 # if requested.
 filegroup(
     name = "desugar_java8_extra_bootclasspath",
-    srcs = ["java_lang_extras.jar"],
+    srcs = ["java_base_extras.jar"],
     visibility = ["//visibility:public"],
 )
 
 # javac needs this Jar to compile lambdas, method references, and type annotations.
 # These classes are not part of the android.jar.
 genrule(
-    name = "gen_java_lang_extras_jar",
+    name = "gen_java_base_extras_jar",
     srcs = [
         "@bazel_tools//tools/jdk:platformclasspath",
     ],
-    outs = ["java_lang_extras.jar"],
+    outs = ["java_base_extras.jar"],
     cmd = """
     $(location @bazel_tools//tools/jdk:singlejar) \
         --exclude_build_data \
@@ -151,6 +151,7 @@ genrule(
         --sources  $(location @bazel_tools//tools/jdk:platformclasspath) \
         --include_prefixes "java/lang/invoke/" \
         --include_prefixes "java/lang/annotation/" \
+        --normalize \
         --output $@""",
     tools = ["@bazel_tools//tools/jdk:singlejar"],
     visibility = ["//visibility:private"],

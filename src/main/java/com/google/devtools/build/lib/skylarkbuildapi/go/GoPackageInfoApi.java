@@ -16,18 +16,18 @@ package com.google.devtools.build.lib.skylarkbuildapi.go;
 
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Contains the metadata for a Go package. Used to generate .gopackage files. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "GoPackageInfo",
     doc = "",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface GoPackageInfoApi extends StructApi {
 
   /** Provider for GoPackageInfo objects. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   public interface Provider extends ProviderApi {}
 }

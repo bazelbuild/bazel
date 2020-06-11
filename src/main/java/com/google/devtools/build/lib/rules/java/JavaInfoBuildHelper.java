@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.BOTH;
 import static com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType.COMPILE_ONLY;
@@ -30,17 +31,18 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkActionFactory;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.util.ArrayList;
@@ -145,14 +147,13 @@ final class JavaInfoBuildHelper {
    */
   @Nullable
   Artifact packSourceFiles(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact outputJar,
       Artifact outputSourceJar,
       List<Artifact> sourceFiles,
       List<Artifact> sourceJars,
       JavaToolchainProvider javaToolchain,
-      JavaRuntimeInfo hostJavabase,
-      Location location)
+      JavaRuntimeInfo hostJavabase)
       throws EvalException {
     // No sources to pack, return None
     if (sourceFiles.isEmpty() && sourceJars.isEmpty()) {
@@ -162,7 +163,7 @@ final class JavaInfoBuildHelper {
     if (sourceFiles.isEmpty() && sourceJars.size() == 1) {
       return sourceJars.get(0);
     }
-    ActionRegistry actionRegistry = actions.asActionRegistry(location, actions);
+    ActionRegistry actionRegistry = actions.asActionRegistry(actions);
     if (outputSourceJar == null) {
       outputSourceJar = getDerivedSourceJar(actions.getActionConstructionContext(), outputJar);
     }
@@ -215,13 +216,14 @@ final class JavaInfoBuildHelper {
   }
 
   public JavaInfo createJavaCompileAction(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       List<Artifact> sourceJars,
       List<Artifact> sourceFiles,
       Artifact outputJar,
       Artifact outputSourceJar,
       List<String> javacOpts,
       List<JavaInfo> deps,
+      List<JavaInfo> experimentalLocalCompileTimeDeps,
       List<JavaInfo> exports,
       List<JavaInfo> plugins,
       List<JavaInfo> exportedPlugins,
@@ -230,11 +232,10 @@ final class JavaInfoBuildHelper {
       String strictDepsMode,
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase,
-      List<Artifact> sourcepathEntries,
+      ImmutableList<Artifact> sourcepathEntries,
       List<Artifact> resources,
       Boolean neverlink,
       JavaSemantics javaSemantics,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
@@ -242,15 +243,14 @@ final class JavaInfoBuildHelper {
         && sourceFiles.isEmpty()
         && exports.isEmpty()
         && exportedPlugins.isEmpty()) {
-      throw new EvalException(
-          location,
+      throw Starlark.errorf(
           "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
     }
 
     JavaToolchainProvider toolchainProvider = javaToolchain;
 
     JavaLibraryHelper helper =
-        new JavaLibraryHelper(skylarkRuleContext.getRuleContext())
+        new JavaLibraryHelper(starlarkRuleContext.getRuleContext())
             .setOutput(outputJar)
             .addSourceJars(sourceJars)
             .addSourceFiles(sourceFiles)
@@ -259,14 +259,14 @@ final class JavaInfoBuildHelper {
             .addAdditionalOutputs(annotationProcessorAdditionalOutputs)
             .setJavacOpts(
                 ImmutableList.<String>builder()
-                    .addAll(toolchainProvider.getJavacOptions(skylarkRuleContext.getRuleContext()))
+                    .addAll(toolchainProvider.getJavacOptions(starlarkRuleContext.getRuleContext()))
                     .addAll(
                         javaSemantics.getCompatibleJavacOptions(
-                            skylarkRuleContext.getRuleContext(), toolchainProvider))
+                            starlarkRuleContext.getRuleContext(), toolchainProvider))
                     .addAll(
                         JavaCommon.computePerPackageJavacOpts(
-                            skylarkRuleContext.getRuleContext(), toolchainProvider))
-                    .addAll(tokenize(location, javacOpts))
+                            starlarkRuleContext.getRuleContext(), toolchainProvider))
+                    .addAll(tokenize(javacOpts))
                     .build());
 
     streamProviders(deps, JavaCompilationArgsProvider.class).forEach(helper::addDep);
@@ -275,10 +275,16 @@ final class JavaInfoBuildHelper {
     helper.setPlugins(createJavaPluginsProvider(concat(plugins, deps)));
     helper.setNeverlink(neverlink);
 
+    NestedSet<Artifact> localCompileTimeDeps =
+        JavaCompilationArgsProvider.merge(
+                streamProviders(experimentalLocalCompileTimeDeps, JavaCompilationArgsProvider.class)
+                    .collect(toImmutableList()))
+            .getTransitiveCompileTimeJars();
+
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder();
 
     if (outputSourceJar == null) {
-      outputSourceJar = getDerivedSourceJar(skylarkRuleContext.getRuleContext(), outputJar);
+      outputSourceJar = getDerivedSourceJar(starlarkRuleContext.getRuleContext(), outputJar);
     }
 
     JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
@@ -294,12 +300,13 @@ final class JavaInfoBuildHelper {
             // Include JavaGenJarsProviders from both deps and exports in the JavaGenJarsProvider
             // added to javaInfoBuilder for this target.
             JavaInfo.fetchProvidersFromList(concat(deps, exports), JavaGenJarsProvider.class),
-            ImmutableList.copyOf(annotationProcessorAdditionalInputs));
+            ImmutableList.copyOf(annotationProcessorAdditionalInputs),
+            localCompileTimeDeps);
 
     JavaCompilationArgsProvider javaCompilationArgsProvider =
         helper.buildCompilationArgsProvider(artifacts, true, neverlink);
     Runfiles runfiles =
-        new Runfiles.Builder(skylarkRuleContext.getWorkspaceName())
+        new Runfiles.Builder(starlarkRuleContext.getWorkspaceName())
             .addTransitiveArtifactsWrappedInStableOrder(
                 javaCompilationArgsProvider.getRuntimeJars())
             .build();
@@ -326,27 +333,26 @@ final class JavaInfoBuildHelper {
         .build();
   }
 
-  private static List<String> tokenize(Location location, List<String> input) throws EvalException {
+  private static List<String> tokenize(List<String> input) throws EvalException {
     List<String> output = new ArrayList<>();
     for (String token : input) {
       try {
         ShellUtils.tokenize(output, token);
       } catch (ShellUtils.TokenizationException e) {
-        throw new EvalException(location, e.getMessage());
+        throw Starlark.errorf("%s", e.getMessage());
       }
     }
     return output;
   }
 
   public Artifact buildIjar(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact inputJar,
       @Nullable Label targetLabel,
-      JavaToolchainProvider javaToolchain,
-      Location location)
+      JavaToolchainProvider javaToolchain)
       throws EvalException {
     String ijarBasename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-ijar.jar";
-    Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar, location);
+    Artifact interfaceJar = actions.declareFile(ijarBasename, inputJar);
     FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     CustomCommandLine.Builder commandLine =
         CustomCommandLine.builder().addExecPath(inputJar).addExecPath(interfaceJar);
@@ -362,19 +368,18 @@ final class JavaInfoBuildHelper {
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
             .setMnemonic("JavaIjar");
-    actions.registerAction(location, actionBuilder.build(actions.getActionConstructionContext()));
+    actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return interfaceJar;
   }
 
   public Artifact stampJar(
-      SkylarkActionFactory actions,
+      StarlarkActionFactory actions,
       Artifact inputJar,
       Label targetLabel,
-      JavaToolchainProvider javaToolchain,
-      Location location)
+      JavaToolchainProvider javaToolchain)
       throws EvalException {
     String basename = FileSystemUtils.removeExtension(inputJar.getFilename()) + "-stamped.jar";
-    Artifact outputJar = actions.declareFile(basename, inputJar, location);
+    Artifact outputJar = actions.declareFile(basename, inputJar);
     // ijar doubles as a stamping tool
     FilesToRunProvider ijarTarget = (javaToolchain).getIjar();
     CustomCommandLine.Builder commandLine =
@@ -392,7 +397,7 @@ final class JavaInfoBuildHelper {
             .addCommandLine(commandLine.build())
             .useDefaultShellEnvironment()
             .setMnemonic("JavaIjar");
-    actions.registerAction(location, actionBuilder.build(actions.getActionConstructionContext()));
+    actions.registerAction(actionBuilder.build(actions.getActionConstructionContext()));
     return outputJar;
   }
 

@@ -9,6 +9,7 @@ package(default_visibility = ["//src/java_tools/singlejar:singlejar_package_grou
 filegroup(
     name = "srcs",
     srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 # This is used as a library outside of Bazel.
@@ -69,7 +70,7 @@ java_binary(
 )
 
 #
-# Bootstrapping using Skylark rules
+# Bootstrapping using Starlark rules
 #
 
 bootstrap_java_library(

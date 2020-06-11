@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
@@ -80,7 +80,7 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
     return new AndroidDataContext(
         ruleContext,
-        ruleContext.getExecutablePrerequisite("$android_resources_busybox", Mode.HOST),
+        ruleContext.getExecutablePrerequisite("$android_resources_busybox", TransitionMode.HOST),
         androidConfig.persistentBusyboxTools(),
         AndroidSdkProvider.fromRuleContext(ruleContext),
         hasExemption(ruleContext, "allow_raw_access_to_resource_paths", false),

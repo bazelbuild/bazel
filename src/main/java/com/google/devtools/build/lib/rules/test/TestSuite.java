@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
@@ -93,7 +93,7 @@ public class TestSuite implements RuleConfiguredTargetFactory {
   private Iterable<? extends TransitiveInfoCollection> getPrerequisites(
       RuleContext ruleContext, String attributeName) {
     if (ruleContext.attributes().has(attributeName, BuildType.LABEL_LIST)) {
-      return ruleContext.getPrerequisites(attributeName, Mode.TARGET);
+      return ruleContext.getPrerequisites(attributeName, TransitionMode.TARGET);
     } else {
       return ImmutableList.<TransitiveInfoCollection>of();
     }
@@ -103,7 +103,8 @@ public class TestSuite implements RuleConfiguredTargetFactory {
     if (!ruleContext.attributes().has(attributeName, BuildType.LABEL_LIST)) {
       return;
     }
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites(attributeName, Mode.TARGET)) {
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites(attributeName, TransitionMode.TARGET)) {
       // TODO(bazel-team): Maybe convert the TransitiveTestsProvider into an inner interface.
       TransitiveTestsProvider provider = dep.getProvider(TransitiveTestsProvider.class);
       TestProvider testProvider = dep.getProvider(TestProvider.class);

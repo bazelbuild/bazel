@@ -1,0 +1,46 @@
+// Copyright 2020 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package skyframe;
+
+option java_package = "com.google.devtools.build.skyframe.proto";
+option java_outer_classname = "GraphInconsistency";
+
+enum Inconsistency {
+  // proto3#toString() omits fields with value 0. To make RESET_REQUESTED be
+  // printed, we add a dummy enum at position 0.
+  IMPOSSIBLE_NO_INCONSISTENCY_TO_MAKE_OTHER_VALUES_NONZERO = 0;
+  RESET_REQUESTED = 1;
+  DIRTY_PARENT_HAD_MISSING_CHILD = 2;
+  PARENT_FORCE_REBUILD_OF_CHILD = 3;
+  PARENT_FORCE_REBUILD_OF_MISSING_CHILD = 4;
+  BUILDING_PARENT_FOUND_UNDONE_CHILD = 5;
+  ALREADY_DECLARED_CHILD_MISSING = 6;
+}
+
+// Information about inconsistencies encountered during an invocation (typically
+// only in Google-internal implementations).
+message InconsistencyStats {
+  repeated InconsistencyStat self_stats = 1;
+  repeated InconsistencyStat child_stats = 2;
+  repeated InconsistencyStat unexpected_self_stats = 3;
+  repeated InconsistencyStat unexpected_child_stats = 4;
+
+  message InconsistencyStat {
+    Inconsistency inconsistency = 1;
+    int64 count = 2;
+  }
+}

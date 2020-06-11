@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -420,7 +420,8 @@ public class ObjcRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(srcs) -->
           The list of C, C++, Objective-C, and Objective-C++ source and header
-          files that are processed to create the library target.
+          files, and/or (`.s`, `.S`, or `.asm`) assembly source files, that are processed to create
+          the library target.
           These are your checked-in files, plus any generated files.
           Source files are compiled into .o files with Clang. Header files
           may be included/imported by any source or header in the srcs attribute
@@ -458,7 +459,7 @@ public class ObjcRuleClasses {
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
-                  .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
+                  .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(runtime_deps) -->
           The list of framework targets that are late loaded at runtime.  They are included in the
@@ -467,7 +468,7 @@ public class ObjcRuleClasses {
           .add(
               attr("runtime_deps", LABEL_LIST)
                   .direct_compile_time_input()
-                  .mandatoryProviders(AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR.id())
+                  .mandatoryProviders(AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR.id())
                   .allowedFileTypes())
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
           Extra <code>-D</code> flags to pass to the compiler. They should be in
@@ -739,7 +740,7 @@ public class ObjcRuleClasses {
               attr("deps", LABEL_LIST)
                   .direct_compile_time_input()
                   .allowedRuleClasses(ALLOWED_CC_DEPS_RULE_CLASSES)
-                  .mandatoryProviders(ObjcProvider.SKYLARK_CONSTRUCTOR.id())
+                  .mandatoryProviders(ObjcProvider.STARLARK_CONSTRUCTOR.id())
                   .cfg(splitTransitionProvider)
                   .aspect(objcProtoAspect)
                   .allowedFileTypes())
@@ -815,13 +816,15 @@ public class ObjcRuleClasses {
           not be statically linked in this target (even if they are otherwise
           transitively depended on via the <code>deps</code> attribute) to avoid duplicate symbols.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(DYLIBS_ATTR_NAME, LABEL_LIST)
-              .direct_compile_time_input()
-              .mandatoryProviders(ImmutableList.of(
-                  SkylarkProviderIdentifier.forKey(
-                      AppleDynamicFrameworkInfo.SKYLARK_CONSTRUCTOR.getKey())))
-              .allowedFileTypes()
-              .aspect(objcProtoAspect))
+          .add(
+              attr(DYLIBS_ATTR_NAME, LABEL_LIST)
+                  .direct_compile_time_input()
+                  .mandatoryProviders(
+                      ImmutableList.of(
+                          StarlarkProviderIdentifier.forKey(
+                              AppleDynamicFrameworkInfo.STARLARK_CONSTRUCTOR.getKey())))
+                  .allowedFileTypes()
+                  .aspect(objcProtoAspect))
           .build();
     }
 

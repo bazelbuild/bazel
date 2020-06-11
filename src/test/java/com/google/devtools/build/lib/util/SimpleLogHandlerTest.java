@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Strings;
 import com.google.devtools.build.lib.util.SimpleLogHandler.HandlerQuerier;
@@ -486,7 +486,7 @@ public final class SimpleLogHandlerTest {
     Logger logger = Logger.getAnonymousLogger();
     logger.addHandler(unsupportedHandler);
 
-    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+    assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
 
     unsupportedHandler.close();
   }
@@ -496,6 +496,6 @@ public final class SimpleLogHandlerTest {
     HandlerQuerier handlerQuerier = new HandlerQuerier();
     Logger logger = Logger.getAnonymousLogger();
 
-    assertThrows(IllegalArgumentException.class, () -> handlerQuerier.getLoggerFilePath(logger));
+    assertThrows(IOException.class, () -> handlerQuerier.getLoggerFilePath(logger));
   }
 }

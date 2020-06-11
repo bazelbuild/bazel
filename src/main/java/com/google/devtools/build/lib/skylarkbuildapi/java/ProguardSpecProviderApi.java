@@ -13,34 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Provides information about proguard specs for Android binaries. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ProguardSpecProvider",
     doc = "Proguard specifications used for Android binaries.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface ProguardSpecProviderApi<FileT extends FileApi> extends StructApi {
 
   String NAME = "ProguardSpecProvider";
 
-  @SkylarkCallable(name = "specs", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "specs", structField = true, doc = "", documented = false)
   Depset /*<FileT>*/ getTransitiveProguardSpecsForStarlark();
 
   /** The provider implementing this can construct the ProguardSpecProvider. */
-  @SkylarkModule(name = "Provider", doc = "", documented = false)
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>ProguardSpecProvider</code> constructor.",
         parameters = {
@@ -53,7 +53,7 @@ public interface ProguardSpecProviderApi<FileT extends FileApi> extends StructAp
               generic1 = FileApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = ProguardSpecProviderApi.class, receiverNameForDoc = NAME)
+    @StarlarkConstructor(objectType = ProguardSpecProviderApi.class, receiverNameForDoc = NAME)
     ProguardSpecProviderApi<FileT> create(Depset specs) throws EvalException;
   }
 }

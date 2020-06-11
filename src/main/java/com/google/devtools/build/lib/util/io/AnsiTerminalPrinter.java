@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.util.io;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.EnumSet;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 /**
@@ -63,7 +63,7 @@ public class AnsiTerminalPrinter {
     }
   }
 
-  private static final Logger logger = Logger.getLogger(AnsiTerminalPrinter.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private static final EnumSet<Mode> MODES = EnumSet.allOf(Mode.class);
   private static final Pattern PATTERN = Pattern.compile(MODE_PATTERN);
 
@@ -148,7 +148,7 @@ public class AnsiTerminalPrinter {
     } catch (IOException e) {
       // AnsiTerminal state is now considered to be inconsistent - coloring
       // should be disabled to prevent future use of AnsiTerminal instance.
-      logger.warning("Disabling coloring due to " + e.getMessage());
+      logger.atWarning().withCause(e).log("Disabling coloring due to exception");
       useColor = false;
     }
   }

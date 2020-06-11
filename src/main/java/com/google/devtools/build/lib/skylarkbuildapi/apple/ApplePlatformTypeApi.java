@@ -14,14 +14,14 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** Interface for a descriptor for an Apple platform type, such as such as iOS or macOS. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "apple_platform_type",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "Describes an Apple \"platform type\", such as iOS, macOS, tvOS, or watchOS. This is"
             + " distinct from a \"platform\", which is the platform type combined with one or more"

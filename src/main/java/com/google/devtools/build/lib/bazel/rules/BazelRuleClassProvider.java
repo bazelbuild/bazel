@@ -76,7 +76,7 @@ import com.google.devtools.build.lib.rules.android.AndroidResourcesInfo;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.rules.android.AndroidSdkBaseRule;
-import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
+import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
@@ -84,8 +84,8 @@ import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoAspect;
 import com.google.devtools.build.lib.rules.cpp.proto.CcProtoLibraryRule;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
+import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.BazelProtoLibraryRule;
-import com.google.devtools.build.lib.rules.proto.BazelProtoModule;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoInfo;
 import com.google.devtools.build.lib.rules.proto.ProtoLangToolchainRule;
@@ -102,7 +102,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.SkylarkAspectStub;
+import com.google.devtools.build.lib.skylarkbuildapi.stubs.StarlarkAspectStub;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -258,10 +258,10 @@ public class BazelRuleClassProvider {
           ProtoBootstrap bootstrap =
               new ProtoBootstrap(
                   ProtoInfo.PROVIDER,
-                  BazelProtoModule.INSTANCE,
-                  new SkylarkAspectStub(),
+                  BazelProtoCommon.INSTANCE,
+                  new StarlarkAspectStub(),
                   new ProviderStub());
-          builder.addSkylarkBootstrap(bootstrap);
+          builder.addStarlarkBootstrap(bootstrap);
         }
 
         @Override
@@ -343,14 +343,14 @@ public class BazelRuleClassProvider {
 
           AndroidBootstrap bootstrap =
               new AndroidBootstrap(
-                  new AndroidSkylarkCommon(),
+                  new AndroidStarlarkCommon(),
                   ApkInfo.PROVIDER,
                   AndroidInstrumentationInfo.PROVIDER,
                   AndroidDeviceBrokerInfo.PROVIDER,
                   AndroidResourcesInfo.PROVIDER,
                   AndroidNativeLibsInfo.PROVIDER,
                   AndroidApplicationResourceInfo.PROVIDER);
-          builder.addSkylarkBootstrap(bootstrap);
+          builder.addStarlarkBootstrap(bootstrap);
 
           try {
             builder.addWorkspaceFilePrefix(
@@ -385,7 +385,7 @@ public class BazelRuleClassProvider {
           builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new PyRuntimeRule());
 
-          builder.addSkylarkBootstrap(
+          builder.addStarlarkBootstrap(
               new PyBootstrap(
                   PyInfo.PROVIDER, PyRuntimeInfo.PROVIDER, PyStarlarkTransitions.INSTANCE));
 

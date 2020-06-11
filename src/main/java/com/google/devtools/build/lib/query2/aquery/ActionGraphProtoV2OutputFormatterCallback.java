@@ -14,18 +14,21 @@
 package com.google.devtools.build.lib.query2.aquery;
 
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccessor;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.MonolithicOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler;
-import com.google.devtools.build.lib.skyframe.actiongraph.v2.StreamedOutputHandler.OutputType;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.PrintStream;
 
 /** Default output callback for aquery, prints proto output. */
 public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeCallback {
@@ -33,7 +36,7 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
   private final OutputType outputType;
   private final ActionGraphDump actionGraphDump;
   private final AqueryActionFilter actionFilters;
-  private StreamedOutputHandler streamedOutputHandler;
+  private AqueryOutputHandler aqueryOutputHandler;
 
   /**
    * Pseudo-arbitrarily chosen buffer size for output. Chosen to be large enough to fit a handful of
@@ -52,20 +55,31 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
     super(eventHandler, options, out, skyframeExecutor, accessor);
     this.outputType = outputType;
     this.actionFilters = actionFilters;
-    if (out != null) {
-      this.streamedOutputHandler =
-          new StreamedOutputHandler(
-              this.outputType,
-              CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE),
-              this.printStream);
-    }
+    this.aqueryOutputHandler = constructAqueryOutputHandler(outputType, out, printStream);
     this.actionGraphDump =
         new ActionGraphDump(
             options.includeCommandline,
             options.includeArtifacts,
             this.actionFilters,
             options.includeParamFiles,
-            streamedOutputHandler);
+            aqueryOutputHandler);
+  }
+
+  public static AqueryOutputHandler constructAqueryOutputHandler(
+      OutputType outputType, OutputStream out, PrintStream printStream) {
+    switch (outputType) {
+      case BINARY:
+      case TEXT:
+        return new StreamedOutputHandler(
+            outputType, CodedOutputStream.newInstance(out, OUTPUT_BUFFER_SIZE), printStream);
+      case JSON:
+        return new MonolithicOutputHandler(printStream);
+    }
+    throw new IllegalStateException(
+        "Unsupported output format "
+            + outputType.formatName()
+            + ": --incompatible_proto_output_v2 must be used with"
+            + " --output=(proto|textproto|jsonproto).");
   }
 
   @Override
@@ -98,7 +112,7 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
   @Override
   public void close(boolean failFast) throws IOException {
     if (!failFast) {
-      streamedOutputHandler.close();
+      aqueryOutputHandler.close();
     }
   }
 }

@@ -44,7 +44,7 @@ public class ObjcProtoProviderTest extends ObjcRuleTestCase {
   @Test
   public void emptyProvider() {
     ObjcProtoProvider empty = new ObjcProtoProvider.Builder().build();
-    assertThat(empty.getProtoFiles()).isEmpty();
+    assertThat(empty.getProtoFiles().toList()).isEmpty();
   }
 
   @Test
@@ -54,7 +54,7 @@ public class ObjcProtoProviderTest extends ObjcRuleTestCase {
         new ObjcProtoProvider.Builder()
             .addProtoFiles(NestedSetBuilder.<Artifact>create(Order.NAIVE_LINK_ORDER, foo))
             .build();
-    assertThat(Iterables.concat(onlyPropagates.getProtoFiles())).containsExactly(foo);
+    assertThat(Iterables.concat(onlyPropagates.getProtoFiles().toList())).containsExactly(foo);
   }
 
   @Test
@@ -81,10 +81,10 @@ public class ObjcProtoProviderTest extends ObjcRuleTestCase {
 
     ObjcProtoProvider depender =
         new ObjcProtoProvider.Builder().addTransitive(ImmutableList.of(base1, base2)).build();
-    assertThat(Iterables.concat(depender.getProtoFiles())).containsExactly(foo, bar);
-    assertThat(depender.getPortableProtoFilters()).containsExactly(baz);
-    assertThat(depender.getProtobufHeaders()).containsExactly(header);
-    assertThat(depender.getProtobufHeaderSearchPaths()).containsExactly(searchPath);
+    assertThat(Iterables.concat(depender.getProtoFiles().toList())).containsExactly(foo, bar);
+    assertThat(depender.getPortableProtoFilters().toList()).containsExactly(baz);
+    assertThat(depender.getProtobufHeaders().toList()).containsExactly(header);
+    assertThat(depender.getProtobufHeaderSearchPaths().toList()).containsExactly(searchPath);
   }
 
   private Artifact getTestArtifact(String name) throws Exception {

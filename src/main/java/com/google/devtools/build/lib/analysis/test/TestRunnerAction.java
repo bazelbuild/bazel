@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -54,7 +55,6 @@ import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.exec.TestStrategy;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
 import com.google.devtools.common.options.TriState;
+import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -113,14 +114,12 @@ public class TestRunnerAction extends AbstractAction
   private final PathFragment testInfrastructureFailure;
   private final PathFragment baseDir;
   private final Artifact coverageData;
+  @Nullable private final Artifact coverageDirectory;
   private final TestTargetProperties testProperties;
   private final TestTargetExecutionSettings executionSettings;
   private final int shardNum;
   private final int runNumber;
   private final String workspaceName;
-
-  // Takes the value of the `--windows_native_test_wrapper` flag.
-  private final boolean useTestWrapperInsteadOfTestSetupSh;
 
   // Mutable state related to test caching. Lazily initialized: null indicates unknown.
   private Boolean unconditionalExecution;
@@ -159,12 +158,12 @@ public class TestRunnerAction extends AbstractAction
       NestedSet<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Artifact testSetupScript, // Must be in inputs
-      boolean useTestWrapperInsteadOfTestSetupSh,
       Artifact testXmlGeneratorScript, // Must be in inputs
       @Nullable Artifact collectCoverageScript, // Must be in inputs, if not null
       Artifact testLog,
       Artifact cacheStatus,
       Artifact coverageArtifact,
+      @Nullable Artifact coverageDirectory,
       TestTargetProperties testProperties,
       Map<String, String> extraTestEnv,
       TestTargetExecutionSettings executionSettings,
@@ -173,17 +172,17 @@ public class TestRunnerAction extends AbstractAction
       BuildConfiguration configuration,
       String workspaceName,
       @Nullable PathFragment shExecutable,
-      boolean cancelConcurrentTestsOnSuccess) {
+      boolean cancelConcurrentTestsOnSuccess,
+      Iterable<Artifact> tools) {
     super(
         owner,
-        /*tools=*/ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, tools),
         inputs,
         runfilesSupplier,
-        nonNullAsSet(testLog, cacheStatus, coverageArtifact),
+        nonNullAsSet(testLog, cacheStatus, coverageArtifact, coverageDirectory),
         configuration.getActionEnvironment());
     Preconditions.checkState((collectCoverageScript == null) == (coverageArtifact == null));
     this.testSetupScript = testSetupScript;
-    this.useTestWrapperInsteadOfTestSetupSh = useTestWrapperInsteadOfTestSetupSh;
     this.testXmlGeneratorScript = testXmlGeneratorScript;
     this.collectCoverageScript = collectCoverageScript;
     this.configuration = Preconditions.checkNotNull(configuration);
@@ -192,6 +191,7 @@ public class TestRunnerAction extends AbstractAction
     this.testLog = testLog;
     this.cacheStatus = cacheStatus;
     this.coverageData = coverageArtifact;
+    this.coverageDirectory = coverageDirectory;
     this.shardNum = shardNum;
     this.runNumber = runNumber;
     this.testProperties = Preconditions.checkNotNull(testProperties);
@@ -259,7 +259,10 @@ public class TestRunnerAction extends AbstractAction
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsManifestPath()));
     outputs.add(ActionInputHelper.fromPath(getUndeclaredOutputsAnnotationsPath()));
     if (isCoverageMode()) {
-      outputs.add(getCoverageData());
+      outputs.add(coverageData);
+      if (coverageDirectory != null) {
+        outputs.add(coverageDirectory);
+      }
     }
     return outputs;
   }
@@ -330,10 +333,11 @@ public class TestRunnerAction extends AbstractAction
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException {
+    // TODO(b/150305897): use addUUID?
     fp.addString(GUID);
-    fp.addStrings(executionSettings.getArgs().arguments());
-    fp.addString(
-        executionSettings.getTestFilter() == null ? "" : executionSettings.getTestFilter());
+    fp.addIterableStrings(executionSettings.getArgs().arguments());
+    fp.addString(Strings.nullToEmpty(executionSettings.getTestFilter()));
+    fp.addBoolean(executionSettings.getTestRunnerFailFast());
     RunUnder runUnder = executionSettings.getRunUnder();
     fp.addString(runUnder == null ? "" : runUnder.getValue());
     fp.addStringMap(extraTestEnv);
@@ -345,12 +349,12 @@ public class TestRunnerAction extends AbstractAction
     fp.addString(testProperties.getSize().toString());
     fp.addString(testProperties.getTimeout().toString());
     fp.addStrings(testProperties.getTags());
-    fp.addInt(testProperties.isRemotable() ? 1 : 0);
+    fp.addBoolean(testProperties.isRemotable());
     fp.addInt(shardNum);
     fp.addInt(executionSettings.getTotalShards());
     fp.addInt(runNumber);
     fp.addInt(executionSettings.getTotalRuns());
-    fp.addInt(configuration.isCodeCoverageEnabled() ? 1 : 0);
+    fp.addBoolean(configuration.isCodeCoverageEnabled());
     fp.addStringMap(getExecutionInfo());
   }
 
@@ -380,25 +384,35 @@ public class TestRunnerAction extends AbstractAction
 
   /** Returns the cache from disk, or null if the file doesn't exist or if there is an error. */
   @Nullable
-  private TestResultData readCacheStatus() {
-    try (InputStream in = cacheStatus.getPath().getInputStream()) {
-      return TestResultData.parseFrom(in);
+  private TestResultData maybeReadCacheStatus() {
+    try {
+      return readCacheStatus();
     } catch (IOException expected) {
       return null;
+    }
+  }
+
+  @VisibleForTesting
+  TestResultData readCacheStatus() throws IOException {
+    try (InputStream in = cacheStatus.getPath().getInputStream()) {
+      return TestResultData.parseFrom(in, ExtensionRegistry.getEmptyRegistry());
     }
   }
 
   private boolean computeExecuteUnconditionallyFromTestStatus() {
     return !canBeCached(
         testConfiguration.cacheTestResults(),
-        readCacheStatus(),
+        maybeReadCacheStatus(),
         testProperties.isExternal(),
         executionSettings.getTotalRuns());
   }
 
   @VisibleForTesting
   static boolean canBeCached(
-      TriState cacheTestResults, TestResultData prevStatus, boolean isExternal, int runsPerTest) {
+      TriState cacheTestResults,
+      @Nullable TestResultData prevStatus,
+      boolean isExternal,
+      int runsPerTest) {
     if (cacheTestResults == TriState.NO) {
       return false;
     }
@@ -439,6 +453,8 @@ public class TestRunnerAction extends AbstractAction
                   .getContext(TestActionContext.class)
                   .newCachedTestResult(executor.getExecRoot(), this, readCacheStatus()));
     } catch (IOException e) {
+      // TODO(b/150311421): Produce a user facing warning/error and a TestResult with information
+      //  about the failure to retrieve cached test status.
       LoggingUtil.logToRemote(Level.WARNING, "Failed creating cached protocol buffer", e);
     }
   }
@@ -489,7 +505,8 @@ public class TestRunnerAction extends AbstractAction
     deleteTestAttemptsDirMaybe(execRoot.getRelative(baseDir), "test");
   }
 
-  private void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix) throws IOException {
+  private static void deleteTestAttemptsDirMaybe(Path outputDir, String namePrefix)
+      throws IOException {
     Path testAttemptsDir = outputDir.getChild(namePrefix + "_attempts");
     if (testAttemptsDir.exists()) {
       // Normally we should have used deleteTree(testAttemptsDir). However, if test output is
@@ -531,6 +548,9 @@ public class TestRunnerAction extends AbstractAction
     if (testFilter != null) {
       env.put(TEST_BRIDGE_TEST_FILTER_ENV, testFilter);
     }
+    if (testConfiguration.getTestRunnerFailFast()) {
+      env.put("TESTBRIDGE_TEST_RUNNER_FAIL_FAST", "1");
+    }
 
     env.put("TEST_WARNINGS_OUTPUT_FILE", getTestWarningsPath().getPathString());
     env.put("TEST_UNUSED_RUNFILES_LOG_FILE", getUnusedRunfilesLogPath().getPathString());
@@ -560,6 +580,11 @@ public class TestRunnerAction extends AbstractAction
     if (!isEnableRunfiles()) {
       // If runfiles are disabled, tell remote-runtest.sh/local-runtest.sh about that.
       env.put("RUNFILES_MANIFEST_ONLY", "1");
+    }
+
+    if (testConfiguration.isPersistentTestRunner()) {
+      // Let the test runner know it runs persistently within a worker.
+      env.put("PERSISTENT_TEST_RUNNER", "true");
     }
 
     if (isCoverageMode()) {
@@ -641,12 +666,12 @@ public class TestRunnerAction extends AbstractAction
     return undeclaredOutputsDir;
   }
 
-  /** @return path to the optional zip file of undeclared test outputs. */
+  /** Returns path to the optional zip file of undeclared test outputs. */
   public PathFragment getUndeclaredOutputsZipPath() {
     return undeclaredOutputsZipPath;
   }
 
-  /** @return path to the undeclared output manifest file. */
+  /** Returns path to the undeclared output manifest file. */
   public PathFragment getUndeclaredOutputsManifestPath() {
     return undeclaredOutputsManifestPath;
   }
@@ -655,7 +680,7 @@ public class TestRunnerAction extends AbstractAction
     return undeclaredOutputsAnnotationsDir;
   }
 
-  /** @return path to the undeclared output annotations file. */
+  /** Returns path to the undeclared output annotations file. */
   public PathFragment getUndeclaredOutputsAnnotationsPath() {
     return undeclaredOutputsAnnotationsPath;
   }
@@ -672,12 +697,12 @@ public class TestRunnerAction extends AbstractAction
     return testInfrastructureFailure;
   }
 
-  /** @return path to the optionally created XML output file created by the test. */
+  /** Returns path to the optionally created XML output file created by the test. */
   public PathFragment getXmlOutputPath() {
     return xmlOutputPath;
   }
 
-  /** @return coverage data artifact or null if code coverage was not requested. */
+  /** Returns coverage data artifact or null if code coverage was not requested. */
   @Nullable
   public Artifact getCoverageData() {
     return coverageData;
@@ -699,11 +724,18 @@ public class TestRunnerAction extends AbstractAction
    * execution with exception of the locally generated *.gcda files. Those are stored separately
    * using relative path within coverage directory.
    *
-   * <p>The directory name for the given test runner action is constructed as: {@code
+   * <p>If the coverageDirectory field is set, then its exec path is returned. This is a tree
+   * artifact, meaning that all files in the corresponding directories are returned from sandboxed
+   * or remote execution.
+   *
+   * <p>Otherwise, the directory name for the given test runner action is constructed as: {@code
    * _coverage/target_path/test_log_name} where {@code test_log_name} is usually a target name but
    * potentially can include extra suffix, such as a shard number (if test execution was sharded).
    */
   public PathFragment getCoverageDirectory() {
+    if (coverageDirectory != null) {
+      return coverageDirectory.getExecPath();
+    }
     return COVERAGE_TMP_ROOT.getRelative(
         FileSystemUtils.removeExtension(getTestLog().getRootRelativePath()));
   }
@@ -726,19 +758,19 @@ public class TestRunnerAction extends AbstractAction
   }
 
   /**
-   * @return the shard number for this action. If getTotalShards() > 0, must be >= 0 and <
-   *     getTotalShards(). Otherwise, must be 0.
+   * Returns the shard number for this action. If getTotalShards() > 0, must be >= 0 and <
+   * getTotalShards(). Otherwise, must be 0.
    */
   public int getShardNum() {
     return shardNum;
   }
 
-  /** @return run number. */
+  /** Returns run number. */
   public int getRunNumber() {
     return runNumber;
   }
 
-  /** @return the workspace name. */
+  /** Returns the workspace name. */
   public String getRunfilesPrefix() {
     return workspaceName;
   }
@@ -848,10 +880,6 @@ public class TestRunnerAction extends AbstractAction
     return testSetupScript;
   }
 
-  public boolean isUsingTestWrapperInsteadOfTestSetupScript() {
-    return useTestWrapperInsteadOfTestSetupSh;
-  }
-
   public Artifact getTestXmlGeneratorScript() {
     return testXmlGeneratorScript;
   }
@@ -926,32 +954,32 @@ public class TestRunnerAction extends AbstractAction
       return getPath(unusedRunfilesLogPath);
     }
 
-    /** @return path to the directory containing the split logs (raw and proto file). */
+    /** Returns path to the directory containing the split logs (raw and proto file). */
     public Path getSplitLogsDir() {
       return getPath(splitLogsDir);
     }
 
-    /** @return path to the optional zip file of undeclared test outputs. */
+    /** Returns path to the optional zip file of undeclared test outputs. */
     public Path getUndeclaredOutputsZipPath() {
       return getPath(undeclaredOutputsZipPath);
     }
 
-    /** @return path to the directory to hold undeclared test outputs. */
+    /** Returns path to the directory to hold undeclared test outputs. */
     public Path getUndeclaredOutputsDir() {
       return getPath(undeclaredOutputsDir);
     }
 
-    /** @return path to the directory to hold undeclared output annotations parts. */
+    /** Returns path to the directory to hold undeclared output annotations parts. */
     public Path getUndeclaredOutputsAnnotationsDir() {
       return getPath(undeclaredOutputsAnnotationsDir);
     }
 
-    /** @return path to the undeclared output manifest file. */
+    /** Returns path to the undeclared output manifest file. */
     public Path getUndeclaredOutputsManifestPath() {
       return getPath(undeclaredOutputsManifestPath);
     }
 
-    /** @return path to the undeclared output annotations file. */
+    /** Returns path to the undeclared output annotations file. */
     public Path getUndeclaredOutputsAnnotationsPath() {
       return getPath(undeclaredOutputsAnnotationsPath);
     }
@@ -969,7 +997,7 @@ public class TestRunnerAction extends AbstractAction
       return getPath(testInfrastructureFailure);
     }
 
-    /** @return path to the optionally created XML output file created by the test. */
+    /** Returns path to the optionally created XML output file created by the test. */
     public Path getXmlOutputPath() {
       return getPath(xmlOutputPath);
     }
@@ -1084,12 +1112,14 @@ public class TestRunnerAction extends AbstractAction
     private ActionContinuationOrResult process(TestAttemptResult result, int actualMaxAttempts)
         throws ExecException, IOException, InterruptedException {
       spawnResults.addAll(result.spawnResults());
-      if (result.hasPassed()) {
+      TestAttemptResult.Result testResult = result.result();
+      if (testResult == TestAttemptResult.Result.PASSED) {
         if (cancelFuture != null) {
           cancelFuture.cancel(true);
         }
       } else {
-        boolean runAnotherAttempt = failedAttempts.size() + 1 < actualMaxAttempts;
+        boolean runAnotherAttempt =
+            testResult.canRetry() && failedAttempts.size() + 1 < actualMaxAttempts;
         TestRunnerSpawn nextRunner;
         if (runAnotherAttempt) {
           nextRunner = testRunnerSpawn;
@@ -1131,7 +1161,7 @@ public class TestRunnerAction extends AbstractAction
       }
       testRunnerSpawn.finalizeTest(result, failedAttempts);
 
-      if (!keepGoing && !result.hasPassed()) {
+      if (!keepGoing && testResult != TestAttemptResult.Result.PASSED) {
         throw new TestExecException("Test failed: aborting");
       }
       return ActionContinuationOrResult.of(ActionResult.create(spawnResults));

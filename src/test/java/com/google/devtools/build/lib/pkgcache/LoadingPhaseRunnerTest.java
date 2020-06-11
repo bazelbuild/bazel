@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -1227,7 +1227,7 @@ public class LoadingPhaseRunnerTest {
       ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
       PackageFactory pkgFactory =
           analysisMock.getPackageFactoryBuilderForTesting(directories).build(ruleClassProvider, fs);
-      PackageCacheOptions options = Options.getDefaults(PackageCacheOptions.class);
+      PackageOptions options = Options.getDefaults(PackageOptions.class);
       storedErrors = new StoredEventHandler();
       BuildOptions defaultBuildOptions;
       try {
@@ -1244,7 +1244,7 @@ public class LoadingPhaseRunnerTest {
               .setDefaultBuildOptions(defaultBuildOptions)
               .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
               .build();
-      TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
+      SkyframeExecutorTestHelper.process(skyframeExecutor);
       PathPackageLocator pkgLocator =
           PathPackageLocator.create(
               null,
@@ -1253,10 +1253,10 @@ public class LoadingPhaseRunnerTest {
               workspace,
               workspace,
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY);
-      PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-      packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
-      packageCacheOptions.showLoadingProgress = true;
-      packageCacheOptions.globbingThreads = 7;
+      PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+      packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
+      packageOptions.showLoadingProgress = true;
+      packageOptions.globbingThreads = 7;
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
@@ -1264,7 +1264,7 @@ public class LoadingPhaseRunnerTest {
                   Optional.<RootedPath>absent())));
       skyframeExecutor.preparePackageLoading(
           pkgLocator,
-          packageCacheOptions,
+          packageOptions,
           Options.getDefaults(StarlarkSemanticsOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),

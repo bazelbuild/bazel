@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -26,7 +27,6 @@ import com.google.devtools.build.lib.versioning.SemVer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  */
 abstract class RealSandboxfsProcess implements SandboxfsProcess {
 
-  private static final Logger log = Logger.getLogger(RealSandboxfsProcess.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Contains the {@code --allow} flag to pass to sandboxfs.
@@ -81,8 +81,9 @@ abstract class RealSandboxfsProcess implements SandboxfsProcess {
               try {
                 this.destroy();
               } catch (Exception e) {
-                log.warning("Failed to destroy running sandboxfs instance; mount point may have "
-                    + "been left behind: " + e);
+                logger.atWarning().withCause(e).log(
+                    "Failed to destroy running sandboxfs instance; mount point may have "
+                        + "been left behind");
               }
             });
     Runtime.getRuntime().addShutdownHook(shutdownHook);
@@ -105,7 +106,7 @@ abstract class RealSandboxfsProcess implements SandboxfsProcess {
    */
   static SandboxfsProcess mount(PathFragment binary, Path mountPoint, Path logFile)
       throws IOException {
-    log.info("Mounting sandboxfs (" + binary + ") onto " + mountPoint);
+    logger.atInfo().log("Mounting sandboxfs (%s) onto %s", binary, mountPoint);
 
     GnuVersionParser<SemVer> parser = new GnuVersionParser<>("sandboxfs", SemVer::parse);
     SemVer version;
@@ -143,7 +144,7 @@ abstract class RealSandboxfsProcess implements SandboxfsProcess {
     }
     try {
       // Create an empty sandbox to ensure sandboxfs is successfully serving.
-      sandboxfs.createSandbox("empty", ImmutableList.of());
+      sandboxfs.createSandbox("empty", (mapper) -> {});
     } catch (IOException e) {
       process.destroyAndWait();
       throw new IOException("sandboxfs failed to start", e);
@@ -172,13 +173,13 @@ abstract class RealSandboxfsProcess implements SandboxfsProcess {
       try {
         process.getOutputStream().close();
       } catch (IOException e) {
-        log.warning("Failed to close sandboxfs's stdin pipe: " + e);
+        logger.atWarning().withCause(e).log("Failed to close sandboxfs's stdin pipe");
       }
 
       try {
         process.getInputStream().close();
       } catch (IOException e) {
-        log.warning("Failed to close sandboxfs's stdout pipe: " + e);
+        logger.atWarning().withCause(e).log("Failed to close sandboxfs's stdout pipe");
       }
 
       process.destroyAndWait();

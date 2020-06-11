@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.profiler.AutoProfiler.profiledAndLogged;
+import static com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils.profiledAndLogged;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.SubscriberExceptionHandler;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -38,7 +39,6 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.util.List;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -52,7 +52,7 @@ import javax.annotation.Nullable;
 public final class BlazeWorkspace {
   public static final String DO_NOT_BUILD_FILE_NAME = "DO_NOT_BUILD_HERE";
 
-  private static final Logger logger = Logger.getLogger(BlazeRuntime.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final BlazeRuntime runtime;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
@@ -78,7 +78,7 @@ public final class BlazeWorkspace {
       BinTools binTools,
       @Nullable AllocationTracker allocationTracker) {
     this.runtime = runtime;
-    this.eventBusExceptionHandler = eventBusExceptionHandler;
+    this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.binTools = binTools;
     this.allocationTracker = allocationTracker;
@@ -188,7 +188,11 @@ public final class BlazeWorkspace {
    *     fully configured at this point.
    */
   public CommandEnvironment initCommand(
-      Command command, OptionsParsingResult options, List<String> warnings) {
+      Command command,
+      OptionsParsingResult options,
+      List<String> warnings,
+      long waitTimeInMs,
+      long commandStartTime) {
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -197,7 +201,9 @@ public final class BlazeWorkspace {
             Thread.currentThread(),
             command,
             options,
-            warnings);
+            warnings,
+            waitTimeInMs,
+            commandStartTime);
     skyframeExecutor.setClientEnv(env.getClientEnv());
     return env;
   }
@@ -215,9 +221,7 @@ public final class BlazeWorkspace {
     skyframeExecutor.resetEvaluator();
   }
 
-  /**
-   * Removes in-memory caches.
-   */
+  /** Removes in-memory and on-disk action caches. */
   public void clearCaches() throws IOException {
     if (actionCache != null) {
       actionCache.clear();
@@ -227,17 +231,17 @@ public final class BlazeWorkspace {
   }
 
   /**
-   * Returns reference to the lazily instantiated persistent action cache
-   * instance. Note, that method may recreate instance between different build
-   * requests, so return value should not be cached.
+   * Returns reference to the lazily instantiated persistent action cache instance. Note, that
+   * method may recreate instance between different build requests, so return value should not be
+   * cached.
    */
-  public ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
+  ActionCache getPersistentActionCache(Reporter reporter) throws IOException {
     if (actionCache == null) {
-      try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO, logger)) {
+      try (AutoProfiler p = profiledAndLogged("Loading action cache", ProfilerTask.INFO)) {
         try {
           actionCache = new CompactPersistentActionCache(getCacheDirectory(), runtime.getClock());
         } catch (IOException e) {
-          logger.log(Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
+          logger.atWarning().withCause(e).log("Failed to load action cache");
           LoggingUtil.logToRemote(
               Level.WARNING, "Failed to load action cache: " + e.getMessage(), e);
           reporter.handle(
@@ -282,7 +286,7 @@ public final class BlazeWorkspace {
           "only Bazel will modify this directory and the files in it,",
           "so if you change anything here you may mess up Bazel's cache.");
     } catch (IOException e) {
-      logger.warning("Couldn't write to '" + outputBaseReadmeFile + "': " + e.getMessage());
+      logger.atWarning().withCause(e).log("Couldn't write to '%s'", outputBaseReadmeFile);
     }
   }
 
@@ -291,7 +295,7 @@ public final class BlazeWorkspace {
       FileSystemUtils.createDirectoryAndParents(filePath.getParentDirectory());
       FileSystemUtils.writeContent(filePath, ISO_8859_1, getWorkspace().toString());
     } catch (IOException e) {
-      logger.warning("Couldn't write to '" + filePath + "': " + e.getMessage());
+      logger.atWarning().withCause(e).log("Couldn't write to '%s'", filePath);
     }
   }
 

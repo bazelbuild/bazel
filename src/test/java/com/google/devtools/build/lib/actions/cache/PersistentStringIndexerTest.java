@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions.cache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.testutil.Scratch;

@@ -28,6 +28,15 @@ filegroup(
     visibility = ["//:__pkg__"],
 )
 
+# Required to move the shared CSS Files from the external repo's execroot location
+# to the _sass location expected by the local css/main.scss imports.
+genrule(
+    name = "style-common",
+    srcs = ["@bazel_website//:_sass/style.scss"],
+    outs = ["_sass/style.scss"],
+    cmd = "cp $< $@",
+)
+
 filegroup(
     name = "jekyll-srcs",
     srcs = glob(
@@ -40,7 +49,9 @@ filegroup(
             "command-line-reference-suffix.html",
             "site/README.md",
         ] + DOT_GRAPH_HTML_FILES,
-    ),
+    ) + [
+        ":style-common",
+    ],
 )
 
 pkg_tar(
@@ -139,6 +150,7 @@ genrule(
     ],
     outs = ["jekyll-tree.tar"],
     cmd = ("$(location jekyll-tree.sh) $@ " +
+           DOC_VERSIONS[0]["version"].split("-")[0] + " " +
            "$(location :jekyll-base) " +
            "$(location :skylark-rule-docs) " +
            "$(location //src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia) " +
@@ -153,8 +165,17 @@ genrule(
 jekyll_build(
     name = "site",
     srcs = [
-        "@jekyll_tree_%s//file" % DOC_VERSION["version"].replace(".", "_")
+        "@jekyll_tree_%s//file" % DOC_VERSION["version"].split("-")[0].replace(".", "_")
         for DOC_VERSION in DOC_VERSIONS
-    ] + [":jekyll-tree"],  # jekyll-tree *must* come last to be the default.
+    ] + [":jekyll-tree"],  # jekyll-tree *must* come last to use layouts and includes from master
     bucket = "docs.bazel.build",
+)
+
+# A smaller site build target. Contains just the docs for latest released version and master.
+jekyll_build(
+    name = "site_latest",
+    srcs = [
+        "@jekyll_tree_%s//file" % DOC_VERSIONS[0]["version"].split("-")[0].replace(".", "_"),
+        ":jekyll-tree",  # jekyll-tree *must* come last to use layouts and includes from master
+    ],
 )

@@ -103,6 +103,21 @@ public final class BlackBoxTestContext {
   }
 
   /**
+   * Writes <code>lines</code> using ISO_8859_1 into the file, specified by the <code>subPath</code>
+   * relative to the working directory. Overrides the file if it exists, creates the file if it does
+   * not exist.
+   *
+   * @param subPath path to file relative to working directory
+   * @param lines lines of text to write. Newlines are added by the method.
+   * @return Path to the file
+   * @throws IOException in case if the file can not be created/overridden, or can not be open for
+   *     writing
+   */
+  public Path write(String subPath, List<String> lines) throws IOException {
+    return PathUtils.writeFileInDir(workDir, subPath, lines);
+  }
+
+  /**
    * Writes <code>lines</code> using ISO_8859_1 into the BUILD file in the directory, specified by
    * the <code>subPath</code> relative to the working directory. Overrides the file if it exists,
    * creates the file if it does not exist.

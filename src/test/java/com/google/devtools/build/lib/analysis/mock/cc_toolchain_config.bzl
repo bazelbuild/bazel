@@ -637,9 +637,9 @@ _fdo_optimize_feature = feature(
                 flag_group(
                     flags = [
                         "-fprofile-use=%{fdo_profile_path}",
-                        "-Xclang-only=-Wno-profile-instr-unprofiled",
-                        "-Xclang-only=-Wno-profile-instr-out-of-date",
-                        "-Xclang-only=-Wno-backend-plugin",
+                        "-Wno-profile-instr-unprofiled",
+                        "-Wno-profile-instr-out-of-date",
+                        "-Wno-backend-plugin",
                         "-fprofile-correction",
                     ],
                     expand_if_available = "fdo_profile_path",

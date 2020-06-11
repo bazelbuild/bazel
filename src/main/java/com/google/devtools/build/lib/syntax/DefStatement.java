@@ -13,25 +13,32 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import javax.annotation.Nullable;
 
 /** Syntax node for a 'def' statement, which defines a function. */
 public final class DefStatement extends Statement {
 
+  private final int defOffset;
   private final Identifier identifier;
-  private final FunctionSignature signature;
-  private final ImmutableList<Statement> statements;
+  private final ImmutableList<Statement> body; // non-empty if well formed
   private final ImmutableList<Parameter> parameters;
 
+  // set by resolver
+  @Nullable Resolver.Function resolved;
+
   DefStatement(
+      FileLocations locs,
+      int defOffset,
       Identifier identifier,
-      Iterable<Parameter> parameters,
-      FunctionSignature signature,
-      Iterable<Statement> statements) {
+      ImmutableList<Parameter> parameters,
+      ImmutableList<Statement> body) {
+    super(locs);
+    this.defOffset = defOffset;
     this.identifier = identifier;
-    this.parameters = ImmutableList.copyOf(parameters);
-    this.signature = signature;
-    this.statements = ImmutableList.copyOf(statements);
+    this.parameters = Preconditions.checkNotNull(parameters);
+    this.body = Preconditions.checkNotNull(body);
   }
 
   @Override
@@ -47,16 +54,24 @@ public final class DefStatement extends Statement {
     return identifier;
   }
 
-  public ImmutableList<Statement> getStatements() {
-    return statements;
+  public ImmutableList<Statement> getBody() {
+    return body;
   }
 
   public ImmutableList<Parameter> getParameters() {
     return parameters;
   }
 
-  public FunctionSignature getSignature() {
-    return signature;
+  @Override
+  public int getStartOffset() {
+    return defOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return body.isEmpty()
+        ? identifier.getEndOffset() // wrong, but tree is ill formed
+        : body.get(body.size() - 1).getEndOffset();
   }
 
   @Override

@@ -41,12 +41,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 public class ObjcProtoProvider extends NativeInfo {
 
-  /** Skylark name for the ObjcProtoProvider. */
-  public static final String SKYLARK_NAME = "ObjcProto";
+  /** Starlark name for the ObjcProtoProvider. */
+  public static final String STARLARK_NAME = "ObjcProto";
 
-  /** Skylark constructor and identifier for AppleExecutableBinaryInfo. */
-  public static final NativeProvider<ObjcProtoProvider> SKYLARK_CONSTRUCTOR =
-      new NativeProvider<ObjcProtoProvider>(ObjcProtoProvider.class, SKYLARK_NAME) {};
+  /** Starlark constructor and identifier for AppleExecutableBinaryInfo. */
+  public static final NativeProvider<ObjcProtoProvider> STARLARK_CONSTRUCTOR =
+      new NativeProvider<ObjcProtoProvider>(ObjcProtoProvider.class, STARLARK_NAME) {};
 
   private final NestedSet<Artifact> protoFiles;
   private final NestedSet<Artifact> protobufHeaders;
@@ -58,7 +58,7 @@ public class ObjcProtoProvider extends NativeInfo {
       NestedSet<Artifact> portableProtoFilters,
       NestedSet<Artifact> protobufHeaders,
       NestedSet<PathFragment> protobufHeaderSearchPaths) {
-    super(SKYLARK_CONSTRUCTOR);
+    super(STARLARK_CONSTRUCTOR);
     this.protoFiles = Preconditions.checkNotNull(protoFiles);
     this.portableProtoFilters = Preconditions.checkNotNull(portableProtoFilters);
     this.protobufHeaders = Preconditions.checkNotNull(protobufHeaders);

@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Printer.BasePrinter;
-import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.ArrayList;
@@ -44,7 +43,9 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Collection of data types that are specific to building things, i.e. not inherent to Skylark.
+ * Collection of data types that are specific to building things, i.e. not inherent to Starlark.
+ *
+ * <p>BEFORE YOU ADD A NEW TYPE: See javadoc in {@link Type}.
  */
 public final class BuildType {
 
@@ -145,10 +146,12 @@ public final class BuildType {
   public static <T> Object selectableConvert(
       Type<T> type, Object x, Object what, LabelConversionContext context)
       throws ConversionException {
-    if (x instanceof com.google.devtools.build.lib.syntax.SelectorList) {
+    if (x instanceof com.google.devtools.build.lib.packages.SelectorList) {
       return new SelectorList<T>(
-          ((com.google.devtools.build.lib.syntax.SelectorList) x).getElements(),
-          what, context, type);
+          ((com.google.devtools.build.lib.packages.SelectorList) x).getElements(),
+          what,
+          context,
+          type);
     } else {
       return type.convert(x, what, context);
     }
@@ -288,7 +291,7 @@ public final class BuildType {
 
   /**
    * Dictionary type specialized for label keys, which is able to detect collisions caused by the
-   * fact that labels have multiple equivalent representations in Skylark code.
+   * fact that labels have multiple equivalent representations in Starlark code.
    */
   private static class LabelKeyedDictType<ValueT> extends DictType<Label, ValueT> {
     private LabelKeyedDictType(Type<ValueT> valueType) {
@@ -491,6 +494,8 @@ public final class BuildType {
    * rawValue + select(...) + select(...) + ..."} syntax. For consistency's sake, raw values are
    * stored as selects with only a default condition.
    */
+  // TODO(adonovan): merge with packages.Selector{List,Value}.
+  // We don't need three classes for the same concept.
   public static final class SelectorList<T> implements StarlarkValue {
     private final Type<T> originalType;
     private final List<Selector<T>> elements;
@@ -568,7 +573,7 @@ public final class BuildType {
         selectorValueList.add(new SelectorValue(element.getEntries(), element.getNoMatchError()));
       }
       try {
-        printer.repr(com.google.devtools.build.lib.syntax.SelectorList.of(null, selectorValueList));
+        printer.repr(com.google.devtools.build.lib.packages.SelectorList.of(selectorValueList));
       } catch (EvalException e) {
         throw new IllegalStateException("this list should have been validated on creation");
       }

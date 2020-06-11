@@ -16,6 +16,7 @@ package com.google.devtools.build.buildjar.genclass;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.collect.ImmutableList;
 import java.nio.file.Path;
 
 /** The options for a {@GenClass} action. */
@@ -24,6 +25,7 @@ public final class GenClassOptions {
   /** A builder for {@link GenClassOptions}. */
   public static final class Builder {
     private Path manifest;
+    private final ImmutableList.Builder<Path> generatedSourceJars = ImmutableList.builder();
     private Path classJar;
     private Path outputJar;
     private Path tempDir;
@@ -32,6 +34,10 @@ public final class GenClassOptions {
 
     public void setManifest(Path manifest) {
       this.manifest = manifest;
+    }
+
+    public void addGeneratedSourceJar(Path generatedSourceJar) {
+      this.generatedSourceJars.add(generatedSourceJar);
     }
 
     public void setClassJar(Path classJar) {
@@ -47,17 +53,25 @@ public final class GenClassOptions {
     }
 
     GenClassOptions build() {
-      return new GenClassOptions(manifest, classJar, outputJar, tempDir);
+      return new GenClassOptions(
+          manifest, generatedSourceJars.build(), classJar, outputJar, tempDir);
     }
   }
 
   private final Path manifest;
+  private final ImmutableList<Path> generatedSourceJars;
   private final Path classJar;
   private final Path outputJar;
   private final Path tempDir;
 
-  private GenClassOptions(Path manifest, Path classJar, Path outputJar, Path tempDir) {
+  private GenClassOptions(
+      Path manifest,
+      ImmutableList<Path> generatedSourceJars,
+      Path classJar,
+      Path outputJar,
+      Path tempDir) {
     this.manifest = checkNotNull(manifest);
+    this.generatedSourceJars = checkNotNull(generatedSourceJars);
     this.classJar = checkNotNull(classJar);
     this.outputJar = checkNotNull(outputJar);
     this.tempDir = checkNotNull(tempDir);
@@ -66,6 +80,16 @@ public final class GenClassOptions {
   /** The path to the compilation manifest proto. */
   public Path manifest() {
     return manifest;
+  }
+
+  /**
+   * The list of paths to jars containing generated Java source files corresponding to classes in
+   * the input class jar which should be included in the gen jar. The packages of the Java source
+   * files must match their path in the jar, and there can be only 1 top-level compilation unit,
+   * because the list of compilation units in the Java file will be based on the file's name.
+   */
+  public ImmutableList<Path> getGeneratedSourceJars() {
+    return generatedSourceJars;
   }
 
   /** The path to the compilation's class jar. */

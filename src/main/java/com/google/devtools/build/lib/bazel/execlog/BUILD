@@ -1,20 +1,18 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
+package(default_visibility = ["//src:__subpackages__"])
+
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
     name = "stable_sort",
     srcs = glob(["*.java"]),
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib/bazel/execlog:__pkg__",
-    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
     ],

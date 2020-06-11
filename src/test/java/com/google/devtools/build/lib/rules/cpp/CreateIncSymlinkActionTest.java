@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -44,9 +45,10 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   @Test
-  public void testDifferentOrderSameActionKey() throws Exception {
-    Path includePath = rootDirectory.getRelative("out");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, includePath);
+  public void testDifferentOrderSameActionKey() {
+    String outSegment = "out";
+    Path includePath = rootDirectory.getRelative(outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
     Artifact a = ActionsTestUtil.createArtifact(root, "a");
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     Artifact c = ActionsTestUtil.createArtifact(root, "c");
@@ -65,9 +67,10 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testDifferentTargetsDifferentActionKey() throws Exception {
-    Path includePath = rootDirectory.getRelative("out");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, includePath);
+  public void testDifferentTargetsDifferentActionKey() {
+    String outSegment = "out";
+    Path includePath = rootDirectory.getRelative(outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
     Artifact a = ActionsTestUtil.createArtifact(root, "a");
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     CreateIncSymlinkAction action1 =
@@ -82,9 +85,10 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testDifferentSymlinksDifferentActionKey() throws Exception {
-    Path includePath = rootDirectory.getRelative("out");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, includePath);
+  public void testDifferentSymlinksDifferentActionKey() {
+    String outSegment = "out";
+    Path includePath = rootDirectory.getRelative(outSegment);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
     Artifact a = ActionsTestUtil.createArtifact(root, "a");
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
     CreateIncSymlinkAction action1 =
@@ -100,9 +104,10 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
 
   @Test
   public void testExecute() throws Exception {
-    Path outputDir = rootDirectory.getRelative("out");
+    String outSegment = "out";
+    Path outputDir = rootDirectory.getRelative(outSegment);
     outputDir.createDirectory();
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outputDir);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
     Path symlink = rootDirectory.getRelative("out/a");
     Artifact a = ActionsTestUtil.createArtifact(root, symlink);
     Artifact b = ActionsTestUtil.createArtifact(root, "b");
@@ -123,6 +128,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
         /*actionInputPrefetcher=*/ null,
         /*actionKeyContext=*/ null,
         /*metadataHandler=*/ null,
+        /*rewindingEnabled=*/ false,
         LostInputsCheck.NONE,
         /*fileOutErr=*/ null,
         new StoredEventHandler(),
@@ -130,14 +136,16 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
         /*topLevelFilesets=*/ ImmutableMap.of(),
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.DEFAULT);
   }
 
   @Test
   public void testFileRemoved() throws Exception {
-    Path outputDir = rootDirectory.getRelative("out");
+    String outSegment = "out";
+    Path outputDir = rootDirectory.getRelative(outSegment);
     outputDir.createDirectory();
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outputDir);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(rootDirectory, outSegment);
     Path symlink = rootDirectory.getRelative("out/subdir/a");
     Artifact a = ActionsTestUtil.createArtifact(root, symlink);
     Artifact b = ActionsTestUtil.createArtifact(root, "b");

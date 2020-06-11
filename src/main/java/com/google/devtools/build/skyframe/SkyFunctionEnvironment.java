@@ -32,10 +32,10 @@ import com.google.devtools.build.lib.util.GroupedList;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
-import com.google.devtools.build.skyframe.GraphInconsistencyReceiver.Inconsistency;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.ParallelEvaluatorContext.EnqueueParentBehavior;
 import com.google.devtools.build.skyframe.QueryableGraph.Reason;
+import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -153,6 +153,7 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
           }
         }
       };
+
   private final ParallelEvaluatorContext evaluatorContext;
 
   SkyFunctionEnvironment(
@@ -283,8 +284,8 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
       eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
       postBuilder.addTransitive(ValueWithMetadata.getPosts(value));
     }
-    NestedSet<TaggedEvents> taggedEvents = eventBuilder.build();
-    NestedSet<Postable> postables = postBuilder.build();
+    NestedSet<TaggedEvents> taggedEvents = eventBuilder.buildInterruptibly();
+    NestedSet<Postable> postables = postBuilder.buildInterruptibly();
     evaluatorContext.getReplayingNestedSetEventVisitor().visit(taggedEvents);
     evaluatorContext.getReplayingNestedSetPostableVisitor().visit(postables);
     return Pair.of(taggedEvents, postables);
@@ -868,6 +869,11 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         .add("bubbleErrorInfo", bubbleErrorInfo)
         .add("evaluatorContext", evaluatorContext)
         .toString();
+  }
+
+  @Override
+  public boolean restartPermitted() {
+    return evaluatorContext.restartPermitted();
   }
 
   /** Thrown during environment construction if previously requested deps are no longer done. */

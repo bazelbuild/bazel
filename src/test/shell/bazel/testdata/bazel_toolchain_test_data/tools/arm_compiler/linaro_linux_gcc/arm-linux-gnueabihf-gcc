@@ -1,6 +1,0 @@
-#!/bin/bash --norc
-
-PATH="external/org_linaro_components_toolchain_gcc_5_3_1/libexec/gcc/arm-linux-gnueabihf/4.9.3:$PATH" \
-    exec \
-    external/org_linaro_components_toolchain_gcc_5_3_1/bin/arm-linux-gnueabihf-gcc \
-    "$@"

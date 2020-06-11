@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkAspectApi;
+import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
@@ -29,20 +29,20 @@ public class ProtoBootstrap implements Bootstrap {
   public static final String PROTO_INFO_STARLARK_NAME = "ProtoInfo";
 
   /** The name of the proto namespace in Starlark. */
-  public static final String PROTO_MODULE_NAME = "proto_common";
+  public static final String PROTO_COMMON_NAME = "proto_common";
 
-  private final ProtoInfoApi.Provider protoInfoApiProvider;
-  private final Object protoModule;
-  private final SkylarkAspectApi protoRegistryAspect;
+  private final ProtoInfoProviderApi protoInfoApiProvider;
+  private final Object protoCommon;
+  private final StarlarkAspectApi protoRegistryAspect;
   private final ProviderApi protoRegistryProvider;
 
   public ProtoBootstrap(
-      ProtoInfoApi.Provider protoInfoApiProvider,
-      Object protoModule,
-      SkylarkAspectApi protoRegistryAspect,
+      ProtoInfoProviderApi protoInfoApiProvider,
+      Object protoCommon,
+      StarlarkAspectApi protoRegistryAspect,
       ProviderApi protoRegistryProvider) {
     this.protoInfoApiProvider = protoInfoApiProvider;
-    this.protoModule = protoModule;
+    this.protoCommon = protoCommon;
     this.protoRegistryAspect = protoRegistryAspect;
     this.protoRegistryProvider = protoRegistryProvider;
   }
@@ -50,7 +50,7 @@ public class ProtoBootstrap implements Bootstrap {
   @Override
   public void addBindingsToBuilder(ImmutableMap.Builder<String, Object> builder) {
     builder.put(PROTO_INFO_STARLARK_NAME, protoInfoApiProvider);
-    builder.put(PROTO_MODULE_NAME, protoModule);
+    builder.put(PROTO_COMMON_NAME, protoCommon);
     builder.put(
         "ProtoRegistryAspect",
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(

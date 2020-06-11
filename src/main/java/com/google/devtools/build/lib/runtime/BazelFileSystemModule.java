@@ -14,15 +14,19 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
+import com.google.devtools.build.lib.server.FailureDetails.Filesystem.Code;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultAlreadySetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DigestFunctionConverter;
-import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsFileSystem;
@@ -30,10 +34,12 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsParsingResult;
 
 /**
- * Module to provide a {@link FileSystem} instance that uses {@code SHA256} as the default hash
- * function, or else what's specified by {@code -Dbazel.DigestFunction}.
+ * Module to provide a {@link com.google.devtools.build.lib.vfs.FileSystem} instance that uses
+ * {@code SHA256} as the default hash function, or else what's specified by {@code
+ * -Dbazel.DigestFunction}.
  *
- * <p>For legacy reasons we can't make the {@link FileSystem} class use {@code SHA256} by default.
+ * <p>For legacy reasons we can't make the {@link com.google.devtools.build.lib.vfs.FileSystem}
+ * class use {@code SHA256} by default.
  */
 public class BazelFileSystemModule extends BlazeModule {
 
@@ -52,12 +58,29 @@ public class BazelFileSystemModule extends BlazeModule {
         try {
           jvmPropertyHash = new DigestFunctionConverter().convert(value);
         } catch (OptionsParsingException e) {
-          throw new AbruptExitException(ExitCode.COMMAND_LINE_ERROR, e);
+          throw new AbruptExitException(
+              DetailedExitCode.of(
+                  ExitCode.COMMAND_LINE_ERROR,
+                  FailureDetail.newBuilder()
+                      .setMessage(Strings.nullToEmpty(e.getMessage()))
+                      .setFilesystem(
+                          Filesystem.newBuilder()
+                              .setCode(Code.DEFAULT_DIGEST_HASH_FUNCTION_INVALID_VALUE))
+                      .build()),
+              e);
         }
         DigestHashFunction.setDefault(jvmPropertyHash);
       }
     } catch (DefaultAlreadySetException e) {
-      throw new AbruptExitException(ExitCode.BLAZE_INTERNAL_ERROR, e);
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              ExitCode.BLAZE_INTERNAL_ERROR,
+              FailureDetail.newBuilder()
+                  .setMessage(Strings.nullToEmpty(e.getMessage()))
+                  .setFilesystem(
+                      Filesystem.newBuilder().setCode(Code.DEFAULT_DIGEST_HASH_FUNCTION_CHANGED))
+                  .build()),
+          e);
     }
   }
 
@@ -65,13 +88,19 @@ public class BazelFileSystemModule extends BlazeModule {
   public ModuleFileSystem getFileSystem(
       OptionsParsingResult startupOptions, PathFragment realExecRootBase)
       throws DefaultHashFunctionNotSetException {
+    BlazeServerStartupOptions options = startupOptions.getOptions(BlazeServerStartupOptions.class);
+    boolean enableSymLinks = options != null && options.enableWindowsSymlinks;
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
       return ModuleFileSystem.create(
-          OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new JavaIoFileSystem());
+          OS.getCurrent() == OS.WINDOWS
+              ? new WindowsFileSystem(enableSymLinks)
+              : new JavaIoFileSystem());
     }
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
     return ModuleFileSystem.create(
-        OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem());
+        OS.getCurrent() == OS.WINDOWS
+            ? new WindowsFileSystem(enableSymLinks)
+            : new UnixFileSystem());
   }
 }

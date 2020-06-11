@@ -18,6 +18,7 @@ filegroup(
 
 JAVA_LIBRARY_PROTOS = [
     "build_bazel_semver_semver",
+    "build_bazel_remote_asset_v1_remote_asset",
     "build_bazel_remote_execution_v2_remote_execution",
 ]
 
@@ -30,9 +31,22 @@ JAVA_LIBRARY_PROTOS = [
 filegroup(
     name = "dist_jars",
     srcs = [":" + proto + "_java_proto_srcs" for proto in JAVA_LIBRARY_PROTOS] + [
+        ":build_bazel_remote_asset_v1_remote_asset_java_grpc_srcs",
         ":build_bazel_remote_execution_v2_remote_execution_java_grpc_srcs",
     ],
     visibility = ["@//src:__pkg__"],
+)
+
+proto_library(
+    name = "build_bazel_remote_asset_v1_remote_asset_proto",
+    srcs = ["build/bazel/remote/asset/v1/remote_asset.proto"],
+    deps = [
+        ":build_bazel_remote_execution_v2_remote_execution_proto",
+        "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:timestamp_proto",
+        "@googleapis//:google_api_annotations_proto",
+        "@googleapis//:google_rpc_status_proto",
+    ],
 )
 
 proto_library(
@@ -55,6 +69,11 @@ proto_library(
 )
 
 java_proto_library(
+    name = "build_bazel_remote_asset_v1_remote_asset_java_proto",
+    deps = [":build_bazel_remote_asset_v1_remote_asset_proto"],
+)
+
+java_proto_library(
     name = "build_bazel_remote_execution_v2_remote_execution_java_proto",
     deps = [":build_bazel_remote_execution_v2_remote_execution_proto"],
 )
@@ -62,6 +81,12 @@ java_proto_library(
 java_proto_library(
     name = "build_bazel_semver_semver_java_proto",
     deps = [":build_bazel_semver_semver_proto"],
+)
+
+java_grpc_library(
+    name = "build_bazel_remote_asset_v1_remote_asset_java_grpc",
+    srcs = [":build_bazel_remote_asset_v1_remote_asset_proto"],
+    deps = [":build_bazel_remote_asset_v1_remote_asset_java_proto"],
 )
 
 java_grpc_library(

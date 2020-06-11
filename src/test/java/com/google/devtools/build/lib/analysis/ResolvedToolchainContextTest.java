@@ -14,7 +14,8 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static com.google.devtools.build.lib.analysis.testing.ResolvedToolchainContextSubject.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
@@ -24,8 +25,10 @@ import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.platform.ToolchainTestCase;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.ToolchainException;
 import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext;
+import com.google.devtools.build.lib.skyframe.UnloadedToolchainContextImpl;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -43,9 +46,16 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
 
+    ToolchainContextKey toolchainContextKey =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .build();
+
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContext.builder()
+        UnloadedToolchainContextImpl.builder()
+            .setKey(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -72,8 +82,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             "test",
             ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
-    assertThat(toolchainContext.forToolchainType(testToolchainType)).isNotNull();
-    assertThat(toolchainContext.forToolchainType(testToolchainType).getValue("data"))
+    assertThat(toolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(toolchainContext)
+        .forToolchainType(testToolchainTypeLabel)
+        .getValue("data")
         .isEqualTo("baz");
   }
 
@@ -88,9 +100,16 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         "baz");
 
+    ToolchainContextKey toolchainContextKey =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .build();
+
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContext.builder()
+        UnloadedToolchainContextImpl.builder()
+            .setKey(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -114,8 +133,10 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             "test",
             ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
-    assertThat(toolchainContext.forToolchainType(testToolchainType)).isNotNull();
-    assertThat(toolchainContext.forToolchainType(testToolchainType).getValue("data"))
+    assertThat(toolchainContext).hasToolchainType(testToolchainTypeLabel);
+    assertThat(toolchainContext)
+        .forToolchainType(testToolchainTypeLabel)
+        .getValue("data")
         .isEqualTo("baz");
   }
 
@@ -123,9 +144,16 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
   public void load_notToolchain() throws Exception {
     scratch.file("foo/BUILD", "filegroup(name = 'not_a_toolchain')");
 
+    ToolchainContextKey toolchainContextKey =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .build();
+
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContext.builder()
+        UnloadedToolchainContextImpl.builder()
+            .setKey(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(testToolchainType))
@@ -177,9 +205,16 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
         "  name='variable_toolchain_impl',",
         "  value = 'foo')");
 
+    ToolchainContextKey toolchainContextKey =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .requiredToolchainTypeLabels(testToolchainTypeLabel)
+            .build();
+
     // Create a static UnloadedToolchainContext.
     UnloadedToolchainContext unloadedToolchainContext =
-        UnloadedToolchainContext.builder()
+        UnloadedToolchainContextImpl.builder()
+            .setKey(toolchainContextKey)
             .setExecutionPlatform(linuxPlatform)
             .setTargetPlatform(linuxPlatform)
             .setRequiredToolchainTypes(ImmutableSet.of(variableToolchainType))
@@ -204,7 +239,7 @@ public class ResolvedToolchainContextTest extends ToolchainTestCase {
             "test",
             ImmutableList.of(toolchain));
     assertThat(toolchainContext).isNotNull();
-    assertThat(toolchainContext.forToolchainType(variableToolchainType)).isNotNull();
+    assertThat(toolchainContext).hasToolchainType(variableToolchainTypeLabel);
     assertThat(toolchainContext.templateVariableProviders()).hasSize(1);
     assertThat(toolchainContext.templateVariableProviders().get(0).getVariables())
         .containsExactly("VALUE", "foo");

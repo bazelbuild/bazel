@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier.MapBackedMakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -31,9 +33,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -43,6 +45,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CcFlagsSupplier;
@@ -54,6 +57,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -115,17 +119,9 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean addDynamicRuntimeInputArtifactsToRunfiles)
       throws RuleErrorException, InterruptedException {
     CcCommon.checkRuleLoadedThroughMacro(ruleContext);
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("linked_statically_by")
-        && !ruleContext
-            .getAnalysisEnvironment()
-            .getSkylarkSemantics()
-            .experimentalCcSharedLibrary()) {
-      ruleContext.ruleError(
-          "The attribute 'linked_statically_by' can only be used with the flag"
-              + " --experimental_cc_shared_library.");
-    }
     semantics.validateDeps(ruleContext);
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
 
@@ -143,18 +139,19 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     FdoContext fdoContext = common.getFdoContext();
     FeatureConfiguration featureConfiguration =
-        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain);
+        CcCommon.configureFeaturesOrReportRuleError(ruleContext, ccToolchain, semantics);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
     semantics.validateAttributes(ruleContext);
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
 
     ImmutableList<TransitiveInfoCollection> deps =
-        ImmutableList.copyOf(ruleContext.getPrerequisites("deps", Mode.TARGET));
-    CppHelper.checkProtoLibrariesInDeps(ruleContext, deps);
+        ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET));
     if (ruleContext.hasErrors()) {
+      addEmptyRequiredProviders(targetBuilder);
       return;
     }
     Iterable<CcInfo> ccInfosFromDeps = AnalysisUtils.getProviders(deps, CcInfo.PROVIDER);
@@ -205,7 +202,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             .emitInterfaceSharedLibraries(true)
             .setAlwayslink(alwaysLink)
             .setNeverLink(neverLink)
-            .addLinkstamps(ruleContext.getPrerequisites("linkstamp", Mode.TARGET));
+            .addLinkstamps(ruleContext.getPrerequisites("linkstamp", TransitionMode.TARGET));
 
     Artifact soImplArtifact = null;
     boolean supportsDynamicLinker = ccToolchain.supportsDynamicLinker(featureConfiguration);
@@ -227,7 +224,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
     if (ruleContext.getRule().isAttrDefined("textual_hdrs", BuildType.LABEL_LIST)) {
       compilationHelper.addPublicTextualHeaders(
-          ruleContext.getPrerequisiteArtifacts("textual_hdrs", Mode.TARGET).list());
+          ruleContext.getPrerequisiteArtifacts("textual_hdrs", TransitionMode.TARGET).list());
     }
     if (ruleContext.getRule().isAttrDefined("include_prefix", Type.STRING)
         && ruleContext.attributes().isAttributeValueExplicitlySpecified("include_prefix")) {
@@ -333,7 +330,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                             ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
             targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
           } catch (EvalException e) {
-            throw ruleContext.throwWithRuleError(e.getMessage());
+            throw ruleContext.throwWithRuleError(e);
           }
         }
         linkingHelper.setDefFile(
@@ -357,7 +354,10 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
     List<LibraryToLink> precompiledLibraries =
         convertPrecompiledLibrariesToLibraryToLink(
-            common, ruleContext.getFragment(CppConfiguration.class).forcePic(), precompiledFiles);
+            ruleContext,
+            common,
+            ruleContext.getFragment(CppConfiguration.class).forcePic(),
+            precompiledFiles);
 
     if (!ccCompilationOutputs.isEmpty()) {
       checkIfLinkOutputsCollidingWithPrecompiledFiles(
@@ -376,7 +376,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             compilationInfo.getCcCompilationContext());
     CcNativeLibraryProvider ccNativeLibraryProvider =
         CppHelper.collectNativeCcLibraries(
-            ruleContext.getPrerequisites("deps", Mode.TARGET), libraryToLinks);
+            ruleContext.getPrerequisites("deps", TransitionMode.TARGET), libraryToLinks);
 
     /*
      * We always generate a static library, even if there aren't any source files.
@@ -433,7 +433,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         builder.addTransitiveArtifacts(
             ccToolchain.getDynamicRuntimeLinkInputs(featureConfiguration));
       } catch (EvalException e) {
-        throw ruleContext.throwWithRuleError(e.getMessage());
+        throw ruleContext.throwWithRuleError(e);
       }
     }
     Runfiles runfiles = builder.build();
@@ -457,7 +457,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
             ccToolchain,
             featureConfiguration,
             ruleContext);
-    CcSkylarkApiProvider.maybeAdd(ruleContext, targetBuilder);
+    CcStarlarkApiProvider.maybeAdd(ruleContext, targetBuilder);
     targetBuilder
         .setFilesToBuild(filesToBuild)
         .addProvider(ccNativeLibraryProvider)
@@ -499,7 +499,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
         ccCompilationOutputs.getFilesToCompile(processHeadersInDependencies, usePic));
     for (OutputGroupInfo dep :
         ruleContext.getPrerequisites(
-            "deps", Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+            "deps", TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       artifactsToForceBuilder.addTransitive(
           dep.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }
@@ -679,12 +679,21 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     return ccCompilationOutputsIsEmpty && !ccLinkingOutputsIsEmpty;
   }
 
-  private static Map<String, Artifact> buildMapIdentifierToArtifact(Iterable<Artifact> artifacts) {
-    ImmutableMap.Builder<String, Artifact> libraries = ImmutableMap.builder();
+  private static ImmutableMap<String, Artifact> buildMapIdentifierToArtifact(
+      RuleErrorConsumer ruleErrorConsumer, Iterable<Artifact> artifacts) {
+    Map<String, Artifact> libraries = new LinkedHashMap<>();
     for (Artifact artifact : artifacts) {
-      libraries.put(CcLinkingOutputs.libraryIdentifierOf(artifact), artifact);
+      String identifier = CcLinkingOutputs.libraryIdentifierOf(artifact);
+      if (libraries.containsKey(identifier)) {
+        ruleErrorConsumer.attributeError(
+            "srcs",
+            String.format(
+                "Trying to link twice a library with the same identifier '%s', files: %s and %s",
+                identifier, artifact.toDetailString(), libraries.get(identifier).toDetailString()));
+      }
+      libraries.put(identifier, artifact);
     }
-    return libraries.build();
+    return ImmutableMap.copyOf(libraries);
   }
 
   /*
@@ -702,19 +711,24 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
    * Note that some target platforms do not require shared library code to be PIC.
    */
   private static List<LibraryToLink> convertPrecompiledLibrariesToLibraryToLink(
-      CcCommon common, boolean forcePic, PrecompiledFiles precompiledFiles) {
+      RuleErrorConsumer ruleErrorConsumer,
+      CcCommon common,
+      boolean forcePic,
+      PrecompiledFiles precompiledFiles) {
     ImmutableList.Builder<LibraryToLink> librariesToLink = ImmutableList.builder();
 
     Map<String, Artifact> staticLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getStaticLibraries());
+        buildMapIdentifierToArtifact(ruleErrorConsumer, precompiledFiles.getStaticLibraries());
     Map<String, Artifact> picStaticLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getPicStaticLibraries());
+        buildMapIdentifierToArtifact(ruleErrorConsumer, precompiledFiles.getPicStaticLibraries());
     Map<String, Artifact> alwayslinkStaticLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getAlwayslinkStaticLibraries());
+        buildMapIdentifierToArtifact(
+            ruleErrorConsumer, precompiledFiles.getAlwayslinkStaticLibraries());
     Map<String, Artifact> alwayslinkPicStaticLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getPicAlwayslinkLibraries());
+        buildMapIdentifierToArtifact(
+            ruleErrorConsumer, precompiledFiles.getPicAlwayslinkLibraries());
     Map<String, Artifact> dynamicLibraries =
-        buildMapIdentifierToArtifact(precompiledFiles.getSharedLibraries());
+        buildMapIdentifierToArtifact(ruleErrorConsumer, precompiledFiles.getSharedLibraries());
 
     Set<String> identifiersUsed = new HashSet<>();
     for (Map.Entry<String, Artifact> staticLibraryEntry :
@@ -783,8 +797,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     return librariesToLink.build();
   }
 
-
-
   private static void checkIfLinkOutputsCollidingWithPrecompiledFiles(
       RuleContext ruleContext,
       CcLinkingOutputs ccLinkingOutputs,
@@ -802,5 +814,11 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 + ") which also contains other code or objects to link");
       }
     }
+  }
+
+  private static void addEmptyRequiredProviders(RuleConfiguredTargetBuilder builder) {
+    builder.addProvider(RunfilesProvider.EMPTY);
+    builder.addProvider(FileProvider.EMPTY);
+    builder.addProvider(FilesToRunProvider.EMPTY);
   }
 }

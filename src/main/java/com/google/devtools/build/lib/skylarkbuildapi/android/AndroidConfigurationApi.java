@@ -14,219 +14,211 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Configuration fragment for Android rules. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "android",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed. "
             + "A configuration fragment for Android.",
     documented = false,
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public interface AndroidConfigurationApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "android_cpu",
       structField = true,
       doc = "The Android target CPU.",
       documented = false)
   String getCpu();
 
-  @SkylarkCallable(
-      name = "use_incremental_dexing",
-      structField = true,
-      doc = "",
-      documented = false)
+  @StarlarkMethod(name = "use_incremental_dexing", structField = true, doc = "", documented = false)
   boolean useIncrementalDexing();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "incremental_dexing_shards_after_proguard",
       structField = true,
       doc = "",
       documented = false)
   int incrementalDexingShardsAfterProguard();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "incremental_dexing_use_dex_sharder",
       structField = true,
       doc = "",
       documented = false)
   boolean incrementalDexingUseDexSharder();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "incremental_dexing_after_proguard_by_default",
       structField = true,
       doc = "",
       documented = false)
   boolean incrementalDexingAfterProguardByDefault();
 
-  @SkylarkCallable(name = "apk_signing_method_v1", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "apk_signing_method_v1", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV1();
 
-  @SkylarkCallable(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "apk_signing_method_v2", structField = true, doc = "", documented = false)
   boolean apkSigningMethodV2();
 
-  @SkylarkCallable(
-      name = "assume_min_sdk_version",
-      structField = true,
-      doc = "",
-      documented = false)
+  @StarlarkMethod(name = "assume_min_sdk_version", structField = true, doc = "", documented = false)
   boolean assumeMinSdkVersion();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_dexopts_supported_in_incremental_dexing",
       structField = true,
       doc = "",
       documented = false)
   ImmutableList<String> getDexoptsSupportedInIncrementalDexing();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_dexopts_supported_in_dex_merger",
       structField = true,
       doc = "",
       documented = false)
   ImmutableList<String> getDexoptsSupportedInDexMerger();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_target_dexopts_that_prevent_incremental_dexing",
       structField = true,
       doc = "",
       documented = false)
   ImmutableList<String> getTargetDexoptsThatPreventIncrementalDexing();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_workers_with_dexbuilder",
       structField = true,
       doc = "",
       documented = false)
   boolean useWorkersWithDexbuilder();
 
-  @SkylarkCallable(name = "desugar_java8", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "desugar_java8", structField = true, doc = "", documented = false)
   boolean desugarJava8();
 
-  @SkylarkCallable(name = "desugar_java8_libs", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "desugar_java8_libs", structField = true, doc = "", documented = false)
   boolean desugarJava8Libs();
 
-  @SkylarkCallable(name = "check_desugar_deps", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "check_desugar_deps", structField = true, doc = "", documented = false)
   boolean checkDesugarDeps();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_rex_to_compress_dex_files",
       structField = true,
       doc = "",
       documented = false)
   boolean useRexToCompressDexFiles();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_android_resource_shrinking",
       structField = true,
       doc = "",
       documented = false)
   boolean useAndroidResourceShrinking();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_android_resource_cycle_shrinking",
       structField = true,
       doc = "",
       documented = false)
   boolean useAndroidResourceCycleShrinking();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_android_resource_path_shortening",
       structField = true,
       doc = "",
       documented = false)
   boolean useAndroidResourcePathShortening();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_android_resource_name_obfuscation",
       structField = true,
       doc = "",
       documented = false)
   boolean useAndroidResourceNameObfuscation();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "use_single_jar_apk_builder",
       structField = true,
       doc = "",
       documented = false)
   boolean useSingleJarApkBuilder();
 
-  @SkylarkCallable(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "use_parallel_dex2oat", structField = true, doc = "", documented = false)
   boolean useParallelDex2Oat();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "break_build_on_parallel_dex2oat_failure",
       structField = true,
       doc = "",
       documented = false)
   boolean breakBuildOnParallelDex2OatFailure();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compress_java_resources",
       structField = true,
       doc = "",
       documented = false)
   boolean compressJavaResources();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_exports_manifest_default",
       structField = true,
       doc = "",
       documented = false)
   boolean getExportsManifestDefault();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "omit_resources_info_provider_from_android_binary",
       structField = true,
       doc = "",
       documented = false)
   boolean omitResourcesInfoProviderFromAndroidBinary();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "fixed_resource_neverlinking",
       structField = true,
       doc = "",
       documented = false)
   boolean fixedResourceNeverlinking();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "check_for_migration_tag",
       structField = true,
       doc = "",
       documented = false)
   boolean checkForMigrationTag();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_one_version_enforcement_use_transitive_jars_for_binary_under_test",
       structField = true,
       doc = "",
       documented = false)
   boolean getOneVersionEnforcementUseTransitiveJarsForBinaryUnderTest();
 
-  @SkylarkCallable(name = "use_databinding_v2", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "use_databinding_v2", structField = true, doc = "", documented = false)
   boolean useDataBindingV2();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "android_databinding_use_v3_4_args",
       structField = true,
       doc = "",
       documented = false)
   boolean useDataBindingUpdatedArgs();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "persistent_busybox_tools",
       structField = true,
       doc = "",
       documented = false)
   boolean persistentBusyboxTools();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_output_directory_name",
       structField = true,
       doc = "",

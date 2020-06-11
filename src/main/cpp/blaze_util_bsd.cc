@@ -128,16 +128,18 @@ string GetSelfPath(const char* argv0) {
   // Otherwise, if argv[0] contains a slash, then it's a relative path. Prepend
   // the current directory to form an absolute path.
   if (argv0str.length() > 0 && argv0str.find('/') != std::string::npos) {
-    return GetCwd() + "/" + argv0str;
+    return blaze_util::GetCwd() + "/" + argv0str;
   }
 
-  // TODO(aldersondrive): Try to find the executable by inspecting the PATH.
+  // Otherwise, try to find the executable by searching the PATH.
+  const std::string from_search_path = Which(argv0);
+  if (!from_search_path.empty()) {
+    return from_search_path;
+  }
 
   // None of the above worked. Give up.
   BAZEL_DIE(blaze_exit_code::BAD_ARGV)
-      << "Unable to determine the location of this Bazel executable. "
-         "Currently, argv[0] must be an absolute or relative path to the "
-         "executable.";
+      << "Unable to determine the location of this Bazel executable.";
   return "";  // Never executed. Needed so compiler does not complain.
 #else
 # error This BSD is not supported

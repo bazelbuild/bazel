@@ -1,26 +1,9 @@
 ---
 layout: documentation
-title: Aquery (Action Graph Query)
+title: Aquery (action graph query)
 ---
-<h1>Aquery (Action Graph Query)</h1>
+<h1>Aquery (action graph query)</h1>
 
-
-<ul>
-  <li><a href="#overview">Overview</a></li>
-  <li><a href="#basic-syntax">Basic Syntax</a></li>
-  <li><a href="#functions">Aquery Functions</a></li>
-  <li><a href="#options">Options</a></li>
-  <li>
-    <a href="#misc">Other Tools and Features</a>
-    <ul>
-      <li><a href="#skyframe-state">Querying Against the State of Skyframe</a></li>
-      <li><a href="#diff-tool">Comparing Aquery Outputs</a></li>
-      <li><a href="#aspect-on-aspect">Handling Aspect-on-aspect</a></li>
-    </ul>
-  </li>
-  <li><a href="#known-issues">Known Issues</a></li>
-  <li><a href="#updates">Updates</a></li>
-</ul>
 
 <h2 id='overview'>Overview</h2>
 
@@ -61,7 +44,7 @@ action 'Writing file some_file_name'
   Outputs: [...]
 </pre>
 
-<h2 id='basic-syntax'>Basic Syntax</h2>
+<h2 id='basic-syntax'>Basic syntax</h2>
 
 <p>A simple example of the syntax for <code>aquery</code> is as follows:</p>
 
@@ -96,7 +79,7 @@ $ bazel aquery 'deps(//src/target_a)'
 $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 </pre>
 
-<h2 id='functions'>Aquery Functions</h2>
+<h2 id='functions'>Aquery functions</h2>
 
 <p>There are currently 3 <code>aquery</code> functions:</p>
 <ul>
@@ -143,7 +126,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <h2 id='options'>Options</h2>
 
-<h3>Build Options</h3>
+<h3>Build options</h3>
 
 <p>
   <code>aquery</code> runs on top of a regular Bazel build and thus inherits the set of
@@ -164,6 +147,12 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <p>
   Includes the content of the action command lines in the output (potentially large).
+</p>
+
+<h4><code class='flag'>--include_artifacts, default=true</code></h4>
+
+<p>
+  Includes names of the action inputs and outputs in the output (potentially large).
 </p>
 
 <h4><code class='flag'>--include_aspects, default=false</code></h4>
@@ -187,7 +176,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   This flag is only available with <code>--output=proto</code> or <code>--output=textproto</code>.
 </p>
 
-<h2 id='misc'>Other Tools and Features</h2>
+<h2 id='misc'>Other tools and features</h2>
 
 <h3 id="skyframe-state">Querying against the state of Skyframe</h3>
 
@@ -268,7 +257,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   $ bazel aquery --output=proto --skyframe_state 'inputs(".*.java")'
 </pre>
 
-<h3 id="diff-tool">Comparing Aquery Outputs</h3>
+<h3 id="diff-tool">Comparing aquery outputs</h3>
 
 <p>
   You can compare the outputs of two different aquery invocations using the <code>aquery_differ</code> tool.
@@ -324,7 +313,7 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   to be compared.
 </p>
 
-<h3 id="aspect-on-aspect">Aspect-on-Aspect</h3>
+<h3 id="aspect-on-aspect">Aspect-on-aspect</h3>
 
 <p>
   It is possible for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">Aspects</a>
@@ -381,13 +370,25 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
   <a href="https://docs.bazel.build/versions/master/skylark/aspects.html#aspect-basics">dependency graph</a>.
 </p>
 
-<h2 id='known-issues'>Known Issues</h2>
+<h2 id='known-issues'>Known issues</h2>
 
+<h3 id='shared-actions'>Handling Shared Actions</h3>
+
+<p>
+  Sometimes actions are
+  <a href="https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/Actions.java;l=59;drc=146d51aa1ec9dcb721a7483479ef0b1ac21d39f1">shared</a>
+  between configured targets.
+
+  In the execution phase, those shared actions are
+  <a href="https://source.bazel.build/bazel/+/master:src/main/java/com/google/devtools/build/lib/actions/Actions.java;l=241;drc=003b8734036a07b496012730964ac220f486b61f">simply considered as one</a> and only executed once.
+  However, aquery operates on the pre-execution, post-analysis action graph, and hence treats these
+  like separate actions whose output Artifacts have the exact same <code>execPath</code>. As a result,
+  we'll have equivalent Artifacts appearing duplicated.
+</p>
 <p>
   The list of aquery issues/planned features can be found on
   <a href="https://github.com/bazelbuild/bazel/labels/team-Performance">GitHub</a>.
 </p>
-
 <h2 id='updates'>Updates</h2>
 
 <p>

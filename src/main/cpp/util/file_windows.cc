@@ -21,6 +21,7 @@
 
 #include <memory>  // unique_ptr
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "src/main/cpp/util/errors.h"
@@ -534,7 +535,11 @@ bool CanAccessDirectory(const Path& path) {
 
   // The only easy way to know if a directory is writable is by attempting to
   // open a file for writing in it.
-  Path dummy_path = path.GetRelative("bazel_directory_access_test");
+  // File name with Thread ID avoids races among concurrent Bazel processes.
+  std::string dummy_name = "bazel_directory_access_test_";
+  dummy_name += std::to_string(::GetCurrentThreadId());
+
+  Path dummy_path = path.GetRelative(dummy_name);
 
   // Attempt to open the dummy file for read/write access.
   // If the file happens to exist, no big deal, we won't overwrite it thanks to
@@ -548,9 +553,9 @@ bool CanAccessDirectory(const Path& path) {
       /* dwFlagsAndAttributes */ FILE_ATTRIBUTE_NORMAL,
       /* hTemplateFile */ NULL);
   DWORD err = GetLastError();
-  if (handle == INVALID_HANDLE_VALUE && err != ERROR_ALREADY_EXISTS) {
+  if (handle == INVALID_HANDLE_VALUE) {
     // We couldn't open the file, and not because the dummy file already exists.
-    // Consequently it is because `wpath` doesn't exist.
+    // Consequently it is because `path` doesn't exist.
     return false;
   }
   // The fact that we could open the file, regardless of it existing beforehand
@@ -639,6 +644,82 @@ bool MakeDirectories(const string& path, unsigned int mode) {
 
 bool MakeDirectories(const Path& path, unsigned int mode) {
   return MakeDirectoriesW(path.AsNativePath(), mode);
+}
+
+string CreateTempDir(const std::string &prefix) {
+  string result = prefix + blaze_util::ToString(GetCurrentProcessId());
+  if (!blaze_util::MakeDirectories(result, 0777)) {
+    BAZEL_DIE(blaze_exit_code::INTERNAL_ERROR)
+        << "couldn't create '" << result
+        << "': " << blaze_util::GetLastErrorString();
+  }
+  return result;
+}
+
+static bool RemoveContents(wstring path) {
+  static const wstring kDot(L".");
+  static const wstring kDotDot(L"..");
+
+  if (path.find(L"\\\\?\\") != 0) {
+    path = wstring(L"\\\\?\\") + path;
+  }
+  if (path.back() != '\\') {
+    path.push_back('\\');
+  }
+
+  WIN32_FIND_DATAW metadata;
+  HANDLE handle = FindFirstFileW((path + L"*").c_str(), &metadata);
+  if (handle == INVALID_HANDLE_VALUE) {
+    return true;  // directory doesn't exist
+  }
+
+  bool result = true;
+  do {
+    wstring childname = metadata.cFileName;
+    if (kDot != childname && kDotDot != childname) {
+      wstring childpath = path + childname;
+      if ((metadata.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+        // If this is not a junction, delete its contents recursively.
+        // Finally delete this directory/junction too.
+        if (((metadata.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) == 0 &&
+             !RemoveContents(childpath)) ||
+            !::RemoveDirectoryW(childpath.c_str())) {
+          result = false;
+          break;
+        }
+      } else {
+        if (!::DeleteFileW(childpath.c_str())) {
+          result = false;
+          break;
+        }
+      }
+    }
+  } while (FindNextFileW(handle, &metadata));
+  FindClose(handle);
+  return result;
+}
+
+static bool RemoveRecursivelyW(const wstring& path) {
+  DWORD attrs = ::GetFileAttributesW(path.c_str());
+  if (attrs == INVALID_FILE_ATTRIBUTES) {
+    // Path does not exist.
+    return true;
+  }
+  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
+    if (!(attrs & FILE_ATTRIBUTE_REPARSE_POINT)) {
+      // Path is a directory; unlink(2) also cannot remove directories.
+      return RemoveContents(path) && ::RemoveDirectoryW(path.c_str());
+    }
+    // Otherwise it's a junction, remove using RemoveDirectoryW.
+    return ::RemoveDirectoryW(path.c_str()) == TRUE;
+  } else {
+    // Otherwise it's a file, remove using DeleteFileW.
+    return ::DeleteFileW(path.c_str()) == TRUE;
+  }
+}
+
+bool RemoveRecursively(const string& path) {
+  return RemoveRecursivelyW(Path(path).AsNativePath());
 }
 
 static inline void ToLowerW(WCHAR* p) {

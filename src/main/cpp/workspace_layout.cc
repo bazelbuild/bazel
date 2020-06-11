@@ -35,10 +35,13 @@ string WorkspaceLayout::GetOutputRoot() const {
 }
 
 bool WorkspaceLayout::InWorkspace(const string &workspace) const {
-  return blaze_util::PathExists(
-             blaze_util::JoinPath(workspace, kWorkspaceDotBazelMarker)) ||
-         blaze_util::PathExists(
-             blaze_util::JoinPath(workspace, kWorkspaceMarker));
+  auto workspaceDotBazelPath =
+      blaze_util::JoinPath(workspace, kWorkspaceDotBazelMarker);
+  auto workspacePath = blaze_util::JoinPath(workspace, kWorkspaceMarker);
+  return (blaze_util::PathExists(workspaceDotBazelPath) &&
+          !blaze_util::IsDirectory(workspaceDotBazelPath)) ||
+         (blaze_util::PathExists(workspacePath) &&
+          !blaze_util::IsDirectory(workspacePath));
 }
 
 string WorkspaceLayout::GetWorkspace(const string &cwd) const {

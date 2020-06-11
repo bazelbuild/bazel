@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 

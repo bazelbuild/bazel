@@ -18,31 +18,29 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Resolver;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.syntax.Tuple;
-import com.google.devtools.build.lib.syntax.ValidationEnvironment;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -68,18 +66,19 @@ public class WorkspaceFactory {
   private final RuleFactory ruleFactory;
 
   private final WorkspaceGlobals workspaceGlobals;
+  private final StarlarkSemantics starlarkSemantics;
   private final ImmutableMap<String, Object> workspaceFunctions;
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
 
   // Values accumulated from all previous WORKSPACE file parts.
-  private final Map<String, Extension> importMap = new HashMap<>();
+  private final Map<String, Module> loadedModules = new HashMap<>();
   private final Map<String, Object> bindings = new HashMap<>();
 
   // TODO(bazel-team): document installDir
   /**
    * @param builder a builder for the Workspace
    * @param ruleClassProvider a provider for known rule classes
-   * @param environmentExtensions the Skylark environment extensions
+   * @param environmentExtensions the Starlark environment extensions
    * @param mutability the Mutability for the current evaluation context
    * @param installDir the install directory
    * @param workspaceDir the workspace directory
@@ -93,7 +92,8 @@ public class WorkspaceFactory {
       boolean allowOverride,
       @Nullable Path installDir,
       @Nullable Path workspaceDir,
-      @Nullable Path defaultSystemJavabaseDir) {
+      @Nullable Path defaultSystemJavabaseDir,
+      StarlarkSemantics starlarkSemantics) {
     this.builder = builder;
     this.mutability = mutability;
     this.installDir = installDir;
@@ -102,21 +102,22 @@ public class WorkspaceFactory {
     this.environmentExtensions = environmentExtensions;
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.workspaceGlobals = new WorkspaceGlobals(allowOverride, ruleFactory);
+    this.starlarkSemantics = starlarkSemantics;
     this.workspaceFunctions =
-        WorkspaceFactory.createWorkspaceFunctions(
-            allowOverride, ruleFactory, this.workspaceGlobals);
+        createWorkspaceFunctions(
+            allowOverride, ruleFactory, this.workspaceGlobals, starlarkSemantics);
   }
 
+  // TODO(adonovan): move this into the test. It doesn't need privileged access,
+  // and it's called exactly once (!).
   @VisibleForTesting
-  void parseForTesting(
-      ParserInput source,
-      StarlarkSemantics starlarkSemantics,
-      @Nullable StoredEventHandler localReporter)
+  void parseForTesting(ParserInput source, @Nullable StoredEventHandler localReporter)
       throws BuildFileContainsErrorsException, InterruptedException {
     if (localReporter == null) {
       localReporter = new StoredEventHandler();
     }
-    StarlarkFile file = StarlarkFile.parse(source);
+
+    StarlarkFile file = StarlarkFile.parse(source); // use default options in tests
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
       throw new BuildFileContainsErrorsException(
@@ -124,8 +125,7 @@ public class WorkspaceFactory {
     }
     execute(
         file,
-        /*importedExtensions=*/ ImmutableMap.of(),
-        starlarkSemantics,
+        /* additionalLoadedModules= */ ImmutableMap.of(),
         localReporter,
         WorkspaceFileValue.key(
             RootedPath.toRootedPath(
@@ -138,37 +138,37 @@ public class WorkspaceFactory {
    */
   public void execute(
       StarlarkFile file,
-      Map<String, Extension> importedExtensions,
-      StarlarkSemantics starlarkSemantics,
+      Map<String, Module> loadedModules,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
     Preconditions.checkNotNull(file);
-    Preconditions.checkNotNull(importedExtensions);
-    execute(
-        file, importedExtensions, starlarkSemantics, new StoredEventHandler(), workspaceFileKey);
+    Preconditions.checkNotNull(loadedModules);
+    // TODO(adonovan): What's up with the transient StoredEventHandler?
+    // Doesn't this discard events, including print statements?
+    execute(file, loadedModules, new StoredEventHandler(), workspaceFileKey);
   }
 
   private void execute(
       StarlarkFile file,
-      Map<String, Extension> importedExtensions,
-      StarlarkSemantics starlarkSemantics,
+      Map<String, Module> additionalLoadedModules,
       StoredEventHandler localReporter,
       WorkspaceFileValue.WorkspaceFileKey workspaceFileKey)
       throws InterruptedException {
-    importMap.putAll(importedExtensions);
+    loadedModules.putAll(additionalLoadedModules);
 
-    // environment
-    HashMap<String, Object> env = new HashMap<>();
-    env.putAll(getDefaultEnvironment());
-    env.putAll(bindings); // (may shadow bindings in default environment)
+    // set up predeclared environment
+    HashMap<String, Object> predeclared = new HashMap<>();
+    predeclared.putAll(getDefaultEnvironment());
+    predeclared.putAll(bindings); // (may shadow bindings in default environment)
+    Module module = Module.withPredeclared(starlarkSemantics, predeclared);
 
-    StarlarkThread thread =
-        StarlarkThread.builder(mutability)
-            .setSemantics(starlarkSemantics)
-            .setGlobals(Module.createForBuiltins(env))
-            .setImportedExtensions(importMap)
-            .build();
-    thread.setPrintHandler(StarlarkThread.makeDebugPrintHandler(localReporter));
+    // resolve
+    Resolver.resolveFile(file, module);
+
+    // create thread
+    StarlarkThread thread = new StarlarkThread(mutability, starlarkSemantics);
+    thread.setLoader(loadedModules::get);
+    thread.setPrintHandler(Event.makeDebugPrintHandler(localReporter));
     thread.setThreadLocal(
         PackageFactory.PackageContext.class,
         new PackageFactory.PackageContext(builder, null, localReporter));
@@ -179,23 +179,20 @@ public class WorkspaceFactory {
     // are, by definition, not in an external repository and so they don't need the mapping
     new BazelStarlarkContext(
             BazelStarlarkContext.Phase.WORKSPACE,
-            /* toolsRepository= */ null,
-            /* fragmentNameToClass= */ null,
-            /* repoMapping= */ ImmutableMap.of(),
+            /*toolsRepository=*/ null,
+            /*fragmentNameToClass=*/ null,
+            /*repoMapping=*/ ImmutableMap.of(),
             new SymbolGenerator<>(workspaceFileKey),
-            /* analysisRuleLabel= */ null)
+            /*analysisRuleLabel=*/ null)
         .storeInThread(thread);
 
-    // Validate the file, apply BUILD dialect checks, then execute.
-    ValidationEnvironment.validateFile(
-        file, thread.getGlobals(), starlarkSemantics, /*isBuildFile=*/ true);
     List<String> globs = new ArrayList<>(); // unused
     if (!file.ok()) {
       Event.replayEventsOn(localReporter, file.errors());
     } else if (PackageFactory.checkBuildSyntax(
         file, globs, globs, new HashMap<>(), localReporter)) {
       try {
-        EvalUtils.exec(file, thread);
+        EvalUtils.exec(file, module, thread);
       } catch (EvalException ex) {
         localReporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
       }
@@ -205,7 +202,7 @@ public class WorkspaceFactory {
     // for use in the next chunk. This set does not include the bindings
     // added by getDefaultEnvironment; but it does include bindings created by load,
     // so we will need to set the legacy load-binds-globally flag for this file in due course.
-    this.bindings.putAll(thread.getGlobals().getBindings());
+    this.bindings.putAll(module.getGlobals());
 
     builder.addPosts(localReporter.getPosts());
     builder.addEvents(localReporter.getEvents());
@@ -217,15 +214,15 @@ public class WorkspaceFactory {
 
   /**
    * Adds the various values returned by the parsing of the previous workspace file parts. {@code
-   * aPackage} is the package returned by the parent WorkspaceFileFunction, {@code importMap} is the
-   * list of load statements imports computed by the parent WorkspaceFileFunction and {@code
+   * aPackage} is the package returned by the parent WorkspaceFileFunction, {@code loadedModules} is
+   * the set of modules loaded by load statements in the parent WorkspaceFileFunction and {@code
    * variableBindings} the list of top level variable bindings of that same call.
    */
   public void setParent(
-      Package aPackage, Map<String, Extension> importMap, Map<String, Object> bindings)
+      Package aPackage, Map<String, Module> loadedModules, Map<String, Object> bindings)
       throws NameConflictException, InterruptedException {
     this.bindings.putAll(bindings);
-    this.importMap.putAll(importMap);
+    this.loadedModules.putAll(loadedModules);
     builder.setWorkspaceName(aPackage.getWorkspaceName());
     // Transmit the content of the parent package to the new package builder.
     builder.addPosts(aPackage.getPosts());
@@ -240,11 +237,13 @@ public class WorkspaceFactory {
       try {
         // The old rule references another Package instance and we wan't to keep the invariant that
         // every Rule references the Package it is contained within
-        Rule newRule = builder.createRule(
-            rule.getLabel(),
-            rule.getRuleClassObject(),
-            rule.getLocation(),
-            rule.getAttributeContainer());
+        Rule newRule =
+            builder.createRule(
+                rule.getLabel(),
+                rule.getRuleClassObject(),
+                rule.getLocation(),
+                rule.getCallStack().toList(),
+                rule.getAttributeContainer());
         newRule.populateOutputFiles(NullEventHandler.INSTANCE, builder);
         if (rule.containsErrors()) {
           newRule.setContainsErrors();
@@ -258,48 +257,55 @@ public class WorkspaceFactory {
   }
 
   /**
-   * Returns a function-value implementing the build or workspace rule "ruleClass" (e.g. cc_library)
-   * in the specified package context.
+   * Returns a callable Starlark value that implements the build or workspace rule "ruleClass" (e.g.
+   * cc_library) in the specified package context.
    */
-  private static BaseFunction newRuleFunction(
+  private static StarlarkCallable newRuleFunction(
       final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
-    return new BaseFunction() {
+    return new StarlarkCallable() {
       @Override
       public String getName() {
         return ruleClassName;
       }
 
       @Override
-      public FunctionSignature getSignature() {
-        return FunctionSignature.KWARGS; // just for documentation
+      public String toString() {
+        return getName() + "(...)";
       }
 
       @Override
-      public Object call(
-          StarlarkThread thread, Location loc, Tuple<Object> args, Dict<String, Object> kwargs)
+      public boolean isImmutable() {
+        return true;
+      }
+
+      @Override
+      public void repr(Printer printer) {
+        printer.append("<built-in function " + getName() + ">");
+      }
+
+      @Override
+      public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
           throws EvalException, InterruptedException {
         if (!args.isEmpty()) {
           throw new EvalException(null, "unexpected positional arguments");
         }
         try {
-          Package.Builder builder = PackageFactory.getContext(thread, loc).pkgBuilder;
+          Package.Builder builder = PackageFactory.getContext(thread).pkgBuilder;
           // TODO(adonovan): this doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride
               && externalRepoName != null
               && builder.getTarget(externalRepoName) != null) {
-            throw new EvalException(
-                null,
-                "Cannot redefine repository after any load statement in the WORKSPACE file"
-                    + " (for repository '"
-                    + kwargs.get("name")
-                    + "')");
+            throw Starlark.errorf(
+                "Cannot redefine repository after any load statement in the WORKSPACE file (for"
+                    + " repository '%s')",
+                externalRepoName);
           }
           // Add an entry in every repository from @<mainRepoName> to "@" to avoid treating
           // @<mainRepoName> as a separate repository. This will be overridden if the main
           // repository has a repo_mapping entry from <mainRepoName> to something.
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName, thread.getSemantics());
-          WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName, loc);
+          WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName);
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
           Rule rule =
@@ -308,7 +314,8 @@ public class WorkspaceFactory {
                   ruleClass,
                   bindRuleClass,
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
-                  loc);
+                  thread.getSemantics(),
+                  thread.getCallStack());
           if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
                 null,
@@ -327,16 +334,19 @@ public class WorkspaceFactory {
   }
 
   private static ImmutableMap<String, Object> createWorkspaceFunctions(
-      boolean allowOverride, RuleFactory ruleFactory, WorkspaceGlobals workspaceGlobals) {
+      boolean allowOverride,
+      RuleFactory ruleFactory,
+      WorkspaceGlobals workspaceGlobals,
+      StarlarkSemantics starlarkSemantics) {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    Starlark.addMethods(env, workspaceGlobals);
+    Starlark.addMethods(env, workspaceGlobals, starlarkSemantics);
 
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       // There is both a "bind" WORKSPACE function and a "bind" rule. In workspace files,
       // the non-rule function takes precedence.
       // TODO(cparsons): Rule functions should not be added to WORKSPACE files.
       if (!ruleClass.equals("bind")) {
-        BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass, allowOverride);
+        StarlarkCallable ruleFunction = newRuleFunction(ruleFactory, ruleClass, allowOverride);
         env.put(ruleClass, ruleFunction);
       }
     }
@@ -346,7 +356,7 @@ public class WorkspaceFactory {
 
   private ImmutableMap<String, Object> getDefaultEnvironment() {
     ImmutableMap.Builder<String, Object> env = ImmutableMap.builder();
-    env.putAll(Starlark.UNIVERSE);
+    env.putAll(StarlarkLibrary.COMMON); // e.g. select, depset
     env.putAll(workspaceFunctions);
     if (installDir != null) {
       env.put("__embedded_dir__", installDir.getPathString());
@@ -366,10 +376,24 @@ public class WorkspaceFactory {
     return defaultSystemJavabaseDir != null ? defaultSystemJavabaseDir.toString() : "";
   }
 
-  private static ClassObject newNativeModule(
-      ImmutableMap<String, Object> workspaceFunctions, String version) {
-    ImmutableMap.Builder<String, Object> env = new ImmutableMap.Builder<>();
-    Starlark.addMethods(env, new SkylarkNativeModule());
+  /** Returns the entries to populate the "native" module with, for WORKSPACE-loaded .bzl files. */
+  static ImmutableMap<String, Object> createNativeModuleBindings(
+      RuleClassProvider ruleClassProvider, String version) {
+    // Machinery to build the collection of workspace functions.
+    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
+    WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(/*allowOverride=*/ false, ruleFactory);
+    // TODO(bazel-team): StarlarkSemantics should be a parameter here, as native module can be
+    // configured by flags. [brandjon: This should be possible now that we create the native module
+    // in StarlarkBuiltinsFunction. We could defer creation until the StarlarkSemantics are known.
+    // But mind that some code may depend on being able to enumerate all possible entries regardless
+    // of the particular semantics.]
+    ImmutableMap<String, Object> workspaceFunctions =
+        createWorkspaceFunctions(
+            /*allowOverride=*/ false, ruleFactory, workspaceGlobals, StarlarkSemantics.DEFAULT);
+
+    // Determine the contents for native.
+    ImmutableMap.Builder<String, Object> bindings = new ImmutableMap.Builder<>();
+    Starlark.addMethods(bindings, new StarlarkNativeModule());
     for (Map.Entry<String, Object> entry : workspaceFunctions.entrySet()) {
       String name = entry.getKey();
       if (name.startsWith("$")) {
@@ -382,22 +406,15 @@ public class WorkspaceFactory {
       if (name.equals("workspace")) {
         continue;
       }
-      env.put(entry);
+      bindings.put(entry);
     }
+    bindings.put("bazel_version", version);
 
-    env.put("bazel_version", version);
-    return StructProvider.STRUCT.create(env.build(), "no native function or rule '%s'");
+    return bindings.build();
   }
 
-  static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
-    RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
-    WorkspaceGlobals workspaceGlobals = new WorkspaceGlobals(false, ruleFactory);
-    return WorkspaceFactory.newNativeModule(
-        WorkspaceFactory.createWorkspaceFunctions(false, ruleFactory, workspaceGlobals), version);
-  }
-
-  public Map<String, Extension> getImportMap() {
-    return importMap;
+  public Map<String, Module> getLoadedModules() {
+    return loadedModules;
   }
 
   public Map<String, Object> getVariableBindings() {
@@ -406,5 +423,9 @@ public class WorkspaceFactory {
 
   public Map<PathFragment, RepositoryName> getManagedDirectories() {
     return workspaceGlobals.getManagedDirectories();
+  }
+
+  public ImmutableSortedSet<String> getDoNotSymlinkInExecrootPaths() {
+    return workspaceGlobals.getDoNotSymlinkInExecrootPaths();
   }
 }

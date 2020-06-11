@@ -66,12 +66,13 @@ public class AndroidResourceParsingAction {
       help = "Path to write the output protobuf."
     )
     public Path output;
+
   }
 
   public static void main(String[] args) throws Exception {
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class)
+            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);

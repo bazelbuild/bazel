@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static org.junit.Assert.assertThrows;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
@@ -21,7 +23,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -69,7 +70,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                         ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
                         : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
                     outputManifest,
-                    /*filesetTree=*/ false,
+                    /*filesetRoot=*/ null,
                     createActionEnvironment(
                         attributesToFlip.contains(RunfilesActionAttributes.FIXED_ENVIRONMENT),
                         attributesToFlip.contains(RunfilesActionAttributes.VARIABLE_ENVIRONMENT)),
@@ -84,7 +85,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                     inputManifest,
                     /*runfiles=*/ null,
                     outputManifest,
-                    /*filesetTree=*/ true,
+                    /*filesetRoot=*/ "root",
                     createActionEnvironment(
                         attributesToFlip.contains(FilesetActionAttributes.FIXED_ENVIRONMENT),
                         attributesToFlip.contains(FilesetActionAttributes.VARIABLE_ENVIRONMENT)),
@@ -102,7 +103,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                         ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
                         : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
                     outputManifest,
-                    /*filesetTree=*/ false,
+                    /*filesetRoot=*/ null,
                     createActionEnvironment(
                         attributesToFlip.contains(SkipManifestAttributes.FIXED_ENVIRONMENT),
                         attributesToFlip.contains(SkipManifestAttributes.VARIABLE_ENVIRONMENT)),
@@ -122,7 +123,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
   public void testNullRunfilesThrows() {
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
     Artifact outputManifest = getBinArtifactWithNoOwner("dir/MANIFEST");
-    MoreAsserts.assertThrows(
+    assertThrows(
         IllegalArgumentException.class,
         () ->
             new SymlinkTreeAction(
@@ -130,7 +131,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                 inputManifest,
                 /*runfiles=*/ null,
                 outputManifest,
-                /*filesetTree=*/ false,
+                /*filesetRoot=*/ null,
                 createActionEnvironment(false, false),
                 /*enableRunfiles=*/ true,
                 /*inprocessSymlinkCreation=*/ false,

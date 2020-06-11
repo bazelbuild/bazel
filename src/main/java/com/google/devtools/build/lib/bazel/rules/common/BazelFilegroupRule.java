@@ -37,10 +37,7 @@ public final class BazelFilegroupRule implements RuleDefinition {
         The list of targets that are members of the file group.
         <p>
           It is common to use the result of a <a href="${link glob}">glob</a> expression for
-          the value
-          of the <code>srcs</code> attribute. If a rule and a source file with the same name both
-          exist in the package, the glob will return the outputs of the rule instead of the source
-          file.
+          the value of the <code>srcs</code> attribute.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))

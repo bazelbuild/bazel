@@ -7,12 +7,123 @@ title: Macros
 
 <!-- [TOC] -->
 
-## Macro creation
+## Introduction
 
 A macro is a function called from the BUILD file that can instantiate rules.
-Macros don't give additional power, they are just used for encapsulation and
-code reuse. By the end of the [loading phase](concepts.md#evaluation-model),
-macros don't exist anymore, and Bazel sees only the set of rules they created.
+Macros are mainly used for encapsulation and code reuse of existing rules
+and other macros. By the end of the
+[loading phase](concepts.md#evaluation-model), macros don't exist anymore,
+and Bazel sees only the concrete set of instantiated rules.
+
+## Usage
+
+The typical use-case for a macro is when you want to reuse a rule.
+
+For example, we have a genrule in a BUILD file that generates a file
+using `//:generator` with a `some_arg` argument hardcoded in the command:
+
+```python
+genrule(
+    name = "file",
+    outs = ["file.txt"],
+    cmd = "$(location //:generator) some_arg > $@",
+    tools = ["//:generator"],
+)
+```
+
+> Tip: `$@` is a [Make variable](../be/make-variables.html#predefined_genrule_variables)
+> that refers to the execution-time locations of the files in the `outs` attribute list.
+> It is equivalent to `$(locations :file.txt)`.
+
+If you want to generate more files with different arguments, you may want to
+extract this code to a macro function. Let's call the macro `file_generator`, which
+has `name` and `arg` parameters. Replace the genrule with the following:
+
+```python
+load("//path:generator.bzl", "file_generator")
+
+file_generator(
+    name = "file",
+    arg = "some_arg",
+)
+
+file_generator(
+    name = "file-two",
+    arg = "some_arg_two",
+)
+
+file_generator(
+    name = "file-three",
+    arg = "some_arg_three",
+)
+```
+
+Here, we are loading the `file_generator` symbol from a `.bzl` file located
+in the `//path` package. By putting macro function definitions in a separate
+`.bzl` file, we can keep our BUILD files clean and declarative, The `.bzl`
+file can be loaded from any package in the workspace.
+
+Finally, in `path/generator.bzl`, let's write the definition of the macro to
+encapsulate and parameterize our original genrule definition:
+
+```python
+def file_generator(name, arg, visibility=None):
+  native.genrule(
+    name = name,
+    outs = [name + ".txt"],
+    cmd = "$(location //:generator) %s > $@" % arg,
+    tools = ["//:generator"],
+    visibility = visibility,
+  )
+```
+
+You can also use macros to chain rules together. This example shows chained
+genrules, where a genrule uses the outputs of a previous genrule as inputs:
+
+```python
+def chained_genrules(name, visibility=None):
+  native.genrule(
+    name = name + "-one",
+    outs = [name + ".one"],
+    cmd = "$(location :tool-one) $@",
+    tools = [":tool-one"],
+    visibility = ["//visibility:private"],
+  )
+
+  native.genrule(
+    name = name + "-two",
+    srcs = [name + ".one"],
+    outs = [name + ".two"],
+    cmd = "$(location :tool-two) $< $@",
+    tools = [":tool-two"],
+    visibility = visibility,
+  )
+```
+
+Note that we only assigned the value of `visibility` to the second genrule.
+This enables macro authors hide outputs of intermediate rules from being
+depended upon by other targets in the workspace.
+
+> Tip: Similar to `$@` for outputs, `$<` expands to the locations of files in
+the `srcs` attribute list.
+
+## Expanding macros
+
+When you want to investigate what a macro does, use the `query` command with
+`--output=build` to see the expanded form:
+
+```
+$ bazel query --output=build :file
+# /absolute/path/test/ext.bzl:42:3
+genrule(
+  name = "file",
+  tools = ["//:generator"],
+  outs = ["//test:file.txt"],
+  cmd = "$(location //:generator) some_arg > $@",
+)
+```
+
+## Instantiating native rules
 
 Native rules (i.e. rules that don't need a `load()` statement) can be
 instantiated from the [native](lib/native.html) module, e.g.
@@ -60,7 +171,7 @@ If you want to throw an error, use the [fail](lib/globals.html#fail) function.
 Explain clearly to the user what went wrong and how to fix their BUILD file. It
 is not possible to catch an error.
 
-```
+```python
 def my_macro(name, deps, visibility=None):
   if len(deps) < 2:
     fail("Expected at least two values in deps")
@@ -93,60 +204,4 @@ def my_macro(name, deps, visibility=None):
     through the query language or build-system internals.
 
 *   Macros should have an optional `visibility` argument.
-
-## Full example
-
-The typical use-case for a macro is when you want to reuse a genrule, e.g.
-
-```
-genrule(
-    name = "file",
-    outs = ["file.txt"],
-    cmd = "$(location generator) some_arg > $@",
-    tools = [":generator"],
-)
-```
-
-If you want to generate another file with different arguments, you may want to
-extract this code to a function.
-
-The BUILD file will become simply:
-
-```
-load("//path:generator.bzl", "file_generator")
-
-file_generator(
-    name = "file",
-    arg = "some_arg",
-)
-```
-
-In order to keep BUILD files clean and declarative, you must put the function in
-a separate `.bzl` file. For example, write the definition of the macro in
-`path/generator.bzl`:
-
-```
-def file_generator(name, arg, visibility=None):
-  native.genrule(
-    name = name,
-    outs = [name + ".txt"],
-    cmd = "$(location generator) %s > $@" % arg,
-    tools = ["//test:generator"],
-    visibility = visibility,
-  )
-```
-
-When you want to investigate what a macro does, use the following command to
-see the expanded form:
-
-```
-$ bazel query --output=build :file
-# /absolute/path/test/ext.bzl:42:3
-genrule(
-  name = "file",
-  tools = ["//test:generator"],
-  outs = ["//test:file.txt"],
-  cmd = "$(location generator) some_arg > $@",
-)
-```
 

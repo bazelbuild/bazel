@@ -100,7 +100,7 @@ Solutions:
           return p
   ```
 
-## Environment Variables
+## Environment variables
 
 Problems:
 

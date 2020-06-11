@@ -15,13 +15,13 @@
 package com.google.devtools.build.skydoc;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase; // a bad dependency!
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -45,11 +45,10 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Java tests for Skydoc.
- */
+/** Java tests for Skydoc. */
 @RunWith(JUnit4.class)
-public final class SkydocTest extends SkylarkTestCase {
+// TODO(adonovan): Skydoc's tests should not depend on the analysis phase of Blaze.
+public final class SkydocTest extends BuildViewTestCase {
 
   private SkydocMain skydocMain;
 
@@ -57,7 +56,7 @@ public final class SkydocTest extends SkylarkTestCase {
   public void setUp() {
     skydocMain =
         new SkydocMain(
-            new SkylarkFileAccessor() {
+            new StarlarkFileAccessor() {
 
               @Override
               public ParserInput inputSource(String pathString) throws IOException {
@@ -91,7 +90,7 @@ public final class SkydocTest extends SkylarkTestCase {
             StarlarkEvaluationException.class,
             () ->
                 skydocMain.eval(
-                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    StarlarkSemantics.DEFAULT,
                     Label.parseAbsoluteUnchecked("//test:test.bzl"),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
@@ -123,7 +122,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         ImmutableMap.builder(),
@@ -201,7 +200,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ruleInfoMap,
         ImmutableMap.builder(),
@@ -246,7 +245,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableMap.builder(),
@@ -296,7 +295,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableMap.builder(),
@@ -326,7 +325,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, RuleInfo> ruleInfoMapBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ruleInfoMapBuilder,
         ImmutableMap.builder(),
@@ -364,7 +363,7 @@ public final class SkydocTest extends SkylarkTestCase {
             StarlarkEvaluationException.class,
             () ->
                 skydocMain.eval(
-                    StarlarkSemantics.DEFAULT_SEMANTICS,
+                    StarlarkSemantics.DEFAULT,
                     Label.parseAbsoluteUnchecked("//test:main.bzl"),
                     ImmutableMap.builder(),
                     ImmutableMap.builder(),
@@ -398,7 +397,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, StarlarkFunction> functionInfoBuilder = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:main.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -428,21 +427,22 @@ public final class SkydocTest extends SkylarkTestCase {
     scratch.file(
         "/test/test.bzl",
         "def check_function(foo, bar, baz):",
-        "\"\"\"Runs some checks on the given function parameter.",
-        " ",
-        "This rule runs checks on a given function parameter.",
-        " ",
-        "Args:",
-        "foo: A unique parameter for this rule.",
-        "bar: A unique parameter for this rule.",
-        "baz: A unique parameter for this rule.",
-        "\"\"\"",
-        "pass");
+        "  \"\"\"Runs some checks on the given function parameter.",
+        "  ",
+        "  This rule runs checks on a given function parameter.",
+        "  ",
+        "  Args:",
+        "    foo: A unique parameter for this rule.",
+        "    bar: A unique parameter for this rule.",
+        "    baz: A unique parameter for this rule.",
+        "  ",
+        "  \"\"\"",
+        "  pass");
 
     ImmutableMap.Builder<String, StarlarkFunction> funcInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -482,7 +482,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, ProviderInfo> providerInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         providerInfoMap,
@@ -537,7 +537,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<String, AspectInfo> aspectInfoMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -565,7 +565,7 @@ public final class SkydocTest extends SkylarkTestCase {
         "/test/test.bzl",
         "\"\"\"Input file to test module docstring\"\"\"",
         "def check_function(foo):",
-        "\"\"\"Runs some checks on the given function parameter.",
+        "  \"\"\"Runs some checks on the given function parameter.",
         " ",
         "Args:",
         "foo: A unique parameter for this rule.",
@@ -574,7 +574,7 @@ public final class SkydocTest extends SkylarkTestCase {
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -596,16 +596,16 @@ public final class SkydocTest extends SkylarkTestCase {
     scratch.file(
         "/test/test.bzl",
         "def check_function(foo):",
-        "\"\"\"Runs some checks input file with no module docstring.",
+        "  \"\"\"Runs some checks input file with no module docstring.",
         " ",
-        "Args:",
-        "foo: A parameter.",
-        "\"\"\"",
+        "  Args:",
+        "  foo: A parameter.",
+        "  \"\"\"",
         "pass");
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -628,16 +628,16 @@ public final class SkydocTest extends SkylarkTestCase {
         "\"\"\"Input file to test",
         "multiple lines module docstring\"\"\"",
         "def check_function(foo):",
-        "\"\"\"Runs some checks on the given function parameter.",
-        " ",
-        "Args:",
-        "foo: A unique parameter for this rule.",
-        "\"\"\"",
+        "  \"\"\"Runs some checks on the given function parameter.",
+        "  ",
+        "  Args:",
+        "  foo: A unique parameter for this rule.",
+        "  \"\"\"",
         "pass");
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:test.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),
@@ -656,24 +656,19 @@ public final class SkydocTest extends SkylarkTestCase {
   @Test
   public void testModuleDocAcrossFiles() throws Exception {
     scratch.file(
-        "/test/othertest.bzl",
+        "/test/othertest.bzl", //
         "\"\"\"Should be displayed.\"\"\"",
-        " ",
         "load(':test.bzl', 'check_function')",
-        " ",
-        "\"\"\"",
         "pass");
     scratch.file(
-        "/test/test.bzl",
+        "/test/test.bzl", //
         "\"\"\"Should not be displayed.\"\"\"",
         "def check_function():",
-        " ",
-        "\"\"\"",
-        "pass");
+        "  pass");
     ImmutableMap.Builder<Label, String> moduleDocMap = ImmutableMap.builder();
 
     skydocMain.eval(
-        StarlarkSemantics.DEFAULT_SEMANTICS,
+        StarlarkSemantics.DEFAULT,
         Label.parseAbsoluteUnchecked("//test:othertest.bzl"),
         ImmutableMap.builder(),
         ImmutableMap.builder(),

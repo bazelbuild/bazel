@@ -1,8 +1,8 @@
 ---
 layout: documentation
-title: Test Encyclopedia
+title: Test encyclopedia
 ---
-<h1>Writing tests</h1>
+<h1>Test encyclopedia</h1>
 
 <p class="lead">An Exhaustive Specification of the Test Execution Environment</p>
 
@@ -41,7 +41,7 @@ this specification and the implemented behavior of test runner disagree, the
 specification takes precedence.</p>
 
 
-<h3>Purpose of Tests</h3>
+<h2>Purpose of tests</h2>
 
 <p>The purpose of Bazel tests is to confirm some property of the source files
 checked into the repository.  (In this document, "source files" includes test data,
@@ -62,7 +62,7 @@ their changes are at fault when the test stops passing.</p>
 <p>Currently, such behavior is not enforced. However, test runners reserve the
 right to add such enforcement in the future.</p>
 
-<h3>Role of the Build System</h3>
+<h2>Role of the build system</h2>
 
 <p>Test rules are analogous to binary rules in that each must yield an
 executable program.  For some languages, this is a stub program which combines
@@ -79,7 +79,7 @@ should ensure that the generated executable loads these files via the runfiles
 image provided by the test runner, rather than hardcoded references to absolute
 locations in the source or output tree.</p>
 
-<h3>Role of the Test Runner</h3>
+<h2>Role of the test runner</h2>
 
 <p>From the point of view of the test runner, each test is a program which can
 be invoked with <code>execve()</code>.  There may be other ways to execute
@@ -130,6 +130,11 @@ test's <code>size</code> as follows:</p>
 900 seconds to run. A "medium" test with a timeout of "short" will be allotted
 60 seconds.</p>
 
+<p>Unlike <code>timeout</code>, the <code>size</code> also determines the
+limits for other resources like RAM, as described in
+<a href="be/common-definitions.html?cl=head#common-attributes-tests">Common
+definitions</a>.</p>
+
 <p>All combinations of <code>size</code> and <code>timeout</code> labels are
 legal, so an "enormous" test may be declared to have a timeout of "short".
 Presumably it would do some really horrible things very quickly.</p>
@@ -153,7 +158,7 @@ flakiness.</p>
 </table>
 
 <p>For example, if a "moderate" test completes in 5.5s, consider setting
-<code>timeout</code>="short" or <code>size</code>="small". Using the bazel
+<code>timeout = "short"</code> or <code>size = "small"</code>. Using the bazel
 <code>--test_verbose_timeout_warnings</code> command line option will show the
 tests whose specified size is too big.</p>
 
@@ -185,10 +190,10 @@ success or failure based on the exit code observed from the main process.  The
 test runner may kill any stray processes.  Tests should not leak processes in
 this fashion.</p>
 
+<h2 id="initial-conditions">Initial conditions</h2>
+
 <p>When executing a test, the test runner must establish certain initial
 conditions.</p>
-
-<h3>Initial Conditions</h3>
 
 <p>The test runner must invoke each test with the path to the test
 executable in <code>argv[0]</code>.  This path must be relative and
@@ -223,6 +228,8 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>PATH</code></td><td><code>/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:.</code></td><td>recommended</td></tr>
     <tr><td><code>PWD</code></td><td><code>$TEST_SRCDIR/<i>workspace-name</i></code></td><td>recommended</td></tr>
     <tr><td><code>SHLVL</code></td><td><code>2</code></td><td>recommended</td></tr>
+    <tr><td><code>TEST_INFRASTRUCTURE_FAILURE_FILE</code></td><td>absolute path to a private file in a writable directory (This file should only be used to report failures originating from the testing infrastructure, not as a general mechanism for reporting flaky failures of tests. In this context, testing infrastructure is defined as systems or libraries that are not test-specific, but can cause test failures by malfunctioning. The first line is the name of the testing infrastructure component that caused the failure, the second one a human-readable description of the failure. Additional lines are ignored.)</td><td>optional</td></tr>
+    <tr><td><code>TEST_LOGSPLITTER_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write Logsplitter protobuffer log)</td><td>optional</td></tr>
     <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
     <tr>
       <td><code>TEST_RANDOM_SEED</code></td>
@@ -238,15 +245,28 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
     <tr><td><code>TEST_TOTAL_SHARDS</code></td><td>total shard count, if sharding is used</td><td>optional</td></tr>
     <tr><td><code>TEST_TMPDIR</code></td><td>absolute path to a private writable directory</td><td>required</td></tr>
+
+    <tr><td><code>TEST_WORKSPACE</code></td><td>the local repository's workspace name</td><td>optional</td></tr>
+    <tr><td><code>TEST_UNDECLARED_OUTPUTS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test outputs)</td><td>optional</td></tr>
+
+    <tr><td><code>TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code></td><td>absolute path to a private writable directory (used to write undeclared test output annotation .part files).
     </td><td>optional</td></tr>
+
     <tr><td><code>TEST_WARNINGS_OUTPUT_FILE</code></td><td>absolute path to a private file in a writable directory (used to write test target warnings)</td><td>optional</td></tr>
     <tr><td><code>TESTBRIDGE_TEST_ONLY</code></td><td>value of <a href="user-manual.html#flag--test_filter"><code>--test_filter</code></a>, if specified</td><td>optional</td></tr>
 
     <tr><td><code>TZ</code></td><td><code>UTC</code></td><td>required</td></tr>
     <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>
 
-    <tr><td><code>XML_OUTPUT_FILE</code></td><td>Location of the <code>ANT</code>-like XML output file</td><td>optional</td></tr>
-    <tr><td><code>TEST_WORKSPACE</code></td><td>the local repository's workspace name</td><td>optional</td></tr>
+    <tr>
+      <td><code>XML_OUTPUT_FILE</code></td>
+      <td>Location of the test result XML output file.
+        The XML schema is based on the
+        <a href="https://windyroad.com.au/dl/Open%20Source/JUnit.xsd">JUnit test result
+        schema</a>.
+      </td>
+      <td>optional</td>
+    </tr>
   </tbody>
 </table>
 <br>
@@ -305,7 +325,7 @@ utilization (as returned by <code>getrusage()</code>) are unspecified.</p>
 
 <p>The initial scheduling policy and priority are unspecified.</p>
 
-<h3>Role of the Host System</h3>
+<h2>Role of the host system</h2>
 
 <p>In addition to the aspects of user context under direct control of the
 test runner, the operating system on which tests execute must satisfy certain
@@ -375,7 +395,7 @@ is subject to change, but is currently in the range of tens of thousands of inpu
 <p>X Windows may or may not be available. Tests that need an X server should
 start Xvfb.</p>
 
-<h3>Test interaction with the filesystem</h3>
+<h2>Test interaction with the filesystem</h2>
 <p>All file paths specified in test environment variables point to
 somewhere on the local filesystem, unless otherwise specified.</p>
 
@@ -389,6 +409,14 @@ These directories may be a symbolic links.<br>
 The filesystem type of <code>$TEST_TMPDIR/.</code> remains unspecified.<br>
 Tests may also write .part files to the <code>$TEST_UNDECLARED_OUTPUTS_ANNOTATIONS_DIR</code>
 to annotate undeclared output files.</p>
+
+<p>In rare cases, a test may be forced to create files in <code>/tmp</code>. For
+example, <a href="https://serverfault.com/questions/641347">path length limits
+for Unix domain sockets</a> typically require creating the socket under
+<code>/tmp</code>. Bazel will be unable to track such files; the test itself must
+take care to be hermetic, to use unique paths to avoid colliding with other,
+simultaneously running tests and non-test processes, and to clean up the files it
+creates in <code>/tmp</code>.</p>
 
 <p>Tests must access inputs through the <b>runfiles</b> mechanism, or other
 parts of the execution environment which are specifically intended to make
@@ -418,12 +446,12 @@ tree.</p>
 Bazel sees the file when the test finishes, it will assume that the test exited
 prematurely and mark it as having failed.</p>
 
-<h3 id="tag-conventions">Tag conventions</h3>
+<h2 id="tag-conventions">Tag conventions</h2>
 
 <p>
   Some tags in the test rules have a special
   meaning. See also the <a href="be/common-definitions.html#common.tags">Bazel
-  Build Encyplopedia on the <code>tags</code> attribute</a>.
+  Build Encyclopedia on the <code>tags</code> attribute</a>.
 </p>
 
 <table class="table table-bordered table-striped table-condensed">
@@ -446,7 +474,7 @@ prematurely and mark it as having failed.</p>
     </tr>
 
     <tr>
-      <th><code>manual*</code></th>
+      <th><code>manual</code>*</th>
 
       <td>don't include test target in wildcard target patterns like <code>:...</code>, <code>:*</code>, or <code>:all</code>)</td>
     </tr>
@@ -473,7 +501,7 @@ prematurely and mark it as having failed.</p>
 </table>
 
 *Note: bazel <code>query</code> does not respect the manual tag.
-<h3>Runfiles</h3>
+<h2>Runfiles</h2>
 
 <p>In the following, assume there is a *_binary() rule labeled <code>//foo/bar:unittest</code>,
 with a run-time dependency on the rule labeled <code>//deps/server:server</code>.</p>

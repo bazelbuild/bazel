@@ -54,6 +54,7 @@
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path.h"
 #include "src/main/cpp/util/path_platform.h"
+#include "src/main/cpp/util/strings.h"
 
 namespace blaze {
 
@@ -210,12 +211,35 @@ ATTRIBUTE_NORETURN void SignalHandler::PropagateSignalOrExit(int exit_code) {
 }
 
 string GetProcessIdAsString() {
-  return ToString(getpid());
+  return blaze_util::ToString(getpid());
 }
 
 string GetHomeDir() { return GetPathEnv("HOME"); }
 
 string GetJavaBinaryUnderJavabase() { return "bin/java"; }
+
+string Which(const string& executable) {
+  const string path = GetPathEnv("PATH");
+  if (path.empty()) {
+    return "";
+  }
+
+  const vector<string> pieces = blaze_util::Split(path, ':');
+  for (string piece : pieces) {
+    if (piece.empty()) {
+      piece = ".";
+    }
+
+    struct stat file_stat;
+    const string candidate = blaze_util::JoinPath(piece, executable);
+    if (access(candidate.c_str(), X_OK) == 0 &&
+        stat(candidate.c_str(), &file_stat) == 0 &&
+        S_ISREG(file_stat.st_mode)) {
+      return candidate;
+    }
+  }
+  return "";
+}
 
 // Converter of C++ data structures to a C-style array of strings.
 //
@@ -238,7 +262,7 @@ class CharPP {
   explicit CharPP(const std::map<string, EnvVarValue>& env) {
     charpp_ = static_cast<char**>(malloc(sizeof(char*) * (env.size() + 1)));
     size_t i = 0;
-    for (auto iter : env) {
+    for (const auto& iter : env) {
       const string& var = iter.first;
       const EnvVarValue& value = iter.second;
 

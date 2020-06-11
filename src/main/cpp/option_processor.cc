@@ -88,10 +88,17 @@ std::unique_ptr<CommandLine> OptionProcessor::SplitCommandLine(
   vector<string>::size_type i = 1;
   while (i < args.size() && IsArg(args[i])) {
     string& current_arg = args[i];
+
+    bool is_nullary;
+    if (!startup_options_->MaybeCheckValidNullary(current_arg, &is_nullary,
+                                                  error)) {
+      return nullptr;
+    }
+
     // If the current argument is a valid nullary startup option such as
     // --master_bazelrc or --nomaster_bazelrc proceed to examine the next
     // argument.
-    if (startup_options_->IsNullary(current_arg)) {
+    if (is_nullary) {
       startup_args.push_back(current_arg);
       i++;
     } else if (startup_options_->IsUnary(current_arg)) {
@@ -563,7 +570,7 @@ static bool IsValidEnvName(const char* p) {
 #if defined(_WIN32) || defined(__CYGWIN__)
   for (; *p && *p != '='; ++p) {
     if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') ||
-          (*p >= '0' && *p <= '9') || *p == '_')) {
+          (*p >= '0' && *p <= '9') || *p == '_' || *p == '(' || *p == ')')) {
       return false;
     }
   }
@@ -635,9 +642,9 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
   std::vector<std::string> result = {
       "--rc_source=client",
       "--default_override=0:common=--isatty=" +
-          ToString(IsStandardTerminal()),
+          blaze_util::ToString(IsStandardTerminal()),
       "--default_override=0:common=--terminal_columns=" +
-          ToString(GetTerminalColumns())};
+          blaze_util::ToString(GetTerminalColumns())};
   if (IsEmacsTerminal()) {
     result.push_back("--default_override=0:common=--emacs");
   }

@@ -25,7 +25,7 @@ filegroup(
     visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
-# The Starlark frontend (syntax, scanner, parser, validator)
+# The Starlark frontend (syntax, scanner, parser, resolver)
 java_library(
     name = "frontend",
     srcs = [
@@ -41,43 +41,39 @@ java_library(
         "DotExpression.java",
         "Expression.java",
         "ExpressionStatement.java",
+        "FileLocations.java",
+        "FileOptions.java",
         "FlowStatement.java",
         "ForStatement.java",
-        "FunctionSignature.java",
         "Identifier.java",
         "IfStatement.java",
         "IndexExpression.java",
         "IntegerLiteral.java",
         "Lexer.java",
-        "LineNumberTable.java",
         "ListExpression.java",
         "LoadStatement.java",
+        "Location.java",
         "Node.java",
         "NodePrinter.java",
         "NodeVisitor.java",
         "Parameter.java",
         "Parser.java",
         "ParserInput.java",
+        "Resolver.java",
         "ReturnStatement.java",
         "SliceExpression.java",
         "StarlarkFile.java",
-        "StarlarkSemantics.java",
         "Statement.java",
         "StringLiteral.java",
         "SyntaxError.java",
-        "Token.java",
         "TokenKind.java",
         "UnaryOperatorExpression.java",
-        "ValidationEnvironment.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:string_util",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -89,15 +85,12 @@ java_library(
 java_library(
     name = "evaluator",
     srcs = [
-        "BaseFunction.java",
         "BuiltinCallable.java",
         "CallUtils.java",
-        "Callstack.java",
         "ClassObject.java",
-        "Concatable.java",
-        "DebugFrame.java",
+        "CpuProfiler.java",
+        "Debug.java",
         "Debugger.java",
-        "Depset.java",
         "Dict.java",
         "Eval.java",
         "EvalException.java",
@@ -105,6 +98,8 @@ java_library(
         "EvalUtils.java",
         "FlagGuardedValue.java",
         "FormatParser.java",
+        "HasBinary.java",
+        "JNI.java",
         "MethodDescriptor.java",
         "MethodLibrary.java",
         "Module.java",
@@ -113,19 +108,15 @@ java_library(
         "ParamDescriptor.java",
         "Printer.java",
         "RangeList.java",
-        "SelectorList.java",
-        "SelectorValue.java",
         "Sequence.java",
-        "SkylarkClassObject.java",
-        "SkylarkIndexable.java",
-        "SkylarkQueryable.java",
-        "SkylarkType.java",
         "Starlark.java",
         "StarlarkCallable.java",
         "StarlarkFunction.java",
+        "StarlarkIndexable.java",
         "StarlarkIterable.java",
         "StarlarkList.java",
-        "StarlarkMutable.java",
+        "StarlarkQueryable.java",
+        "StarlarkSemantics.java",
         "StarlarkThread.java",
         "StarlarkValue.java",
         "StringModule.java",
@@ -133,13 +124,9 @@ java_library(
     ],
     deps = [
         ":frontend",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/net/starlark/java/annot",
+        "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -147,13 +134,50 @@ java_library(
     ],
 )
 
-# TODO(adonovan): merge this into :frontend and eliminate.
-# Requires that lib.skylarkinterface depend on :frontend.
-java_library(
-    name = "semantics",
-    srcs = ["StarlarkSemantics.java"],
-    deps = [
-        "//third_party:auto_value",
-        "//third_party:guava",
-    ],
+# Dynamic library for Starlark CPU profiler.
+# The application or test must arrange for the library to be added
+# to the java.library.path directory (e.g. by 'java -Djava.library.path=<dir>').
+# What a mess.
+filegroup(
+    name = "cpu_profiler",
+    srcs = select({
+        "//src/conditions:darwin": [":libcpu_profiler.dylib"],
+        "//src/conditions:windows": [":cpu_profiler.dll"],
+        "//conditions:default": [":libcpu_profiler.so"],  # POSIX
+    }),
+)
+
+genrule(
+    name = "cpu_profiler_darwin",
+    srcs = ["libcpu_profiler.so"],
+    outs = ["libcpu_profiler.dylib"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:private"],
+)
+
+genrule(
+    name = "cpu_profiler_windows",
+    srcs = ["libcpu_profiler.so"],
+    outs = ["cpu_profiler.dll"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:private"],
+)
+
+# The C++ portion of the Starlark CPU profiler.
+cc_binary(
+    name = "libcpu_profiler.so",
+    srcs = select({
+        "//src/conditions:darwin": ["cpu_profiler_posix.cc"],
+        # There is no config_setting for Linux.
+        # See https://github.com/bazelbuild/bazel/issues/11107
+        "//src/conditions:linux_aarch64": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux_arm": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux_ppc": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux_s390x": ["cpu_profiler_posix.cc"],
+        "//src/conditions:linux_x86_64": ["cpu_profiler_posix.cc"],
+        "//conditions:default": ["cpu_profiler_unimpl.cc"],
+    }),
+    linkshared = 1,
+    visibility = ["//visibility:private"],
+    deps = ["@bazel_tools//tools/jdk:jni"],
 )

@@ -75,9 +75,9 @@ public interface CommandLineItem {
    * CommandLineItem#expandToCommandLine} method, else we call {@link Object#toString()}.
    */
   static String expandToCommandLine(Object object) {
-    // TODO(bazel-team): The fallback on toString() isn't great. Particularly so for
-    // SkylarkCustomCommandLine, since toString() does not necessarily give the same results as
-    // Skylark's str() or repr().
+    // TODO(b/150322434): The fallback on toString() isn't great. Particularly so for
+    // StarlarkCustomCommandLine, since toString() does not necessarily give the same results as
+    // Starlark's str() or repr().
     //
     // The ideal refactoring is to make StarlarkValue implement CommandLineItem (or a slimmer
     // version
@@ -87,7 +87,7 @@ public interface CommandLineItem {
     // involve a Printer.
     //
     // Since StarlarkValue should be moved out of Bazel, this refactoring would be blocked on making
-    // a BuildStarlarkValue subinterface for Bazel-specific Skylark types. It would then be
+    // a BuildStarlarkValue subinterface for Bazel-specific Starlark types. It would then be
     // BuildStarlarkValue, rather than StarlarkValue, that extends CommandLineItem.
     if (object instanceof CommandLineItem) {
       return ((CommandLineItem) object).expandToCommandLine();

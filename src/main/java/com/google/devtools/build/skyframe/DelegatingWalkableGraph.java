@@ -109,6 +109,8 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     Map<SkyKey, ? extends NodeEntry> entries = getBatch(null, Reason.WALKABLE_GRAPH_DEPS, keys);
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
     for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
+      // Note that the situation described in #getReverseDeps doesn't apply here. If the nodes for
+      // `keys` are done, then their direct deps must be done too.
       Preconditions.checkState(entry.getValue().isDone(), entry);
       result.put(entry.getKey(), entry.getValue().getDirectDeps());
     }
@@ -119,6 +121,8 @@ public class DelegatingWalkableGraph implements WalkableGraph {
   public Iterable<SkyKey> getDirectDeps(SkyKey key) throws InterruptedException {
     NodeEntry entry = getEntryForValue(key);
     Preconditions.checkNotNull(entry, key);
+    // Note that the situation described in #getReverseDeps doesn't apply here. If the node for
+    // `key` is done, then its direct deps must be done too.
     Preconditions.checkState(entry.isDone(), "Node %s (with key %s) isn't done yet.", entry, key);
     return entry.getDirectDeps();
   }
@@ -129,8 +133,19 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     Map<SkyKey, ? extends NodeEntry> entries = getBatch(null, Reason.WALKABLE_GRAPH_RDEPS, keys);
     Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
     for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
-      Preconditions.checkState(entry.getValue().isDone(), entry);
-      result.put(entry.getKey(), entry.getValue().getReverseDepsForDoneEntry());
+      // SkyQuery may be operating on a Skyframe graph that contains more nodes and edges than its
+      // universe. In this situation, Blaze's eager invalidation strategy may mean here we can
+      // observe a rdep edge from a not-done node (because that node may have been invalidated but
+      // not re-evaluated). Therefore, we tolerate this case gracefully.
+      //
+      // More generally, the fact that the Skyframe graph may be larger than SkyQuery's universe
+      // means that SkyQuery may be traversing edges irrelevant for query evaluation.
+      // TODO(bazel-team): Get rid of this wasted work. One approach is to hardcode the Skyframe
+      // *type* graph structure, and follow only edges for relevant node types. This would work, but
+      // is brittle so we'd want a strong regression testing story.
+      if (entry.getValue().isDone()) {
+        result.put(entry.getKey(), entry.getValue().getReverseDepsForDoneEntry());
+      }
     }
     return result;
   }
@@ -149,12 +164,14 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     Map<SkyKey, Pair<SkyValue, Iterable<SkyKey>>> result =
         Maps.newHashMapWithExpectedSize(entries.size());
     for (Map.Entry<SkyKey, ? extends NodeEntry> entry : entries.entrySet()) {
-      Preconditions.checkState(entry.getValue().isDone(), entry);
-      result.put(
-          entry.getKey(),
-          Pair.of(
-              getValueFromNodeEntry(entry.getValue()),
-              entry.getValue().getReverseDepsForDoneEntry()));
+      // See comment in #getReverseDeps.
+      if (entry.getValue().isDone()) {
+        result.put(
+            entry.getKey(),
+            Pair.of(
+                getValueFromNodeEntry(entry.getValue()),
+                entry.getValue().getReverseDepsForDoneEntry()));
+      }
     }
     return result;
   }

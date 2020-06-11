@@ -36,10 +36,6 @@ using std::stringstream;
 using std::unordered_map;
 using std::wstring;
 
-#ifndef SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE
-#define SYMBOLIC_LINK_FLAG_ALLOW_UNPRIVILEGED_CREATE 0x2
-#endif
-
 #ifndef SYMBOLIC_LINK_FLAG_DIRECTORY
 #define SYMBOLIC_LINK_FLAG_DIRECTORY 0x1
 #endif

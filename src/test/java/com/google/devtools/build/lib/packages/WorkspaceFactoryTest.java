@@ -173,40 +173,22 @@ public class WorkspaceFactoryTest {
   }
 
   @Test
-  public void testMappingsNotAMap() throws Exception {
-    helper.parse(
-        "local_repository(",
-        "    name = 'foo',",
-        "    path = '/foo',",
-        "    repo_mapping = 1",
-        ")");
-    assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': '1'. Value must be a dict.");
+  public void testRepoMappingNotAStringStringDict() throws Exception {
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping=1)");
+    assertThat(helper.getParserError()).contains("got int for 'repo_mapping', want dict");
 
-    helper.parse(
-        "local_repository(",
-        "    name = 'foo',",
-        "    path = '/foo',",
-        "    repo_mapping = 'hello'",
-        ")");
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping='hello')");
+    assertThat(helper.getParserError()).contains("got string for 'repo_mapping', want dict");
+
+    helper.parse("local_repository(name='foo', path='/foo', repo_mapping={1: 1})");
     assertThat(helper.getParserError())
-        .contains("Invalid value for 'repo_mapping': 'hello'. Value must be a dict.");
+        .contains("got dict<int, int> for 'repo_mapping', want dict<string, string>");
   }
 
   @Test
   public void testImplicitMainRepoRename() throws Exception {
-    helper.setSkylarkSemantics("--incompatible_remap_main_repo");
     helper.parse("workspace(name = 'foo')");
     assertMapping(helper, "@", "@foo", "@");
-  }
-
-  @Test
-  public void testNoImplicitMainRepoRenameWithoutFlag() throws Exception {
-    helper.setSkylarkSemantics("--noincompatible_remap_main_repo");
-    helper.parse("workspace(name = 'foo')");
-    RepositoryName foo = RepositoryName.create("@foo");
-    assertThat(helper.getPackage().getRepositoryMapping(RepositoryName.create("@")))
-        .doesNotContainEntry(foo, RepositoryName.MAIN);
   }
 
   @Test

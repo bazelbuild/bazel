@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Location;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -100,6 +100,11 @@ public class EnvironmentGroup implements Target {
     this.environmentLabels = new EnvironmentLabels(label, environments, defaults);
     this.location = location;
     this.containingPackage = pkg;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   public EnvironmentLabels getEnvironmentLabels() {

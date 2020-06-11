@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidAaptVersion;
 import com.google.devtools.build.lib.rules.android.AndroidDataConverter.JoinerType;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import java.util.function.Function;
 
 /** Builds up the spawn action for $android_rclass_generator. */
 public class RClassGeneratorActionBuilder {
@@ -26,7 +24,7 @@ public class RClassGeneratorActionBuilder {
   @AutoCodec @VisibleForSerialization
   static final AndroidDataConverter<ValidatedAndroidResources> AAPT2_CONVERTER =
       AndroidDataConverter.<ValidatedAndroidResources>builder(JoinerType.COLON_COMMA)
-          .with(chooseDepsToArg(AndroidAaptVersion.AAPT2))
+          .with(RClassGeneratorActionBuilder::depsToBusyboxArg)
           .build();
 
   private ResourceDependencies dependencies;
@@ -80,14 +78,10 @@ public class RClassGeneratorActionBuilder {
         .buildAndRegister("Generating R Classes", "RClassGenerator");
   }
 
-  private static Function<ValidatedAndroidResources, String> chooseDepsToArg(
-      final AndroidAaptVersion version) {
-    return container -> {
-      Artifact rTxt =
-          version == AndroidAaptVersion.AAPT2 ? container.getAapt2RTxt() : container.getRTxt();
-      return (rTxt != null ? rTxt.getExecPath() : "")
-          + ","
-          + (container.getManifest() != null ? container.getManifest().getExecPath() : "");
-    };
+  private static String depsToBusyboxArg(ValidatedAndroidResources container) {
+    Artifact rTxt = container.getAapt2RTxt();
+    return (rTxt != null ? rTxt.getExecPath() : "")
+        + ","
+        + (container.getManifest() != null ? container.getManifest().getExecPath() : "");
   }
 }

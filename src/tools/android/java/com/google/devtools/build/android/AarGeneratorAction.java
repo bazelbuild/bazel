@@ -127,15 +127,14 @@ public class AarGeneratorAction {
     public Path classes;
 
     @Option(
-      name = "proguardSpec",
-      defaultValue = "",
-      converter = ExistingPathConverter.class,
-      allowMultiple = true,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to proguard spec file."
-    )
+        name = "proguardSpec",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        allowMultiple = true,
+        category = "input",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "Path to proguard spec file.")
     public List<Path> proguardSpecs;
 
     @Option(
@@ -164,7 +163,7 @@ public class AarGeneratorAction {
     Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(AarGeneratorOptions.class)
+            .optionsClasses(AarGeneratorOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);

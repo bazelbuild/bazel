@@ -14,7 +14,7 @@
 package com.google.devtools.build.android.xml;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.android.aapt.Resources.Item;
 import com.android.aapt.Resources.Reference;

@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.rules.proto;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -35,16 +35,9 @@ import java.util.List;
 
 /** Configuration for Protocol Buffer Libraries. */
 @Immutable
-// This module needs to be exported to Skylark so it can be passed as a mandatory host/target
+// This module needs to be exported to Starlark so it can be passed as a mandatory host/target
 // configuration fragment in aspect definitions.
 public class ProtoConfiguration extends Fragment implements ProtoConfigurationApi {
-  // TODO(yannic): Remove when
-  // `--incompatible_load_proto_toolchain_for_javalite_from_com_google_protobuf` defaults to true.
-  private static final Label DEFAULT_JAVALITE_TOOLCHAIN_OLD =
-      Label.parseAbsoluteUnchecked("@com_google_protobuf_javalite//:javalite_toolchain");
-  private static final Label DEFAULT_JAVALITE_TOOLCHAIN_NEW =
-      Label.parseAbsoluteUnchecked("@com_google_protobuf//:javalite_toolchain");
-
   /** Command line options. */
   public static class Options extends FragmentOptions {
     @Option(
@@ -62,13 +55,12 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean generatedProtosInVirtualImports;
 
     @Option(
-      name = "protocopt",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Additional options to pass to the protobuf compiler."
-    )
+        name = "protocopt",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        help = "Additional options to pass to the protobuf compiler.")
     public List<String> protocOpts;
 
     @Option(
@@ -82,6 +74,15 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     public boolean experimentalProtoExtraActions;
 
     @Option(
+        name = "experimental_proto_descriptor_sets_include_source_info",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+        help = "Run extra actions for alternative Java api versions in a proto_library.")
+    public boolean experimentalProtoDescriptorSetsIncludeSourceInfo;
+
+    @Option(
         name = "proto_compiler",
         defaultValue = "@com_google_protobuf//:protoc",
         converter = CoreOptionConverters.LabelConverter.class,
@@ -92,11 +93,8 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
     @Option(
         name = "proto_toolchain_for_javalite",
-        // TODO(yannic): Set to `@com_google_protobuf//:javalite_toolchain` when
-        // `--incompatible_load_proto_toolchain_for_javalite_from_com_google_protobuf`
-        // defaults to true.
-        defaultValue = "null",
-        converter = CoreOptionConverters.EmptyToNullLabelConverter.class,
+        defaultValue = "@com_google_protobuf//:javalite_toolchain",
+        converter = CoreOptionConverters.LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
         help = "Label of proto_lang_toolchain() which describes how to compile JavaLite protos")
@@ -185,29 +183,14 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
                 + "the Starlark rules instead at https://github.com/bazelbuild/rules_proto")
     public boolean loadProtoRulesFromBzl;
 
-    @Option(
-        name = "incompatible_load_proto_toolchain_for_javalite_from_com_google_protobuf",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {
-          OptionMetadataTag.INCOMPATIBLE_CHANGE,
-          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-        },
-        help =
-            "If enabled, `--proto_toolchain_for_javalite` defaults to "
-                + "`@com_google_protobuf//:javalite_toolchain`. "
-                + "See https://github.com/bazelbuild/bazel/issues/10335")
-    public boolean loadProtoToolchainForJavaliteFromComGoogleProtobuf;
-
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
       host.loadProtoRulesFromBzl = loadProtoRulesFromBzl;
-      host.loadProtoToolchainForJavaliteFromComGoogleProtobuf =
-          loadProtoToolchainForJavaliteFromComGoogleProtobuf;
       host.protoCompiler = protoCompiler;
       host.protocOpts = protocOpts;
+      host.experimentalProtoDescriptorSetsIncludeSourceInfo =
+          experimentalProtoDescriptorSetsIncludeSourceInfo;
       host.experimentalProtoExtraActions = experimentalProtoExtraActions;
       host.protoCompiler = protoCompiler;
       host.protoToolchainForJava = protoToolchainForJava;
@@ -261,6 +244,10 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
     return protocOpts;
   }
 
+  public boolean experimentalProtoDescriptorSetsIncludeSourceInfo() {
+    return options.experimentalProtoDescriptorSetsIncludeSourceInfo;
+  }
+
   /**
    * Returns true if we will run extra actions for actions that are not run by default. If this
    * is enabled, e.g. all extra_actions for alternative api-versions or language-flavours of a
@@ -283,15 +270,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
   }
 
   public Label protoToolchainForJavaLite() {
-    if (null != options.protoToolchainForJavaLite) {
-      // Flag was explicitly set by the user.
-      return options.protoToolchainForJavaLite;
-    }
-
-    if (options.loadProtoToolchainForJavaliteFromComGoogleProtobuf) {
-      return DEFAULT_JAVALITE_TOOLCHAIN_NEW;
-    }
-    return DEFAULT_JAVALITE_TOOLCHAIN_OLD;
+    return options.protoToolchainForJavaLite;
   }
 
   public Label protoToolchainForCc() {

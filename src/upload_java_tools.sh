@@ -80,7 +80,7 @@ java_tools_zip=$(rlocation io_bazel/${java_tools_zip_name})
 
 # Create a temp directory and a writable temp zip file to add a README.md file to
 # the initial zip.
-tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXX')
+tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXXX')
 trap "rm -fr $tmp_dir" EXIT
 tmp_zip="$tmp_dir/archive.zip"
 

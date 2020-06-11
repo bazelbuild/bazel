@@ -29,8 +29,6 @@ import org.junit.runners.JUnit4;
 public class LabelBuildSettingTest extends BuildViewTestCase {
 
   private void writeRulesBzl(String type) throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
-
     scratch.file(
         "test/rules.bzl",
         "def _my_rule_impl(ctx):",
@@ -191,5 +189,96 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
     getConfiguredTarget("//test:selector");
     assertContainsEvent(
         "':@not_a_valid_label/' cannot be converted to //test:my_label_flag type label");
+  }
+
+  @Test
+  public void transitionTypeParsing() throws Exception {
+    scratch.file(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "test/rules.bzl",
+        "def _transition_impl(settings, attr):",
+        "    return {",
+        "        '//test:my_flag1': Label('//test:other_rule'),",
+        "        '//test:my_flag2': '//test:other_rule'",
+        "}",
+        "_my_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//test:my_flag1', '//test:my_flag2'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "    pass",
+        "rule_with_transition = rule(",
+        "    implementation = _rule_impl,",
+        "    cfg = _my_transition,",
+        "    attrs = {",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        ),",
+        "    }",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_transition')",
+        "label_flag(name = 'my_flag1', build_setting_default = ':first_rule')",
+        "label_flag(name = 'my_flag2', build_setting_default = ':first_rule')",
+        "rule_with_transition(name = 'first_rule')",
+        "rule_with_transition(name = 'buildme')");
+    assertThat(getConfiguredTarget("//test:buildme")).isNotNull();
+    assertNoEvents();
+  }
+
+  @Test
+  public void transitionsDontAllowRelativeLabels() throws Exception {
+    scratch.file(
+        "tools/whitelists/function_transition_whitelist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_whitelist',",
+        "    packages = [",
+        "        '//test/...',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "test/rules.bzl",
+        "def _transition_impl(settings, attr):",
+        "    return {",
+        "        '//test:my_flag': ':other_rule'",
+        "}",
+        "_my_transition = transition(",
+        "    implementation = _transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//test:my_flag'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "    pass",
+        "rule_with_transition = rule(",
+        "    implementation = _rule_impl,",
+        "    cfg = _my_transition,",
+        "    attrs = {",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        ),",
+        "    }",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'rule_with_transition')",
+        "label_flag(name = 'my_flag', build_setting_default = ':first_rule')",
+        "rule_with_transition(name = 'first_rule')",
+        "rule_with_transition(name = 'buildme')");
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:buildme")).isNull();
+    assertContainsEvent("invalid label: :other_rule");
   }
 }

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
@@ -35,8 +35,13 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.QueryRuntimeHelper;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
+import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
 import com.google.devtools.build.lib.util.Either;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -47,7 +52,7 @@ import java.util.Set;
 @Command(
     name = "query",
     options = {
-      PackageCacheOptions.class,
+      PackageOptions.class,
       QueryOptions.class,
       KeepGoingOption.class,
       LoadingPhaseThreadsOption.class
@@ -73,8 +78,8 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     try (SilentCloseable closeable = Profiler.instance().profile("QueryExpression.parse")) {
       expr = QueryExpression.parse(query, queryEnv);
     } catch (QueryException e) {
-      env.getReporter()
-          .handle(Event.error(null, "Error while parsing '" + query + "': " + e.getMessage()));
+      String message = "Error while parsing '" + query + "': " + e.getMessage();
+      env.getReporter().handle(Event.error(null, message));
       return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR));
     }
 
@@ -104,6 +109,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       streamedFormatter.setOptions(
           queryOptions,
           queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
+      streamedFormatter.setEventHandler(env.getReporter());
       callback = streamedFormatter.createStreamCallback(out, queryOptions, queryEnv);
     } else {
       callback = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnv);
@@ -126,8 +132,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
       catastrophe = false;
       IOException ioException = callback.getIoException();
       if (ioException == null || ioException instanceof ClosedByInterruptException) {
-        env.getReporter().handle(Event.error("query interrupted"));
-        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.INTERRUPTED));
+        return reportAndCreateInterruptedResult(env);
       } else {
         env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
         return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
@@ -141,9 +146,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         try {
           out.flush();
         } catch (IOException e) {
-          env.getReporter()
-              .handle(Event.error("Failed to flush query results: " + e.getMessage()));
-          return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+          return reportAndCreateFlushFailureResult(env, e);
         }
       }
     }
@@ -158,10 +161,10 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             targets,
             formatter,
             out,
-            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()));
+            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
+            env.getReporter());
       } catch (ClosedByInterruptException | InterruptedException e) {
-        env.getReporter().handle(Event.error("query interrupted"));
-        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.INTERRUPTED));
+        return reportAndCreateInterruptedResult(env);
       } catch (IOException e) {
         env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
         return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
@@ -169,9 +172,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         try {
           out.flush();
         } catch (IOException e) {
-          env.getReporter()
-              .handle(Event.error("Failed to flush query results: " + e.getMessage()));
-          return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+          return reportAndCreateFlushFailureResult(env, e);
         }
       }
     }
@@ -187,5 +188,26 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
    */
   private static void disableAnsiCharactersFiltering(CommandEnvironment env) {
     env.getReporter().switchToAnsiAllowingHandler();
+  }
+
+  private static Either<BlazeCommandResult, QueryEvalResult> reportAndCreateFlushFailureResult(
+      CommandEnvironment env, IOException e) {
+    String message = "Failed to flush query results: " + e.getMessage();
+    env.getReporter().handle(Event.error(message));
+    return Either.ofLeft(
+        BlazeCommandResult.failureDetail(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setQuery(Query.newBuilder().setCode(Code.QUERY_RESULTS_FLUSH_FAILURE))
+                .build()));
+  }
+
+  private static Either<BlazeCommandResult, QueryEvalResult> reportAndCreateInterruptedResult(
+      CommandEnvironment env) {
+    String message = "query interrupted";
+    env.getReporter().handle(Event.error(message));
+    return Either.ofLeft(
+        BlazeCommandResult.detailedExitCode(
+            InterruptedFailureDetails.detailedExitCode(message, Interrupted.Code.QUERY)));
   }
 }

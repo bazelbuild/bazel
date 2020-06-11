@@ -6,30 +6,16 @@ load(":rule_size_test.bzl", "rule_size_test")
 
 exports_files(["jdeps_modules.golden"])
 
-# Keep only the first 32 chars (a hex md5sum) and no trailing newline.
-md5_cmd = "set -e -o pipefail && echo $(SRCS) | sort | xargs %s | %s | head -c 32 > $@"
-
-# TODO(bazel-team): find a better way to handle dylib extensions.
-filegroup(
-    name = "libunix",
-    srcs = select({
-        "//src/conditions:darwin": ["//src/main/native:libunix.dylib"],
-        "//src/conditions:darwin_x86_64": ["//src/main/native:libunix.dylib"],
-        "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
-        "//conditions:default": ["//src/main/native:libunix.so"],
-    }),
-    visibility = [
-        "//src/test/java:__pkg__",
-        "//src/tools/remote:__subpackages__",
-    ],
-)
+md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 
 [genrule(
     name = "install_base_key-file" + suffix,
     srcs = [
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib/syntax:cpu_profiler",
+        # TODO(brandjon): ensure we haven't forgotten any package-zip items,
+        # otherwise bazel won't correctly reextract modified files.
         "//src/main/cpp:client",
-        ":libunix",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:linux-sandbox",
@@ -37,10 +23,13 @@ filegroup(
     ] + embedded_tools_target,
     outs = ["install_base_key" + suffix],
     cmd = select({
-        "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5"),
-        "//src/conditions:darwin_x86_64": md5_cmd % ("/sbin/md5", "/sbin/md5"),
-        "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5"),
-        "//conditions:default": md5_cmd % ("md5sum", "md5sum"),
+        "//src/conditions:darwin": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
+        "//src/conditions:darwin_x86_64": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
+        "//src/conditions:freebsd": md5_cmd % ("/sbin/md5", "/sbin/md5", "head -c 32"),
+        # We avoid using the `head` tool's `-c` option, since it does not exist
+        # on OpenBSD.
+        "//src/conditions:openbsd": md5_cmd % ("/bin/md5", "/bin/md5", "dd bs=32 count=1"),
+        "//conditions:default": md5_cmd % ("md5sum", "md5sum", "head -c 32"),
     }),
 ) for suffix, embedded_tools_target in {
     "_jdk_allmodules": [":embedded_tools_jdk_allmodules"],
@@ -117,21 +106,20 @@ JAVA_TOOLS = [
 ]
 
 # TODO(philwo): Clean this up, once a Bazel that can run py_binary and sh_binary
-# in Skylark rules on Windows has been released.
+# in Starlark rules on Windows has been released.
 [filegroup(
     name = "embedded_tools" + suffix + "_srcs",
     srcs = JAVA_TOOLS + [
                "BUILD.tools",
                "//tools:embedded_tools_srcs",
                "//third_party:gpl-srcs",
+               "//third_party/grpc:embedded_tools_srcs",
+               "//third_party/grpc/bazel:embedded_tools_srcs",
                "//third_party/ijar:embedded_zipper_sources",
                "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
                "//third_party/py/concurrent:srcs",
-               # TODO(laszlocsomor): delete "//third_party/py/gflags:srcs" after
-               # every script in @bazel_tools was migrated to use Abseil.
-               "//third_party/py/gflags:srcs",
                "//third_party/py/six:srcs",
                "//src/conditions:embedded_tools",
                "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
@@ -175,7 +163,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 470,
+    expect = 500,
     margin = 5,  # percentage
 )
 
@@ -237,6 +225,9 @@ filegroup(
         ],
         "//src/conditions:linux_aarch64": [
             "@openjdk_linux_aarch64_vanilla//file",
+        ],
+        "//src/conditions:linux_ppc64le": [
+            "@openjdk_linux_ppc64le_vanilla//file",
         ],
         "//conditions:default": [
             "@openjdk_linux_vanilla//file",
@@ -338,10 +329,13 @@ filegroup(
         # The script assumes that the embedded tools zip (if exists) is the
         # first item here, the deploy jar the second, install base key is the
         # third, and platforms archive is the fourth.
-        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
         ":platforms_archive",
-        ":libunix",
+        # Ordinary items follow:
+        "//src/main/java/com/google/devtools/build/lib/syntax:cpu_profiler",
+        "//src/main/native:target-os-unix-native-lib",
+        "//src/main/native/windows:target-os-native-lib",
         "//src/main/tools:build-runfiles",
         "//src/main/tools:process-wrapper",
         "//src/main/tools:jdk-support",
@@ -354,8 +348,8 @@ filegroup(
         ],
     }),
     outs = ["package" + suffix + ".zip"],
-    cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",
-    tools = ["package-bazel.sh"],
+    cmd = "$(location :package_bazel_on_host_platform) $@ " + ("" if embed else "''") + " $(SRCS)",
+    tools = [":package_bazel_on_host_platform"],
 ) for suffix, embed in [
     ("_jdk_allmodules", True),
     ("_jdk_minimal", True),
@@ -363,6 +357,16 @@ filegroup(
     ("_notools", False),
     ("_nojdk", True),
 ]]
+
+genrule(
+    name = "package_bazel_on_host_platform",
+    srcs = ["package-bazel.sh"],
+    outs = ["package-bazel-on-host-platform.sh"],
+    cmd = select({
+        "//src/conditions:openbsd": "cat $(SRCS) | sed -e 's@#!/bin/bash@#!/usr/local/bin/bash@' > $@",
+        "//conditions:default": "cp $(SRCS) $@",
+    }),
+)
 
 genrule(
     name = "platforms_archive",
@@ -443,7 +447,8 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skydoc:srcs",
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
-        "//src/main/java/com/google/devtools/starlark:srcs",
+        "//src/main/java/net/starlark/java/cmd:srcs",
+        "//src/main/java/net/starlark/java/spelling:srcs",
         "//src/main/native:srcs",
         "//src/main/protobuf:srcs",
         "//src/main/tools:srcs",
@@ -459,14 +464,15 @@ filegroup(
         "//src/test/java/com/google/devtools/build/skydoc:srcs",
         "//src/test/java/com/google/devtools/build/skyframe:srcs",
         "//src/test/java/com/google/devtools/common/options:srcs",
+        "//src/test/java/net/starlark/java/spelling:srcs",
         "//src/test/py/bazel:srcs",
         "//src/test/shell:srcs",
         "//src/test/testdata/test_tls_certificate",
+        "//src/test/tools:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/workspacelog:srcs",
         "//src/tools/launcher:srcs",
-        "//src/tools/package_printer/java/com/google/devtools/build/packageprinter:srcs",
         "//src/tools/skylark/java/com/google/devtools/skylark/common:srcs",
         "//src/tools/xcode/realpath:srcs",
         "//src/tools/singlejar:srcs",
@@ -483,8 +489,10 @@ genrule(
         "//src/main/protobuf:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/bazel/debug:dist_jars",
-        "//src/main/java/com/google/devtools/build/lib/skylarkdebug/proto:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:dist_jars",
+        "//src/main/java/com/google/devtools/build/skyframe:dist_jars",
         "@googleapis//:dist_jars",
         "@remoteapis//:dist_jars",
     ],
@@ -559,7 +567,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-JAVA_VERSIONS = ("9", "10", "11", "12")
+JAVA_VERSIONS = ("11", "12")
 
 [
     genrule(
@@ -723,5 +731,45 @@ genrule(
     visibility = [
         "//src/tools/singlejar:__pkg__",
         "//third_party/ijar:__pkg__",
+    ],
+)
+
+filegroup(
+    name = "test_repos",
+    srcs = [
+        "@android_tools_for_testing//:WORKSPACE",
+        "@bazel_skylib//:WORKSPACE",
+        "@bazel_toolchains//:WORKSPACE",
+        "@com_google_protobuf//:WORKSPACE",
+        "@openjdk11_darwin_archive//:WORKSPACE",
+        "@openjdk11_linux_archive//:WORKSPACE",
+        "@openjdk11_windows_archive//:WORKSPACE",
+        "@openjdk12_darwin_archive//:WORKSPACE",
+        "@openjdk12_linux_archive//:WORKSPACE",
+        "@openjdk12_windows_archive//:WORKSPACE",
+        "@openjdk_linux_aarch64_minimal//file",
+        "@openjdk_linux_minimal//file",
+        "@openjdk_macos_minimal//file",
+        "@openjdk_win_minimal//file",
+        "@remote_coverage_tools_for_testing//:WORKSPACE",
+        "@remote_java_tools_darwin_for_testing//:WORKSPACE",
+        "@remote_java_tools_javac11_test_darwin//:WORKSPACE",
+        "@remote_java_tools_javac11_test_linux//:WORKSPACE",
+        "@remote_java_tools_javac11_test_windows//:WORKSPACE",
+        "@remote_java_tools_javac12_test_darwin//:WORKSPACE",
+        "@remote_java_tools_javac12_test_linux//:WORKSPACE",
+        "@remote_java_tools_javac12_test_windows//:WORKSPACE",
+        "@remote_java_tools_linux_for_testing//:WORKSPACE",
+        "@remote_java_tools_windows_for_testing//:WORKSPACE",
+        "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
+        "@remotejdk11_linux_for_testing//:WORKSPACE",
+        "@remotejdk11_linux_ppc64le_for_testing//:WORKSPACE",
+        "@remotejdk11_macos_for_testing//:WORKSPACE",
+        "@remotejdk11_win_for_testing//:WORKSPACE",
+        "@rules_cc//:WORKSPACE",
+        "@rules_java//:WORKSPACE",
+        "@rules_pkg//:WORKSPACE",
+        "@rules_proto//:WORKSPACE",
+        "@rules_python//:WORKSPACE",
     ],
 )

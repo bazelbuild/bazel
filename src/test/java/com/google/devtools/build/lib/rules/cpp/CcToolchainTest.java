@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -210,7 +210,6 @@ public class CcToolchainTest extends BuildViewTestCase {
         "    module_map = 'map',",
         "    ar_files = 'ar-a',",
         "    as_files = 'as-a',",
-        "    cpu = 'cherry',",
         "    compiler_files = 'compile-a',",
         "    dwp_files = 'dwp-a',",
         "    coverage_files = 'gcov-a',",
@@ -230,7 +229,7 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     useConfiguration();
 
-    getConfiguredTarget("//a:b");
+    getConfiguredTarget("//a:a");
   }
 
   @Test
@@ -722,32 +721,34 @@ public class CcToolchainTest extends BuildViewTestCase {
         getOutputGroup(libTarget, "archive").toList().stream()
             .collect(MoreCollectors.onlyElement());
     ActionAnalysisMetadata staticAction = getGeneratingAction(staticLib);
-    assertThat(staticAction.getInputs()).containsAtLeastElementsIn(toolchainProvider.getArFiles());
+    assertThat(staticAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getArFiles().toList());
     Artifact dynamicLib =
         getOutputGroup(libTarget, "dynamic_library").toList().stream()
             .collect(MoreCollectors.onlyElement());
     ActionAnalysisMetadata dynamicAction = getGeneratingAction(dynamicLib);
-    assertThat(dynamicAction.getInputs())
-        .containsAtLeastElementsIn(toolchainProvider.getLinkerFiles());
+    assertThat(dynamicAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getLinkerFiles().toList());
     ActionAnalysisMetadata cCompileAction =
         libTarget.getActions().stream()
             .filter((a) -> a.getMnemonic().equals("CppCompile"))
             .collect(MoreCollectors.onlyElement());
-    assertThat(cCompileAction.getInputs())
-        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
+    assertThat(cCompileAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
     ActionAnalysisMetadata asmAction =
         ((RuleConfiguredTarget) getConfiguredTarget("//a:asm"))
             .getActions().stream()
                 .filter((a) -> a.getMnemonic().equals("CppCompile"))
                 .collect(MoreCollectors.onlyElement());
-    assertThat(asmAction.getInputs()).containsAtLeastElementsIn(toolchainProvider.getAsFiles());
+    assertThat(asmAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getAsFiles().toList());
     ActionAnalysisMetadata preprocessedAsmAction =
         ((RuleConfiguredTarget) getConfiguredTarget("//a:preprocessed-asm"))
             .getActions().stream()
                 .filter((a) -> a.getMnemonic().equals("CppCompile"))
                 .collect(MoreCollectors.onlyElement());
-    assertThat(preprocessedAsmAction.getInputs())
-        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles());
+    assertThat(preprocessedAsmAction.getInputs().toList())
+        .containsAtLeastElementsIn(toolchainProvider.getCompilerFiles().toList());
   }
 
   @Test

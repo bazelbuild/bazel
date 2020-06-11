@@ -36,6 +36,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -45,13 +47,23 @@ import java.util.stream.Stream;
 public class Main {
   private static final Logger logger = Logger.getLogger(Main.class.getName());
 
-  public static void main(String[] args) {
+  public static void main(String... args) {
+    try {
+      int exitCode = runWithArgs(args);
+      System.exit(exitCode);
+    } catch (Exception e) {
+      logger.log(Level.SEVERE, "Unhandled exception on lcov tool: " + e.getMessage());
+      System.exit(1);
+    }
+  }
+
+  static int runWithArgs(String... args) throws ExecutionException, InterruptedException {
     LcovMergerFlags flags = null;
     try {
       flags = LcovMergerFlags.parseFlags(args);
     } catch (IllegalArgumentException e) {
       logger.log(Level.SEVERE, e.getMessage());
-      System.exit(1);
+      return 1;
     }
 
     File outputFile = new File(flags.outputFile());
@@ -62,8 +74,12 @@ public class Main {
             : Collections.emptyList();
     Coverage coverage =
         Coverage.merge(
-            parseFiles(getTracefiles(flags, filesInCoverageDir), LcovParser::parse),
-            parseFiles(getGcovInfoFiles(filesInCoverageDir), GcovParser::parse));
+            parseFiles(
+                getTracefiles(flags, filesInCoverageDir),
+                LcovParser::parse,
+                flags.parseParallelism()),
+            parseFiles(
+                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()));
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
@@ -73,8 +89,19 @@ public class Main {
     if (coverage.isEmpty()) {
       int exitStatus = 0;
       if (profdataFile == null) {
-        logger.log(Level.WARNING, "There was no coverage found.");
-        exitStatus = 0;
+        try {
+          logger.log(Level.WARNING, "There was no coverage found.");
+          Files.createFile(outputFile.toPath()); // Generate empty declared output
+          exitStatus = 0;
+        } catch (IOException e) {
+          logger.log(
+              Level.SEVERE,
+              "Could not create empty output file "
+                  + outputFile.getName()
+                  + " due to: "
+                  + e.getMessage());
+          exitStatus = 1;
+        }
       } else {
         // Bazel doesn't support yet converting profdata files to lcov. We still want to output a
         // coverage report so we copy the content of the profdata file to the output file. This is
@@ -95,7 +122,7 @@ public class Main {
           exitStatus = 1;
         }
       }
-      System.exit(exitStatus);
+      return exitStatus;
     }
 
     if (!coverage.isEmpty() && profdataFile != null) {
@@ -105,7 +132,7 @@ public class Main {
       logger.log(
           Level.WARNING,
           "Bazel doesn't support LLVM profdata coverage amongst other coverage formats.");
-      System.exit(0);
+      return 0;
     }
 
     if (!flags.filterSources().isEmpty()) {
@@ -122,8 +149,19 @@ public class Main {
     }
 
     if (coverage.isEmpty()) {
-      logger.log(Level.WARNING, "There was no coverage found.");
-      System.exit(0);
+      try {
+        logger.log(Level.WARNING, "There was no coverage found.");
+        Files.createFile(outputFile.toPath()); // Generate empty declared output
+        return 0;
+      } catch (IOException e) {
+        logger.log(
+            Level.SEVERE,
+            "Could not create empty output file "
+                + outputFile.getName()
+                + " due to: "
+                + e.getMessage());
+        return 1;
+      }
     }
 
     int exitStatus = 0;
@@ -136,7 +174,7 @@ public class Main {
           "Could not write to output file " + outputFile + " due to " + e.getMessage());
       exitStatus = 1;
     }
-    System.exit(exitStatus);
+    return exitStatus;
   }
 
   /**
@@ -246,11 +284,20 @@ public class Main {
     return mapBuilder.build();
   }
 
-  private static Coverage parseFiles(List<File> files, Parser parser) {
+  static Coverage parseFiles(List<File> files, Parser parser, int parallelism)
+      throws ExecutionException, InterruptedException {
+    if (parallelism == 1) {
+      return parseFilesSequentially(files, parser);
+    } else {
+      return parseFilesInParallel(files, parser, parallelism);
+    }
+  }
+
+  static Coverage parseFilesSequentially(List<File> files, Parser parser) {
     Coverage coverage = new Coverage();
     for (File file : files) {
       try {
-        logger.log(Level.SEVERE, "Parsing file " + file.toString());
+        logger.log(Level.INFO, "Parsing file " + file);
         List<SourceFileCoverage> sourceFilesCoverage = parser.parse(new FileInputStream(file));
         for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
           coverage.add(sourceFileCoverage);
@@ -263,6 +310,33 @@ public class Main {
       }
     }
     return coverage;
+  }
+
+  static Coverage parseFilesInParallel(List<File> files, Parser parser, int parallelism)
+      throws ExecutionException, InterruptedException {
+    ForkJoinPool pool = new ForkJoinPool(parallelism);
+    return pool.submit(
+            () ->
+                files.parallelStream()
+                    .map(
+                        file -> {
+                          try (FileInputStream inputStream = new FileInputStream(file)) {
+                            logger.log(Level.INFO, "Parsing file " + file);
+                            return Coverage.create(parser.parse(inputStream));
+                          } catch (IOException e) {
+                            logger.log(
+                                Level.SEVERE,
+                                "File "
+                                    + file.getAbsolutePath()
+                                    + " could not be parsed due to: "
+                                    + e.getMessage());
+                            System.exit(1);
+                          }
+                          return null;
+                        })
+                    .reduce(Coverage::merge)
+                    .orElse(Coverage.create()))
+        .get();
   }
 
   /**

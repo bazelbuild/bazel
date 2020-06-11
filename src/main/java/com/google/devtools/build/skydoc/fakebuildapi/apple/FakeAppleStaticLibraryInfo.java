@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
@@ -37,12 +36,12 @@ public class FakeAppleStaticLibraryInfo implements AppleStaticLibraryInfoApi {
   }
 
   @Override
-  public String toProto(Location loc) throws EvalException {
+  public String toProto() throws EvalException {
     return "";
   }
 
   @Override
-  public String toJson(Location loc) throws EvalException {
+  public String toJson() throws EvalException {
     return "";
   }
 

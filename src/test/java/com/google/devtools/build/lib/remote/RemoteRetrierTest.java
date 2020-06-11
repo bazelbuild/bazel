@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.Range;
@@ -25,15 +25,16 @@ import com.google.devtools.build.lib.remote.RemoteRetrier.ExponentialBackoff;
 import com.google.devtools.build.lib.remote.Retrier.Backoff;
 import com.google.devtools.build.lib.remote.Retrier.Sleeper;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.common.options.Options;
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 import java.time.Duration;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import org.junit.AfterClass;
+import org.junit.After;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -50,21 +51,18 @@ public class RemoteRetrierTest {
   }
 
   private RemoteRetrierTest.Foo fooMock;
-  private static ListeningScheduledExecutorService retryService;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
+  private ListeningScheduledExecutorService retryService;
 
   @Before
   public void setUp() {
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
     fooMock = Mockito.mock(RemoteRetrierTest.Foo.class);
   }
 
-  @AfterClass
-  public static void afterEverything() {
+  @After
+  public void tearDown() throws InterruptedException {
     retryService.shutdownNow();
+    retryService.awaitTermination(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
   }
 
   @Test

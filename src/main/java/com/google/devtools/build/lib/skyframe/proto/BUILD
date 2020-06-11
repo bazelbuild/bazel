@@ -1,0 +1,27 @@
+load("//tools/build_rules:utilities.bzl", "java_library_srcs")
+load("@rules_java//java:defs.bzl", "java_proto_library")
+load("@rules_proto//proto:defs.bzl", "proto_library")
+
+package(default_visibility = ["//src:__pkg__"])
+
+proto_library(
+    name = "action_rewind_event",
+    srcs = ["action_rewind_event.proto"],
+)
+
+java_proto_library(
+    name = "action_rewind_event_java_proto",
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
+    deps = [":action_rewind_event"],
+)
+
+java_library_srcs(
+    name = "dist_jars",
+    deps = [":action_rewind_event_java_proto"],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__subpackages__"],
+)

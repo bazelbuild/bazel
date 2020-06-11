@@ -51,10 +51,7 @@ javabase=${javabase%/bin/java}
 
 function set_up() {
   copy_examples
-  cat > WORKSPACE <<EOF
-workspace(name = "io_bazel")
-EOF
-  add_rules_cc_to_workspace WORKSPACE
+  create_workspace_with_default_repos "WORKSPACE" "io_bazel"
 }
 
 #
@@ -151,7 +148,7 @@ function test_shell() {
 }
 
 #
-# Skylark rules
+# Starlark rules
 #
 function test_python() {
   assert_build "//examples/py:bin"

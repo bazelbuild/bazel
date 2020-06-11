@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 
 /**
  * Artifacts related to compilation. Any rule containing compilable sources will create an instance
@@ -30,7 +31,7 @@ final class CompilationArtifacts {
     // TODO(bazel-team): Should these be sets instead of just iterables?
     private Iterable<Artifact> srcs = ImmutableList.of();
     private Iterable<Artifact> nonArcSrcs = ImmutableList.of();
-    private Iterable<Artifact> additionalHdrs = ImmutableList.of();
+    private NestedSetBuilder<Artifact> additionalHdrs = NestedSetBuilder.stableOrder();
     private Iterable<Artifact> privateHdrs = ImmutableList.of();
     private Iterable<Artifact> precompiledSrcs = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
@@ -47,11 +48,19 @@ final class CompilationArtifacts {
 
     /**
      * Adds header artifacts that should be directly accessible to dependers, but aren't specified
-     * in the hdrs attribute. {@code additionalHdrs} should not be a {@link NestedSet}, as it will
-     * be flattened when added.
+     * in the hdrs attribute. Note that the underlying infrastructure may flatten the nested set.
+     */
+    Builder addAdditionalHdrs(NestedSet<Artifact> additionalHdrs) {
+      this.additionalHdrs.addTransitive(additionalHdrs);
+      return this;
+    }
+
+    /**
+     * Adds header artifacts that should be directly accessible to dependers, but aren't specified
+     * in the hdrs attribute.
      */
     Builder addAdditionalHdrs(Iterable<Artifact> additionalHdrs) {
-      this.additionalHdrs = Iterables.concat(this.additionalHdrs, additionalHdrs);
+      this.additionalHdrs.addAll(additionalHdrs);
       return this;
     }
 
@@ -87,20 +96,21 @@ final class CompilationArtifacts {
           || !Iterables.isEmpty(precompiledSrcs)) {
         archive = Optional.of(intermediateArtifacts.archive());
       }
-      return new CompilationArtifacts(srcs, nonArcSrcs, additionalHdrs, privateHdrs, archive);
+      return new CompilationArtifacts(
+          srcs, nonArcSrcs, additionalHdrs.build(), privateHdrs, archive);
     }
   }
 
   private final Iterable<Artifact> srcs;
   private final Iterable<Artifact> nonArcSrcs;
   private final Optional<Artifact> archive;
-  private final Iterable<Artifact> additionalHdrs;
+  private final NestedSet<Artifact> additionalHdrs;
   private final Iterable<Artifact> privateHdrs;
 
   private CompilationArtifacts(
       Iterable<Artifact> srcs,
       Iterable<Artifact> nonArcSrcs,
-      Iterable<Artifact> additionalHdrs,
+      NestedSet<Artifact> additionalHdrs,
       Iterable<Artifact> privateHdrs,
       Optional<Artifact> archive) {
     this.srcs = Preconditions.checkNotNull(srcs);
@@ -119,7 +129,7 @@ final class CompilationArtifacts {
   }
 
   /** Returns the public headers that aren't included in the hdrs attribute. */
-  Iterable<Artifact> getAdditionalHdrs() {
+  NestedSet<Artifact> getAdditionalHdrs() {
     return additionalHdrs;
   }
 

@@ -16,21 +16,19 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.List;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A StarlarkList is a mutable finite sequence of values. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "list",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "The built-in list type. Example list expressions:<br>"
             + "<pre class=language-python>x = [1, 2, 3]</pre>"
@@ -45,12 +43,14 @@ import javax.annotation.Nullable;
             + "['a', 'b', 'c', 'd'][::2]  # ['a', 'c']\n"
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python.")
-public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E>, StarlarkMutable {
+public final class StarlarkList<E> extends AbstractList<E>
+    implements Sequence<E>, StarlarkValue, Mutability.Freezable {
 
   // The implementation strategy is similar to ArrayList,
   // but without the extra indirection of using ArrayList.
 
   private int size;
+  private int iteratorCount; // number of active iterators (unused once frozen)
   private Object[] elems = EMPTY_ARRAY; // elems[i] == null  iff  i >= size
 
   /** Final except for {@link #unsafeShallowFreeze}; must not be modified any other way. */
@@ -81,6 +81,19 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
   @Override
   public boolean isHashable() {
     return false; // even a frozen list is unhashable in Starlark
+  }
+
+  @Override
+  public boolean updateIteratorCount(int delta) {
+    if (mutability().isFrozen()) {
+      return false;
+    }
+    if (delta > 0) {
+      iteratorCount++;
+    } else if (delta < 0) {
+      iteratorCount--;
+    }
+    return iteratorCount > 0;
   }
 
   /**
@@ -182,7 +195,12 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
 
   @Override
   public int hashCode() {
-    return 6047 + 4673 * Arrays.hashCode(elems);
+    // Roll our own hash code to avoid iterating through null part of elems.
+    int result = 1;
+    for (int i = 0; i < size; i++) {
+      result = 31 * result + elems[i].hashCode();
+    }
+    return 6047 + 4673 * result;
   }
 
   @Override
@@ -222,16 +240,18 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
   }
 
   @Override
-  public StarlarkList<E> getSlice(
-      Object start, Object end, Object step, Location loc, Mutability mutability)
-      throws EvalException {
-    // TODO(adonovan): this is horribly inefficient.
-    List<Integer> indices = EvalUtils.getSliceIndices(start, end, step, size(), loc);
-    Object[] array = new Object[indices.size()];
-    for (int i = 0; i < indices.size(); ++i) {
-      array[i] = elems[indices.get(i)];
+  public StarlarkList<E> getSlice(Mutability mu, int start, int stop, int step) {
+    RangeList indices = new RangeList(start, stop, step);
+    int n = indices.size();
+    Object[] res = new Object[n];
+    if (step == 1) { // common case
+      System.arraycopy(elems, indices.at(0), res, 0, n);
+    } else {
+      for (int i = 0; i < n; ++i) {
+        res[i] = elems[indices.at(i)];
+      }
     }
-    return wrap(mutability, array);
+    return wrap(mu, res);
   }
 
   // Postcondition: elems.length >= mincap.
@@ -250,10 +270,10 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
    * Appends an element to the end of the list, after validating that mutation is allowed.
    *
    * @param element the element to add
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not List.add
    */
-  public void add(E element, Location loc) throws EvalException {
-    checkMutable(loc);
+  public void add(E element, Location unused) throws EvalException {
+    Starlark.checkMutable(this);
     grow(size + 1);
     elems[size++] = element;
   }
@@ -263,10 +283,10 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
    *
    * @param index the new element's index
    * @param element the element to add
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not List.add
    */
-  public void add(int index, E element, Location loc) throws EvalException {
-    checkMutable(loc);
+  public void add(int index, E element, Location unused) throws EvalException {
+    Starlark.checkMutable(this);
     grow(size + 1);
     System.arraycopy(elems, index, elems, index + 1, size - index);
     elems[index] = element;
@@ -277,10 +297,10 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
    * Appends all the elements to the end of the list.
    *
    * @param elements the elements to add
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not List.addAll
    */
-  public void addAll(Iterable<? extends E> elements, Location loc) throws EvalException {
-    checkMutable(loc);
+  public void addAll(Iterable<? extends E> elements, Location unused) throws EvalException {
+    Starlark.checkMutable(this);
     if (elements instanceof StarlarkList) {
       StarlarkList<?> that = (StarlarkList) elements;
       // (safe even if this == that)
@@ -308,10 +328,10 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
    * range.
    *
    * @param index the index of the element to remove
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not List.remove
    */
-  public void remove(int index, Location loc) throws EvalException {
-    checkMutable(loc);
+  public void remove(int index, Location unused) throws EvalException {
+    Starlark.checkMutable(this);
     int n = size - index - 1;
     if (n > 0) {
       System.arraycopy(elems, index + 1, elems, index, n);
@@ -319,7 +339,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
     elems[--size] = null; // aid GC
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "remove",
       doc =
           "Removes the first item from the list whose value is x. "
@@ -328,7 +348,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
   public NoneType removeObject(Object x) throws EvalException {
     for (int i = 0; i < size; i++) {
       if (elems[i].equals(x)) {
-        remove(i, /*loc=*/ null);
+        remove(i, (Location) null);
         return Starlark.NONE;
       }
     }
@@ -341,14 +361,14 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
    *
    * @param index the position to change
    * @param value the new value
-   * @param loc the location to use for error reporting
+   * @param unused a nonce value to select this overload, not List.set
    */
-  public void set(int index, E value, Location loc) throws EvalException {
-    checkMutable(loc);
+  public void set(int index, E value, Location unused) throws EvalException {
+    Starlark.checkMutable(this);
     elems[index] = value;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "append",
       doc = "Adds an item to the end of the list.",
       parameters = {
@@ -356,13 +376,13 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
       })
   @SuppressWarnings("unchecked")
   public NoneType append(Object item) throws EvalException {
-    add((E) item, /*loc=*/ null); // unchecked
+    add((E) item, (Location) null); // unchecked
     return Starlark.NONE;
   }
 
-  @SkylarkCallable(name = "clear", doc = "Removes all the elements of the list.")
+  @StarlarkMethod(name = "clear", doc = "Removes all the elements of the list.")
   public NoneType clearMethod() throws EvalException {
-    checkMutable(/*loc=*/ null);
+    Starlark.checkMutable(this);
     for (int i = 0; i < size; i++) {
       elems[i] = null; // aid GC
     }
@@ -370,7 +390,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
     return Starlark.NONE;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "insert",
       doc = "Inserts an item at a given position.",
       parameters = {
@@ -379,11 +399,11 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
       })
   @SuppressWarnings("unchecked")
   public NoneType insert(Integer index, Object item) throws EvalException {
-    add(EvalUtils.clampRangeEndpoint(index, size), (E) item, /*loc=*/ null); // unchecked
+    add(EvalUtils.toIndex(index, size), (E) item, (Location) null); // unchecked
     return Starlark.NONE;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "extend",
       doc = "Adds all items to the end of the list.",
       parameters = {@Param(name = "items", type = Object.class, doc = "Items to add at the end.")})
@@ -394,7 +414,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
     return Starlark.NONE;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "index",
       doc =
           "Returns the index in the list of the first item whose value is x. "
@@ -405,20 +425,20 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
             name = "start",
             type = Integer.class,
             defaultValue = "None",
-            noneable = true,
+            noneable = true, // TODO(adonovan): this is wrong
             named = true,
             doc = "The start index of the list portion to inspect."),
         @Param(
             name = "end",
             type = Integer.class,
             defaultValue = "None",
-            noneable = true,
+            noneable = true, // TODO(adonovan): this is wrong
             named = true,
             doc = "The end index of the list portion to inspect.")
       })
   public Integer index(Object x, Object start, Object end) throws EvalException {
-    int i = start == Starlark.NONE ? 0 : EvalUtils.clampRangeEndpoint((Integer) start, size);
-    int j = end == Starlark.NONE ? size : EvalUtils.clampRangeEndpoint((Integer) end, size);
+    int i = start == Starlark.NONE ? 0 : EvalUtils.toIndex((Integer) start, size);
+    int j = end == Starlark.NONE ? size : EvalUtils.toIndex((Integer) end, size);
     for (; i < j; i++) {
       if (elems[i].equals(x)) {
         return i;
@@ -427,7 +447,7 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
     throw Starlark.errorf("item %s not found in list", Starlark.repr(x));
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "pop",
       doc =
           "Removes the item at the given position in the list, and returns it. "
@@ -437,15 +457,15 @@ public final class StarlarkList<E> extends AbstractList<E> implements Sequence<E
         @Param(
             name = "i",
             type = Integer.class,
-            noneable = true,
-            defaultValue = "None",
+            noneable = true, // TODO(adonovan): this is wrong
+            defaultValue = "-1",
             doc = "The index of the item.")
       })
   public Object pop(Object i) throws EvalException {
     int arg = i == Starlark.NONE ? -1 : (Integer) i;
-    int index = EvalUtils.getSequenceIndex(arg, size, /*loc=*/ null);
+    int index = EvalUtils.getSequenceIndex(arg, size);
     Object result = elems[index];
-    remove(index, /*loc=*/ null);
+    remove(index, (Location) null);
     return result;
   }
 }

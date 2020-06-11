@@ -22,8 +22,8 @@ import org.objectweb.asm.Opcodes;
 
 /**
  * Visitor that renames emulated interfaces and marks classes that extend emulated interfaces to
- * also implement the renamed interfaces.  {@link DefaultMethodClassFixer} makes sure the requisite
- * methods are present in all classes implementing the renamed interface.  Doing this helps with
+ * also implement the renamed interfaces. {@link DefaultMethodClassFixer} makes sure the requisite
+ * methods are present in all classes implementing the renamed interface. Doing this helps with
  * dynamic dispatch on emulated interfaces.
  */
 public class EmulatedInterfaceRewriter extends ClassVisitor {
@@ -33,7 +33,7 @@ public class EmulatedInterfaceRewriter extends ClassVisitor {
   private final CoreLibrarySupport support;
 
   public EmulatedInterfaceRewriter(ClassVisitor dest, CoreLibrarySupport support) {
-    super(Opcodes.ASM7, dest);
+    super(Opcodes.ASM8, dest);
     this.support = support;
   }
 

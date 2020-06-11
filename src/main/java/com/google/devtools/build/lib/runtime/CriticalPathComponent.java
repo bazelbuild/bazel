@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
+import com.google.devtools.build.lib.actions.AggregatedSpawnMetrics;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -54,6 +54,10 @@ public class CriticalPathComponent {
     return (startNanos) -> nowInMillis - TimeUnit.NANOSECONDS.toMillis((nowInNanos - startNanos));
   }
 
+  /** Empty metrics used to simplify handling of {@link #phaseMaxMetrics}. */
+  private static final SpawnMetrics EMPTY_PLACEHOLDER_METRICS =
+      SpawnMetrics.Builder.forOtherExec().build();
+
   // These two fields are values of BlazeClock.nanoTime() at the relevant points in time.
   private long startNanos;
   private long finishNanos = 0;
@@ -66,9 +70,9 @@ public class CriticalPathComponent {
   private final Artifact primaryOutput;
 
   /** Spawn metrics for this action. */
-  private SpawnMetrics phaseMaxMetrics = SpawnMetrics.EMPTY;
+  private SpawnMetrics phaseMaxMetrics = EMPTY_PLACEHOLDER_METRICS;
 
-  private SpawnMetrics totalSpawnMetrics = SpawnMetrics.EMPTY;
+  private AggregatedSpawnMetrics totalSpawnMetrics = AggregatedSpawnMetrics.EMPTY;
   private Duration longestRunningTotalDuration = Duration.ZERO;
   private boolean phaseChange;
 
@@ -79,6 +83,9 @@ public class CriticalPathComponent {
 
   /** Child with the maximum critical path. */
   @Nullable private CriticalPathComponent child;
+
+  /** Indication that there is at least one remote spawn metrics received. */
+  private boolean remote = false;
 
   public CriticalPathComponent(int id, Action action, long startNanos) {
     this.id = id;
@@ -121,11 +128,9 @@ public class CriticalPathComponent {
     }
 
     // If the phaseMaxMetrics has Duration, then we want to aggregate it to the total.
-    if (!this.phaseMaxMetrics.totalTime().isZero()) {
-      this.totalSpawnMetrics =
-          SpawnMetrics.aggregateMetrics(
-              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
-      this.phaseMaxMetrics = SpawnMetrics.EMPTY;
+    if (!this.phaseMaxMetrics.isEmpty()) {
+      this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
+      this.phaseMaxMetrics = EMPTY_PLACEHOLDER_METRICS;
     }
   }
 
@@ -188,11 +193,17 @@ public class CriticalPathComponent {
    * the longestPhaseSpawnRunnerName to the longest running spawn runner name across all phases if
    * it exists.
    */
-  void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName) {
+  void addSpawnResult(SpawnMetrics metrics, @Nullable String runnerName, boolean wasRemote) {
+    // Mark this component as having remote components if _any_ spawn result contributing
+    // to it contains meaningful remote metrics. Subsequent non-remote spawns in an action
+    // must not reset this flag.
+    if (wasRemote) {
+      this.remote = true;
+    }
     if (this.phaseChange) {
-      this.totalSpawnMetrics =
-          SpawnMetrics.aggregateMetrics(
-              ImmutableList.of(this.totalSpawnMetrics, this.phaseMaxMetrics), true);
+      if (!this.phaseMaxMetrics.isEmpty()) {
+        this.totalSpawnMetrics = this.totalSpawnMetrics.sumDurationsMaxOther(phaseMaxMetrics);
+      }
       this.phaseMaxMetrics = metrics;
       this.phaseChange = false;
     } else if (metrics.totalTime().compareTo(this.phaseMaxMetrics.totalTime()) > 0) {
@@ -214,7 +225,7 @@ public class CriticalPathComponent {
    * Returns total spawn metrics of the maximum (longest running) spawn metrics of all phases for
    * the execution of the action.
    */
-  public SpawnMetrics getSpawnMetrics() {
+  public AggregatedSpawnMetrics getSpawnMetrics() {
     return totalSpawnMetrics;
   }
 
@@ -279,7 +290,8 @@ public class CriticalPathComponent {
   }
 
   private long getElapsedTimeNanosNoCheck() {
-    return finishNanos - startNanos;
+    // The delta value may be negative, see note in {@link Clock#nanoTime}.
+    return Math.max(0, finishNanos - startNanos);
   }
 
   /**
@@ -320,11 +332,12 @@ public class CriticalPathComponent {
       currentTime = String.format("%.2f", getElapsedTimeNoCheck().toMillis() / 1000.0) + "s";
     }
     sb.append(currentTime);
-    sb.append(", Remote ");
-    sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
+    if (remote) {
+      sb.append(", ");
+      sb.append(getSpawnMetrics().toString(getElapsedTimeNoCheck(), /* summary= */ false));
+    }
     sb.append(" ");
     sb.append(getActionString());
     return sb.toString();
   }
 }
-

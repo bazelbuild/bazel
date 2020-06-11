@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.ExecutionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -145,7 +145,14 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         .addFilesToRun(extraFilesToRun)
         .addNativeDeclaredProvider(new ExecutionInfo(executionInfo))
         .addNativeDeclaredProvider(new AndroidDeviceBrokerInfo(DEVICE_BROKER_TYPE))
-        .addNativeDeclaredProvider(new AndroidDex2OatInfo(dex2OatEnabled))
+        .addNativeDeclaredProvider(
+            new AndroidDex2OatInfo(
+                dex2OatEnabled,
+                false /* executeDex2OatOnHost */,
+                null /* deviceForPregeneratingOatFilesForTests */,
+                null /* framework */,
+                null /* dalvikCache */,
+                null /* deviceProps */))
         .build();
   }
 
@@ -205,22 +212,25 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
 
       defaultProperties =
           Optional.fromNullable(
-              ruleContext.getPrerequisiteArtifact("default_properties", Mode.HOST));
-      adb = ruleContext.getPrerequisiteArtifact("$adb", Mode.HOST);
-      emulatorArm = ruleContext.getPrerequisiteArtifact("$emulator_arm", Mode.HOST);
-      emulatorX86 = ruleContext.getPrerequisiteArtifact("$emulator_x86", Mode.HOST);
-      adbStatic = ruleContext.getPrerequisiteArtifact("$adb_static", Mode.HOST);
+              ruleContext.getPrerequisiteArtifact("default_properties", TransitionMode.HOST));
+      adb = ruleContext.getPrerequisiteArtifact("$adb", TransitionMode.HOST);
+      emulatorArm = ruleContext.getPrerequisiteArtifact("$emulator_arm", TransitionMode.HOST);
+      emulatorX86 = ruleContext.getPrerequisiteArtifact("$emulator_x86", TransitionMode.HOST);
+      adbStatic = ruleContext.getPrerequisiteArtifact("$adb_static", TransitionMode.HOST);
       emulatorX86Bios =
-          ruleContext.getPrerequisiteArtifacts("$emulator_x86_bios", Mode.HOST).list();
-      xvfbSupportFiles = ruleContext.getPrerequisiteArtifacts("$xvfb_support", Mode.HOST).list();
-      mksdcard = ruleContext.getPrerequisiteArtifact("$mksd", Mode.HOST);
-      snapshotFs = ruleContext.getPrerequisiteArtifact("$empty_snapshot_fs", Mode.HOST);
-      unifiedLauncher = ruleContext.getExecutablePrerequisite("$unified_launcher", Mode.HOST);
+          ruleContext.getPrerequisiteArtifacts("$emulator_x86_bios", TransitionMode.HOST).list();
+      xvfbSupportFiles =
+          ruleContext.getPrerequisiteArtifacts("$xvfb_support", TransitionMode.HOST).list();
+      mksdcard = ruleContext.getPrerequisiteArtifact("$mksd", TransitionMode.HOST);
+      snapshotFs = ruleContext.getPrerequisiteArtifact("$empty_snapshot_fs", TransitionMode.HOST);
+      unifiedLauncher =
+          ruleContext.getExecutablePrerequisite("$unified_launcher", TransitionMode.HOST);
       androidRuntestDeps =
-          ruleContext.getPrerequisiteArtifacts("$android_runtest", Mode.HOST).list();
+          ruleContext.getPrerequisiteArtifacts("$android_runtest", TransitionMode.HOST).list();
       androidRuntest =
           androidRuntestDeps.stream().filter(Artifact::isSourceArtifact).collect(onlyElement());
-      testingShbaseDeps = ruleContext.getPrerequisiteArtifacts("$testing_shbase", Mode.HOST).list();
+      testingShbaseDeps =
+          ruleContext.getPrerequisiteArtifacts("$testing_shbase", TransitionMode.HOST).list();
       testingShbase =
           testingShbaseDeps
               .stream()
@@ -229,11 +239,12 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
               .collect(onlyElement());
 
       // may be empty
-      platformApks = ruleContext.getPrerequisiteArtifacts("platform_apks", Mode.TARGET).list();
-      sdkPath = ruleContext.getPrerequisiteArtifact("$sdk_path", Mode.HOST);
+      platformApks =
+          ruleContext.getPrerequisiteArtifacts("platform_apks", TransitionMode.TARGET).list();
+      sdkPath = ruleContext.getPrerequisiteArtifact("$sdk_path", TransitionMode.HOST);
 
       TransitiveInfoCollection systemImagesAndSourceProperties =
-          ruleContext.getPrerequisite("system_image", Mode.TARGET);
+          ruleContext.getPrerequisite("system_image", TransitionMode.TARGET);
       if (ruleContext.hasErrors()) {
         return;
       }

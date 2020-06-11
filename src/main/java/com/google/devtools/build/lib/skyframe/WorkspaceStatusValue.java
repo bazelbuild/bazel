@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * Value that stores the workspace status artifacts and their generating action. There should be
@@ -51,7 +50,7 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
     return volatileArtifact;
   }
 
-  /** {@link SkyKey} for {@link WorkspaceStatusValue}. */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link WorkspaceStatusValue}. */
   public static class BuildInfoKey extends ActionLookupKey {
     private BuildInfoKey() {}
 

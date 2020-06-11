@@ -71,7 +71,10 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
   @Test
   public void testToolchainTypeLookup() throws Exception {
     ConfiguredTargetKey testToolchainTypeKey =
-        ConfiguredTargetKey.of(testToolchainTypeLabel, targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(testToolchainTypeLabel)
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetToolchainTypeInfoKey key =
         GetToolchainTypeInfoKey.create(ImmutableList.of(testToolchainTypeKey));
 
@@ -91,7 +94,10 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
         "alias/BUILD", "alias(name = 'toolchain_type', actual = '" + testToolchainTypeLabel + "')");
     Label aliasToolchainTypeLabel = makeLabel("//alias:toolchain_type");
     ConfiguredTargetKey testToolchainTypeKey =
-        ConfiguredTargetKey.of(aliasToolchainTypeLabel, targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(aliasToolchainTypeLabel)
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetToolchainTypeInfoKey key =
         GetToolchainTypeInfoKey.create(ImmutableList.of(testToolchainTypeKey));
 
@@ -115,7 +121,10 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_toolchain_type')");
 
     ConfiguredTargetKey targetKey =
-        ConfiguredTargetKey.of(makeLabel("//invalid:not_a_toolchain_type"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//invalid:not_a_toolchain_type"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetToolchainTypeInfoKey key = GetToolchainTypeInfoKey.create(ImmutableList.of(targetKey));
 
     EvaluationResult<GetToolchainTypeInfoValue> result = getToolchainTypeInfo(key);
@@ -135,7 +144,10 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
   @Test
   public void testToolchainTypeLookup_targetDoesNotExist() throws Exception {
     ConfiguredTargetKey targetKey =
-        ConfiguredTargetKey.of(makeLabel("//fake:missing"), targetConfigKey, false);
+        ConfiguredTargetKey.builder()
+            .setLabel(makeLabel("//fake:missing"))
+            .setConfigurationKey(targetConfigKey)
+            .build();
     GetToolchainTypeInfoKey key = GetToolchainTypeInfoKey.create(ImmutableList.of(targetKey));
 
     EvaluationResult<GetToolchainTypeInfoValue> result = getToolchainTypeInfo(key);

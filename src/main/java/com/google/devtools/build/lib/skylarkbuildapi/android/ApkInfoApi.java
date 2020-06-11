@@ -13,33 +13,32 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A provider for targets that produce an apk file. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "ApkInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "APKs provided by a rule",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
 
   /** Name of this info object. */
   String NAME = "ApkInfo";
 
   /** Returns the APK file built in the transitive closure. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "signed_apk",
       doc = "Returns a signed APK built from the target.",
       documented = false,
@@ -47,7 +46,7 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
   FileT getApk();
 
   /** Returns the unsigned APK file built in the transitive closure. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "unsigned_apk",
       doc = "Returns a unsigned APK built from the target.",
       documented = false,
@@ -55,7 +54,7 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
   FileT getUnsignedApk();
 
   /** Returns the coverage metadata artifact generated in the transitive closure. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "coverage_metadata",
       doc = "Returns the coverage metadata artifact generated in the transitive closure.",
       documented = false,
@@ -64,7 +63,7 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
   FileT getCoverageMetadata();
 
   /** Returns keystore that was used to sign the APK */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "keystore",
       doc = "Returns a keystore that was used to sign the APK.",
       documented = false,
@@ -72,7 +71,7 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
   FileT getKeystore();
 
   /** Provider for {@link ApkInfoApi}. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "ApkInfoApiProvider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -80,13 +79,13 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       documented = false)
   interface ApkInfoApiProvider extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "ApkInfo",
-        // This is left undocumented as it throws a "not-implemented in Skylark" error when invoked.
+        // This is left undocumented as it throws a "not-implemented in Starlark" error when
+        // invoked.
         documented = false,
         extraKeywords = @Param(name = "kwargs"),
-        useLocation = true,
         selfCall = true)
-    ApkInfoApi<?> createInfo(Dict<String, Object> kwargs, Location loc) throws EvalException;
+    ApkInfoApi<?> createInfo(Dict<String, Object> kwargs) throws EvalException;
   }
 }

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /**
@@ -110,4 +111,14 @@ public class AnalysisOptions extends OptionsBase {
     help = "Switches analysis preparation to a new code path based on Skyframe."
   )
   public boolean skyframePrepareAnalysis;
+
+  @Option(
+      name = "experimental_strict_conflict_checks",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help =
+          "Check for action prefix file path conflicts, regardless of action-specific overrides.")
+  public boolean strictConflictChecks;
 }

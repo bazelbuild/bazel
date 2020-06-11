@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.filegroup;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 
 import com.google.devtools.build.lib.actions.Actions;
@@ -29,8 +30,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -55,7 +57,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     String outputGroupName = ruleContext.attributes().get("output_group", Type.STRING);
-
+    BuildConfiguration configuration = checkNotNull(ruleContext.getConfiguration());
     if (outputGroupName.endsWith(INTERNAL_SUFFIX)) {
       ruleContext.throwWithAttributeError(
           "output_group", String.format(ILLEGAL_OUTPUT_GROUP_ERROR, outputGroupName));
@@ -63,13 +65,9 @@ public class Filegroup implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild =
         outputGroupName.isEmpty()
-            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", Mode.TARGET)
+            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs", TransitionMode.TARGET)
             : getArtifactsForOutputGroup(
-                outputGroupName, ruleContext.getPrerequisites("srcs", Mode.TARGET));
-
-    NestedSet<Artifact> middleman =
-        CompilationHelper.getAggregatingMiddleman(
-            ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild);
+                outputGroupName, ruleContext.getPrerequisites("srcs", TransitionMode.TARGET));
 
     InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.collectTransitive(
@@ -78,27 +76,37 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
-    RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
-            .build(),
-        // If you're visiting a filegroup as data, then we also visit its data as data.
-        new Runfiles.Builder(
-            ruleContext.getWorkspaceName(),
-            ruleContext.getConfiguration().legacyExternalRunfiles())
-            .addTransitiveArtifacts(filesToBuild)
-            .addDataDeps(ruleContext).build());
+    RunfilesProvider runfilesProvider =
+        RunfilesProvider.withData(
+            new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
+                .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+                .build(),
+            // If you're visiting a filegroup as data, then we also visit its data as data.
+            new Runfiles.Builder(
+                    ruleContext.getWorkspaceName(), configuration.legacyExternalRunfiles())
+                .addTransitiveArtifacts(filesToBuild)
+                .addDataDeps(ruleContext)
+                .build());
 
-    return new RuleConfiguredTargetBuilder(ruleContext)
-        .add(RunfilesProvider.class, runfilesProvider)
-        .setFilesToBuild(filesToBuild)
-        .setRunfilesSupport(null, getExecutable(filesToBuild))
-        .addNativeDeclaredProvider(instrumentedFilesProvider)
-        .add(MiddlemanProvider.class, new MiddlemanProvider(middleman))
-        .add(FilegroupPathProvider.class, new FilegroupPathProvider(getFilegroupPath(ruleContext)))
-        .build();
+    RuleConfiguredTargetBuilder builder =
+        new RuleConfiguredTargetBuilder(ruleContext)
+            .addProvider(RunfilesProvider.class, runfilesProvider)
+            .setFilesToBuild(filesToBuild)
+            .setRunfilesSupport(null, getExecutable(filesToBuild))
+            .addNativeDeclaredProvider(instrumentedFilesProvider)
+            .addProvider(
+                FilegroupPathProvider.class,
+                new FilegroupPathProvider(getFilegroupPath(ruleContext)));
+
+    if (configuration.enableAggregatingMiddleman()) {
+      builder.addProvider(
+          MiddlemanProvider.class,
+          new MiddlemanProvider(
+              CompilationHelper.getAggregatingMiddleman(
+                  ruleContext, Actions.escapeLabel(ruleContext.getLabel()), filesToBuild)));
+    }
+    return builder.build();
   }
 
   /**

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.devtools.build.lib.buildtool.BuildRequest;
-import com.google.devtools.build.lib.exec.ExecutorBuilder;
+import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnCache;
 
 /**
@@ -23,7 +23,10 @@ import com.google.devtools.build.lib.exec.SpawnCache;
 public final class NoSpawnCacheModule extends BlazeModule {
 
   @Override
-  public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
-    builder.addActionContext(SpawnCache.NO_CACHE);
+  public void registerActionContexts(
+      ModuleActionContextRegistry.Builder registryBuilder,
+      CommandEnvironment env,
+      BuildRequest buildRequest) {
+    registryBuilder.register(SpawnCache.class, SpawnCache.NO_CACHE, "no-cache");
   }
 }

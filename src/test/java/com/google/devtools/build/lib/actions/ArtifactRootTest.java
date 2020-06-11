@@ -14,13 +14,20 @@
 package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,7 +57,7 @@ public class ArtifactRootTest {
   public void testAsDerivedRoot() throws IOException {
     Path execRoot = scratch.dir("/exec");
     Path rootDir = scratch.dir("/exec/root");
-    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, rootDir);
+    ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, "root");
     assertThat(root.isSourceRoot()).isFalse();
     assertThat(root.getExecPath()).isEqualTo(PathFragment.create("root"));
     assertThat(root.getRoot()).isEqualTo(Root.fromPath(rootDir));
@@ -58,18 +65,23 @@ public class ArtifactRootTest {
   }
 
   @Test
-  public void testBadAsDerivedRoot() throws IOException {
+  public void emptyExecPathNotOk() throws IOException {
     Path execRoot = scratch.dir("/exec");
-    Path outsideDir = scratch.dir("/not_exec");
-    assertThrows(
-        IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, outsideDir));
+    assertThrows(IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, ""));
   }
 
   @Test
-  public void testBadAsDerivedRootSameForBoth() throws IOException {
+  public void emptySegmentOk() throws IOException {
+    Path execRoot = scratch.dir("/exec");
+    assertThat(ArtifactRoot.asDerivedRoot(execRoot, "", "suffix", ""))
+        .isEqualTo(ArtifactRoot.asDerivedRoot(execRoot, "suffix"));
+  }
+
+  @Test
+  public void segmentsAreSingles() throws IOException {
     Path execRoot = scratch.dir("/exec");
     assertThrows(
-        IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, execRoot));
+        IllegalArgumentException.class, () -> ArtifactRoot.asDerivedRoot(execRoot, "suffix/"));
   }
 
   @Test
@@ -79,25 +91,49 @@ public class ArtifactRootTest {
   }
 
   @Test
-  public void testBadAsDerivedRootNullExecRoot() throws IOException {
-    Path execRoot = scratch.dir("/exec");
-    assertThrows(NullPointerException.class, () -> ArtifactRoot.asDerivedRoot(null, execRoot));
+  public void testBadAsDerivedRootNullExecRoot() {
+    assertThrows(NullPointerException.class, () -> ArtifactRoot.asDerivedRoot(null, "exec"));
+  }
+
+  @Test
+  public void derivedSerialization() throws IOException, SerializationException {
+    Path execRoot = scratch.dir("/thisisaveryverylongexecrootthatwedontwanttoserialize");
+    ArtifactRoot derivedRoot = ArtifactRoot.asDerivedRoot(execRoot, "first", "second", "third");
+    ObjectCodecRegistry registry = AutoRegistry.get();
+    ImmutableMap<Class<?>, Object> dependencies =
+        ImmutableMap.<Class<?>, Object>builder()
+            .put(FileSystem.class, scratch.getFileSystem())
+            .put(
+                Root.RootCodecDependencies.class,
+                new Root.RootCodecDependencies(/*likelyPopularRoot=*/ Root.fromPath(execRoot)))
+            .build();
+    ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
+    for (Object val : dependencies.values()) {
+      registryBuilder.addReferenceConstant(val);
+    }
+    ObjectCodecs objectCodecs = new ObjectCodecs(registryBuilder.build(), dependencies);
+    ByteString serialized = objectCodecs.serialize(derivedRoot);
+    // 30 bytes as of 2020/04/27.
+    assertThat(serialized.size()).isLessThan(31);
   }
 
   @Test
   public void testEquals() throws IOException {
     Path execRoot = scratch.dir("/exec");
-    Path rootDir = scratch.dir("/exec/root");
+    String rootSegment = "root";
+    Path rootDir = execRoot.getChild(rootSegment);
+    rootDir.createDirectoryAndParents();
     Path otherRootDir = scratch.dir("/");
     Path sourceDir = scratch.dir("/source");
-    ArtifactRoot rootA = ArtifactRoot.asDerivedRoot(execRoot, rootDir);
-    assertEqualsAndHashCode(true, rootA, ArtifactRoot.asDerivedRoot(execRoot, rootDir));
+    ArtifactRoot rootA = ArtifactRoot.asDerivedRoot(execRoot, rootSegment);
+    assertEqualsAndHashCode(true, rootA, ArtifactRoot.asDerivedRoot(execRoot, rootSegment));
     assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(Root.fromPath(sourceDir)));
     assertEqualsAndHashCode(false, rootA, ArtifactRoot.asSourceRoot(Root.fromPath(rootDir)));
-    assertEqualsAndHashCode(false, rootA, ArtifactRoot.asDerivedRoot(otherRootDir, rootDir));
+    assertEqualsAndHashCode(
+        false, rootA, ArtifactRoot.asDerivedRoot(otherRootDir, "exec", rootSegment));
   }
 
-  public void assertEqualsAndHashCode(boolean expected, Object a, Object b) {
+  private void assertEqualsAndHashCode(boolean expected, Object a, Object b) {
     if (expected) {
       new EqualsTester().addEqualityGroup(b, a).testEquals();
     } else {

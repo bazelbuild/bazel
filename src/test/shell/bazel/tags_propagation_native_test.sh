@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Tests target's tags propagation with rules defined in Skylark.
+# Tests target's tags propagation with rules defined in Starlark.
 # Tests for https://github.com/bazelbuild/bazel/issues/7766
 
 # Load the test setup defined in the parent directory

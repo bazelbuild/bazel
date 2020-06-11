@@ -45,7 +45,7 @@ public class BlazeCommandUtils {
           UiOptions.class,
           CommonCommandOptions.class,
           ClientOptions.class,
-          // Skylark options aren't applicable to all commands, but making them a common option
+          // Starlark options aren't applicable to all commands, but making them a common option
           // allows users to put them in the common section of the bazelrc. See issue #3538.
           StarlarkSemanticsOptions.class);
 

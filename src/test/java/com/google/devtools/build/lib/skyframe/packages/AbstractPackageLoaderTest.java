@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe.packages;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -59,7 +59,7 @@ public abstract class AbstractPackageLoaderTest {
   protected abstract AbstractPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir);
 
   private AbstractPackageLoader.Builder newPackageLoaderBuilder() {
-    return newPackageLoaderBuilder(root).useDefaultSkylarkSemantics().setReporter(reporter);
+    return newPackageLoaderBuilder(root).useDefaultStarlarkSemantics().setReporter(reporter);
   }
 
   protected PackageLoader newPackageLoader() {
@@ -137,7 +137,7 @@ public abstract class AbstractPackageLoaderTest {
   }
 
   @Test
-  public void simpleGoodPackage_Skylark() throws Exception {
+  public void simpleGoodPackage_Starlark() throws Exception {
     PackageLoader pkgLoader = newPackageLoader();
     file("good/good.bzl", "def f(x):", "  native.sh_library(name = x)");
     file("good/BUILD", "load('//good:good.bzl', 'f')", "f('good')");

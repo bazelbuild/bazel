@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_import")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
 
 licenses(["reciprocal"])  #  CDDL License
 
@@ -9,10 +9,11 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-java_import(
+distrib_java_import(
     name = "jaxb",
     jars = ["jaxb-api-2.3.1-patched.jar"],
     srcjar = "jaxb-api-2.3.1-sources.jar",
+    enable_distributions = ["debian"],
 )
 
 # Android databinding processing requires api, core, and impl, however

@@ -14,21 +14,26 @@
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
+import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
 import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
 import com.google.devtools.build.lib.server.CommandProtos.RunResponse;
 import com.google.devtools.build.lib.server.CommandServerGrpc.CommandServerStub;
+import com.google.devtools.build.lib.server.FailureDetails.Command;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.GrpcServer;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.server.GrpcServerImpl.BlockingStreamObserver;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
-import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -61,6 +66,7 @@ import org.junit.runners.JUnit4;
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class GrpcServerTest {
+
   private static final String REQUEST_COOKIE = "request-cookie";
 
   private final FileSystem fileSystem = new InMemoryFileSystem();
@@ -69,7 +75,7 @@ public class GrpcServerTest {
   private Server server;
   private ManagedChannel channel;
 
-  private void createServer(CommandDispatcher dispatcher) throws IOException {
+  private void createServer(CommandDispatcher dispatcher) throws Exception {
     serverDirectory = fileSystem.getPath("/bazel_server_directory");
     serverDirectory.createDirectoryAndParents();
     FileSystemUtils.writeContentAsLatin1(serverDirectory.getChild("server.pid.txt"), "12345");
@@ -117,7 +123,7 @@ public class GrpcServerTest {
               long firstContactTimeMillis,
               Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
             argsReceived.set(args);
-            return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+            return BlazeCommandResult.success();
           }
         };
     createServer(dispatcher);
@@ -125,24 +131,7 @@ public class GrpcServerTest {
     CountDownLatch done = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
-    stub.run(
-        createRequest("Foo"),
-        new StreamObserver<RunResponse>() {
-          @Override
-          public void onNext(RunResponse value) {
-            responses.add(value);
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            done.countDown();
-          }
-
-          @Override
-          public void onCompleted() {
-            done.countDown();
-          }
-        });
+    stub.run(createRequest("Foo"), createResponseObserver(responses, done));
     done.await();
     server.shutdown();
     server.awaitTermination();
@@ -155,6 +144,7 @@ public class GrpcServerTest {
     assertThat(responses.get(0).getCookie()).isNotEmpty();
     assertThat(responses.get(1).getFinished()).isTrue();
     assertThat(responses.get(1).getExitCode()).isEqualTo(0);
+    assertThat(responses.get(1).hasFailureDetail()).isFalse();
   }
 
   @Test
@@ -176,7 +166,10 @@ public class GrpcServerTest {
             }
             // The only way this can happen is if the current thread is interrupted.
             done.countDown();
-            return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+            return BlazeCommandResult.failureDetail(
+                FailureDetail.newBuilder()
+                    .setInterrupted(Interrupted.newBuilder().setCode(Code.INTERRUPTED_UNKNOWN))
+                    .build());
           }
         };
     createServer(dispatcher);
@@ -222,7 +215,7 @@ public class GrpcServerTest {
             } catch (IOException e) {
               throw new IllegalStateException(e);
             }
-            return BlazeCommandResult.exitCode(ExitCode.SUCCESS);
+            return BlazeCommandResult.success();
           }
         };
     createServer(dispatcher);
@@ -230,24 +223,7 @@ public class GrpcServerTest {
     CountDownLatch done = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     List<RunResponse> responses = new ArrayList<>();
-    stub.run(
-        createRequest("Foo"),
-        new StreamObserver<RunResponse>() {
-          @Override
-          public void onNext(RunResponse value) {
-            responses.add(value);
-          }
-
-          @Override
-          public void onError(Throwable t) {
-            done.countDown();
-          }
-
-          @Override
-          public void onCompleted() {
-            done.countDown();
-          }
-        });
+    stub.run(createRequest("Foo"), createResponseObserver(responses, done));
     done.await();
     server.shutdown();
     server.awaitTermination();
@@ -261,6 +237,82 @@ public class GrpcServerTest {
     }
     assertThat(responses.get(11).getFinished()).isTrue();
     assertThat(responses.get(11).getExitCode()).isEqualTo(0);
+    assertThat(responses.get(11).hasFailureDetail()).isFalse();
+  }
+
+  @Test
+  public void badCookie() throws Exception {
+    runBadCommandTest(
+        RunRequest.newBuilder().setCookie("bad-cookie").setClientDescription("client-description"),
+        FailureDetail.newBuilder()
+            .setMessage("Invalid RunRequest: bad cookie")
+            .setGrpcServer(GrpcServer.newBuilder().setCode(GrpcServer.Code.BAD_COOKIE))
+            .build());
+  }
+
+  @Test
+  public void emptyClientDescription() throws Exception {
+    runBadCommandTest(
+        RunRequest.newBuilder().setCookie(REQUEST_COOKIE).setClientDescription(""),
+        FailureDetail.newBuilder()
+            .setMessage("Invalid RunRequest: no client description")
+            .setGrpcServer(GrpcServer.newBuilder().setCode(GrpcServer.Code.NO_CLIENT_DESCRIPTION))
+            .build());
+  }
+
+  private void runBadCommandTest(RunRequest.Builder runRequestBuilder, FailureDetail failureDetail)
+      throws Exception {
+    createServer(GrpcServerTest::unexpectedCommandExec);
+    CountDownLatch done = new CountDownLatch(1);
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    List<RunResponse> responses = new ArrayList<>();
+
+    stub.run(
+        runRequestBuilder.addArg(ByteString.copyFromUtf8("Foo")).build(),
+        createResponseObserver(responses, done));
+    done.await();
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(responses).hasSize(1);
+    assertThat(responses.get(0).getFinished()).isTrue();
+    assertThat(responses.get(0).getExitCode()).isEqualTo(36);
+    assertThat(responses.get(0).hasFailureDetail()).isTrue();
+    assertThat(responses.get(0).getFailureDetail()).isEqualTo(failureDetail);
+  }
+
+  @Test
+  public void unparseableInvocationPolicy() throws Exception {
+    createServer(GrpcServerTest::unexpectedCommandExec);
+    CountDownLatch done = new CountDownLatch(1);
+    CommandServerStub stub = CommandServerGrpc.newStub(channel);
+    List<RunResponse> responses = new ArrayList<>();
+
+    stub.run(
+        RunRequest.newBuilder()
+            .setCookie(REQUEST_COOKIE)
+            .setClientDescription("client-description")
+            .setInvocationPolicy("invalid-invocation-policy")
+            .addArg(ByteString.copyFromUtf8("Foo"))
+            .build(),
+        createResponseObserver(responses, done));
+    done.await();
+    server.shutdown();
+    server.awaitTermination();
+
+    assertThat(responses).hasSize(3);
+    assertThat(responses.get(2).getFinished()).isTrue();
+    assertThat(responses.get(2).getExitCode()).isEqualTo(2);
+    assertThat(responses.get(2).hasFailureDetail()).isTrue();
+    assertThat(responses.get(2).getFailureDetail())
+        .isEqualTo(
+            FailureDetail.newBuilder()
+                .setMessage(
+                    "Invocation policy parsing failed: Malformed value of --invocation_policy: "
+                        + "invalid-invocation-policy")
+                .setCommand(
+                    Command.newBuilder().setCode(Command.Code.INVOCATION_POLICY_PARSE_FAILURE))
+                .build());
   }
 
   @Test
@@ -281,7 +333,11 @@ public class GrpcServerTest {
             try {
               while (true) {
                 if (Thread.interrupted()) {
-                  return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+                  return BlazeCommandResult.failureDetail(
+                      FailureDetail.newBuilder()
+                          .setInterrupted(
+                              Interrupted.newBuilder().setCode(Code.INTERRUPTED_UNKNOWN))
+                          .build());
                 }
                 out.write(new byte[1024]);
               }
@@ -321,7 +377,6 @@ public class GrpcServerTest {
 
   @Test
   public void testCancel() throws Exception {
-    CountDownLatch done = new CountDownLatch(1);
     CommandDispatcher dispatcher =
         new CommandDispatcher() {
           @Override
@@ -332,30 +387,34 @@ public class GrpcServerTest {
               LockingMode lockingMode,
               String clientDescription,
               long firstContactTimeMillis,
-              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+              Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc)
+              throws InterruptedException {
             synchronized (this) {
-              try {
-                this.wait();
-              } catch (InterruptedException expected) {
-                // Expected
-              }
+              this.wait();
             }
-            done.countDown();
-            return BlazeCommandResult.exitCode(ExitCode.INTERRUPTED);
+            // Interruption expected before this is reached.
+            throw new IllegalStateException();
           }
         };
     createServer(dispatcher);
 
     AtomicReference<String> commandId = new AtomicReference<>();
-    CountDownLatch inResponse = new CountDownLatch(1);
+    CountDownLatch gotCommandId = new CountDownLatch(1);
+    AtomicReference<RunResponse> secondResponse = new AtomicReference<>();
+    CountDownLatch gotSecondResponse = new CountDownLatch(1);
     CommandServerStub stub = CommandServerGrpc.newStub(channel);
     stub.run(
         createRequest("Foo"),
         new StreamObserver<RunResponse>() {
           @Override
           public void onNext(RunResponse value) {
-            commandId.set(value.getCommandId());
-            inResponse.countDown();
+            String previousCommandId = commandId.getAndSet(value.getCommandId());
+            if (previousCommandId == null) {
+              gotCommandId.countDown();
+            } else {
+              secondResponse.set(value);
+              gotSecondResponse.countDown();
+            }
           }
 
           @Override
@@ -365,7 +424,7 @@ public class GrpcServerTest {
           public void onCompleted() {}
         });
     // Wait until we've got the command id.
-    inResponse.await();
+    gotCommandId.await();
 
     CountDownLatch cancelRequestComplete = new CountDownLatch(1);
     CancelRequest cancelRequest =
@@ -385,9 +444,16 @@ public class GrpcServerTest {
           }
         });
     cancelRequestComplete.await();
-    done.await();
+    gotSecondResponse.await();
     server.shutdown();
     server.awaitTermination();
+
+    assertThat(secondResponse.get().getFinished()).isTrue();
+    assertThat(secondResponse.get().getExitCode()).isEqualTo(8);
+    assertThat(secondResponse.get().hasFailureDetail()).isTrue();
+    assertThat(secondResponse.get().getFailureDetail().hasInterrupted()).isTrue();
+    assertThat(secondResponse.get().getFailureDetail().getInterrupted().getCode())
+        .isEqualTo(Code.COMMAND_DISPATCH);
   }
 
   @Test
@@ -662,5 +728,36 @@ public class GrpcServerTest {
     assertThat(sentCount.get()).isEqualTo(receiveCount.get());
     server.shutdown();
     server.awaitTermination();
+  }
+
+  private static StreamObserver<RunResponse> createResponseObserver(
+      List<RunResponse> responses, CountDownLatch done) {
+    return new StreamObserver<RunResponse>() {
+      @Override
+      public void onNext(RunResponse value) {
+        responses.add(value);
+      }
+
+      @Override
+      public void onError(Throwable t) {
+        done.countDown();
+      }
+
+      @Override
+      public void onCompleted() {
+        done.countDown();
+      }
+    };
+  }
+
+  private static BlazeCommandResult unexpectedCommandExec(
+      InvocationPolicy invocationPolicy,
+      List<String> args,
+      OutErr outErr,
+      LockingMode lockingMode,
+      String clientDescription,
+      long firstContactTimeMillis,
+      Optional<List<Pair<String, String>>> startupOptionsTaggedWithBazelRc) {
+    throw new IllegalStateException("Command exec not expected");
   }
 }

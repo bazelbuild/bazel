@@ -172,6 +172,14 @@ public class CommonQueryOptions extends OptionsBase {
       help = "Whether or not to populate the rule_input and rule_output fields.")
   public boolean protoIncludeRuleInputsAndOutputs;
 
+  @Option(
+      name = "proto:include_synthetic_attribute_hash",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help = "Whether or not to calculate and populate the $internal_attr_hash attribute.")
+  public boolean protoIncludeSyntheticAttributeHash;
+
   /** An enum converter for {@code AspectResolver.Mode} . Should be used internally only. */
   public static class AspectResolutionModeConverter extends EnumConverter<Mode> {
     public AspectResolutionModeConverter() {

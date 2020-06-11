@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -96,19 +95,10 @@ public class ActionGraphQueryEnvironment
         walkableGraphSupplier,
         settings);
     this.configuredTargetKeyExtractor =
-        configuredTargetValue -> {
-          try {
-            ConfiguredTarget element = configuredTargetValue.getConfiguredTarget();
-            return ConfiguredTargetKey.of(
-                element,
-                element.getConfigurationKey() == null
-                    ? null
-                    : ((BuildConfigurationValue) graph.getValue(element.getConfigurationKey()))
-                        .getConfiguration());
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected in configured query", e);
-          }
-        };
+        configuredTargetValue ->
+            ConfiguredTargetKey.builder()
+                .setConfiguredTarget(configuredTargetValue.getConfiguredTarget())
+                .build();
     this.accessor =
         new ConfiguredTargetValueAccessor(
             walkableGraphSupplier.get(), this.configuredTargetKeyExtractor);
@@ -231,16 +221,15 @@ public class ActionGraphQueryEnvironment
   @Override
   public Label getCorrectLabel(ConfiguredTargetValue configuredTargetValue) {
     ConfiguredTarget target = configuredTargetValue.getConfiguredTarget();
-    if (target instanceof AliasConfiguredTarget) {
-      return ((AliasConfiguredTarget) target).getOriginalLabel();
-    }
-    return target.getLabel();
+    // Dereference any aliases that might be present.
+    return target.getOriginalLabel();
   }
 
   @Nullable
   @Override
   protected ConfiguredTargetValue getHostConfiguredTarget(Label label) throws InterruptedException {
-    return this.getConfiguredTargetValue(ConfiguredTargetValue.key(label, hostConfiguration));
+    return this.getConfiguredTargetValue(
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(hostConfiguration).build());
   }
 
   @Nullable
@@ -249,12 +238,19 @@ public class ActionGraphQueryEnvironment
       throws InterruptedException {
     if (topLevelConfigurations.isTopLevelTarget(label)) {
       return this.getConfiguredTargetValue(
-          ConfiguredTargetValue.key(
-              label, topLevelConfigurations.getConfigurationForTopLevelTarget(label)));
+          ConfiguredTargetKey.builder()
+              .setLabel(label)
+              .setConfiguration(topLevelConfigurations.getConfigurationForTopLevelTarget(label))
+              .build());
     } else {
       ConfiguredTargetValue toReturn;
       for (BuildConfiguration configuration : topLevelConfigurations.getConfigurations()) {
-        toReturn = this.getConfiguredTargetValue(ConfiguredTargetValue.key(label, configuration));
+        toReturn =
+            this.getConfiguredTargetValue(
+                ConfiguredTargetKey.builder()
+                    .setLabel(label)
+                    .setConfiguration(configuration)
+                    .build());
         if (toReturn != null) {
           return toReturn;
         }
@@ -266,8 +262,7 @@ public class ActionGraphQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTargetValue getNullConfiguredTarget(Label label) throws InterruptedException {
-    return this.getConfiguredTargetValue(
-        ConfiguredTargetValue.key(label, /* configuration= */ null));
+    return this.getConfiguredTargetValue(ConfiguredTargetKey.builder().setLabel(label).build());
   }
 
   @Nullable
@@ -304,7 +299,10 @@ public class ActionGraphQueryEnvironment
   @Override
   protected ConfiguredTargetKey getSkyKey(ConfiguredTargetValue configuredTargetValue) {
     ConfiguredTarget target = configuredTargetValue.getConfiguredTarget();
-    return ConfiguredTargetKey.of(target, getConfiguration(configuredTargetValue));
+    return ConfiguredTargetKey.builder()
+        .setConfiguredTarget(target)
+        .setConfiguration(getConfiguration(configuredTargetValue))
+        .build();
   }
 
   @Override

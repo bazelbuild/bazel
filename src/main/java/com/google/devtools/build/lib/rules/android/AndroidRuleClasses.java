@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -47,7 +48,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
@@ -205,8 +206,8 @@ public final class AndroidRuleClasses {
 
   public static final String NOCOMPRESS_EXTENSIONS_ATTR = "nocompress_extensions";
 
-  public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_CC_INFO_PARAMS =
-      ImmutableList.of(SkylarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()));
+  public static final ImmutableList<StarlarkProviderIdentifier> CONTAINS_CC_INFO_PARAMS =
+      ImmutableList.of(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()));
 
   /** The default label of android_sdk option */
   public static LabelLateBoundDefault<?> getAndroidSdkLabel(Label androidSdk) {
@@ -219,6 +220,13 @@ public final class AndroidRuleClasses {
   @AutoCodec
   public static final AndroidSplitTransition ANDROID_SPLIT_TRANSITION =
       new AndroidSplitTransition();
+
+  @AutoCodec
+  static final LabelLateBoundDefault<AndroidConfiguration> LEGACY_MAIN_DEX_LIST_GENERATOR =
+      LabelLateBoundDefault.fromTargetConfiguration(
+          AndroidConfiguration.class,
+          null,
+          (rule, attributes, androidConfig) -> androidConfig.getLegacyMainDexListGenerator());
 
   /** Android Split configuration transition for properly handling native dependencies */
   public static final class AndroidSplitTransition
@@ -235,7 +243,8 @@ public final class AndroidRuleClasses {
     }
 
     @Override
-    public List<BuildOptions> split(BuildOptions buildOptions) {
+    public ImmutableMap<String, BuildOptions> split(
+        BuildOptions buildOptions, EventHandler eventHandler) {
 
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
@@ -247,19 +256,19 @@ public final class AndroidRuleClasses {
         if (androidOptions.cpu.isEmpty()
             || androidCrosstoolTop == null
             || androidCrosstoolTop.equals(cppOptions.crosstoolTop)) {
-          return ImmutableList.of(buildOptions);
+          return ImmutableMap.of(buildOptions.get(CoreOptions.class).cpu, buildOptions);
 
         } else {
 
           BuildOptions splitOptions = buildOptions.clone();
           splitOptions.get(CoreOptions.class).cpu = androidOptions.cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
-          return ImmutableList.of(splitOptions);
+          return ImmutableMap.of(androidOptions.cpu, splitOptions);
         }
 
       } else {
 
-        ImmutableList.Builder<BuildOptions> result = ImmutableList.builder();
+        ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
         for (String cpu : ImmutableSortedSet.copyOf(androidOptions.fatApkCpus)) {
           BuildOptions splitOptions = buildOptions.clone();
           // Disable fat APKs for the child configurations.
@@ -270,7 +279,7 @@ public final class AndroidRuleClasses {
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
           splitOptions.get(CoreOptions.class).cpu = cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
-          result.add(splitOptions);
+          result.put(cpu, splitOptions);
         }
         return result.build();
       }
@@ -457,10 +466,10 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:databinding_exec")))
-          .advertiseSkylarkProvider(
-              SkylarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
-          .advertiseSkylarkProvider(
-              SkylarkProviderIdentifier.forKey(AndroidNativeLibsInfo.PROVIDER.getKey()))
+          .advertiseStarlarkProvider(
+              StarlarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
+          .advertiseStarlarkProvider(
+              StarlarkProviderIdentifier.forKey(AndroidNativeLibsInfo.PROVIDER.getKey()))
           .build();
     }
 
@@ -589,8 +598,8 @@ public final class AndroidRuleClasses {
                   .mandatoryProviders(CONTAINS_CC_INFO_PARAMS)
                   .mandatoryProviders(JavaRuleClasses.CONTAINS_JAVA_PROVIDER)
                   .mandatoryProviders(
-                      SkylarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()),
-                      SkylarkProviderIdentifier.forKey(AndroidAssetsInfo.PROVIDER.getKey()))
+                      StarlarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()),
+                      StarlarkProviderIdentifier.forKey(AndroidAssetsInfo.PROVIDER.getKey()))
                   .aspect(androidNeverlinkAspect)
                   .aspect(dexArchiveAspect, DexArchiveAspect.PARAM_EXTRACTOR))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_key) -->
@@ -838,9 +847,9 @@ public final class AndroidRuleClasses {
                   .exec()
                   .value(env.getToolsLabel("//tools/android:dex_list_obfuscator")))
           .add(
-              attr(":bytecode_optimizers", LABEL_LIST)
+              attr(":bytecode_optimizer", LABEL)
                   .cfg(HostTransition.createFactory())
-                  .value(JavaSemantics.BYTECODE_OPTIMIZERS))
+                  .value(JavaSemantics.BYTECODE_OPTIMIZER))
           // We need the C++ toolchain for every sub-configuration to get the correct linker.
           .add(
               attr("$cc_toolchain_split", LABEL)
@@ -907,9 +916,15 @@ public final class AndroidRuleClasses {
                   .undocumented(
                       "Do not use this attribute. It's for the migration of "
                           + "Android resource processing to Starlark only."))
+          // This comes from the --legacy_main_dex_list_generator flag.
+          .add(
+              attr(":legacy_main_dex_list_generator", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .value(LEGACY_MAIN_DEX_LIST_GENERATOR)
+                  .exec())
           .removeAttribute("data")
-          .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))
-          .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+          .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(ApkInfo.PROVIDER.getKey()))
+          .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
           .build();
     }
 

@@ -62,6 +62,7 @@ public class HttpDownloader implements Downloader {
       List<URL> urls,
       Map<URI, Map<String, String>> authHeaders,
       Optional<Checksum> checksum,
+      String canonicalId,
       Path destination,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv)

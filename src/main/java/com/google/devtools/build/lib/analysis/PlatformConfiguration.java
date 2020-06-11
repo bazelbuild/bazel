@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
@@ -28,13 +28,11 @@ import java.util.Map;
 
 /** A configuration fragment describing the current platform configuration. */
 @ThreadSafety.Immutable
-public class PlatformConfiguration extends BuildConfiguration.Fragment
-    implements PlatformConfigurationApi {
+public class PlatformConfiguration extends Fragment implements PlatformConfigurationApi {
   private final Label hostPlatform;
   private final ImmutableList<String> extraExecutionPlatforms;
   private final Label targetPlatform;
   private final ImmutableList<String> extraToolchains;
-  private final ImmutableList<Label> enabledToolchainTypes;
   private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
 
   PlatformConfiguration(
@@ -42,13 +40,11 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
       ImmutableList<String> extraExecutionPlatforms,
       Label targetPlatform,
       ImmutableList<String> extraToolchains,
-      ImmutableList<Label> enabledToolchainTypes,
       List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints) {
     this.hostPlatform = hostPlatform;
     this.extraExecutionPlatforms = extraExecutionPlatforms;
     this.targetPlatform = targetPlatform;
     this.extraToolchains = extraToolchains;
-    this.enabledToolchainTypes = enabledToolchainTypes;
     this.targetFilterToAdditionalExecConstraints = targetFilterToAdditionalExecConstraints;
   }
 
@@ -99,11 +95,6 @@ public class PlatformConfiguration extends BuildConfiguration.Fragment
    */
   public ImmutableList<String> getExtraToolchains() {
     return extraToolchains;
-  }
-
-  @Override
-  public List<Label> getEnabledToolchainTypes() {
-    return enabledToolchainTypes;
   }
 
   /**

@@ -5,7 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -17,9 +17,11 @@ java_library(
     deps = [
         ":allocationtracker",
         ":current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:syntax",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_version_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/common/options",
@@ -30,14 +32,9 @@ java_library(
 java_library(
     name = "current_rule_tracker",
     srcs = ["CurrentRuleTracker.java"],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib/profiler/memory:__subpackages__",
-    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
-        "//third_party/pprof:profile_java_proto",
     ],
 )
 
@@ -46,16 +43,11 @@ java_library(
     srcs = [
         "AllocationTracker.java",
     ],
-    visibility = [
-        "//src/main/java/com/google/devtools/build/lib:__pkg__",
-        "//src/test/java/com/google/devtools/build/lib/profiler/memory:__subpackages__",
-    ],
     deps = [
         ":current_rule_tracker",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/allocation_instrumenter",

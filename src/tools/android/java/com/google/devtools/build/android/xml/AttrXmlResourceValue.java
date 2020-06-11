@@ -18,8 +18,8 @@ import static com.google.common.base.Predicates.not;
 
 import com.android.aapt.Resources.Attribute;
 import com.android.aapt.Resources.Attribute.Symbol;
+import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.Value;
-import com.android.resources.ResourceType;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
@@ -415,12 +415,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
   public void writeResourceToClass(
       DependencyInfo dependencyInfo, FullyQualifiedName key, AndroidResourceSymbolSink sink) {
     sink.acceptSimpleResource(dependencyInfo, visibility, key.type(), key.name());
-    // Flags and enums generate ID fields.
-    if (formats.keySet().contains(FLAGS) || formats.keySet().contains(ENUM)) {
-      for (ResourceXmlAttrValue value : formats.values()) {
-        value.writeToClass(dependencyInfo, sink);
-      }
-    }
   }
 
   @SuppressWarnings("deprecation")
@@ -480,8 +474,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     ValuesResourceDefinition writeTo(ValuesResourceDefinition writer);
 
     SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder);
-
-    void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer);
   }
 
   // TODO(corysmith): The ResourceXmlAttrValue implementors, other than enum and flag, share a
@@ -550,14 +542,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
       }
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {
-      for (Map.Entry<String, String> entry : values.entrySet()) {
-        writer.acceptSimpleResource(
-            dependencyInfo, Visibility.UNKNOWN, ResourceType.ID, entry.getKey());
-      }
-    }
   }
 
   /** Represents an Android Flag Attribute resource. */
@@ -624,14 +608,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
       }
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {
-      for (Map.Entry<String, String> entry : values.entrySet()) {
-        writer.acceptSimpleResource(
-            dependencyInfo, Visibility.UNKNOWN, ResourceType.ID, entry.getKey());
-      }
-    }
   }
 
   /** Represents an Android Reference Attribute resource. */
@@ -658,9 +634,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Color Attribute resource. */
@@ -686,9 +659,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Boolean Attribute resource. */
@@ -714,9 +684,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Float Attribute resource. */
@@ -742,9 +709,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Dimension Attribute resource. */
@@ -771,9 +735,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Integer Attribute resource. */
@@ -799,9 +760,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android String Attribute resource. */
@@ -827,9 +785,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   /** Represents an Android Fraction Attribute resource. */
@@ -855,9 +810,6 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     public ValuesResourceDefinition writeTo(ValuesResourceDefinition writer) {
       return writer;
     }
-
-    @Override
-    public void writeToClass(DependencyInfo dependencyInfo, AndroidResourceSymbolSink writer) {}
   }
 
   @Override
@@ -865,5 +817,15 @@ public final class AttrXmlResourceValue implements XmlResourceValue {
     return String.format(
         "%s [format(s): %s], [weak: %s]",
         source.asConflictString(), String.join("|", this.formats.keySet()), weak);
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return visibility;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return ImmutableList.of();
   }
 }

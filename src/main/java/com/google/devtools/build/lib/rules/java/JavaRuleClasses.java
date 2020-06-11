@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 
 /** Common rule class definitions for Java rules. */
 public class JavaRuleClasses {
@@ -122,6 +122,6 @@ public class JavaRuleClasses {
    * {@link JavaInfo} through an attribute. Other providers can be included in {@code
    * mandatoryProvidersLists} as well.
    */
-  public static final ImmutableList<SkylarkProviderIdentifier> CONTAINS_JAVA_PROVIDER =
-      ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()));
+  public static final ImmutableList<StarlarkProviderIdentifier> CONTAINS_JAVA_PROVIDER =
+      ImmutableList.of(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()));
 }

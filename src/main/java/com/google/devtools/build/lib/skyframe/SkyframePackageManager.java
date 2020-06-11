@@ -44,15 +44,16 @@ import java.util.concurrent.atomic.AtomicReference;
 class SkyframePackageManager implements PackageManager, CachingPackageLocator {
 
   private final SkyframePackageLoader packageLoader;
-  private final SkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader;
+  private final SkyframeTransitivePackageLoader transitiveLoader;
   private final AtomicReference<UnixGlob.FilesystemCalls> syscalls;
   private final AtomicReference<CyclesReporter> skyframeCyclesReporter;
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final AtomicInteger numPackagesLoaded;
   private final SkyframeExecutor skyframeExecutor;
 
-  public SkyframePackageManager(SkyframePackageLoader packageLoader,
-      SkyframeExecutor.SkyframeTransitivePackageLoader transitiveLoader,
+  public SkyframePackageManager(
+      SkyframePackageLoader packageLoader,
+      SkyframeTransitivePackageLoader transitiveLoader,
       AtomicReference<UnixGlob.FilesystemCalls> syscalls,
       AtomicReference<CyclesReporter> skyframeCyclesReporter,
       AtomicReference<PathPackageLocator> pkgLocator,

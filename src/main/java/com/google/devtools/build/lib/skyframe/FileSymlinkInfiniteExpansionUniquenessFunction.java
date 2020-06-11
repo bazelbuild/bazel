@@ -19,15 +19,16 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
- * A {@link SkyFunction} that has the side effect of reporting a file symlink expansion error
- * exactly once. This is achieved by forcing the same value key for two logically equivalent
- * expansion errors (e.g. ['a' -> 'b' -> 'c' -> 'a/nope'] and ['b' -> 'c' -> 'a' -> 'a/nope']),
- * and letting Skyframe do its magic.
+ * A {@link
+ * com/google/devtools/build/lib/skyframe/FileSymlinkInfiniteExpansionUniquenessFunction.java used
+ * only in javadoc: com.google.devtools.build.skyframe.SkyFunction} that has the side effect of
+ * reporting a file symlink expansion error exactly once. This is achieved by forcing the same value
+ * key for two logically equivalent expansion errors (e.g. ['a' -> 'b' -> 'c' -> 'a/nope'] and ['b'
+ * -> 'c' -> 'a' -> 'a/nope']), and letting Skyframe do its magic.
  */
 public class FileSymlinkInfiniteExpansionUniquenessFunction
     extends AbstractChainUniquenessFunction<RootedPath> {

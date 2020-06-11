@@ -22,6 +22,8 @@ syntax = "proto3";
 
 package command_server;
 
+import "src/main/protobuf/failure_details.proto";
+
 option java_package = "com.google.devtools.build.lib.server";
 option java_outer_classname = "CommandProtos";
 
@@ -114,6 +116,12 @@ message RunResponse {
   // A command to exec() after the command invocation finishes. Should only be
   // present if finished is set.
   ExecRequest exec_request = 8;
+
+  // Fine-grained failure details. Should only be present if finished is set.
+  // WARNING: This functionality is experimental and should not be relied on at
+  // this time.
+  // TODO(mschaller): remove experimental warning
+  failure_details.FailureDetail failure_detail = 9;
 }
 
 // Passed to CommandServer.cancel to initiate graceful cancellation of an
@@ -161,12 +169,12 @@ message ServerInfo {
 service CommandServer {
   // Run a Bazel command. See documentation of argument/return messages for
   // details.
-  rpc Run (RunRequest) returns (stream RunResponse) {}
+  rpc Run(RunRequest) returns (stream RunResponse) {}
 
   // Cancel a currently running Bazel command. May return before the run command
   // actually terminates.
-  rpc Cancel (CancelRequest) returns (CancelResponse) {}
+  rpc Cancel(CancelRequest) returns (CancelResponse) {}
 
   // Does not do anything. Used for liveness check.
-  rpc Ping (PingRequest) returns (PingResponse) {}
+  rpc Ping(PingRequest) returns (PingResponse) {}
 }

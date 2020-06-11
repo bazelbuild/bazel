@@ -17,22 +17,33 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.google.devtools.build.lib.events.Location;
+import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker.RuleBytes;
-import com.google.devtools.build.lib.syntax.Callstack;
-import com.google.devtools.build.lib.syntax.Expression;
+import com.google.devtools.build.lib.syntax.Debug;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FileOptions;
+import com.google.devtools.build.lib.syntax.HasBinary;
+import com.google.devtools.build.lib.syntax.Module;
+import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
+import com.google.devtools.build.lib.syntax.TokenKind;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.perftools.profiles.ProfileProto.Sample;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -43,156 +54,84 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class AllocationTrackerTest {
 
-  private AllocationTracker allocationTracker;
+  // These tests are quite artificial as they call sampleAllocation explicitly.
+  // In reality, a call could occur after any 'new' operation.
 
-  // makeExpr returns an expression located at the specified file and line.
-  private static Expression makeExpr(String file, int line) throws SyntaxError {
-    ParserInput input =
-        ParserInput.create(new String(new char[line - 1]).replace('\u0000', '\n') + "None", file);
-    return Expression.parse(input);
-  }
+  private AllocationTracker tracker;
+  private final ArrayList<Object> live = new ArrayList<>();
 
-  private static class TestFunction implements StarlarkCallable {
-    private final String name;
-    private final Location location;
-
-    TestFunction(String file, String name, int line) {
-      this.name = name;
-      this.location = Location.fromFileLineColumn(file, line, 0);
-    }
-
+  // A Starlark value whose plus operator "x + 123" simulates allocation of 123 bytes.
+  // (We trigger allocation with an operator not a function call so as not to change the stack.)
+  private class SamplerValue implements HasBinary {
     @Override
-    public String getName() {
-      return name;
-    }
-
-    @Override
-    public Location getLocation() {
-      return location;
+    public Object binaryOp(TokenKind op, Object that, boolean thisLeft) throws EvalException {
+      if (op == TokenKind.PLUS && thisLeft && that instanceof Integer) {
+        int size = (Integer) that;
+        Object obj = new Object();
+        live.add(obj); // ensure that obj outlives the test assertions
+        tracker.sampleAllocation(1, "", obj, size);
+        return Starlark.NONE;
+      }
+      return null;
     }
   }
 
-  static class TestRuleFunction extends TestFunction implements RuleFunction {
-
-    private final RuleClass ruleClass;
-
-    TestRuleFunction(String file, String name, int line) {
-      super(file, name, line);
-      this.ruleClass = mock(RuleClass.class);
-      when(ruleClass.getName()).thenReturn(name);
-      when(ruleClass.getKey()).thenReturn(name);
-    }
-
-    @Override
-    public RuleClass getRuleClass() {
-      return ruleClass;
-    }
+  private static RuleClass myRuleClass() {
+    RuleClass myrule = mock(RuleClass.class);
+    when(myrule.getName()).thenReturn("myrule");
+    when(myrule.getKey()).thenReturn("myrule");
+    return myrule;
   }
 
   @Before
   public void setup() {
-    Callstack.setEnabled(true);
     CurrentRuleTracker.setEnabled(true);
-    allocationTracker = new AllocationTracker(1, 0);
+    tracker = new AllocationTracker(1, 0);
+    Debug.setThreadHook(tracker);
   }
 
   @After
   public void tearDown() {
-    Callstack.resetStateForTest();
+    Debug.setThreadHook(null);
     CurrentRuleTracker.setEnabled(false);
   }
 
   @Test
-  public void testSimpleMemoryProfile() throws Exception {
-    Object allocation = new Object();
-    Callstack.push(new TestFunction("fileA", "fn", 120));
-    Callstack.push(makeExpr("fileA", 10));
-    allocationTracker.sampleAllocation(1, "", allocation, 12);
-    Callstack.pop();
-    Callstack.pop();
+  public void testMemoryProfileDuringExecution() throws Exception {
+    // The nop() calls force the frame PC location to be updated.
+    // It is not updated for a + operation on the assumption that
+    // the stack is unobservable to an implementation of the +
+    // operator... but the AllocationTracker sneaks a peek at it
+    // using thread-local storage.
+    // TODO(b/149023294): update this when we use a compiled representation.
+    exec(
+        "def nop(): pass",
+        "def g():",
+        "  nop(); sample + 12", // sample[0]: 12 bytes
+        "def f():",
+        "  g()",
+        "  nop(); sample + 73", // sample[1]: 73 bytes
+        "f()");
 
     Map<String, RuleBytes> rules = new HashMap<>();
     Map<String, RuleBytes> aspects = new HashMap<>();
-    allocationTracker.getRuleMemoryConsumption(rules, aspects);
+    tracker.getRuleMemoryConsumption(rules, aspects);
     assertThat(rules).isEmpty();
     assertThat(aspects).isEmpty();
 
-    Profile profile = allocationTracker.buildMemoryProfile();
-    assertThat(profile.getSampleList()).hasSize(1);
-    assertThat(sampleToCallstack(profile, profile.getSample(0))).containsExactly("fileA:fn:10");
-  }
-
-  @Test
-  public void testLongerCallstack() throws Exception {
-    Object allocation = new Object();
-    Callstack.push(new TestFunction("fileB", "fnB", 120));
-    Callstack.push(makeExpr("fileB", 10));
-    Callstack.push(makeExpr("fileB", 12));
-    Callstack.push(makeExpr("fileB", 14));
-    Callstack.push(makeExpr("fileB", 18));
-    Callstack.push(new TestFunction("fileA", "fnA", 120));
-    Callstack.push(makeExpr("fileA", 10));
-    allocationTracker.sampleAllocation(1, "", allocation, 12);
-    for (int i = 0; i < 7; ++i) {
-      Callstack.pop();
+    Profile profile = tracker.buildMemoryProfile();
+    assertThat(profile.getSampleList()).hasSize(2);
+    Set<String> lines = new HashSet<>();
+    for (Sample s : profile.getSampleList()) {
+      lines.add(sampleToCallstack(profile, s));
     }
-
-    Profile profile = allocationTracker.buildMemoryProfile();
-    assertThat(profile.getSampleList()).hasSize(1);
-    assertThat(sampleToCallstack(profile, profile.getSample(0)))
-        .containsExactly("fileB:fnB:18", "fileA:fnA:10");
+    assertThat(lines).contains("a.star:f:6, a.star:<toplevel>:7");
+    assertThat(lines).contains("a.star:g:3, a.star:f:5, a.star:<toplevel>:7");
   }
 
-  @Test
-  public void testConfiguredTargetsMemoryAllocation() throws Exception {
-    RuleClass ruleClass = mock(RuleClass.class);
-    when(ruleClass.getName()).thenReturn("rule");
-    when(ruleClass.getKey()).thenReturn("rule");
-    CurrentRuleTracker.beginConfiguredTarget(ruleClass);
-    Object ruleAllocation0 = new Object();
-    Object ruleAllocation1 = new Object();
-    allocationTracker.sampleAllocation(1, "", ruleAllocation0, 10);
-    allocationTracker.sampleAllocation(1, "", ruleAllocation1, 20);
-    CurrentRuleTracker.endConfiguredTarget();
-
-    CurrentRuleTracker.beginConfiguredAspect(() -> "aspect");
-    Object aspectAllocation = new Object();
-    allocationTracker.sampleAllocation(1, "", aspectAllocation, 12);
-    CurrentRuleTracker.endConfiguredAspect();
-
-    Map<String, RuleBytes> rules = new HashMap<>();
-    Map<String, RuleBytes> aspects = new HashMap<>();
-    allocationTracker.getRuleMemoryConsumption(rules, aspects);
-    assertThat(rules).containsExactly("rule", new RuleBytes("rule").addBytes(30L));
-    assertThat(aspects).containsExactly("aspect", new RuleBytes("aspect").addBytes(12L));
-
-    Profile profile = allocationTracker.buildMemoryProfile();
-    assertThat(profile.getSampleList()).isEmpty(); // No callstacks
-  }
-
-  @Test
-  public void testLoadingPhaseRuleAllocations() throws Exception {
-    Object allocation = new Object();
-    Callstack.push(new TestFunction("fileB", "fnB", 120));
-    Callstack.push(makeExpr("fileB", 18));
-    Callstack.push(new TestFunction("fileA", "fnA", 120));
-    Callstack.push(makeExpr("fileA", 10));
-    Callstack.push(new TestRuleFunction("<native>", "proto_library", -1));
-    allocationTracker.sampleAllocation(1, "", allocation, 128);
-    for (int i = 0; i < 5; ++i) {
-      Callstack.pop();
-    }
-
-    Map<String, RuleBytes> rules = new HashMap<>();
-    Map<String, RuleBytes> aspects = new HashMap<>();
-    allocationTracker.getRuleMemoryConsumption(rules, aspects);
-    assertThat(rules)
-        .containsExactly("proto_library", new RuleBytes("proto_library").addBytes(128L));
-  }
-
-  /** Formats a callstack as (file):(method name):(line) */
-  private List<String> sampleToCallstack(Profile profile, Sample sample) {
-    List<String> result = new ArrayList<>();
+  /** Formats a call stack as a comma-separated list of file:function:line elements. */
+  private static String sampleToCallstack(Profile profile, Sample sample) {
+    StringBuilder buf = new StringBuilder();
     for (long locationId : sample.getLocationIdList()) {
       com.google.perftools.profiles.ProfileProto.Location location =
           profile.getLocation((int) locationId - 1);
@@ -204,8 +143,86 @@ public final class AllocationTrackerTest {
       long methodId = function.getName();
       String file = profile.getStringTable((int) fileId);
       String method = profile.getStringTable((int) methodId);
-      result.add(String.format("%s:%s:%d", file, method, line));
+      if (buf.length() > 0) {
+        buf.append(", ");
+      }
+      buf.append(String.format("%s:%s:%d", file, method, line));
     }
-    return result;
+    return buf.toString();
   }
+
+  @Test
+  public void testConfiguredTargetsMemoryAllocation() throws Exception {
+    CurrentRuleTracker.beginConfiguredTarget(myRuleClass());
+    Object ruleAllocation0 = new Object();
+    Object ruleAllocation1 = new Object();
+    tracker.sampleAllocation(1, "", ruleAllocation0, 10);
+    tracker.sampleAllocation(1, "", ruleAllocation1, 20);
+    CurrentRuleTracker.endConfiguredTarget();
+
+    CurrentRuleTracker.beginConfiguredAspect(() -> "aspect");
+    Object aspectAllocation = new Object();
+    tracker.sampleAllocation(1, "", aspectAllocation, 12);
+    CurrentRuleTracker.endConfiguredAspect();
+
+    Map<String, RuleBytes> rules = new HashMap<>();
+    Map<String, RuleBytes> aspects = new HashMap<>();
+    tracker.getRuleMemoryConsumption(rules, aspects);
+    assertThat(rules).containsExactly("myrule", new RuleBytes("myrule").addBytes(30L));
+    assertThat(aspects).containsExactly("aspect", new RuleBytes("aspect").addBytes(12L));
+
+    Profile profile = tracker.buildMemoryProfile();
+    assertThat(profile.getSampleList()).isEmpty(); // no callstacks
+  }
+
+  @Test
+  public void testLoadingPhaseRuleAllocations() throws Exception {
+    exec(
+        "def g():", //
+        "  myrule()",
+        "def f():",
+        "  g()",
+        "f()");
+    Map<String, RuleBytes> rules = new HashMap<>();
+    Map<String, RuleBytes> aspects = new HashMap<>();
+    tracker.getRuleMemoryConsumption(rules, aspects);
+    assertThat(rules).containsExactly("myrule", new RuleBytes("myrule").addBytes(128L));
+  }
+
+  private void exec(String... lines)
+      throws SyntaxError.Exception, EvalException, InterruptedException {
+    ParserInput input = ParserInput.create(Joiner.on("\n").join(lines), "a.star");
+    Module module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT,
+            ImmutableMap.of(
+                "sample", new SamplerValue(),
+                "myrule", new MyRuleFunction()));
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+      EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+    }
+  }
+
+  // A fake Bazel rule. The allocation tracker reports retained memory broken down by rule class.
+  private class MyRuleFunction implements RuleFunction, StarlarkCallable {
+    @Override
+    public Object fastcall(StarlarkThread thread, Object[] parameters, Object[] named) {
+      Object obj = new Object();
+      live.add(obj); // ensure that obj outlives the test assertions
+      tracker.sampleAllocation(1, "", obj, 128);
+      return Starlark.NONE;
+    }
+
+    @Override
+    public String getName() {
+      return "myrule";
+    }
+
+    @Override
+    public RuleClass getRuleClass() {
+      return myRuleClass();
+    }
+  }
+
 }

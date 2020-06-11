@@ -29,8 +29,13 @@ package com.google.devtools.build.lib.actions;
 public class AlreadyReportedActionExecutionException extends ActionExecutionException {
 
   public AlreadyReportedActionExecutionException(ActionExecutionException cause) {
-    super(cause.getMessage(), cause.getCause(), cause.getAction(), cause.getRootCauses(),
-        cause.isCatastrophe(), cause.getExitCode());
+    super(
+        cause.getMessage(),
+        cause.getCause(),
+        cause.getAction(),
+        cause.getRootCauses(),
+        cause.isCatastrophe(),
+        cause.getDetailedExitCode());
   }
 
   @Override

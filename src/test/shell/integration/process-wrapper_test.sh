@@ -31,7 +31,10 @@ readonly OUT_DIR="${TEST_TMPDIR}/out"
 readonly OUT="${OUT_DIR}/outfile"
 readonly ERR="${OUT_DIR}/errfile"
 
+readonly EXIT_STATUS_SIGABRT=$((128 + 6))
+readonly EXIT_STATUS_SIGKILL=$((128 + 9))
 readonly EXIT_STATUS_SIGALRM=$((128 + 14))
+readonly EXIT_STATUS_SIGTERM=$((128 + 15))
 
 function set_up() {
   rm -rf $OUT_DIR
@@ -66,7 +69,7 @@ function test_exit_code() {
 function test_signal_death() {
   local code=0
   $process_wrapper --stdout=$OUT --stderr=$ERR /bin/sh -c 'kill -ABRT $$' &> $TEST_log || code=$?
-  assert_equals 134 "$code" # SIGNAL_BASE + SIGABRT = 128 + 6
+  assert_equals "${EXIT_STATUS_SIGABRT}" "$code"
 }
 
 function test_signal_catcher() {
@@ -79,35 +82,140 @@ function test_signal_catcher() {
 
 function test_basic_timeout() {
   $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/sh -c \
-    "echo before; sleep 10; echo after" &> $TEST_log && fail
+    "echo before; sleep 10; echo after" &> $TEST_log || code=$?
+  assert_equals "${EXIT_STATUS_SIGALRM}" "$code"
   assert_stdout "before"
 }
 
-# Tests that process_wrapper sends a SIGTERM to a process on timeout, but gives
-# it a grace period of 10 seconds before killing it with SIGKILL.
-# In this variant we expect the trap (that runs on SIGTERM) to exit within the
-# grace period, thus printing "beforeafter".
+# Tests that the timeout causes the process to receive a SIGTERM, but with the
+# process exiting on its own without the need for a SIGKILL. To make sure that
+# this is the case, we pass a very large kill delay to cause the outer test to
+# fail if we violate this expectation.
 function test_timeout_grace() {
   local code=0
-  $process_wrapper --timeout=1 --kill_delay=10 --stdout=$OUT --stderr=$ERR /bin/sh -c \
-    'trap "echo before; sleep 1; echo after; exit 0" INT TERM ALRM; sleep 10' \
+  $process_wrapper --timeout=1 --kill_delay=100000 --stdout=$OUT --stderr=$ERR \
+    /bin/sh -c \
+    'trap "echo ignoring signal" INT TERM ARLM; \
+     for i in $(seq 5); do sleep 1; done; echo after' \
     &> $TEST_log || code=$?
   assert_equals "${EXIT_STATUS_SIGALRM}" "$code"
-  assert_stdout 'before
+  assert_stdout 'ignoring signal
 after'
 }
 
-# Tests that process_wrapper sends a SIGTERM to a process on timeout, but gives
-# it a grace period of 2 seconds before killing it with SIGKILL.
-# In this variant, we expect the process to be killed with SIGKILL, because the
-# trap takes longer than the grace period, thus only printing "before".
-function test_timeout_kill() {
+# Tests that the timeout causes the process to receive a SIGTERM and waits until
+# the process has exited on its own, even if that takes a little bit of time. To
+# make sure that this is the case, we pass a very large kill delay to cause the
+# outer test to fail if we violate this expectation.
+#
+# In the past, even though we would terminate the process quickly, we would
+# get stuck until the kill delay passed (because we'd be stuck waiting for a
+# zombie process without us actually collecting it). So this is a regression
+# test for that subtle bug.
+function test_timeout_exits_as_soon_as_process_terminates() {
   local code=0
-  $process_wrapper --timeout=1 --kill_delay=2 --stdout=$OUT --stderr=$ERR /bin/sh -c \
-    'trap "echo before; sleep 10; echo after; exit 0" INT TERM ALRM; sleep 10' \
+  $process_wrapper --timeout=1 --kill_delay=100000 --stdout=$OUT --stderr=$ERR \
+    /bin/sh -c \
+    'trap "" INT TERM ARLM; \
+     for i in $(seq 5); do echo sleeping $i; sleep 1; done' \
     &> $TEST_log || code=$?
   assert_equals "${EXIT_STATUS_SIGALRM}" "$code"
-  assert_stdout "before"
+  assert_stdout 'sleeping 1
+sleeping 2
+sleeping 3
+sleeping 4
+sleeping 5'
+}
+
+# Tests that the timeout causes the process to receive a SIGTERM first and a
+# SIGKILL later once a kill delay has passed without the process exiting on
+# its own. We make the process get stuck indefinitely until killed, and we do
+# this with individual calls to sleep instead of a single one to ensure that a
+# single termination of the sleep subprocess doesn't cause us to spuriously
+# exit and thus pass this test.
+function test_timeout_kill() {
+  local code=0
+  $process_wrapper --timeout=1 --kill_delay=5 --stdout=$OUT --stderr=$ERR \
+    /bin/sh -c \
+    'trap "echo ignoring signal" INT TERM ARLM; \
+     while :; do sleep 1; done; echo after' \
+    &> $TEST_log || code=$?
+  assert_equals "${EXIT_STATUS_SIGALRM}" "$code"
+  assert_stdout 'ignoring signal'
+}
+
+# Tests that sending a SIGTERM causes the process to receive such SIGTERM if
+# graceful SIGTERM handling is enabled, but with the process exiting on its own
+# without the need for a SIGKILL. To make sure that this is the case, we pass a
+# very large kill delay to cause the outer test to fail if we violate this
+# expectation.
+function test_sigterm_grace() {
+  $process_wrapper --graceful_sigterm --kill_delay=100000 \
+    --stdout=$OUT --stderr=$ERR \
+    /bin/sh -c \
+    'trap "echo ignoring signal" INT TERM ARLM; \
+     for i in $(seq 5); do sleep 1; done; echo after' \
+    &> $TEST_log &
+  local pid=$!
+  sleep 1
+  kill -TERM "${pid}"
+  local code=0
+  wait "${pid}" || code=$?
+  assert_equals "${EXIT_STATUS_SIGTERM}" "$code"
+  assert_stdout 'ignoring signal
+after'
+}
+
+# Tests that sending a SIGTERM causes the process to receive such SIGTERM if
+# graceful SIGTERM handling is enabled and waits until the process has exited
+# on its own, even if that takes a little bit of time. To make sure that this is
+# the case, we pass a very large kill delay to cause the outer test to fail if
+# we violate this expectation.
+#
+# In the past, even though we would terminate the process quickly, we would
+# get stuck until the kill delay passed (because we'd be stuck waiting for a
+# zombie process without us actually collecting it). So this is a regression
+# test for that subtle bug.
+function test_sigterm_exits_as_soon_as_process_terminates() {
+  $process_wrapper --graceful_sigterm --kill_delay=100000 \
+    --stdout=$OUT --stderr=$ERR \
+    /bin/sh -c \
+    'trap "" INT TERM ARLM; \
+     for i in $(seq 5); do echo sleeping $i; sleep 1; done' \
+    &> $TEST_log &
+  local pid=$!
+  sleep 1
+  kill -TERM "${pid}"
+  local code=0
+  wait "${pid}" || code=$?
+  assert_equals "${EXIT_STATUS_SIGTERM}" "$code"
+  assert_stdout 'sleeping 1
+sleeping 2
+sleeping 3
+sleeping 4
+sleeping 5'
+}
+
+# Tests that sending a SIGTERM causes the process to receive such SIGTERM if
+# graceful SIGTERM handling is enabled and a SIGKILL later once a kill delay has
+# passed without the process exiting on its own. We make the process get stuck
+# indefinitely until killed, and we do this with individual calls to sleep
+# instead of a single one to ensure that a single termination of the sleep
+# subprocess doesn't cause us to spuriously exit and thus pass this test.
+function test_sigterm_kill() {
+  $process_wrapper --graceful_sigterm --kill_delay=5 \
+    --stdout=$OUT --stderr=$ERR \
+    /bin/sh -c \
+    'trap "echo ignoring signal" INT TERM ARLM; \
+     while :; do sleep 1; done; echo after' \
+    &> $TEST_log &
+  local pid=$!
+  sleep 1
+  kill -TERM "${pid}"
+  local code=0
+  wait "${pid}" || code=$?
+  assert_equals "${EXIT_STATUS_SIGTERM}" "$code"
+  assert_stdout 'ignoring signal'
 }
 
 function test_execvp_error_message() {

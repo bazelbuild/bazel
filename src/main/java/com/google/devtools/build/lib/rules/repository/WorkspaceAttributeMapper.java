@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
@@ -62,15 +61,12 @@ public class WorkspaceAttributeMapper {
   public Object getObject(String attributeName) throws EvalException {
     Object value = rule.getAttributeContainer().getAttr(checkNotNull(attributeName));
     if (value instanceof SelectorList) {
-      String message;
-      // Is there a basename function for strings?
-      String base = PathFragment.create(rule.getLocation().file()).getBaseName();
-      if (WorkspaceFileHelper.matchWorkspaceFileName(base)) {
-        message = "select() cannot be used in WORKSPACE files";
-      } else {
-        message = "select() cannot be used in macros called from WORKSPACE files";
-      }
-      throw new EvalException(rule.getLocation(), message);
+      throw new EvalException(
+          rule.getLocation(),
+          String.format(
+              "got value of type 'select' for attribute '%s' of %s rule '%s'; select may not be "
+                  + "used in repository rules",
+              attributeName, rule.getRuleClass(), rule.getName()));
     }
     return value;
   }

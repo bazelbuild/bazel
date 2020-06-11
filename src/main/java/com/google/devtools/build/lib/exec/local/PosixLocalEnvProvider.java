@@ -43,7 +43,7 @@ public final class PosixLocalEnvProvider implements LocalEnvProvider {
    * if that's empty or null, then by "/tmp".
    */
   @Override
-  public Map<String, String> rewriteLocalEnv(
+  public ImmutableMap<String, String> rewriteLocalEnv(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir) {
     ImmutableMap.Builder<String, String> result = ImmutableMap.builder();
     result.putAll(Maps.filterKeys(env, k -> !k.equals("TMPDIR")));

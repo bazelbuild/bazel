@@ -52,6 +52,21 @@ class TestBase(unittest.TestCase):
   _worker_proc = None
   _cas_path = None
 
+  _SHARED_REPOS = (
+      'rules_cc',
+      'rules_java',
+      'rules_proto',
+      'remotejdk11_linux_for_testing',
+      'remotejdk11_linux_aarch64_for_testing',
+      'remotejdk11_linux_ppc64le_for_testing',
+      'remotejdk11_macos_for_testing',
+      'remotejdk11_win_for_testing',
+      'remote_java_tools_darwin_for_testing',
+      'remote_java_tools_linux_for_testing',
+      'remote_java_tools_windows_for_testing',
+      'remote_coverage_tools_for_testing',
+  )
+
   def setUp(self):
     unittest.TestCase.setUp(self)
     if self._runfiles is None:
@@ -63,7 +78,19 @@ class TestBase(unittest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
-      f.write('build --jobs=8\n')
+      shared_repo_home = os.environ.get('TEST_REPOSITORY_HOME')
+      if shared_repo_home and os.path.exists(shared_repo_home):
+        for repo in self._SHARED_REPOS:
+          f.write('common --override_repository={}={}\n'.format(
+              repo.replace('_for_testing', ''),
+              os.path.join(shared_repo_home, repo).replace('\\', '/')))
+      shared_install_base = os.environ.get('TEST_INSTALL_BASE')
+      if shared_install_base:
+        f.write('startup --install_base={}\n'.format(shared_install_base))
+      shared_repo_cache = os.environ.get('REPOSITORY_CACHE')
+      if shared_repo_cache:
+        f.write('common --repository_cache={}\n'.format(shared_repo_cache))
+        f.write('common --experimental_repository_cache_hardlinks\n')
     os.chdir(self._test_cwd)
 
   def tearDown(self):
@@ -346,6 +373,7 @@ class TestBase(unittest.TestCase):
     self._worker_proc = subprocess.Popen(
         [
             worker_exe,
+            '--singlejar',
             '--listen_port=' + str(port),
             # This path has to be extremely short to avoid Windows path
             # length restrictions.

@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
 import com.google.devtools.build.lib.runtime.TerminalTestResultNotifier.TestSummaryOptions;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,20 +49,21 @@ import org.mockito.ArgumentCaptor;
 @RunWith(JUnit4.class)
 public final class TerminalTestResultNotifierTest {
 
-  private static final String ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER =
-      "however note that at least one target failed";
+  private static final String SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER =
+      "some targets did not have test case information";
 
   private final OptionsParsingResult optionsParsingResult = mock(OptionsParsingResult.class);
   private final AnsiTerminalPrinter ansiTerminalPrinter = mock(AnsiTerminalPrinter.class);
 
   private BlazeTestStatus targetStatus;
   private int numFailedTestCases;
+  private int numUnknownTestCases;
   private int numTotalTestCases;
   private TestSummaryFormat testSummaryFormat;
 
   @Test
   public void testCaseOption_allPass() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TESTCASE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TESTCASE;
     numFailedTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.PASSED;
@@ -73,31 +74,33 @@ public final class TerminalTestResultNotifierTest {
     assertThat(printed).contains(info("10 passing"));
     assertThat(printed).contains("0 failing");
     assertThat(printed).contains("out of 10 test cases");
-    assertThat(printed).doesNotContain(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+    assertThat(printed).doesNotContain(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
     assertThat(printed).doesNotContain(AnsiTerminalPrinter.Mode.ERROR.toString());
   }
 
   @Test
   public void testCaseOption_allPassButTargetFails() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TESTCASE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TESTCASE;
     numFailedTestCases = 0;
+    numUnknownTestCases = 10;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
     printTestCaseSummary();
 
     String printed = getPrintedMessage();
-    assertThat(printed).contains(info("10 passing"));
+    assertThat(printed).contains("0 passing");
     assertThat(printed).contains("0 failing");
     assertThat(printed).contains("out of 10 test cases");
-    assertThat(printed).contains(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+    assertThat(printed).contains(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
     assertThat(printed).doesNotContain(AnsiTerminalPrinter.Mode.ERROR.toString());
   }
 
   @Test
   public void testCaseOption_someFail() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TESTCASE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TESTCASE;
     numFailedTestCases = 2;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
@@ -107,14 +110,15 @@ public final class TerminalTestResultNotifierTest {
     assertThat(printed).contains(info("8 passing"));
     assertThat(printed).contains(error("2 failing"));
     assertThat(printed).contains("out of 10 test cases");
-    assertThat(printed).doesNotContain(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+    assertThat(printed).doesNotContain(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
   }
 
   @Test
   public void shortOption_someFailToBuild() throws Exception {
-    testSummaryFormat = TestSummaryFormat.SHORT;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.SHORT;
     numFailedTestCases = 0;
     int numFailedToBuildTestCases = TerminalTestResultNotifier.NUM_FAILED_TO_BUILD + 1;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED_TO_BUILD;
 
@@ -140,8 +144,9 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void testCaseOption_allFail() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TESTCASE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TESTCASE;
     numFailedTestCases = 10;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
@@ -151,14 +156,15 @@ public final class TerminalTestResultNotifierTest {
     assertThat(printed).contains("0 passing");
     assertThat(printed).contains(error("10 failing"));
     assertThat(printed).contains("out of 10 test cases");
-    assertThat(printed).doesNotContain(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+    assertThat(printed).doesNotContain(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
     assertThat(printed).doesNotContain(AnsiTerminalPrinter.Mode.INFO.toString());
   }
 
   @Test
   public void detailedOption_allPass() throws Exception {
-    testSummaryFormat = TestSummaryFormat.DETAILED;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
     numFailedTestCases = 0;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.PASSED;
 
@@ -168,31 +174,33 @@ public final class TerminalTestResultNotifierTest {
     assertThat(printed).contains(info("10 passing"));
     assertThat(printed).contains("0 failing");
     assertThat(printed).contains("out of 10 test cases");
-    assertThat(printed).doesNotContain(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+    assertThat(printed).doesNotContain(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
     assertThat(printed).doesNotContain(AnsiTerminalPrinter.Mode.ERROR.toString());
   }
 
   @Test
   public void detailedOption_allPassButTargetFails() throws Exception {
-    testSummaryFormat = TestSummaryFormat.DETAILED;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
     numFailedTestCases = 0;
+    numUnknownTestCases = 10;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
     printTestCaseSummary();
 
     String printed = getPrintedMessage();
-    assertThat(printed).contains(info("10 passing"));
+    assertThat(printed).contains("0 passing");
     assertThat(printed).contains("0 failing");
     assertThat(printed).contains("out of 10 test cases");
-    assertThat(printed).contains(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+    assertThat(printed).contains(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
     assertThat(printed).doesNotContain(AnsiTerminalPrinter.Mode.ERROR.toString());
   }
 
   @Test
   public void detailedOption_someFail() throws Exception {
-    testSummaryFormat = TestSummaryFormat.DETAILED;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
     numFailedTestCases = 2;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
@@ -202,13 +210,14 @@ public final class TerminalTestResultNotifierTest {
     assertThat(printed).contains(info("8 passing"));
     assertThat(printed).contains(error("2 failing"));
     assertThat(printed).contains("out of 10 test cases");
-    assertThat(printed).doesNotContain(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+    assertThat(printed).doesNotContain(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
   }
 
   @Test
   public void detailedOption_allFail() throws Exception {
-    testSummaryFormat = TestSummaryFormat.DETAILED;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.DETAILED;
     numFailedTestCases = 10;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
@@ -218,14 +227,15 @@ public final class TerminalTestResultNotifierTest {
     assertThat(printed).contains("0 passing");
     assertThat(printed).contains(error("10 failing"));
     assertThat(printed).contains("out of 10 test cases");
-    assertThat(printed).doesNotContain(ALL_TEST_CASES_PASSED_BUT_TARGET_FAILED_DISCLAIMER);
+    assertThat(printed).doesNotContain(SOME_TARGETS_ARE_MISSING_TEST_CASES_DISCLAIMER);
     assertThat(printed).doesNotContain(AnsiTerminalPrinter.Mode.INFO.toString());
   }
 
   @Test
   public void shortOption_noSummaryPrinted() throws Exception {
-    testSummaryFormat = TestSummaryFormat.SHORT;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.SHORT;
     numFailedTestCases = 2;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
@@ -236,8 +246,9 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void terseOption_noSummaryPrinted() throws Exception {
-    testSummaryFormat = TestSummaryFormat.TERSE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.TERSE;
     numFailedTestCases = 2;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
@@ -248,8 +259,9 @@ public final class TerminalTestResultNotifierTest {
 
   @Test
   public void noneOption_noSummaryPrinted() throws Exception {
-    testSummaryFormat = TestSummaryFormat.NONE;
+    testSummaryFormat = ExecutionOptions.TestSummaryFormat.NONE;
     numFailedTestCases = 2;
+    numUnknownTestCases = 0;
     numTotalTestCases = 10;
     targetStatus = BlazeTestStatus.FAILED;
 
@@ -296,6 +308,7 @@ public final class TerminalTestResultNotifierTest {
 
     TestSummary testSummary = mock(TestSummary.class);
     when(testSummary.getTotalTestCases()).thenReturn(numTotalTestCases);
+    when(testSummary.getUnkownTestCases()).thenReturn(numUnknownTestCases);
     TestCase failedTestCase = TestCase.newBuilder().setStatus(Status.FAILED).build();
     List<TestCase> failedTestCases = Collections.nCopies(numFailedTestCases, failedTestCase);
 

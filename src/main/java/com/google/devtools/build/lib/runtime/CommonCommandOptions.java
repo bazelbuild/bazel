@@ -36,9 +36,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
 
-/**
- * Options common to all commands.
- */
+/** Options common to all commands. */
 public class CommonCommandOptions extends OptionsBase {
 
   /**
@@ -71,57 +69,52 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enablePlatformSpecificConfig;
 
   @Option(
-    name = "config",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    allowMultiple = true,
-    help =
-        "Selects additional config sections from the rc files; for every <command>, it "
-            + "also pulls in the options from <command>:<config> if such a section exists; "
-            + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
-            + "The config sections and flag combinations they are equivalent to are "
-            + "located in the tools/*.blazerc config files."
-  )
+      name = "config",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Selects additional config sections from the rc files; for every <command>, it "
+              + "also pulls in the options from <command>:<config> if such a section exists; "
+              + "if this section doesn't exist in any .rc file, Blaze fails with an error. "
+              + "The config sections and flag combinations they are equivalent to are "
+              + "located in the tools/*.blazerc config files.")
   public List<String> configs;
 
   @Option(
-    name = "logging",
-    defaultValue = "3", // Level.INFO
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    converter = Converters.LogLevelConverter.class,
-    help = "The logging level."
-  )
+      name = "logging",
+      defaultValue = "3", // Level.INFO
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = Converters.LogLevelConverter.class,
+      help = "The logging level.")
   public Level verbosity;
 
   @Option(
-    name = "client_cwd",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    help = "A system-generated parameter which specifies the client's working directory"
-  )
+      name = "client_cwd",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help = "A system-generated parameter which specifies the client's working directory")
   public PathFragment clientCwd;
 
   @Option(
-    name = "announce_rc",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    help = "Whether to announce rc options."
-  )
+      name = "announce_rc",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Whether to announce rc options.")
   public boolean announceRcOptions;
 
   @Option(
-    name = "always_profile_slow_operations",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    help = "Whether profiling slow operations is always turned on"
-  )
+      name = "always_profile_slow_operations",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "Whether profiling slow operations is always turned on")
   public boolean alwaysProfileSlowOperations;
 
   /** Converter for UUID. Accepts values as specified by {@link UUID#fromString(String)}. */
@@ -206,7 +199,7 @@ public class CommonCommandOptions extends OptionsBase {
   @Option(
       name = "build_metadata",
       converter = AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
@@ -221,18 +214,6 @@ public class CommonCommandOptions extends OptionsBase {
       metadataTags = {OptionMetadataTag.HIDDEN},
       help = "Custom message to be emitted on an out of memory failure.")
   public String oomMessage;
-
-  @Option(
-      name = "incompatible_remove_binary_profile",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help = "If enabled, Bazel will write JSON-format profiles instead of binary profiles.")
-  public boolean removeBinaryProfile;
 
   @Option(
       name = "incompatible_enable_profile_by_default",
@@ -269,14 +250,6 @@ public class CommonCommandOptions extends OptionsBase {
   public TriState enableTracerCompression;
 
   @Option(
-      name = "experimental_post_profile_started_event",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will post the ProfilerStartedEvent including the path to the profile.")
-  public boolean postProfileStartedEvent;
-
-  @Option(
       name = "experimental_profile_cpu_usage",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
@@ -285,17 +258,9 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean enableCpuUsageProfiling;
 
   @Option(
-      name = "experimental_profile_action_counts",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-      help = "If set, Bazel will add action counts at the top of the JSON profile.")
-  public boolean enableActionCountProfile;
-
-  @Option(
       name = "experimental_profile_additional_tasks",
       converter = ProfilerTaskConverter.class,
-      defaultValue = "none",
+      defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
@@ -303,14 +268,34 @@ public class CommonCommandOptions extends OptionsBase {
   public List<ProfilerTask> additionalProfileTasks;
 
   @Option(
-      name = "experimental_slim_json_profile",
-      defaultValue = "false",
+      name = "slim_profile",
+      oldName = "experimental_slim_json_profile",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
       help =
           "Slims down the size of the JSON profile by merging events if the profile gets "
               + " too large.")
-  public boolean enableJsonProfileDiet;
+  public boolean slimProfile;
+
+  @Option(
+      name = "experimental_profile_include_primary_output",
+      oldName = "experimental_include_primary_output",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "Includes the extra \"out\" attribute in action events that contains the exec path "
+              + "to the action's primary output.")
+  public boolean includePrimaryOutput;
+
+  @Option(
+      name = "experimental_profile_include_target_label",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help = "Includes target label in action events' JSON profile data.")
+  public boolean profileIncludeTargetLabel;
 
   @Option(
       name = "experimental_announce_profile_path",
@@ -332,6 +317,14 @@ public class CommonCommandOptions extends OptionsBase {
   public PathFragment profilePath;
 
   @Option(
+      name = "starlark_cpu_profile",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "Writes into the specified file a pprof profile of CPU usage by all Starlark threads.")
+  public String starlarkCpuProfile;
+
+  @Option(
       name = "record_full_profiler_data",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -344,28 +337,26 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean recordFullProfilerData;
 
   @Option(
-    name = "memory_profile",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    converter = OptionsUtils.PathFragmentConverter.class,
-    help =
-        "If set, write memory usage data to the specified file at phase ends and stable heap to"
-            + " master log at end of build."
-  )
+      name = "memory_profile",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      help =
+          "If set, write memory usage data to the specified file at phase ends and stable heap to"
+              + " master log at end of build.")
   public PathFragment memoryProfilePath;
 
   @Option(
-    name = "memory_profile_stable_heap_parameters",
-    defaultValue = "1,0",
-    documentationCategory = OptionDocumentationCategory.LOGGING,
-    effectTags = {OptionEffectTag.BAZEL_MONITORING},
-    converter = MemoryProfileStableHeapParameters.Converter.class,
-    help =
-        "Tune memory profile's computation of stable heap at end of build. Should be two integers "
-            + "separated by a comma. First parameter is the number of GCs to perform. Second "
-            + "parameter is the number of seconds to wait between GCs."
-  )
+      name = "memory_profile_stable_heap_parameters",
+      defaultValue = "1,0",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      converter = MemoryProfileStableHeapParameters.Converter.class,
+      help =
+          "Tune memory profile's computation of stable heap at end of build. Should be two"
+              + " integers separated by a comma. First parameter is the number of GCs to perform."
+              + " Second parameter is the number of seconds to wait between GCs.")
   public MemoryProfileStableHeapParameters memoryProfileStableHeapParameters;
 
   @Option(
@@ -414,13 +405,12 @@ public class CommonCommandOptions extends OptionsBase {
   public String toolTag;
 
   @Option(
-    name = "restart_reason",
-    defaultValue = "no_restart",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = "The reason for the server restart."
-  )
+      name = "restart_reason",
+      defaultValue = "no_restart",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "The reason for the server restart.")
   public String restartReason;
 
   @Option(
@@ -433,25 +423,23 @@ public class CommonCommandOptions extends OptionsBase {
   public String binaryPath;
 
   @Option(
-    name = "experimental_allow_project_files",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
-    help = "Enable processing of +<file> parameters."
-  )
+      name = "experimental_allow_project_files",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
+      help = "Enable processing of +<file> parameters.")
   public boolean allowProjectFiles;
 
   @Option(
-    name = "block_for_lock",
-    defaultValue = "true",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help =
-        "If set (the default), a command will block if there is another one running. If "
-            + "unset, these commands will immediately return with an error."
-  )
+      name = "block_for_lock",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help =
+          "If set (the default), a command will block if there is another one running. If "
+              + "unset, these commands will immediately return with an error.")
   public boolean blockForLock;
 
   // We could accept multiple of these, in the event where there's a chain of tools that led to a
@@ -459,36 +447,34 @@ public class CommonCommandOptions extends OptionsBase {
   // to guarantee that the "label" for each command line is unique. Unless a need is demonstrated,
   // though, logs are a better place to track this information than flags, so let's try to avoid it.
   @Option(
-    // In May 2018, this feature will have been out for 6 months. If the format we accept has not
-    // changed in that time, we can remove the "experimental" prefix and tag.
-    name = "experimental_tool_command_line",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-    // Keep this flag HIDDEN so that it is not listed with our reported command lines, it being
-    // reported separately.
-    metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
-    converter = ToolCommandLineEvent.Converter.class,
-    help =
-        "An extra command line to report with this invocation's command line. Useful for tools "
-            + "that invoke Bazel and want the original information that the tool received to be "
-            + "logged with the rest of the Bazel invocation."
-  )
+      // In May 2018, this feature will have been out for 6 months. If the format we accept has not
+      // changed in that time, we can remove the "experimental" prefix and tag.
+      name = "experimental_tool_command_line",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      // Keep this flag HIDDEN so that it is not listed with our reported command lines, it being
+      // reported separately.
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL, OptionMetadataTag.HIDDEN},
+      converter = ToolCommandLineEvent.Converter.class,
+      help =
+          "An extra command line to report with this invocation's command line. Useful for tools "
+              + "that invoke Bazel and want the original information that the tool received to be "
+              + "logged with the rest of the Bazel invocation.")
   public ToolCommandLineEvent toolCommandLine;
 
   @Option(
-    name = "unconditional_warning",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-    allowMultiple = true,
-    help =
-        "A warning that will unconditionally get printed with build warnings and errors. This is "
-            + "useful to deprecate bazelrc files or --config definitions. If the intent is to "
-            + "effectively deprecate some flag or combination of flags, this is NOT sufficient. "
-            + "The flag or flags should use the deprecationWarning field in the option definition, "
-            + "or the bad combination should be checked for programmatically."
-  )
+      name = "unconditional_warning",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      allowMultiple = true,
+      help =
+          "A warning that will unconditionally get printed with build warnings and errors. This is"
+              + " useful to deprecate bazelrc files or --config definitions. If the intent is to"
+              + " effectively deprecate some flag or combination of flags, this is NOT sufficient."
+              + " The flag or flags should use the deprecationWarning field in the option"
+              + " definition, or the bad combination should be checked for programmatically.")
   public List<String> deprecationWarnings;
 
   @Option(
@@ -501,8 +487,7 @@ public class CommonCommandOptions extends OptionsBase {
           "If false, Blaze will not persist data that allows for invalidation and re-evaluation "
               + "on incremental builds in order to save memory on this build. Subsequent builds "
               + "will not have any incrementality with respect to this one. Usually you will want "
-              + "to specify --batch when setting this to false."
-  )
+              + "to specify --batch when setting this to false.")
   public boolean trackIncrementalState;
 
   @Option(
@@ -513,8 +498,7 @@ public class CommonCommandOptions extends OptionsBase {
       help =
           "If false, Blaze will discard the inmemory state from this build when the build "
               + "finishes. Subsequent builds will not have any incrementality with respect to this "
-              + "one."
-  )
+              + "one.")
   public boolean keepStateAfterBuild;
 
   /** The option converter to check that the user can only specify legal profiler tasks. */

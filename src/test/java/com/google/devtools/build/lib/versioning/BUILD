@@ -7,6 +7,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
@@ -17,7 +18,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/versioning",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -29,7 +29,6 @@ java_test(
     srcs = ["SemVerTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/versioning",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:junit4",
         "//third_party:truth",
     ],

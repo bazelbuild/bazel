@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -54,7 +57,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
@@ -64,21 +66,26 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.skylark.Args;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CompileTimeConstant;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.io.IOException;
@@ -91,7 +98,6 @@ import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
 /** An Action representing an arbitrary subprocess to be forked and exec'd. */
-@AutoCodec
 public class SpawnAction extends AbstractAction implements CommandAction {
 
   /** Sets extensions on {@link ExtraActionInfo}. */
@@ -101,8 +107,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
-  @VisibleForSerialization protected final CommandLines commandLines;
-  @VisibleForSerialization protected final CommandLineLimits commandLineLimits;
+  private final CommandLines commandLines;
+  private final CommandLineLimits commandLineLimits;
 
   private final boolean executeUnconditionally;
   private final boolean isShellCommand;
@@ -137,7 +143,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * @param progressMessage the message printed during the progression of the build.
    * @param mnemonic the mnemonic that is reported in the master log.
    */
-  @AutoCodec.Instantiator
   public SpawnAction(
       ActionOwner owner,
       NestedSet<Artifact> tools,
@@ -257,7 +262,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  public Sequence<String> getSkylarkArgv() throws EvalException {
+  public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
     } catch (CommandLineExpansionException exception) {
@@ -314,21 +319,32 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public final ActionContinuationOrResult beginExecution(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
+    Label label = getOwner().getLabel();
     Spawn spawn;
     try {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
     } catch (IOException e) {
       throw toActionExecutionException(
-          new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+          new EnvironmentalExecException(e), actionExecutionContext.showVerboseFailures(label));
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
+      throw createDetailedException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnActionContext.class)
+            .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
-    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation);
+    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation, label);
+  }
+
+  private ActionExecutionException createDetailedException(Exception e, Code detailedCode) {
+    DetailedExitCode detailedExitCode =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(Strings.nullToEmpty(e.getMessage()))
+                .setSpawn(FailureDetails.Spawn.newBuilder().setCode(detailedCode))
+                .build());
+    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
   }
 
   private ActionExecutionException toActionExecutionException(
@@ -624,6 +640,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private String mnemonic = "Unknown";
     protected ExtraActionInfoSupplier extraActionInfoSupplier = null;
     private boolean disableSandboxing = false;
+    private String execGroup = DEFAULT_EXEC_GROUP_NAME;
 
     private Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer = null;
 
@@ -671,7 +688,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     @CheckReturnValue
     public Action[] build(ActionConstructionContext context) {
-      return build(context.getActionOwner(), context.getConfiguration());
+      return build(context.getActionOwner(execGroup), context.getConfiguration());
     }
 
     @VisibleForTesting @CheckReturnValue
@@ -848,7 +865,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
     /** @deprecated Use {@link #addTransitiveInputs} to avoid excessive memory use. */
     @Deprecated
-    public Builder addInputs(NestedSet<Artifact> artifacts) {
+    @DoNotCall
+    public final Builder addInputs(NestedSet<Artifact> artifacts) {
       // Do not delete this method, or else addInputs(Iterable) calls with a NestedSet argument
       // will not be flagged.
       inputsBuilder.addAll(artifacts.toList());
@@ -1293,6 +1311,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
+    public Builder setExecGroup(String execGroup) {
+      this.execGroup = execGroup;
+      return this;
+    }
+
     public Builder addResultConsumer(
         Consumer<Pair<ActionExecutionContext, List<SpawnResult>>> resultConsumer) {
       this.resultConsumer = resultConsumer;
@@ -1304,7 +1327,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    * Command line implementation that optimises for containing executable args, command lines, and
    * command lines spilled to param files.
    */
-  @AutoCodec
   static class SpawnActionCommandLine extends CommandLine {
     private final Object[] values;
 
@@ -1352,11 +1374,15 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final class SpawnActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     private final SpawnContinuation spawnContinuation;
+    private final Label label;
 
-    public SpawnActionContinuation(
-        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
+    SpawnActionContinuation(
+        ActionExecutionContext actionExecutionContext,
+        SpawnContinuation spawnContinuation,
+        Label label) {
       this.actionExecutionContext = actionExecutionContext;
       this.spawnContinuation = spawnContinuation;
+      this.label = label;
     }
 
     @Override
@@ -1377,12 +1403,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           afterExecute(actionExecutionContext, spawnResults);
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
-        return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
+        return new SpawnActionContinuation(actionExecutionContext, nextContinuation, label);
       } catch (IOException e) {
         throw toActionExecutionException(
-            new EnvironmentalExecException(e), actionExecutionContext.getVerboseFailures());
+            new EnvironmentalExecException(e), actionExecutionContext.showVerboseFailures(label));
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
+        throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
       }
     }
   }

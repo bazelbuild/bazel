@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import javax.annotation.Nullable;
 
 /**
@@ -27,7 +28,9 @@ import javax.annotation.Nullable;
  * appropriately smeared across our fingerprint range, and therefore composable more cheaply than by
  * hashing.
  */
+// TODO(b/150308424): Deprecate BigIntegerFingerprint
 public class BigIntegerFingerprint {
+  private static final UUID MARKER = UUID.fromString("28481318-fe19-454e-a60f-47922b398bca");
   private final Fingerprint fingerprint = new Fingerprint();
   private final List<BigInteger> alreadySmearedFingerprints = new ArrayList<>();
   private boolean seenNull = false;
@@ -64,9 +67,12 @@ public class BigIntegerFingerprint {
   public BigIntegerFingerprint addBigIntegerOrdered(BigInteger bigInteger) {
     alreadySmearedFingerprints.add(bigInteger);
     // Make sure the ordering of this BigInteger with respect to the items added to the fingerprint
-    // is reflected in the output. Because no other method calls #addSInt, we can use it as a
-    // marker.
-    fingerprint.addSInt(1);
+    // is reflected in the output. Use a UUID as a marker since extremely unlikely for there to
+    // be a collision.
+    // TODO(b/150308424): This class should just add a boolean in each add call:
+    //   true here and false for all others. OR, this add is entirely unnecessary if the location
+    //   of BigInteger adds are not data-dependent.
+    fingerprint.addUUID(MARKER);
     return this;
   }
 
@@ -83,6 +89,7 @@ public class BigIntegerFingerprint {
       return null;
     }
     BigInteger fp = new BigInteger(1, fingerprint.digestAndReset());
+    // TODO(b/150312032): Is this still actually faster than hashing?
     for (BigInteger bigInteger : alreadySmearedFingerprints) {
       fp = BigIntegerFingerprintUtils.composeOrdered(fp, bigInteger);
     }

@@ -29,7 +29,11 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.common.options.Option;
@@ -206,7 +210,7 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         metadataTags = {OptionMetadataTag.DEPRECATED},
         help = "No-op")
-    public boolean enableCcToolchainConfigInfoFromSkylark;
+    public boolean enableCcToolchainConfigInfoFromStarlark;
 
     @Option(
         name = "output_symbol_counts",
@@ -288,7 +292,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help =
-            "Flag for disabling the legacy cc_toolchain Skylark API for accessing legacy "
+            "Flag for disabling the legacy cc_toolchain Starlark API for accessing legacy "
                 + "CROSSTOOL fields.")
     public boolean disableLegacyFlagsCcToolchainApi;
 
@@ -303,7 +307,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help = "Obsolete, no effect.")
-    public boolean enableLegacyToolchainSkylarkApi;
+    public boolean enableLegacyToolchainStarlarkApi;
 
     @Option(
         name = "incompatible_disable_legacy_cpp_toolchain_skylark_api",
@@ -316,7 +320,7 @@ public class BazelRulesModule extends BlazeModule {
           OptionMetadataTag.DEPRECATED
         },
         help = "Obsolete, no effect.")
-    public boolean disableLegacyToolchainSkylarkApi;
+    public boolean disableLegacyToolchainStarlarkApi;
 
     @Option(
         name = "incompatible_cc_coverage",
@@ -406,6 +410,34 @@ public class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.UNKNOWN},
         help = "No-op.")
     public boolean experimentalUi;
+
+    @Option(
+        name = "experimental_profile_action_counts",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean enableActionCountProfile;
+
+    @Option(
+        name = "incompatible_remove_binary_profile",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help = "No-op.")
+    public boolean removeBinaryProfile;
+
+    @Option(
+        name = "experimental_post_profile_started_event",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op.")
+    public boolean postProfileStartedEvent;
   }
 
   @Override
@@ -457,18 +489,29 @@ public class BazelRulesModule extends BlazeModule {
     if (!remoteOptions.remoteOutputsMode.downloadAllOutputs()) {
       JavaOptions javaOptions = env.getOptions().getOptions(JavaOptions.class);
       if (javaOptions != null && !javaOptions.inmemoryJdepsFiles) {
-        throw new AbruptExitException(
+        throw createRemoteExecutionExitException(
             "--experimental_remote_download_outputs=minimal requires"
                 + " --experimental_inmemory_jdeps_files to be enabled",
-            ExitCode.COMMAND_LINE_ERROR);
+            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS);
       }
       CppOptions cppOptions = env.getOptions().getOptions(CppOptions.class);
       if (cppOptions != null && !cppOptions.inmemoryDotdFiles) {
-        throw new AbruptExitException(
+        throw createRemoteExecutionExitException(
             "--experimental_remote_download_outputs=minimal requires"
                 + " --experimental_inmemory_dotd_files to be enabled",
-            ExitCode.COMMAND_LINE_ERROR);
+            Code.REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_DOTD);
       }
     }
+  }
+
+  private static AbruptExitException createRemoteExecutionExitException(
+      String message, Code remoteExecutionCode) {
+    return new AbruptExitException(
+        DetailedExitCode.of(
+            ExitCode.COMMAND_LINE_ERROR,
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setRemoteExecution(RemoteExecution.newBuilder().setCode(remoteExecutionCode))
+                .build()));
   }
 }

@@ -20,24 +20,23 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.DependencyResolver.DependencyKind;
+import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.configuredtargets.EnvironmentGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -64,10 +63,10 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleVisibility;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
-import com.google.devtools.build.lib.skyframe.AspectFunction.AspectFunctionException;
+import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.util.ClassName;
@@ -156,7 +155,7 @@ public final class ConfiguredTargetFactory {
       Label label,
       BuildConfiguration config) {
     for (ConfiguredTargetAndData prerequisite :
-        prerequisiteMap.get(DependencyResolver.VISIBILITY_DEPENDENCY)) {
+        prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY)) {
       if (prerequisite.getTarget().getLabel().equals(label)
           && Objects.equals(prerequisite.getConfiguration(), config)) {
         return prerequisite.getConfiguredTarget();
@@ -182,8 +181,8 @@ public final class ConfiguredTargetFactory {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext)
-      throws InterruptedException, ActionConflictException {
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
+      throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     if (target instanceof Rule) {
       try {
         CurrentRuleTracker.beginConfiguredTarget(((Rule) target).getRuleClassObject());
@@ -195,7 +194,7 @@ public final class ConfiguredTargetFactory {
             configuredTargetKey,
             prerequisiteMap,
             configConditions,
-            toolchainContext);
+            toolchainContexts);
       } finally {
         CurrentRuleTracker.endConfiguredTarget();
       }
@@ -211,7 +210,7 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
               visibility);
       if (analysisEnvironment.getSkyframeEnv().valuesMissing()) {
         return null;
@@ -234,13 +233,17 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.OUTPUT_FILE_RULE_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY),
               visibility);
       SourceArtifact artifact =
           artifactFactory.getSourceArtifact(
-              inputFile.getExecPath(),
-              inputFile.getPackage().getSourceRoot(),
-              ConfiguredTargetKey.of(target.getLabel(), config));
+              inputFile.getExecPath(
+                  analysisEnvironment.getStarlarkSemantics().experimentalSiblingRepositoryLayout()),
+              inputFile.getPackage().getSourceRoot().get(),
+              ConfiguredTargetKey.builder()
+                  .setLabel(target.getLabel())
+                  .setConfiguration(config)
+                  .build());
       return new InputFileConfiguredTarget(targetContext, inputFile, artifact);
     } else if (target instanceof PackageGroup) {
       PackageGroup packageGroup = (PackageGroup) target;
@@ -249,7 +252,7 @@ public final class ConfiguredTargetFactory {
               analysisEnvironment,
               target,
               config,
-              prerequisiteMap.get(DependencyResolver.VISIBILITY_DEPENDENCY),
+              prerequisiteMap.get(DependencyKind.VISIBILITY_DEPENDENCY),
               visibility);
       return new PackageGroupConfiguredTarget(targetContext, packageGroup);
     } else if (target instanceof EnvironmentGroup) {
@@ -263,72 +266,114 @@ public final class ConfiguredTargetFactory {
 
   /**
    * Returns a set of user-friendly strings identifying <i>almost</i> all of the pieces of config
-   * state that are required by this rule.
+   * state required by a rule or aspect.
    *
    * <p>The returned config state includes things that are known to be required at the time when the
-   * rule's dependencies have already been analyzed but before the rule itself has been analyzed.
+   * rule's/aspect's dependencies have already been analyzed but before it's been analyzed itself.
    * See {@link RuleConfiguredTargetBuilder#maybeAddRequiredConfigFragmentsProvider} for the
    * remaining pieces of config state.
    *
-   * <p>The strings can be names of {@link BuildConfiguration.Fragment}s, names of {@link
-   * FragmentOptions}, and labels of user-defined options such as Starlark flags and Android feature
-   * flags.
+   * <p>The strings can be names of {@link Fragment}s, names of {@link
+   * com.google.devtools.build.lib.analysis.config.FragmentOptions}, and labels of user-defined
+   * options such as Starlark flags and Android feature flags.
    *
    * <p>If {@code configuration} is {@link CoreOptions.IncludeConfigFragmentsEnum#DIRECT}, the
-   * result includes only the config state considered to be directly required by this rule. If it's
-   * {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config state needed
-   * by transitive dependencies. If it's {@link CoreOptions.IncludeConfigFragmentEnum#OFF}, this
-   * method just returns an empty set.
+   * result includes only the config state considered to be directly required by this rule/aspect.
+   * If it's {@link CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE}, it also includes config
+   * state needed by transitive dependencies. If it's {@link
+   * CoreOptions.IncludeConfigFragmentEnum#OFF}, this method just returns an empty set.
    *
    * <p>{@code select()}s and toolchain dependencies are considered when looking at what config
    * state is required.
    *
    * <p>TODO: This doesn't yet support fragments required by either native or Starlark transitions.
    *
-   * @param rule The rule this is for
-   * @param configuration the configuration for this rule
+   * @param buildSettingLabel this rule's label if this is a rule that's a build setting, else empty
+   * @param configuration the configuration for this rule/aspect
    * @param universallyRequiredFragments fragments that are always required even if not explicitly
-   *     specified for this rule
-   * @param directlyRequiredFragments fragments directly required by this rule's definition
-   * @param configConditions {@link FragmentOptions} required by {@code select}s on this rule. This
-   *     is a different type than the others: options and fragments are different concepts. There's
-   *     some subtlety to their relationship (e.g. a {@link FragmentOptions} can be associated with
-   *     multiple {@link BuildConfiguration.Fragment}s). Rather than trying to merge all results
-   *     into a pure set of {@link BuildConfiguration.Fragment}s we just allow the mix. In practice
-   *     the conceptual dependencies remain clear enough without trying to resolve these subtleties.
-   * @param prerequisites all prerequisties of this rule
+   *     specified for this rule/aspect
+   * @param configurationFragmentPolicy source of truth for the fragments required by this
+   *     rule/aspect class definition
+   * @param configConditions {@link com.google.devtools.build.lib.analysis.config.FragmentOptions}
+   *     required by {@code select}s on this rule (empty if this is an aspect). This is a different
+   *     type than the others: options and fragments are different concepts. There's some subtlety
+   *     to their relationship (e.g. a {@link
+   *     com.google.devtools.build.lib.analysis.config.FragmentOptions} can be associated with
+   *     multiple {@link Fragment}s). Rather than trying to merge all results into a pure set of
+   *     {@link Fragment}s we just allow the mix. In practice the conceptual dependencies remain
+   *     clear enough without trying to resolve these subtleties.
+   * @param prerequisites all prerequisites of this rule/aspect
    * @return An alphabetically ordered set of required fragments, options, and labels of
    *     user-defined options.
    */
-  private static ImmutableSet<String> getRequiredConfigFragments(
-      Rule rule,
+  private static ImmutableSortedSet<String> getRequiredConfigFragments(
+      Optional<Label> buildSettingLabel,
       BuildConfiguration configuration,
-      Collection<Class<? extends BuildConfiguration.Fragment>> universallyRequiredFragments,
-      Collection<Class<?>> directlyRequiredFragments,
+      Collection<Class<? extends Fragment>> universallyRequiredFragments,
+      ConfigurationFragmentPolicy configurationFragmentPolicy,
       Collection<ConfigMatchingProvider> configConditions,
       Iterable<ConfiguredTargetAndData> prerequisites) {
-    TreeSet<String> requiredFragments = new TreeSet<>();
+    CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
+    if (coreOptions.includeRequiredConfigFragmentsProvider
+        == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
+      return ImmutableSortedSet.of();
+    }
 
+    ImmutableSortedSet.Builder<String> requiredFragments = ImmutableSortedSet.naturalOrder();
+
+    // Add directly required fragments:
+
+    // Fragments explicitly required by this rule via the native rule/aspect definition API:
+    configurationFragmentPolicy
+        .getRequiredConfigurationFragments()
+        .forEach(fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
+    // Fragments explicitly required by this rule via the Starlark rule/aspect definition API:
+    configurationFragmentPolicy
+        .getRequiredStarlarkFragments()
+        .forEach(
+            starlarkName -> {
+              requiredFragments.add(
+                  ClassName.getSimpleNameWithOuter(
+                      configuration.getStarlarkFragmentByName(starlarkName)));
+            });
+    // Fragments universally required by everything:
+    universallyRequiredFragments.forEach(
+        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
+    // Fragments required by config_conditions this rule select()s on (for aspects should be empty):
+    configConditions.forEach(
+        configCondition -> requiredFragments.addAll(configCondition.getRequiredFragmentOptions()));
+    // We consider build settings (which are both rules and configuration) to require themselves:
+    if (buildSettingLabel.isPresent()) {
+      requiredFragments.add(buildSettingLabel.get().toString());
+    }
+
+    // Optionally add transitively required fragments:
+    requiredFragments.addAll(getRequiredConfigFragmentsFromDeps(configuration, prerequisites));
+    return requiredFragments.build();
+  }
+
+  /**
+   * Subset of {@link #getRequiredConfigFragments} that only returns fragments required by deps.
+   * This includes:
+   *
+   * <ul>
+   *   <li>Requirements transitively required by deps iff {@link
+   *       CoreOptions#includeRequiredConfigFragmentsProvider} is {@link
+   *       CoreOptions.IncludeConfigFragmentsEnum#TRANSITIVE},
+   *   <li>Dependencies on Starlark build settings iff {@link
+   *       CoreOptions#includeRequiredConfigFragmentsProvider} is not {@link
+   *       CoreOptions.IncludeConfigFragmentsEnum#OFF}. These are considered direct requirements on
+   *       the rule.
+   * </ul>
+   */
+  private static ImmutableSet<String> getRequiredConfigFragmentsFromDeps(
+      BuildConfiguration configuration, Iterable<ConfiguredTargetAndData> prerequisites) {
+
+    TreeSet<String> requiredFragments = new TreeSet<>();
     CoreOptions coreOptions = configuration.getOptions().get(CoreOptions.class);
     if (coreOptions.includeRequiredConfigFragmentsProvider
         == CoreOptions.IncludeConfigFragmentsEnum.OFF) {
       return ImmutableSet.of();
-    }
-
-    // Add directly required fragments:
-
-    // Fragments explicitly required by this rule:
-    directlyRequiredFragments.forEach(
-        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
-    // Fragments universally required by all rules:
-    universallyRequiredFragments.forEach(
-        fragment -> requiredFragments.add(ClassName.getSimpleNameWithOuter(fragment)));
-    // Fragments required by config_conditions this rule select()s on:
-    configConditions.forEach(
-        configCondition -> requiredFragments.addAll(configCondition.getRequiredFragmentOptions()));
-    // We consider build settings (which are both rules and configuration) to require themselves:
-    if (rule.isBuildSetting()) {
-      requiredFragments.add(rule.getLabel().toString());
     }
 
     for (ConfiguredTargetAndData prereq : prerequisites) {
@@ -366,8 +411,8 @@ public final class ConfiguredTargetFactory {
       ConfiguredTargetKey configuredTargetKey,
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ResolvedToolchainContext toolchainContext)
-      throws InterruptedException, ActionConflictException {
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts)
+      throws InterruptedException, ActionConflictException, InvalidExecGroupException {
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         rule.getRuleClassObject().getConfigurationFragmentPolicy();
     // Visibility computation and checking is done for every rule.
@@ -385,14 +430,14 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(transformPrerequisiteMap(prerequisiteMap, rule))
             .setConfigConditions(configConditions)
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
-            .setToolchainContext(toolchainContext)
+            .setToolchainContexts(toolchainContexts)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
             .setRequiredConfigFragments(
                 getRequiredConfigFragments(
-                    rule,
+                    rule.isBuildSetting() ? Optional.of(rule.getLabel()) : Optional.empty(),
                     configuration,
                     ruleClassProvider.getUniversalFragments(),
-                    configurationFragmentPolicy.getRequiredConfigurationFragments(),
+                    configurationFragmentPolicy,
                     configConditions.values(),
                     prerequisiteMap.values()))
             .build();
@@ -421,15 +466,15 @@ public final class ConfiguredTargetFactory {
         // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
         return createFailConfiguredTarget(ruleContext);
       }
-      if (rule.getRuleClassObject().isSkylark()) {
+      if (rule.getRuleClassObject().isStarlark()) {
         // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
         ConfiguredTarget target =
-            SkylarkRuleConfiguredTargetUtil.buildRule(
+            StarlarkRuleConfiguredTargetUtil.buildRule(
                 ruleContext,
                 rule.getRuleClassObject().getAdvertisedProviders(),
                 rule.getRuleClassObject().getConfiguredTargetFunction(),
                 rule.getLocation(),
-                env.getSkylarkSemantics(),
+                env.getStarlarkSemantics(),
                 ruleClassProvider.getToolsRepository());
 
         return target != null ? target : erroredConfiguredTarget(ruleContext);
@@ -458,7 +503,7 @@ public final class ConfiguredTargetFactory {
           ruleContext.getConfiguredTargetMap().values();
       for (TransitiveInfoCollection infoCollection : infoCollections) {
         AnalysisFailureInfo failureInfo =
-            infoCollection.get(AnalysisFailureInfo.SKYLARK_CONSTRUCTOR);
+            infoCollection.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR);
         if (failureInfo != null) {
           analysisFailures.add(failureInfo.getCausesNestedSet());
         }
@@ -535,7 +580,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> map, Target target) {
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
     for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : map.entries()) {
-      if (entry.getKey() == DependencyResolver.TOOLCHAIN_DEPENDENCY) {
+      if (entry.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
         continue;
       }
       Attribute attribute = entry.getKey().getAttribute();
@@ -560,8 +605,8 @@ public final class ConfiguredTargetFactory {
       @Nullable ResolvedToolchainContext toolchainContext,
       BuildConfiguration aspectConfiguration,
       BuildConfiguration hostConfiguration,
-      ActionLookupValue.ActionLookupKey aspectKey)
-      throws AspectFunctionException, InterruptedException {
+      AspectValueKey.AspectKey aspectKey)
+      throws InterruptedException, ActionConflictException, InvalidExecGroupException {
 
     RuleContext.Builder builder =
         new RuleContext.Builder(
@@ -588,6 +633,14 @@ public final class ConfiguredTargetFactory {
             .setUniversalFragments(ruleClassProvider.getUniversalFragments())
             .setToolchainContext(toolchainContext)
             .setConstraintSemantics(ruleClassProvider.getConstraintSemantics())
+            .setRequiredConfigFragments(
+                getRequiredConfigFragments(
+                    /*buildSettingLabel=*/ Optional.empty(),
+                    aspectConfiguration,
+                    ruleClassProvider.getUniversalFragments(),
+                    aspect.getDefinition().getConfigurationFragmentPolicy(),
+                    /*configConditions=*/ ImmutableList.of(),
+                    prerequisiteMap.values()))
             .build();
 
     // If allowing analysis failures, targets should be created as normal as possible, and errors
@@ -598,23 +651,19 @@ public final class ConfiguredTargetFactory {
       return null;
     }
 
-    ConfiguredAspect configuredAspect;
-    try {
-      configuredAspect =
-          aspectFactory.create(
-              associatedTarget,
-              ruleContext,
-              aspect.getParameters(),
-              ruleClassProvider.getToolsRepository());
-    } catch (ActionConflictException e) {
-      throw new AspectFunctionException(e);
-    }
+    ConfiguredAspect configuredAspect =
+        aspectFactory.create(
+            associatedTarget,
+            ruleContext,
+            aspect.getParameters(),
+            ruleClassProvider.getToolsRepository());
     if (configuredAspect != null) {
       validateAdvertisedProviders(
-          configuredAspect, aspect.getDefinition().getAdvertisedProviders(),
+          configuredAspect,
+          aspectKey,
+          aspect.getDefinition().getAdvertisedProviders(),
           associatedTarget.getTarget(),
-          env.getEventHandler()
-      );
+          env.getEventHandler());
     }
     return configuredAspect;
   }
@@ -642,34 +691,34 @@ public final class ConfiguredTargetFactory {
 
   private void validateAdvertisedProviders(
       ConfiguredAspect configuredAspect,
-      AdvertisedProviderSet advertisedProviders, Target target,
+      AspectValueKey.AspectKey aspectKey,
+      AdvertisedProviderSet advertisedProviders,
+      Target target,
       EventHandler eventHandler) {
     if (advertisedProviders.canHaveAnyProvider()) {
       return;
     }
     for (Class<?> aClass : advertisedProviders.getNativeProviders()) {
       if (configuredAspect.getProvider(aClass.asSubclass(TransitiveInfoProvider.class)) == null) {
-        eventHandler.handle(Event.error(
-            target.getLocation(),
-            String.format(
-                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
-                configuredAspect.getName(),
-                target.getLabel(),
-                aClass.getSimpleName()
-            )));
+        eventHandler.handle(
+            Event.error(
+                target.getLocation(),
+                String.format(
+                    "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                    aspectKey.getAspectClass().getName(),
+                    target.getLabel(),
+                    aClass.getSimpleName())));
       }
     }
 
-    for (SkylarkProviderIdentifier providerId : advertisedProviders.getSkylarkProviders()) {
-      if (configuredAspect.getProvider(providerId) == null) {
-        eventHandler.handle(Event.error(
-            target.getLocation(),
-            String.format(
-                "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
-                configuredAspect.getName(),
-                target.getLabel(),
-                providerId
-            )));
+    for (StarlarkProviderIdentifier providerId : advertisedProviders.getStarlarkProviders()) {
+      if (configuredAspect.get(providerId) == null) {
+        eventHandler.handle(
+            Event.error(
+                target.getLocation(),
+                String.format(
+                    "Aspect '%s', applied to '%s', does not provide advertised provider '%s'",
+                    aspectKey.getAspectClass().getName(), target.getLabel(), providerId)));
       }
     }
   }

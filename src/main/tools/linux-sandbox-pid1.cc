@@ -40,6 +40,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+
 #include <string>
 
 #ifndef MS_REC
@@ -174,6 +175,19 @@ static void MountFilesystems() {
   // do this is by bind-mounting it upon itself.
   PRINT_DEBUG("working dir: %s", opt.working_dir.c_str());
 
+  // An attempt to mount the sandbox in tmpfs will always fail, so this block is
+  // slightly redundant with the next mount() check, but dumping the mount()
+  // syscall is incredibly cryptic, so we explicitly check against and warn
+  // about attempts to use tmpfs.
+  for (const std::string &tmpfs_dir : opt.tmpfs_dirs) {
+    if (opt.working_dir.find(tmpfs_dir) == 0) {
+      DIE("The sandbox working directory cannot be below a path where we mount "
+          "tmpfs (you requested mounting %s in %s). Is your --output_base= "
+          "below one of your --sandbox_tmpfs_path values?",
+          opt.working_dir.c_str(), tmpfs_dir.c_str());
+    }
+  }
+
   if (mount(opt.working_dir.c_str(), opt.working_dir.c_str(), nullptr, MS_BIND,
             nullptr) < 0) {
     DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", opt.working_dir.c_str(),
@@ -181,8 +195,8 @@ static void MountFilesystems() {
   }
 
   for (size_t i = 0; i < opt.bind_mount_sources.size(); i++) {
-    const std::string& source = opt.bind_mount_sources.at(i);
-    const std::string& target = opt.bind_mount_targets.at(i);
+    const std::string &source = opt.bind_mount_sources.at(i);
+    const std::string &target = opt.bind_mount_targets.at(i);
     PRINT_DEBUG("bind mount: %s -> %s", source.c_str(), target.c_str());
     if (mount(source.c_str(), target.c_str(), nullptr, MS_BIND, nullptr) < 0) {
       DIE("mount(%s, %s, nullptr, MS_BIND, nullptr)", source.c_str(),
@@ -275,10 +289,19 @@ static void MakeFilesystemMostlyReadOnly() {
       // mount is a broken NFS mount. In the ideal case, the user would either
       // fix or remove that mount, but in cases where that's not possible, we
       // should just ignore it.
-      if (errno != EACCES && errno != EPERM && errno != EINVAL &&
-          errno != ENOENT && errno != ESTALE) {
-        DIE("remount(nullptr, %s, nullptr, %d, nullptr)", ent->mnt_dir,
-            mountFlags);
+      switch (errno) {
+        case EACCES:
+        case EPERM:
+        case EINVAL:
+        case ENOENT:
+        case ESTALE:
+          PRINT_DEBUG(
+              "remount(nullptr, %s, nullptr, %d, nullptr) failure (%m) ignored",
+              ent->mnt_dir, mountFlags);
+          break;
+        default:
+          DIE("remount(nullptr, %s, nullptr, %d, nullptr)", ent->mnt_dir,
+              mountFlags);
       }
     }
   }
@@ -331,37 +354,13 @@ static void EnterSandbox() {
   }
 }
 
-// Reset the signal mask and restore the default handler for all signals.
-static void RestoreSignalHandlersAndMask() {
-  // Use an empty signal mask for the process (= unblock all signals).
-  sigset_t empty_set;
-  if (sigemptyset(&empty_set) < 0) {
-    DIE("sigemptyset");
-  }
-  if (sigprocmask(SIG_SETMASK, &empty_set, nullptr) < 0) {
-    DIE("sigprocmask(SIG_SETMASK, <empty set>, nullptr)");
-  }
-
-  // Set the default signal handler for all signals.
-  struct sigaction sa = {};
-  if (sigemptyset(&sa.sa_mask) < 0) {
-    DIE("sigemptyset");
-  }
-  sa.sa_handler = SIG_DFL;
-  for (int i = 1; i < NSIG; ++i) {
-    // Ignore possible errors, because we might not be allowed to set the
-    // handler for certain signals, but we still want to try.
-    sigaction(i, &sa, nullptr);
-  }
-}
-
 static void ForwardSignal(int signum) {
   PRINT_DEBUG("ForwardSignal(%d)", signum);
   kill(-global_child_pid, signum);
 }
 
 static void SetupSignalHandlers() {
-  RestoreSignalHandlersAndMask();
+  ClearSignalMask();
 
   for (int signum = 1; signum < NSIG; signum++) {
     switch (signum) {
@@ -414,7 +413,7 @@ static void SpawnChild() {
     }
 
     // Unblock all signals, restore default handlers.
-    RestoreSignalHandlersAndMask();
+    ClearSignalMask();
 
     // Force umask to include read and execute for everyone, to make output
     // permissions predictable.

@@ -231,38 +231,15 @@ function test_args_escaping() {
   create_py_file_that_prints_args "$ws"
   create_build_file_with_many_args "$ws"
 
-  # Batch mode, Bash-less run command.
-  if $is_windows; then
-    ( cd "$ws"
-      bazel --batch run --incompatible_windows_bashless_run_command \
-        --verbose_failures :x &>"$TEST_log" || fail "expected success"
-    )
-    assert_good_output_of_the_program_with_many_args
-    rm "$TEST_log"
-  fi
-
-  # Batch mode, Bash-ful run command.
   ( cd "$ws"
-    bazel --batch run --noincompatible_windows_bashless_run_command \
-      --verbose_failures :x &>"$TEST_log" || fail "expected success"
+    bazel --batch run --verbose_failures :x &>"$TEST_log" \
+      || fail "expected success"
   )
   assert_good_output_of_the_program_with_many_args
   rm "$TEST_log"
 
-  # Server mode, Bash-less run command.
-  if $is_windows; then
-    ( cd "$ws"
-      bazel run --incompatible_windows_bashless_run_command \
-        --verbose_failures :x &>"$TEST_log" || fail "expected success"
-    )
-    assert_good_output_of_the_program_with_many_args
-    rm "$TEST_log"
-  fi
-
-  # Server mode, Bash-ful run command.
   ( cd "$ws"
-    bazel run --noincompatible_windows_bashless_run_command \
-      --verbose_failures :x &>"$TEST_log" || fail "expected success"
+    bazel run --verbose_failures :x &>"$TEST_log" || fail "expected success"
   )
   assert_good_output_of_the_program_with_many_args
   rm "$TEST_log"

@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -98,7 +97,8 @@ public final class Whitelist {
       RuleContext ruleContext, String whitelistName) {
     String attributeName = getAttributeNameFromWhitelistName(whitelistName);
     Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL));
-    TransitiveInfoCollection packageGroup = ruleContext.getPrerequisite(attributeName, Mode.HOST);
+    TransitiveInfoCollection packageGroup =
+        ruleContext.getPrerequisite(attributeName, TransitionMode.HOST);
     PackageSpecificationProvider packageSpecificationProvider =
         packageGroup.getProvider(PackageSpecificationProvider.class);
     return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());

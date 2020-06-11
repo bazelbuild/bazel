@@ -139,6 +139,13 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
                  "https://github.com/bazelbuild/bazel/issues with the following:\n" +
                  error_msg)
 
+        tool_paths = {}
+        gcov_path = repository_ctx.os.environ.get("GCOV")
+        if gcov_path != None:
+            if not gcov_path.startswith("/"):
+                gcov_path = repository_ctx.which(gcov_path)
+            tool_paths["gcov"] = gcov_path
+
         escaped_include_paths = _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
         write_builtin_include_directory_paths(repository_ctx, cc, escaped_include_paths)
         escaped_cxx_include_directories = []
@@ -149,7 +156,12 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
         repository_ctx.template(
             "BUILD",
             paths["@bazel_tools//tools/osx/crosstool:BUILD.tpl"],
-            {"%{cxx_builtin_include_directories}": "\n".join(escaped_cxx_include_directories)},
+            {
+                "%{cxx_builtin_include_directories}": "\n".join(escaped_cxx_include_directories),
+                "%{tool_paths_overrides}": ",\n        ".join(
+                    ['"%s": "%s"' % (k, v) for k, v in tool_paths.items()],
+                ),
+            },
         )
     else:
         configure_unix_toolchain(repository_ctx, cpu_value = "darwin", overriden_tools = overriden_tools)

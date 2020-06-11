@@ -22,11 +22,10 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
+import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.management.ManagementFactory;
-import java.lang.management.RuntimeMXBean;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.nio.file.Files;
@@ -35,8 +34,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.zip.ZipEntry;
+import java.util.jar.JarEntry;
 import javax.inject.Inject;
+import javax.tools.ToolProvider;
 import org.junit.runner.RunWith;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.FieldNode;
@@ -48,30 +48,37 @@ public class DesugarRuleBuilder {
   private static final ImmutableSet<Class<?>> SUPPORTED_ASM_NODE_TYPES =
       ImmutableSet.of(ClassNode.class, FieldNode.class, MethodNode.class);
 
+  private static final String ANDROID_RUNTIME_JAR_JVM_FLAG_KEY = "android_runtime_jar";
+  private static final String JACOCO_AGENT_JAR_JVM_FLAG_KEY = "jacoco_agent_jar";
+  private static final String DUMP_PROXY_CLASSES_JVM_FLAG_KEY =
+      "jdk.internal.lambda.dumpProxyClasses";
+
   private final Object testInstance;
   private final MethodHandles.Lookup testInstanceLookup;
   private final ImmutableList<Field> injectableClassLiterals;
   private final ImmutableList<Field> injectableAsmNodes;
   private final ImmutableList<Field> injectableMethodHandles;
-  private final ImmutableList<Field> injectableZipFileEntries;
+  private final ImmutableList<Field> injectableJarEntries;
   private String workingJavaPackage = "";
   private int maxNumOfTransformations = 1;
   private final List<Path> inputs = new ArrayList<>();
+  private final List<Path> sourceInputs = new ArrayList<>();
+  private final List<String> javacOptions = new ArrayList<>();
   private final List<Path> classPathEntries = new ArrayList<>();
   private final List<Path> bootClassPathEntries = new ArrayList<>();
   private final Multimap<String, String> customCommandOptions = LinkedHashMultimap.create();
   private final ErrorMessenger errorMessenger = new ErrorMessenger();
 
-  private final Path androidRuntimeJar;
-  private final Path jacocoAgentJar;
+  private final String androidRuntimeJarJvmFlagValue;
+  private final String jacocoAgentJarJvmFlagValue;
 
   DesugarRuleBuilder(Object testInstance, MethodHandles.Lookup testInstanceLookup) {
     this.testInstance = testInstance;
     this.testInstanceLookup = testInstanceLookup;
     Class<?> testClass = testInstance.getClass();
 
-    androidRuntimeJar = Paths.get(getExplicitJvmFlagValue("android_runtime_jar", errorMessenger));
-    jacocoAgentJar = Paths.get(getExplicitJvmFlagValue("jacoco_agent_jar", errorMessenger));
+    androidRuntimeJarJvmFlagValue = getExplicitJvmFlagValue(ANDROID_RUNTIME_JAR_JVM_FLAG_KEY);
+    jacocoAgentJarJvmFlagValue = getExplicitJvmFlagValue(JACOCO_AGENT_JAR_JVM_FLAG_KEY);
 
     if (testClass != testInstanceLookup.lookupClass()) {
       errorMessenger.addError(
@@ -89,8 +96,7 @@ public class DesugarRuleBuilder {
     injectableAsmNodes = findAllInjectableFieldsWithQualifier(testClass, AsmNode.class);
     injectableMethodHandles =
         findAllInjectableFieldsWithQualifier(testClass, RuntimeMethodHandle.class);
-    injectableZipFileEntries =
-        findAllInjectableFieldsWithQualifier(testClass, RuntimeZipEntry.class);
+    injectableJarEntries = findAllInjectableFieldsWithQualifier(testClass, RuntimeJarEntry.class);
   }
 
   static ImmutableList<Field> findAllInjectableFieldsWithQualifier(
@@ -131,6 +137,56 @@ public class DesugarRuleBuilder {
     return this;
   }
 
+  /** Add Java source files subject to be compiled during test execution. */
+  public DesugarRuleBuilder addSourceInputs(Path... inputSourceFiles) {
+    for (Path path : inputSourceFiles) {
+      if (!path.toString().endsWith(".java")) {
+        errorMessenger.addError("Expected a Java source file (*.java): Actual (%s)", path);
+      }
+      if (!Files.exists(path)) {
+        errorMessenger.addError("File does not exist: %s", path);
+      }
+      sourceInputs.add(path);
+    }
+    return this;
+  }
+
+  /**
+   * Add JVM-flag-specified Java source files subject to be compiled during test execution. It is
+   * expected the value associated with `jvmFlagKey` to be a space-separated Strings. E.g. on the
+   * command line you would set it like: -Dinput_srcs="path1 path2 path3", and use <code>
+   *  .addSourceInputsFromJvmFlag("input_srcs").</code> in your test class.
+   */
+  public DesugarRuleBuilder addSourceInputsFromJvmFlag(String jvmFlagKey) {
+    return addSourceInputs(DesugarTestHelpers.getRuntimePathsFromJvmFlag(jvmFlagKey));
+  }
+
+  /**
+   * Add JVM-flag-specified Java source files subject to be compiled during test execution. It is
+   * expected the value associated with `jvmFlagKey` to be a space-separated Strings. E.g. on the
+   * command line you would set it like: -Dinput_srcs="path1 path2 path3", and use <code>
+   *  .addSourceInputsFromJvmFlag("input_srcs").</code> in your test class.
+   */
+  public DesugarRuleBuilder addJarInputsFromJvmFlag(String jvmFlagKey) {
+    return addInputs(DesugarTestHelpers.getRuntimePathsFromJvmFlag(jvmFlagKey));
+  }
+
+  /**
+   * Add javac options used for compilation, with the same support of `javacopts` attribute in
+   * java_binary rule.
+   */
+  public DesugarRuleBuilder addJavacOptions(String... javacOptions) {
+    for (String javacOption : javacOptions) {
+      if (!javacOption.startsWith("-")) {
+        errorMessenger.addError(
+            "Expected javac options, e.g. `-source 11`, `-target 11`, `-parameters`, Run `javac"
+                + " -help` from terminal for all supported options.");
+      }
+      this.javacOptions.add(javacOption);
+    }
+    return this;
+  }
+
   public DesugarRuleBuilder addClasspathEntries(Path... inputJars) {
     Collections.addAll(classPathEntries, inputJars);
     return this;
@@ -148,36 +204,60 @@ public class DesugarRuleBuilder {
   }
 
   private void checkJVMOptions() {
-    RuntimeMXBean runtimeMxBean = ManagementFactory.getRuntimeMXBean();
-    List<String> arguments = runtimeMxBean.getInputArguments();
-    if (arguments.stream()
-        .noneMatch(arg -> arg.startsWith("-Djdk.internal.lambda.dumpProxyClasses="))) {
+    if (Strings.isNullOrEmpty(getExplicitJvmFlagValue(DUMP_PROXY_CLASSES_JVM_FLAG_KEY))) {
       errorMessenger.addError(
-          "Expected \"-Djdk.internal.lambda.dumpProxyClasses=$$(mktemp -d)\" in jvm_flags.\n");
+          "Expected JVM flag: \"-D%s=$$(mktemp -d)\", but it is absent.",
+          DUMP_PROXY_CLASSES_JVM_FLAG_KEY);
+    }
+
+    if (Strings.isNullOrEmpty(androidRuntimeJarJvmFlagValue)
+        || !androidRuntimeJarJvmFlagValue.endsWith(".jar")
+        || !Files.exists(Paths.get(androidRuntimeJarJvmFlagValue))) {
+      errorMessenger.addError(
+          "Android Runtime Jar does not exist: Please check JVM flag: -D%s='%s'",
+          ANDROID_RUNTIME_JAR_JVM_FLAG_KEY, androidRuntimeJarJvmFlagValue);
+    }
+
+    if (Strings.isNullOrEmpty(jacocoAgentJarJvmFlagValue)
+        || !jacocoAgentJarJvmFlagValue.endsWith(".jar")
+        || !Files.exists(Paths.get(jacocoAgentJarJvmFlagValue))) {
+      errorMessenger.addError(
+          "Jacoco Agent Jar does not exist: Please check JVM flag: -D%s='%s'",
+          JACOCO_AGENT_JAR_JVM_FLAG_KEY, jacocoAgentJarJvmFlagValue);
     }
   }
 
   public DesugarRule build() {
-    checkJVMOptions();
     checkInjectableClassLiterals();
     checkInjectableAsmNodes();
     checkInjectableMethodHandles();
-    checkInjectableZipEntries();
+    checkInjectableJarEntries();
 
-    if (!Files.exists(androidRuntimeJar)) {
-      errorMessenger.addError("Android Runtime Jar does not exist: %s", androidRuntimeJar);
+    if (maxNumOfTransformations > 0) {
+      checkJVMOptions();
+      if (bootClassPathEntries.isEmpty()
+          && !customCommandOptions.containsKey("allow_empty_bootclasspath")) {
+        addBootClassPathEntries(Paths.get(androidRuntimeJarJvmFlagValue));
+      }
+      addClasspathEntries(Paths.get(jacocoAgentJarJvmFlagValue));
     }
 
-    if (!Files.exists(jacocoAgentJar)) {
-      errorMessenger.addError("Jacoco Agent Jar does not exist: %s", jacocoAgentJar);
+    ImmutableList.Builder<SourceCompilationUnit> sourceCompilationUnits = ImmutableList.builder();
+    if (!sourceInputs.isEmpty()) {
+      try {
+        Path runtimeCompiledJar = Files.createTempFile("runtime_compiled_", ".jar");
+        sourceCompilationUnits.add(
+            new SourceCompilationUnit(
+                ToolProvider.getSystemJavaCompiler(),
+                ImmutableList.copyOf(javacOptions),
+                ImmutableList.copyOf(sourceInputs),
+                runtimeCompiledJar));
+        addInputs(runtimeCompiledJar);
+      } catch (IOException e) {
+        errorMessenger.addError(
+            "Failed to access the output jar location for compilation: %s\n%s", sourceInputs, e);
+      }
     }
-
-    if (bootClassPathEntries.isEmpty()
-        && !customCommandOptions.containsKey("allow_empty_bootclasspath")) {
-      addCommandOptions("bootclasspath_entry", androidRuntimeJar.toString());
-    }
-
-    addClasspathEntries(jacocoAgentJar);
 
     RuntimeEntityResolver runtimeEntityResolver =
         new RuntimeEntityResolver(
@@ -188,11 +268,6 @@ public class DesugarRuleBuilder {
             ImmutableList.copyOf(classPathEntries),
             ImmutableList.copyOf(bootClassPathEntries),
             ImmutableListMultimap.copyOf(customCommandOptions));
-    try {
-      runtimeEntityResolver.executeTransformation();
-    } catch (Throwable throwable) {
-      errorMessenger.addError("Desugar Transformation Exception: %s", throwable);
-    }
 
     if (errorMessenger.containsAnyError()) {
       throw new IllegalStateException(
@@ -208,8 +283,9 @@ public class DesugarRuleBuilder {
             .addAll(injectableClassLiterals)
             .addAll(injectableAsmNodes)
             .addAll(injectableMethodHandles)
-            .addAll(injectableZipFileEntries)
+            .addAll(injectableJarEntries)
             .build(),
+        sourceCompilationUnits.build(),
         runtimeEntityResolver);
   }
 
@@ -283,19 +359,19 @@ public class DesugarRuleBuilder {
     }
   }
 
-  private void checkInjectableZipEntries() {
-    for (Field field : injectableZipFileEntries) {
+  private void checkInjectableJarEntries() {
+    for (Field field : injectableJarEntries) {
       if (Modifier.isStatic(field.getModifiers())) {
         errorMessenger.addError("Expected to be non-static for field (%s)", field);
       }
 
-      if (field.getType() != ZipEntry.class) {
+      if (field.getType() != JarEntry.class) {
         errorMessenger.addError(
-            "Expected a field with Type: (%s) but gets (%s)", ZipEntry.class.getName(), field);
+            "Expected a field with Type: (%s) but gets (%s)", JarEntry.class.getName(), field);
       }
 
-      RuntimeZipEntry zipEntryInfo = field.getDeclaredAnnotation(RuntimeZipEntry.class);
-      if (zipEntryInfo.round() < 0 || zipEntryInfo.round() > maxNumOfTransformations) {
+      RuntimeJarEntry jarEntryInfo = field.getDeclaredAnnotation(RuntimeJarEntry.class);
+      if (jarEntryInfo.round() < 0 || jarEntryInfo.round() > maxNumOfTransformations) {
         errorMessenger.addError(
             "Expected the round of desugar transformation within [0, %d], where 0 indicates no"
                 + " transformation is used.",
@@ -304,13 +380,8 @@ public class DesugarRuleBuilder {
     }
   }
 
-  private static String getExplicitJvmFlagValue(String jvmFlagKey, ErrorMessenger errorMessenger) {
+  private static String getExplicitJvmFlagValue(String jvmFlagKey) {
     String jvmFlagValue = System.getProperty(jvmFlagKey);
-    if (Strings.isNullOrEmpty(jvmFlagValue)) {
-      errorMessenger.addError(
-          "Expected JVM flag specified: -D%s=<value of %s>", jvmFlagKey, jvmFlagKey);
-      return "";
-    }
-    return jvmFlagValue;
+    return Strings.isNullOrEmpty(jvmFlagValue) ? "" : jvmFlagValue;
   }
 }

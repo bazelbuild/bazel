@@ -43,11 +43,7 @@ assert_eq('b\\n\\n\\'.replace('\\', '$()'), "b$()n$()n$()")
 
 assert_eq('banana'.replace('a', 'e', 2), "benena")
 assert_eq('banana'.replace('a', 'e', 0), "banana")
-assert_eq('banana'.replace('a', 'e', -1), "banana")
-assert_eq('banana'.replace('a', 'e', -10), "banana")
 
-assert_eq('banana'.replace('', '-'), "-b-a-n-a-n-a-")
-assert_eq('banana'.replace('', '-', -2), "banana")
 assert_eq('banana'.replace('', '-', 2), "-b-anana")
 assert_eq('banana'.replace('', '-', 0), "banana")
 
@@ -89,11 +85,11 @@ assert_eq('a'.endswith(('b',)), False)
 assert_eq('a'.endswith(()), False)
 assert_eq(''.endswith(()), False)
 ---
-'a'.endswith(['a']) ### got .* 'list', want 'string or tuple of strings
+'a'.endswith(['a']) ### got .* 'list', want 'string or tuple'
 ---
-'1'.endswith((1,)) ### expected type 'string' for 'string' element but got type 'int' instead
+'1'.endswith((1,)) ### at index 0 of sub, got element of type int, want string
 ---
-'a'.endswith(('1', 1)) ### expected type 'string' for 'string' element but got type 'int' instead
+'a'.endswith(('1', 1)) ### at index 0 of sub, got element of type int, want string
 ---
 
 # startswith
@@ -117,11 +113,11 @@ assert_eq('a'.startswith(('b',)), False)
 assert_eq('a'.startswith(()), False)
 assert_eq(''.startswith(()), False)
 ---
-'a'.startswith(['a']) ### got .* 'list', want 'string or tuple of strings'
+'a'.startswith(['a']) ### got .* 'list', want 'string or tuple'
 ---
-'1'.startswith((1,)) ### expected type 'string' for 'string' element but got type 'int' instead
+'1'.startswith((1,)) ### at index 0 of sub, got element of type int, want string
 ---
-'a'.startswith(('1', 1)) ### expected type 'string' for 'string' element but got type 'int' instead
+'a'.startswith(('1', 1)) ### at index 0 of sub, got element of type int, want string
 ---
 
 # substring

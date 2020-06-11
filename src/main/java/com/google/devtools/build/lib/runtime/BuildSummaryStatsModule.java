@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -37,14 +38,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  * Blaze module for the build summary message that reports various stats to the user.
  */
 public class BuildSummaryStatsModule extends BlazeModule {
 
-  private static final Logger logger = Logger.getLogger(BuildSummaryStatsModule.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private ActionKeyContext actionKeyContext;
   private CriticalPathComputer criticalPathComputer;
@@ -80,6 +80,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @Override
   public void executorInit(CommandEnvironment env, BuildRequest request, ExecutorBuilder builder) {
     enabled = env.getOptions().getOptions(ExecutionOptions.class).enableCriticalPathProfiling;
+    statsSummary = env.getOptions().getOptions(ExecutionOptions.class).statsSummary;
   }
 
   @Subscribe
@@ -129,10 +130,10 @@ public class BuildSummaryStatsModule extends BlazeModule {
           event.getResult().getBuildToolLogCollection()
               .addDirectValue(
                   "critical path", criticalPath.toString().getBytes(StandardCharsets.UTF_8));
-          logger.info(criticalPath.toString());
-          logger.info(
-              "Slowest actions:\n  "
-                  + Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
+          logger.atInfo().log(criticalPath.toString());
+          logger.atInfo().log(
+              "Slowest actions:\n  %s",
+              Joiner.on("\n  ").join(criticalPathComputer.getSlowestComponents()));
           // We reverse the critical path because the profiler expect events ordered by the time
           // when the actions were executed while critical path computation is stored in the reverse
           // way.

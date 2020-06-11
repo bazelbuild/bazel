@@ -106,7 +106,7 @@ linux_sandbox="${BAZEL_RUNFILES}/src/main/tools/linux-sandbox"
 
 # Test data
 testdata_path=${BAZEL_RUNFILES}/src/test/shell/bazel/testdata
-python_server="${BAZEL_RUNFILES}/src/test/shell/bazel/testing_server.py"
+python_server="$(rlocation io_bazel/src/test/shell/bazel/testing_server.py)"
 
 # Third-party
 protoc_compiler="${BAZEL_RUNFILES}/src/test/shell/integration/protoc"
@@ -139,16 +139,6 @@ EOF
   cp -R ${langtools_dir}/* third_party/java/jdk/langtools
 
   chmod -R +w .
-
-  mkdir -p third_party/py/gflags
-  cat > third_party/py/gflags/BUILD <<EOF
-licenses(["notice"])
-package(default_visibility = ["//visibility:public"])
-
-py_library(
-    name = "gflags",
-)
-EOF
 }
 
 # Report whether a given directory name corresponds to a tools directory.
@@ -271,27 +261,69 @@ common --show_progress_rate_limit=-1
 # Disable terminal-specific features.
 common --color=no --curses=no
 
-# TODO(#7899): Remove once we flip the flag default.
-build --incompatible_use_python_toolchains=true
+# Prevent SIGBUS during JVM actions.
+build --sandbox_tmpfs_path=/tmp
 
 build --incompatible_skip_genfiles_symlink=false
 
 ${EXTRA_BAZELRC:-}
 EOF
 
+  if [[ -n ${TEST_REPOSITORY_HOME:-} ]]; then
+    echo "testenv.sh: Using shared repositories from $TEST_REPOSITORY_HOME."
+
+    repos=(
+        "android_tools_for_testing"
+        "bazel_skylib"
+        "bazel_toolchains"
+        "com_google_protobuf"
+        "openjdk11_darwin_archive"
+        "openjdk11_linux_archive"
+        "openjdk11_windows_archive"
+        "openjdk12_darwin_archive"
+        "openjdk12_linux_archive"
+        "openjdk12_windows_archive"
+        "openjdk_linux_aarch64_minimal"
+        "openjdk_linux_minimal"
+        "openjdk_macos_minimal"
+        "openjdk_win_minimal"
+        "remote_coverage_tools_for_testing"
+        "remote_java_tools_darwin_for_testing"
+        "remote_java_tools_javac11_test_darwin"
+        "remote_java_tools_javac11_test_linux"
+        "remote_java_tools_javac11_test_windows"
+        "remote_java_tools_javac12_test_darwin"
+        "remote_java_tools_javac12_test_linux"
+        "remote_java_tools_javac12_test_windows"
+        "remote_java_tools_linux_for_testing"
+        "remote_java_tools_windows_for_testing"
+        "remotejdk11_linux_for_testing"
+        "remotejdk11_linux_aarch64_for_testing"
+        "remotejdk11_linux_ppc64le_for_testing"
+        "remotejdk11_macos_for_testing"
+        "remotejdk11_win_for_testing"
+        "rules_cc"
+        "rules_java"
+        "rules_pkg"
+        "rules_proto"
+        "rules_python"
+    )
+    for repo in "${repos[@]}"; do
+      reponame="${repo%"_for_testing"}"
+      echo "common --override_repository=$reponame=$TEST_REPOSITORY_HOME/$repo" >> $TEST_TMPDIR/bazelrc
+    done
+  fi
+
   if [[ -n ${REPOSITORY_CACHE:-} ]]; then
     echo "testenv.sh: Using repository cache at $REPOSITORY_CACHE."
     cat >>$TEST_TMPDIR/bazelrc <<EOF
-sync --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-fetch --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-build --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
-query --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
+common --repository_cache=$REPOSITORY_CACHE --experimental_repository_cache_hardlinks
 EOF
   fi
 
-  if [[ -n ${INSTALL_BASE:-} ]]; then
-    echo "testenv.sh: Using shared install base at $INSTALL_BASE."
-    echo "startup --install_base=$INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
+  if [[ -n ${TEST_INSTALL_BASE:-} ]]; then
+    echo "testenv.sh: Using shared install base at $TEST_INSTALL_BASE."
+    echo "startup --install_base=$TEST_INSTALL_BASE" >> $TEST_TMPDIR/bazelrc
   fi
 }
 
@@ -505,18 +537,14 @@ EOF
 }
 
 function create_workspace_with_default_repos() {
-  touch "$1"
-  add_rules_cc_to_workspace "$1"
-  add_rules_java_to_workspace "$1"
-  add_rules_pkg_to_workspace "$1"
-  add_rules_proto_to_workspace "$1"
+  write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
   echo "$1"
 }
 
 # Write the default WORKSPACE file, wiping out any custom WORKSPACE setup.
 function write_workspace_file() {
-  cat > WORKSPACE << EOF
-workspace(name = '$WORKSPACE_NAME')
+  cat > "$1" << EOF
+workspace(name = "$2")
 EOF
   add_rules_cc_to_workspace "WORKSPACE"
   add_rules_java_to_workspace "WORKSPACE"
@@ -561,7 +589,7 @@ function create_new_workspace() {
   [ -e third_party/java/jdk/langtools/javac-9+181-r4173-1.jar ] \
     || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac-9+181-r4173-1.jar
 
-  write_workspace_file
+  write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
 
   maybe_setup_python_windows_tools
 }
@@ -587,14 +615,17 @@ function cleanup_workspace() {
   if [ -d "${WORKSPACE_DIR:-}" ]; then
     log_info "Cleaning up workspace" >> $TEST_log
     cd ${WORKSPACE_DIR}
-    bazel clean >> "$TEST_log" 2>&1
+
+    if [[ ${TESTENV_DONT_BAZEL_CLEAN:-0} == 0 ]]; then
+      bazel clean >> "$TEST_log" 2>&1
+    fi
 
     for i in *; do
       if ! is_tools_directory "$i"; then
         try_with_timeout rm -fr "$i"
       fi
     done
-    write_workspace_file
+    write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then

@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.android.aapt.Resources.Reference;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.AndroidResourceSymbolSink;
@@ -25,6 +27,7 @@ import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml;
+import com.google.devtools.build.android.resources.Visibility;
 import com.google.errorprone.annotations.Immutable;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -188,5 +191,15 @@ public class ResourcesAttribute implements XmlResourceValue {
       return String.format(" %s (with value %s)", source.asConflictString(), value);
     }
     return source.asConflictString();
+  }
+
+  @Override
+  public Visibility getVisibility() {
+    return Visibility.UNKNOWN;
+  }
+
+  @Override
+  public ImmutableList<Reference> getReferencedResources() {
+    return ImmutableList.of();
   }
 }

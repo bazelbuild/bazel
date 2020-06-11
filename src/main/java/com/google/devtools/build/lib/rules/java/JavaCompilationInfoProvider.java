@@ -18,13 +18,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaCompilationInfoProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import javax.annotation.Nullable;
 
 /**
@@ -37,14 +35,19 @@ public final class JavaCompilationInfoProvider
   private final ImmutableList<String> javacOpts;
   @Nullable private final NestedSet<Artifact> runtimeClasspath;
   @Nullable private final NestedSet<Artifact> compilationClasspath;
-  private final NestedSet<Artifact> bootClasspath;
+  private final BootClassPathInfo bootClasspath;
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
 
   /** Builder for {@link JavaCompilationInfoProvider}. */
   public static class Builder {
     private ImmutableList<String> javacOpts;
     private NestedSet<Artifact> runtimeClasspath;
     private NestedSet<Artifact> compilationClasspath;
-    private NestedSet<Artifact> bootClasspath = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    private BootClassPathInfo bootClasspath = BootClassPathInfo.empty();
 
     public Builder setJavacOpts(ImmutableList<String> javacOpts) {
       this.javacOpts = javacOpts;
@@ -61,7 +64,7 @@ public final class JavaCompilationInfoProvider
       return this;
     }
 
-    public Builder setBootClasspath(NestedSet<Artifact> bootClasspath) {
+    public Builder setBootClasspath(BootClassPathInfo bootClasspath) {
       this.bootClasspath = Preconditions.checkNotNull(bootClasspath);
       return this;
     }
@@ -91,11 +94,11 @@ public final class JavaCompilationInfoProvider
 
   @Override
   public ImmutableList<Artifact> getBootClasspath() {
-    return bootClasspath.toList();
+    return bootClasspath.bootclasspath().toList();
   }
 
   public NestedSet<Artifact> getBootClasspathAsNestedSet() {
-    return bootClasspath;
+    return bootClasspath.bootclasspath();
   }
 
   @AutoCodec.VisibleForSerialization
@@ -103,7 +106,7 @@ public final class JavaCompilationInfoProvider
       ImmutableList<String> javacOpts,
       @Nullable NestedSet<Artifact> runtimeClasspath,
       @Nullable NestedSet<Artifact> compilationClasspath,
-      NestedSet<Artifact> bootClasspath) {
+      BootClassPathInfo bootClasspath) {
     this.javacOpts = javacOpts;
     this.runtimeClasspath = runtimeClasspath;
     this.compilationClasspath = compilationClasspath;

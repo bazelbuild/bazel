@@ -94,10 +94,11 @@ filegroup(
 #         ...
 #     )
 #
-# Caution: Do not `select()` on the built-in command-line flags `--force_python`
-# or `--python_version`, as they do not always reflect the true Python version
-# of the current target. `select()`-ing on them can lead to action conflicts and
-# will be disallowed.
+# Note that it is not allowed to `select()` on the built-in command-line flag
+# `--python_version`. This is because historically, the flag's value has not
+# always corresponded to the effective Python version, due to some indirections
+# around legacy APIs, legacy semantics, and changing the default version from
+# PY2 to PY3.
 define_python_version_flag(
     name = "python_version",
 )

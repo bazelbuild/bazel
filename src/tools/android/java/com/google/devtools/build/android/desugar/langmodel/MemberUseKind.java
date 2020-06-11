@@ -24,6 +24,8 @@ import org.objectweb.asm.Opcodes;
 
 /** The categorized usages of class members. */
 public enum MemberUseKind {
+  UNKNOWN(0),
+
   H_GETFIELD(Opcodes.H_GETFIELD),
   H_GETSTATIC(Opcodes.H_GETSTATIC),
   H_PUTFIELD(Opcodes.H_PUTFIELD),

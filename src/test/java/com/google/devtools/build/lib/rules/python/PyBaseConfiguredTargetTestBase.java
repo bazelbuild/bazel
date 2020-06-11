@@ -69,27 +69,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
   }
 
   @Test
-  public void srcsVersionClashesWithVersionFlagUnderOldSemantics() throws Exception {
-    // Under the old version semantics, we fail on any Python target the moment a conflict between
-    // srcs_version and the configuration is detected. Under the new semantics, py_binary and
-    // py_test care if there's a conflict but py_library does not. This test case checks the old
-    // semantics; the new semantics are checked in PyLibraryConfiguredTargetTest and
-    // PyExecutableConfiguredTargetTestBase. Note that under the new semantics py_binary and
-    // py_library ignore the version flag, so those tests use the attribute to set the version
-    // instead.
-    useConfiguration(
-        "--incompatible_allow_python_version_transitions=false", "--python_version=PY3");
-    checkError("pkg", "foo",
-        // error:
-        "'//pkg:foo' can only be used with Python 2",
-        // build file:
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = [':foo.py'],",
-        "    srcs_version = 'PY2ONLY')");
-  }
-
-  @Test
   public void versionIs2IfUnspecified() throws Exception {
     assumesDefaultIsPY2();
     scratch.file(
@@ -98,24 +77,6 @@ public abstract class PyBaseConfiguredTargetTestBase extends BuildViewTestCase {
         "    name = 'foo',",
         "    srcs = ['foo.py'])");
     assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY2);
-  }
-
-  @Test
-  public void versionIs3IfForcedByFlagUnderOldSemantics() throws Exception {
-    // Under the old version semantics, --force_python takes precedence over the rule's own
-    // default_python_version attribute, so this test case applies equally well to py_library,
-    // py_binary, and py_test. Under the new semantics the rule attribute takes precedence, so this
-    // would only make sense for py_library; see PyLibraryConfiguredTargetTest for the analogous
-    // test.
-    assumesDefaultIsPY2();
-    useConfiguration(
-        "--incompatible_allow_python_version_transitions=false", "--python_version=PY3");
-    scratch.file(
-        "pkg/BUILD", //
-        ruleName + "(",
-        "    name = 'foo',",
-        "    srcs = ['foo.py'])");
-    assertThat(getPythonVersion(getConfiguredTarget("//pkg:foo"))).isEqualTo(PythonVersion.PY3);
   }
 
   @Test

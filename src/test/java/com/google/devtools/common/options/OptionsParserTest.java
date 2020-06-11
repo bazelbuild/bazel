@@ -15,8 +15,8 @@
 package com.google.devtools.common.options;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.util.Arrays.asList;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -93,24 +93,22 @@ public class OptionsParserTest {
     public int bar;
 
     @Option(
-      name = "bing",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "",
-      allowMultiple = true
-    )
+        name = "bing",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        allowMultiple = true)
     public List<String> bing;
 
     @Option(
-      name = "bang",
-      category = "one",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.NO_OP},
-      defaultValue = "",
-      converter = StringConverter.class,
-      allowMultiple = true
-    )
+        name = "bang",
+        category = "one",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null",
+        converter = StringConverter.class,
+        allowMultiple = true)
     public List<String> bang;
 
     @Option(

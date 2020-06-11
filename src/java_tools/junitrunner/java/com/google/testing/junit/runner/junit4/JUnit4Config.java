@@ -30,6 +30,7 @@ class JUnit4Config {
   static final String SHOULD_INSTALL_SECURITY_MANAGER_PROPERTY
       = "com.google.testing.junit.runner.shouldInstallTestSecurityManager";
 
+  private final boolean testRunnerFailFast;
   private final String testIncludeFilterRegexp;
   private final String testExcludeFilterRegexp;
   @Nullable private final Path xmlOutputPath;
@@ -43,14 +44,21 @@ class JUnit4Config {
       String testExcludeFilterRegexp,
       @Nullable Path outputXmlFilePath) {
     this(
+        false,
         testIncludeFilterRegexp,
         testExcludeFilterRegexp,
         outputXmlFilePath,
         System.getProperties());
   }
 
-  public JUnit4Config(String testIncludeFilterRegexp, String testExcludeFilterRegexp) {
-    this(testIncludeFilterRegexp, testExcludeFilterRegexp, null, System.getProperties());
+  public JUnit4Config(
+      boolean testRunnerFailFast, String testIncludeFilterRegexp, String testExcludeFilterRegexp) {
+    this(
+        testRunnerFailFast,
+        testIncludeFilterRegexp,
+        testExcludeFilterRegexp,
+        null,
+        System.getProperties());
   }
 
   // VisibleForTesting
@@ -59,6 +67,16 @@ class JUnit4Config {
       String testExcludeFilterRegexp,
       @Nullable Path xmlOutputPath,
       Properties systemProperties) {
+    this(false, testIncludeFilterRegexp, testExcludeFilterRegexp, xmlOutputPath, systemProperties);
+  }
+
+  private JUnit4Config(
+      boolean testRunnerFailFast,
+      String testIncludeFilterRegexp,
+      String testExcludeFilterRegexp,
+      @Nullable Path xmlOutputPath,
+      Properties systemProperties) {
+    this.testRunnerFailFast = testRunnerFailFast;
     this.testIncludeFilterRegexp = testIncludeFilterRegexp;
     this.testExcludeFilterRegexp = testExcludeFilterRegexp;
     this.xmlOutputPath = xmlOutputPath;
@@ -116,6 +134,14 @@ class JUnit4Config {
           + junitApiVersion + " (must be \\\"1\\\")");
     }
     return apiVersion;
+  }
+
+  /**
+   * Returns the value of the {@code test_runner_fail_fast} option, or <code>false<code/> if
+   * it was not specified.
+   */
+  boolean getTestRunnerFailFast() {
+    return testRunnerFailFast;
   }
 
   /**

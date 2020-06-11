@@ -86,7 +86,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "define",
       converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
@@ -320,7 +320,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "test_env",
       converter = Converters.OptionalAssignmentConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.TEST_RUNNER},
       help =
@@ -338,7 +338,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "action_env",
       converter = Converters.OptionalAssignmentConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
@@ -354,7 +354,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "repo_env",
       converter = Converters.OptionalAssignmentConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
@@ -375,6 +375,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
               + " match --instrumentation_filter will be affected. Usually this option should "
               + " not be specified directly - 'bazel coverage' command should be used instead.")
   public boolean collectCodeCoverage;
+
+  @Option(
+      name = "experimental_forward_instrumented_files_info_by_default",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If specified, rules that don't configure InstrumentedFilesInfo will still forward the "
+              + "contents of InstrumentedFilesInfo from transitive dependencies.")
+  public boolean experimentalForwardInstrumentedFilesInfoByDefault;
 
   @Option(
       name = "build_runfile_manifests",
@@ -429,14 +439,13 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
       help =
-          "Prefix to insert in front of command before running. "
-              + "Examples:\n"
-              + "\t--run_under=valgrind\n"
-              + "\t--run_under=strace\n"
-              + "\t--run_under='strace -c'\n"
-              + "\t--run_under='valgrind --quiet --num-callers=20'\n"
-              + "\t--run_under=//package:target\n"
-              + "\t--run_under='//package:target --options'\n")
+          "Prefix to insert before the executables for the 'test' and 'run' commands. "
+              + "If the value is 'foo -bar', and the execution command line is 'test_binary -baz', "
+              + "then the final command line is 'foo -bar test_binary -baz'."
+              + "This can also be a label to an executable target. Some examples are: "
+              + "'valgrind', 'strace', 'strace -c', "
+              + "'valgrind --quiet --num-callers=20', '//package:target', "
+              + " '//package:target --options'.")
   public RunUnder runUnder;
 
   @Option(
@@ -498,7 +507,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "experimental_action_listener",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       converter = LabelListConverter.class,
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -564,7 +573,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "analysis_testing_deps_limit",
-      defaultValue = "500",
+      defaultValue = "600",
       documentationCategory = OptionDocumentationCategory.TESTING,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -576,7 +585,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Option(
       name = "features",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
       help =
@@ -591,7 +600,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "target_environment",
       converter = LabelListConverter.class,
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       help =
@@ -729,7 +738,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "Add or remove keys from an action's execution info based on action mnemonic.  "
               + "Applies only to actions which support execution info. Many common actions "
-              + "support execution info, e.g. Genrule, CppCompile, Javac, SkylarkAction, "
+              + "support execution info, e.g. Genrule, CppCompile, Javac, StarlarkAction, "
               + "TestRunner. When specifying multiple values, order matters because "
               + "many regexes may apply to the same mnemonic.\n\n"
               + "Syntax: \"regex=[+-]key,[+-]key,...\".\n\n"
@@ -827,7 +836,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to make source manifest actions remotable")
   public boolean remotableSourceManifestActions;
 
-  /** Ways configured targets may provide the {@link BuildConfiguration.Fragment}s they require. */
+  @Option(
+      name = "experimental_enable_aggregating_middleman",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "Whether to enable the use of AggregatingMiddleman in rules.")
+  public boolean enableAggregatingMiddleman;
+
+  /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     // Don't offer the provider at all. This is best for most builds, which don't use this
     // information and don't need the extra memory hit over every configured target.
@@ -851,6 +869,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     CoreOptions host = (CoreOptions) getDefault();
 
     host.outputDirectoryName = "host";
+    host.transitionDirectoryNameFragment = transitionDirectoryNameFragment;
     host.compilationMode = hostCompilationMode;
     host.isHost = true;
     host.isExec = false;
@@ -864,11 +883,14 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.cpu = hostCpu;
     host.inmemoryUnusedInputsList = inmemoryUnusedInputsList;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
+    host.enableAggregatingMiddleman = enableAggregatingMiddleman;
 
     // === Runfiles ===
     host.buildRunfilesManifests = buildRunfilesManifests;
     host.buildRunfiles = buildRunfiles;
     host.legacyExternalRunfiles = legacyExternalRunfiles;
+    host.remotableSourceManifestActions = remotableSourceManifestActions;
+    host.skipRunfilesManifests = skipRunfilesManifests;
 
     // === Filesets ===
     host.strictFilesetOutput = strictFilesetOutput;

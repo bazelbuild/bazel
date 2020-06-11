@@ -17,7 +17,7 @@ package com.google.devtools.build.android.desugar.nest.testsrc.nestanalyzer;
 @SuppressWarnings("PrivateConstructorForUtilityClass") // As testing source.
 class AnalyzedTarget {
 
-  static class EnclosedTargetAlpha {
+  private static class EnclosedTargetAlpha {
     private EnclosedTargetAlpha() {}
   }
 

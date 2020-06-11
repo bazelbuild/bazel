@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidResourceSupportRule;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
@@ -191,7 +191,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
             attr("idl_preprocessed", LABEL_LIST)
                 .direct_compile_time_input()
                 .allowedFileTypes(AndroidRuleClasses.ANDROID_IDL))
-        .advertiseSkylarkProvider(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
+        .advertiseStarlarkProvider(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey()))
         .build();
   }
 

@@ -20,6 +20,7 @@ load(
     "auto_configure_warning",
     "auto_configure_warning_maybe",
     "escape_string",
+    "execute",
     "get_env_var",
     "get_starlark_list",
     "resolve_labels",
@@ -28,32 +29,25 @@ load(
     "write_builtin_include_directory_paths",
 )
 
-def _field(name, value):
-    """Returns properly indented top level crosstool field."""
-    if type(value) == "list":
-        return "\n".join(["  " + name + ": '" + v + "'" for v in value])
-    elif type(value) == "string":
-        return "  " + name + ": '" + value + "'"
-    else:
-        auto_configure_fail("Unexpected field type: " + type(value))
-        return ""
-
 def _uniq(iterable):
     """Remove duplicates from a list."""
 
     unique_elements = {element: None for element in iterable}
     return unique_elements.keys()
 
+def _generate_system_module_map(repository_ctx, dirs, script_path):
+    return execute(repository_ctx, [script_path] + dirs)
+
 def _prepare_include_path(repo_ctx, path):
-    """Resolve and sanitize include path before outputting it into the crosstool.
+    """Resolve include path before outputting it into the crosstool.
 
     Args:
       repo_ctx: repository_ctx object.
-      path: an include path to be sanitized.
+      path: an include path to be resolved.
 
     Returns:
-      Sanitized include path that can be written to the crosstoot. Resulting path
-      is absolute if it is outside the repository and relative otherwise.
+      Resolved include path. Resulting path is absolute if it is outside the
+      repository and relative otherwise.
     """
 
     repo_root = str(repo_ctx.path("."))
@@ -62,8 +56,8 @@ def _prepare_include_path(repo_ctx, path):
     repo_root += "/"
     path = str(repo_ctx.path(path))
     if path.startswith(repo_root):
-        return escape_string(path[len(repo_root):])
-    return escape_string(path)
+        return path[len(repo_root):]
+    return path
 
 def _get_value(it):
     """Convert `it` in serialized protobuf format."""
@@ -123,7 +117,20 @@ def _cxx_inc_convert(path):
     return path
 
 def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_flags = []):
-    """Compute the list of default %-escaped C++ include directories."""
+    """Deprecated. Compute the list of %-escaped C++ include directories.
+
+    This function is no longer needed by cc_configure and is left there only for backwards
+    compatibility reasons.
+    """
+    return [escape_string(s) for s in _get_cxx_include_directories(
+        repository_ctx,
+        cc,
+        lang_flag,
+        additional_flags,
+    )]
+
+def _get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags = []):
+    """Compute the list of C++ include directories."""
     result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
     index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
     if index1 == -1:
@@ -140,10 +147,18 @@ def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_fl
     else:
         inc_dirs = result.stderr[index1 + 1:index2].strip()
 
-    return [
+    inc_directories = [
         _prepare_include_path(repository_ctx, _cxx_inc_convert(p))
         for p in inc_dirs.split("\n")
     ]
+
+    if _is_compiler_option_supported(repository_ctx, cc, "-print-resource-dir"):
+        resource_dir = repository_ctx.execute(
+            [cc, "-print-resource-dir"],
+        ).stdout.strip() + "/share"
+        inc_directories.append(_prepare_include_path(repository_ctx, resource_dir))
+
+    return inc_directories
 
 def _is_compiler_option_supported(repository_ctx, cc, option):
     """Checks that `option` is supported by the C compiler. Doesn't %-escape the option."""
@@ -276,6 +291,9 @@ def _coverage_flags(repository_ctx, darwin):
         link_flags = '"--coverage"'
     return compile_flags, link_flags
 
+def _is_clang(repository_ctx, cc):
+    return "clang" in repository_ctx.execute([cc, "-v"]).stderr
+
 def _find_generic(repository_ctx, name, env_name, overriden_tools, warn = False, silent = False):
     """Find a generic C++ toolchain tool. Doesn't %-escape the result."""
 
@@ -311,6 +329,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     """Configure C++ toolchain on Unix platforms."""
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:BUILD.tpl",
+        "@bazel_tools//tools/cpp:generate_system_module_map.sh",
         "@bazel_tools//tools/cpp:armeabi_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:unix_cc_toolchain_config.bzl",
         "@bazel_tools//tools/cpp:linux_cc_wrapper.sh.tpl",
@@ -331,6 +350,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
     darwin = cpu_value == "darwin"
 
     cc = _find_generic(repository_ctx, "gcc", "CC", overriden_tools)
+    is_clang = _is_clang(repository_ctx, cc)
     overriden_tools = dict(overriden_tools)
     overriden_tools["gcc"] = cc
     overriden_tools["gcov"] = _find_generic(
@@ -371,16 +391,22 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         "-std=c++0x",
         False,
     ), ":")
+
+    bazel_linkopts = "-lstdc++:-lm"
+    bazel_linklibs = ""
+    if repository_ctx.flag_enabled("incompatible_linkopts_to_linklibs"):
+        bazel_linkopts, bazel_linklibs = bazel_linklibs, bazel_linkopts
+
     link_opts = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_LINKOPTS",
-        "-lstdc++:-lm",
+        bazel_linkopts,
         False,
     ), ":")
     link_libs = split_escaped(get_env_var(
         repository_ctx,
         "BAZEL_LINKLIBS",
-        "",
+        bazel_linklibs,
         False,
     ), ":")
     gold_linker_path = _find_gold_linker_path(repository_ctx, cc)
@@ -394,21 +420,28 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
 
     coverage_compile_flags, coverage_link_flags = _coverage_flags(repository_ctx, darwin)
     builtin_include_directories = _uniq(
-        get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc") +
-        get_escaped_cxx_inc_directories(repository_ctx, cc, "-xc++", cxx_opts) +
-        get_escaped_cxx_inc_directories(
+        _get_cxx_include_directories(repository_ctx, cc, "-xc") +
+        _get_cxx_include_directories(repository_ctx, cc, "-xc++", cxx_opts) +
+        _get_cxx_include_directories(
             repository_ctx,
             cc,
             "-xc",
             _get_no_canonical_prefixes_opt(repository_ctx, cc),
         ) +
-        get_escaped_cxx_inc_directories(
+        _get_cxx_include_directories(
             repository_ctx,
             cc,
             "-xc++",
             cxx_opts + _get_no_canonical_prefixes_opt(repository_ctx, cc),
         ),
     )
+
+    if is_clang:
+        repository_ctx.file("module.modulemap", _generate_system_module_map(
+            repository_ctx,
+            builtin_include_directories,
+            paths["@bazel_tools//tools/cpp:generate_system_module_map.sh"],
+        ))
 
     write_builtin_include_directory_paths(repository_ctx, cc, builtin_include_directories)
     repository_ctx.template(
@@ -417,6 +450,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
         {
             "%{cc_toolchain_identifier}": cc_toolchain_identifier,
             "%{name}": cpu_value,
+            "%{modulemap}": ("\":module.modulemap\"" if is_clang else "None"),
             "%{supports_param_files}": "0" if darwin else "1",
             "%{cc_compiler_deps}": get_starlark_list([":builtin_include_directory_paths"] + (
                 [":cc_wrapper"] if darwin else []
@@ -424,7 +458,7 @@ def configure_unix_toolchain(repository_ctx, cpu_value, overriden_tools):
             "%{compiler}": escape_string(get_env_var(
                 repository_ctx,
                 "BAZEL_COMPILER",
-                "compiler",
+                "clang" if is_clang else "compiler",
                 False,
             )),
             "%{abi_version}": escape_string(get_env_var(

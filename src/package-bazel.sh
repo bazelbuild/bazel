@@ -100,6 +100,13 @@ cp $INSTALL_BASE_KEY $PACKAGE_DIR/install_base_key
 # Zero timestamps.
 (cd $PACKAGE_DIR; xargs touch -t 198001010000.00) < files.list
 
-# Create output zip with compression.
-(cd $PACKAGE_DIR; zip -q9DX@ $WORKDIR/$OUT) < files.list
+if [[ "$DEV_BUILD" -eq 1 ]]; then
+  # Create output zip with lowest compression, but fast.
+  ZIP_ARGS="-q1DX@"
+else
+  # Create output zip with highest compression, but slow.
+  ZIP_ARGS="-q9DX@"
+fi
+(cd $PACKAGE_DIR; zip $ZIP_ARGS $WORKDIR/$OUT) < files.list
+
 

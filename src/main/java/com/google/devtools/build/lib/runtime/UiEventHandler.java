@@ -17,6 +17,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -41,11 +42,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
@@ -71,12 +72,11 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** An experimental new output stream. */
 public class UiEventHandler implements EventHandler {
-  private static final Logger logger = Logger.getLogger(UiEventHandler.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   /** Latest refresh of the progress bar, if contents other than time changed */
   static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
   /** Minimal rate limiting (in ms), if the progress bar cannot be updated in place */
@@ -94,9 +94,12 @@ public class UiEventHandler implements EventHandler {
   /**
    * Even if the output is not limited, we restrict the message size to something we can still
    * handle internally. This is the maximal size specified here. Currently, it is the maximal length
-   * a byte[] can hold.
+   * of a byte[] acceptable by {@code new String(message, 0, message.length,
+   * StandardCharsets.UTF_8}. (In JDK9+, if the message buffer contains a byte whose high bit is
+   * set, a UTF-8 decoding path is taken that allocates a new byte[] buffer twice as large as the
+   * message byte[] buffer)
    */
-  static final int MAXIMAL_MESSAGE_LENGTH = Integer.MAX_VALUE - 8;
+  static final int MAXIMAL_MESSAGE_LENGTH = (Integer.MAX_VALUE - 8) >> 1;
 
   private static final DateTimeFormatter TIMESTAMP_FORMAT =
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
@@ -114,6 +117,7 @@ public class UiEventHandler implements EventHandler {
   private final boolean showTimestamp;
   private final boolean deduplicate;
   private final OutErr outErr;
+  private final ImmutableSet<EventKind> filteredEvents;
   private long minimalDelayMillis;
   private long minimalUpdateInterval;
   private long lastRefreshMillis;
@@ -291,6 +295,7 @@ public class UiEventHandler implements EventHandler {
     this.dateShown = false;
     this.updateThread = new AtomicReference<>();
     this.updateLock = new ReentrantLock();
+    this.filteredEvents = ImmutableSet.copyOf(options.eventFilters);
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -332,7 +337,7 @@ public class UiEventHandler implements EventHandler {
         didFlush = true;
       }
     } catch (IOException e) {
-      logger.warning("IO Error writing to output stream: " + e);
+      logger.atWarning().withCause(e).log("IO Error writing to output stream");
     }
     return didFlush;
   }
@@ -367,6 +372,9 @@ public class UiEventHandler implements EventHandler {
   }
 
   private synchronized void handleLocked(Event event, boolean isFollowUp) {
+    if (this.filteredEvents.contains(event.getKind())) {
+      return;
+    }
     try {
       if (debugAllEvents) {
         // Debugging only: show all events visible to the new UI.
@@ -501,7 +509,7 @@ public class UiEventHandler implements EventHandler {
         }
       }
     } catch (IOException e) {
-      logger.warning("IO Error writing to output stream: " + e);
+      logger.atWarning().withCause(e).log("IO Error writing to output stream");
     }
   }
 
@@ -526,6 +534,9 @@ public class UiEventHandler implements EventHandler {
       }
     } else {
       message = reference.getFinalBytes(MAXIMAL_MESSAGE_LENGTH);
+      if (message.length == MAXIMAL_MESSAGE_LENGTH) {
+        logger.atWarning().log("truncated message longer than %d bytes", MAXIMAL_MESSAGE_LENGTH);
+      }
     }
     int eolIndex = Bytes.lastIndexOf(message, (byte) '\n');
     if (eolIndex >= 0) {
@@ -743,7 +754,7 @@ public class UiEventHandler implements EventHandler {
         }
         terminal.flush();
       } catch (IOException e) {
-        logger.warning("IO Error writing to output stream: " + e);
+        logger.atWarning().withCause(e).log("IO Error writing to output stream");
       }
     }
   }
@@ -779,7 +790,7 @@ public class UiEventHandler implements EventHandler {
       terminal.resetTerminal();
       terminal.flush();
     } catch (IOException e) {
-      logger.warning("IO Error writing to user terminal: " + e);
+      logger.atWarning().withCause(e).log("IO Error writing to user terminal");
     }
   }
 
@@ -890,7 +901,7 @@ public class UiEventHandler implements EventHandler {
         }
         terminal.flush();
       } catch (IOException e) {
-        logger.warning("IO Error writing to output stream: " + e);
+        logger.atWarning().withCause(e).log("IO Error writing to output stream");
       }
     } else {
       refresh();
@@ -969,7 +980,7 @@ public class UiEventHandler implements EventHandler {
             }
           }
         } catch (IOException e) {
-          logger.warning("IO Error writing to output stream: " + e);
+          logger.atWarning().withCause(e).log("IO Error writing to output stream");
         } finally {
           updateLock.unlock();
         }

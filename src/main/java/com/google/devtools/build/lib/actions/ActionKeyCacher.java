@@ -56,6 +56,10 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
   /**
    * See the javadoc for {@link Action} and {@link ActionAnalysisMetadata#getKey} for the contract
    * of this method.
+   *
+   * <p>TODO(b/150305897): subtypes of this are not consistent about adding the UUID as stated in
+   * the ActionAnalysisMetadata. Perhaps ActionKeyCacher should just mandate subclasses provide a
+   * UUID and then add that UUID itself in getKey.
    */
   protected abstract void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
       throws CommandLineExpansionException;

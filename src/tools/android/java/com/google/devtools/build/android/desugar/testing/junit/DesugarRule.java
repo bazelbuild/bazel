@@ -18,12 +18,16 @@ package com.google.devtools.build.android.desugar.testing.junit;
 
 import com.google.auto.value.AutoAnnotation;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.android.desugar.testing.junit.SourceCompilationUnit.SourceCompilationException;
+import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
@@ -37,6 +41,7 @@ public final class DesugarRule implements TestRule {
   private final MethodHandles.Lookup testInstanceLookup;
 
   private final ImmutableList<Field> injectableFields;
+  private final ImmutableList<SourceCompilationUnit> sourceCompilationUnits;
   private final RuntimeEntityResolver runtimeEntityResolver;
 
   /**
@@ -54,44 +59,57 @@ public final class DesugarRule implements TestRule {
       Object testInstance,
       Lookup testInstanceLookup,
       ImmutableList<Field> injectableFields,
+      ImmutableList<SourceCompilationUnit> sourceCompilationUnits,
       RuntimeEntityResolver runtimeEntityResolver) {
     this.testInstance = testInstance;
     this.testInstanceLookup = testInstanceLookup;
     this.injectableFields = injectableFields;
+    this.sourceCompilationUnits = sourceCompilationUnits;
     this.runtimeEntityResolver = runtimeEntityResolver;
   }
 
-  ImmutableSet<Integer> getInputClassFileMajorVersions() {
-    try {
-      return runtimeEntityResolver.getInputClassFileMajorVersions();
-    } catch (Throwable throwable) {
-      throw new IllegalStateException(throwable);
+  void compileSourceInputs() throws IOException, SourceCompilationException {
+    for (SourceCompilationUnit compilationUnit : sourceCompilationUnits) {
+      compilationUnit.compile();
     }
+  }
+
+  void executeDesugarTransformation() throws Exception {
+    runtimeEntityResolver.executeTransformation();
   }
 
   @Override
   public Statement apply(Statement base, Description description) {
-    return new Statement() {
-      @Override
-      public void evaluate() throws Throwable {
-        before();
-        base.evaluate();
-      }
-    };
+    return base;
   }
 
-  private void before() throws Throwable {
+  public void injectTestInstanceFields() throws Throwable {
     for (Field field : injectableFields) {
       MethodHandle fieldSetter = testInstanceLookup.unreflectSetter(field);
       fieldSetter.invoke(testInstance, resolve(field, field.getType()));
     }
   }
 
-  public Object resolve(AnnotatedElement param, Class<?> type) {
+  ImmutableMap<Parameter, Object> getResolvableParameters(Method method) throws Throwable {
+    ImmutableMap.Builder<Parameter, Object> resolvableParameterValues = ImmutableMap.builder();
+    for (Parameter parameter : method.getParameters()) {
+      if (RuntimeEntityResolver.SUPPORTED_QUALIFIERS.stream()
+          .anyMatch(parameter::isAnnotationPresent)) {
+        resolvableParameterValues.put(parameter, resolve(parameter, parameter.getType()));
+      }
+    }
+    return resolvableParameterValues.build();
+  }
+
+  public <T> T resolve(AnnotatedElement param, Class<T> type) throws Throwable {
+    return runtimeEntityResolver.resolve(param, type);
+  }
+
+  ImmutableMap<String, Integer> getInputClassFileMajorVersionMap() {
     try {
-      return runtimeEntityResolver.resolve(param, type);
-    } catch (Throwable throwable) {
-      throw new AssertionError(throwable);
+      return runtimeEntityResolver.getInputClassFileMajorVersions();
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
     }
   }
 
@@ -99,5 +117,4 @@ public final class DesugarRule implements TestRule {
   static DynamicClassLiteral createDynamicClassLiteral(String value, int round) {
     return new AutoAnnotation_DesugarRule_createDynamicClassLiteral(value, round);
   }
-
 }

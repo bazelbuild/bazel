@@ -20,17 +20,14 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -49,22 +46,21 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.Semaphore;
-import java.util.logging.Handler;
-import java.util.logging.LogRecord;
 import org.junit.Before;
 
-/**
- * Base class for PackageFactory tests.
- */
+/** Base class for PackageFactory tests. */
+// TODO(adonovan): merge this down into PackageFactory---one small step towards ending
+//  a history abuse of the "extends" keyword.
 public abstract class PackageFactoryTestBase {
 
   protected Scratch scratch;
   protected EventCollectionApparatus events = new EventCollectionApparatus();
-  protected PackageFactoryApparatus packages = createPackageFactoryApparatus();
+  protected DummyPackageValidator dummyPackageValidator = new DummyPackageValidator();
+  protected PackageFactoryApparatus packages =
+      new PackageFactoryApparatus(events.reporter(), dummyPackageValidator);
   protected Root root;
 
-  protected com.google.devtools.build.lib.packages.Package expectEvalSuccess(String... content)
+  protected Package expectEvalSuccess(String... content)
       throws InterruptedException, IOException, NoSuchPackageException {
     Path file = scratch.file("pkg/BUILD", content);
     Package pkg = packages.eval("pkg", RootedPath.toRootedPath(root, file));
@@ -82,24 +78,10 @@ public abstract class PackageFactoryTestBase {
     events.assertContainsError(expectedError);
   }
 
-  protected abstract PackageFactoryApparatus createPackageFactoryApparatus();
-
   protected Path throwOnReaddir = null;
 
   protected static AttributeMap attributes(Rule rule) {
     return RawAttributeMapper.of(rule);
-  }
-
-  protected static void assertOutputFileForRule(Package pkg, Collection<String> outNames, Rule rule)
-      throws Exception {
-    for (String outName : outNames) {
-      OutputFile out = (OutputFile) pkg.getTarget(outName);
-      assertThat(rule.getOutputFiles()).contains(out);
-      assertThat(out.getGeneratingRule()).isSameInstanceAs(rule);
-      assertThat(out.getName()).isEqualTo(outName);
-      assertThat(out.getTargetKind()).isEqualTo("generated file");
-    }
-    assertThat(rule.getOutputFiles()).hasSize(outNames.size());
   }
 
   protected static void assertEvaluates(Package pkg, List<String> expected, String... include)
@@ -141,7 +123,7 @@ public abstract class PackageFactoryTestBase {
   }
 
   protected Path emptyBuildFile(String packageName) {
-    return emptyFile(getPathPrefix() + "/" + packageName + "/BUILD");
+    return emptyFile("/" + packageName + "/BUILD");
   }
 
   protected Path emptyFile(String path) {
@@ -154,8 +136,7 @@ public abstract class PackageFactoryTestBase {
 
   protected boolean isValidPackageName(String packageName) throws Exception {
     // Write a license decl just in case it's a third_party package:
-    Path buildFile = scratch.file(
-        getPathPrefix() + "/" + packageName + "/BUILD", "licenses(['notice'])");
+    Path buildFile = scratch.file("/" + packageName + "/BUILD", "licenses(['notice'])");
     Package pkg = packages.createPackage(packageName, RootedPath.toRootedPath(root, buildFile));
     return !pkg.containsErrors();
   }
@@ -266,103 +247,21 @@ public abstract class PackageFactoryTestBase {
     assertThat(foundError).isEqualTo(errorExpected);
   }
 
-  /** Runnable that asks for parsing of build file and synchronizes it with
-   * ErrorReporter. It consumes log messages from PackageFactory to release
-   * first semaphore when parsing is started and waits for second semaphore
-   * before it ends.
+  /**
+   * {@link PackageValidator} whose functionality can be swapped out on demand via {@link #setImpl}.
    */
-  protected class ParsingTracker extends Handler implements Runnable {
-    private final Semaphore parsingStarted;
-    private final Semaphore errorReported;
-    private final ExtendedEventHandler eventHandler;
-    private boolean first = true;
-    private boolean parsedOK;
+  protected static class DummyPackageValidator implements PackageValidator {
+    private PackageValidator underlying = PackageValidator.NOOP_VALIDATOR;
 
-    public ParsingTracker(Semaphore first, Semaphore second, ExtendedEventHandler eventHandler) {
-      this.eventHandler = eventHandler;
-      parsingStarted = first;
-      errorReported = second;
+    /** Sets {@link PackageValidator} implementation to use. */
+    public void setImpl(PackageValidator impl) {
+      this.underlying = impl;
     }
 
     @Override
-    public void run() {
-      try {
-        Path buildFile =
-            scratch.file(
-                getPathPrefix() + "/isolated/BUILD",
-                "# -*- python -*-",
-                "",
-                "java_library(name = 'mylib',",
-                "  srcs = 'java/A.java')");
-        packages.createPackage(
-            PackageIdentifier.createInMainRepo("isolated"),
-            RootedPath.toRootedPath(root, buildFile),
-            eventHandler);
-        parsedOK = true;
-      } catch (Exception e) {
-        throw new IllegalStateException(e);
-      }
-    }
-
-    public boolean hasParsed() {
-      return parsedOK;
-    }
-
-    @Override
-    public void close() throws SecurityException {}
-
-    @Override
-    public void flush() {}
-
-    @Override
-    public void publish(LogRecord record) {
-      if (!record.getMessage().contains("isolated")) {
-        return;
-      }
-
-      if (first) {
-        parsingStarted.release();
-        first = false;
-      } else {
-        try {
-          errorReported.acquire();
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-          fail("parsing thread interrupted");
-        }
-      }
-    }
-  }
-
-  protected abstract String getPathPrefix();
-
-  /** Process interfering with parsing of build files.
-   *  It waits until parsing of some BUILD file is started and then reports
-   *  arbitrary error. It signals that error was submitted so the parsing can be
-   *  finished at the end.
-   */
-  protected class ErrorReporter implements Runnable {
-    private final EventHandler eventHandler;
-    private final Semaphore parsingStarted;
-    private final Semaphore errorReported;
-
-    public ErrorReporter(EventHandler eventHandler, Semaphore first, Semaphore second) {
-      this.eventHandler = eventHandler;
-      parsingStarted = first;
-      errorReported = second;
-    }
-
-    @Override
-    public void run() {
-      try {
-        parsingStarted.acquire();
-        eventHandler.handle(
-            Event.error(Location.fromFile("dummy"), "Error from other " + "thread"));
-        errorReported.release();
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-        fail("ErrorReporter thread interrupted");
-      }
+    public void validate(Package pkg, ExtendedEventHandler eventHandler)
+        throws InvalidPackageException {
+      underlying.validate(pkg, eventHandler);
     }
   }
 }

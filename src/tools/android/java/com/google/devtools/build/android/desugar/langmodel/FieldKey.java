@@ -23,24 +23,22 @@ import org.objectweb.asm.Type;
 
 /** The key to index a class or interface field. */
 @AutoValue
-public abstract class FieldKey extends ClassMemberKey {
+public abstract class FieldKey extends ClassMemberKey<FieldKey> {
 
   /** The factory method for {@link FieldKey}. */
-  public static FieldKey create(String ownerClass, String name, String descriptor) {
-    checkState(
-        !ownerClass.contains("."),
-        "Expected a binary/internal class name ('/'-delimited) instead of a qualified name."
-            + " Actual: (%s#%s:%s)",
-        ownerClass,
-        name,
-        descriptor);
+  public static FieldKey create(ClassName owner, String name, String descriptor) {
     checkState(
         !descriptor.startsWith("("),
         "Expected a type descriptor for field instead of a method descriptor. Actual: (%s#%s:%s)",
-        ownerClass,
+        owner,
         name,
         descriptor);
-    return new AutoValue_FieldKey(ownerClass, name, descriptor);
+    return new AutoValue_FieldKey(owner, name, descriptor);
+  }
+
+  @Override
+  public FieldKey acceptTypeMapper(TypeMapper typeMapper) {
+    return FieldKey.create(typeMapper.map(owner()), name(), typeMapper.mapDesc(descriptor()));
   }
 
   /**
@@ -82,7 +80,7 @@ public abstract class FieldKey extends ClassMemberKey {
     return MethodKey.create(
         owner(),
         nameWithSuffix("bridge_getter"),
-        Type.getMethodDescriptor(getFieldType(), Type.getObjectType(owner())));
+        Type.getMethodDescriptor(getFieldType(), Type.getObjectType(ownerName())));
   }
 
   /**
@@ -102,10 +100,14 @@ public abstract class FieldKey extends ClassMemberKey {
     return MethodKey.create(
         owner(),
         nameWithSuffix("bridge_setter"),
-        Type.getMethodDescriptor(getFieldType(), Type.getObjectType(owner()), getFieldType()));
+        Type.getMethodDescriptor(getFieldType(), Type.getObjectType(ownerName()), getFieldType()));
   }
 
-  public Type getFieldType() {
+  public final Type getFieldType() {
     return Type.getType(descriptor());
+  }
+
+  public final ClassName getFieldTypeName() {
+    return ClassName.create(getFieldType());
   }
 }

@@ -29,12 +29,12 @@ import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.MakeVariableSupplier;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.LocalMetadataCollector;
@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -71,7 +69,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -162,12 +159,17 @@ public final class CcCommon {
   private final FdoContext fdoContext;
 
   public CcCommon(RuleContext ruleContext) {
-    this.ruleContext = ruleContext;
-    this.ccToolchain =
+    this(
+        ruleContext,
         Preconditions.checkNotNull(
-            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext));
+            CppHelper.getToolchainUsingDefaultCcToolchainAttribute(ruleContext)));
+  }
+
+  public CcCommon(RuleContext ruleContext, CcToolchainProvider ccToolchain) {
+    this.ruleContext = ruleContext;
     this.cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     this.fdoContext = ccToolchain.getFdoContext();
+    this.ccToolchain = ccToolchain;
   }
 
   /**
@@ -193,43 +195,6 @@ public final class CcCommon {
           entryOutputGroupBuilder.getKey(), entryOutputGroupBuilder.getValue().build());
     }
     return mergedOutputGroups;
-  }
-
-  public static void checkRuleWhitelisted(SkylarkRuleContext skylarkRuleContext)
-      throws EvalException, InterruptedException {
-    RuleContext context = skylarkRuleContext.getRuleContext();
-    Rule rule = context.getRule();
-
-    RuleClass ruleClass = rule.getRuleClassObject();
-    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
-    if (label != null) {
-      checkLocationWhitelisted(
-          context.getAnalysisEnvironment().getSkylarkSemantics(),
-          rule.getLocation(),
-          label.getPackageFragment().toString());
-    }
-  }
-
-  public static void checkLocationWhitelisted(
-      StarlarkSemantics semantics, Location location, String callPath) throws EvalException {
-    List<String> whitelistedPackagesList = semantics.experimentalCcSkylarkApiEnabledPackages();
-    if (whitelistedPackagesList.stream().noneMatch(path -> callPath.startsWith(path))) {
-      throwWhiteListError(location, callPath, whitelistedPackagesList);
-    }
-  }
-
-  private static void throwWhiteListError(
-      Location location, String callPath, List<String> whitelistedPackagesList)
-      throws EvalException {
-    String whitelistedPackages = whitelistedPackagesList.stream().collect(Collectors.joining(", "));
-    throw new EvalException(
-        location,
-        String.format(
-            "the C++ Starlark API is for the time being only allowed for rules in '%s'; "
-                + "but this is defined in '%s'. You can try it out by passing "
-                + "--experimental_cc_skylark_api_enabled_packages=<list of packages>. Beware that "
-                + "we will be making breaking changes to this API without prior warning.",
-            whitelistedPackages, callPath));
   }
 
   /**
@@ -284,7 +249,7 @@ public final class CcCommon {
   List<Pair<Artifact, Label>> getPrivateHeaders() {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     Iterable<? extends TransitiveInfoCollection> providers =
-        ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
+        ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class);
     for (TransitiveInfoCollection provider : providers) {
       for (Artifact artifact :
           provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
@@ -308,7 +273,7 @@ public final class CcCommon {
   List<Pair<Artifact, Label>> getSources() {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     Iterable<? extends TransitiveInfoCollection> providers =
-        ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
+        ruleContext.getPrerequisitesIf("srcs", TransitionMode.TARGET, FileProvider.class);
     for (TransitiveInfoCollection provider : providers) {
       for (Artifact artifact :
           provider.getProvider(FileProvider.class).getFilesToBuild().toList()) {
@@ -345,7 +310,7 @@ public final class CcCommon {
   public static List<Pair<Artifact, Label>> getHeaders(RuleContext ruleContext) {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     for (TransitiveInfoCollection target :
-        ruleContext.getPrerequisitesIf("hdrs", Mode.TARGET, FileProvider.class)) {
+        ruleContext.getPrerequisitesIf("hdrs", TransitionMode.TARGET, FileProvider.class)) {
       FileProvider provider = target.getProvider(FileProvider.class);
       for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {
@@ -431,7 +396,7 @@ public final class CcCommon {
         return CcCommon.computeCcFlags(
             ruleContext,
             ruleContext.getPrerequisite(
-                CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, Mode.TARGET));
+                CcToolchain.CC_TOOLCHAIN_DEFAULT_ATTRIBUTE_NAME, TransitionMode.TARGET));
       } catch (RuleErrorException e) {
         throw new ExpansionException(e.getMessage());
       }
@@ -589,12 +554,19 @@ public final class CcCommon {
    * Determines a list of loose include directories that are only allowed to be referenced when
    * headers checking is {@link HeadersCheckingMode#LOOSE}.
    */
-  Set<PathFragment> getLooseIncludeDirs() {
+  Set<PathFragment> getLooseIncludeDirs() throws InterruptedException {
     ImmutableSet.Builder<PathFragment> result = ImmutableSet.builder();
     // The package directory of the rule contributes includes. Note that this also covers all
     // non-subpackage sub-directories.
-    PathFragment rulePackage = ruleContext.getLabel().getPackageIdentifier()
-        .getPathUnderExecRoot();
+    PathFragment rulePackage =
+        ruleContext
+            .getLabel()
+            .getPackageIdentifier()
+            .getExecPath(
+                ruleContext
+                    .getAnalysisEnvironment()
+                    .getStarlarkSemantics()
+                    .experimentalSiblingRepositoryLayout());
     result.add(rulePackage);
 
     if (ruleContext
@@ -604,17 +576,29 @@ public final class CcCommon {
             .experimentalIncludesAttributeSubpackageTraversal
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("includes")) {
       PathFragment packageFragment =
-          ruleContext.getLabel().getPackageIdentifier().getPathUnderExecRoot();
+          ruleContext
+              .getLabel()
+              .getPackageIdentifier()
+              .getExecPath(
+                  ruleContext
+                      .getAnalysisEnvironment()
+                      .getStarlarkSemantics()
+                      .experimentalSiblingRepositoryLayout());
       // For now, anything with an 'includes' needs a blanket declaration
       result.add(packageFragment.getRelative("**"));
     }
     return result.build();
   }
 
-  List<PathFragment> getSystemIncludeDirs() {
+  List<PathFragment> getSystemIncludeDirs() throws InterruptedException {
+    boolean siblingRepositoryLayout =
+        ruleContext
+            .getAnalysisEnvironment()
+            .getStarlarkSemantics()
+            .experimentalSiblingRepositoryLayout();
     List<PathFragment> result = new ArrayList<>();
     PackageIdentifier packageIdentifier = ruleContext.getLabel().getPackageIdentifier();
-    PathFragment packageFragment = packageIdentifier.getPathUnderExecRoot();
+    PathFragment packageFragment = packageIdentifier.getExecPath(siblingRepositoryLayout);
     for (String includesAttr : ruleContext.getExpander().list("includes")) {
       if (includesAttr.startsWith("/")) {
         ruleContext.attributeWarning("includes",
@@ -622,7 +606,7 @@ public final class CcCommon {
         continue;
       }
       PathFragment includesPath = packageFragment.getRelative(includesAttr);
-      if (includesPath.containsUplevelReferences()) {
+      if (!siblingRepositoryLayout && includesPath.containsUplevelReferences()) {
         ruleContext.attributeError("includes",
             "Path references a path above the execution root.");
       }
@@ -667,7 +651,7 @@ public final class CcCommon {
     NestedSetBuilder<Artifact> prerequisites = NestedSetBuilder.stableOrder();
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
       for (FileProvider provider :
-          ruleContext.getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
+          ruleContext.getPrerequisites("srcs", TransitionMode.TARGET, FileProvider.class)) {
         prerequisites.addAll(
             FileType.filter(
                 provider.getFilesToBuild().toList(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
@@ -685,7 +669,9 @@ public final class CcCommon {
    * the rule.
    */
   List<Artifact> getAdditionalLinkerInputs() {
-    return ruleContext.getPrerequisiteArtifacts("additional_linker_inputs", Mode.TARGET).list();
+    return ruleContext
+        .getPrerequisiteArtifacts("additional_linker_inputs", TransitionMode.TARGET)
+        .list();
   }
 
   /**
@@ -715,7 +701,7 @@ public final class CcCommon {
   /** Returns any linker scripts found in the "deps" attribute of the rule. */
   List<Artifact> getLinkerScripts() {
     return ruleContext
-        .getPrerequisiteArtifacts("deps", Mode.TARGET)
+        .getPrerequisiteArtifacts("deps", TransitionMode.TARGET)
         .filter(CppFileTypes.LINKER_SCRIPT)
         .list();
   }
@@ -727,7 +713,7 @@ public final class CcCommon {
       return null;
     }
 
-    return ruleContext.getPrerequisiteArtifact("win_def_file", Mode.TARGET);
+    return ruleContext.getPrerequisiteArtifact("win_def_file", TransitionMode.TARGET);
   }
 
   /**
@@ -739,7 +725,7 @@ public final class CcCommon {
       return null;
     }
 
-    return ruleContext.getPrerequisiteArtifact("$def_parser", Mode.HOST);
+    return ruleContext.getPrerequisiteArtifact("$def_parser", TransitionMode.HOST);
   }
 
   /** Provides support for instrumentation. */
@@ -794,12 +780,13 @@ public final class CcCommon {
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeaturesOrReportRuleError(
-      RuleContext ruleContext, CcToolchainProvider toolchain) {
+      RuleContext ruleContext, CcToolchainProvider toolchain, CppSemantics semantics) {
     return configureFeaturesOrReportRuleError(
         ruleContext,
         /* requestedFeatures= */ ruleContext.getFeatures(),
         /* unsupportedFeatures= */ ruleContext.getDisabledFeatures(),
-        toolchain);
+        toolchain,
+        semantics);
   }
 
   /**
@@ -811,7 +798,10 @@ public final class CcCommon {
       RuleContext ruleContext,
       ImmutableSet<String> requestedFeatures,
       ImmutableSet<String> unsupportedFeatures,
-      CcToolchainProvider toolchain) {
+      CcToolchainProvider toolchain,
+      CppSemantics cppSemantics) {
+    cppSemantics.validateLayeringCheckFeatures(
+        ruleContext, /* aspectDescriptor= */ null, toolchain, ImmutableSet.of());
     try {
       return configureFeaturesOrThrowEvalException(
           requestedFeatures,
@@ -847,6 +837,12 @@ public final class CcCommon {
         throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
       }
       allRequestedFeaturesBuilder.add(CppRuleClasses.SUPPORTS_PIC);
+    }
+
+    if (cppConfiguration.appleGenerateDsym()) {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.GENERATE_DSYM_FILE_FEATURE_NAME);
+    } else {
+      allRequestedFeaturesBuilder.add(CppRuleClasses.NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME);
     }
 
     ImmutableSet<String> allUnsupportedFeatures = unsupportedFeaturesBuilder.build();
@@ -1096,6 +1092,20 @@ public final class CcCommon {
     if (!hasValidTag(ruleContext) || !ruleContext.getRule().wasCreatedByMacro()) {
       registerMigrationRuleError(ruleContext);
     }
+  }
+
+  public static boolean isOldStarlarkApiWhiteListed(
+      StarlarkRuleContext starlarkRuleContext, List<String> whitelistedPackages) {
+    RuleContext context = starlarkRuleContext.getRuleContext();
+    Rule rule = context.getRule();
+
+    RuleClass ruleClass = rule.getRuleClassObject();
+    Label label = ruleClass.getRuleDefinitionEnvironmentLabel();
+    if (label != null) {
+      return whitelistedPackages.stream()
+          .anyMatch(path -> label.getPackageFragment().toString().startsWith(path));
+    }
+    return false;
   }
 
   private static boolean hasValidTag(RuleContext ruleContext) {

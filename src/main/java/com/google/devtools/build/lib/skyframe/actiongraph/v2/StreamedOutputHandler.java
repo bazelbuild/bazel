@@ -13,80 +13,103 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.actiongraph.v2;
 
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
+import static com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType.BINARY;
+import static com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType.TEXT;
+
+import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Action;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphContainer;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.AspectDescriptor;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Configuration;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.DepSetOfFiles;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.PathFragment;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.RuleClass;
+import com.google.devtools.build.lib.analysis.AnalysisProtosV2.Target;
 import com.google.protobuf.CodedOutputStream;
-import com.google.protobuf.util.JsonFormat;
+import com.google.protobuf.Message;
 import java.io.IOException;
 import java.io.PrintStream;
 
-/** Manages the various streamed output channels of aquery. */
-public class StreamedOutputHandler {
-  /** Defines the types of proto output this class can handle. */
-  public enum OutputType {
-    BINARY("proto"),
-    TEXT("textproto"),
-    JSON("jsonproto");
-
-    private final String formatName;
-
-    OutputType(String formatName) {
-      this.formatName = formatName;
-    }
-
-    public String formatName() {
-      return formatName;
-    }
-  }
-
+/** Manages the various streamed output channels of aquery. This does not support JSON format. */
+public class StreamedOutputHandler implements AqueryOutputHandler {
   private final OutputType outputType;
   private final CodedOutputStream outputStream;
   private final PrintStream printStream;
-  private final JsonFormat.Printer jsonPrinter = JsonFormat.printer();
 
   public StreamedOutputHandler(
       OutputType outputType, CodedOutputStream outputStream, PrintStream printStream) {
     this.outputType = outputType;
+    Preconditions.checkArgument(
+        outputType == BINARY || outputType == TEXT,
+        "Only proto and textproto outputs should be streamed.");
     this.outputStream = outputStream;
     this.printStream = printStream;
   }
 
+  @Override
+  public void outputArtifact(Artifact message) throws IOException {
+    printMessage(message, ActionGraphContainer.ARTIFACTS_FIELD_NUMBER, "artifacts");
+  }
+
+  @Override
+  public void outputAction(Action message) throws IOException {
+    printMessage(message, ActionGraphContainer.ACTIONS_FIELD_NUMBER, "actions");
+  }
+
+  @Override
+  public void outputTarget(Target message) throws IOException {
+    printMessage(message, ActionGraphContainer.TARGETS_FIELD_NUMBER, "targets");
+  }
+
+  @Override
+  public void outputDepSetOfFiles(DepSetOfFiles message) throws IOException {
+    printMessage(message, ActionGraphContainer.DEP_SET_OF_FILES_FIELD_NUMBER, "dep_set_of_files");
+  }
+
+  @Override
+  public void outputConfiguration(Configuration message) throws IOException {
+    printMessage(message, ActionGraphContainer.CONFIGURATION_FIELD_NUMBER, "configuration");
+  }
+
+  @Override
+  public void outputAspectDescriptor(AspectDescriptor message) throws IOException {
+    printMessage(
+        message, ActionGraphContainer.ASPECT_DESCRIPTORS_FIELD_NUMBER, "aspect_descriptors");
+  }
+
+  @Override
+  public void outputRuleClass(RuleClass message) throws IOException {
+    printMessage(message, ActionGraphContainer.RULE_CLASSES_FIELD_NUMBER, "rule_classes");
+  }
+
+  @Override
+  public void outputPathFragment(PathFragment message) throws IOException {
+    printMessage(message, ActionGraphContainer.PATH_FRAGMENTS_FIELD_NUMBER, "path_fragments");
+  }
+
   /**
-   * Prints the ActionGraphComponent to the appropriate output channel.
+   * Prints the Message to the appropriate output channel.
    *
    * @param message The message to be printed.
    */
-  public void printActionGraphComponent(ActionGraphComponent message) throws IOException {
+  private void printMessage(Message message, int fieldNumber, String messageLabel)
+      throws IOException {
     switch (outputType) {
       case BINARY:
-        outputStream.writeMessage(
-            ActionGraphContainer.ACTION_GRAPH_COMPONENTS_FIELD_NUMBER, message);
+        outputStream.writeMessage(fieldNumber, message);
         break;
       case TEXT:
-        printStream.print(wrapperActionGraphComponent(message));
+        printStream.print(messageLabel + " {\n" + message + "}\n");
         break;
-      case JSON:
-        jsonPrinter.appendTo(message, printStream);
-        printStream.println();
-        break;
+      default:
+        throw new IllegalStateException("Unknown outputType " + outputType.formatName());
     }
   }
 
-  private static String wrapperActionGraphComponent(ActionGraphComponent message) {
-    return "action_graph_components {\n" + message + "}\n";
-  }
-
-  /** Called at the end of the query process. */
+  @Override
   public void close() throws IOException {
-    switch (outputType) {
-      case BINARY:
-        outputStream.flush();
-        break;
-      case TEXT:
-      case JSON:
-        printStream.flush();
-        printStream.close();
-        break;
-    }
+    outputStream.flush();
+    printStream.flush();
   }
 }

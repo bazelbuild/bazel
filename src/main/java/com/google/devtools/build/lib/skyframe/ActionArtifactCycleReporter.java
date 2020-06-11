@@ -14,29 +14,29 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
+import com.google.devtools.build.lib.skyframe.CompletionFunction.TopLevelActionLookupKey;
 import com.google.devtools.build.lib.skyframe.TestCompletionValue.TestCompletionKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.function.Predicate;
 
 /**
  * Reports cycles between Actions and Artifacts. These indicates cycles within a rule.
  */
 public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
-  @SuppressWarnings("unchecked")
   private static final Predicate<SkyKey> IS_ARTIFACT_OR_ACTION_SKY_KEY =
       Predicates.or(
           SkyFunctions.isSkyFunction(Artifact.ARTIFACT),
+          SkyFunctions.isSkyFunction(SkyFunctions.ARTIFACT_NESTED_SET),
           SkyFunctions.isSkyFunction(SkyFunctions.ACTION_EXECUTION),
           SkyFunctions.isSkyFunction(SkyFunctions.TARGET_COMPLETION),
+          SkyFunctions.isSkyFunction(SkyFunctions.ASPECT_COMPLETION),
           SkyFunctions.isSkyFunction(SkyFunctions.TEST_COMPLETION));
 
   ActionArtifactCycleReporter(PackageProvider packageProvider) {
@@ -57,15 +57,19 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return prettyPrintArtifact(((Artifact) arg));
     } else if (arg instanceof ActionLookupData) {
       return "action from: " + arg;
-    } else if (arg instanceof TargetCompletionKey
-        && skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
-      return "configured target: " + ((TargetCompletionKey) arg).configuredTargetKey().getLabel();
+    } else if (arg instanceof TopLevelActionLookupKey) {
+      TopLevelActionLookupKey key = (TopLevelActionLookupKey) arg;
+      if (skyFunctionName.equals(SkyFunctions.TARGET_COMPLETION)) {
+        return "configured target: " + key.actionLookupKey().getLabel();
+      }
+      return "top-level aspect: "
+          + ((AspectCompletionValue.AspectCompletionKey) key).actionLookupKey().prettyPrint();
     } else if (arg instanceof TestCompletionKey
         && skyFunctionName.equals(SkyFunctions.TEST_COMPLETION)) {
       return "test target: " + ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
     throw new IllegalStateException(
-        "Argument is not Action, TargetCompletion or TestCompletion: " + arg);
+        "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: " + arg);
   }
 
   @Override
@@ -75,20 +79,27 @@ public class ActionArtifactCycleReporter extends AbstractLabelCycleReporter {
       return ((Artifact) arg).getOwner();
     } else if (arg instanceof ActionLookupData) {
       return ((ActionLookupData) arg).getLabel();
-    } else if (arg instanceof TargetCompletionKey
-        && key.functionName().equals(SkyFunctions.TARGET_COMPLETION)) {
-      return ((TargetCompletionKey) arg).configuredTargetKey().getLabel();
+    } else if (arg instanceof TopLevelActionLookupKey) {
+      return ((TopLevelActionLookupKey) arg).actionLookupKey().getLabel();
     } else if (arg instanceof TestCompletionKey
         && key.functionName().equals(SkyFunctions.TEST_COMPLETION)) {
       return ((TestCompletionKey) arg).configuredTargetKey().getLabel();
     }
     throw new IllegalStateException(
-        "Argument is not Action, TargetCompletion or TestCompletion: " + arg);
+        "Argument is not Action, TargetCompletion, AspectCompletion, or TestCompletion: " + arg);
   }
 
   @Override
   protected boolean canReportCycle(SkyKey topLevelKey, CycleInfo cycleInfo) {
-    return IS_ARTIFACT_OR_ACTION_SKY_KEY.apply(topLevelKey)
-        && Iterables.all(cycleInfo.getCycle(), IS_ARTIFACT_OR_ACTION_SKY_KEY);
+    return IS_ARTIFACT_OR_ACTION_SKY_KEY.test(topLevelKey)
+        && cycleInfo.getCycle().stream().allMatch(IS_ARTIFACT_OR_ACTION_SKY_KEY);
+  }
+
+  @Override
+  protected boolean shouldSkipIntermediateKeyOnCycle(SkyKey key) {
+    // ArtifactNestedSetKey isn't worth reporting to the user - it is just an optimization, and will
+    // always be an intermediate member of a cycle. It may contain artifacts irrelevant to the
+    // cycle, and may be nested several layers deep.
+    return key instanceof ArtifactNestedSetKey;
   }
 }

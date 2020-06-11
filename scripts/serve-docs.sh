@@ -12,6 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
+# Prerequisites:
+#
+# - ruby version >= 2.4
+# - rubygem dependencies: cd into script/docs and run
+#
+#     'gem install -g --no-rdoc --no-ri'
+#
 
 set -eu
 
@@ -63,8 +71,15 @@ build_and_serve() {
   jekyll serve --host "$HOST" --detach --quiet --port "$PORT" --source "$WORKING_DIR"
 }
 
-check() {
-  which $1 > /dev/null || (echo "$1 not installed. Please install $1."; exit 1)
+check_jekyll() {
+  which jekyll > /dev/null || \
+    (
+      cat <<EOF
+jekyll not installed. Please install jekyll and rubygem dependencies by going
+into the scripts/docs/ directory and running 'gem install -g --no-rdoc --no-ri'.
+EOF
+      exit 1
+    )
 }
 
 kill_jekyll() {
@@ -78,15 +93,7 @@ kill_jekyll() {
 }
 
 main() {
-  check jekyll
-
-  old_version="Jekyll 0.11.2"
-  if expr match "$(jekyll --version)" "$old_version" > /dev/null; then
-    # The ancient version that apt-get has.
-    echo "ERROR: Running with an old version of Jekyll, update " \
-      "to 2.5.3 with \`sudo gem install jekyll -v 2.5.3\`"
-    exit 1
-  fi
+  check_jekyll
 
   kill_jekyll
 

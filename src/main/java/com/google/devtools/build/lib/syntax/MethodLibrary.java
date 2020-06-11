@@ -15,19 +15,10 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Ascii;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
-import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,12 +29,17 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkGlobalLibrary;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** The universal predeclared functions of core Starlark. */
-@SkylarkGlobalLibrary
+@StarlarkGlobalLibrary
 class MethodLibrary {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "min",
       doc =
           "Returns the smallest one of all given arguments. "
@@ -54,13 +50,13 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object min(Sequence<?> args) throws EvalException {
     try {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse());
+      return findExtreme(args, EvalUtils.STARLARK_COMPARATOR.reverse());
     } catch (ComparisonException e) {
       throw new EvalException(null, e);
     }
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "max",
       doc =
           "Returns the largest one of all given arguments. "
@@ -71,7 +67,7 @@ class MethodLibrary {
       extraPositionals = @Param(name = "args", doc = "The elements to be checked."))
   public Object max(Sequence<?> args) throws EvalException {
     try {
-      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR);
+      return findExtreme(args, EvalUtils.STARLARK_COMPARATOR);
     } catch (ComparisonException e) {
       throw new EvalException(null, e);
     }
@@ -90,7 +86,7 @@ class MethodLibrary {
     }
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "all",
       doc =
           "Returns true if all elements evaluate to True or if the collection is empty. "
@@ -102,15 +98,13 @@ class MethodLibrary {
             name = "elements",
             type = Object.class,
             noneable = true,
-            doc = "A string or a collection of elements.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
+            doc = "A string or a collection of elements.")
       })
   public Boolean all(Object collection) throws EvalException {
     return !hasElementWithBooleanValue(collection, false);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "any",
       doc =
           "Returns true if at least one element evaluates to True. "
@@ -122,9 +116,7 @@ class MethodLibrary {
             name = "elements",
             type = Object.class,
             noneable = true,
-            doc = "A string or a collection of elements.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
+            doc = "A string or a collection of elements.")
       })
   public Boolean any(Object collection) throws EvalException {
     return hasElementWithBooleanValue(collection, true);
@@ -140,7 +132,7 @@ class MethodLibrary {
     return false;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "sorted",
       doc =
           "Sort a collection. Elements should all belong to the same orderable type, they are "
@@ -148,12 +140,7 @@ class MethodLibrary {
               + "It is an error if elements are not comparable (for example int with string)."
               + "<pre class=\"language-python\">sorted([3, 5, 4]) == [3, 4, 5]</pre>",
       parameters = {
-        @Param(
-            name = "iterable",
-            type = Object.class,
-            doc = "The iterable sequence to sort.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true),
+        @Param(name = "iterable", type = Object.class, doc = "The iterable sequence to sort."),
         @Param(
             name = "key",
             doc = "An optional function applied to each element before comparison.",
@@ -171,15 +158,12 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public StarlarkList<?> sorted(
-      Object iterable,
-      final Object key,
-      Boolean reverse,
-      final StarlarkThread thread)
+      Object iterable, final Object key, Boolean reverse, final StarlarkThread thread)
       throws EvalException, InterruptedException {
     Object[] array = Starlark.toArray(iterable);
     if (key == Starlark.NONE) {
       try {
-        Arrays.sort(array, EvalUtils.SKYLARK_COMPARATOR);
+        Arrays.sort(array, EvalUtils.STARLARK_COMPARATOR);
       } catch (EvalUtils.ComparisonException e) {
         throw Starlark.errorf("%s", e.getMessage());
       }
@@ -192,7 +176,7 @@ class MethodLibrary {
         @Override
         public int compare(Object x, Object y) {
           try {
-            return EvalUtils.SKYLARK_COMPARATOR.compare(callKeyFunc(x), callKeyFunc(y));
+            return EvalUtils.STARLARK_COMPARATOR.compare(callKeyFunc(x), callKeyFunc(y));
           } catch (InterruptedException | EvalException e) {
             if (this.e == null) {
               this.e = e;
@@ -220,8 +204,7 @@ class MethodLibrary {
         throw (EvalException) comp.e;
       }
     } else {
-      throw Starlark.errorf(
-          "%s object is not callable", Starlark.repr(EvalUtils.getDataTypeName(key)));
+      throw Starlark.errorf("%s object is not callable", Starlark.repr(Starlark.type(key)));
     }
 
     if (reverse) {
@@ -238,7 +221,7 @@ class MethodLibrary {
     }
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "reversed",
       doc =
           "Returns a list that contains the elements of the original sequence in reversed order."
@@ -247,9 +230,7 @@ class MethodLibrary {
         @Param(
             name = "sequence",
             type = Sequence.class,
-            doc = "The sequence (list or tuple) to be reversed.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true),
+            doc = "The sequence (list or tuple) to be reversed."),
       },
       useStarlarkThread = true)
   public StarlarkList<?> reversed(Sequence<?> sequence, StarlarkThread thread)
@@ -259,21 +240,14 @@ class MethodLibrary {
     return StarlarkList.wrap(thread.mutability(), array);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "tuple",
       doc =
           "Returns a tuple with the same elements as the given iterable value."
               + "<pre class=\"language-python\">tuple([1, 2]) == (1, 2)\n"
               + "tuple((2, 3, 2)) == (2, 3, 2)\n"
               + "tuple({5: \"a\", 2: \"b\", 4: \"c\"}) == (5, 2, 4)</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            defaultValue = "()",
-            doc = "The object to convert.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
-      })
+      parameters = {@Param(name = "x", defaultValue = "()", doc = "The object to convert.")})
   public Tuple<?> tuple(Object x) throws EvalException {
     if (x instanceof Tuple) {
       return (Tuple<?>) x;
@@ -281,94 +255,56 @@ class MethodLibrary {
     return Tuple.wrap(Starlark.toArray(x));
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "list",
       doc =
           "Returns a new list with the same elements as the given iterable value."
               + "<pre class=\"language-python\">list([1, 2]) == [1, 2]\n"
               + "list((2, 3, 2)) == [2, 3, 2]\n"
               + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [5, 2, 4]</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            defaultValue = "[]",
-            doc = "The object to convert.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
-      },
+      parameters = {@Param(name = "x", defaultValue = "[]", doc = "The object to convert.")},
       useStarlarkThread = true)
   public StarlarkList<?> list(Object x, StarlarkThread thread) throws EvalException {
     return StarlarkList.wrap(thread.mutability(), Starlark.toArray(x));
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "len",
       doc =
           "Returns the length of a string, sequence (such as a list or tuple), dict, or other"
               + " iterable.",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The value whose length to report.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
-      },
+      parameters = {@Param(name = "x", doc = "The value whose length to report.")},
       useStarlarkThread = true)
   public Integer len(Object x, StarlarkThread thread) throws EvalException {
     int len = Starlark.len(x);
     if (len < 0) {
-      throw Starlark.errorf("%s is not iterable", EvalUtils.getDataTypeName(x));
+      throw Starlark.errorf("%s is not iterable", Starlark.type(x));
     }
     return len;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "str",
       doc =
           "Converts any object to string. This is useful for debugging."
               + "<pre class=\"language-python\">str(\"ab\") == \"ab\"\n"
               + "str(8) == \"8\"</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to convert.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            noneable = true)
-      })
+      parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
   public String str(Object x) throws EvalException {
-    try {
-      return Starlark.str(x);
-    } catch (NestedSetDepthException exception) {
-      // TODO(adonovan): move into NestedSetDepthException so it becomes throw e.toEvalException().
-      throw Starlark.errorf(
-          "depset exceeded maximum depth %d"
-              + ". This was only discovered when attempting to flatten the depset for str(), as "
-              + "the size of depsets is unknown until flattening. "
-              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-              + "solutions.",
-          exception.getDepthLimit());
-    }
+    return Starlark.str(x);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "repr",
       doc =
           "Converts any object to a string representation. This is useful for debugging.<br>"
               + "<pre class=\"language-python\">repr(\"ab\") == '\"ab\"'</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to convert.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            noneable = true)
-      })
+      parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
   public String repr(Object x) {
     return Starlark.repr(x);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bool",
       doc =
           "Constructor for the bool type. "
@@ -381,8 +317,6 @@ class MethodLibrary {
             name = "x",
             defaultValue = "False",
             doc = "The variable to convert.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true)
       })
   public Boolean bool(Object x) throws EvalException {
@@ -392,7 +326,7 @@ class MethodLibrary {
   private final ImmutableMap<String, Integer> intPrefixes =
       ImmutableMap.of("0b", 2, "0o", 8, "0x", 16);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "int",
       doc =
           "Returns x as an int value."
@@ -432,12 +366,7 @@ class MethodLibrary {
               + "int(\"-0x10\", 0) == -16"
               + "</pre>",
       parameters = {
-        @Param(
-            name = "x",
-            type = Object.class,
-            doc = "The string to convert.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true),
+        @Param(name = "x", type = Object.class, doc = "The string to convert."),
         @Param(
             name = "base",
             type = Object.class,
@@ -454,8 +383,7 @@ class MethodLibrary {
       if (base == Starlark.UNBOUND) {
         base = 10;
       } else if (!(base instanceof Integer)) {
-        throw Starlark.errorf(
-            "base must be an integer (got '%s')", EvalUtils.getDataTypeName(base));
+        throw Starlark.errorf("base must be an integer (got '%s')", Starlark.type(base));
       }
       return fromString((String) x, (Integer) base);
     } else {
@@ -541,7 +469,7 @@ class MethodLibrary {
     return null;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dict",
       doc =
           "Creates a <a href=\"dict.html\">dictionary</a> from an optional positional "
@@ -556,9 +484,7 @@ class MethodLibrary {
             defaultValue = "[]",
             doc =
                 "Either a dictionary or a list of entries. Entries must be tuples or lists with "
-                    + "exactly two elements: key, value.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true),
+                    + "exactly two elements: key, value."),
       },
       extraKeywords = @Param(name = "kwargs", doc = "Dictionary of additional entries."),
       useStarlarkThread = true)
@@ -571,7 +497,7 @@ class MethodLibrary {
     return Dict.plus(dict, kwargs, thread.mutability());
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "enumerate",
       doc =
           "Returns a list of pairs (two-element tuples), with the index (int) and the item from"
@@ -598,7 +524,7 @@ class MethodLibrary {
     return StarlarkList.wrap(thread.mutability(), array);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "hash",
       doc =
           "Return a hash value for a string. This is computed deterministically using the same "
@@ -608,19 +534,12 @@ class MethodLibrary {
       // Deterministic hashing is important for the consistency of builds, hence why we
       // promise a specific algorithm. This is in contrast to Java (Object.hashCode()) and
       // Python, which promise stable hashing only within a given execution of the program.
-      parameters = {
-        @Param(
-            name = "value",
-            type = String.class,
-            doc = "String value to hash.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
-      })
+      parameters = {@Param(name = "value", type = String.class, doc = "String value to hash.")})
   public Integer hash(String value) throws EvalException {
     return value.hashCode();
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "range",
       doc =
           "Creates a list where items go from <code>start</code> to <code>stop</code>, using a "
@@ -635,9 +554,7 @@ class MethodLibrary {
             type = Integer.class,
             doc =
                 "Value of the start element if stop is provided, "
-                    + "otherwise value of stop and the actual start is 0",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true),
+                    + "otherwise value of stop and the actual start is 0"),
         @Param(
             name = "stop_or_none",
             type = Integer.class,
@@ -645,16 +562,12 @@ class MethodLibrary {
             defaultValue = "None",
             doc =
                 "optional index of the first item <i>not</i> to be included in the resulting "
-                    + "list; generation of the list stops before <code>stop</code> is reached.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true),
+                    + "list; generation of the list stops before <code>stop</code> is reached."),
         @Param(
             name = "step",
             type = Integer.class,
             defaultValue = "1",
-            doc = "The increment (default is 1). It may be negative.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
+            doc = "The increment (default is 1). It may be negative.")
       },
       useStarlarkThread = true)
   public Sequence<Integer> range(
@@ -669,7 +582,7 @@ class MethodLibrary {
       start = startOrStop;
       stop = (Integer) stopOrNone;
     } else {
-      throw Starlark.errorf("want int, got %s", EvalUtils.getDataTypeName(stopOrNone));
+      throw Starlark.errorf("want int, got %s", Starlark.type(stopOrNone));
     }
     if (step == 0) {
       throw Starlark.errorf("step cannot be 0");
@@ -678,25 +591,15 @@ class MethodLibrary {
   }
 
   /** Returns true if the object has a field of the given name, otherwise false. */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "hasattr",
       doc =
           "Returns True if the object <code>x</code> has an attribute or method of the given "
               + "<code>name</code>, otherwise False. Example:<br>"
               + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
       parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to check.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            noneable = true),
-        @Param(
-            name = "name",
-            type = String.class,
-            doc = "The name of the attribute.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true)
+        @Param(name = "x", doc = "The object to check.", noneable = true),
+        @Param(name = "name", type = String.class, doc = "The name of the attribute.")
       },
       useStarlarkThread = true)
   public Boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
@@ -709,7 +612,7 @@ class MethodLibrary {
     return CallUtils.getMethodNames(thread.getSemantics(), obj.getClass()).contains(name);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "getattr",
       doc =
           "Returns the struct's field of the given name if it exists. If not, it either returns "
@@ -718,25 +621,14 @@ class MethodLibrary {
               + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
               + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
       parameters = {
-        @Param(
-            name = "x",
-            doc = "The struct whose attribute is accessed.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            noneable = true),
-        @Param(
-            name = "name",
-            doc = "The name of the struct attribute.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true),
+        @Param(name = "x", doc = "The struct whose attribute is accessed.", noneable = true),
+        @Param(name = "name", doc = "The name of the struct attribute."),
         @Param(
             name = "default",
             defaultValue = "unbound",
             doc =
                 "The default value to return in case the struct "
                     + "doesn't have an attribute of the given name.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
             noneable = true)
       },
       useStarlarkThread = true)
@@ -752,19 +644,12 @@ class MethodLibrary {
     return result;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dir",
       doc =
           "Returns a list of strings: the names of the attributes and "
               + "methods of the parameter object.",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to check.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            noneable = true)
-      },
+      parameters = {@Param(name = "x", doc = "The object to check.", noneable = true)},
       useStarlarkThread = true)
   public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
     // Order the fields alphabetically.
@@ -776,7 +661,7 @@ class MethodLibrary {
     return StarlarkList.copyOf(thread.mutability(), fields);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "fail",
       doc =
           "Raises an error that cannot be intercepted. It can be used anywhere, "
@@ -807,7 +692,7 @@ class MethodLibrary {
     throw Starlark.errorf("%s", str);
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "print",
       doc =
           "Prints <code>args</code> as debug output. It will be prefixed with the string <code>"
@@ -836,30 +721,21 @@ class MethodLibrary {
     String separator = "";
     for (Object x : args) {
       p.append(separator);
-      try {
-        p.debugPrint(x);
-      } catch (NestedSetDepthException exception) {
-        throw Starlark.errorf(
-            "depset exceeded maximum depth %d. This was only discovered when attempting to flatten"
-                + " the depset for print(), as the size of depsets is unknown until flattening."
-                + " See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-                + "solutions.",
-            exception.getDepthLimit());
-      }
+      p.debugPrint(x);
       separator = sep;
     }
-    // As part of the integration test "skylark_flag_test.sh", if the
-    // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
+    // As part of the integration test "starlark_flag_test.sh", if the
+    // "--internal_starlark_flag_test_canary" flag is enabled, append an extra marker string to
     // the output.
-    if (thread.getSemantics().internalSkylarkFlagTestCanary()) {
-      p.append("<== skylark flag test ==>");
+    if (thread.getSemantics().internalStarlarkFlagTestCanary()) {
+      p.append("<== Starlark flag test ==>");
     }
 
     thread.getPrintHandler().print(thread, p.toString());
     return Starlark.NONE;
   }
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "type",
       doc =
           "Returns the type name of its argument. This is useful for debugging and "
@@ -874,262 +750,13 @@ class MethodLibrary {
               + "<pre class=\"language-python\">"
               + "if type(x) == type([]):  # if x is a list"
               + "</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            doc = "The object to check type of.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true,
-            noneable = true)
-      })
+      parameters = {@Param(name = "x", doc = "The object to check type of.", noneable = true)})
   public String type(Object object) {
-    // There is no 'type' type in Skylark, so we return a string with the type name.
-    return EvalUtils.getDataTypeName(object, false);
+    // There is no 'type' type in Starlark, so we return a string with the type name.
+    return Starlark.type(object);
   }
 
-  @SkylarkCallable(
-      name = "depset",
-      doc =
-          "Creates a <a href=\"depset.html\">depset</a>. The <code>direct</code> parameter is a "
-              + "list of direct elements of the depset, and <code>transitive</code> parameter is "
-              + "a list of depsets whose elements become indirect elements of the created depset. "
-              + "The order in which elements are returned when the depset is converted to a list "
-              + "is specified by the <code>order</code> parameter. "
-              + "See the <a href=\"../depsets.md\">Depsets overview</a> for more information. "
-              + ""
-              + "<p>All elements (direct and indirect) of a depset must be of the same type, "
-              + "as obtained by the expression <code>type(x)</code>."
-              + ""
-              + "<p>Because a hash-based set is used to eliminate duplicates during iteration, "
-              + "all elements of a depset should be hashable. However, this invariant is not "
-              + "currently checked consistently in all constructors. Use the "
-              + "--incompatible_always_check_depset_elements flag to enable "
-              + "consistent checking; this will be the default behavior in future releases; "
-              + " see <a href='https://github.com/bazelbuild/bazel/issues/10313'>Issue 10313</a>."
-              + ""
-              + "<p>In addition, elements must currently be immutable, though this restriction "
-              + "will be relaxed in future."
-              + ""
-              + "<p> The order of the created depset should be <i>compatible</i> with the order of "
-              + "its <code>transitive</code> depsets. <code>\"default\"</code> order is compatible "
-              + "with any other order, all other orders are only compatible with themselves."
-              + "<p> Note on backward/forward compatibility. This function currently accepts a "
-              + "positional <code>items</code> parameter. It is deprecated and will be removed "
-              + "in the future, and after its removal <code>direct</code> will become a sole "
-              + "positional parameter of the <code>depset</code> function. Thus, both of the "
-              + "following calls are equivalent and future-proof:<br>"
-              + "<pre class=language-python>"
-              + "depset(['a', 'b'], transitive = [...])\n"
-              + "depset(direct = ['a', 'b'], transitive = [...])\n"
-              + "</pre>",
-      parameters = {
-        @Param(
-            name = "x",
-            type = Object.class,
-            defaultValue = "None",
-            positional = true,
-            named = false,
-            noneable = true,
-            doc =
-                "A positional parameter distinct from other parameters for legacy support. "
-                    + "<p>If <code>--incompatible_disable_depset_inputs</code> is false, this "
-                    + "parameter serves as the value of <code>items</code>.</p> "
-                    + "<p>If <code>--incompatible_disable_depset_inputs</code> is true, this "
-                    + "parameter serves as the value of <code>direct</code>.</p> "
-                    + "<p>See the documentation for these parameters for more details."),
-        // TODO(cparsons): Make 'order' keyword-only.
-        @Param(
-            name = "order",
-            type = String.class,
-            defaultValue = "\"default\"",
-            doc =
-                "The traversal strategy for the new depset. See "
-                    + "<a href=\"depset.html\">here</a> for the possible values.",
-            named = true),
-        @Param(
-            name = "direct",
-            type = Object.class,
-            defaultValue = "None",
-            positional = false,
-            named = true,
-            noneable = true,
-            doc = "A list of <i>direct</i> elements of a depset. "),
-        @Param(
-            name = "transitive",
-            named = true,
-            positional = false,
-            type = Sequence.class,
-            generic1 = Depset.class,
-            noneable = true,
-            doc = "A list of depsets whose elements will become indirect elements of the depset.",
-            defaultValue = "None"),
-        @Param(
-            name = "items",
-            type = Object.class,
-            defaultValue = "[]",
-            positional = false,
-            doc =
-                "Deprecated: Either an iterable whose items become the direct elements of "
-                    + "the new depset, in left-to-right order, or else a depset that becomes "
-                    + "a transitive element of the new depset. In the latter case, "
-                    + "<code>transitive</code> cannot be specified.",
-            disableWithFlag = FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS,
-            valueWhenDisabled = "[]",
-            named = true),
-      },
-      useStarlarkThread = true)
-  public Depset depset(
-      Object x,
-      String orderString,
-      Object direct,
-      Object transitive,
-      Object items,
-      StarlarkThread thread)
-      throws EvalException {
-    Order order;
-    Depset result;
-    try {
-      order = Order.parse(orderString);
-    } catch (IllegalArgumentException ex) {
-      throw new EvalException(null, ex);
-    }
-
-    StarlarkSemantics semantics = thread.getSemantics();
-    if (semantics.incompatibleDisableDepsetItems()) {
-      if (x != Starlark.NONE) {
-        if (direct != Starlark.NONE) {
-          throw new EvalException(
-              null, "parameter 'direct' cannot be specified both positionally and by keyword");
-        }
-        direct = x;
-      }
-      if (direct instanceof Depset) {
-        throw new EvalException(
-            null,
-            "parameter 'direct' must contain a list of elements, and may no longer accept a"
-                + " depset. The deprecated behavior may be temporarily re-enabled by setting"
-                + " --incompatible_disable_depset_inputs=false");
-      }
-      result =
-          Depset.fromDirectAndTransitive(
-              order,
-              listFromNoneable(direct, Object.class, "direct"),
-              listFromNoneable(transitive, Depset.class, "transitive"),
-              semantics.incompatibleAlwaysCheckDepsetElements());
-    } else {
-      if (x != Starlark.NONE) {
-        if (!isEmptySkylarkList(items)) {
-          throw new EvalException(
-              null, "parameter 'items' cannot be specified both positionally and by keyword");
-        }
-        items = x;
-      }
-      result = legacyDepsetConstructor(items, order, direct, transitive, semantics);
-    }
-
-    if (semantics.debugDepsetDepth()) {
-      // Flatten the underlying nested set. If the set exceeds the depth limit, then this will
-      // throw a NestedSetDepthException.
-      // This is an extremely inefficient check and should be only done in the
-      // "--debug_depset_depth" mode.
-      try {
-        result.getSet().toList();
-      } catch (NestedSetDepthException ex) {
-        throw Starlark.errorf("depset exceeded maximum depth %d", ex.getDepthLimit());
-      }
-    }
-    return result;
-  }
-
-  private static <T> List<T> listFromNoneable(
-      Object listOrNone, Class<T> objectType, String paramName) throws EvalException {
-    if (listOrNone != Starlark.NONE) {
-      SkylarkType.checkType(listOrNone, Sequence.class, paramName);
-      return ((Sequence<?>) listOrNone).getContents(objectType, paramName);
-    } else {
-      return ImmutableList.of();
-    }
-  }
-
-  private static Depset legacyDepsetConstructor(
-      Object items, Order order, Object direct, Object transitive, StarlarkSemantics semantics)
-      throws EvalException {
-
-    if (transitive == Starlark.NONE && direct == Starlark.NONE) {
-      // Legacy behavior.
-      return Depset.legacyOf(order, items);
-    }
-
-    if (direct != Starlark.NONE && !isEmptySkylarkList(items)) {
-      throw new EvalException(
-          null, "Do not pass both 'direct' and 'items' argument to depset constructor.");
-    }
-
-    // Non-legacy behavior: either 'transitive' or 'direct' were specified.
-    List<Object> directElements;
-    if (direct != Starlark.NONE) {
-      SkylarkType.checkType(direct, Sequence.class, "direct");
-      directElements = ((Sequence<?>) direct).getContents(Object.class, "direct");
-    } else {
-      SkylarkType.checkType(items, Sequence.class, "items");
-      directElements = ((Sequence<?>) items).getContents(Object.class, "items");
-    }
-
-    List<Depset> transitiveList;
-    if (transitive != Starlark.NONE) {
-      SkylarkType.checkType(transitive, Sequence.class, "transitive");
-      transitiveList = ((Sequence<?>) transitive).getContents(Depset.class, "transitive");
-    } else {
-      transitiveList = ImmutableList.of();
-    }
-    return Depset.fromDirectAndTransitive(
-        order, directElements, transitiveList, semantics.incompatibleAlwaysCheckDepsetElements());
-  }
-
-  private static boolean isEmptySkylarkList(Object o) {
-    return o instanceof Sequence && ((Sequence) o).isEmpty();
-  }
-
-  /**
-   * Returns a function-value implementing "select" (i.e. configurable attributes) in the specified
-   * package context.
-   */
-  @SkylarkCallable(
-      name = "select",
-      doc =
-          "<code>select()</code> is the helper function that makes a rule attribute "
-              + "<a href=\"$BE_ROOT/common-definitions.html#configurable-attributes\">"
-              + "configurable</a>. See "
-              + "<a href=\"$BE_ROOT/functions.html#select\">build encyclopedia</a> for details.",
-      parameters = {
-        @Param(
-            name = "x",
-            type = Dict.class,
-            doc = "The parameter to convert.",
-            // TODO(cparsons): This parameter should be positional-only.
-            legacyNamed = true),
-        @Param(
-            name = "no_match_error",
-            type = String.class,
-            defaultValue = "''",
-            doc = "Optional custom error to report if no condition matches.",
-            named = true)
-      })
-  public Object select(Dict<?, ?> dict, String noMatchError) throws EvalException {
-    if (dict.isEmpty()) {
-      throw Starlark.errorf(
-          "select({}) with an empty dictionary can never resolve because it includes no conditions"
-              + " to match");
-    }
-    for (Object key : dict.keySet()) {
-      if (!(key instanceof String)) {
-        throw Starlark.errorf("Invalid key: %s. select keys must be label references", key);
-      }
-    }
-    return SelectorList.of(new SelectorValue(dict, noMatchError));
-  }
-
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "zip",
       doc =
           "Returns a <code>list</code> of <code>tuple</code>s, where the i-th tuple contains "
@@ -1167,10 +794,10 @@ class MethodLibrary {
     return StarlarkList.copyOf(thread.mutability(), result);
   }
 
-  /** Skylark int type. */
-  @SkylarkModule(
+  /** Starlark int type. */
+  @StarlarkBuiltin(
       name = "int",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc =
           "A type to represent integers. It can represent any number between -2147483648 and "
               + "2147483647 (included). "
@@ -1186,10 +813,10 @@ class MethodLibrary {
               + "</pre>")
   static final class IntModule implements StarlarkValue {} // (documentation only)
 
-  /** Skylark bool type. */
-  @SkylarkModule(
+  /** Starlark bool type. */
+  @StarlarkBuiltin(
       name = "bool",
-      category = SkylarkModuleCategory.BUILTIN,
+      category = StarlarkDocumentationCategory.BUILTIN,
       doc =
           "A type to represent booleans. There are only two possible values: "
               + "<a href=\"globals.html#True\">True</a> and "

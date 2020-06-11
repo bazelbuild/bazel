@@ -24,16 +24,18 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.GlobCache;
+import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.LegacyGlobber;
+import com.google.devtools.build.lib.packages.PackageLoadingListener;
+import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Extension;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -51,17 +53,22 @@ public class PackageFactoryApparatus {
   private final ExtendedEventHandler eventHandler;
   private final PackageFactory factory;
 
+  public PackageFactoryApparatus(ExtendedEventHandler eventHandler) {
+    this(eventHandler, PackageValidator.NOOP_VALIDATOR);
+  }
+
   public PackageFactoryApparatus(
-      ExtendedEventHandler eventHandler,
-      PackageFactory.EnvironmentExtension... environmentExtensions) {
+      ExtendedEventHandler eventHandler, PackageValidator packageValidator) {
     this.eventHandler = eventHandler;
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     factory =
         new PackageFactory(
             ruleClassProvider,
-            ImmutableList.copyOf(environmentExtensions),
+            /*environmentExtensions=*/ ImmutableList.of(),
             "test",
-            Package.Builder.DefaultHelper.INSTANCE);
+            Package.Builder.DefaultHelper.INSTANCE,
+            packageValidator,
+            PackageLoadingListener.NOOP_LISTENER);
   }
 
   /**
@@ -82,10 +89,10 @@ public class PackageFactoryApparatus {
     return createPackage(PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler);
   }
 
-  public Package createPackage(String packageName, RootedPath buildFile, String skylarkOption)
+  public Package createPackage(String packageName, RootedPath buildFile, String starlarkOption)
       throws Exception {
     return createPackage(
-        PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler, skylarkOption);
+        PackageIdentifier.createInMainRepo(packageName), buildFile, eventHandler, starlarkOption);
   }
 
   /**
@@ -96,17 +103,17 @@ public class PackageFactoryApparatus {
       PackageIdentifier packageIdentifier,
       RootedPath buildFile,
       ExtendedEventHandler reporter,
-      String skylarkOption)
+      String starlarkOption)
       throws Exception {
 
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(
-        skylarkOption == null
+        starlarkOption == null
             ? ImmutableList.<String>of()
-            : ImmutableList.<String>of(skylarkOption));
+            : ImmutableList.<String>of(starlarkOption));
     StarlarkSemantics semantics =
-        parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
+        parser.getOptions(StarlarkSemanticsOptions.class).toStarlarkSemantics();
 
     try {
       Package externalPkg =
@@ -167,7 +174,7 @@ public class PackageFactoryApparatus {
                     filename.getRoot(),
                     filename.getRootRelativePath().getParentDirectory().getRelative("WORKSPACE")),
                 "TESTING",
-                StarlarkSemantics.DEFAULT_SEMANTICS)
+                StarlarkSemantics.DEFAULT)
             .build();
     Package.Builder resultBuilder =
         factory.evaluateBuildFile(
@@ -177,8 +184,8 @@ public class PackageFactoryApparatus {
             filename,
             globber,
             ConstantRuleVisibility.PUBLIC,
-            StarlarkSemantics.DEFAULT_SEMANTICS,
-            ImmutableMap.<String, Extension>of(),
+            StarlarkSemantics.DEFAULT,
+            ImmutableMap.<String, Module>of(),
             ImmutableList.<Label>of(),
             /*repositoryMapping=*/ ImmutableMap.of());
     Package result;

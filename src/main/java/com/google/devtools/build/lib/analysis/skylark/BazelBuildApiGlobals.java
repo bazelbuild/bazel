@@ -14,34 +14,31 @@
 
 package com.google.devtools.build.lib.analysis.skylark;
 
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkBuildApiGlobals;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkBuildApiGlobals;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 
 /**
- * Bazel implementation of {@link SkylarkBuildApiGlobals}: a collection of global skylark build
+ * Bazel implementation of {@link StarlarkBuildApiGlobals}: a collection of global Starlark build
  * API functions that belong in the global namespace.
  */
-public class BazelBuildApiGlobals implements SkylarkBuildApiGlobals {
+public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
 
   @Override
-  public SkylarkLateBoundDefault<?> configurationField(
-      String fragment, String name, Location loc, StarlarkThread thread) throws EvalException {
+  public StarlarkLateBoundDefault<?> configurationField(
+      String fragment, String name, StarlarkThread thread) throws EvalException {
     BazelStarlarkContext bazelContext = BazelStarlarkContext.from(thread);
     Class<?> fragmentClass = bazelContext.getFragmentNameToClass().get(fragment);
-
     if (fragmentClass == null) {
-      throw new EvalException(
-          loc,
-          String.format("invalid configuration fragment name '%s'", fragment));
+      throw Starlark.errorf("invalid configuration fragment name '%s'", fragment);
     }
     try {
-      return SkylarkLateBoundDefault.forConfigurationField(
+      return StarlarkLateBoundDefault.forConfigurationField(
           fragmentClass, name, bazelContext.getToolsRepository());
-    } catch (SkylarkLateBoundDefault.InvalidConfigurationFieldException exception) {
-      throw new EvalException(loc, exception);
+    } catch (StarlarkLateBoundDefault.InvalidConfigurationFieldException exception) {
+      throw new EvalException(null, exception);
     }
   }
 }

@@ -14,17 +14,54 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlanStats;
+import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionDescription;
+import com.google.devtools.build.lib.skyframe.proto.ActionRewind.ActionRewindEvent;
+import com.google.devtools.build.lib.skyframe.proto.ActionRewind.LostInput;
 
 /** Event that encapsulates data about action rewinding during a build. */
 public class ActionRewindingStats implements ExtendedEventHandler.Postable {
   private final int lostInputsCount;
+  private final ImmutableList<ActionRewindEvent> actionRewindEvents;
 
-  ActionRewindingStats(int lostInputsCount) {
+  ActionRewindingStats(int lostInputsCount, ImmutableList<ActionRewindEvent> actionRewindEvents) {
     this.lostInputsCount = lostInputsCount;
+    this.actionRewindEvents = actionRewindEvents;
   }
 
   public int lostInputsCount() {
     return lostInputsCount;
+  }
+
+  public ImmutableList<ActionRewindEvent> actionRewindEvents() {
+    return actionRewindEvents;
+  }
+
+  public static ActionRewindEvent toActionRewindEventProto(RewindPlanStats rewindPlanStats) {
+    ActionOwner failedActionOwner = rewindPlanStats.failedAction().getOwner();
+    return ActionRewindEvent.newBuilder()
+        .setActionDescription(
+            ActionDescription.newBuilder()
+                .setType(rewindPlanStats.failedAction().getMnemonic())
+                .setRuleLabel(
+                    failedActionOwner != null ? failedActionOwner.getLabel().toString() : null)
+                .build())
+        .addAllLostInputs(
+            rewindPlanStats.sampleLostInputRecords().stream()
+                .map(
+                    lostInputRecord ->
+                        LostInput.newBuilder()
+                            .setPath(lostInputRecord.lostInputPath())
+                            .setDigest(lostInputRecord.lostInputDigest())
+                            .build())
+                .collect(toImmutableList()))
+        .setTotalLostInputsCount(rewindPlanStats.lostInputRecordsCount())
+        .setInvalidatedNodesCount(rewindPlanStats.invalidatedNodesCount())
+        .build();
   }
 }

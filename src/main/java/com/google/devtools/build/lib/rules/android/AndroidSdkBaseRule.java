@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -133,8 +133,8 @@ public class AndroidSdkBaseRule implements RuleDefinition {
                 .cfg(HostTransition.createFactory())
                 .allowedFileTypes(ANY_FILE)
                 .exec())
-        .advertiseSkylarkProvider(
-            SkylarkProviderIdentifier.forKey(AndroidSdkProvider.PROVIDER.getKey()))
+        .advertiseStarlarkProvider(
+            StarlarkProviderIdentifier.forKey(AndroidSdkProvider.PROVIDER.getKey()))
         .build();
     }
 

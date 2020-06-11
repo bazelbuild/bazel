@@ -186,20 +186,6 @@ def _darwin_build_file(repository_ctx):
         _EXECUTE_TIMEOUT,
     )
 
-    # "xcodebuild -version" failing may be indicative of no versions of xcode
-    # installed, which is an acceptable machine configuration to have for using
-    # bazel. Thus no print warning should be emitted here.
-    if (xcodebuild_result.return_code != 0):
-        error_msg = (
-            "Running xcodebuild -version failed, " +
-            "return code {code}, stderr: {err}, stdout: {out}"
-        ).format(
-            code = xcodebuild_result.return_code,
-            err = xcodebuild_result.stderr,
-            out = xcodebuild_result.stdout,
-        )
-        return VERSION_CONFIG_STUB + "\n# Error: " + error_msg.replace("\n", " ") + "\n"
-
     (toolchains, xcodeloc_err) = run_xcode_locator(
         repository_ctx,
         Label(repository_ctx.attr.xcode_locator),
@@ -208,8 +194,15 @@ def _darwin_build_file(repository_ctx):
     if xcodeloc_err:
         return VERSION_CONFIG_STUB + "\n# Error: " + xcodeloc_err + "\n"
 
-    default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
-    default_xcode_build_version = _search_string(xcodebuild_result.stdout, "Build version ", "\n")
+    default_xcode_version = ""
+    default_xcode_build_version = ""
+    if xcodebuild_result.return_code == 0:
+        default_xcode_version = _search_string(xcodebuild_result.stdout, "Xcode ", "\n")
+        default_xcode_build_version = _search_string(
+            xcodebuild_result.stdout,
+            "Build version ",
+            "\n",
+        )
     default_xcode_target = ""
     target_names = []
     buildcontents = ""
@@ -219,21 +212,34 @@ def _darwin_build_file(repository_ctx):
         aliases = toolchain.aliases
         developer_dir = toolchain.developer_dir
         target_name = "version%s" % version.replace(".", "_")
-        buildcontents += _xcode_version_output(repository_ctx, target_name, version, aliases, developer_dir)
-        target_names.append("':%s'" % target_name)
-        if (version.startswith(default_xcode_version) and version.endswith(default_xcode_build_version)):
-            default_xcode_target = target_name
+        buildcontents += _xcode_version_output(
+            repository_ctx,
+            target_name,
+            version,
+            aliases,
+            developer_dir,
+        )
+        target_label = "':%s'" % target_name
+        target_names.append(target_label)
+        if (version.startswith(default_xcode_version) and
+            version.endswith(default_xcode_build_version)):
+            default_xcode_target = target_label
     buildcontents += "xcode_config(name = 'host_xcodes',"
     if target_names:
         buildcontents += "\n  versions = [%s]," % ", ".join(target_names)
+    if not default_xcode_target and target_names:
+        default_xcode_target = sorted(target_names, reverse = True)[0]
+        print("No default Xcode version is set with 'xcode-select'; picking %s" %
+              default_xcode_target)
     if default_xcode_target:
-        buildcontents += "\n  default = ':%s'," % default_xcode_target
+        buildcontents += "\n  default = %s," % default_xcode_target
+
     buildcontents += "\n)\n"
     buildcontents += "available_xcodes(name = 'host_available_xcodes',"
     if target_names:
         buildcontents += "\n  versions = [%s]," % ", ".join(target_names)
     if default_xcode_target:
-        buildcontents += "\n  default = ':%s'," % default_xcode_target
+        buildcontents += "\n  default = %s," % default_xcode_target
     buildcontents += "\n)\n"
     if repository_ctx.attr.remote_xcode:
         buildcontents += "xcode_config(name = 'all_xcodes',"

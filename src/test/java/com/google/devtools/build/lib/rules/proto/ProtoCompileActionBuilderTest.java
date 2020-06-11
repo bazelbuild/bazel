@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.proto;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.collect.nestedset.Order.STABLE_ORDER;
 import static com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.createCommandLineFromToolchains;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
@@ -32,11 +32,11 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Deps;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.ToolchainInvocation;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Root;
@@ -54,7 +54,7 @@ public class ProtoCompileActionBuilderTest {
   private final ArtifactRoot root =
       ArtifactRoot.asSourceRoot(Root.fromPath(FILE_SYSTEM.getPath("/")));
   private final ArtifactRoot derivedRoot =
-      ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), FILE_SYSTEM.getPath("/out"));
+      ArtifactRoot.asDerivedRoot(FILE_SYSTEM.getPath("/"), "out");
 
   private ProtoInfo protoInfo(
       ImmutableList<Artifact> directProtos,
@@ -66,7 +66,8 @@ public class ProtoCompileActionBuilderTest {
     return new ProtoInfo(
         directProtos,
         directProtos,
-        "",
+        /* directProtoSourceRoot= */ "",
+        transitiveProtos,
         transitiveProtos,
         transitiveProtoSourceRoots,
         /* strictImportableProtosForDependents */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
@@ -125,7 +126,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -157,7 +159,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(cmdLine.arguments()).containsExactly("out/source_file.proto");
   }
@@ -192,7 +195,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -236,7 +240,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.NON_STRICT,
             Exports.USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(cmdLine.arguments())
         .containsExactly(
@@ -266,7 +271,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.DISALLOW,
-            /* protocOpts= */ ImmutableList.of("--foo", "--bar"));
+            /* protocOpts= */ ImmutableList.of("--foo", "--bar"),
+            false);
 
     assertThat(cmdLine.arguments()).containsAtLeast("--disallow_services", "--foo", "--bar");
   }
@@ -307,7 +313,8 @@ public class ProtoCompileActionBuilderTest {
             Deps.STRICT,
             Exports.DO_NOT_USE,
             Services.ALLOW,
-            /* protocOpts= */ ImmutableList.of());
+            /* protocOpts= */ ImmutableList.of(),
+            false);
 
     assertThat(hasBeenCalled[0]).isFalse();
     cmdLine.arguments();
@@ -355,7 +362,8 @@ public class ProtoCompileActionBuilderTest {
                     Deps.STRICT,
                     Exports.DO_NOT_USE,
                     Services.ALLOW,
-                    /* protocOpts= */ ImmutableList.of()));
+                    /* protocOpts= */ ImmutableList.of(),
+                    false));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -459,7 +467,8 @@ public class ProtoCompileActionBuilderTest {
         commandLine,
         protosInDirectDependenciesBuilder,
         NestedSetBuilder.wrap(Order.STABLE_ORDER, protoSourceRoots),
-        transitiveImportsNestedSet);
+        transitiveImportsNestedSet,
+        false);
     return commandLine.build().arguments();
   }
 }

@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -40,7 +39,7 @@ import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Options;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -51,9 +50,11 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.io.IOException;
@@ -76,6 +77,7 @@ public final class AnalysisTestUtil {
       new TopLevelArtifactContext(
           /*runTestsExclusively=*/ false,
           /*expandFilesets=*/ false,
+          /*fullyResolveFilesetSymlinks=*/ false,
           /*outputGroups=*/ ImmutableSortedSet.copyOf(OutputGroupInfo.DEFAULT_GROUPS));
 
   /**
@@ -148,6 +150,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
+      return original.getSourceArtifactForNinjaBuild(execPath, root);
+    }
+
+    @Override
     public Artifact getFilesetArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       return original.getFilesetArtifact(rootRelativePath, root);
     }
@@ -173,8 +180,8 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
-      return original.getSkylarkSemantics();
+    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
+      return original.getStarlarkSemantics();
     }
 
     @Override
@@ -238,7 +245,8 @@ public final class AnalysisTestUtil {
         FileSystemUtils.writeContent(
             actionExecutionContext.getInputPath(volatileStatus), new byte[] {});
       } catch (IOException e) {
-        throw new ActionExecutionException(e, this, true);
+        throw new ActionExecutionException(
+            e, this, true, CrashFailureDetails.detailedExitCodeForThrowable(e));
       }
       return ActionResult.EMPTY;
     }
@@ -263,7 +271,6 @@ public final class AnalysisTestUtil {
   }
 
   /** A WorkspaceStatusAction.Context that has no stable keys and no volatile keys. */
-  @ExecutionStrategy(contextType = WorkspaceStatusAction.Context.class)
   public static class DummyWorkspaceStatusActionContext implements WorkspaceStatusAction.Context {
     @Override
     public ImmutableMap<String, Key> getStableKeys() {
@@ -347,6 +354,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
+      return null;
+    }
+
+    @Override
     public ExtendedEventHandler getEventHandler() {
       return null;
     }
@@ -372,7 +384,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
+    public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
       return null;
     }
 

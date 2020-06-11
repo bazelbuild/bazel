@@ -32,8 +32,7 @@ public class AutoProfilerBenchmark {
         .start(
             ImmutableSet.copyOf(ProfilerTask.values()),
             new InMemoryFileSystem().getPath("/out.dat").getOutputStream(),
-            Profiler.Format.BINARY_BAZEL_FORMAT,
-            "benchmark",
+            Profiler.Format.JSON_TRACE_FILE_FORMAT,
             "dummy_output_base",
             UUID.randomUUID(),
             false,
@@ -41,7 +40,8 @@ public class AutoProfilerBenchmark {
             BlazeClock.instance().nanoTime(),
             /* enabledCpuUsageProfiling= */ false,
             /* slimProfile= */ false,
-            /* enableActionCountProfile= */ false);
+            /* includePrimaryOutput= */ false,
+            /* includeTargetLabel= */ false);
   }
 
   @BeforeExperiment

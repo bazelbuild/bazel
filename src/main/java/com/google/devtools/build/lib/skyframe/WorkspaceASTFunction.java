@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
+import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -45,6 +46,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** A SkyFunction to parse WORKSPACE files into a StarlarkFile. */
 public class WorkspaceASTFunction implements SkyFunction {
@@ -77,48 +79,61 @@ public class WorkspaceASTFunction implements SkyFunction {
         return null;
       }
     }
+    @Nullable StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    FileOptions options =
+        FileOptions.builder()
+            // These three options follow BUILD norms, but should probably be flipped.
+            .allowToplevelRebinding(true)
+            .requireLoadStatementsFirst(false)
+            .recordScope(false)
+            .restrictStringEscapes(
+                semantics != null && semantics.incompatibleRestrictStringEscapes())
+            .build();
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRootRelativePath());
     try {
       StarlarkFile file =
           StarlarkFile.parse(
               ParserInput.create(
-                  ruleClassProvider.getDefaultWorkspacePrefix(), "/DEFAULT.WORKSPACE"));
+                  ruleClassProvider.getDefaultWorkspacePrefix(), "/DEFAULT.WORKSPACE"),
+              options);
       if (!file.ok()) {
         Event.replayEventsOn(env.getListener(), file.errors());
         throw resolvedValueError("Failed to parse default WORKSPACE file");
       }
       if (newWorkspaceFileContents != null) {
         file =
-            StarlarkFile.parseVirtualBuildFile(
+            StarlarkFile.parseWithPrelude(
                 ParserInput.create(
                     newWorkspaceFileContents, resolvedFile.get().asPath().toString()),
-                file.getStatements());
+                file.getStatements(),
+                // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
+                options.toBuilder().allowLoadPrivateSymbols(true).build());
       } else if (workspaceFileValue.exists()) {
         byte[] bytes =
             FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
         file =
             StarlarkFile.parseWithPrelude(
-                ParserInput.create(bytes, repoWorkspace.toString()), file.getStatements());
+                ParserInput.create(bytes, repoWorkspace.toString()), file.getStatements(), options);
         if (!file.ok()) {
           Event.replayEventsOn(env.getListener(), file.errors());
           throw resolvedValueError("Failed to parse WORKSPACE file");
         }
       }
 
-      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-      if (env.valuesMissing()) {
-        return null;
-      }
       String suffix;
       if (resolvedFile.isPresent()) {
         suffix = "";
-      } else if (starlarkSemantics == null) {
+      } else if (semantics == null) {
         // Starlark semantics was not found, but Skyframe is happy. That means we're in the test
         // that didn't provide complete Skyframe environment. Just move along.
         suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
         // TODO(hlopko): Uncomment once Bazel tests pass with --all_incompatible_changes
-        // } else if (starlarkSemantics.incompatibleUseCcConfigureFromRulesCc()) {
+        // } else if (semantics.incompatibleUseCcConfigureFromRulesCc()) {
         //   suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
       } else if (!ruleClassProvider.getDefaultWorkspaceSuffix().contains("sh_configure")) {
         // It might look fragile to check for sh_configure in the WORKSPACE file, but it turns
@@ -135,7 +150,10 @@ public class WorkspaceASTFunction implements SkyFunction {
 
       file =
           StarlarkFile.parseWithPrelude(
-              ParserInput.create(suffix, "/DEFAULT.WORKSPACE.SUFFIX"), file.getStatements());
+              ParserInput.create(suffix, "/DEFAULT.WORKSPACE.SUFFIX"),
+              file.getStatements(),
+              // The DEFAULT.WORKSPACE.SUFFIX file breaks through the usual privacy mechanism.
+              options.toBuilder().allowLoadPrivateSymbols(true).build());
       if (!file.ok()) {
         Event.replayEventsOn(env.getListener(), file.errors());
         throw resolvedValueError("Failed to parse default WORKSPACE file suffix");

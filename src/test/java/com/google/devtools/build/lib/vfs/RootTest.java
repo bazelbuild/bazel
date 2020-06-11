@@ -14,11 +14,15 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.Comparator;
@@ -104,9 +108,56 @@ public class RootTest {
   }
 
   @Test
-  public void testSerialization() throws Exception {
-    new SerializationTester(Root.absoluteRoot(fs), Root.fromPath(fs.getPath("/foo")))
+  public void testSerialization_Simple() throws Exception {
+    Root fooPathRoot = Root.fromPath(fs.getPath("/foo"));
+    Root barPathRoot = Root.fromPath(fs.getPath("/bar"));
+    new SerializationTester(Root.absoluteRoot(fs), fooPathRoot, barPathRoot)
         .addDependency(FileSystem.class, fs)
+        .addDependency(
+            Root.RootCodecDependencies.class,
+            new Root.RootCodecDependencies(/*likelyPopularRoot=*/ fooPathRoot))
         .runTests();
+  }
+
+  @Test
+  public void testSerialization_LikelyPopularRootIsCanonicalized() throws Exception {
+    Root fooPathRoot = Root.fromPath(fs.getPath("/foo"));
+    Root otherFooPathRoot = Root.fromPath(fs.getPath("/foo"));
+    Root barPathRoot = Root.fromPath(fs.getPath("/bar"));
+    Root fsAabsoluteRoot = Root.absoluteRoot(fs);
+
+    assertThat(fooPathRoot).isNotSameInstanceAs(otherFooPathRoot);
+    assertThat(fooPathRoot).isEqualTo(otherFooPathRoot);
+
+    ObjectCodecRegistry registry = AutoRegistry.get();
+    ImmutableMap<Class<?>, Object> dependencies =
+        ImmutableMap.<Class<?>, Object>builder()
+            .put(FileSystem.class, fs)
+            .put(
+                Root.RootCodecDependencies.class,
+                new Root.RootCodecDependencies(/*likelyPopularRoot=*/ fooPathRoot))
+            .build();
+    ObjectCodecRegistry.Builder registryBuilder = registry.getBuilder();
+    for (Object val : dependencies.values()) {
+      registryBuilder.addReferenceConstant(val);
+    }
+    ObjectCodecs objectCodecs = new ObjectCodecs(registryBuilder.build(), dependencies);
+
+    Root fooPathRootDeserialized =
+        (Root) objectCodecs.deserialize(objectCodecs.serialize(fooPathRoot));
+    Root otherFooPathRootDeserialized =
+        (Root) objectCodecs.deserialize(objectCodecs.serialize(otherFooPathRoot));
+    assertThat(fooPathRootDeserialized).isSameInstanceAs(fooPathRoot);
+    assertThat(otherFooPathRootDeserialized).isSameInstanceAs(fooPathRoot);
+
+    Root barPathRootDeserialized =
+        (Root) objectCodecs.deserialize(objectCodecs.serialize(barPathRoot));
+    assertThat(barPathRootDeserialized).isNotSameInstanceAs(barPathRoot);
+    assertThat(barPathRootDeserialized).isEqualTo(barPathRoot);
+
+    Root fsAabsoluteRootDeserialized =
+        (Root) objectCodecs.deserialize(objectCodecs.serialize(fsAabsoluteRoot));
+    assertThat(fsAabsoluteRootDeserialized).isNotSameInstanceAs(fsAabsoluteRoot);
+    assertThat(fsAabsoluteRootDeserialized).isEqualTo(fsAabsoluteRoot);
   }
 }

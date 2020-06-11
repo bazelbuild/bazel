@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableList;
-import java.util.List;
 
 /** Syntax node for an import statement. */
 public final class LoadStatement extends Statement {
@@ -23,6 +22,7 @@ public final class LoadStatement extends Statement {
    * Binding represents a binding in a load statement. load("...", local = "orig")
    *
    * <p>If there's no alias, a single Identifier can be used for both local and orig.
+   * TODO(adonovan): don't do that; be faithful to source.
    */
   public static final class Binding {
     private final Identifier local;
@@ -42,38 +42,22 @@ public final class LoadStatement extends Statement {
     }
   }
 
+  private final int loadOffset;
+  private final StringLiteral module;
   private final ImmutableList<Binding> bindings;
-  private final StringLiteral imp;
-  private final boolean mayLoadInternalSymbols;
+  private final int rparenOffset;
 
-  /**
-   * Constructs an import statement.
-   *
-   * <p>{@code bindings} maps a symbol to the original name under which it was defined in the bzl
-   * file that should be loaded. If aliasing is used, the value differs from its key's {@code
-   * symbol.getName()}. Otherwise, both values are identical.
-   *
-   * <p>Import statements generated this way are bound to the usual restriction that private symbols
-   * cannot be loaded.
-   */
-  LoadStatement(StringLiteral imp, List<Binding> bindings) {
-    this.imp = imp;
-    this.bindings = ImmutableList.copyOf(bindings);
-    this.mayLoadInternalSymbols = false;
-  }
-
-  private LoadStatement(StringLiteral imp, List<Binding> bindings, boolean mayLoadInternalSymbols) {
-    this.imp = imp;
-    this.bindings = ImmutableList.copyOf(bindings);
-    this.mayLoadInternalSymbols = mayLoadInternalSymbols;
-  }
-
-  /**
-   * Out of a {@code LoadStatement} construct a new one loading the same symbols, but free from the
-   * usual visibility restriction of not being able to load private symbols.
-   */
-  public static LoadStatement allowLoadingOfInternalSymbols(LoadStatement load) {
-    return new LoadStatement(load.getImport(), load.getBindings(), true);
+  LoadStatement(
+      FileLocations locs,
+      int loadOffset,
+      StringLiteral module,
+      ImmutableList<Binding> bindings,
+      int rparenOffset) {
+    super(locs);
+    this.loadOffset = loadOffset;
+    this.module = module;
+    this.bindings = bindings;
+    this.rparenOffset = rparenOffset;
   }
 
   public ImmutableList<Binding> getBindings() {
@@ -81,15 +65,17 @@ public final class LoadStatement extends Statement {
   }
 
   public StringLiteral getImport() {
-    return imp;
+    return module;
   }
 
-  /**
-   * Indicate whether this import statement is exempt from the restriction that private symbols may
-   * not be loaded.
-   */
-  public boolean mayLoadInternalSymbols() {
-    return mayLoadInternalSymbols;
+  @Override
+  public int getStartOffset() {
+    return loadOffset;
+  }
+
+  @Override
+  public int getEndOffset() {
+    return rparenOffset + 1;
   }
 
   @Override

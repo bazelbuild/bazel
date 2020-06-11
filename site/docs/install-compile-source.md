@@ -16,7 +16,9 @@ To build Bazel from source, you can do one of the following:
 
 TL;DR:
 
-1.  [Get the latest Bazel release](https://github.com/bazelbuild/bazel/releases)
+1.  Get the latest Bazel release from the
+    [GitHub release page](https://github.com/bazelbuild/bazel/releases) or with
+    [Bazelisk](https://github.com/bazelbuild/bazelisk).
 
 2.  [Download Bazel's sources from GitHub](https://github.com/bazelbuild/bazel/archive/master.zip)
     and extract somewhere.
@@ -26,16 +28,17 @@ TL;DR:
     [for Unix-like systems](#bootstrap-unix-prereq) or
     [for Windows](#bootstrap-windows-prereq))
 
-4.  Build Bazel using Bazel: `bazel build //src:bazel`
-    (or `bazel build //src:bazel-dev.exe` on Windows)
+4.  Build a development build of Bazel using Bazel:
+    `bazel build //src:bazel-dev` (or `bazel build //src:bazel-dev.exe` on
+    Windows)
 
-5.  The resulting binary is at `bazel-bin/src/bazel`
+5.  The resulting binary is at `bazel-bin/src/bazel-dev`
     (or `bazel-bin\src\bazel-dev.exe` on Windows). You can copy it wherever you
     like and use immediately without further installation.
 
 Detailed instructions follow below.
 
-<h3 id="build-bazel-install-bazel">1. Get the latest Bazel release</h3>
+<h3 id="build-bazel-install-bazel">Step 1: Get the latest Bazel release</h3>
 
 **Goal**: Install or download a release version of Bazel. Make sure you can run
 it by typing `bazel` in a terminal.
@@ -64,7 +67,7 @@ scratch (bootstrap)](#bootstrap-bazel).)
 
         You must make the binary executable by running `chmod +x /path/to/bazel`.
 
-<h3 id="build-bazel-git">2. Download Bazel's sources from GitHub</h3>
+<h3 id="build-bazel-git">Step 2: Download Bazel's sources from GitHub</h3>
 
 If you are familiar with Git, then just git clone https://github.com/bazelbuild/bazel
 
@@ -78,17 +81,18 @@ Otherwise:
     For example create a `bazel-src` directory under your home directory and
     extract there.
 
-<h3 id="build-bazel-prerequisites">3. Install prerequisites</h3>
+<h3 id="build-bazel-prerequisites">Step 3: Install prerequisites</h3>
 
 Install the same prerequisites as for bootstrapping (see below) -- JDK, C++
 compiler, MSYS2 (if you are building on Windows), etc.
 
-<h3 id="build-bazel-on-unixes">4. Build Bazel on Ubuntu Linux, macOS, and other
-Unix-like systems</h3>
+<h3 id="build-bazel-on-unixes">Step 4: Build Bazel</h3>
+
+<h4 id="build-bazel-on-unixes">Ubuntu Linux, macOS, and other Unix-like systems</h4>
 
 ([Scroll down](#build-bazel-on-windows) for instructions for Windows.)
 
-**Goal**: Run Bazel to build a custom Bazel binary (`bazel-bin/src/bazel`).
+**Goal**: Run Bazel to build a custom Bazel binary (`bazel-bin/src/bazel-dev`).
 
 **Instructions**:
 
@@ -102,11 +106,14 @@ Unix-like systems</h3>
 
 3.  Build Bazel from source:
 
-        bazel build //src:bazel
+        bazel build //src:bazel-dev
 
-4.  The output will be at `bazel-bin/src/bazel`
+    Alternatively you can run `bazel build //src:bazel --compilation_mode=opt`
+    to yield a smaller binary but it's slower to build.
 
-<h3 id="build-bazel-on-windows">4. Build Bazel on Windows</h3>
+4.  The output will be at `bazel-bin/src/bazel-dev` (or `bazel-bin/src/bazel`).
+
+<h4 id="build-bazel-on-windows">Windows</h4>
 
 ([Scroll up](#build-bazel-on-unixes) for instructions for Linux, macOS, and other
 Unix-like systems.)
@@ -128,12 +135,13 @@ Unix-like systems.)
 
         bazel build //src:bazel-dev.exe
 
-    Alternatively you can build `//src:bazel.exe` -- that yields a smaller
-    binary but it's slower to build.
+    Alternatively you can run `bazel build //src:bazel.exe
+    --compilation_mode=opt` to yield a smaller binary but it's slower to build.
 
-4.  The output will be at `bazel-bin\src\bazel-dev.exe`
+4.  The output will be at `bazel-bin\src\bazel-dev.exe` (or
+    `bazel-bin\src\bazel.exe`).
 
-<h3 id="build-bazel-install">5. Install the built binary</h3>
+<h3 id="build-bazel-install">Step 5: Install the built binary</h3>
 
 Actually, there's nothing to install.
 
@@ -147,7 +155,7 @@ your PATH so that you can run "bazel" everywhere.)
 
 You can also build Bazel from scratch, without using an existing Bazel binary.
 
-<h3 id="download-distfile">1. Download Bazel's sources (distribution archive)</h3>
+<h3 id="download-distfile">Step 1: Download Bazel's sources (distribution archive)</h3>
 
 (This step is the same for all platforms.)
 
@@ -170,7 +178,7 @@ You can also build Bazel from scratch, without using an existing Bazel binary.
     We recommend to also verify the signature made by our
     [release key](https://bazel.build/bazel-release.pub.gpg) 3D5919B448457EE0.
 
-<h3 id="bootstrap-unix">2. Bootstrap Bazel on Ubuntu Linux, macOS, and other Unix-like systems</h3>
+<h3 id="bootstrap-unix">Step 2a: Bootstrap Bazel on Ubuntu Linux, macOS, and other Unix-like systems</h3>
 
 ([Scroll down](#bootstrap-windows) for instructions for Windows.)
 
@@ -182,8 +190,7 @@ You can also build Bazel from scratch, without using an existing Bazel binary.
 
 *   **C++ build toolchain**
 
-*   **JDK 8.** You must install version 8 of the JDK. Versions other than 8 are
-    *not* supported.
+*   **JDK.** Versions 8 and 11 are supported.
 
 *   **Python**. Versions 2 and 3 are supported, installing one of them is
     enough.
@@ -192,7 +199,7 @@ For example on Ubuntu Linux you can install these requirements using the
 following command:
 
 ```sh
-sudo apt-get install build-essential openjdk-8-jdk python zip unzip
+sudo apt-get install build-essential openjdk-11-jdk python zip unzip
 ```
 
 <h4 id="bootstrap-unix-bootstrap">2.2. Bootstrap Bazel</h4>
@@ -212,7 +219,7 @@ To build the `bazel` binary in a reproducible way, also set
 [`SOURCE_DATE_EPOCH`](https://reproducible-builds.org/specs/source-date-epoch/)
 in the "Run the compilation script" step.
 
-<h3 id="bootstrap-windows">2. Bootstrap Bazel on Windows</h3>
+<h3 id="bootstrap-windows">Step 2b: Bootstrap Bazel on Windows</h3>
 
 ([Scroll up](#bootstrap-unix) for instructions for Linux, macOS, and other
 Unix-like systems.)

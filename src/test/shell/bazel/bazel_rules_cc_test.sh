@@ -56,6 +56,10 @@ if "$is_windows"; then
 fi
 
 function test_rules_cc_can_be_overridden() {
+  # The bazelrc file might contain an --override_repository flag for rules_cc,
+  # which would cause this test to fail to override the repo via a WORKSPACE file.
+  sed -i.bak '/override_repository=rules_cc/d' $TEST_TMPDIR/bazelrc
+
   # We test that a custom repository can override @rules_cc in their
   # WORKSPACE file.
   mkdir -p rules_cc_can_be_overridden || fail "couldn't create directory"
@@ -79,6 +83,8 @@ EOF
 }
 
 function test_rules_cc_repository_builds_itself() {
+  write_default_bazelrc
+
   # We test that a built-in @rules_cc repository is buildable.
   bazel build @rules_cc//cc/... &> $TEST_log \
       || fail "Build failed unexpectedly"

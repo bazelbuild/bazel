@@ -19,7 +19,7 @@ import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensi
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isMimicStrategy;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isNullStrategy;
 import static com.google.devtools.build.android.desugar.runtime.ThrowableExtensionTestUtility.isReuseStrategy;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.objectweb.asm.ClassWriter.COMPUTE_MAXS;
 import static org.objectweb.asm.Opcodes.ASM5;
@@ -162,7 +162,7 @@ public class TryWithResourcesRewriterTest {
           assertThrows(
               RuntimeException.class, () -> ClassUsingTryWithResources.simpleTryWithResources());
       assertThat(expected.getClass()).isEqualTo(RuntimeException.class);
-        assertThat(expected.getSuppressed()).hasLength(1);
+      assertThat(expected.getSuppressed()).hasLength(1);
       assertThat(expected.getSuppressed()[0].getClass()).isEqualTo(IOException.class);
     }
 

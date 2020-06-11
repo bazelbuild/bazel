@@ -41,7 +41,7 @@ that provides the `CcToolchainConfigInfo` and you need to point the
 You can create the `CcToolchainConfigInfo` by calling
 [`cc_common.create_cc_toolchain_config_info()`](skylark/lib/cc_common.html#create_cc_toolchain_config_info).
 You can find Starlark constructors for all structs you'll need in the process in
-[`@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl`](https://source.bazel.build/bazel/+/1d205e14e4c069e9199ab71b127c6a6e26a9443b:tools/cpp/cc_toolchain_config_lib.bzl).
+[`@rules_cc//cc:cc_toolchain_config_lib.bzl`](https://github.com/bazelbuild/rules_cc/blob/master/cc/cc_toolchain_config_lib.bzl).
 
 
 When a C++ target enters the analysis phase, Bazel selects the appropriate
@@ -479,7 +479,7 @@ files consumable by Xcode.
 With Bazel, this process can instead be implemented as follows, with
 `unbundle-debuginfo` being a Bazel action:
 
-    load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+    load("@rules_cc//cc:defs.bzl", "ACTION_NAMES")
 
     action_configs = [
         action_config (
@@ -523,7 +523,7 @@ This same feature can be implemented entirely differently for Linux, which uses
 implementation for `fission`-based debug symbol generation might look as
 follows:
 
-    load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
+    load("@rules_cc//cc:defs.bzl", "ACTION_NAMES")
 
     action_configs = [
         action_config (

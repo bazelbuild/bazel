@@ -15,10 +15,11 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestBase.AnalysisFailureRecorder;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -150,7 +151,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
                           .allowedFileTypes(FileTypeSet.ANY_FILE)));
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(RULE_WITH_OUTPUT_ATTR)
@@ -401,8 +402,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'int_key',",
         "    srcs = select({123: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:int_key",
-        "Invalid key: 123. select keys must be label references");
+    assertTargetError("//java/foo:int_key", "select: got int for dict key, want a label string");
   }
 
   @Test
@@ -414,8 +414,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'bool_key',",
         "    srcs = select({True: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:bool_key",
-        "Invalid key: true. select keys must be label references");
+    assertTargetError("//java/foo:bool_key", "select: got bool for dict key, want a label string");
   }
 
   @Test
@@ -427,8 +426,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    name = 'none_key',",
         "    srcs = select({None: ['a.java']})",
         ")");
-    assertTargetError("//java/foo:none_key",
-        "Invalid key: None. select keys must be label references");
+    assertTargetError(
+        "//java/foo:none_key", "select: got NoneType for dict key, want a label string");
   }
 
   @Test
@@ -461,7 +460,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "    values = {'test_arg': 'a'})");
     writeHelloRules(/*includeDefaultCondition=*/true);
     getConfiguredTarget("//java/hello:hello");
-    assertContainsEvent("errors encountered while analyzing target '//java/hello:hello");
+    assertContainsEvent("no such target '//conditions:b'");
   }
 
   /**
@@ -727,15 +726,33 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "))");
 
     reporter.removeHandler(failFastHandler);
+    AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
+    eventBus.register(analysisFailureRecorder);
     useConfiguration("");
 
     assertThat(getConfiguredTarget("//java/hello:hello_default_no_match_error")).isNull();
     String commonPrefix = "Configurable attribute \"srcs\" doesn't match this configuration";
     assertContainsEvent(commonPrefix + " (would a default condition help?).\nConditions checked:");
+    // Verify a Root Cause is reported when a target cannot be configured due to no matching config.
+    assertThat(analysisFailureRecorder.causes).hasSize(1);
+    AnalysisRootCauseEvent rootCause = analysisFailureRecorder.causes.get(0);
+    assertThat(rootCause.getLabel())
+        .isEqualTo(
+            Label.parseAbsolute("//java/hello:hello_default_no_match_error", ImmutableMap.of()));
 
+    eventBus.unregister(analysisFailureRecorder);
+    analysisFailureRecorder = new AnalysisFailureRecorder();
+    eventBus.register(analysisFailureRecorder);
     eventCollector.clear();
+
     assertThat(getConfiguredTarget("//java/hello:hello_custom_no_match_error")).isNull();
     assertContainsEvent(commonPrefix + ": You always have to choose condition a!");
+    // Verify a Root Cause is reported when a target cannot be configured due to no matching config.
+    assertThat(analysisFailureRecorder.causes).hasSize(1);
+    rootCause = analysisFailureRecorder.causes.get(0);
+    assertThat(rootCause.getLabel())
+        .isEqualTo(
+            Label.parseAbsolute("//java/hello:hello_custom_no_match_error", ImmutableMap.of()));
   }
 
   @Test

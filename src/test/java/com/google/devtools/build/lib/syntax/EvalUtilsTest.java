@@ -15,24 +15,24 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- *  Test properties of the evaluator's datatypes and utility functions
- *  without actually creating any parse trees.
+ * Test properties of the evaluator's datatypes and utility functions without actually creating any
+ * parse trees.
  */
 @RunWith(JUnit4.class)
-public class EvalUtilsTest extends EvaluationTestCase {
+public final class EvalUtilsTest extends EvaluationTestCase {
 
   private static StarlarkList<Object> makeList(@Nullable Mutability mu) {
     return StarlarkList.of(mu, 1, 2, 3);
@@ -43,7 +43,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
   }
 
   /** MockClassA */
-  @SkylarkModule(name = "MockClassA", doc = "MockClassA")
+  @StarlarkBuiltin(name = "MockClassA", doc = "MockClassA")
   public static class MockClassA implements StarlarkValue {}
 
   /** MockClassB */
@@ -52,14 +52,14 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
   @Test
   public void testDataTypeNames() throws Exception {
-    assertThat(EvalUtils.getDataTypeName("foo")).isEqualTo("string");
-    assertThat(EvalUtils.getDataTypeName(3)).isEqualTo("int");
-    assertThat(EvalUtils.getDataTypeName(Tuple.of(1, 2, 3))).isEqualTo("tuple");
-    assertThat(EvalUtils.getDataTypeName(makeList(null))).isEqualTo("list");
-    assertThat(EvalUtils.getDataTypeName(makeDict(null))).isEqualTo("dict");
-    assertThat(EvalUtils.getDataTypeName(Starlark.NONE)).isEqualTo("NoneType");
-    assertThat(EvalUtils.getDataTypeName(new MockClassA())).isEqualTo("MockClassA");
-    assertThat(EvalUtils.getDataTypeName(new MockClassB())).isEqualTo("MockClassA");
+    assertThat(Starlark.type("foo")).isEqualTo("string");
+    assertThat(Starlark.type(3)).isEqualTo("int");
+    assertThat(Starlark.type(Tuple.of(1, 2, 3))).isEqualTo("tuple");
+    assertThat(Starlark.type(makeList(null))).isEqualTo("list");
+    assertThat(Starlark.type(makeDict(null))).isEqualTo("dict");
+    assertThat(Starlark.type(Starlark.NONE)).isEqualTo("NoneType");
+    assertThat(Starlark.type(new MockClassA())).isEqualTo("MockClassA");
+    assertThat(Starlark.type(new MockClassB())).isEqualTo("MockClassA");
   }
 
   @Test
@@ -74,19 +74,22 @@ public class EvalUtilsTest extends EvaluationTestCase {
 
     assertThat(EvalUtils.isImmutable(makeList(null))).isTrue();
     assertThat(EvalUtils.isImmutable(makeDict(null))).isTrue();
-    assertThat(EvalUtils.isImmutable(makeList(thread.mutability()))).isFalse();
-    assertThat(EvalUtils.isImmutable(makeDict(thread.mutability()))).isFalse();
+
+    Mutability mu = Mutability.create("test");
+    assertThat(EvalUtils.isImmutable(makeList(mu))).isFalse();
+    assertThat(EvalUtils.isImmutable(makeDict(mu))).isFalse();
   }
 
   @Test
   public void testDatatypeMutabilityDeep() throws Exception {
+    Mutability mu = Mutability.create("test");
     assertThat(EvalUtils.isImmutable(Tuple.of(makeList(null)))).isTrue();
-
-    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(thread.mutability())))).isFalse();
+    assertThat(EvalUtils.isImmutable(Tuple.of(makeList(mu)))).isFalse();
   }
 
   @Test
   public void testComparatorWithDifferentTypes() throws Exception {
+    Mutability mu = Mutability.create("test");
     Object[] objects = {
       "1",
       2,
@@ -94,10 +97,10 @@ public class EvalUtilsTest extends EvaluationTestCase {
       Starlark.NONE,
       Tuple.of(1, 2, 3),
       Tuple.of("1", "2", "3"),
-      StarlarkList.of(thread.mutability(), 1, 2, 3),
-      StarlarkList.of(thread.mutability(), "1", "2", "3"),
-      Dict.of(thread.mutability(), "key", 123),
-      Dict.of(thread.mutability(), 123, "value"),
+      StarlarkList.of(mu, 1, 2, 3),
+      StarlarkList.of(mu, "1", "2", "3"),
+      Dict.of(mu, "key", 123),
+      Dict.of(mu, 123, "value"),
       StructProvider.STRUCT.create(ImmutableMap.of("key", (Object) "value"), "no field %s"),
     };
 
@@ -107,7 +110,8 @@ public class EvalUtilsTest extends EvaluationTestCase {
           Object first = objects[i];
           Object second = objects[j];
           assertThrows(
-              ComparisonException.class, () -> EvalUtils.SKYLARK_COMPARATOR.compare(first, second));
+              ComparisonException.class,
+              () -> EvalUtils.STARLARK_COMPARATOR.compare(first, second));
         }
       }
     }
@@ -117,41 +121,7 @@ public class EvalUtilsTest extends EvaluationTestCase {
   public void testComparatorWithNones() throws Exception {
     assertThrows(
         ComparisonException.class,
-        () -> EvalUtils.SKYLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
-  }
-
-  @SkylarkModule(name = "ParentType", doc = "A parent class annotated with @SkylarkModule.")
-  private static class ParentClassWithSkylarkModule implements StarlarkValue {}
-
-  private static class ChildClass extends ParentClassWithSkylarkModule {}
-
-  private static class StarlarkValueSubclass implements StarlarkValue {
-    @Override
-    public void repr(Printer printer) {
-      printer.append("StarlarkValueSubclass");
-    }
-  }
-
-  private static class NonStarlarkValueSubclass {}
-
-  @Test
-  public void testGetSkylarkType() {
-    assertThat(EvalUtils.getSkylarkType(ParentClassWithSkylarkModule.class))
-        .isEqualTo(ParentClassWithSkylarkModule.class);
-    assertThat(EvalUtils.getSkylarkType(ChildClass.class))
-        .isEqualTo(ParentClassWithSkylarkModule.class);
-    assertThat(EvalUtils.getSkylarkType(StarlarkValueSubclass.class))
-        .isEqualTo(StarlarkValueSubclass.class);
-
-    IllegalArgumentException expected =
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> EvalUtils.getSkylarkType(NonStarlarkValueSubclass.class));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains(
-            "class com.google.devtools.build.lib.syntax.EvalUtilsTest$NonStarlarkValueSubclass "
-                + "is not allowed as a Starlark value");
+        () -> EvalUtils.STARLARK_COMPARATOR.compare(Starlark.NONE, Starlark.NONE));
   }
 
   @Test

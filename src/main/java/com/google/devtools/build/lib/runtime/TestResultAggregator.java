@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
 import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.exec.TestAttempt;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -93,7 +93,10 @@ final class TestResultAggregator {
   synchronized void testEvent(TestResult result) {
     ActionOwner testOwner = result.getTestAction().getOwner();
     ConfiguredTargetKey targetLabel =
-        ConfiguredTargetKey.of(testOwner.getLabel(), result.getTestAction().getConfiguration());
+        ConfiguredTargetKey.builder()
+            .setLabel(testOwner.getLabel())
+            .setConfiguration(result.getTestAction().getConfiguration())
+            .build();
     Preconditions.checkArgument(targetLabel.equals(asKey(testTarget)));
 
     TestResult previousResult = statusMap.put(result.getTestStatusArtifact(), result);
@@ -164,11 +167,10 @@ final class TestResultAggregator {
   }
 
   private static ConfiguredTargetKey asKey(ConfiguredTarget target) {
-    return ConfiguredTargetKey.of(
-        // A test is never in the host configuration.
-        AliasProvider.getDependencyLabel(target),
-        target.getConfigurationKey(),
-        /*isHostConfiguration=*/ false);
+    return ConfiguredTargetKey.builder()
+        .setLabel(AliasProvider.getDependencyLabel(target))
+        .setConfigurationKey(target.getConfigurationKey())
+        .build();
   }
 
   private static BlazeTestStatus aggregateStatus(BlazeTestStatus status, BlazeTestStatus other) {
@@ -252,17 +254,33 @@ final class TestResultAggregator {
       List<BlazeTestStatus> singleShardStatuses =
           summary.addShardStatus(shardNumber, result.getData().getStatus());
       if (singleShardStatuses.size() == runsPerTestForLabel) {
+        // Aggregation is based on the order of status enums where larger values take precedence
+        // over smaller ones (NO_STATUS = 0, PASSED = 1, etc.). However, there are some special
+        // cases:
+        // 1. Tests that have some passing, some not passing shard are marked as flaky
+        // 2. The INCOMPLETE status is ignored - it is used for tests runs that are cancelled by
+        //    Bazel if --cancel_concurrent_tests is set, otherwise INCOMPLETE is not used
+        // 3. Individual test shards can be FLAKY if the test is marked flaky and
+        //    --flaky_test_attempts is not zero for this test
         BlazeTestStatus shardStatus = BlazeTestStatus.NO_STATUS;
         int passes = 0;
+        int cancelled = 0;
         for (BlazeTestStatus runStatusForShard : singleShardStatuses) {
-          shardStatus = aggregateStatus(shardStatus, runStatusForShard);
-          if (TestResult.isBlazeTestStatusPassed(runStatusForShard)) {
-            passes++;
+          if (runStatusForShard == BlazeTestStatus.INCOMPLETE) {
+            // If runs_per_test_detects_flakes is enabled, then INCOMPLETE status indicates
+            // cancelled test runs. We count them separately so that they don't result in a
+            // flaky status below.
+            cancelled++;
+          } else {
+            shardStatus = aggregateStatus(shardStatus, runStatusForShard);
+            if (TestResult.isBlazeTestStatusPassed(runStatusForShard)) {
+              passes++;
+            }
           }
         }
-        // Under the RunsPerTestDetectsFlakes option, return flaky if 1 <= p < n shards pass.
-        // If all results pass or fail, aggregate the passing/failing shardStatus.
-        if (passes == 0 || passes == runsPerTestForLabel) {
+        // Under the RunsPerTestDetectsFlakes option, return flaky if 0 < p < (n-cancelled) shards
+        // pass. Otherwise, we aggregate the shardStatus.
+        if (passes == 0 || (passes + cancelled) == runsPerTestForLabel) {
           status = aggregateStatus(status, shardStatus);
         } else {
           status = aggregateStatus(status, BlazeTestStatus.FLAKY);
@@ -282,8 +300,7 @@ final class TestResultAggregator {
         .mergeTiming(
             result.getData().getStartTimeMillisEpoch(), result.getData().getRunDurationMillis())
         .addWarnings(result.getData().getWarningList())
-        .collectFailedTests(result.getData().getTestCase())
-        .countTotalTestCases(result.getData().getTestCase())
+        .collectTestCases(result.getData().hasTestCase() ? result.getData().getTestCase() : null)
         .setRanRemotely(result.getData().getIsRemoteStrategy());
 
     List<String> warnings = new ArrayList<>();

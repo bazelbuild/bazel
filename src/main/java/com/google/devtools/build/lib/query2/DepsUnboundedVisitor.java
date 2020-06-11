@@ -23,9 +23,11 @@ import com.google.devtools.build.lib.query2.ParallelVisitorUtils.ParallelQueryVi
 import com.google.devtools.build.lib.query2.ParallelVisitorUtils.QueryVisitorFactory;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -42,17 +44,20 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
 
   private final boolean depsNeedFiltering;
   private final QueryExpressionContext<Target> context;
+  private final QueryExpression caller;
 
   DepsUnboundedVisitor(
       SkyQueryEnvironment env,
       Uniquifier<SkyKey> validDepUniquifier,
       Callback<Target> callback,
       boolean depsNeedFiltering,
-      QueryExpressionContext<Target> context) {
+      QueryExpressionContext<Target> context,
+      QueryExpression caller) {
     super(env, callback);
     this.validDepUniquifier = validDepUniquifier;
     this.depsNeedFiltering = depsNeedFiltering;
     this.context = context;
+    this.caller = caller;
   }
 
   /**
@@ -67,32 +72,32 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
     private final Callback<Target> callback;
     private final boolean depsNeedFiltering;
     private final QueryExpressionContext<Target> context;
+    private final QueryExpression caller;
 
     Factory(
         SkyQueryEnvironment env,
         Callback<Target> callback,
         boolean depsNeedFiltering,
-        QueryExpressionContext<Target> context) {
+        QueryExpressionContext<Target> context,
+        QueryExpression caller) {
       this.env = env;
       this.validDepUniquifier = env.createSkyKeyUniquifier();
       this.callback = callback;
       this.depsNeedFiltering = depsNeedFiltering;
       this.context = context;
+      this.caller = caller;
     }
 
     @Override
     public ParallelQueryVisitor<SkyKey, SkyKey, Target> create() {
       return new DepsUnboundedVisitor(
-          env,
-          validDepUniquifier,
-          callback,
-          depsNeedFiltering,
-          context);
+          env, validDepUniquifier, callback, depsNeedFiltering, context, caller);
     }
   }
 
   @Override
-  protected Visit getVisitResult(Iterable<SkyKey> keys) throws InterruptedException {
+  protected Visit getVisitResult(Iterable<SkyKey> keys)
+      throws InterruptedException, QueryException {
     if (depsNeedFiltering) {
       // We have to targetify the keys here in order to determine the allowed dependencies.
       Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap =
@@ -136,5 +141,12 @@ class DepsUnboundedVisitor extends AbstractTargetOuputtingVisitor<SkyKey> {
   protected Iterable<SkyKey> noteAndReturnUniqueVisitationKeys(
       Iterable<SkyKey> prospectiveVisitationKeys) throws QueryException {
     return validDepUniquifier.unique(prospectiveVisitationKeys);
+  }
+
+  @Override
+  protected void handleMissingTargets(
+      Map<? extends SkyKey, Target> keysWithTargets, Set<SkyKey> targetKeys)
+      throws QueryException, InterruptedException {
+    env.reportUnsuccessfulOrMissingTargets(keysWithTargets, targetKeys, caller);
   }
 }

@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoCollection;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceStatusValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -312,6 +313,11 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
+  public Artifact getSourceArtifactForNinjaBuild(PathFragment execPath, Root root) {
+    return artifactFactory.getSourceArtifact(execPath, root, owner);
+  }
+
+  @Override
   public Artifact.DerivedArtifact getFilesetArtifact(
       PathFragment rootRelativePath, ArtifactRoot root) {
     Preconditions.checkState(enabled);
@@ -352,7 +358,7 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
   }
 
   @Override
-  public StarlarkSemantics getSkylarkSemantics() throws InterruptedException {
+  public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
     return PrecomputedValue.STARLARK_SEMANTICS.get(skyframeEnv);
   }
 

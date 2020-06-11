@@ -22,17 +22,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternPhaseKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
@@ -67,30 +67,20 @@ import javax.annotation.Nullable;
  */
 final class TargetPatternPhaseFunction implements SkyFunction {
 
-  public TargetPatternPhaseFunction() {
+  private final ExternalPackageHelper externalPackageHelper;
+
+  public TargetPatternPhaseFunction(ExternalPackageHelper externalPackageHelper) {
+    this.externalPackageHelper = externalPackageHelper;
   }
 
   @Override
   public TargetPatternPhaseValue compute(SkyKey key, Environment env) throws InterruptedException {
     TargetPatternPhaseKey options = (TargetPatternPhaseKey) key.argument();
-    PackageValue packageValue = null;
-    boolean workspaceError = false;
-    try {
-      packageValue =
-          (PackageValue)
-              env.getValueOrThrow(
-                  PackageValue.key(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
-                  NoSuchPackageException.class);
-    } catch (NoSuchPackageException e) {
-      env.getListener().handle(Event.error(e.getMessage()));
-      workspaceError = true;
-    }
+    WorkspaceNameValue workspaceName = (WorkspaceNameValue) env.getValue(WorkspaceNameValue.key());
+    ImmutableSortedSet<String> notSymlinkedInExecrootDirectories =
+        externalPackageHelper.getNotSymlinkedInExecrootDirectories(env);
     if (env.valuesMissing()) {
       return null;
-    }
-    String workspaceName = "";
-    if (!workspaceError) {
-      workspaceName = packageValue.getPackage().getWorkspaceName();
     }
 
     RepositoryMappingValue repositoryMappingValue =
@@ -225,8 +215,9 @@ final class TargetPatternPhaseFunction implements SkyFunction {
             targetLabels.getTargets(),
             testsToRunLabels,
             targets.hasError(),
-            expandedTargets.hasError() || workspaceError,
-            workspaceName);
+            expandedTargets.hasError(),
+            workspaceName.getName(),
+            notSymlinkedInExecrootDirectories);
 
     env.getListener()
         .post(
@@ -236,7 +227,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
                 testFilteredTargets,
                 options.getTargetPatterns(),
                 expandedTargets.getTargets(),
-                failedPatterns,
+                ImmutableList.copyOf(failedPatterns),
                 mapOriginalPatternsToLabels(expandedPatterns, targets.getTargets())));
     env.getListener()
         .post(new LoadingPhaseCompleteEvent(result.getTargetLabels(), removedTargetLabels));
@@ -265,7 +256,7 @@ final class TargetPatternPhaseFunction implements SkyFunction {
    * Interprets the command-line arguments by expanding each pattern to targets and populating the
    * list of {@code failedPatterns}.
    *
-   * @param env the Skylark environment
+   * @param env the Starlark environment
    * @param options the command-line arguments in structured form
    * @param failedPatterns a list into which failed patterns are added
    */

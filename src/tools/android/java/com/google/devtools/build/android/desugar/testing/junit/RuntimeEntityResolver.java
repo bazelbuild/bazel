@@ -32,7 +32,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Table;
 import com.google.devtools.build.android.desugar.Desugar;
+import com.google.devtools.build.android.desugar.io.JarItem;
 import com.google.devtools.build.android.desugar.langmodel.ClassMemberKey;
+import com.google.devtools.build.android.desugar.langmodel.ClassName;
 import com.google.devtools.build.android.desugar.langmodel.FieldKey;
 import com.google.devtools.build.android.desugar.langmodel.MethodKey;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle.MemberUseContext;
@@ -59,9 +61,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.stream.Collectors;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -77,7 +79,7 @@ final class RuntimeEntityResolver {
           DynamicClassLiteral.class,
           AsmNode.class,
           RuntimeMethodHandle.class,
-          RuntimeZipEntry.class);
+          RuntimeJarEntry.class);
   private static final String DEFAULT_OUTPUT_ROOT_PREFIX = "desugared_dump";
 
   private final MethodHandles.Lookup testInstanceLookup;
@@ -97,8 +99,8 @@ final class RuntimeEntityResolver {
   /** A table for the lookup of missing user-supplied class member descriptors. */
   private final Table<
           Integer, // Desugar round
-          ClassMemberKey, // A class member without descriptor (empty descriptor string).
-          Set<ClassMemberKey>> // The set of same-name class members with their descriptors.
+          ClassMemberKey<?>, // A class member without descriptor (empty descriptor string).
+          Set<ClassMemberKey<?>>> // The set of same-name class members with their descriptors.
       descriptorLookupRepo = HashBasedTable.create();
 
   /**
@@ -107,7 +109,7 @@ final class RuntimeEntityResolver {
    */
   private final Table<
           Integer, // Desugar round
-          ClassMemberKey, // A class member with descriptor.
+          ClassMemberKey<?>, // A class member with descriptor.
           java.lang.reflect.Member> // A reflection-based Member instance.
       reflectionBasedMembers = HashBasedTable.create();
 
@@ -129,13 +131,9 @@ final class RuntimeEntityResolver {
     this.jarTransformationRecords = new ArrayList<>(maxNumOfTransformations);
   }
 
-  ImmutableSet<Integer> getInputClassFileMajorVersions() throws Throwable {
-    return ImmutableSet.copyOf(getInputClassFileMajorVersionMap(inputs).values());
-  }
-
-  void executeTransformation() throws Throwable {
+  void executeTransformation() throws Exception {
     inputClassLoader = getInputClassLoader();
-    ImmutableList<Path> transInputs = ImmutableList.copyOf(inputs);
+    ImmutableList<Path> transInputs = inputs;
     for (int round = 1; round <= maxNumOfTransformations; round++) {
       ImmutableList<Path> transOutputs =
           getRuntimeOutputPaths(
@@ -150,7 +148,6 @@ final class RuntimeEntityResolver {
               ImmutableList.copyOf(bootClassPathEntries),
               ImmutableListMultimap.copyOf(customCommandOptions));
       Desugar.main(transformationRecord.getDesugarFlags().toArray(new String[0]));
-
       jarTransformationRecords.add(transformationRecord);
       transInputs = transOutputs;
     }
@@ -172,11 +169,7 @@ final class RuntimeEntityResolver {
     AsmNode asmNodeRequest = element.getDeclaredAnnotation(AsmNode.class);
     if (asmNodeRequest != null) {
       return getAsmNode(
-          asmNodeRequest,
-          elementType,
-          jarTransformationRecords,
-          ImmutableList.copyOf(inputs),
-          workingJavaPackage);
+          asmNodeRequest, elementType, jarTransformationRecords, inputs, workingJavaPackage);
     }
     RuntimeMethodHandle runtimeMethodHandleRequest =
         element.getDeclaredAnnotation(RuntimeMethodHandle.class);
@@ -191,14 +184,10 @@ final class RuntimeEntityResolver {
               descriptorLookupRepo,
               workingJavaPackage));
     }
-    RuntimeZipEntry runtimeZipEntry = element.getDeclaredAnnotation(RuntimeZipEntry.class);
-    if (runtimeZipEntry != null) {
+    RuntimeJarEntry runtimeJarEntry = element.getDeclaredAnnotation(RuntimeJarEntry.class);
+    if (runtimeJarEntry != null) {
       return elementType.cast(
-          getZipEntry(
-              runtimeZipEntry,
-              jarTransformationRecords,
-              ImmutableList.copyOf(inputs),
-              workingJavaPackage));
+          getJarEntry(runtimeJarEntry, jarTransformationRecords, inputs, workingJavaPackage));
     }
     throw new UnsupportedOperationException(
         "Expected one of the supported types for injection: " + SUPPORTED_QUALIFIERS);
@@ -207,12 +196,12 @@ final class RuntimeEntityResolver {
   private static void fillMissingClassMemberDescriptorRepo(
       int round,
       Class<?> classLiteral,
-      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo) {
-    String ownerName = Type.getInternalName(classLiteral);
+      Table<Integer, ClassMemberKey<?>, Set<ClassMemberKey<?>>> missingDescriptorLookupRepo) {
+    ClassName owner = ClassName.create(classLiteral);
     for (Constructor<?> constructor : classLiteral.getDeclaredConstructors()) {
-      ClassMemberKey memberKeyWithoutDescriptor = MethodKey.create(ownerName, "<init>", "");
-      ClassMemberKey memberKeyWithDescriptor =
-          MethodKey.create(ownerName, "<init>", Type.getConstructorDescriptor(constructor));
+      ClassMemberKey<?> memberKeyWithoutDescriptor = MethodKey.create(owner, "<init>", "");
+      ClassMemberKey<?> memberKeyWithDescriptor =
+          MethodKey.create(owner, "<init>", Type.getConstructorDescriptor(constructor));
       if (missingDescriptorLookupRepo.contains(round, memberKeyWithoutDescriptor)) {
         missingDescriptorLookupRepo
             .get(round, memberKeyWithoutDescriptor)
@@ -223,9 +212,9 @@ final class RuntimeEntityResolver {
       }
     }
     for (Method method : classLiteral.getDeclaredMethods()) {
-      ClassMemberKey memberKeyWithoutDescriptor = MethodKey.create(ownerName, method.getName(), "");
-      ClassMemberKey memberKeyWithDescriptor =
-          MethodKey.create(ownerName, method.getName(), Type.getMethodDescriptor(method));
+      ClassMemberKey<?> memberKeyWithoutDescriptor = MethodKey.create(owner, method.getName(), "");
+      ClassMemberKey<?> memberKeyWithDescriptor =
+          MethodKey.create(owner, method.getName(), Type.getMethodDescriptor(method));
       if (missingDescriptorLookupRepo.contains(round, memberKeyWithoutDescriptor)) {
         missingDescriptorLookupRepo
             .get(round, memberKeyWithoutDescriptor)
@@ -236,9 +225,9 @@ final class RuntimeEntityResolver {
       }
     }
     for (Field field : classLiteral.getDeclaredFields()) {
-      ClassMemberKey memberKeyWithoutDescriptor = FieldKey.create(ownerName, field.getName(), "");
-      ClassMemberKey memberKeyWithDescriptor =
-          FieldKey.create(ownerName, field.getName(), Type.getDescriptor(field.getType()));
+      ClassMemberKey<?> memberKeyWithoutDescriptor = FieldKey.create(owner, field.getName(), "");
+      ClassMemberKey<?> memberKeyWithDescriptor =
+          FieldKey.create(owner, field.getName(), Type.getDescriptor(field.getType()));
       if (missingDescriptorLookupRepo.contains(round, memberKeyWithoutDescriptor)) {
         missingDescriptorLookupRepo
             .get(round, memberKeyWithoutDescriptor)
@@ -250,27 +239,27 @@ final class RuntimeEntityResolver {
     }
   }
 
-  private static ImmutableTable<Integer, ClassMemberKey, Member> getReflectionBasedClassMembers(
+  private static ImmutableTable<Integer, ClassMemberKey<?>, Member> getReflectionBasedClassMembers(
       int round, Class<?> classLiteral) {
-    ImmutableTable.Builder<Integer, ClassMemberKey, Member> reflectionBasedMembers =
+    ImmutableTable.Builder<Integer, ClassMemberKey<?>, Member> reflectionBasedMembers =
         ImmutableTable.builder();
-    String ownerName = Type.getInternalName(classLiteral);
+    ClassName owner = ClassName.create(classLiteral);
     for (Field field : classLiteral.getDeclaredFields()) {
       reflectionBasedMembers.put(
           round,
-          FieldKey.create(ownerName, field.getName(), Type.getDescriptor(field.getType())),
+          FieldKey.create(owner, field.getName(), Type.getDescriptor(field.getType())),
           field);
     }
     for (Constructor<?> constructor : classLiteral.getDeclaredConstructors()) {
       reflectionBasedMembers.put(
           round,
-          MethodKey.create(ownerName, "<init>", Type.getConstructorDescriptor(constructor)),
+          MethodKey.create(owner, "<init>", Type.getConstructorDescriptor(constructor)),
           constructor);
     }
     for (Method method : classLiteral.getDeclaredMethods()) {
       reflectionBasedMembers.put(
           round,
-          MethodKey.create(ownerName, method.getName(), Type.getMethodDescriptor(method)),
+          MethodKey.create(owner, method.getName(), Type.getMethodDescriptor(method)),
           method);
     }
     return reflectionBasedMembers.build();
@@ -280,8 +269,8 @@ final class RuntimeEntityResolver {
       DynamicClassLiteral dynamicClassLiteralRequest,
       List<JarTransformationRecord> jarTransformationRecords,
       ClassLoader initialInputClassLoader,
-      Table<Integer, ClassMemberKey, Member> reflectionBasedMembers,
-      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo,
+      Table<Integer, ClassMemberKey<?>, Member> reflectionBasedMembers,
+      Table<Integer, ClassMemberKey<?>, Set<ClassMemberKey<?>>> missingDescriptorLookupRepo,
       String workingJavaPackage)
       throws Throwable {
     int round = dynamicClassLiteralRequest.round();
@@ -339,8 +328,8 @@ final class RuntimeEntityResolver {
       Lookup lookup,
       List<JarTransformationRecord> jarTransformationRecords,
       ClassLoader initialInputClassLoader,
-      Table<Integer, ClassMemberKey, java.lang.reflect.Member> reflectionBasedMembers,
-      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo,
+      Table<Integer, ClassMemberKey<?>, java.lang.reflect.Member> reflectionBasedMembers,
+      Table<Integer, ClassMemberKey<?>, Set<ClassMemberKey<?>>> missingDescriptorLookupRepo,
       String workingJavaPackage)
       throws Throwable {
     int round = methodHandleRequest.round();
@@ -353,14 +342,14 @@ final class RuntimeEntityResolver {
             missingDescriptorLookupRepo,
             workingJavaPackage);
 
-    String ownerInternalName = Type.getInternalName(classLiteral);
+    ClassName owner = ClassName.create(classLiteral);
     String memberName = methodHandleRequest.memberName();
     String memberDescriptor = methodHandleRequest.memberDescriptor();
 
-    ClassMemberKey classMemberKey =
+    ClassMemberKey<?> classMemberKey =
         methodHandleRequest.usage() == MemberUseContext.METHOD_INVOCATION
-            ? MethodKey.create(ownerInternalName, memberName, memberDescriptor)
-            : FieldKey.create(ownerInternalName, memberName, memberDescriptor);
+            ? MethodKey.create(owner, memberName, memberDescriptor)
+            : FieldKey.create(owner, memberName, memberDescriptor);
 
     if (classMemberKey.descriptor().isEmpty()) {
       classMemberKey = restoreMissingDescriptor(classMemberKey, round, missingDescriptorLookupRepo);
@@ -384,25 +373,24 @@ final class RuntimeEntityResolver {
             methodHandleRequest.usage(), MemberUseContext.class));
   }
 
-  private static ClassMemberKey restoreMissingDescriptor(
-      ClassMemberKey classMemberKey,
+  private static ClassMemberKey<?> restoreMissingDescriptor(
+      ClassMemberKey<?> classMemberKey,
       int round,
-      Table<Integer, ClassMemberKey, Set<ClassMemberKey>> missingDescriptorLookupRepo) {
-    Set<ClassMemberKey> restoredClassMemberKeys =
+      Table<Integer, ClassMemberKey<?>, Set<ClassMemberKey<?>>> missingDescriptorLookupRepo) {
+    Set<ClassMemberKey<?>> restoredClassMemberKey =
         missingDescriptorLookupRepo.get(round, classMemberKey);
-    if (restoredClassMemberKeys == null || restoredClassMemberKeys.isEmpty()) {
+    if (restoredClassMemberKey == null || restoredClassMemberKey.isEmpty()) {
       throw new IllegalStateException(
           String.format(
-              "Unable to find class member (%s). Please check its presence.",
-              restoredClassMemberKeys));
-    } else if (restoredClassMemberKeys.size() > 1) {
+              "Unable to find class member (%s). Please check its presence.", classMemberKey));
+    } else if (restoredClassMemberKey.size() > 1) {
       throw new IllegalStateException(
           String.format(
               "Class Member (%s) has same-name overloaded members: (%s) \n"
                   + "Please specify a descriptor to disambiguate overloaded method request.",
-              classMemberKey, restoredClassMemberKeys));
+              classMemberKey, restoredClassMemberKey));
     }
-    return Iterables.getOnlyElement(restoredClassMemberKeys);
+    return Iterables.getOnlyElement(restoredClassMemberKey);
   }
 
   private static FieldNode getFieldNode(
@@ -454,46 +442,46 @@ final class RuntimeEntityResolver {
     return Iterables.getOnlyElement(matchedMethods);
   }
 
-  private static ZipEntry getZipEntry(
-      RuntimeZipEntry zipEntryRequest,
+  private static JarItem getJarEntry(
+      RuntimeJarEntry jarEntryRequest,
       List<JarTransformationRecord> jarTransformationRecords,
       ImmutableList<Path> initialInputs,
       String workingJavaPackage)
       throws IOException {
-    String requestedClassFile = zipEntryRequest.value();
-    String zipEntryPathName =
+    String requestedClassFile = jarEntryRequest.value();
+    String jarEntryPathName =
         workingJavaPackage.isEmpty() || requestedClassFile.contains("/")
             ? requestedClassFile
             : workingJavaPackage.replace('.', '/') + '/' + requestedClassFile;
-    int round = zipEntryRequest.round();
+    int round = jarEntryRequest.round();
     ImmutableList<Path> jars =
         round == 0 ? initialInputs : jarTransformationRecords.get(round - 1).outputJars();
     for (Path jar : jars) {
-      ZipFile zipFile = new ZipFile(jar.toFile());
-      ZipEntry zipEntry = zipFile.getEntry(zipEntryPathName);
-      if (zipEntry != null) {
-        return zipEntry;
+      JarFile jarFile = new JarFile(jar.toFile());
+      JarEntry jarEntry = jarFile.getJarEntry(jarEntryPathName);
+      if (jarEntry != null) {
+        return JarItem.create(jarFile, jarEntry);
       }
     }
     throw new IllegalStateException(
-        String.format("Expected zip entry of (%s) present.", zipEntryPathName));
+        String.format("Expected zip entry of (%s) present.", jarEntryPathName));
   }
 
-  private static ClassNode findClassNode(String zipEntryPathName, ImmutableList<Path> jars)
+  private static ClassNode findClassNode(String jarEntryPathName, ImmutableList<Path> jars)
       throws IOException, ClassNotFoundException {
     for (Path jar : jars) {
-      ZipFile zipFile = new ZipFile(jar.toFile());
-      ZipEntry zipEntry = zipFile.getEntry(zipEntryPathName);
-      if (zipEntry != null) {
-        try (InputStream inputStream = zipFile.getInputStream(zipEntry)) {
+      JarFile jarFile = new JarFile(jar.toFile());
+      JarEntry jarEntry = jarFile.getJarEntry(jarEntryPathName);
+      if (jarEntry != null) {
+        try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
-          ClassNode classNode = new ClassNode(Opcodes.ASM7);
+          ClassNode classNode = new ClassNode(Opcodes.ASM8);
           cr.accept(classNode, 0);
           return classNode;
         }
       }
     }
-    throw new ClassNotFoundException(zipEntryPathName);
+    throw new ClassNotFoundException(jarEntryPathName);
   }
 
   private ClassLoader getInputClassLoader() throws MalformedURLException {
@@ -524,19 +512,23 @@ final class RuntimeEntityResolver {
     return outputRuntimePathsBuilder.build();
   }
 
-  private static ImmutableMap<String, Integer> getInputClassFileMajorVersionMap(
-      Collection<Path> jars) throws IOException {
+  ImmutableMap<String, Integer> getInputClassFileMajorVersions() throws IOException {
+    return getInputClassFileMajorVersions(inputs);
+  }
+
+  private static ImmutableMap<String, Integer> getInputClassFileMajorVersions(Collection<Path> jars)
+      throws IOException {
     ImmutableMap.Builder<String, Integer> majorVersions = ImmutableMap.builder();
     for (Path jar : jars) {
-      ZipFile zipFile = new ZipFile(jar.toFile());
-      List<ZipEntry> classFileZipEntries =
-          zipFile.stream()
-              .filter(zipEntry -> zipEntry.getName().endsWith(".class"))
+      JarFile jarFile = new JarFile(jar.toFile());
+      List<JarEntry> classFileJarEntries =
+          jarFile.stream()
+              .filter(jarEntry -> jarEntry.getName().endsWith(".class"))
               .collect(Collectors.toList());
-      for (ZipEntry zipEntry : classFileZipEntries) {
-        try (InputStream inputStream = zipFile.getInputStream(zipEntry)) {
+      for (JarEntry jarEntry : classFileJarEntries) {
+        try (InputStream inputStream = jarFile.getInputStream(jarEntry)) {
           ClassReader cr = new ClassReader(inputStream);
-          ClassNode classNode = new ClassNode(Opcodes.ASM7);
+          ClassNode classNode = new ClassNode(Opcodes.ASM8);
           cr.accept(classNode, SKIP_CODE | SKIP_DEBUG | SKIP_FRAMES);
           majorVersions.put(classNode.name, classNode.version);
         }

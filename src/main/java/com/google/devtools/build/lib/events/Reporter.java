@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.events;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.io.OutErr;
 import java.io.PrintStream;
 import java.util.HashSet;

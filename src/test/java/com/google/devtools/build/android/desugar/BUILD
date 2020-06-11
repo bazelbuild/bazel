@@ -17,6 +17,9 @@ filegroup(
         "//src/test/java/com/google/devtools/build/android/desugar/dependencies:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/io:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/langmodel:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/nest:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/covariantreturn:srcs",
+        "//src/test/java/com/google/devtools/build/android/desugar/typeannotation:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/scan:srcs",
         "//src/test/java/com/google/devtools/build/android/desugar/stringconcat:srcs",
@@ -43,7 +46,6 @@ java_test(
     tags = ["no_windows"],
     deps = [
         ":testdata_desugared",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -62,7 +64,6 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_twice",  # Make tests run against twice-desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -98,7 +99,6 @@ java_test(
     deps = [
         ":desugar_testdata_with_synthetic_methods_with_lambda_names",
         ":separate",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -133,7 +133,6 @@ java_test(
     tags = ["no_windows"],
     deps = [
         ":testdata_desugared",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -150,7 +149,6 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.DesugarObjectsRequireNonNullTest",
     deps = [
         ":desugar_testdata_by_disabling_lambda_desugaring",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -169,7 +167,6 @@ java_test(
     tags = ["no_windows"],
     deps = [
         ":testdata_desugared_java8",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -188,7 +185,6 @@ java_test(
     tags = ["no_windows"],
     deps = [
         ":testdata_desugared_java8_like_in_android_studio",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -207,7 +203,6 @@ java_test(
     tags = ["no_windows"],
     deps = [
         ":testdata_desugared_default_methods",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -227,7 +222,6 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.DesugarDefaultMethodsFunctionalTest",
     deps = [
         ":testdata_desugared_default_methods_twice",  # Make tests run against 2x desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -245,7 +239,6 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_like_in_android_studio",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -263,7 +256,6 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_with_multiple_inputs",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -281,7 +273,6 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_from_directory_to_jar",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -299,7 +290,6 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_from_directory_to_directory",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -317,7 +307,6 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
     deps = [
         ":testdata_desugared_with_classpath_directory",  # Make tests run against desugared library
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -414,7 +403,6 @@ java_test(
     size = "small",
     srcs = ["Java7CompatibilityTest.java"],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//third_party:asm",
@@ -439,7 +427,6 @@ java_test(
         ":mocked_android_os_sdk_for_testing",
         ":testdata",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
@@ -466,7 +453,6 @@ java_test(
         ":mocked_android_os_sdk_for_testing",
         ":testdata",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
@@ -494,7 +480,6 @@ java_test(
         ":mocked_android_os_sdk_for_testing",
         ":testdata",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/runtime:throwable_extension",
@@ -515,7 +500,6 @@ java_test(
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarMainClassTest",
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:guava",
         "//third_party:junit4",
@@ -532,7 +516,6 @@ java_test(
     tags = ["no_windows"],
     test_class = "com.google.devtools.build.android.desugar.DesugarMainClassTest",
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:guava",
         "//third_party:junit4",
@@ -554,7 +537,7 @@ java_test(
     tags = ["no_windows"],
     deps = [
         ":bytecode_type_printer",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
         "//third_party:asm",
         "//third_party:guava",
@@ -974,7 +957,6 @@ java_test(
         "mocked_android_os_sdk_for_testing",
         ":desugar_testdata_by_desugaring_try_with_resources",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",
@@ -999,7 +981,6 @@ java_test(
         "mocked_android_os_sdk_for_testing",
         ":desugar_testdata_by_desugaring_try_with_resources_twice",  # the lib desugared twice
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",
@@ -1023,7 +1004,6 @@ java_test(
         ":desugar_testdata_by_desugaring_try_with_resources",
         ":mocked_android_os_sdk_for_testing",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",
@@ -1047,7 +1027,6 @@ java_test(
         ":desugar_testdata_by_desugaring_try_with_resources_twice",  # the lib desugared twice.
         ":mocked_android_os_sdk_for_testing",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",
@@ -1071,7 +1050,6 @@ java_test(
         ":desugar_testdata_by_desugaring_try_with_resources",
         ":mocked_android_os_sdk_for_testing",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",
@@ -1095,7 +1073,6 @@ java_test(
         ":desugar_testdata_by_desugaring_try_with_resources_twice",  # the lib desugared twice.
         ":mocked_android_os_sdk_for_testing",
         "//src/test/java/com/google/devtools/build/android/desugar/runtime:throwable_extension_test_utility",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:junit4",
@@ -2161,6 +2138,52 @@ java_test(
     test_class = "com.google.devtools.build.android.desugar.ClassSignatureParserTest",
     deps = [
         "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CoreLibrarySupportTest",
+    size = "small",
+    srcs = ["CoreLibrarySupportTest.java"],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.CoreLibrarySupportTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//third_party:asm",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "CorePackageRenamerTest",
+    size = "small",
+    srcs = ["CorePackageRenamerTest.java"],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.CorePackageRenamerTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
+        "//third_party:asm",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "FrameInfoTest",
+    size = "small",
+    srcs = ["FrameInfoTest.java"],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.FrameInfoTest",
+    deps = [
+        "//src/tools/android/java/com/google/devtools/build/android/desugar",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],

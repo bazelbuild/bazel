@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
-/**
- * A TokenKind is an enumeration of each different kind of lexical symbol.
- */
+/** A TokenKind represents the kind of a lexical token. */
 public enum TokenKind {
   AMPERSAND("&"),
   AMPERSAND_EQUALS("&="),

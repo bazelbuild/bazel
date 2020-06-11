@@ -130,7 +130,7 @@ public interface MemoizingEvaluator {
   SkyValue getExistingValue(SkyKey key) throws InterruptedException;
 
   @Nullable
-  NodeEntry getExistingEntryAtLatestVersion(SkyKey key) throws InterruptedException;
+  NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) throws InterruptedException;
 
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null
@@ -156,6 +156,24 @@ public interface MemoizingEvaluator {
     QueryableGraph transform(QueryableGraph graph);
 
     ProcessableGraph transform(ProcessableGraph graph);
+
+    GraphTransformerForTesting NO_OP =
+        new GraphTransformerForTesting() {
+          @Override
+          public InMemoryGraph transform(InMemoryGraph graph) {
+            return graph;
+          }
+
+          @Override
+          public QueryableGraph transform(QueryableGraph graph) {
+            return graph;
+          }
+
+          @Override
+          public ProcessableGraph transform(ProcessableGraph graph) {
+            return graph;
+          }
+        };
   }
 
   /**

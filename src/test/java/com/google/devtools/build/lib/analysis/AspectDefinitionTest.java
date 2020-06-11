@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigAwareAspectBuilder;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,6 +46,14 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class AspectDefinitionTest {
+
+  private static final class P1 implements TransitiveInfoProvider {}
+
+  private static final class P2 implements TransitiveInfoProvider {}
+
+  private static final class P3 implements TransitiveInfoProvider {}
+
+  private static final class P4 implements TransitiveInfoProvider {}
 
   /**
    * A dummy aspect factory. Is there to demonstrate how to define aspects and so that we can test
@@ -143,22 +151,21 @@ public class AspectDefinitionTest {
 
   @Test
   public void testRequireProvider_AddsToSetOfRequiredProvidersAndNames() throws Exception {
-    AspectDefinition requiresProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .requireProviders(String.class, Integer.class)
-        .build();
+    AspectDefinition requiresProviders =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requireProviders(P1.class, P2.class)
+            .build();
     AdvertisedProviderSet expectedOkSet =
         AdvertisedProviderSet.builder()
-            .addNative(String.class)
-            .addNative(Integer.class)
-            .addNative(Boolean.class)
+            .addNative(P1.class)
+            .addNative(P2.class)
+            .addNative(P3.class)
             .build();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedOkSet))
         .isTrue();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder()
-            .addNative(String.class)
-            .build();
+        AdvertisedProviderSet.builder().addNative(P1.class).build();
     assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(expectedFailSet))
         .isFalse();
 
@@ -170,28 +177,20 @@ public class AspectDefinitionTest {
 
  @Test
   public void testRequireProvider_AddsTwoSetsOfRequiredProvidersAndNames() throws Exception {
-    AspectDefinition requiresProviders = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .requireProviderSets(
-            ImmutableList.of(
-                ImmutableSet.<Class<?>>of(String.class, Integer.class),
-                ImmutableSet.<Class<?>>of(Boolean.class)))
-        .build();
+    AspectDefinition requiresProviders =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requireProviderSets(
+                ImmutableList.of(ImmutableSet.of(P1.class, P2.class), ImmutableSet.of(P3.class)))
+            .build();
 
     AdvertisedProviderSet expectedOkSet1 =
-       AdvertisedProviderSet.builder()
-           .addNative(String.class)
-           .addNative(Integer.class)
-           .build();
+        AdvertisedProviderSet.builder().addNative(P1.class).addNative(P2.class).build();
 
     AdvertisedProviderSet expectedOkSet2 =
-       AdvertisedProviderSet.builder()
-           .addNative(Boolean.class)
-           .build();
+        AdvertisedProviderSet.builder().addNative(P3.class).build();
 
     AdvertisedProviderSet expectedFailSet =
-       AdvertisedProviderSet.builder()
-           .addNative(Float.class)
-           .build();
+        AdvertisedProviderSet.builder().addNative(P4.class).build();
 
    assertThat(requiresProviders.getRequiredProviders().isSatisfiedBy(AdvertisedProviderSet.ANY))
        .isTrue();
@@ -209,9 +208,7 @@ public class AspectDefinitionTest {
         .build();
 
     AdvertisedProviderSet expectedFailSet =
-        AdvertisedProviderSet.builder()
-            .addNative(Float.class)
-            .build();
+        AdvertisedProviderSet.builder().addNative(P4.class).build();
 
     assertThat(noAspects.getRequiredProvidersForAspects().isSatisfiedBy(AdvertisedProviderSet.ANY))
         .isFalse();
@@ -252,8 +249,9 @@ public class AspectDefinitionTest {
             .containsExactly(Integer.class, String.class);
   }
 
-  private static class FooFragment extends BuildConfiguration.Fragment {}
-  private static class BarFragment extends BuildConfiguration.Fragment {}
+  private static class FooFragment extends Fragment {}
+
+  private static class BarFragment extends Fragment {}
 
   @Test
   public void testRequiresHostConfigurationFragments_PropagatedToConfigurationFragmentPolicy()
@@ -272,9 +270,10 @@ public class AspectDefinitionTest {
   @Test
   public void testRequiresConfigurationFragmentNames_PropagatedToConfigurationFragmentPolicy()
       throws Exception {
-    AspectDefinition requiresFragments = new AspectDefinition.Builder(TEST_ASPECT_CLASS)
-        .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableList.of("test_fragment"))
-        .build();
+    AspectDefinition requiresFragments =
+        new AspectDefinition.Builder(TEST_ASPECT_CLASS)
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.of("test_fragment"))
+            .build();
     assertThat(requiresFragments.getConfigurationFragmentPolicy()).isNotNull();
     assertThat(
         requiresFragments.getConfigurationFragmentPolicy()
@@ -287,7 +286,7 @@ public class AspectDefinitionTest {
       throws Exception {
     AspectDefinition requiresFragments =
         ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsBySkylarkModuleName(
+            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(
                 ImmutableList.of("test_fragment"))
             .originalBuilder()
             .build();
@@ -299,16 +298,17 @@ public class AspectDefinitionTest {
   }
 
   @Test
-  public void testEmptySkylarkConfigurationFragmentPolicySetup_HasNonNullPolicy() throws Exception {
+  public void testEmptyStarlarkConfigurationFragmentPolicySetup_HasNonNullPolicy()
+      throws Exception {
     AspectDefinition noPolicy =
         ConfigAwareAspectBuilder.of(new AspectDefinition.Builder(TEST_ASPECT_CLASS))
-            .requiresHostConfigurationFragmentsBySkylarkModuleName(ImmutableList.<String>of())
+            .requiresHostConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.<String>of())
             .originalBuilder()
-            .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableList.<String>of())
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableList.<String>of())
             .build();
     assertThat(noPolicy.getConfigurationFragmentPolicy()).isNotNull();
   }
 
-  @SkylarkModule(name = "test_fragment", doc = "test fragment")
+  @StarlarkBuiltin(name = "test_fragment", doc = "test fragment")
   private static final class TestFragment implements StarlarkValue {}
 }

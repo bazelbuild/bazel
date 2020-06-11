@@ -387,7 +387,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    srcs = ['foo.py'],",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
+        .isEmpty();
   }
 
   @Test
@@ -401,7 +402,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    legacy_create_init = True,",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
         .containsExactly("pkg/__init__.py");
   }
 
@@ -415,7 +416,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    srcs = ['foo.py'],",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
         .containsExactly("pkg/__init__.py");
   }
 
@@ -430,6 +431,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    legacy_create_init = False,",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
+        .isEmpty();
   }
 }

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -30,6 +31,7 @@ import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.concurrent.Callable;
+import java.util.function.Predicate;
 
 /** Reports cycles between skyframe values whose keys contains {@link Label}s. */
 abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleReporter {
@@ -50,12 +52,13 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     return getLabel(key).toString();
   }
 
-  /**
-   * Can be used to skip individual keys on the path to cycle.
-   *
-   * @param key
-   */
-  protected boolean shouldSkip(SkyKey key) {
+  /** Can be used to skip individual keys on the path to the cycle. */
+  protected boolean shouldSkipOnPathToCycle(SkyKey key) {
+    return false;
+  }
+
+  /** Can be used to skip intermediate keys on the cycle itself. */
+  protected boolean shouldSkipIntermediateKeyOnCycle(SkyKey key) {
     return false;
   }
 
@@ -83,7 +86,7 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     }
 
     if (alreadyReported) {
-      if (!shouldSkip(topLevelKey)) {
+      if (!shouldSkipOnPathToCycle(topLevelKey)) {
         Label label = getLabel(topLevelKey);
         Target target = getTargetForLabel(eventHandler, label);
         eventHandler.handle(
@@ -100,19 +103,16 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
       ImmutableList<SkyKey> pathToCycle = cycleInfo.getPathToCycle();
       ImmutableList<SkyKey> cycle = cycleInfo.getCycle();
       for (SkyKey value : pathToCycle) {
-        if (shouldSkip(value)) {
+        if (shouldSkipOnPathToCycle(value)) {
           continue;
         }
         cycleMessage.append("\n    ");
         cycleMessage.append(prettyPrint(value));
       }
 
-      SkyKey cycleValue = printCycle(cycle, cycleMessage, new Function<SkyKey, String>() {
-        @Override
-        public String apply(SkyKey input) {
-          return prettyPrint(input);
-        }
-      });
+      SkyKey cycleValue =
+          printCycle(
+              cycle, cycleMessage, this::prettyPrint, this::shouldSkipIntermediateKeyOnCycle);
 
       cycleMessage.append(getAdditionalMessageAboutCycle(eventHandler, topLevelKey, cycleInfo));
 
@@ -126,31 +126,41 @@ abstract class AbstractLabelCycleReporter implements CyclesReporter.SingleCycleR
     return true;
   }
 
-  /**
-   * Prints the SkyKey-s in cycle into cycleMessage using the print function.
-   */
-  static SkyKey printCycle(ImmutableList<SkyKey> cycle, StringBuilder cycleMessage,
+  /** Prints the SkyKey-s in cycle into cycleMessage using the print function. */
+  static SkyKey printCycle(
+      ImmutableList<SkyKey> cycle,
+      StringBuilder cycleMessage,
       Function<SkyKey, String> printFunction) {
-    Iterable<SkyKey> valuesToPrint = cycle.size() > 1
-        ? Iterables.concat(cycle, ImmutableList.of(cycle.get(0))) : cycle;
+    return printCycle(cycle, cycleMessage, printFunction, Predicates.alwaysFalse());
+  }
+
+  private static SkyKey printCycle(
+      ImmutableList<SkyKey> cycle,
+      StringBuilder cycleMessage,
+      Function<SkyKey, String> printFunction,
+      Predicate<SkyKey> shouldSkipIntermediateKey) {
+    Preconditions.checkArgument(!cycle.isEmpty());
     SkyKey cycleValue = null;
-    for (SkyKey value : valuesToPrint) {
+    int valuesPrinted = 0;
+    for (SkyKey value : Iterables.concat(cycle, ImmutableList.of(cycle.get(0)))) {
       if (cycleValue == null) { // first item
         cycleValue = value;
         cycleMessage.append("\n.-> ");
-      } else {
-        if (value == cycleValue) { // last item of the cycle
-          cycleMessage.append("\n`-- ");
+      } else if (value == cycleValue) { // last item of the cycle
+        if (valuesPrinted == 1) {
+          cycleMessage.append(" [self-edge]");
+          cycleMessage.append("\n`--");
+          break;
         } else {
-          cycleMessage.append("\n|   ");
+          cycleMessage.append("\n`-- ");
         }
+      } else if (shouldSkipIntermediateKey.test(value)) {
+        continue;
+      } else {
+        cycleMessage.append("\n|   ");
       }
       cycleMessage.append(printFunction.apply(value));
-    }
-
-    if (cycle.size() == 1) {
-      cycleMessage.append(" [self-edge]");
-      cycleMessage.append("\n`--");
+      valuesPrinted++;
     }
 
     return cycleValue;

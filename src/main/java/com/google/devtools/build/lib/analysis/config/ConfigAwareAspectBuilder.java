@@ -63,7 +63,7 @@ public class ConfigAwareAspectBuilder {
    * <p>The value is inherited by subclasses.
    */
   public ConfigAwareAspectBuilder requiresHostConfigurationFragments(
-      Class<? extends BuildConfiguration.Fragment>... configurationFragments) {
+      Class<? extends Fragment>... configurationFragments) {
     aspectBuilder.requiresConfigurationFragments(HostTransition.INSTANCE, configurationFragments);
     return this;
   }
@@ -78,12 +78,12 @@ public class ConfigAwareAspectBuilder {
    * to.
    *
    * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
-   * Skylark module names of fragments instead of their classes.
+   * Starlark module names of fragments instead of their classes.
    */
-  public ConfigAwareAspectBuilder requiresHostConfigurationFragmentsBySkylarkModuleName(
+  public ConfigAwareAspectBuilder requiresHostConfigurationFragmentsByStarlarkBuiltinName(
       Collection<String> configurationFragmentNames) {
-    aspectBuilder.requiresConfigurationFragmentsBySkylarkModuleName(HostTransition.INSTANCE,
-        configurationFragmentNames);
+    aspectBuilder.requiresConfigurationFragmentsByStarlarkBuiltinName(
+        HostTransition.INSTANCE, configurationFragmentNames);
     return this;
   }
 }

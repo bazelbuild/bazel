@@ -15,13 +15,16 @@ package com.google.devtools.build.lib.vfs;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
@@ -66,8 +69,6 @@ public abstract class Root implements Comparable<Root>, Serializable {
   /** Returns whether the given absolute path fragment is under this root. */
   public abstract boolean contains(PathFragment absolutePathFragment);
 
-  public abstract BigInteger getFingerprint();
-
   /**
    * Returns the underlying path. Please avoid using this method.
    *
@@ -79,20 +80,11 @@ public abstract class Root implements Comparable<Root>, Serializable {
   public abstract boolean isAbsolute();
 
   /** Implementation of Root that is backed by a {@link Path}. */
-  @AutoCodec
   public static final class PathRoot extends Root {
     private final Path path;
-    private final BigInteger fingerprint;
 
-    PathRoot(Path path) {
+    private PathRoot(Path path) {
       this.path = path;
-      // Can't use BigIntegerFingerprint because would cause cycle.
-      this.fingerprint =
-          new BigInteger(
-              1,
-              DigestHashFunction.SHA256
-                  .cloneOrCreateMessageDigest()
-                  .digest(path.getPathString().getBytes(StandardCharsets.UTF_8)));
     }
 
     @Override
@@ -154,11 +146,6 @@ public abstract class Root implements Comparable<Root>, Serializable {
     }
 
     @Override
-    public BigInteger getFingerprint() {
-      return fingerprint;
-    }
-
-    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -177,10 +164,7 @@ public abstract class Root implements Comparable<Root>, Serializable {
   }
 
   /** An absolute root of a file system. Can only resolve absolute path fragments. */
-  @AutoCodec
   public static final class AbsoluteRoot extends Root {
-    private static final BigInteger FINGERPRINT = new BigInteger("15742446659214128006");
-
     private FileSystem fileSystem; // Non-final for serialization
 
     AbsoluteRoot(FileSystem fileSystem) {
@@ -246,11 +230,6 @@ public abstract class Root implements Comparable<Root>, Serializable {
     }
 
     @Override
-    public BigInteger getFingerprint() {
-      return FINGERPRINT;
-    }
-
-    @Override
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -279,6 +258,67 @@ public abstract class Root implements Comparable<Root>, Serializable {
           "%s %s",
           fileSystem,
           Path.getFileSystemForSerialization());
+    }
+  }
+
+  /** Serialization dependencies for {@link RootCodec}. */
+  public static class RootCodecDependencies {
+    private final Root likelyPopularRoot;
+
+    public RootCodecDependencies(Root likelyPopularRoot) {
+      this.likelyPopularRoot = likelyPopularRoot;
+    }
+  }
+
+  @SuppressWarnings("unused") // Used at run-time via classpath scanning + reflection.
+  private static class RootCodec implements ObjectCodec<Root> {
+    @Override
+    public Class<? extends Root> getEncodedClass() {
+      return Root.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Root root, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      RootCodecDependencies codecDeps = context.getDependency(RootCodecDependencies.class);
+      if (root.equals(codecDeps.likelyPopularRoot)) {
+        codedOut.writeBoolNoTag(true);
+        return;
+      }
+
+      codedOut.writeBoolNoTag(false);
+      if (root instanceof PathRoot) {
+        codedOut.writeBoolNoTag(true);
+        PathRoot pathRoot = (PathRoot) root;
+        context.serialize(pathRoot.path, codedOut);
+        return;
+      }
+
+      if (root instanceof AbsoluteRoot) {
+        codedOut.writeBoolNoTag(false);
+        AbsoluteRoot absoluteRoot = (AbsoluteRoot) root;
+        context.serialize(absoluteRoot.fileSystem, codedOut);
+        return;
+      }
+
+      throw new IllegalStateException("Unexpected Root: " + root);
+    }
+
+    @Override
+    public Root deserialize(DeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      if (codedIn.readBool()) {
+        RootCodecDependencies codecDeps = context.getDependency(RootCodecDependencies.class);
+        return codecDeps.likelyPopularRoot;
+      }
+
+      if (codedIn.readBool()) {
+        Path path = context.deserialize(codedIn);
+        return new PathRoot(path);
+      }
+
+      FileSystem fileSystem = context.deserialize(codedIn);
+      return new AbsoluteRoot(fileSystem);
     }
   }
 }

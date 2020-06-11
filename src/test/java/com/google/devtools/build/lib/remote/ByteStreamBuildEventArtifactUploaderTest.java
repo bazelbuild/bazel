@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.remote;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -74,9 +74,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -90,7 +88,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   private static final DigestUtil DIGEST_UTIL = new DigestUtil(DigestHashFunction.SHA256);
 
   private final MutableHandlerRegistry serviceRegistry = new MutableHandlerRegistry();
-  private static ListeningScheduledExecutorService retryService;
+  private ListeningScheduledExecutorService retryService;
 
   private Server server;
   private ManagedChannel channel;
@@ -100,11 +98,6 @@ public class ByteStreamBuildEventArtifactUploaderTest {
 
   private final Path execRoot = fs.getPath("/execroot");
   private ArtifactRoot outputRoot;
-
-  @BeforeClass
-  public static void beforeEverything() {
-    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-  }
 
   @Before
   public final void setUp() throws Exception {
@@ -124,8 +117,10 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // on different threads than the setUp.
     prevContext = withEmptyMetadata.attach();
 
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out"));
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, "out");
     outputRoot.getRoot().asPath().createDirectoryAndParents();
+
+    retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
   }
 
   @After
@@ -134,15 +129,14 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     // on different threads than the tearDown.
     withEmptyMetadata.detach(prevContext);
 
+    retryService.shutdownNow();
+    retryService.awaitTermination(
+        com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
     channel.shutdownNow();
     channel.awaitTermination(5, TimeUnit.SECONDS);
     server.shutdownNow();
     server.awaitTermination();
-  }
-
-  @AfterClass
-  public static void afterEverything() {
-    retryService.shutdownNow();
   }
 
   @Before
@@ -366,7 +360,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     byte[] b = contents.getBytes(StandardCharsets.UTF_8);
     HashCode h = HashCode.fromString(DIGEST_UTIL.compute(b).getHash());
     FileArtifactValue f =
-        new RemoteFileArtifactValue(h.asBytes(), b.length, /* locationIndex= */ 1);
+        new RemoteFileArtifactValue(h.asBytes(), b.length, /* locationIndex= */ 1, "action-id");
     inputs.putWithNoDepOwner(a, f);
     return a;
   }

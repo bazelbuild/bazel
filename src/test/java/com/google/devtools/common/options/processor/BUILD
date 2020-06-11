@@ -1,11 +1,14 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
+package(
+    default_visibility = ["//src:__subpackages__"],
+)
+
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-    ),
-    visibility = ["//src/test/java/com/google/devtools/common/options:__pkg__"],
+    testonly = 0,
+    srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
@@ -13,7 +16,7 @@ java_test(
     srcs = ["OptionProcessorTest.java"],
     resources = [":OptionTestFiles"],
     deps = [
-        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/common/options",  
         "//src/main/java/com/google/devtools/common/options/processor:options_preprocessor",
         "//third_party:compile_testing",
         "//third_party:guava",
@@ -33,7 +36,6 @@ test_suite(
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
@@ -41,5 +43,4 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/common/options:__pkg__"],
 )

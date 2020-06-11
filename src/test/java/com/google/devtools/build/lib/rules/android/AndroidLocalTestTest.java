@@ -15,13 +15,17 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
-import static com.google.devtools.build.lib.rules.android.AndroidBuildViewTestCase.getValidatedResources;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
+import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.java.JavaPrimaryClassProvider;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import java.util.List;
@@ -75,7 +79,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact manifest =
         ActionsTestUtil.getFirstArtifactEndingWith(
             runfilesArtifacts, "dummyTest_processed_manifest/AndroidManifest.xml");
@@ -91,10 +95,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceClassJar =
         getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_CLASS_JAR);
-    assertThat(runfilesArtifacts).contains(resourceClassJar);
+    assertThat(runfilesArtifacts.toList()).contains(resourceClassJar);
   }
 
   @Test
@@ -106,10 +110,10 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourcesZip =
         getImplicitOutputArtifact(target, AndroidRuleClasses.ANDROID_RESOURCES_ZIP);
-    assertThat(runfilesArtifacts).contains(resourcesZip);
+    assertThat(runfilesArtifacts.toList()).contains(resourcesZip);
   }
 
   @Test
@@ -170,7 +174,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    deps = extra_deps)");
     useConfiguration("--experimental_android_local_test_binary_resources");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceApk =
         ActionsTestUtil.getFirstArtifactEndingWith(runfilesArtifacts, "dummyTest.ap_");
     assertThat(resourceApk).isNotNull();
@@ -186,7 +190,7 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
         "    srcs = ['test.java'],",
         "    deps = extra_deps)");
     ConfiguredTarget target = getConfiguredTarget("//java/test:dummyTest");
-    Iterable<Artifact> runfilesArtifacts = collectRunfiles(target);
+    NestedSet<Artifact> runfilesArtifacts = collectRunfiles(target);
     Artifact resourceApk =
         ActionsTestUtil.getFirstArtifactEndingWith(runfilesArtifacts, "dummyTest.ap_");
     assertThat(resourceApk).isNull();
@@ -246,6 +250,67 @@ public abstract class AndroidLocalTestTest extends AbstractAndroidLocalTestTestB
     assertThat(getGeneratingSpawnActionArgs(finalUnsignedApk))
         .containsAtLeast("--nocompress_suffixes", ".apk", ".so")
         .inOrder();
+  }
+
+  @Test
+  public void testResourceConfigurationFilters() throws Exception {
+    scratch.file(
+        "java/test/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "android_local_test(name = 'dummyTest',",
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps,",
+        "    resource_configuration_filters = ['ar_XB'])");
+
+    ConfiguredTarget binary = getConfiguredTarget("//java/test:dummyTest");
+    final ImmutableList<ActionAnalysisMetadata> actions =
+        ((RuleConfiguredTarget) binary).getActions();
+
+    ActionAnalysisMetadata aaptAction = null;
+    for (ActionAnalysisMetadata action : actions) {
+      if (action.getMnemonic().equals("AndroidAapt2")) {
+        aaptAction = action;
+      }
+    }
+    assertThat(aaptAction).isNotNull();
+    final List<String> aaptArguments = ((SpawnAction) aaptAction).getArguments();
+    assertThat(aaptArguments).contains("--resourceConfigs");
+    assertThat(aaptArguments).contains("ar_XB");
+  }
+
+  @Test
+  public void featureFlagsSetByAndroidLocalTestAreInRequiredFragments() throws Exception {
+    useConfiguration("--include_config_fragments_provider=direct");
+    scratch.overwriteFile(
+        "tools/whitelists/config_feature_flag/BUILD",
+        "package_group(",
+        "    name = 'config_feature_flag',",
+        "    packages = ['//java/com/google/android/foo'])");
+    scratch.file(
+        "java/com/google/android/foo/BUILD",
+        "load('//java/bar:foo.bzl', 'extra_deps')",
+        "config_feature_flag(",
+        "  name = 'flag1',",
+        "  allowed_values = ['on', 'off'],",
+        "  default_value = 'off',",
+        ")",
+        "android_binary(",
+        "  name = 'foo_under_test',",
+        "  srcs = ['Test.java'],",
+        "  manifest = 'AndroidManifest.xml',",
+        ")",
+        "android_local_test(",
+        "    name = 'local_test',",
+        "    srcs = ['test.java'],",
+        "    deps = extra_deps,",
+        "    feature_flags = {",
+        "      'flag1': 'on',",
+        "    },",
+        "    resource_configuration_filters = ['ar_XB'])");
+
+    ConfiguredTarget ct = getConfiguredTarget("//java/com/google/android/foo:local_test");
+    assertThat(ct.getProvider(RequiredConfigFragmentsProvider.class).getRequiredConfigFragments())
+        .contains("//java/com/google/android/foo:flag1");
   }
 
   @Override

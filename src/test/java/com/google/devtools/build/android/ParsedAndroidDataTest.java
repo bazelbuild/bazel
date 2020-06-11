@@ -14,7 +14,7 @@
 package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -101,9 +101,16 @@ public class ParsedAndroidDataTest {
                 ImmutableSet.of(
                     MergeConflict.of(
                         key,
-                        DataValueFile.of(Visibility.UNKNOWN, assetSource, /*fingerprint=*/ null),
                         DataValueFile.of(
-                            Visibility.UNKNOWN, otherAssetSource, /*fingerprint=*/ null))),
+                            Visibility.UNKNOWN,
+                            assetSource,
+                            /*fingerprint=*/ null,
+                            /*rootXmlNode=*/ null),
+                        DataValueFile.of(
+                            Visibility.UNKNOWN,
+                            otherAssetSource,
+                            /*fingerprint=*/ null,
+                            /*rootXmlNode=*/ null))),
                 ImmutableMap.<DataKey, DataResource>of(),
                 ImmutableMap.<DataKey, DataResource>of(),
                 ImmutableMap.<DataKey, DataAsset>of(
@@ -111,7 +118,8 @@ public class ParsedAndroidDataTest {
                     DataValueFile.of(
                         Visibility.UNKNOWN,
                         otherAssetSource.overwrite(assetSource),
-                        /*fingerprint=*/ null))));
+                        /*fingerprint=*/ null,
+                        /*rootXmlNode=*/ null))));
   }
 
   @Test
@@ -357,9 +365,15 @@ public class ParsedAndroidDataTest {
                     MergeConflict.of(
                         drawableMenu,
                         DataValueFile.of(
-                            Visibility.UNKNOWN, rootDrawableMenuPath, /*fingerprint=*/ null),
+                            Visibility.UNKNOWN,
+                            rootDrawableMenuPath,
+                            /*fingerprint=*/ null,
+                            /*rootXmlNode=*/ null),
                         DataValueFile.of(
-                            Visibility.UNKNOWN, otherRootDrawableMenuPath, /*fingerprint=*/ null)),
+                            Visibility.UNKNOWN,
+                            otherRootDrawableMenuPath,
+                            /*fingerprint=*/ null,
+                            /*rootXmlNode=*/ null)),
                     MergeConflict.of(
                         stringExit,
                         DataResourceXml.createWithNoNamespace(
@@ -382,7 +396,8 @@ public class ParsedAndroidDataTest {
                     DataValueFile.of(
                         Visibility.UNKNOWN,
                         otherRootDrawableMenuPath.overwrite(rootDrawableMenuPath),
-                        /*fingerprint=*/ null), // value
+                        /*fingerprint=*/ null,
+                        /*rootXmlNode=*/ null), // value
                     attributeFoo, // key
                     DataResourceXml.createWithNoNamespace(
                         otherRootValuesPath.overwrite(rootValuesPath),

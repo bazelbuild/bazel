@@ -12,7 +12,6 @@ java_test(
     size = "small",
     srcs = ["IdXmlResourceValueTest.java"],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//src/tools/android/java/com/google/devtools/build/android/proto:resources_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/resources",

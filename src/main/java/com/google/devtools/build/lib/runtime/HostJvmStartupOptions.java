@@ -39,14 +39,13 @@ public class HostJvmStartupOptions extends OptionsBase {
   public String serverJavabase;
 
   @Option(
-    name = "host_jvm_args",
-    defaultValue = "", // NOTE: purely decorative!  See BlazeServerStartupOptions.
-    allowMultiple = true,
-    valueHelp = "<jvm_arg>",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Flags to pass to the JVM executing Blaze."
-  )
+      name = "host_jvm_args",
+      defaultValue = "null", // NOTE: purely decorative!  See BlazeServerStartupOptions.
+      allowMultiple = true,
+      valueHelp = "<jvm_arg>",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Flags to pass to the JVM executing Blaze.")
   public List<String> hostJvmArgs;
 
   @Option(

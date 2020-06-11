@@ -22,4 +22,5 @@ filegroup(
         "BUILD",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )

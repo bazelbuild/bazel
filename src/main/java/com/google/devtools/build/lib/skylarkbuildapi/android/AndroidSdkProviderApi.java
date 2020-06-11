@@ -18,18 +18,19 @@ import com.google.devtools.build.lib.skylarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollectionApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Configured targets implementing this provider can contribute Android Sdk information to the
  * compilation.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidSdkInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -45,10 +46,10 @@ public interface AndroidSdkProviderApi<
   String NAME = "AndroidSdkInfo";
 
   /** The value of build_tools_version. May be null or empty. */
-  @SkylarkCallable(name = "build_tools_version", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "build_tools_version", structField = true, doc = "", documented = false)
   String getBuildToolsVersion();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "framework_aidl",
       structField = true,
       doc = "",
@@ -56,7 +57,7 @@ public interface AndroidSdkProviderApi<
       allowReturnNones = true)
   FileT getFrameworkAidl();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "aidl_lib",
       structField = true,
       doc = "",
@@ -65,10 +66,10 @@ public interface AndroidSdkProviderApi<
   @Nullable
   TransT getAidlLib();
 
-  @SkylarkCallable(name = "android_jar", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "android_jar", structField = true, doc = "", documented = false)
   FileT getAndroidJar();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "source_properties",
       structField = true,
       doc = "",
@@ -77,31 +78,31 @@ public interface AndroidSdkProviderApi<
   @Nullable
   FileT getSourceProperties();
 
-  @SkylarkCallable(name = "shrinked_android_jar", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "shrinked_android_jar", structField = true, doc = "", documented = false)
   FileT getShrinkedAndroidJar();
 
-  @SkylarkCallable(name = "main_dex_classes", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "main_dex_classes", structField = true, doc = "", documented = false)
   FileT getMainDexClasses();
 
-  @SkylarkCallable(name = "adb", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "adb", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAdb();
 
-  @SkylarkCallable(name = "dx", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "dx", structField = true, doc = "", documented = false)
   FilesToRunProviderT getDx();
 
-  @SkylarkCallable(name = "main_dex_list_creator", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "main_dex_list_creator", structField = true, doc = "", documented = false)
   FilesToRunProviderT getMainDexListCreator();
 
-  @SkylarkCallable(name = "aidl", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "aidl", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAidl();
 
-  @SkylarkCallable(name = "aapt", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "aapt", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAapt();
 
-  @SkylarkCallable(name = "aapt2", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "aapt2", structField = true, doc = "", documented = false)
   FilesToRunProviderT getAapt2();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "apk_builder",
       structField = true,
       doc = "",
@@ -110,17 +111,17 @@ public interface AndroidSdkProviderApi<
   @Nullable
   FilesToRunProviderT getApkBuilder();
 
-  @SkylarkCallable(name = "apk_signer", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "apk_signer", structField = true, doc = "", documented = false)
   FilesToRunProviderT getApkSigner();
 
-  @SkylarkCallable(name = "proguard", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "proguard", structField = true, doc = "", documented = false)
   FilesToRunProviderT getProguard();
 
-  @SkylarkCallable(name = "zip_align", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "zip_align", structField = true, doc = "", documented = false)
   FilesToRunProviderT getZipalign();
 
   /** The provider implementing this can construct the AndroidSdkInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -132,7 +133,7 @@ public interface AndroidSdkProviderApi<
           TransT extends TransitiveInfoCollectionApi>
       extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidSdkInfo</code> constructor.",
         documented = false,
@@ -242,9 +243,17 @@ public interface AndroidSdkProviderApi<
               positional = true,
               named = false,
               type = FilesToRunProviderApi.class),
+          @Param(
+              name = "system",
+              doc = "",
+              noneable = true,
+              defaultValue = "None",
+              positional = true,
+              named = false,
+              type = StarlarkValue.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AndroidSdkProviderApi.class)
+    @StarlarkConstructor(objectType = AndroidSdkProviderApi.class)
     AndroidSdkProviderApi<FileT, FilesToRunProviderT, TransT> createInfo(
         String buildToolsVersion,
         FileT frameworkAidl,
@@ -262,7 +271,8 @@ public interface AndroidSdkProviderApi<
         /*noneable*/ Object apkBuilder,
         FilesToRunProviderT apkSigner,
         FilesToRunProviderT proguard,
-        FilesToRunProviderT zipalign)
+        FilesToRunProviderT zipalign,
+        /*noneable*/ Object system)
         throws EvalException;
   }
 }

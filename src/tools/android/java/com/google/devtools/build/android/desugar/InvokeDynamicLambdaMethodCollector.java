@@ -32,12 +32,12 @@ class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
   private boolean needOuterClassRewrite = false;
 
   public InvokeDynamicLambdaMethodCollector() {
-    super(Opcodes.ASM7);
+    super(Opcodes.ASM8);
   }
 
   /**
-   * Returns whether the visited class is declared in the scope of a lambda.  In that case
-   * {@link LambdaDesugaring} will want to rewrite the EnclosingMethod attribute of the class.
+   * Returns whether the visited class is declared in the scope of a lambda. In that case {@link
+   * LambdaDesugaring} will want to rewrite the EnclosingMethod attribute of the class.
    */
   public boolean needOuterClassRewrite() {
     return needOuterClassRewrite;
@@ -64,7 +64,7 @@ class InvokeDynamicLambdaMethodCollector extends ClassVisitor {
   private class LambdaMethodCollector extends MethodVisitor {
 
     public LambdaMethodCollector(MethodVisitor dest) {
-      super(Opcodes.ASM7, dest);
+      super(Opcodes.ASM8, dest);
     }
 
     @Override

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 
 /** Dynamic transition to the host configuration. */
@@ -31,7 +32,7 @@ public final class HostTransition implements PatchTransition {
   }
 
   @Override
-  public BuildOptions patch(BuildOptions options) {
+  public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
     if (options.get(CoreOptions.class).isHost) {
       // If the input already comes from the host configuration, just return the existing values.
       //

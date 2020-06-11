@@ -1,44 +1,12 @@
 ---
 layout: documentation
-title: Concepts and Terminology
+title: Concepts and terminology
 ---
-<h1>Concepts and Terminology</h1>
+<h1>Concepts and terminology</h1>
 <p>
   This document provides an overview of the source tree layout and the
   terminology used in Bazel.
 </p>
-<h2>Table of Contents</h2>
-
-<ul>
-  <li><a href="#intro">Introduction</a></li>
-
-  <li><a href="#packages_targets">Workspace, Packages and Targets</a>
-    <ul>
-      <li><a href="#workspace">Workspace</a></li>
-      <li><a href="#repositories">Repositories</a></li>
-      <li><a href="#packages">Packages</a></li>
-      <li><a href="#targets">Targets</a></li>
-      <li><a href="#labels">Labels</a></li>
-      <li><a href="#lexi">Lexical Specifications of a Label</a></li>
-      <li><a href="#rules">Rules</a></li>
-    </ul>
-  </li>
-  <li><a href="#BUILD_files">BUILD Files</a>
-    <ul>
-      <li><a href="#load">Loading an extension</a></li>
-    </ul>
-  </li>
-  <li><a href="#funcs">Types of Build Rules</a></li>
-
-  <li><a href="#dependencies">Dependencies</a>
-    <ul>
-      <li><a href="#actual_and_declared_dependencies">Actual and Declared Dependencies</a></li>
-      <li><a href="#types_of_dependencies">Types of Dependencies</a></li>
-      <li><a href="#label_directory">Using Labels to Reference Directories</a></li>
-    </ul>
-  </li>
-</ul>
-
 <h2 id="intro">Introduction</h2>
 
 <p>Bazel builds software from source code organized in a directory called
@@ -47,7 +15,7 @@ title: Concepts and Terminology
    of related source files and one BUILD file. The BUILD file specifies what
    software outputs can be built from the source.
 </p>
-<h2 id="packages_targets">Workspace, Packages and Targets</h2>
+<h2 id="packages_targets">Workspace, packages and targets</h2>
 <h3 id="workspace">Workspace</h3>
 
 <p>A <em>workspace</em> is a directory on your filesystem that contains the
@@ -75,7 +43,7 @@ title: Concepts and Terminology
 <p>The workspace rules bundled with Bazel are documented in the
    <a href="be/workspace.html">Workspace Rules</a> section in the Build
    Encyclopedia and the documentation on
-   <a href="repo/index.html">embeded Starlark repository rules</a>.</p>
+   <a href="repo/index.html">embedded Starlark repository rules</a>.</p>
 
 <p>As external repositories are repositories themselves, they often contain
    a <code>WORKSPACE</code> file as well. However, these additional
@@ -298,6 +266,18 @@ testdata/input.txt
   <code>//my/app/testdata:testdepot.zip</code>.
 </p>
 
+<p>
+  Labels starting with <code>@//</code> are references to the main
+  repository, which will still work even from external repositories.
+  Therefore <code>@//a/b/c</code> is different from
+  <code>//a/b/c</code> when referenced from an external repository.
+  The former refers back to the main repository, while the latter
+  looks for <code>//a/b/c</code> in the external repository itself.
+  This is especially relevant when writing rules in the main
+  repository that refer to targets in the main repository, and will be
+  used from external repositories.
+</p>
+
 <h3 id="lexi">Lexical specification of a label</h3>
 
 <p>
@@ -452,7 +432,7 @@ cc_binary(
 </p>
 
 
-<h2 id="BUILD_files">BUILD Files</h2>
+<h2 id="BUILD_files">BUILD files</h2>
 
 <p>
   The previous section described packages, targets and labels, and the
@@ -672,7 +652,7 @@ a <code>.bzl</code> file visible.
 </p>
 
 <p>
-  It is important that it not be too much of an overapproximation,
+  It is important that it is not too much of an overapproximation,
   though, since redundant declared dependencies can make builds slower and
   binaries larger.
 </p>
@@ -684,7 +664,7 @@ a <code>.bzl</code> file visible.
 
   Failure to observe this principle causes undefined behavior: the
   build may fail, but worse, the build may depend on some prior
-  operations, or upon which transitive declared dependencies the target
+  operations, or upon transitive declared dependencies the target
   happens to have.  The build tool attempts aggressively to check for
   missing dependencies and report errors, but it is not possible for
   this checking to be complete in all cases.
@@ -782,7 +762,8 @@ All is well.
 <p><b>2. A latent hazard is introduced.</b></p>
 <p>
   Someone carelessly adds code to <code>a</code> that creates a direct
-  actual dependency on <code>c</code>, but forgets to declare it.
+  actual dependency on <code>c</code>, but forgets to declare it in
+  the build file <code>a/BUILD</code>.
 </p>
 <div style="float:left; width: 49%; margin-top: -20px; ">
 <p><code>a/a.in</code></p>
@@ -949,7 +930,7 @@ them by joining the paths of the test's source directory and the workspace-relat
 path, e.g.
 
 <code>${TEST_SRCDIR}/workspace/path/to/data/file</code>.
-   <h3 id="label_directory">Using Labels to Reference Directories</h3>
+   <h3 id="label_directory">Using labels to reference directories</h3>
 
    <p>As you look over our <code>BUILD</code> files, you might notice
       that some <code>data</code> labels refer to directories.

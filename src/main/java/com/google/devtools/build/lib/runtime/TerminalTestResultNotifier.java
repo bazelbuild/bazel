@@ -13,17 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.DETAILED;
-import static com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat.TESTCASE;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.DETAILED;
+import static com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat.TESTCASE;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.test.TestResult;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestSummaryFormat;
 import com.google.devtools.build.lib.exec.TestLogHelper;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
-import com.google.devtools.build.lib.exec.TestStrategy.TestSummaryFormat;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
@@ -61,6 +61,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
     int totalTestCases;
     int totalFailedTestCases;
+    int totalUnknownTestCases;
   }
 
   /**
@@ -224,8 +225,9 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
         stats.wasUnreportedWrongSize = true;
       }
 
-      stats.totalFailedTestCases += summary.getFailedTestCases().size();
       stats.totalTestCases += summary.getTotalTestCases();
+      stats.totalUnknownTestCases += summary.getUnkownTestCases();
+      stats.totalFailedTestCases += summary.getFailedTestCases().size();
     }
 
     stats.failedCount = summaries.size() - stats.passCount;
@@ -279,7 +281,8 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
   private void printStats(TestResultStats stats) {
     TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
     if (testSummaryFormat == DETAILED || testSummaryFormat == TESTCASE) {
-      int passCount = stats.totalTestCases - stats.totalFailedTestCases;
+      int passCount =
+          stats.totalTestCases - stats.totalFailedTestCases - stats.totalUnknownTestCases;
       String message =
           String.format(
               "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
@@ -290,10 +293,10 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
               stats.totalFailedTestCases,
               AnsiTerminalPrinter.Mode.DEFAULT,
               stats.totalTestCases);
-      if (passCount > 0 && stats.totalFailedTestCases == 0 && stats.failedCount > 0) {
+      if (stats.totalUnknownTestCases != 0) {
         // It is possible for a target to fail even if all of its test cases pass. To avoid
         // confusion, we append the following disclaimer.
-        message += "\n(however note that at least one target failed)";
+        message += " (some targets did not have test case information)";
       }
       printer.printLn(message);
     }

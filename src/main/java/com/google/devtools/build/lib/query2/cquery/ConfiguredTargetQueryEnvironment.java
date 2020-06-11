@@ -129,18 +129,11 @@ public class ConfiguredTargetQueryEnvironment
         settings);
     this.accessor = new ConfiguredTargetAccessor(walkableGraphSupplier.get(), this);
     this.configuredTargetKeyExtractor =
-        element -> {
-          try {
-            return ConfiguredTargetKey.of(
-                element,
-                element.getConfigurationKey() == null
-                    ? null
-                    : ((BuildConfigurationValue) graph.getValue(element.getConfigurationKey()))
-                        .getConfiguration());
-          } catch (InterruptedException e) {
-            throw new IllegalStateException("Interruption unexpected in configured query", e);
-          }
-        };
+        element ->
+            ConfiguredTargetKey.builder()
+                .setConfiguredTarget(element)
+                .setConfigurationKey(element.getConfigurationKey())
+                .build();
     this.transitiveConfigurations =
         getTransitiveConfigurations(transitiveConfigurationKeys, walkableGraphSupplier.get());
   }
@@ -182,6 +175,15 @@ public class ConfiguredTargetQueryEnvironment
     return ImmutableList.of(new ConfigFunction());
   }
 
+  private static BuildConfiguration mergeEqualBuildConfiguration(
+      BuildConfiguration left, BuildConfiguration right) {
+    if (!left.equals(right)) {
+      throw new IllegalArgumentException(
+          "Non-matching configurations " + left.checksum() + ", " + right.checksum());
+    }
+    return left;
+  }
+
   private static ImmutableMap<String, BuildConfiguration> getTransitiveConfigurations(
       Collection<SkyKey> transitiveConfigurationKeys, WalkableGraph graph)
       throws InterruptedException {
@@ -189,7 +191,11 @@ public class ConfiguredTargetQueryEnvironment
         .map(value -> (BuildConfigurationValue) value)
         .map(BuildConfigurationValue::getConfiguration)
         .sorted(Comparator.comparing(BuildConfiguration::checksum))
-        .collect(ImmutableMap.toImmutableMap(BuildConfiguration::checksum, Functions.identity()));
+        .collect(
+            ImmutableMap.toImmutableMap(
+                BuildConfiguration::checksum,
+                Functions.identity(),
+                ConfiguredTargetQueryEnvironment::mergeEqualBuildConfiguration));
   }
 
   @Override
@@ -206,7 +212,9 @@ public class ConfiguredTargetQueryEnvironment
         cqueryOptions.aspectDeps.createResolver(packageManager, eventHandler);
     return ImmutableList.of(
         new LabelAndConfigurationOutputFormatterCallback(
-            eventHandler, cqueryOptions, out, skyframeExecutor, accessor),
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, true),
+        new LabelAndConfigurationOutputFormatterCallback(
+            eventHandler, cqueryOptions, out, skyframeExecutor, accessor, false),
         new TransitionsOutputFormatterCallback(
             eventHandler,
             cqueryOptions,
@@ -283,11 +291,7 @@ public class ConfiguredTargetQueryEnvironment
                       partialResult -> {
                         List<ConfiguredTarget> transformedResult = new ArrayList<>();
                         for (Target target : partialResult) {
-                          ConfiguredTarget configuredTarget =
-                              getConfiguredTarget(target.getLabel());
-                          if (configuredTarget != null) {
-                            transformedResult.add(configuredTarget);
-                          }
+                          transformedResult.addAll(getConfiguredTargets(target.getLabel()));
                         }
                         callback.process(transformedResult);
                       },
@@ -300,37 +304,15 @@ public class ConfiguredTargetQueryEnvironment
     }
   }
 
-  private ConfiguredTarget getConfiguredTarget(Label label) throws InterruptedException {
-    // Try with target configuration.
-    ConfiguredTarget configuredTarget = getTargetConfiguredTarget(label);
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-    // Try with host configuration (even when --notool_deps is set in the case that top-level
-    // targets are configured in the host configuration so we are doing a host-configuration-only
-    // query).
-    configuredTarget = getHostConfiguredTarget(label);
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-
-    // Try as a source file.
-    configuredTarget = getNullConfiguredTarget(label);
-    if (configuredTarget != null) {
-      return configuredTarget;
-    }
-
-    // Finally, try every other configuration in the build (e.g. configurations that are the result
-    // of transitions and therefore not top-level).
-    for (BuildConfiguration configuration : transitiveConfigurations.values()) {
-      configuredTarget = getValueFromKey(ConfiguredTargetValue.key(label, configuration));
-      if (configuredTarget != null) {
-        return configuredTarget;
-      }
-    }
-
-    // No matches: give up.
-    return null;
+  /**
+   * Returns the {@link ConfiguredTarget} for the given label and configuration if it exists, else
+   * null.
+   */
+  @Nullable
+  private ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration configuration)
+      throws InterruptedException {
+    return getValueFromKey(
+        ConfiguredTargetKey.builder().setLabel(label).setConfiguration(configuration).build());
   }
 
   @Override
@@ -338,6 +320,26 @@ public class ConfiguredTargetQueryEnvironment
   protected ConfiguredTarget getValueFromKey(SkyKey key) throws InterruptedException {
     ConfiguredTargetValue value = getConfiguredTargetValue(key);
     return value == null ? null : value.getConfiguredTarget();
+  }
+
+  /**
+   * Returns all configured targets in Skyframe with the given label.
+   *
+   * <p>If there are no matches, returns an empty list.
+   */
+  private List<ConfiguredTarget> getConfiguredTargets(Label label) throws InterruptedException {
+    ImmutableList.Builder<ConfiguredTarget> ans = ImmutableList.builder();
+    for (BuildConfiguration config : transitiveConfigurations.values()) {
+      ConfiguredTarget ct = getConfiguredTarget(label, config);
+      if (ct != null) {
+        ans.add(ct);
+      }
+    }
+    ConfiguredTarget nullConfiguredTarget = getNullConfiguredTarget(label);
+    if (nullConfiguredTarget != null) {
+      ans.add(nullConfiguredTarget);
+    }
+    return ans.build();
   }
 
   /**
@@ -356,42 +358,50 @@ public class ConfiguredTargetQueryEnvironment
       ThreadSafeMutableSet<ConfiguredTarget> targets,
       String configuration,
       Callback<ConfiguredTarget> callback) {
-    return new QueryTaskCallable<Void>() {
-      @Override
-      public Void call() throws QueryException, InterruptedException {
-        List<ConfiguredTarget> transformedResult = new ArrayList<>();
-        for (ConfiguredTarget target : targets) {
-          Label label = getCorrectLabel(target);
-          ConfiguredTarget configuredTarget;
-          switch (configuration) {
-            case "\'host\'":
-              configuredTarget = getHostConfiguredTarget(label);
+    return () -> {
+      List<ConfiguredTarget> transformedResult = new ArrayList<>();
+      boolean userFriendlyConfigName = true;
+      for (ConfiguredTarget target : targets) {
+        Label label = getCorrectLabel(target);
+        ConfiguredTarget configuredTarget;
+        switch (configuration) {
+          case "host":
+            configuredTarget = getHostConfiguredTarget(label);
+            break;
+          case "target":
+            configuredTarget = getTargetConfiguredTarget(label);
+            break;
+          case "null":
+            configuredTarget = getNullConfiguredTarget(label);
+            break;
+          default:
+            BuildConfiguration config = transitiveConfigurations.get(configuration);
+            if (config != null) {
+              configuredTarget = getConfiguredTarget(label, config);
+              userFriendlyConfigName = false;
               break;
-            case "\'target\'":
-              configuredTarget = getTargetConfiguredTarget(label);
-              break;
-            case "\'null\'":
-              configuredTarget = getNullConfiguredTarget(label);
-              break;
-            default:
-              throw new QueryException(
-                  "the second argument of the config function must be 'target', 'host', or 'null'");
-          }
-          if (configuredTarget != null) {
-            transformedResult.add(configuredTarget);
-          }
+            }
+            throw new QueryException(
+                "Unknown value '"
+                    + configuration
+                    + "'. The second argument of config() must be 'target', 'host', 'null', or a"
+                    + " valid configuration hash (i.e. one of the outputs of 'blaze config')");
         }
-        if (transformedResult.isEmpty()) {
-          throw new QueryException(
-              "No target (in) "
-                  + pattern
-                  + " could be found in the "
-                  + configuration
-                  + " configuration");
+        if (configuredTarget != null) {
+          transformedResult.add(configuredTarget);
         }
-        callback.process(transformedResult);
-        return null;
       }
+      if (transformedResult.isEmpty()) {
+        throw new QueryException(
+            String.format(
+                "No target (in) %s could be found in the %s",
+                pattern,
+                userFriendlyConfigName
+                    ? "'" + configuration + "' configuration"
+                    : "configuration with checksum '" + configuration + "'"));
+      }
+      callback.process(transformedResult);
+      return null;
     };
   }
 
@@ -401,29 +411,26 @@ public class ConfiguredTargetQueryEnvironment
    */
   @Override
   public Label getCorrectLabel(ConfiguredTarget target) {
-    if (target instanceof AliasConfiguredTarget) {
-      return ((AliasConfiguredTarget) target).getOriginalLabel();
-    }
-    return target.getLabel();
+    // Dereference any aliases that might be present.
+    return target.getOriginalLabel();
   }
 
   @Nullable
   @Override
   protected ConfiguredTarget getHostConfiguredTarget(Label label) throws InterruptedException {
-    return getValueFromKey(ConfiguredTargetValue.key(label, hostConfiguration));
+    return getConfiguredTarget(label, hostConfiguration);
   }
 
   @Nullable
   @Override
   protected ConfiguredTarget getTargetConfiguredTarget(Label label) throws InterruptedException {
     if (topLevelConfigurations.isTopLevelTarget(label)) {
-      return getValueFromKey(
-          ConfiguredTargetValue.key(
-              label, topLevelConfigurations.getConfigurationForTopLevelTarget(label)));
+      return getConfiguredTarget(
+          label, topLevelConfigurations.getConfigurationForTopLevelTarget(label));
     } else {
       ConfiguredTarget toReturn;
       for (BuildConfiguration configuration : topLevelConfigurations.getConfigurations()) {
-        toReturn = getValueFromKey(ConfiguredTargetValue.key(label, configuration));
+        toReturn = getConfiguredTarget(label, configuration);
         if (toReturn != null) {
           return toReturn;
         }
@@ -435,7 +442,7 @@ public class ConfiguredTargetQueryEnvironment
   @Nullable
   @Override
   protected ConfiguredTarget getNullConfiguredTarget(Label label) throws InterruptedException {
-    return getValueFromKey(ConfiguredTargetValue.key(label, null));
+    return getConfiguredTarget(label, null);
   }
 
   @Nullable
@@ -462,7 +469,10 @@ public class ConfiguredTargetQueryEnvironment
 
   @Override
   protected ConfiguredTargetKey getSkyKey(ConfiguredTarget target) {
-    return ConfiguredTargetKey.of(target, getConfiguration(target));
+    return ConfiguredTargetKey.builder()
+        .setConfiguredTarget(target)
+        .setConfiguration(getConfiguration(target))
+        .build();
   }
 
   @Override
@@ -473,4 +483,3 @@ public class ConfiguredTargetQueryEnvironment
         SkyQueryEnvironment.DEFAULT_THREAD_COUNT);
   }
 }
-

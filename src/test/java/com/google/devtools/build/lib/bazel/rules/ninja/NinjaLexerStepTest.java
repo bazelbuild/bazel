@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.bazel.rules.ninja.file.ByteBufferFragment;
+import com.google.devtools.build.lib.bazel.rules.ninja.file.FileFragment;
 import com.google.devtools.build.lib.bazel.rules.ninja.lexer.NinjaLexerStep;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -130,12 +130,29 @@ public class NinjaLexerStepTest {
     doTest("abc_d-18", NinjaLexerStep::tryReadIdentifier);
     doTest("abc_d-18.ccc", NinjaLexerStep::tryReadIdentifier);
     doTest("abc_d-18.ccc=", NinjaLexerStep::tryReadIdentifier, "abc_d-18.ccc", true);
+    // Have a longer text to demonstrate the error output.
     doTestError(
-        "^abc",
+        "^abc Bazel only rebuilds what is necessary. "
+            + "With advanced local and distributed caching, optimized dependency analysis "
+            + "and parallel execution, you get fast and incremental builds.",
         NinjaLexerStep::tryReadIdentifier,
         "^",
         true,
-        "Symbol is not allowed in the identifier.");
+        "Symbol '^' is not allowed in the identifier, the text fragment with the symbol:\n"
+            + "^abc Bazel only rebuilds what is necessary. With advanced local and distributed"
+            + " caching, optimized dependency analysis and parallel execution,"
+            + " you get fast and incremental builds.\n");
+  }
+
+  @Test
+  public void testReadPath() {
+    doTest(
+        "this/is/the/relative/path.txt",
+        NinjaLexerStep::readPath,
+        "this/is/the/relative/path.txt",
+        false);
+    doTest(
+        "relative/text#.properties", NinjaLexerStep::readPath, "relative/text#.properties", false);
   }
 
   @Test
@@ -181,6 +198,6 @@ public class NinjaLexerStepTest {
 
   private static NinjaLexerStep step(String text) {
     ByteBuffer bb = ByteBuffer.wrap(text.getBytes(StandardCharsets.ISO_8859_1));
-    return new NinjaLexerStep(new ByteBufferFragment(bb, 0, bb.limit()), 0);
+    return new NinjaLexerStep(new FileFragment(bb, 0, 0, bb.limit()), 0);
   }
 }

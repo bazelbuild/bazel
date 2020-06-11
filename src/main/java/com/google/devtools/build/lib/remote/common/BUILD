@@ -1,17 +1,18 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib/remote:__pkg__"],
+    srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
     name = "common",
     srcs = glob(["*.java"]),
-    tags = ["bazel"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",

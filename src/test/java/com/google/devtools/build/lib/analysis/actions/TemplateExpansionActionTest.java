@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
@@ -85,8 +86,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private void createArtifacts(String template) throws Exception {
     ArtifactRoot workspace = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
-    outputRoot =
-        ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), scratch.dir("/workspace/out"));
+    scratch.dir("/workspace/out");
+    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/workspace"), "out");
     Path input = scratch.overwriteFile("/workspace/input.txt", StandardCharsets.UTF_8, template);
     inputArtifact = ActionsTestUtil.createArtifact(workspace, input);
     output = scratch.resolve("/workspace/out/destination.txt");
@@ -101,7 +102,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testInputsIsEmpty() {
-    assertThat(create().getInputs()).isEmpty();
+    assertThat(create().getInputs().toList()).isEmpty();
   }
 
   @Test
@@ -195,6 +196,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         /*metadataHandler=*/ null,
+        /*rewindingEnabled=*/ false,
         LostInputsCheck.NONE,
         new FileOutErr(),
         new StoredEventHandler(),
@@ -202,7 +204,8 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
         /*topLevelFilesets=*/ ImmutableMap.of(),
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.DEFAULT);
   }
 
   private void executeTemplateExpansion(String expected) throws Exception {
@@ -219,7 +222,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   @Test
   public void testArtifactTemplateHasInput() {
-    assertThat(createWithArtifact().getInputs()).containsExactly(inputArtifact);
+    assertThat(createWithArtifact().getInputs().toList()).containsExactly(inputArtifact);
   }
 
   @Test

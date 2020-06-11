@@ -361,7 +361,7 @@ def _impl(ctx):
             ],
         )
     elif (ctx.attr.cpu == "freebsd" or
-          ctx.atr.cpu == "openbsd"):
+          ctx.attr.cpu == "openbsd"):
         default_link_flags_feature = feature(
             name = "default_link_flags",
             enabled = True,

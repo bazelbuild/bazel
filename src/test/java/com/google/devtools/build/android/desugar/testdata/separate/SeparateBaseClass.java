@@ -15,9 +15,7 @@ package com.google.devtools.build.android.desugar.testdata.separate;
 
 import java.util.List;
 
-/**
- * Test base class for testing method references to protected methods in another compilation.
- */
+/** Test base class for testing method references to protected methods in another compilation. */
 public class SeparateBaseClass<T> {
 
   private final List<T> list;

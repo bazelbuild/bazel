@@ -57,7 +57,6 @@ public class RemoteRetrier extends Retrier {
           case ABORTED:
           case INTERNAL:
           case UNAVAILABLE:
-          case UNAUTHENTICATED:
           case RESOURCE_EXHAUSTED:
             return true;
           default:
@@ -107,20 +106,23 @@ public class RemoteRetrier extends Retrier {
 
   /**
    * Execute a callable with retries. {@link IOException} and {@link InterruptedException} are
-   * propagated directly to the caller. All other exceptions are wrapped in {@link RuntimeError}.
+   * propagated directly to the caller. All other exceptions are wrapped in {@link
+   * RuntimeException}.
    */
   @Override
   public <T> T execute(Callable<T> call) throws IOException, InterruptedException {
     try {
       return super.execute(call);
     } catch (Exception e) {
-      Throwables.propagateIfInstanceOf(e, IOException.class);
-      Throwables.propagateIfInstanceOf(e, InterruptedException.class);
-      throw Throwables.propagate(e);
+      Throwables.throwIfInstanceOf(e, IOException.class);
+      Throwables.throwIfInstanceOf(e, InterruptedException.class);
+      Throwables.throwIfUnchecked(e);
+      throw new RuntimeException(e);
     }
   }
 
-  static class ExponentialBackoff implements Backoff {
+  /** Backoff strategy that backs off exponentially. */
+  public static class ExponentialBackoff implements Backoff {
 
     private final long maxMillis;
     private long nextDelayMillis;
@@ -152,7 +154,7 @@ public class RemoteRetrier extends Retrier {
       this.maxAttempts = maxAttempts;
     }
 
-    ExponentialBackoff(RemoteOptions options) {
+    public ExponentialBackoff(RemoteOptions options) {
       this(
           /* initial = */ Duration.ofMillis(100),
           /* max = */ Duration.ofSeconds(5),

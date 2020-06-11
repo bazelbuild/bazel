@@ -14,18 +14,18 @@ package com.google.devtools.build.lib.rules.cpp;
 // limitations under the License.
 
 import com.google.auto.value.AutoValue;
-import com.google.auto.value.AutoValue.CopyAnnotations;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.LibraryToLinkApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -40,10 +40,14 @@ import javax.annotation.Nullable;
  */
 @AutoValue
 @Immutable
-@CopyAnnotations
 public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
 
-  public static final SkylarkType TYPE = SkylarkType.of(LibraryToLink.class);
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
+  public static final Depset.ElementType TYPE = Depset.ElementType.of(LibraryToLink.class);
 
   public Artifact getDynamicLibraryForRuntimeOrNull(boolean linkingStatically) {
     if (getDynamicLibrary() == null) {
@@ -125,7 +129,7 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   @Override
   public abstract boolean getAlwayslink();
 
-  // TODO(plf): This is just needed for Go, do not expose to Skylark and try to remove it. This was
+  // TODO(plf): This is just needed for Go, do not expose to Starlark and try to remove it. This was
   // introduced to let a linker input declare that it needs debug info in the executable.
   // Specifically, this was introduced for linking Go into a C++ binary when using the gccgo
   // compiler.
@@ -268,9 +272,9 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
     return dynamicLibrariesForRuntimeBuilder.build();
   }
 
-  public static List<Artifact> getDynamicLibrariesForLinking(Iterable<LibraryToLink> libraries) {
+  public static List<Artifact> getDynamicLibrariesForLinking(NestedSet<LibraryToLink> libraries) {
     ImmutableList.Builder<Artifact> dynamicLibrariesForLinkingBuilder = ImmutableList.builder();
-    for (LibraryToLink libraryToLink : libraries) {
+    for (LibraryToLink libraryToLink : libraries.toList()) {
       if (libraryToLink.getInterfaceLibrary() != null) {
         dynamicLibrariesForLinkingBuilder.add(libraryToLink.getInterfaceLibrary());
       } else if (libraryToLink.getDynamicLibrary() != null) {

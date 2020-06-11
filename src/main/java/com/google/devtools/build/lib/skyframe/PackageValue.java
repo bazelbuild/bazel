@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -41,10 +40,11 @@ public class PackageValue implements NotComparableSkyValue {
   }
 
   /**
-   * Returns the package. This package may contain errors, in which case the caller should throw
-   * a {@link BuildFileContainsErrorsException} if an error-free package is needed. See also
-   * {@link PackageErrorFunction} for the case where encountering a package with errors should shut
-   * down the build but the caller can handle packages with errors.
+   * Returns the package. This package may contain errors, in which case the caller should throw a
+   * {@link com.google.devtools.build.lib.packages.BuildFileContainsErrorsException} if an
+   * error-free package is needed. See also {@link PackageErrorFunction} for the case where
+   * encountering a package with errors should shut down the build but the caller can handle
+   * packages with errors.
    */
   public Package getPackage() {
     return pkg;

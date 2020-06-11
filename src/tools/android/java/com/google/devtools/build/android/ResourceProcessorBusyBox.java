@@ -26,10 +26,14 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.PrintStream;
 import java.nio.file.FileSystems;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -135,8 +139,8 @@ public class ResourceProcessorBusyBox {
     abstract void call(String[] args) throws Exception;
   }
 
-  public static final String PROPERTY_KEY_PREFIX = "rpbb.";
   private static final Logger logger = Logger.getLogger(ResourceProcessorBusyBox.class.getName());
+  private static final Properties properties = loadSiteCustomizations();
 
   /** Converter for the Tool enum. */
   public static final class ToolConverter extends EnumConverter<Tool> {
@@ -175,25 +179,42 @@ public class ResourceProcessorBusyBox {
   }
 
   private static int runPersistentWorker() throws Exception {
-    while (true) {
-      try {
-        WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+    ByteArrayOutputStream buf = new ByteArrayOutputStream();
+    PrintStream ps = new PrintStream(buf, true);
+    PrintStream realStdOut = System.out;
+    PrintStream realStdErr = System.err;
+    try {
+      // Redirect all stdout and stderr output for logging.
+      System.setOut(ps);
+      System.setErr(ps);
 
-        if (request == null) {
-          break;
+      while (true) {
+        try {
+          WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+          if (request == null) {
+            break;
+          }
+
+          int exitCode = processRequest(request.getArgumentsList());
+          ps.flush();
+
+          WorkResponse.newBuilder()
+              .setExitCode(exitCode)
+              .setOutput(buf.toString())
+              .build()
+              .writeDelimitedTo(realStdOut);
+
+          realStdOut.flush();
+          buf.reset();
+        } catch (IOException e) {
+          logger.severe(e.getMessage());
+          e.printStackTrace(realStdErr);
+          return 1;
         }
-
-        int exitCode = processRequest(request.getArgumentsList());
-        WorkResponse.newBuilder()
-            .setExitCode(exitCode)
-            .build()
-            .writeDelimitedTo(System.out);
-        System.out.flush();
-      } catch (IOException e) {
-        logger.severe(e.getMessage());
-        e.printStackTrace();
-        return 1;
       }
+    } finally {
+      System.setOut(realStdOut);
+      System.setErr(realStdErr);
     }
     return 0;
   }
@@ -228,5 +249,23 @@ public class ResourceProcessorBusyBox {
 
   private static void logSuppressed(Throwable e) {
     Arrays.stream(e.getSuppressed()).map(Throwable::getMessage).forEach(logger::severe);
+  }
+
+  /** Returns a flag from {@code rpbb.properties}. */
+  public static boolean getProperty(String name) {
+    return Boolean.parseBoolean(properties.getProperty(name, "false"));
+  }
+
+  private static Properties loadSiteCustomizations() {
+    Properties properties = new Properties();
+    try (InputStream propertiesInput =
+        ResourceProcessorBusyBox.class.getResourceAsStream("rpbb.properties")) {
+      if (propertiesInput != null) {
+        properties.load(propertiesInput);
+      }
+    } catch (IOException e) {
+      logger.log(Level.SEVERE, "Error loading site customizations", e);
+    }
+    return properties;
   }
 }

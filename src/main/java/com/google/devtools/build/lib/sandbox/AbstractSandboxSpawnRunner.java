@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.sandbox;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.SpawnRunner;
@@ -46,17 +48,17 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /** Abstract common ancestor for sandbox spawn runners implementing the common parts. */
 abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   private static final int LOCAL_EXEC_ERROR = -1;
-  private static final int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/128 + /*SIGALRM=*/14;
 
   private static final String SANDBOX_DEBUG_SUGGESTION =
       "\n\nUse --sandbox_debug to see verbose messages from the sandbox";
 
   private final SandboxOptions sandboxOptions;
-  private final boolean verboseFailures;
+  private final Predicate<Label> verboseFailures;
   private final ImmutableSet<Path> inaccessiblePaths;
   protected final BinTools binTools;
   private final Path execRoot;
@@ -64,7 +66,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   public AbstractSandboxSpawnRunner(CommandEnvironment cmdEnv) {
     this.sandboxOptions = cmdEnv.getOptions().getOptions(SandboxOptions.class);
-    this.verboseFailures = cmdEnv.getOptions().getOptions(ExecutionOptions.class).verboseFailures;
+    this.verboseFailures =
+        cmdEnv.getOptions().getOptions(ExecutionOptions.class).getVerboseFailuresPredicate();
     this.inaccessiblePaths =
         sandboxOptions.getInaccessiblePaths(cmdEnv.getRuntime().getFileSystem());
     this.binTools = cmdEnv.getBlazeWorkspace().getBinTools();
@@ -90,6 +93,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   @Override
   public boolean canExec(Spawn spawn) {
     return Spawns.mayBeSandboxed(spawn);
+  }
+
+  @Override
+  public boolean handlesCaching() {
+    return false;
   }
 
   protected abstract SandboxedSpawn prepareSpawn(Spawn spawn, SpawnExecutionContext context)
@@ -139,7 +147,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           null);
     } else {
       return CommandFailureUtils.describeCommandFailure(
-              verboseFailures,
+              verboseFailures.test(originalSpawn.getResourceOwner().getOwner().getLabel()),
               originalSpawn.getArguments(),
               originalSpawn.getEnvironment(),
               sandbox.getSandboxExecRoot().getPathString(),
@@ -156,7 +164,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     subprocessBuilder.setStdout(outErr.getOutputPath().getPathFile());
     subprocessBuilder.setStderr(outErr.getErrorPath().getPathFile());
     subprocessBuilder.setEnv(sandbox.getEnvironment());
-    subprocessBuilder.setArgv(sandbox.getArguments());
+    subprocessBuilder.setArgv(ImmutableList.copyOf(sandbox.getArguments()));
     boolean useSubprocessTimeout = sandbox.useSubprocessTimeout();
     if (useSubprocessTimeout) {
       subprocessBuilder.setTimeoutMillis(timeout.toMillis());
@@ -192,7 +200,8 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     boolean wasTimeout =
         (useSubprocessTimeout && terminationStatus.timedOut())
             || (!useSubprocessTimeout && wasTimeout(timeout, wallTime));
-    int exitCode = wasTimeout ? POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
+    int exitCode =
+        wasTimeout ? SpawnResult.POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
     Status status =
         wasTimeout
             ? Status.TIMEOUT

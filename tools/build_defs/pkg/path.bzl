@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Helper functions that don't depend on Skylark, so can be unit tested."""
+"""Helper functions that don't depend on Starlark, so can be unit tested."""
 
 def _short_path_dirname(path):
     """Returns the directory's name of the short path of an artifact."""
@@ -39,7 +39,7 @@ def compute_data_path(out, data_path):
     if data_path:
         # Strip ./ from the beginning if specified.
         # There is no way to handle .// correctly (no function that would make
-        # that possible and Skylark is not turing complete) so just consider it
+        # that possible and Starlark is not turing complete) so just consider it
         # as an absolute path.
         if len(data_path) >= 2 and data_path[0:2] == "./":
             data_path = data_path[2:]

@@ -15,23 +15,24 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkInterfaceUtils;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.errorprone.annotations.FormatMethod;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkInterfaceUtils;
 
 /**
  * The Starlark class defines the most important entry points, constants, and functions needed by
  * all clients of the Starlark interpreter.
  */
-// TODO(adonovan): move these here:
-// equal, compare, getattr, index, slice, parse, exec, eval, and so on.
+// TODO(adonovan): move these here: equal, compare, getattr, index, parse, exec, eval, and so on.
 public final class Starlark {
 
   private Starlark() {} // uninstantiable
@@ -40,7 +41,7 @@ public final class Starlark {
   public static final NoneType NONE = NoneType.NONE;
 
   /**
-   * A sentinel value passed to optional parameters of SkylarkCallable-annotated methods to indicate
+   * A sentinel value passed to optional parameters of StarlarkMethod-annotated methods to indicate
    * that no argument value was supplied.
    */
   public static final Object UNBOUND = new UnboundMarker();
@@ -75,7 +76,7 @@ public final class Starlark {
     env //
         .put("False", false)
         .put("True", true)
-        .put("None", Starlark.NONE);
+        .put("None", NONE);
     addMethods(env, new MethodLibrary());
     return env.build();
   }
@@ -108,12 +109,12 @@ public final class Starlark {
    * {@link #NONE}. Any other non-Starlark value causes the function to throw
    * IllegalArgumentException.
    *
-   * <p>This function is applied to the results of @SkylarkCallable-annotated Java methods.
+   * <p>This function is applied to the results of @StarlarkMethod-annotated Java methods.
    */
   public static Object fromJava(Object x, @Nullable Mutability mutability) {
     if (x == null) {
       return NONE;
-    } else if (Starlark.valid(x)) {
+    } else if (valid(x)) {
       return x;
     } else if (x instanceof List) {
       return StarlarkList.copyOf(mutability, (List<?>) x);
@@ -144,19 +145,34 @@ public final class Starlark {
   }
 
   /**
+   * Checks whether the Freezable Starlark value is frozen or temporarily immutable due to active
+   * iterators.
+   *
+   * @throws EvalException if the value is not mutable.
+   */
+  public static void checkMutable(Mutability.Freezable x) throws EvalException {
+    if (x.mutability().isFrozen()) {
+      throw errorf("trying to mutate a frozen %s value", type(x));
+    }
+    if (x.updateIteratorCount(0)) {
+      throw errorf("%s value is temporarily immutable due to active for-loop iteration", type(x));
+    }
+  }
+
+  /**
    * Returns an iterable view of {@code x} if it is an iterable Starlark value; throws EvalException
    * otherwise.
    *
-   * <p>Whereas the interpreter temporarily freezes the iterable value using {@link EvalUtils#lock}
-   * and {@link EvalUtils#unlock} while iterating in {@code for} loops and comprehensions, iteration
-   * using this method does not freeze the value. Callers should exercise care not to mutate the
+   * <p>Whereas the interpreter temporarily freezes the iterable value by bracketing {@code for}
+   * loops and comprehensions in calls to {@link Freezable#updateIteratorCount}, iteration using
+   * this method does not freeze the value. Callers should exercise care not to mutate the
    * underlying object during iteration.
    */
   public static Iterable<?> toIterable(Object x) throws EvalException {
     if (x instanceof StarlarkIterable) {
       return (Iterable<?>) x;
     }
-    throw errorf("type '%s' is not iterable", EvalUtils.getDataTypeName(x));
+    throw errorf("type '%s' is not iterable", type(x));
   }
 
   /**
@@ -195,6 +211,63 @@ public final class Starlark {
     }
   }
 
+  /** Returns the name of the type of a value as if by the Starlark expression {@code type(x)}. */
+  public static String type(Object x) {
+    return classType(x.getClass());
+  }
+
+  /**
+   * Returns the name of the type of instances of class c.
+   *
+   * <p>This function accepts any class, not just those of legal Starlark values, and may be used
+   * for reporting error messages involving arbitrary Java classes, for example at the interface
+   * between Starlark and Java.
+   */
+  // TODO(adonovan): reconsider allowing any classes other than String, Integer, Boolean, and
+  // subclasses of StarlarkValue, with a special exception for Object.class meaning "any Starlark
+  // value" (not: any Java object). Ditto for Depset.ElementType.
+  public static String classType(Class<?> c) {
+    // Check for "direct hits" first to avoid needing to scan for annotations.
+    if (c.equals(String.class)) {
+      return "string";
+    } else if (c.equals(Integer.class)) {
+      return "int";
+    } else if (c.equals(Boolean.class)) {
+      return "bool";
+    }
+
+    StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(c);
+    if (module != null) {
+      return module.name();
+
+    } else if (StarlarkCallable.class.isAssignableFrom(c)) {
+      // All callable values have historically been lumped together as "function".
+      // TODO(adonovan): built-in types that don't use StarlarkModule should report
+      // their own type string, but this is a breaking change as users often
+      // use type(x)=="function" for Starlark and built-in functions.
+      return "function";
+
+    } else if (c.equals(Object.class)) {
+      // "Unknown" is another unfortunate choice.
+      // Object.class does mean "unknown" when talking about the type parameter
+      // of a collection (List<Object>), but it also means "any" when used
+      // as an argument to Sequence.cast, and more generally it means "value".
+      return "unknown";
+
+    } else if (List.class.isAssignableFrom(c)) {
+      // Any class of java.util.List that isn't a Sequence.
+      return "List";
+
+    } else if (Map.class.isAssignableFrom(c)) {
+      // Any class of java.util.Map that isn't a Dict.
+      return "Map";
+
+    } else {
+      String simpleName = c.getSimpleName();
+      return simpleName.isEmpty() ? c.getName() : simpleName;
+    }
+  }
+
   /** Returns the string form of a value as if by the Starlark expression {@code str(x)}. */
   public static String str(Object x) {
     return Printer.getPrinter().str(x).toString();
@@ -213,6 +286,100 @@ public final class Starlark {
   /** Returns a string formatted as if by the Starlark expression {@code pattern % arguments}. */
   public static String formatWithList(String pattern, List<?> arguments) {
     return Printer.getPrinter().formatWithList(pattern, arguments).toString();
+  }
+
+  /** Returns a slice of a sequence as if by the Starlark operation {@code x[start:stop:step]}. */
+  public static Object slice(
+      Mutability mu, Object x, Object startObj, Object stopObj, Object stepObj)
+      throws EvalException {
+    int n;
+    if (x instanceof String) {
+      n = ((String) x).length();
+    } else if (x instanceof Sequence) {
+      n = ((Sequence) x).size();
+    } else {
+      throw errorf("invalid slice operand: %s", type(x));
+    }
+
+    int start;
+    int stop;
+    int step;
+
+    // step
+    if (stepObj == NONE) {
+      step = 1;
+    } else {
+      step = toInt(stepObj, "slice step");
+      if (step == 0) {
+        throw errorf("slice step cannot be zero");
+      }
+    }
+
+    // start, stop
+    if (step > 0) {
+      // positive stride: default indices are [0:n].
+      if (startObj == NONE) {
+        start = 0;
+      } else {
+        start = EvalUtils.toIndex(toInt(startObj, "start index"), n);
+      }
+
+      if (stopObj == NONE) {
+        stop = n;
+      } else {
+        stop = EvalUtils.toIndex(toInt(stopObj, "stop index"), n);
+      }
+
+      if (stop < start) {
+        stop = start; // => empty result
+      }
+
+    } else {
+      // negative stride: default indices are effectively [n-1:-1],
+      // though to get this effect using explicit indices requires
+      // [n-1:-1-n:-1] because of the treatment of negative values.
+      if (startObj == NONE) {
+        start = n - 1;
+      } else {
+        start = toInt(startObj, "start index");
+        if (start < 0) {
+          start += n;
+        }
+        if (start >= n) {
+          start = n - 1;
+        }
+      }
+
+      if (stopObj == NONE) {
+        stop = -1;
+      } else {
+        stop = toInt(stopObj, "stop index");
+        if (stop < 0) {
+          stop += n;
+        }
+        if (stop < -1) {
+          stop = -1;
+        }
+      }
+
+      if (start < stop) {
+        start = stop; // => empty result
+      }
+    }
+
+    // slice operation
+    if (x instanceof String) {
+      return StringModule.slice((String) x, start, stop, step);
+    } else {
+      return ((Sequence<?>) x).getSlice(mu, start, stop, step);
+    }
+  }
+
+  static int toInt(Object x, String name) throws EvalException {
+    if (x instanceof Integer) {
+      return (Integer) x;
+    }
+    throw errorf("got %s for %s, want int", type(x), name);
   }
 
   /**
@@ -237,6 +404,8 @@ public final class Starlark {
   /**
    * Calls the function-like value {@code fn} in the specified thread, passing it the given
    * positional and named arguments in the "fastcall" array representation.
+   *
+   * <p>The caller must not subsequently modify or even inspect the two arrays.
    */
   public static Object fastcall(
       StarlarkThread thread, Object fn, Object[] positional, Object[] named)
@@ -245,18 +414,18 @@ public final class Starlark {
     if (fn instanceof StarlarkCallable) {
       callable = (StarlarkCallable) fn;
     } else {
-      // @SkylarkCallable(selfCall)?
+      // @StarlarkMethod(selfCall)?
       MethodDescriptor desc =
           CallUtils.getSelfCallMethodDescriptor(thread.getSemantics(), fn.getClass());
       if (desc == null) {
-        throw Starlark.errorf("'%s' object is not callable", EvalUtils.getDataTypeName(fn));
+        throw errorf("'%s' object is not callable", type(fn));
       }
       callable = new BuiltinCallable(fn, desc.getName(), desc);
     }
 
     thread.push(callable);
     try {
-      return callable.fastcall(thread, thread.getCallerLocation(), positional, named);
+      return callable.fastcall(thread, positional, named);
     } finally {
       thread.pop();
     }
@@ -273,24 +442,29 @@ public final class Starlark {
     return new EvalException(null, String.format(format, args));
   }
 
+  /** Equivalent to {@code addMethods(env, v, StarlarkSemantics.DEFAULT)}. */
+  public static void addMethods(ImmutableMap.Builder<String, Object> env, Object v) {
+    addMethods(env, v, StarlarkSemantics.DEFAULT);
+  }
+
   /**
    * Adds to the environment {@code env} all {@code StarlarkCallable}-annotated fields and methods
-   * of value {@code v}. The class of {@code v} must have or inherit a {@code SkylarkModule} or
-   * {@code SkylarkGlobalLibrary} annotation.
+   * of value {@code v}, filtered by the given semantics. The class of {@code v} must have or
+   * inherit a {@link StarlarkBuiltin} or {@code StarlarkGlobalLibrary} annotation.
    */
-  public static void addMethods(ImmutableMap.Builder<String, Object> env, Object v) {
+  public static void addMethods(
+      ImmutableMap.Builder<String, Object> env, Object v, StarlarkSemantics semantics) {
     Class<?> cls = v.getClass();
-    if (!SkylarkInterfaceUtils.hasSkylarkGlobalLibrary(cls)
-        && SkylarkInterfaceUtils.getSkylarkModule(cls) == null) {
+    if (!StarlarkInterfaceUtils.hasStarlarkGlobalLibrary(cls)
+        && StarlarkInterfaceUtils.getStarlarkBuiltin(cls) == null) {
       throw new IllegalArgumentException(
-          cls.getName() + " is annotated with neither @SkylarkGlobalLibrary nor @SkylarkModule");
+          cls.getName() + " is annotated with neither @StarlarkGlobalLibrary nor @StarlarkBuiltin");
     }
-    // TODO(adonovan): logically this should be a parameter.
-    StarlarkSemantics semantics = StarlarkSemantics.DEFAULT_SEMANTICS;
     for (String name : CallUtils.getMethodNames(semantics, v.getClass())) {
       // We use the 2-arg (desc=null) BuiltinCallable constructor instead of passing
       // the descriptor that CallUtils.getMethod would return,
-      // because DEFAULT_SEMANTICS is probably incorrect for the call.
+      // because most calls to addMethods pass StarlarkSemantics.DEFAULT,
+      // which is probably incorrect for the call.
       // The effect is that the default semantics determine which methods appear in
       // env, but the thread's semantics determine which method calls succeed.
       env.put(name, new BuiltinCallable(v, name));
@@ -299,41 +473,15 @@ public final class Starlark {
 
   /**
    * Adds to the environment {@code env} the value {@code v}, under its annotated name. The class of
-   * {@code v} must have or inherit a {@code SkylarkModule} annotation.
+   * {@code v} must have or inherit a {@link StarlarkBuiltin} annotation.
    */
   public static void addModule(ImmutableMap.Builder<String, Object> env, Object v) {
     Class<?> cls = v.getClass();
-    SkylarkModule annot = SkylarkInterfaceUtils.getSkylarkModule(cls);
+    StarlarkBuiltin annot = StarlarkInterfaceUtils.getStarlarkBuiltin(cls);
     if (annot == null) {
-      throw new IllegalArgumentException(cls.getName() + " is not annotated with @SkylarkModule");
+      throw new IllegalArgumentException(cls.getName() + " is not annotated with @StarlarkBuiltin");
     }
     env.put(annot.name(), v);
-  }
-
-  /**
-   * Checks the {@code positional} and {@code named} arguments supplied to an implementation of
-   * {@link StarlarkCallable#fastcall} to ensure they match the {@code signature}. It returns an
-   * array of effective parameter values corresponding to the parameters of the signature. Newly
-   * allocated values (e.g. a {@code **kwargs} dict) use the Mutability {@code mu}.
-   *
-   * <p>If the function has optional parameters, their default values must be supplied by {@code
-   * defaults}; see {@link BaseFunction#getDefaultValues} for details.
-   *
-   * <p>The caller is responsible for accessing the correct element and casting to an appropriate
-   * type.
-   *
-   * <p>On failure, it throws an EvalException incorporating {@code func.toString()}.
-   */
-  public static Object[] matchSignature(
-      FunctionSignature signature,
-      StarlarkCallable func, // only used in error messages
-      @Nullable Tuple<Object> defaults,
-      @Nullable Mutability mu,
-      Object[] positional,
-      Object[] named)
-      throws EvalException {
-    // TODO(adonovan): move implementation here.
-    return BaseFunction.matchSignature(signature, func, defaults, mu, positional, named);
   }
 
   // TODO(adonovan):
@@ -342,7 +490,7 @@ public final class Starlark {
   // tiny steps are headed. It doesn't work yet, but it helps to remember our direction.
   //
   // The API assumes that the "universe" portion (None, len, str) of the "predeclared" lexical block
-  // is always available, so clients needn't mention it in the API. Starlark.UNIVERSE will expose it
+  // is always available, so clients needn't mention it in the API. UNIVERSE will expose it
   // as a public constant.
   //
   // Q. is there any value to returning the Module as opposed to just its global bindings as a Map?
@@ -381,7 +529,7 @@ public final class Starlark {
    */
   public static Module exec(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -399,7 +547,7 @@ public final class Starlark {
    * exception.
    */
   public static Object eval(StarlarkThread thread, ParserInput input, Map<String, Object> env)
-      throws SyntaxError, EvalException, InterruptedException {
+      throws SyntaxError.Exception, EvalException, InterruptedException {
     // Pseudocode:
     // StarlarkFunction fn = exprFunc(input, env, thread.semantics)
     // return call(thread, fn)
@@ -411,8 +559,9 @@ public final class Starlark {
    * it. If the final statement is an expression, return its value.
    *
    * <p>This complicated function, which combines exec and eval, is intended for use in a REPL or
-   * debugger. In case of parse of validation error, it throws SyntaxError. In case of execution
-   * error, the function returns partial results: the incomplete module plus the exception.
+   * debugger. In case of parse of validation error, it throws SyntaxError.Exception. In case of
+   * execution error, the function returns partial results: the incomplete module plus the
+   * exception.
    *
    * <p>Assignments in the input act as updates to a new module created by this function, which is
    * returned.
@@ -432,7 +581,7 @@ public final class Starlark {
    */
   public static ModuleAndValue execAndEval(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -462,16 +611,16 @@ public final class Starlark {
   /**
    * Parse the input as a file, validates it in the specified predeclared environment (a set of
    * names, optionally filtered by the semantics), and compiles it to a Program. It throws
-   * SyntaxError in case of scan/parse/validation error.
+   * SyntaxError.Exception in case of scan/parse/validation error.
    *
    * <p>In addition to the program, it returns the validated syntax tree. This permits clients such
    * as Bazel to inspect the syntax (for BUILD dialect checks, glob prefetching, etc.)
    */
-  public static Pair<Program, StarlarkFile> compileFile(
+  public static Object /*Pair<Program, StarlarkFile>*/ compileFile(
       ParserInput input, //
       Set<String> predeclared,
       StarlarkSemantics semantics)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // file = StarlarkFile.parse(input)
     // validateFile(file, predeclared.keys, thread.semantics)
@@ -515,7 +664,7 @@ public final class Starlark {
       ParserInput input, //
       Map<String, Object> env,
       StarlarkSemantics semantics)
-      throws SyntaxError {
+      throws SyntaxError.Exception {
     // Pseudocode:
     // expr = Expression.parse(input)
     // validateExpr(expr, env.keys, semantics)
@@ -523,5 +672,25 @@ public final class Starlark {
     // module = new module(env)
     // return new StarlarkFunction(prog.toplevel, module)
     throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Starts the CPU profiler with the specified sampling period, writing a pprof profile to {@code
+   * out}. All running Starlark threads are profiled. May be called concurrent with Starlark
+   * execution.
+   *
+   * @throws IllegalStateException exception if the Starlark profiler is already running or if the
+   *     operating system's profiling resources for this process are already in use.
+   */
+  public static void startCpuProfile(OutputStream out, Duration period) {
+    CpuProfiler.start(out, period);
+  }
+
+  /**
+   * Stops the profiler and waits for the log to be written. Throws an unchecked exception if the
+   * profiler was not already started by a prior call to {@link #startCpuProfile}.
+   */
+  public static void stopCpuProfile() throws IOException {
+    CpuProfiler.stop();
   }
 }

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
 /**
@@ -40,12 +41,12 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class SymlinkTreeAction extends AbstractAction {
 
-  private static final String GUID = "63412bda-4026-4c8e-a3ad-7deb397728d4";
+  private static final String GUID = "7a16371c-cd4a-494d-b622-963cd89f5212";
 
   @Nullable private final Artifact inputManifest;
   private final Runfiles runfiles;
   private final Artifact outputManifest;
-  private final boolean filesetTree;
+  @Nullable private final String filesetRoot;
   private final boolean enableRunfiles;
   private final boolean inprocessSymlinkCreation;
   private final boolean skipRunfilesManifests;
@@ -59,7 +60,7 @@ public final class SymlinkTreeAction extends AbstractAction {
    * @param runfiles the input runfiles
    * @param outputManifest the generated symlink tree manifest (must have "MANIFEST" base name).
    *     Symlink tree root will be set to the artifact's parent directory.
-   * @param filesetTree true if this is fileset symlink tree
+   * @param filesetRoot non-null if this is a fileset symlink tree
    */
   public SymlinkTreeAction(
       ActionOwner owner,
@@ -67,13 +68,13 @@ public final class SymlinkTreeAction extends AbstractAction {
       Artifact inputManifest,
       @Nullable Runfiles runfiles,
       Artifact outputManifest,
-      boolean filesetTree) {
+      String filesetRoot) {
     this(
         owner,
         inputManifest,
         runfiles,
         outputManifest,
-        filesetTree,
+        filesetRoot,
         config.getActionEnvironment(),
         config.runfilesEnabled(),
         config.inprocessSymlinkCreation(),
@@ -90,7 +91,7 @@ public final class SymlinkTreeAction extends AbstractAction {
    * @param runfiles the input runfiles
    * @param outputManifest the generated symlink tree manifest (must have "MANIFEST" base name).
    *     Symlink tree root will be set to the artifact's parent directory.
-   * @param filesetTree true if this is fileset symlink tree,
+   * @param filesetRoot non-null if this is a fileset symlink tree,
    */
   @AutoCodec.Instantiator
   public SymlinkTreeAction(
@@ -98,29 +99,29 @@ public final class SymlinkTreeAction extends AbstractAction {
       Artifact inputManifest,
       @Nullable Runfiles runfiles,
       Artifact outputManifest,
-      boolean filesetTree,
+      @Nullable String filesetRoot,
       ActionEnvironment env,
       boolean enableRunfiles,
       boolean inprocessSymlinkCreation,
       boolean skipRunfilesManifests) {
     super(
         owner,
-        skipRunfilesManifests && enableRunfiles && !filesetTree
+        skipRunfilesManifests && enableRunfiles && (filesetRoot == null)
             ? NestedSetBuilder.emptySet(Order.STABLE_ORDER)
             : NestedSetBuilder.create(Order.STABLE_ORDER, inputManifest),
         ImmutableSet.of(outputManifest),
         env);
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     Preconditions.checkArgument(
-        (runfiles == null) == filesetTree, "Runfiles must be null iff this is a fileset action");
-    this.inputManifest =
-        skipRunfilesManifests && enableRunfiles && !filesetTree ? null : inputManifest;
+        (runfiles == null) == (filesetRoot != null),
+        "Runfiles must be null iff this is a fileset action");
     this.runfiles = runfiles;
     this.outputManifest = outputManifest;
-    this.filesetTree = filesetTree;
+    this.filesetRoot = filesetRoot;
     this.enableRunfiles = enableRunfiles;
     this.inprocessSymlinkCreation = inprocessSymlinkCreation;
-    this.skipRunfilesManifests = skipRunfilesManifests && enableRunfiles && !filesetTree;
+    this.skipRunfilesManifests = skipRunfilesManifests && enableRunfiles && (filesetRoot == null);
+    this.inputManifest = this.skipRunfilesManifests ? null : inputManifest;
   }
 
   public Artifact getInputManifest() {
@@ -137,7 +138,11 @@ public final class SymlinkTreeAction extends AbstractAction {
   }
 
   public boolean isFilesetTree() {
-    return filesetTree;
+    return filesetRoot != null;
+  }
+
+  public PathFragment getFilesetRoot() {
+    return PathFragment.create(filesetRoot);
   }
 
   public boolean isRunfilesEnabled() {
@@ -148,10 +153,6 @@ public final class SymlinkTreeAction extends AbstractAction {
     return inprocessSymlinkCreation;
   }
 
-  public boolean skipRunfilesManifests() {
-    return skipRunfilesManifests;
-  }
-
   @Override
   public String getMnemonic() {
     return "SymlinkTree";
@@ -159,14 +160,14 @@ public final class SymlinkTreeAction extends AbstractAction {
 
   @Override
   protected String getRawProgressMessage() {
-    return (filesetTree ? "Creating Fileset tree " : "Creating runfiles tree ")
+    return (isFilesetTree() ? "Creating Fileset tree " : "Creating runfiles tree ")
         + outputManifest.getExecPath().getParentDirectory().getPathString();
   }
 
   @Override
   protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
     fp.addString(GUID);
-    fp.addBoolean(filesetTree);
+    fp.addNullableString(filesetRoot);
     fp.addBoolean(enableRunfiles);
     fp.addBoolean(inprocessSymlinkCreation);
     fp.addBoolean(skipRunfilesManifests);

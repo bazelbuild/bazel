@@ -132,7 +132,7 @@ new_local_repository(
 )
 EOF
   bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
-  expect_log "select() cannot be used in WORKSPACE files"
+  expect_log "got value of type 'select' for attribute 'build_file' of new_local_repository rule 'foo'; select may not be used in repository rules"
 }
 
 function test_macro_select() {
@@ -153,7 +153,7 @@ def foo_repo():
 EOF
 
   bazel build @foo//... &> $TEST_log && fail "Failure expected" || true
-  expect_log "select() cannot be used in macros called from WORKSPACE files"
+  expect_log "got value of type 'select' for attribute 'build_file' of new_local_repository rule 'foo'"
 }
 
 function test_clean() {
@@ -185,7 +185,7 @@ EOF
 genrule(name = "x", cmd = "echo hi > $@", outs = ["x.out"], srcs = [])
 EOF
 
-  MARKER="<== skylark flag test ==>"
+  MARKER="<== Starlark flag test ==>"
 
   # Sanity check.
   bazel build //:x &>"$TEST_log" \
@@ -194,16 +194,16 @@ EOF
   expect_log "In workspace macro: " "Did not find workspace macro print output"
   expect_not_log "$MARKER" \
     "Marker string '$MARKER' was seen even though \
-    --internal_skylark_flag_test_canary wasn't passed"
+    --internal_starlark_flag_test_canary wasn't passed"
 
   # Build with the special testing flag that appends a marker string to all
   # print() calls.
-  bazel build //:x --internal_skylark_flag_test_canary &>"$TEST_log" \
+  bazel build //:x --internal_starlark_flag_test_canary &>"$TEST_log" \
     || fail "Expected build to succeed"
   expect_log "In workspace: $MARKER" \
-    "Skylark flags are not propagating to workspace evaluation"
+    "Starlark flags are not propagating to workspace evaluation"
   expect_log "In workspace macro: $MARKER" \
-    "Skylark flags are not propagating to workspace macro evaluation"
+    "Starlark flags are not propagating to workspace macro evaluation"
 }
 
 function test_workspace_name() {
@@ -784,7 +784,7 @@ a = 1
 EOF
 
   cd mainrepo
-  bazel query --incompatible_remap_main_repo //... &>"$TEST_log" \
+  bazel query //... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -812,7 +812,7 @@ EOF
   # the bzl file should be loaded from the main workspace and
   # not as an external repository
   cd mainrepo
-  bazel query --incompatible_remap_main_repo @a//... &>"$TEST_log" \
+  bazel query @a//... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
   expect_not_log "external"
@@ -830,8 +830,7 @@ EOF
   # now that @mainrepo doesn't exist within workspace "a",
   # the query should fail
   cd mainrepo
-  bazel query --incompatible_remap_main_repo \
-      @a//... &>"$TEST_log" \
+  bazel query @a//... &>"$TEST_log" \
       && fail "Failure expected" || true
 }
 
@@ -926,7 +925,7 @@ EOF
     chmod u+x code/foo.sh
 
 
-    bazel build --incompatible_remap_main_repo=true //code/... \
+    bazel build //code/... \
           > "${TEST_log}" 2>&1 || fail "expected success"
 }
 
@@ -981,17 +980,7 @@ testrule(
 )
 EOF
 
-    bazel build --incompatible_remap_main_repo=true //toolchains/... \
-          || fail "expected success"
-
-    echo; echo Without remapping of main repo; echo
-    # Regression test for invalidation of `--incompabtile_remap_main_repo`
-    # (https://github.com/bazelbuild/bazel/issues/8937). As
-    # building without remapping works on a clean checkout, it should also work
-    # on a running bazel.
-    bazel build --incompatible_remap_main_repo=false //toolchains/... \
-          || fail "expected success"
-
+    bazel build //toolchains/... || fail "expected success"
 }
 
 test_remap_toolchains_from_qualified_load() {
@@ -1042,16 +1031,7 @@ testrule(
 )
 EOF
 
-    bazel build --incompatible_remap_main_repo=true @my_ws//toolchains/... \
-          || fail "expected success"
-
-    # Additionally check, that nothing goes wrong flipping the remapping
-    # off and on again.
-    bazel build --incompatible_remap_main_repo=false @my_ws//toolchains/... \
-          || fail "expected success"
-
-    bazel build --incompatible_remap_main_repo=true @my_ws//toolchains/... \
-          || fail "expected success"
+    bazel build @my_ws//toolchains/... || fail "expected success"
 }
 
 
@@ -1153,13 +1133,8 @@ genrule(
   outs = ["y.txt"],
 )
 EOF
-    echo; echo not remapping main repo; echo
-    bazel build --incompatible_remap_main_repo=false @foo//:y \
-          || fail "Expected success"
-
     echo; echo remapping main repo; echo
-    bazel build --incompatible_remap_main_repo=true @foo//:y \
-        || fail "Expected success"
+    bazel build @foo//:y || fail "Expected success"
 
 }
 
@@ -1215,13 +1190,8 @@ EOF
 load("//:datarule.bzl", "data")
 data(name="it")
 EOF
-    echo; echo not remapping main repo; echo
-    bazel build --incompatible_remap_main_repo=false @foo//:it \
-          || fail "Expected success"
-
     echo; echo remapping main repo; echo
-    bazel build --incompatible_remap_main_repo=true @foo//:it \
-        || fail "Expected success"
+    bazel build @foo//:it || fail "Expected success"
 
 }
 run_suite "workspace tests"

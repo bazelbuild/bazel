@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_test")
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_testonly = 1,
@@ -9,43 +9,60 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
-java_test(
-    name = "RepositoryTests",
+java_library(
+    name = "RepositoryTests_lib",
     srcs = glob(["*.java"]),
-    tags = ["rules"],
-    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-main",
-        "//src/main/java/com/google/devtools/build/lib:bazel-repository",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:io",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib:unix",
-        "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository/downloader",
+        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/local_repository_rule",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_directory_value",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
+        "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_loader_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:blacklisted_package_prefixes_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:containing_package_lookup_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:file_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
+        "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_test(
+    name = "RepositoryTests",
+    test_class = "com.google.devtools.build.lib.AllTests",
+    runtime_deps = [
+        ":RepositoryTests_lib",
+        "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
 )
 
@@ -55,7 +72,6 @@ test_suite(
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
@@ -63,5 +79,4 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

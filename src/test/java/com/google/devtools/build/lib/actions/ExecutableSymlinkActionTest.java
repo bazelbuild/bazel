@@ -16,20 +16,23 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext.LostInputsCheck;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -50,8 +53,10 @@ public class ExecutableSymlinkActionTest {
   public final void createExecutor() throws Exception  {
     final Path inputDir = scratch.dir("/in");
     execRoot = scratch.getFileSystem().getPath("/");
-    inputRoot = ArtifactRoot.asDerivedRoot(execRoot, inputDir);
-    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, scratch.dir("/out"));
+    inputRoot = ArtifactRoot.asDerivedRoot(execRoot, inputDir.relativeTo(execRoot).getPathString());
+    String outSegment = "out";
+    execRoot.getChild(outSegment).createDirectoryAndParents();
+    outputRoot = ArtifactRoot.asDerivedRoot(execRoot, outSegment);
     outErr = new TestFileOutErr();
     executor = new DummyExecutor(scratch.getFileSystem(), inputDir);
   }
@@ -64,6 +69,7 @@ public class ExecutableSymlinkActionTest {
         ActionInputPrefetcher.NONE,
         actionKeyContext,
         /*metadataHandler=*/ null,
+        /*rewindingEnabled=*/ false,
         LostInputsCheck.NONE,
         outErr,
         /*eventHandler=*/ null,
@@ -71,7 +77,8 @@ public class ExecutableSymlinkActionTest {
         /*topLevelFilesets=*/ ImmutableMap.of(),
         /*artifactExpander=*/ null,
         /*actionFileSystem=*/ null,
-        /*skyframeDepsResult=*/ null);
+        /*skyframeDepsResult=*/ null,
+        NestedSetExpander.DEFAULT);
   }
 
   @Test
@@ -135,6 +142,10 @@ public class ExecutableSymlinkActionTest {
     SymlinkAction action = SymlinkAction.toExecutable(NULL_ACTION_OWNER, input, output, "progress");
     new SerializationTester(action)
         .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(
+            Root.RootCodecDependencies.class,
+            new Root.RootCodecDependencies(Root.absoluteRoot(scratch.getFileSystem())))
+        .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .setVerificationFunction(
             (in, out) -> {
               SymlinkAction inAction = (SymlinkAction) in;

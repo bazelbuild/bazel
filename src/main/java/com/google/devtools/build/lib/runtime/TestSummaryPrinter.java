@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
+import com.google.devtools.build.lib.exec.ExecutionOptions.TestOutputFormat;
 import com.google.devtools.build.lib.exec.TestLogHelper;
-import com.google.devtools.build.lib.exec.TestStrategy.TestOutputFormat;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;

@@ -44,6 +44,8 @@ function set_up {
   export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles 2>/dev/null)
   export BAZEL_BIN_DIR=$(bazel info bazel-bin 2>/dev/null)
 
+  sed -i.bak '/sandbox_tmpfs_path/d' $TEST_TMPDIR/bazelrc
+
   mkdir -p examples/genrule
   cat << 'EOF' > examples/genrule/a.txt
 foo bar bz

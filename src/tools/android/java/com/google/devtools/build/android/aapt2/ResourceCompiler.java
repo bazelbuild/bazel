@@ -29,6 +29,7 @@ import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
 import com.google.devtools.build.android.FullyQualifiedName.Qualifiers;
 import com.google.devtools.build.android.FullyQualifiedName.VirtualType;
+import com.google.devtools.build.android.ResourceProcessorBusyBox;
 import com.google.devtools.build.android.XmlResourceValues;
 import com.google.devtools.build.android.xml.Namespaces;
 import com.google.devtools.build.android.xml.ResourcesAttribute;
@@ -115,6 +116,10 @@ public class ResourceCompiler {
 
   private static final Logger logger = Logger.getLogger(ResourceCompiler.class.getName());
 
+  // https://android-review.googlesource.com/c/platform/frameworks/base/+/1202901
+  public static final boolean USE_VISIBILITY_FROM_AAPT2 =
+      ResourceProcessorBusyBox.getProperty("use_visibility_from_aapt2");
+
   private final CompilingVisitor compilingVisitor;
 
   private static class CompileTask implements Callable<List<Path>> {
@@ -148,8 +153,7 @@ public class ResourceCompiler {
             new IllegalArgumentException("Unexpected resource folder for file: " + file));
       }
 
-      final String filename =
-          interpolateAapt2Filename(resourceFolderType, file.getFileName().toString());
+      final String filename = interpolateAapt2Filename(resourceFolderType, file);
       final List<Path> results = new ArrayList<>();
       if (resourceFolderType.equals(ResourceFolderType.VALUES)
           || (resourceFolderType.equals(ResourceFolderType.RAW)
@@ -167,6 +171,7 @@ public class ResourceCompiler {
             file,
             false);
         // aapt2 only generates pseudo locales for the default locale.
+        // TODO(b/149251235): omit this file if the output is identical to the default config above.
         generatedResourcesOut.ifPresent(
             out -> compile(directoryName, filename, results, out, file, true));
       } else {
@@ -175,8 +180,9 @@ public class ResourceCompiler {
       return results;
     }
 
-    static String interpolateAapt2Filename(ResourceFolderType resourceFolderType, String filename) {
+    static String interpolateAapt2Filename(ResourceFolderType resourceFolderType, Path file) {
       // res/<not values>/foo.bar -> foo.bar
+      String filename = file.getFileName().toString();
       if (!resourceFolderType.equals(ResourceFolderType.VALUES)) {
         return filename;
       }
@@ -194,7 +200,7 @@ public class ResourceCompiler {
             new IllegalArgumentException(
                 "aapt2 does not support compiling resource xmls with multiple periods in the "
                     + "filename: "
-                    + filename));
+                    + file));
       }
 
       // res/values/foo.xml -> foo.arsc
@@ -219,6 +225,8 @@ public class ResourceCompiler {
                 .add("compile")
                 .add("-v")
                 .add("--legacy")
+                .when(USE_VISIBILITY_FROM_AAPT2)
+                .thenAdd("--preserve-visibility-of-styleables")
                 .when(generatePseudoLocale)
                 .thenAdd("--pseudo-localize")
                 .add("-o", destination.toString())
@@ -288,8 +296,10 @@ public class ResourceCompiler {
           CompilingVisitor.destinationPath(file, compiledResourcesOut)
               .resolve(type + "_" + filename + CompiledResources.ATTRIBUTES_FILE_EXTENSION);
 
-      Preconditions.checkArgument(!Files.exists(resourcesAttributesPath),
-          "%s was already created for another resource.", resourcesAttributesPath);
+      Preconditions.checkArgument(
+          !Files.exists(resourcesAttributesPath),
+          "%s was already created for another resource.",
+          resourcesAttributesPath);
 
       while (attributeIterator.hasNext()) {
         Attribute attribute = attributeIterator.next();

@@ -77,7 +77,12 @@ EOF
   cat > java/bazel/AndroidManifest.xml <<EOF
 <manifest
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     package="bazel.android">
+
+    <!-- tools:replace is a deprecated attribute, and will cause the manifest merger action to log a warning -->
+    <uses-feature android:name="android.hardware.location" android:required="false" tools:replace="android:required" />
+
     <application
         android:label="Bazel App"
         android:theme="@style/AppTheme" >

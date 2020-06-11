@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.ImmutableGraph;
 import com.google.common.graph.Traverser;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.NodeState;
-import com.google.devtools.build.skyframe.GraphInconsistencyReceiver.Inconsistency;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
@@ -43,6 +43,7 @@ import com.google.devtools.build.skyframe.SkyFunction.Restart;
 import com.google.devtools.build.skyframe.SkyFunctionEnvironment.UndonePreviouslyRequestedDeps;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 import com.google.devtools.build.skyframe.ThinNodeEntry.DirtyType;
+import com.google.devtools.build.skyframe.proto.GraphInconsistency.Inconsistency;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -54,7 +55,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -66,7 +66,7 @@ import javax.annotation.Nullable;
  * result. Derived classes should do this.
  */
 abstract class AbstractParallelEvaluator {
-  private static final Logger logger = Logger.getLogger(AbstractParallelEvaluator.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   final ProcessableGraph graph;
   final ParallelEvaluatorContext evaluatorContext;
@@ -357,7 +357,7 @@ abstract class AbstractParallelEvaluator {
             Sets.difference(ImmutableSet.copyOf(knownChildren), oldChildren.keySet());
         if (!missingChildren.isEmpty()) {
           inconsistencyReceiver.noteInconsistencyAndMaybeThrow(
-              skyKey, missingChildren, Inconsistency.CHILD_MISSING_FOR_DIRTY_NODE);
+              skyKey, missingChildren, Inconsistency.DIRTY_PARENT_HAD_MISSING_CHILD);
         }
         Map<SkyKey, ? extends NodeEntry> recreatedEntries =
             graph.createIfAbsentBatch(skyKey, Reason.ENQUEUING_CHILD, missingChildren);
@@ -472,10 +472,8 @@ abstract class AbstractParallelEvaluator {
                 // with the first error.
                 return;
               } else {
-                logger.warning(
-                    String.format(
-                        "Aborting evaluation due to %s while evaluating %s",
-                        builderException, skyKey));
+                logger.atWarning().withCause(builderException).log(
+                    "Aborting evaluation while evaluating %s", skyKey);
               }
             }
 
@@ -840,10 +838,11 @@ abstract class AbstractParallelEvaluator {
 
       // Nodes are marked "force-rebuild" to ensure that they run, and to allow them to evaluate to
       // a different value than before, even if their versions remain the same.
-      restartEntry.markDirty(DirtyType.FORCE_REBUILD);
-      evaluatorContext
-          .getProgressReceiver()
-          .invalidated(keyToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);
+      if (restartEntry.markDirty(DirtyType.FORCE_REBUILD) != null) {
+        evaluatorContext
+            .getProgressReceiver()
+            .invalidated(keyToRestart, EvaluationProgressReceiver.InvalidationState.DIRTY);
+      }
     }
 
     if (missingNodes != null) {

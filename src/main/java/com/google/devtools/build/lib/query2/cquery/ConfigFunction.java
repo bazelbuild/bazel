@@ -72,7 +72,8 @@ public final class ConfigFunction implements QueryFunction {
 
     Argument targetExpression = args.get(0);
     String configuration = args.get(1).toString();
-
+    // Turn "'string'" to "string" (remove the surrounding apostrophes).
+    configuration = configuration.substring(1, configuration.length() - 1);
 
     final QueryTaskFuture<ThreadSafeMutableSet<T>> targets =
         QueryUtil.evalAll(env, context, targetExpression.getExpression());

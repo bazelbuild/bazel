@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.windows;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -47,7 +48,7 @@ public class WindowsSubprocessTest {
     runfiles = Runfiles.create();
     mockSubprocess =
         runfiles.rlocation(
-            "io_bazel/src/test/java/com/google/devtools/build/lib/MockSubprocess_deploy.jar");
+            "io_bazel/src/test/java/com/google/devtools/build/lib/windows/MockSubprocess_deploy.jar");
     mockBinary = System.getProperty("java.home") + "\\bin\\java.exe";
 
     process = null;
@@ -66,7 +67,7 @@ public class WindowsSubprocessTest {
   public void testSystemRootIsSetByDefault() throws Exception {
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
-    subprocessBuilder.setArgv(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT");
+    subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT"));
     process = subprocessBuilder.start();
     process.waitFor();
     assertThat(process.exitValue()).isEqualTo(0);
@@ -80,7 +81,8 @@ public class WindowsSubprocessTest {
   public void testSystemDriveIsSetByDefault() throws Exception {
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
-    subprocessBuilder.setArgv(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE");
+    subprocessBuilder.setArgv(
+        ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE"));
     process = subprocessBuilder.start();
     process.waitFor();
     assertThat(process.exitValue()).isEqualTo(0);
@@ -94,7 +96,7 @@ public class WindowsSubprocessTest {
   public void testSystemRootIsSet() throws Exception {
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
-    subprocessBuilder.setArgv(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT");
+    subprocessBuilder.setArgv(ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMROOT"));
     // Case shouldn't matter on Windows
     subprocessBuilder.setEnv(ImmutableMap.of("SystemRoot", "C:\\MySystemRoot"));
     process = subprocessBuilder.start();
@@ -110,7 +112,8 @@ public class WindowsSubprocessTest {
   public void testSystemDriveIsSet() throws Exception {
     SubprocessBuilder subprocessBuilder = new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
     subprocessBuilder.setWorkingDirectory(new File("."));
-    subprocessBuilder.setArgv(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE");
+    subprocessBuilder.setArgv(
+        ImmutableList.of(mockBinary, "-jar", mockSubprocess, "O$SYSTEMDRIVE"));
     // Case shouldn't matter on Windows
     subprocessBuilder.setEnv(ImmutableMap.of("SystemDrive", "X:"));
     process = subprocessBuilder.start();
@@ -141,7 +144,8 @@ public class WindowsSubprocessTest {
   private void assertSubprocessReceivesArgsAsIntended(ArgPair... args) throws Exception {
     // Look up the path of the printarg.exe utility.
     String printArgExe =
-        runfiles.rlocation("io_bazel/src/test/java/com/google/devtools/build/lib/printarg.exe");
+        runfiles.rlocation(
+            "io_bazel/src/test/java/com/google/devtools/build/lib/windows/printarg.exe");
     assertThat(printArgExe).isNotEmpty();
 
     for (ArgPair arg : args) {
@@ -152,7 +156,7 @@ public class WindowsSubprocessTest {
       SubprocessBuilder subprocessBuilder =
           new SubprocessBuilder(WindowsSubprocessFactory.INSTANCE);
       subprocessBuilder.setWorkingDirectory(new File("."));
-      subprocessBuilder.setArgv(printArgExe, arg.original);
+      subprocessBuilder.setArgv(ImmutableList.of(printArgExe, arg.original));
       process = subprocessBuilder.start();
       process.waitFor();
       assertThat(process.exitValue()).isEqualTo(0);

@@ -378,6 +378,198 @@ _bazel__expand_options() {
   fi
 }
 
+# Usage: _bazel__abspath <file>
+#
+#
+# Returns the absolute path to a file
+_bazel__abspath() {
+    echo "$(cd "$(dirname "$1")"; pwd)/$(basename "$1")"
+ }
+
+# Usage: _bazel__rc_imports <workspace> <rc-file>
+#
+#
+# Returns the list of other RC imported (or try-imported) by a given RC file
+# Only return files we can actually find, and only return absolute paths
+_bazel__rc_imports() {
+  local workspace="$1" rc_dir rc_file="$2" import_files
+  rc_dir=$(dirname $rc_file)
+  import_files=$(cat $rc_file \
+      | sed 's/#.*//' \
+      | sed -E "/^(try-){0,1}import/!d" \
+      | sed -E "s/^(try-){0,1}import ([^ ]*).*$/\2/" \
+      | sort -u)
+
+  local confirmed_import_files=()
+  for import in $import_files; do
+    # rc imports can use %workspace% to refer to the workspace, and we need to substitute that here
+    import=${import//\%workspace\%/$workspace}
+    if [[ "${import:0:1}" != "/" ]] ; then
+      import="$rc_dir/$import"
+    fi
+    import=$(_bazel__abspath $import)
+    # Don't bother dealing with it further if we can't find it
+    if [ -f "$import" ] ; then
+      confirmed_import_files+=($import)
+    fi
+  done
+  echo "${confirmed_import_files[@]}"
+}
+
+# Usage: _bazel__rc_expand_imports <workspace> <processed-rc-files ...> __new__ <new-rc-files ...>
+#
+#
+# Function that receives a workspace and two lists. The first list is a list of RC files that have
+# already been processed, and the second list contains new RC files that need processing. Each new file will be
+# processed for "{try-}import" lines to discover more RC files that need parsing.
+# Any lines we find in "{try-}import" will be checked against known files (and not processed again if known).
+_bazel__rc_expand_imports() {
+  local workspace="$1" rc_file new_found="no" processed_files=() to_process_files=() discovered_files=()
+  # We've consumed workspace
+  shift
+  # Now grab everything else
+  local all_files=($@)
+  for rc_file in ${all_files[@]} ; do
+    if [ "$rc_file" == "__new__" ] ; then
+      new_found="yes"
+      continue
+    elif [ "$new_found" == "no" ] ; then
+      processed_files+=($rc_file)
+    else
+      to_process_files+=($rc_file)
+    fi
+  done
+
+  # For all the non-processed files, get the list of imports out of each of those files
+  for rc_file in "${to_process_files[@]}"; do
+    local potential_new_files+=($(_bazel__rc_imports "$workspace" "$rc_file"))
+    processed_files+=($rc_file)
+    for potential_new_file in ${potential_new_files[@]} ; do
+      if [[ ! " ${processed_files[@]} " =~ " ${potential_new_file} " ]] ; then
+        discovered_files+=($potential_new_file)
+      fi
+    done
+  done
+
+  # Finally, return two lists (separated by __new__) of the files that have been fully processed, and
+  # the files that need processing.
+  echo "${processed_files[@]}" "__new__" "${discovered_files[@]}"
+}
+
+# Usage: _bazel__rc_files <workspace>
+#
+#
+# Returns the list of RC files to examine, given the current command-line args.
+_bazel__rc_files() {
+  local workspace="$1" new_files=() processed_files=()
+  # Handle the workspace RC unless --noworkspace_rc says not to.
+  if [[ ! "${COMP_LINE}" =~ "--noworkspace_rc" ]]; then
+    local workspacerc="$workspace/.bazelrc"
+    if [ -f "$workspacerc" ] ; then
+      new_files+=($(_bazel__abspath $workspacerc))
+    fi
+  fi
+  # Handle the $HOME RC unless --nohome_rc says not to.
+  if [[ ! "${COMP_LINE}" =~ "--nohome_rc" ]]; then
+    local homerc="$HOME/.bazelrc"
+    if [ -f "$homerc" ] ; then
+      new_files+=($(_bazel__abspath $homerc))
+    fi
+  fi
+  # Handle the system level RC unless --nosystem_rc says not to.
+  if [[ ! "${COMP_LINE}" =~ "--nosystem_rc" ]]; then
+    local systemrc="/etc/bazel.bazelrc"
+    if [ -f "$systemrc" ] ; then
+      new_files+=($(_bazel__abspath $systemrc))
+    fi
+  fi
+  # Finally, if the user specified any on the command-line, then grab those
+  # keeping in mind that there may be several.
+  if [[ "${COMP_LINE}" =~ "--bazelrc=" ]]; then
+    # There's got to be a better way to do this, but... it gets the job done,
+    # even if there are multiple --bazelrc on the command line. The sed command
+    # SHOULD be simpler, but capturing several instances of the same pattern
+    # from the same line is tricky because of the greedy nature of .*
+    # Instead we transform it to multiple lines, and then back.
+    local cmdlnrcs=$(echo ${COMP_LINE} | sed -E "s/--bazelrc=/\n--bazelrc=/g" | sed -E "/--bazelrc/!d;s/^--bazelrc=([^ ]*).*$/\1/g" | tr "\n" " ")
+    for rc_file in $cmdlnrcs; do
+      if [ -f "$rc_file" ] ; then
+        new_files+=($(_bazel__abspath $rc_file))
+      fi
+    done
+  fi
+
+  # Each time we call _bazel__rc_expand_imports, it may find new files which then need to be expanded as well,
+  # so we loop until we've processed all new files.
+  while (( ${#new_files[@]} > 0 )) ; do
+    local all_files=($(_bazel__rc_expand_imports "$workspace" "${processed_files[@]}" "__new__" "${new_files[@]}"))
+    local new_found="no"
+    new_files=()
+    processed_files=()
+    for file in ${all_files[@]} ; do
+      if [ "$file" == "__new__" ] ; then
+        new_found="yes"
+        continue
+      elif [ "$new_found" == "no" ] ; then
+        processed_files+=($file)
+      else
+        new_files+=($file)
+      fi
+    done
+  done
+
+  echo "${processed_files[@]}"
+}
+
+# Usage: _bazel__all_configs <workspace> <command>
+#
+#
+# Gets contents of all RC files and searches them for config names
+# that could be used for expansion.
+_bazel__all_configs() {
+  local workspace="$1" command="$2" rc_files
+
+  # Start out getting a list of all RC files that we can look for configs in
+  # This respects the various command line options documented at
+  # https://docs.bazel.build/versions/2.0.0/guide.html#bazelrc
+  rc_files=$(_bazel__rc_files "$workspace")
+
+  # Commands can inherit configs from other commands, so build up command_match, which is
+  # a match list of the various commands that we can match against, given the command
+  # specified by the user
+  local build_inherit=("aquery" "clean" "coverage" "cquery" "info" "mobile-install" "print_action" "run" "test")
+  local test_inherit=("coverage")
+  local command_match="$command"
+  if [[ "${build_inherit[@]}" =~ "$command" ]]; then
+    command_match="$command_match|build"
+  fi
+  if [[ "${test_inherit[@]}" =~ "$command" ]]; then
+    command_match="$command_match|test"
+  fi
+
+  # The following commands do respectively:
+  #   Gets the contents of all relevant/allowed RC files
+  #   Remove file comments
+  #   Filter only the configs relevant to the current command
+  #   Extract the config names
+  #   Filters out redundant names and returns the results
+  cat $rc_files \
+      | sed 's/#.*//' \
+      | sed -E "/^($command_match):/!d" \
+      | sed -E "s/^($command_match):([^ ]*).*$/\2/" \
+      | sort -u
+}
+
+# Usage: _bazel__expand_config <workspace> <command> <current-word>
+#
+#
+# Expands configs, checking through the allowed rc files and parsing for configs
+# relevant to the current command
+_bazel__expand_config() {
+  local workspace="$1" command="$2" cur="$3" rc_files all_configs
+  all_configs=$(_bazel__all_configs "$workspace" "$command")
+  compgen -S " " -W "$all_configs" -- "$cur"
+}
 
 _bazel__complete_stdout() {
   local cur=$(_bazel__get_cword) word command displacement workspace
@@ -399,6 +591,9 @@ _bazel__complete_stdout() {
 
     *)
       case "$cur" in
+        --config=*) # Expand options:
+          _bazel__expand_config  "$workspace" "$command" "${cur#"--config="}"
+          ;;
         -*) # Expand options:
           _bazel__expand_options  "$workspace" "$displacement" "$cur" \
               "$(_bazel__options_for $command)"

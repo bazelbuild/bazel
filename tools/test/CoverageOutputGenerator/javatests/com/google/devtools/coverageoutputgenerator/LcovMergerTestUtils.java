@@ -17,6 +17,12 @@ package com.google.devtools.coverageoutputgenerator;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -399,5 +405,42 @@ public class LcovMergerTestUtils {
     assertThat(merged.nrFunctionsHit()).isEqualTo(NR_FUNCTIONS_FOUND);
     assertThat(merged.nrOfLinesWithNonZeroExecution()).isEqualTo(14);
     assertThat(merged.nrOfInstrumentedLines()).isEqualTo(14);
+  }
+
+  static List<String> generateLcovContents(
+      String srcPrefix, int numSourceFiles, int numLinesPerSourceFile) {
+    ArrayList<String> lines = new ArrayList<>();
+    for (int i = 0; i < numSourceFiles; i++) {
+      lines.add(String.format("SF:%s%s.cc", srcPrefix, i));
+      lines.add("FNF:0");
+      lines.add("FNH:0");
+      for (int srcLineNum = 1; srcLineNum <= numLinesPerSourceFile; srcLineNum += 4) {
+        lines.add(String.format("BA:%s,2", srcLineNum));
+      }
+      lines.add("BRF:" + numLinesPerSourceFile / 4);
+      lines.add("BRH:" + numLinesPerSourceFile / 4);
+      for (int srcLineNum = 1; srcLineNum <= numLinesPerSourceFile; srcLineNum++) {
+        lines.add(String.format("DA:%s,%s", srcLineNum, srcLineNum % 2));
+      }
+      lines.add("LH:" + numLinesPerSourceFile / 2);
+      lines.add("LF:" + numLinesPerSourceFile);
+      lines.add("end_of_record");
+    }
+    return lines;
+  }
+
+  static List<Path> generateLcovFiles(
+      String srcPrefix, int numLcovFiles, int numSrcFiles, int numLinesPerSrcFile, Path coverageDir)
+      throws IOException {
+    Path lcovFile = Files.createFile(Paths.get(coverageDir.toString(), "coverage0.dat"));
+    List<Path> lcovFiles = new ArrayList<>();
+    Files.write(lcovFile, generateLcovContents(srcPrefix, numSrcFiles, numLinesPerSrcFile));
+    lcovFiles.add(lcovFile);
+    for (int i = 1; i < numLcovFiles; i++) {
+      lcovFiles.add(
+          Files.createSymbolicLink(
+              Paths.get(coverageDir.toString(), String.format("coverage%s.dat", i)), lcovFile));
+    }
+    return lcovFiles;
   }
 }

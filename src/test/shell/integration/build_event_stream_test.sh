@@ -135,6 +135,41 @@ def _failing_aspect_impl(target, ctx):
 
 failing_aspect = aspect(implementation=_failing_aspect_impl)
 EOF
+cat > semifailingaspect.bzl <<'EOF'
+def _semifailing_aspect_impl(target, ctx):
+    if not ctx.rule.attr.outs:
+        return struct(output_groups = {})
+    bad_outputs = list()
+    good_outputs = list()
+    for out in ctx.rule.attr.outs:
+        if out.name[0] == "f":
+            aspect_out = ctx.actions.declare_file(out.name + ".aspect.bad")
+            bad_outputs.append(aspect_out)
+            cmd = "false"
+        else:
+            aspect_out = ctx.actions.declare_file(out.name + ".aspect.good")
+            good_outputs.append(aspect_out)
+            cmd = "echo %s > %s" % (out.name, aspect_out.path)
+        ctx.actions.run_shell(
+            inputs = [],
+            outputs = [aspect_out],
+            command = cmd,
+        )
+    return [OutputGroupInfo(**{
+        "bad-aspect-out": depset(bad_outputs),
+        "good-aspect-out": depset(good_outputs),
+    })]
+
+semifailing_aspect = aspect(implementation = _semifailing_aspect_impl)
+EOF
+mkdir -p semifailingpkg/
+cat > semifailingpkg/BUILD <<'EOF'
+genrule(
+  name = "semifail",
+  outs = ["out1.txt", "out2.txt", "failingout1.txt"],
+  cmd = "for f in $(OUTS); do echo foo > $(RULEDIR)/$$f; done"
+)
+EOF
 touch BUILD
 cat > sample_workspace_status <<'EOF'
 #!/bin/sh
@@ -224,6 +259,37 @@ genrule(
 )
 EOF
 done
+mkdir -p outputgroups
+cat > outputgroups/rules.bzl <<EOF
+def _my_rule_impl(ctx):
+    group_kwargs = {}
+    for name, exit in (("foo", 0), ("bar", 0), ("baz", 1), ("skip", 0)):
+        outfile = ctx.actions.declare_file(ctx.label.name + "-" + name + ".out")
+        ctx.actions.run_shell(
+            outputs = [outfile],
+            command = "printf %s > %s && exit %d" % (name, outfile.path, exit),
+        )
+        group_kwargs[name + "_outputs"] = depset([outfile])
+    for name, exit, suffix in (
+      ("foo", 1, ".fail.out"), ("bar", 0, ".ok.out"), ("bar", 0, ".ok.out2"),
+      ("bar", 0, ".ok.out3"), ("bar", 0, ".ok.out4"), ("bar", 0, ".ok.out5")):
+        outfile = ctx.actions.declare_file(ctx.label.name + "-" + name + suffix)
+        ctx.actions.run_shell(
+            outputs = [outfile],
+            command = "printf %s > %s && exit %d" % (name, outfile.path, exit),
+        )
+        group_kwargs[name + "_outputs"] = depset(
+            [outfile], transitive=[group_kwargs[name + "_outputs"]])
+    return [OutputGroupInfo(**group_kwargs)]
+
+my_rule = rule(implementation = _my_rule_impl, attrs = {
+    "outs": attr.output_list(),
+})
+EOF
+cat > outputgroups/BUILD <<EOF
+load("//outputgroups:rules.bzl", "my_rule")
+my_rule(name = "my_lib", outs=[])
+EOF
 }
 
 #### TESTS #############################################################
@@ -540,6 +606,39 @@ function test_action_ids() {
   done
 }
 
+function test_bep_output_groups() {
+  # In outputgroups/rules.bzl, the `my_rule` definition defines four output
+  # groups with different (successful/failed) action counts:
+  #    1. foo_outputs (1 successful/1 failed)
+  #    2. bar_outputs (1/0)
+  #    3. baz_outputs (0/1)
+  #    4. skip_outputs (1/0)
+  #
+  # We request the first three output groups and expect only bar_outputs to
+  # appear in BEP, because all actions contributing to bar_outputs succeeded.
+  bazel build //outputgroups:my_lib \
+   --keep_going\
+   --build_event_text_file=bep_output \
+   --build_event_json_file="$TEST_log" \
+   --build_event_max_named_set_of_file_entries=1 \
+   --output_groups=foo_outputs,bar_outputs,baz_outputs \
+    && fail "expected failure" || true
+
+  for name in bar; do
+    expect_log "\"name\":\"${name}_outputs\""
+    expect_log "\"name\":\"outputgroups/my_lib-${name}.out\""
+  done
+  # Verify that nested NamedSetOfFiles structure is preserved in BEP.
+  expect_log "namedSet.*\"1\".*bar.ok.*fileSets.*\"2\""
+  expect_log "namedSet.*\"2\".*bar.ok.*fileSets.*\"3\""
+  expect_log "namedSet.*\"3\".*bar.ok.*fileSets.*\"4\""
+
+  for name in foo baz skip; do
+    expect_not_log "\"name\":\"${name}_outputs\""
+    expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
+  done
+}
+
 function test_aspect_artifacts() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=simpleaspect.bzl%simple_aspect \
@@ -549,21 +648,57 @@ function test_aspect_artifacts() {
   expect_log 'name.*aspect-out'
   expect_log 'name.*out1.txt.aspect'
   expect_not_log 'aborted'
-  count=`grep '^configured' "${TEST_log}" | wc -l`
-  [ "${count}" -eq 2 ] || fail "Expected 2 configured events, found $count."
+  expect_log_n '^configured' 2
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
 }
 
 function test_failing_aspect() {
-  (bazel build --build_event_text_file=$TEST_log \
+  bazel build --build_event_text_file=$TEST_log \
     --aspects=failingaspect.bzl%failing_aspect \
     --output_groups=aspect-out \
-    pkg:output_files_and_tags && fail "expected failure") || true
+    pkg:output_files_and_tags && fail "expected failure" || true
   expect_log 'aspect.*failing_aspect'
   expect_log '^finished'
   expect_log 'last_message: true'
   expect_log_once '^build_tool_logs'
+}
+
+function test_failing_aspect_bep_output_groups() {
+  # In outputgroups/rules.bzl, the `my_rule` definition defines four output
+  # groups with different (successful/failed) action counts:
+  #    1. foo_outputs (1 successful/1 failed)
+  #    2. bar_outputs (1/0)
+  #    3. baz_outputs (0/1)
+  #    4. skip_outputs (1/0)
+  #
+  # We request the first two output groups and expect only bar_outputs to
+  # appear in BEP, because all actions contributing to bar_outputs succeeded.
+  #
+  # Similarly, in semifailingaspect.bzl, the `semifailing_aspect` definition
+  # defines two output groups: good-aspect-out and bad-aspect-out. We only
+  # expect to see good-aspect-out in BEP because its actions all succeeded.
+  bazel build //semifailingpkg:semifail //outputgroups:my_lib \
+   --keep_going \
+   --build_event_text_file=bep_output \
+   --build_event_json_file="$TEST_log" \
+   --build_event_max_named_set_of_file_entries=1 \
+   --aspects=semifailingaspect.bzl%semifailing_aspect \
+   --output_groups=foo_outputs,bar_outputs,good-aspect-out,bad-aspect-out \
+    && fail "expected failure" || true
+
+  for name in bar; do
+    expect_log "\"name\":\"${name}_outputs\""
+    expect_log "\"name\":\"outputgroups/my_lib-${name}.out\""
+  done
+
+  for name in foo baz skip; do
+    expect_not_log "\"name\":\"${name}_outputs\""
+    expect_not_log "\"name\":\"outputgroups/my_lib-${name}.out\""
+  done
+
+  expect_log "\"name\":\"good-aspect-out\""
+  expect_not_log "\"name\":\"bad-aspect-out\""
 }
 
 function test_build_only() {

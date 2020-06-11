@@ -11,10 +11,6 @@ Much of Bazel's strength comes from the ability [to define new rules](skylark/co
 which can be used by others. There is a growing and evolving set of rules to
 support popular languages and packages.
 
-Contact the respective rule set's maintainers regarding issues and feature
-requests. To find more Bazel rules, use a search engine or look on
-[GitHub](https://github.com/search?o=desc&q=bazel+rules&s=stars&type=Repositories).
-
 Here is a selection of recommended rules:
 
 * [Android](bazel-and-android.html)
@@ -39,6 +35,15 @@ The repository [Skylib](https://github.com/bazelbuild/bazel-skylib) contains
 additional functions that can be useful when writing new rules and new
 macros.
 
+The rules above were reviewed and follow our
+[requirements for recommended rules](https://www.bazel.build/recommended-rules.html).
+Contact the respective rule set's maintainers regarding issues and feature
+requests.
+
+To find more Bazel rules, use a search engine, take a look on
+[awesomebazel.com](https://awesomebazel.com/), or search on
+[GitHub](https://github.com/search?o=desc&q=bazel+rules&s=stars&type=Repositories).
+
 ## Native rules that do not apply to a specific programming language
 
 Native rules are shipped with the Bazel binary, they are always available in
@@ -59,6 +64,7 @@ BUILD files without a `load` statement.
   - [`constraint_value`](be/platform.html#constraint_value)
   - [`platform`](be/platform.html#platform)
   - [`toolchain`](be/platform.html#toolchain)
+  - [`toolchain_type`](be/platform.html#toolchain_type)
 * Workspace
   - [`bind`](be/workspace.html#bind)
   - [`local_repository`](be/workspace.html#local_repository)
@@ -77,4 +83,4 @@ the `@bazel_tools` built-in external repository.
   - [`http_archive`](repo/http.html#http_archive)
   - [`http_file`](repo/http.html#http_archive)
   - [`http_jar`](repo/http.html#http_jar)
-  - [Utility functions on patching](utils.md)
+  - [Utility functions on patching](repo/utils.md)

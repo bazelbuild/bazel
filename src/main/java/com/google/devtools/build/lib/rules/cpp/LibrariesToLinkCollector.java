@@ -19,6 +19,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
@@ -115,15 +117,15 @@ public class LibrariesToLinkCollector {
    */
   public static class CollectedLibrariesToLink {
     private final SequenceBuilder librariesToLink;
-    private final ImmutableSet<LinkerInput> expandedLinkerInputs;
-    private final ImmutableSet<String> librarySearchDirectories;
-    private final ImmutableSet<String> runtimeLibrarySearchDirectories;
+    private final NestedSet<LinkerInput> expandedLinkerInputs;
+    private final NestedSet<String> librarySearchDirectories;
+    private final NestedSet<String> runtimeLibrarySearchDirectories;
 
     private CollectedLibrariesToLink(
         SequenceBuilder librariesToLink,
-        ImmutableSet<LinkerInput> expandedLinkerInputs,
-        ImmutableSet<String> librarySearchDirectories,
-        ImmutableSet<String> runtimeLibrarySearchDirectories) {
+        NestedSet<LinkerInput> expandedLinkerInputs,
+        NestedSet<String> librarySearchDirectories,
+        NestedSet<String> runtimeLibrarySearchDirectories) {
       this.librariesToLink = librariesToLink;
       this.expandedLinkerInputs = expandedLinkerInputs;
       this.librarySearchDirectories = librarySearchDirectories;
@@ -135,15 +137,15 @@ public class LibrariesToLinkCollector {
     }
 
     // TODO(b/78347840): Figure out how to make these Artifacts.
-    public ImmutableSet<LinkerInput> getExpandedLinkerInputs() {
+    public NestedSet<LinkerInput> getExpandedLinkerInputs() {
       return expandedLinkerInputs;
     }
 
-    public ImmutableSet<String> getLibrarySearchDirectories() {
+    public NestedSet<String> getLibrarySearchDirectories() {
       return librarySearchDirectories;
     }
 
-    public ImmutableSet<String> getRuntimeLibrarySearchDirectories() {
+    public NestedSet<String> getRuntimeLibrarySearchDirectories() {
       return runtimeLibrarySearchDirectories;
     }
   }
@@ -158,10 +160,10 @@ public class LibrariesToLinkCollector {
    * <p>TODO: Factor out of the bazel binary into build variables for crosstool action_configs.
    */
   public CollectedLibrariesToLink collectLibrariesToLink() {
-    ImmutableSet.Builder<String> librarySearchDirectories = ImmutableSet.builder();
-    ImmutableSet.Builder<String> runtimeLibrarySearchDirectories = ImmutableSet.builder();
+    NestedSetBuilder<String> librarySearchDirectories = NestedSetBuilder.linkOrder();
+    NestedSetBuilder<String> runtimeLibrarySearchDirectories = NestedSetBuilder.linkOrder();
     ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps = ImmutableSet.builder();
-    ImmutableSet.Builder<LinkerInput> expandedLinkerInputsBuilder = ImmutableSet.builder();
+    NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder = NestedSetBuilder.linkOrder();
     // List of command line parameters that need to be placed *outside* of
     // --whole-archive ... --no-whole-archive.
     SequenceBuilder librariesToLink = new SequenceBuilder();
@@ -210,14 +212,14 @@ public class LibrariesToLinkCollector {
     Preconditions.checkState(
         ltoMap == null || ltoMap.isEmpty(), "Still have LTO objects left: %s", ltoMap);
 
-    ImmutableSet.Builder<String> allRuntimeLibrarySearchDirectories = ImmutableSet.builder();
+    NestedSetBuilder<String> allRuntimeLibrarySearchDirectories = NestedSetBuilder.linkOrder();
     // rpath ordering matters for performance; first add the one where most libraries are found.
     if (includeSolibDir) {
       allRuntimeLibrarySearchDirectories.add(rpathRoot);
     }
     allRuntimeLibrarySearchDirectories.addAll(rpathRootsForExplicitSoDeps.build());
     if (includeToolchainLibrariesSolibDir) {
-      allRuntimeLibrarySearchDirectories.addAll(runtimeLibrarySearchDirectories.build());
+      allRuntimeLibrarySearchDirectories.addTransitive(runtimeLibrarySearchDirectories.build());
     }
 
     return new CollectedLibrariesToLink(
@@ -228,10 +230,10 @@ public class LibrariesToLinkCollector {
   }
 
   private Pair<Boolean, Boolean> addLinkerInputs(
-      ImmutableSet.Builder<String> librarySearchDirectories,
+      NestedSetBuilder<String> librarySearchDirectories,
       ImmutableSet.Builder<String> rpathEntries,
       SequenceBuilder librariesToLink,
-      ImmutableSet.Builder<LinkerInput> expandedLinkerInputsBuilder) {
+      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder) {
     boolean includeSolibDir = false;
     boolean includeToolchainLibrariesSolibDir = false;
     for (LinkerInput input : linkerInputs) {
@@ -276,8 +278,8 @@ public class LibrariesToLinkCollector {
   private void addDynamicInputLinkOptions(
       LinkerInput input,
       SequenceBuilder librariesToLink,
-      ImmutableSet.Builder<LinkerInput> expandedLinkerInputsBuilder,
-      ImmutableSet.Builder<String> librarySearchDirectories,
+      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder,
+      NestedSetBuilder<String> librarySearchDirectories,
       ImmutableSet.Builder<String> rpathRootsForExplicitSoDeps) {
     Preconditions.checkState(
         input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
@@ -316,14 +318,19 @@ public class LibrariesToLinkCollector {
     librarySearchDirectories.add(inputArtifact.getExecPath().getParentDirectory().getPathString());
 
     String name = inputArtifact.getFilename();
-    if (CppFileTypes.SHARED_LIBRARY.matches(name)) {
-      // Use normal shared library resolution rules for shared libraries.
+
+    // Use the normal shared library resolution rules if possible, otherwise treat as a versioned
+    // library that must use the exact name. e.g.:
+    // -lfoo -> libfoo.so
+    // -l:foo -> foo.so
+    // -l:libfoo.so.1 -> libfoo.so.1
+    boolean hasCompatibleName =
+        name.startsWith("lib") || (!name.endsWith(".so") && !name.endsWith(".dylib"));
+    if (CppFileTypes.SHARED_LIBRARY.matches(name) && hasCompatibleName) {
       String libName = name.replaceAll("(^lib|\\.(so|dylib)$)", "");
       librariesToLink.addValue(LibraryToLinkValue.forDynamicLibrary(libName));
-    } else if (CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
-      // Versioned shared libraries require the exact library filename, e.g.:
-      // -lfoo -> libfoo.so
-      // -l:libfoo.so.1 -> libfoo.so.1
+    } else if (CppFileTypes.SHARED_LIBRARY.matches(name)
+        || CppFileTypes.VERSIONED_SHARED_LIBRARY.matches(name)) {
       librariesToLink.addValue(LibraryToLinkValue.forVersionedDynamicLibrary(name));
     } else {
       // Interface shared objects have a non-standard extension
@@ -359,7 +366,7 @@ public class LibrariesToLinkCollector {
   private void addStaticInputLinkOptions(
       LinkerInput input,
       SequenceBuilder librariesToLink,
-      ImmutableSet.Builder<LinkerInput> expandedLinkerInputsBuilder) {
+      NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder) {
     ArtifactCategory artifactCategory = input.getArtifactCategory();
     Preconditions.checkArgument(
         artifactCategory.equals(ArtifactCategory.OBJECT_FILE)

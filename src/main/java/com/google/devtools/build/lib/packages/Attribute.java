@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassNamePredicate;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -117,11 +116,11 @@ public final class Attribute implements Comparable<Attribute> {
 
   @VisibleForSerialization
   @AutoCodec
-  static class SkylarkRuleAspect extends RuleAspect<SkylarkAspectClass> {
-    private final SkylarkDefinedAspect aspect;
+  static class StarlarkRuleAspect extends RuleAspect<StarlarkAspectClass> {
+    private final StarlarkDefinedAspect aspect;
 
     @VisibleForSerialization
-    SkylarkRuleAspect(SkylarkDefinedAspect aspect) {
+    StarlarkRuleAspect(StarlarkDefinedAspect aspect) {
       super(aspect.getAspectClass(), aspect.getDefaultParametersExtractor());
       this.aspect = aspect;
     }
@@ -134,7 +133,7 @@ public final class Attribute implements Comparable<Attribute> {
     @Override
     public Aspect getAspect(Rule rule) {
       AspectParameters parameters = parametersExtractor.apply(rule);
-      return Aspect.forSkylark(aspectClass, aspect.getDefinition(parameters), parameters);
+      return Aspect.forStarlark(aspectClass, aspect.getDefinition(parameters), parameters);
     }
   }
 
@@ -202,11 +201,11 @@ public final class Attribute implements Comparable<Attribute> {
     SILENT_RULECLASS_FILTER,
 
     // TODO(bazel-team): This is a hack introduced because of the bad design of the original rules.
-    // Depot cleanup would be too expensive, but don't migrate this to Skylark.
+    // Depot cleanup would be too expensive, but don't migrate this to Starlark.
     /**
-     * Whether to perform analysis time filetype check on this label-type attribute or not.
-     * If the flag is set, we skip the check that applies the allowedFileTypes filter
-     * to generated files. Do not use this if avoidable.
+     * Whether to perform analysis time filetype check on this label-type attribute or not. If the
+     * flag is set, we skip the check that applies the allowedFileTypes filter to generated files.
+     * Do not use this if avoidable.
      */
     SKIP_ANALYSIS_TIME_FILETYPE_CHECK,
 
@@ -222,9 +221,9 @@ public final class Attribute implements Comparable<Attribute> {
     NONCONFIGURABLE,
 
     /**
-     * Whether we should skip dependency validation checks done by
-     * {@link com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator}
-     * (for visibility, etc.).
+     * Whether we should skip dependency validation checks done by {@link
+     * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator} (for visibility,
+     * etc.).
      */
     SKIP_PREREQ_VALIDATOR_CHECKS,
 
@@ -481,7 +480,7 @@ public final class Attribute implements Comparable<Attribute> {
 
     /**
      * Sets the property flag of the corresponding name if exists, otherwise throws an Exception.
-     * Only meant to use from Skylark, do not use from Java.
+     * Only meant to use from Starlark, do not use from Java.
      */
     public Builder<TYPE> setPropertyFlag(String propertyName) {
       PropertyFlag flag = null;
@@ -639,7 +638,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * See value(TYPE) above. This method is only meant for Skylark usage.
+     * See value(TYPE) above. This method is only meant for Starlark usage.
      *
      * <p>The parameter {@code context} is relevant iff the default value is a Label string. In this
      * case, {@code context} must point to the parent Label in order to be able to convert the
@@ -661,7 +660,7 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
-    /** See value(TYPE) above. This method is only meant for Skylark usage. */
+    /** See value(TYPE) above. This method is only meant for Starlark usage. */
     public Builder<TYPE> defaultValue(Object defaultValue) throws ConversionException {
       return defaultValue(defaultValue, null, null);
     }
@@ -685,22 +684,22 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Sets the attribute default value to a Skylark computed default template. Like a native
-     * Computed Default, this allows a Skylark-defined Rule Class to specify that the default value
+     * Sets the attribute default value to a Starlark computed default template. Like a native
+     * Computed Default, this allows a Starlark-defined Rule Class to specify that the default value
      * of an attribute is a function of other attributes of the Rule.
      *
      * <p>During the loading phase, the computed default template will be specialized for each rule
      * it applies to. Those rules' attribute values will not be references to {@link
-     * SkylarkComputedDefaultTemplate}s, but instead will be references to {@link
-     * SkylarkComputedDefault}s.
+     * StarlarkComputedDefaultTemplate}s, but instead will be references to {@link
+     * StarlarkComputedDefault}s.
      *
      * <p>If the computed default returns a Label that is a target, that target will become an
      * implicit dependency of this Rule; we will load the target (and its dependencies) if it
      * encounters the Rule and build the target if needs to apply the Rule.
      */
-    public Builder<TYPE> value(SkylarkComputedDefaultTemplate skylarkComputedDefaultTemplate) {
+    public Builder<TYPE> value(StarlarkComputedDefaultTemplate starlarkComputedDefaultTemplate) {
       Preconditions.checkState(!valueSet, "the default value is already set");
-      value = skylarkComputedDefaultTemplate;
+      value = starlarkComputedDefaultTemplate;
       valueSource = AttributeValueSource.COMPUTED_DEFAULT;
       valueSet = true;
       return this;
@@ -718,9 +717,7 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
-    /**
-     * Returns where the value of this attribute comes from. Useful only for Skylark.
-     */
+    /** Returns where the value of this attribute comes from. Useful only for Starlark. */
     public AttributeValueSource getValueSource() {
       return valueSource;
     }
@@ -748,8 +745,8 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Disables dependency checks done by
-     * {@link com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator}.
+     * Disables dependency checks done by {@link
+     * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator}.
      */
     public Builder<TYPE> skipPrereqValidatorCheck() {
       return setPropertyFlag(PropertyFlag.SKIP_PREREQ_VALIDATOR_CHECKS,
@@ -762,8 +759,8 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>Most attributes are enforced by default, so in the common case this call is unnecessary.
      *
-     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics#getConstraintCheckedDependencies}
-     * for enforcement policy details.
+     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for
+     * enforcement policy details.
      */
     public Builder<TYPE> checkConstraints() {
       Verify.verify(!propertyFlags.contains(PropertyFlag.SKIP_CONSTRAINTS_OVERRIDE),
@@ -775,8 +772,8 @@ public final class Attribute implements Comparable<Attribute> {
      * Skips constraint checking on this attribute even if default enforcement policy would check
      * it. If default policy skips the attribute, this is a no-op.
      *
-     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics#getConstraintCheckedDependencies}
-     * for enforcement policy details.
+     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics} for
+     * enforcement policy details.
      */
     public Builder<TYPE> dontCheckConstraints() {
       Verify.verify(!propertyFlags.contains(PropertyFlag.CHECK_CONSTRAINTS_OVERRIDE),
@@ -972,17 +969,16 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Sets a list of sets of mandatory Skylark providers. Every configured target occurring in
-     * this label type attribute has to provide all the providers from one of those sets,
-     * or be one of {@link #allowedRuleClasses}, otherwise an error is produced during
-     * the analysis phase.
+     * Sets a list of sets of mandatory Starlark providers. Every configured target occurring in
+     * this label type attribute has to provide all the providers from one of those sets, or be one
+     * of {@link #allowedRuleClasses}, otherwise an error is produced during the analysis phase.
      */
     public Builder<TYPE> mandatoryProvidersList(
-        Iterable<? extends Iterable<SkylarkProviderIdentifier>> providersList){
+        Iterable<? extends Iterable<StarlarkProviderIdentifier>> providersList) {
       Preconditions.checkState(type.getLabelClass() == LabelClass.DEPENDENCY,
           "must be a label-valued type");
-      for (Iterable<SkylarkProviderIdentifier> providers : providersList) {
-        this.requiredProvidersBuilder.addSkylarkSet(ImmutableSet.copyOf(providers));
+      for (Iterable<StarlarkProviderIdentifier> providers : providersList) {
+        this.requiredProvidersBuilder.addStarlarkSet(ImmutableSet.copyOf(providers));
       }
       return this;
     }
@@ -993,18 +989,18 @@ public final class Attribute implements Comparable<Attribute> {
               Arrays.asList(ids),
               s -> {
                 Preconditions.checkNotNull(s);
-                return SkylarkProviderIdentifier.forLegacy(s);
+                return StarlarkProviderIdentifier.forLegacy(s);
               }));
     }
 
-    public Builder<TYPE> mandatoryProviders(Iterable<SkylarkProviderIdentifier> providers) {
+    public Builder<TYPE> mandatoryProviders(Iterable<StarlarkProviderIdentifier> providers) {
       if (providers.iterator().hasNext()) {
         mandatoryProvidersList(ImmutableList.of(providers));
       }
       return this;
     }
 
-    public Builder<TYPE> mandatoryProviders(SkylarkProviderIdentifier... providers) {
+    public Builder<TYPE> mandatoryProviders(StarlarkProviderIdentifier... providers) {
       mandatoryProviders(Arrays.asList(providers));
       return this;
     }
@@ -1038,13 +1034,11 @@ public final class Attribute implements Comparable<Attribute> {
     @AutoCodec @AutoCodec.VisibleForSerialization
     static final Function<Rule, AspectParameters> EMPTY_FUNCTION = input -> AspectParameters.EMPTY;
 
-    public Builder<TYPE> aspect(SkylarkDefinedAspect skylarkAspect, Location location)
-        throws EvalException {
-      SkylarkRuleAspect skylarkRuleAspect = new SkylarkRuleAspect(skylarkAspect);
-      RuleAspect<?> oldAspect = this.aspects.put(skylarkAspect.getName(), skylarkRuleAspect);
+    public Builder<TYPE> aspect(StarlarkDefinedAspect starlarkAspect) throws EvalException {
+      StarlarkRuleAspect starlarkRuleAspect = new StarlarkRuleAspect(starlarkAspect);
+      RuleAspect<?> oldAspect = this.aspects.put(starlarkAspect.getName(), starlarkRuleAspect);
       if (oldAspect != null) {
-        throw new EvalException(
-            location, String.format("aspect %s added more than once", skylarkAspect.getName()));
+        throw Starlark.errorf("aspect %s added more than once", starlarkAspect.getName());
       }
       return this;
     }
@@ -1137,7 +1131,7 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * Creates the attribute. Uses type, optionality, configuration type and the default value
      * configured by the builder. Use the name passed as an argument. This function is used by
-     * Skylark where the name is provided only when we build. We don't want to modify the builder,
+     * Starlark where the name is provided only when we build. We don't want to modify the builder,
      * as it is shared in a multithreaded environment.
      */
     public Attribute build(String name) {
@@ -1200,7 +1194,7 @@ public final class Attribute implements Comparable<Attribute> {
    *
    * <p>The {@code TComputeException} type parameter allows the two specializations of this class to
    * describe whether and how their computations throw. For natively defined computed defaults,
-   * computation does not throw, but for Skylark-defined computed defaults, computation may throw
+   * computation does not throw, but for Starlark-defined computed defaults, computation may throw
    * {@link InterruptedException}.
    */
   private abstract static class ComputationStrategy<TComputeException extends Exception> {
@@ -1330,8 +1324,8 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * <p>This constructor should not be used by native {@link ComputedDefault} functions. The limit
      * of at-most-two depended-on configurable attributes is intended, to limit the exponential
-     * growth of possible values. {@link SkylarkComputedDefault} uses this, but is limited by {@link
-     * FixedComputationLimiter#COMPUTED_DEFAULT_MAX_COMBINATIONS}.
+     * growth of possible values. {@link StarlarkComputedDefault} uses this, but is limited by
+     * {@link FixedComputationLimiter#COMPUTED_DEFAULT_MAX_COMBINATIONS}.
      */
     protected ComputedDefault(ImmutableList<String> dependencies) {
       // Order is important for #createDependencyAssignmentTuple.
@@ -1373,42 +1367,36 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * A Skylark-defined computed default, which can be precomputed for a specific {@link Rule} by
-   * calling {@link #computePossibleValues}, which returns a {@link SkylarkComputedDefault} that
+   * A Starlark-defined computed default, which can be precomputed for a specific {@link Rule} by
+   * calling {@link #computePossibleValues}, which returns a {@link StarlarkComputedDefault} that
    * contains a lookup table.
    */
-  public static final class SkylarkComputedDefaultTemplate {
+  public static final class StarlarkComputedDefaultTemplate {
     private final Type<?> type;
     private final StarlarkCallbackHelper callback;
-    private final Location location;
     private final ImmutableList<String> dependencies;
 
     /**
-     * Creates a new SkylarkComputedDefaultTemplate that allows the computation of attribute values
+     * Creates a new StarlarkComputedDefaultTemplate that allows the computation of attribute values
      * via a callback function during loading phase.
      *
      * @param type The type of the value of this attribute.
      * @param dependencies A list of all names of other attributes that are accessed by this
      *     attribute.
      * @param callback A function to compute the actual attribute value.
-     * @param location The location of the Skylark function.
      */
-    public SkylarkComputedDefaultTemplate(
-        Type<?> type,
-        ImmutableList<String> dependencies,
-        StarlarkCallbackHelper callback,
-        Location location) {
+    public StarlarkComputedDefaultTemplate(
+        Type<?> type, ImmutableList<String> dependencies, StarlarkCallbackHelper callback) {
       this.type = Preconditions.checkNotNull(type);
       // Order is important for #createDependencyAssignmentTuple.
       this.dependencies =
           Ordering.natural().immutableSortedCopy(Preconditions.checkNotNull(dependencies));
       this.callback = Preconditions.checkNotNull(callback);
-      this.location = Preconditions.checkNotNull(location);
     }
 
     /**
-     * Returns a {@link SkylarkComputedDefault} containing a lookup table specifying the output of
-     * this {@link SkylarkComputedDefaultTemplate}'s callback given each possible assignment {@code
+     * Returns a {@link StarlarkComputedDefault} containing a lookup table specifying the output of
+     * this {@link StarlarkComputedDefaultTemplate}'s callback given each possible assignment {@code
      * rule} might make to the attributes specified by {@link #dependencies}.
      *
      * <p>If the rule is missing an attribute specified by {@link #dependencies}, or if there are
@@ -1418,11 +1406,11 @@ public final class Attribute implements Comparable<Attribute> {
      * <p>May only be called after all non-{@link ComputedDefault} attributes have been set on the
      * {@code rule}.
      */
-    SkylarkComputedDefault computePossibleValues(
+    StarlarkComputedDefault computePossibleValues(
         Attribute attr, final Rule rule, final EventHandler eventHandler)
         throws InterruptedException, CannotPrecomputeDefaultsException {
 
-      final SkylarkComputedDefaultTemplate owner = SkylarkComputedDefaultTemplate.this;
+      final StarlarkComputedDefaultTemplate owner = StarlarkComputedDefaultTemplate.this;
       final String msg =
           String.format(
               "Cannot compute default value of attribute '%s' in rule '%s': ",
@@ -1465,7 +1453,7 @@ public final class Attribute implements Comparable<Attribute> {
         rule.reportError(error, eventHandler);
         throw new CannotPrecomputeDefaultsException(error);
       }
-      return new SkylarkComputedDefault(dependencies, dependencyTypesBuilder.build(), lookupTable);
+      return new StarlarkComputedDefault(dependencies, dependencyTypesBuilder.build(), lookupTable);
     }
 
     private Object computeValue(EventHandler eventHandler, AttributeMap rule)
@@ -1494,10 +1482,7 @@ public final class Attribute implements Comparable<Attribute> {
       try {
         return type.cast((result == Starlark.NONE) ? type.getDefaultValue() : result);
       } catch (ClassCastException ex) {
-        throw new EvalException(
-            location,
-            String.format(
-                "expected '%s', but got '%s'", type, EvalUtils.getDataTypeName(result, true)));
+        throw Starlark.errorf("expected '%s', but got '%s'", type, Starlark.type(result));
       }
     }
 
@@ -1515,20 +1500,20 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * A class for computed attributes defined in Skylark.
+   * A class for computed attributes defined in Starlark.
    *
    * <p>Unlike {@link ComputedDefault}, instances of this class contain a pre-computed table of all
-   * possible assignments of depended-on attributes and what the Skylark function evaluates to, and
+   * possible assignments of depended-on attributes and what the Starlark function evaluates to, and
    * {@link #getPossibleValues(Type, Rule)} and {@link #getDefault(AttributeMap)} do lookups in that
    * table.
    */
-  static final class SkylarkComputedDefault extends ComputedDefault {
+  static final class StarlarkComputedDefault extends ComputedDefault {
 
     private final List<Type<?>> dependencyTypes;
     private final Map<List<Object>, Object> lookupTable;
 
     /**
-     * Creates a new SkylarkComputedDefault containing a lookup table.
+     * Creates a new StarlarkComputedDefault containing a lookup table.
      *
      * @param dependencies A list of all names of other attributes that are accessed by this
      *     attribute.
@@ -1536,7 +1521,7 @@ public final class Attribute implements Comparable<Attribute> {
      * @param lookupTable An exhaustive mapping from requiredAttributes assignments to values this
      *     computed default evaluates to.
      */
-    SkylarkComputedDefault(
+    StarlarkComputedDefault(
         ImmutableList<String> dependencies,
         ImmutableList<Type<?>> dependencyTypes,
         Map<List<Object>, Object> lookupTable) {
@@ -1697,7 +1682,7 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * An abstract {@link LateBoundDefault} class so that {@code SkylarkLateBoundDefault} can derive
+   * An abstract {@link LateBoundDefault} class so that {@code StarlarkLateBoundDefault} can derive
    * from {@link LateBoundDefault} without compromising the type-safety of the second generic
    * parameter to {@link LateBoundDefault}.
    */
@@ -1854,7 +1839,7 @@ public final class Attribute implements Comparable<Attribute> {
   // 1. defaultValue == null.
   // 2. defaultValue instanceof ComputedDefault &&
   //    type.isValid(defaultValue.getDefault())
-  // 3. defaultValue instanceof SkylarkComputedDefaultTemplate &&
+  // 3. defaultValue instanceof StarlarkComputedDefaultTemplate &&
   //    type.isValid(defaultValue.computePossibleValues().getDefault())
   // 4. type.isValid(defaultValue).
   // 5. defaultValue instanceof LateBoundDefault &&
@@ -1988,12 +1973,12 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the public name of this attribute. This is the name we use in Skylark code
-   * and we can use it to display to the end-user.
-   * Implicit and late-bound attributes start with '_' (instead of '$' or ':').
+   * Returns the public name of this attribute. This is the name we use in Starlark code and we can
+   * use it to display to the end-user. Implicit and late-bound attributes start with '_' (instead
+   * of '$' or ':').
    */
   public String getPublicName() {
-    return getSkylarkName(getName());
+    return getStarlarkName(getName());
   }
 
   /**
@@ -2188,10 +2173,17 @@ public final class Attribute implements Comparable<Attribute> {
     return allowedValues;
   }
 
+  public boolean hasAspects() {
+    return !aspects.isEmpty();
+  }
+
   /**
    * Returns the list of aspects required for dependencies through this attribute.
    */
   public ImmutableList<Aspect> getAspects(Rule rule) {
+    if (aspects.isEmpty()) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<Aspect> builder = null;
     for (RuleAspect<?> aspect : aspects) {
       Aspect a = aspect.getAspect(rule);
@@ -2259,7 +2251,7 @@ public final class Attribute implements Comparable<Attribute> {
    */
   boolean hasComputedDefault() {
     return (defaultValue instanceof ComputedDefault)
-        || (defaultValue instanceof SkylarkComputedDefaultTemplate)
+        || (defaultValue instanceof StarlarkComputedDefaultTemplate)
         || (condition != null);
   }
 
@@ -2295,17 +2287,17 @@ public final class Attribute implements Comparable<Attribute> {
     return name.startsWith(":");
   }
 
-  /** Returns whether this attribute is considered private in Skylark. */
+  /** Returns whether this attribute is considered private in Starlark. */
   private static boolean isPrivateAttribute(String nativeAttrName) {
     return isLateBound(nativeAttrName) || isImplicit(nativeAttrName);
   }
 
   /**
-   * Returns the Skylark-usable name of this attribute.
+   * Returns the Starlark-usable name of this attribute.
    *
-   * Implicit and late-bound attributes start with '_' (instead of '$' or ':').
+   * <p>Implicit and late-bound attributes start with '_' (instead of '$' or ':').
    */
-  public static String getSkylarkName(String nativeAttrName) {
+  public static String getStarlarkName(String nativeAttrName) {
     if (isPrivateAttribute(nativeAttrName)) {
       return "_" + nativeAttrName.substring(1);
     }

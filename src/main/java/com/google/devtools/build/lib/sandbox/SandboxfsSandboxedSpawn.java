@@ -15,24 +15,23 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Joiner;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
-import com.google.devtools.build.lib.sandbox.SandboxfsProcess.Mapping;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -40,13 +39,10 @@ import javax.annotation.Nullable;
  * FUSE filesystem on the provided path.
  */
 class SandboxfsSandboxedSpawn implements SandboxedSpawn {
-  private static final Logger log = Logger.getLogger(SandboxfsSandboxedSpawn.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /** Sequence number to assign a unique subtree to each action within the mount point. */
   private static final AtomicInteger lastId = new AtomicInteger();
-
-  /** Single instance of a path fragment representing a root directory. */
-  private static final PathFragment rootFragment = PathFragment.create("/");
 
   /** The sandboxfs instance to use for this spawn. */
   private final SandboxfsProcess process;
@@ -93,6 +89,12 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    */
   private final String sandboxName;
 
+  /** Path to the execroot within the sandbox. */
+  private final PathFragment rootFragment;
+
+  /** Flag to track whether the sandbox needs to be unmapped. */
+  private boolean sandboxIsMapped;
+
   @Nullable private final Path statisticsPath;
 
   /**
@@ -112,6 +114,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   SandboxfsSandboxedSpawn(
       SandboxfsProcess process,
       Path sandboxPath,
+      String workspaceName,
       List<String> arguments,
       Map<String, String> environment,
       SandboxInputs inputs,
@@ -143,8 +146,15 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
 
     int id = lastId.getAndIncrement();
     this.sandboxName = "" + id;
-    this.execRoot = process.getMountPoint().getRelative(this.sandboxName);
+    this.sandboxIsMapped = false;
     this.statisticsPath = statisticsPath;
+
+    // b/64689608: The execroot of the sandboxed process must end with the workspace name, just
+    // like the normal execroot does. Some tools walk their path hierarchy looking for this
+    // component and misbehave if they don't find it.
+    this.execRoot =
+        process.getMountPoint().getRelative(this.sandboxName).getRelative(workspaceName);
+    this.rootFragment = PathFragment.create("/" + workspaceName);
   }
 
   @Override
@@ -171,7 +181,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   public void createFileSystem() throws IOException {
     sandboxScratchDir.createDirectory();
 
-    List<Mapping> mappings = createMappings(sandboxScratchDir, inputs, mapSymlinkTargets);
+    inputs.materializeVirtualInputs(sandboxScratchDir);
 
     Set<PathFragment> dirsToCreate = new HashSet<>(writableDirs);
     for (PathFragment output : outputs.files()) {
@@ -182,7 +192,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
       sandboxScratchDir.getRelative(dir).createDirectoryAndParents();
     }
 
-    process.createSandbox(sandboxName, mappings);
+    createSandbox(process, sandboxName, rootFragment, sandboxScratchDir, inputs, mapSymlinkTargets);
+    sandboxIsMapped = true;
   }
 
   @Override
@@ -195,13 +206,19 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
 
   @Override
   public void delete() {
-    try {
-      process.destroySandbox(sandboxName);
-    } catch (IOException e) {
-      // We use independent subdirectories for each action, so a failure to unmap one, while
-      // annoying, is not a big deal.  The sandboxfs instance will be unmounted anyway after
-      // the build, which will cause these to go away anyway.
-      log.warning("Cannot unmap " + sandboxName + ": " + e);
+    // We can only ask sandboxfs to unmap a sandbox if we successfully finished creating it.
+    // Otherwise, the request may fail, or we may fail our own sanity-checks that validate the
+    // lifecycle of the sandboxes.
+    if (sandboxIsMapped) {
+      try {
+        process.destroySandbox(sandboxName);
+      } catch (IOException e) {
+        // We use independent subdirectories for each action, so a failure to unmap one, while
+        // annoying, is not a big deal.  The sandboxfs instance will be unmounted anyway after
+        // the build, which will cause these to go away anyway.
+        logger.atWarning().withCause(e).log("Cannot unmap %s", sandboxName);
+      }
+      sandboxIsMapped = false;
     }
 
     try {
@@ -243,7 +260,8 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    * @throws IOException if we fail to resolve symbolic links
    */
   private static void computeSymlinkMappings(
-      PathFragment path, Path symlink, Map<PathFragment, Path> mappings) throws IOException {
+      PathFragment path, Path symlink, Map<PathFragment, PathFragment> mappings)
+      throws IOException {
     for (; ; ) {
       PathFragment symlinkTarget = symlink.readSymbolicLinkUnchecked();
       if (!symlinkTarget.isAbsolute()) {
@@ -258,7 +276,7 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
           throw new IOException("Cannot resolve " + symlinkTarget + " relative to " + symlink);
         }
         Path value = valueParent.getRelative(symlinkTarget);
-        mappings.put(key, value);
+        mappings.put(key, value.asFragment());
 
         if (value.isSymbolicLink()) {
           path = key;
@@ -273,6 +291,9 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
   /**
    * Creates a new set of mappings to sandbox the given inputs.
    *
+   * @param process the sandboxfs instance on which to create the sandbox
+   * @param sandboxName the name of the sandbox to pass to sandboxfs
+   * @param rootFragment path within the sandbox to the execroot to create
    * @param scratchDir writable used as the target for all writable mappings
    * @param inputs collection of paths to expose within the sandbox as read-only mappings, given as
    *     a map of mapped path to target path. The target path may be null, in which case an empty
@@ -281,75 +302,81 @@ class SandboxfsSandboxedSpawn implements SandboxedSpawn {
    * @return the collection of mappings to use for reconfiguration
    * @throws IOException if we fail to resolve symbolic links
    */
-  private static List<Mapping> createMappings(
-      Path scratchDir, SandboxInputs inputs, boolean sandboxfsMapSymlinkTargets)
+  private static void createSandbox(
+      SandboxfsProcess process,
+      String sandboxName,
+      PathFragment rootFragment,
+      Path scratchDir,
+      SandboxInputs inputs,
+      boolean sandboxfsMapSymlinkTargets)
       throws IOException {
-    List<Mapping> mappings = new ArrayList<>();
-
-    mappings.add(
-        Mapping.builder()
-            .setPath(rootFragment)
-            .setTarget(scratchDir.asFragment())
-            .setWritable(true)
-            .build());
-
     // Path to the empty file used as the target of mappings that don't provide one.  This is
     // lazily created and initialized only when we need such a mapping.  It's safe to share the
     // same empty file across all such mappings because this file is exposed as read-only.
     //
     // We cannot use /dev/null, as we used to do in the past, because exposing devices via a
     // FUSE file system (which sandboxfs is) requires root privileges.
-    Path emptyFile = null;
+    PathFragment emptyFile = null;
 
     // Collection of extra mappings needed to represent the targets of relative symlinks. Lazily
     // created once we encounter the first symlink in the list of inputs.
-    Map<PathFragment, Path> symlinks = null;
+    Map<PathFragment, PathFragment> symlinks = null;
 
     for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
-      PathFragment target;
       if (entry.getValue() == null) {
         if (emptyFile == null) {
-          emptyFile = scratchDir.getRelative("empty");
-          FileSystemUtils.createEmptyFile(emptyFile);
+          Path emptyFilePath = scratchDir.getRelative("empty");
+          FileSystemUtils.createEmptyFile(emptyFilePath);
+          emptyFile = emptyFilePath.asFragment();
         }
-        target = emptyFile.asFragment();
       } else {
-        if (entry.getValue().isSymbolicLink() && sandboxfsMapSymlinkTargets) {
+        if (sandboxfsMapSymlinkTargets && entry.getValue().isSymbolicLink()) {
           if (symlinks == null) {
             symlinks = new HashMap<>();
           }
           computeSymlinkMappings(entry.getKey(), entry.getValue(), symlinks);
         }
-        target = entry.getValue().asFragment();
-      }
-      mappings.add(
-          Mapping.builder()
-              .setPath(rootFragment.getRelative(entry.getKey()))
-              .setTarget(target)
-              .setWritable(false)
-              .build());
-    }
-
-    if (symlinks != null) {
-      for (Map.Entry<PathFragment, Path> entry : symlinks.entrySet()) {
-        if (!inputs.getFiles().containsKey(entry.getKey())) {
-          mappings.add(
-              Mapping.builder()
-                  .setPath(rootFragment.getRelative(entry.getKey()))
-                  .setTarget(entry.getValue().asFragment())
-                  .setWritable(false)
-                  .build());
-        }
       }
     }
 
-    // sandboxfs probably doesn't support symlinks
+    // IMPORTANT: Keep the code in the lambda passed to createSandbox() free from any operations
+    // that may block. This includes doing any kind of I/O. We used to include the loop above in
+    // this call and doing so cost 2-3% of the total build time measured on an iOS build with many
+    // actions that have thousands of inputs each.
+    @Nullable final PathFragment finalEmptyFile = emptyFile;
+    @Nullable final Map<PathFragment, PathFragment> finalSymlinks = symlinks;
+    process.createSandbox(
+        sandboxName,
+        (mapper) -> {
+          mapper.map(rootFragment, scratchDir.asFragment(), true);
+
+          for (Map.Entry<PathFragment, Path> entry : inputs.getFiles().entrySet()) {
+            PathFragment target;
+            if (entry.getValue() == null) {
+              checkNotNull(finalEmptyFile, "Must have been initialized above by matching logic");
+              target = finalEmptyFile;
+            } else {
+              target = entry.getValue().asFragment();
+            }
+            mapper.map(rootFragment.getRelative(entry.getKey()), target, false);
+          }
+
+          if (finalSymlinks != null) {
+            for (Map.Entry<PathFragment, PathFragment> entry : finalSymlinks.entrySet()) {
+              if (!inputs.getFiles().containsKey(entry.getKey())) {
+                mapper.map(rootFragment.getRelative(entry.getKey()), entry.getValue(), false);
+              }
+            }
+          }
+        });
+
+    // sandboxfs probably doesn't support symlinks.
+    // TODO(jmmv): This claim is simply not true. Figure out why this code snippet was added and
+    // address the real problem.
     if (!inputs.getSymlinks().isEmpty()) {
       throw new IOException(
           "sandboxfs sandbox does not support unresolved symlinks "
               + Joiner.on(", ").join(inputs.getSymlinks().keySet()));
     }
-
-    return mappings;
   }
 }

@@ -48,7 +48,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder().addRuleDefinition(new FeatureFlagSetterRule());
     TestRuleClassProvider.addStandardRules(builder);
@@ -61,7 +61,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     PatchTransition transition = new ConfigFeatureFlagTransitionFactory("flag_values").create(rule);
 
     BuildOptions original = getOptionsWithoutFlagFragment();
-    BuildOptions converted = transition.patch(original);
+    BuildOptions converted = transition.patch(original, eventCollector);
 
     assertThat(converted).isSameInstanceAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
@@ -83,7 +83,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
     PatchTransition transition = new ConfigFeatureFlagTransitionFactory("flag_values").create(rule);
 
     BuildOptions original = getOptionsWithoutFlagFragment();
-    BuildOptions converted = transition.patch(original);
+    BuildOptions converted = transition.patch(original, eventCollector);
 
     assertThat(converted).isSameInstanceAs(original);
     assertThat(original.contains(ConfigFeatureFlagOptions.class)).isFalse();
@@ -97,7 +97,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
         ImmutableMap.of(Label.parseAbsolute("//a:flag", ImmutableMap.of()), "value");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
-    BuildOptions converted = transition.patch(original);
+    BuildOptions converted = transition.patch(original, eventCollector);
 
     assertThat(converted).isNotSameInstanceAs(original);
     assertThat(FeatureFlagValue.getFlagValues(original)).containsExactlyEntriesIn(originalFlagMap);
@@ -125,7 +125,7 @@ public final class ConfigFeatureFlagTransitionFactoryTest extends BuildViewTestC
         ImmutableMap.of(Label.parseAbsolute("//a:flag", ImmutableMap.of()), "a");
 
     BuildOptions original = getOptionsWithFlagFragment(originalFlagMap);
-    BuildOptions converted = transition.patch(original);
+    BuildOptions converted = transition.patch(original, eventCollector);
 
     assertThat(converted).isNotSameInstanceAs(original);
     assertThat(FeatureFlagValue.getFlagValues(original)).containsExactlyEntriesIn(originalFlagMap);

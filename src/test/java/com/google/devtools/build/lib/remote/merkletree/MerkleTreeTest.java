@@ -58,7 +58,7 @@ public class MerkleTreeTest {
   public void setup() {
     FileSystem fs = new InMemoryFileSystem(new JavaClock(), DigestHashFunction.SHA256);
     execRoot = fs.getPath("/exec");
-    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("srcs"));
+    artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, "srcs");
     digestUtil = new DigestUtil(fs.getDigestFunction());
   }
 
@@ -133,8 +133,8 @@ public class MerkleTreeTest {
 
     Digest[] allDigests = Iterables.toArray(tree.getAllDigests(), Digest.class);
     assertThat(allDigests.length).isEqualTo(dirDigests.length + inputDigests.length);
-    assertThat(allDigests).asList().containsAllIn(dirDigests);
-    assertThat(allDigests).asList().containsAllIn(inputDigests);
+    assertThat(allDigests).asList().containsAtLeastElementsIn(dirDigests);
+    assertThat(allDigests).asList().containsAtLeastElementsIn(inputDigests);
   }
 
   private Artifact addFile(

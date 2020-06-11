@@ -27,15 +27,14 @@ import java.time.Duration;
 public class LocalExecutionOptions extends OptionsBase {
 
   @Option(
-    name = "local_termination_grace_seconds",
-    oldName = "local_sigkill_grace_seconds",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    defaultValue = "15",
-    help =
-        "Time to wait between terminating a local process due to timeout and forcefully "
-            + "shutting it down."
-  )
+      name = "local_termination_grace_seconds",
+      oldName = "local_sigkill_grace_seconds",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "15",
+      help =
+          "Time to wait between terminating a local process due to timeout and forcefully "
+              + "shutting it down.")
   public int localSigkillGraceSeconds;
 
   @Option(
@@ -71,6 +70,38 @@ public class LocalExecutionOptions extends OptionsBase {
               + "faster remote action. Requires --legacy_spawn_scheduler=false because of the need "
               + "for this explicit cancellation.")
   public boolean localLockfreeOutput;
+
+  @Option(
+      name = "experimental_process_wrapper_graceful_sigterm",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "When true, make the process-wrapper propagate SIGTERMs (used by the dynamic scheduler "
+              + "to stop process trees) to the subprocesses themselves, giving them the grace "
+              + "period in --local_termination_grace_seconds before forcibly sending a SIGKILL.")
+  public boolean processWrapperGracefulSigterm;
+
+  @Option(
+      name = "experimental_process_wrapper_wait_fix",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help = "Helper to roll out the process-wrapper's --wait_fix bug fix in a controlled manner.")
+  public boolean processWrapperWaitFix;
+
+  @Option(
+      name = "experimental_local_retries_on_crash",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Number of times to retry a local action when we detect that it crashed. This exists "
+              + "to workaround a bug in OSXFUSE which is tickled by the use of the dynamic "
+              + "scheduler and --experimental_local_lockfree_output due to constant process "
+              + "churn. The bug can be triggered by a cancelled process that ran *before* the "
+              + "process we are trying to run, introducing corruption in its file reads.")
+  public int localRetriesOnCrash;
 
   public Duration getLocalSigkillGraceSeconds() {
     // TODO(ulfjack): Change localSigkillGraceSeconds type to Duration.

@@ -91,6 +91,10 @@ assert_eq(() in {}, False)
 assert_eq("a" in dict(a=1), True)
 ---
 
+# What's going on here? Functions _are_ hashable.
+# 'len in {}' and '{}.get(len, False)' should both successfully evaluate to False.
+# TODO(adonovan): clarify spec and fix this test (https://github.com/bazelbuild/starlark/issues/65)
+
 # unhashable types
 
 {} in {} ### unhashable type: 'dict'

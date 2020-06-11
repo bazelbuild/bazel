@@ -14,36 +14,34 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileValue;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.rules.repository.ManagedDirectoriesKnowledge;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 
 /** Common utilities for dealing with paths outside the package roots. */
 public class ExternalFilesHelper {
-  private static final boolean IN_TEST = System.getenv("TEST_TMPDIR") != null;
-
-  private static final Logger logger = Logger.getLogger(ExternalFilesHelper.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
   private final BlazeDirectories directories;
   private final int maxNumExternalFilesToLog;
   private final AtomicInteger numExternalFilesLogged = new AtomicInteger(0);
+  private final ExternalPackageHelper externalPackageHelper;
 
   // These variables are set to true from multiple threads, but only read in the main thread.
   // So volatility or an AtomicBoolean is not needed.
@@ -57,27 +55,36 @@ public class ExternalFilesHelper {
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
       int maxNumExternalFilesToLog,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      ExternalPackageHelper externalPackageHelper) {
     this.pkgLocator = pkgLocator;
     this.externalFileAction = externalFileAction;
     this.directories = directories;
     this.maxNumExternalFilesToLog = maxNumExternalFilesToLog;
     this.managedDirectoriesKnowledge = managedDirectoriesKnowledge;
+    this.externalPackageHelper = externalPackageHelper;
   }
 
   public static ExternalFilesHelper create(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
-    return IN_TEST
-        ? createForTesting(pkgLocator, externalFileAction, directories, managedDirectoriesKnowledge)
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      ExternalPackageHelper externalPackageHelper) {
+    return TestType.isInTest()
+        ? createForTesting(
+            pkgLocator,
+            externalFileAction,
+            directories,
+            managedDirectoriesKnowledge,
+            externalPackageHelper)
         : new ExternalFilesHelper(
             pkgLocator,
             externalFileAction,
             directories,
             /*maxNumExternalFilesToLog=*/ 100,
-            managedDirectoriesKnowledge);
+            managedDirectoriesKnowledge,
+            externalPackageHelper);
   }
 
   public static ExternalFilesHelper createForTesting(
@@ -88,21 +95,36 @@ public class ExternalFilesHelper {
         pkgLocator,
         externalFileAction,
         directories,
-        ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES);
+        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
+  }
+
+  public static ExternalFilesHelper createForTesting(
+      AtomicReference<PathPackageLocator> pkgLocator,
+      ExternalFileAction externalFileAction,
+      BlazeDirectories directories,
+      ExternalPackageHelper externalPackageHelper) {
+    return createForTesting(
+        pkgLocator,
+        externalFileAction,
+        directories,
+        ManagedDirectoriesKnowledge.NO_MANAGED_DIRECTORIES,
+        externalPackageHelper);
   }
 
   private static ExternalFilesHelper createForTesting(
       AtomicReference<PathPackageLocator> pkgLocator,
       ExternalFileAction externalFileAction,
       BlazeDirectories directories,
-      ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
+      ManagedDirectoriesKnowledge managedDirectoriesKnowledge,
+      ExternalPackageHelper externalPackageHelper) {
     return new ExternalFilesHelper(
         pkgLocator,
         externalFileAction,
         directories,
         // These log lines are mostly spam during unit and integration tests.
         /*maxNumExternalFilesToLog=*/ 0,
-        managedDirectoriesKnowledge);
+        managedDirectoriesKnowledge,
+        externalPackageHelper);
   }
 
 
@@ -144,11 +166,14 @@ public class ExternalFilesHelper {
      * Bazel to assume these paths are immutable.
      *
      * <p>Note that {@link ExternalFilesHelper#maybeHandleExternalFile} is only used for {@link
-     * FileStateValue} and {@link DirectoryListingStateValue}, and also note that output files do
-     * not normally have corresponding {@link FileValue} instances (and thus also {@link
-     * FileStateValue} instances) in the Skyframe graph ({@link ArtifactFunction} only uses {@link
-     * FileValue}s for source files). But {@link FileStateValue}s for output files can still make
-     * their way into the Skyframe graph if e.g. a source file is a symlink to an output file.
+     * com.google.devtools.build.lib.actions.FileStateValue} and {@link DirectoryListingStateValue},
+     * and also note that output files do not normally have corresponding {@link
+     * com.google.devtools.build.lib.actions.FileValue} instances (and thus also {@link
+     * com.google.devtools.build.lib.actions.FileStateValue} instances) in the Skyframe graph
+     * ({@link ArtifactFunction} only uses {@link com.google.devtools.build.lib.actions.FileValue}s
+     * for source files). But {@link com.google.devtools.build.lib.actions.FileStateValue}s for
+     * output files can still make their way into the Skyframe graph if e.g. a source file is a
+     * symlink to an output file.
      */
     // TODO(nharmata): Consider an alternative design where we have an OutputFileDiffAwareness. This
     // could work but would first require that we clean up all RootedPath usage.
@@ -209,7 +234,8 @@ public class ExternalFilesHelper {
         externalFileAction,
         directories,
         maxNumExternalFilesToLog,
-        managedDirectoriesKnowledge);
+        managedDirectoriesKnowledge,
+        externalPackageHelper);
   }
 
   public FileType getAndNoteFileType(RootedPath rootedPath) {
@@ -245,7 +271,7 @@ public class ExternalFilesHelper {
       return FileType.EXTERNAL;
     }
     if (rootedPath.asPath().startsWith(outputBase)) {
-      Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_PACKAGE_NAME);
+      Path externalRepoDir = outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
       if (rootedPath.asPath().startsWith(externalRepoDir)) {
         anyNonOutputExternalFilesSeen = true;
         return FileType.EXTERNAL_REPO;
@@ -283,7 +309,7 @@ public class ExternalFilesHelper {
         break;
       case EXTERNAL:
         if (numExternalFilesLogged.incrementAndGet() < maxNumExternalFilesToLog) {
-          logger.info("Encountered an external path " + rootedPath);
+          logger.atInfo().log("Encountered an external path %s", rootedPath);
         }
         // fall through
       case OUTPUT:
@@ -296,7 +322,8 @@ public class ExternalFilesHelper {
         Preconditions.checkState(
             externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
             externalFileAction);
-        RepositoryFunction.addExternalFilesDependencies(rootedPath, isDirectory, directories, env);
+        RepositoryFunction.addExternalFilesDependencies(
+            rootedPath, isDirectory, directories, env, externalPackageHelper);
         break;
     }
     return fileType;

@@ -16,36 +16,29 @@ package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.common.options.TriState;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * The configuration fragment containing information about the various pieces of infrastructure
  * needed to run Python compilations.
  */
 @Immutable
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "py",
     doc = "A configuration fragment for Python.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
-public class PythonConfiguration extends BuildConfiguration.Fragment implements StarlarkValue {
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
+public class PythonConfiguration extends Fragment implements StarlarkValue {
 
   private final PythonVersion version;
   private final PythonVersion defaultVersion;
   private final TriState buildPythonZip;
   private final boolean buildTransitiveRunfilesTrees;
-
-  // TODO(brandjon): Remove these once migration to the new version API is complete (#6583).
-  private final boolean oldPyVersionApiAllowed;
-  private final boolean useNewPyVersionSemantics;
 
   // TODO(brandjon): Remove this once migration to PY3-as-default is complete.
   private final boolean py2OutputsAreSuffixed;
@@ -66,8 +59,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
       PythonVersion defaultVersion,
       TriState buildPythonZip,
       boolean buildTransitiveRunfilesTrees,
-      boolean oldPyVersionApiAllowed,
-      boolean useNewPyVersionSemantics,
       boolean py2OutputsAreSuffixed,
       boolean disallowLegacyPyProvider,
       boolean useToolchains,
@@ -77,8 +68,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
     this.defaultVersion = defaultVersion;
     this.buildPythonZip = buildPythonZip;
     this.buildTransitiveRunfilesTrees = buildTransitiveRunfilesTrees;
-    this.oldPyVersionApiAllowed = oldPyVersionApiAllowed;
-    this.useNewPyVersionSemantics = useNewPyVersionSemantics;
     this.py2OutputsAreSuffixed = py2OutputsAreSuffixed;
     this.disallowLegacyPyProvider = disallowLegacyPyProvider;
     this.useToolchains = useToolchains;
@@ -86,12 +75,16 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
     this.defaultToExplicitInitPy = defaultToExplicitInitPy;
   }
 
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
+  }
+
   /**
    * Returns the Python version to use.
    *
    * <p>Specified using either the {@code --python_version} flag and {@code python_version} rule
-   * attribute (new API), or the {@code --force_python} flag and {@code default_python_version} rule
-   * attribute (old API).
+   * attribute (new API), or the {@code default_python_version} rule attribute (old API).
    */
   public PythonVersion getPythonVersion() {
     return version;
@@ -132,22 +125,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
     }
   }
 
-  @Override
-  public void reportInvalidOptions(EventHandler reporter, BuildOptions buildOptions) {
-    PythonOptions opts = buildOptions.get(PythonOptions.class);
-    if (opts.forcePython != null && opts.incompatibleRemoveOldPythonVersionApi) {
-      reporter.handle(
-          Event.error(
-              "`--force_python` is disabled by `--incompatible_remove_old_python_version_api`"));
-    }
-    if (opts.incompatiblePy3IsDefault && !opts.incompatibleAllowPythonVersionTransitions) {
-      reporter.handle(
-          Event.error(
-              "cannot enable `--incompatible_py3_is_default` without also enabling "
-                  + "`--incompatible_allow_python_version_transitions`"));
-    }
-  }
-
   /** Returns whether to build the executable zip file for Python binaries. */
   public boolean buildPythonZip() {
     switch (buildPythonZip) {
@@ -166,19 +143,6 @@ public class PythonConfiguration extends BuildConfiguration.Fragment implements 
    */
   public boolean buildTransitiveRunfilesTrees() {
     return buildTransitiveRunfilesTrees;
-  }
-
-  /**
-   * Returns whether use of {@code --force_python} flag and {@code default_python_version} attribute
-   * is allowed.
-   */
-  public boolean oldPyVersionApiAllowed() {
-    return oldPyVersionApiAllowed;
-  }
-
-  /** Returns true if the new semantics should be used for transitions on the Python version. */
-  public boolean useNewPyVersionSemantics() {
-    return useNewPyVersionSemantics;
   }
 
   /**

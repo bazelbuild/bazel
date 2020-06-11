@@ -74,7 +74,10 @@ for name in "$LCOV_MERGER"; do
 done
 
 # Setting up the environment for executing the C++ tests.
-export GCOV_PREFIX_STRIP=3
+if [[ -z "$GCOV_PREFIX_STRIP" ]]; then
+  # TODO: GCOV_PREFIX_STRIP=3 is incorrect on MacOS in the default setup
+  export GCOV_PREFIX_STRIP=3
+fi
 export GCOV_PREFIX="${COVERAGE_DIR}"
 export LLVM_PROFILE_FILE="${COVERAGE_DIR}/%h-%p-%m.profraw"
 

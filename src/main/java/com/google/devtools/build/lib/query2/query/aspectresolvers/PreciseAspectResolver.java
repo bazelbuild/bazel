@@ -51,17 +51,21 @@ public class PreciseAspectResolver implements AspectResolver {
   @Override
   public ImmutableMultimap<Attribute, Label> computeAspectDependencies(
       Target target, DependencyFilter dependencyFilter) throws InterruptedException {
+    if (!(target instanceof Rule)) {
+      return ImmutableMultimap.of();
+    }
+    Rule rule = (Rule) target;
+    if (!rule.hasAspects()) {
+      return ImmutableMultimap.of();
+    }
     Multimap<Attribute, Label> result = LinkedListMultimap.create();
-    if (target instanceof Rule) {
-      Rule rule = (Rule) target;
-      Multimap<Attribute, Label> transitions =
-          rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
-      for (Attribute attribute : transitions.keySet()) {
-        for (Aspect aspect : attribute.getAspects(rule)) {
-          if (hasDepThatSatisfies(aspect, transitions.get(attribute))) {
-            AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
-                rule, aspect, dependencyFilter, result::put);
-          }
+    Multimap<Attribute, Label> transitions =
+        rule.getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
+    for (Attribute attribute : transitions.keySet()) {
+      for (Aspect aspect : attribute.getAspects(rule)) {
+        if (hasDepThatSatisfies(aspect, transitions.get(attribute))) {
+          AspectDefinition.forEachLabelDepFromAllAttributesOfAspect(
+              rule, aspect, dependencyFilter, result::put);
         }
       }
     }
@@ -94,7 +98,7 @@ public class PreciseAspectResolver implements AspectResolver {
   @Override
   public Set<Label> computeBuildFileDependencies(Package pkg) throws InterruptedException {
     Set<Label> result = new LinkedHashSet<>();
-    result.addAll(pkg.getSkylarkFileDependencies());
+    result.addAll(pkg.getStarlarkFileDependencies());
 
     Set<PackageIdentifier> dependentPackages = new LinkedHashSet<>();
     // First compute with packages can possibly affect the aspect attributes of this package:
@@ -130,7 +134,7 @@ public class PreciseAspectResolver implements AspectResolver {
       try {
         result.add(Label.create(packageIdentifier, "BUILD"));
         Package dependentPackage = packageProvider.getPackage(eventHandler, packageIdentifier);
-        result.addAll(dependentPackage.getSkylarkFileDependencies());
+        result.addAll(dependentPackage.getStarlarkFileDependencies());
       } catch (NoSuchPackageException e) {
         // If the package is not found, just add its BUILD file, which is already done above.
         // Hopefully this error is not raised when there is a syntax error in a subincluded file

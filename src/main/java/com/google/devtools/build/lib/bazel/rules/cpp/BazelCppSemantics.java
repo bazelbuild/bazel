@@ -14,16 +14,14 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
-import com.google.devtools.build.lib.actions.Artifact;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider.SkylarkKey;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.AspectLegalCppSemantics;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -44,12 +42,12 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   //  The reason for that is that when we are in a target inside @rules_cc, the provider won't have
   // the repo name set.
   public static final Provider.Key CC_SHARED_INFO_PROVIDER_RULES_CC =
-      new SkylarkKey(
+      new StarlarkProvider.Key(
           Label.parseAbsoluteUnchecked("@rules_cc//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
   public static final Provider.Key CC_SHARED_INFO_PROVIDER =
-      new SkylarkKey(
+      new StarlarkProvider.Key(
           Label.parseAbsoluteUnchecked("//examples:experimental_cc_shared_library.bzl"),
           "CcSharedLibraryInfo");
 
@@ -73,11 +71,6 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
                     : toolchain.getCompilerFiles())
                 : toolchain.getAllFiles())
         .setShouldScanIncludes(false);
-  }
-
-  @Override
-  public NestedSet<Artifact> getAdditionalPrunableIncludes() {
-    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   @Override
@@ -116,4 +109,11 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
     }
     return null;
   }
+
+  @Override
+  public void validateLayeringCheckFeatures(
+      RuleContext ruleContext,
+      AspectDescriptor aspectDescriptor,
+      CcToolchainProvider ccToolchain,
+      ImmutableSet<String> unsupportedFeatures) {}
 }

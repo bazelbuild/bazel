@@ -14,12 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static java.util.stream.Collectors.toCollection;
-
-import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -29,12 +25,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -187,10 +183,6 @@ public final class CcCompilationHelper {
     }
   }
 
-  /** Function for extracting module maps from CppCompilationDependencies. */
-  private static final Function<CcCompilationContext, CppModuleMap> CPP_DEPS_TO_MODULES =
-      ccCompilationContext -> ccCompilationContext.getCppModuleMap();
-
   /**
    * Contains the providers as well as the {@code CcCompilationOutputs} and the {@code
    * CcCompilationContext}.
@@ -198,7 +190,7 @@ public final class CcCompilationHelper {
   // TODO(plf): Rename so that it's not confused with CcCompilationContext and also consider
   // merging
   // this class with {@code CcCompilationOutputs}.
-  public static final class CompilationInfo implements CompilationInfoApi {
+  public static final class CompilationInfo implements CompilationInfoApi<Artifact> {
     private final CcCompilationContext ccCompilationContext;
     private final CcCompilationOutputs compilationOutputs;
 
@@ -335,10 +327,11 @@ public final class CcCompilationHelper {
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
-  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts) {
+  public CcCompilationHelper fromCommon(CcCommon common, ImmutableList<String> additionalCopts)
+      throws InterruptedException {
     Preconditions.checkNotNull(additionalCopts);
 
-    setCopts(Iterables.concat(common.getCopts(), additionalCopts));
+    setCopts(ImmutableList.copyOf(Iterables.concat(common.getCopts(), additionalCopts)));
     addDefines(common.getDefines());
     addNonTransitiveDefines(common.getNonTransitiveDefines());
     setLooseIncludeDirs(common.getLooseIncludeDirs());
@@ -443,17 +436,6 @@ public final class CcCompilationHelper {
   }
 
   /**
-   * Add directly to privateHeaders, which are added to the compilation prerequisites and can be
-   * removed by include scanning. This is only used to work around cases where we are not
-   * propagating transitive dependencies properly via scheduling dependency middleman (i.e. objc
-   * compiles).
-   */
-  public CcCompilationHelper addPrivateHeadersUnchecked(Collection<Artifact> privateHeaders) {
-    this.privateHeaders.addAll(privateHeaders);
-    return this;
-  }
-
-  /**
    * Add the corresponding files as source files. These may also be header files, in which case they
    * will not be compiled, but also not made visible as includes to dependent rules. The given build
    * variables will be added to those used for compiling this source.
@@ -552,14 +534,23 @@ public final class CcCompilationHelper {
     return ImmutableSet.copyOf(this.compilationUnitSources.values());
   }
 
-  public CcCompilationHelper setCopts(Iterable<String> copts) {
-    this.copts = ImmutableList.copyOf(copts);
+  public CcCompilationHelper setCopts(ImmutableList<String> copts) {
+    this.copts = Preconditions.checkNotNull(copts);
     return this;
   }
 
   /** Sets a pattern that is used to filter copts; set to {@code null} for no filtering. */
   private void setCoptsFilter(CoptsFilter coptsFilter) {
     this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
+  }
+
+  /**
+   * Adds the given defines to the compiler command line of this target as well as its dependent
+   * targets.
+   */
+  public CcCompilationHelper addDefines(NestedSet<String> defines) {
+    this.defines.addAll(defines.toList());
+    return this;
   }
 
   /**
@@ -599,6 +590,15 @@ public final class CcCompilationHelper {
    * Adds the given directories to the system include directories (they are passed with {@code
    * "-isystem"} to the compiler); these are also passed to dependent rules.
    */
+  public CcCompilationHelper addSystemIncludeDirs(NestedSet<PathFragment> systemIncludeDirs) {
+    this.systemIncludeDirs.addAll(systemIncludeDirs.toList());
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the system include directories (they are passed with {@code
+   * "-isystem"} to the compiler); these are also passed to dependent rules.
+   */
   public CcCompilationHelper addSystemIncludeDirs(Iterable<PathFragment> systemIncludeDirs) {
     Iterables.addAll(this.systemIncludeDirs, systemIncludeDirs);
     return this;
@@ -608,8 +608,26 @@ public final class CcCompilationHelper {
    * Adds the given directories to the quote include directories (they are passed with {@code
    * "-iquote"} to the compiler); these are also passed to dependent rules.
    */
+  public CcCompilationHelper addQuoteIncludeDirs(NestedSet<PathFragment> quoteIncludeDirs) {
+    this.quoteIncludeDirs.addAll(quoteIncludeDirs.toList());
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the quote include directories (they are passed with {@code
+   * "-iquote"} to the compiler); these are also passed to dependent rules.
+   */
   public CcCompilationHelper addQuoteIncludeDirs(Iterable<PathFragment> quoteIncludeDirs) {
     Iterables.addAll(this.quoteIncludeDirs, quoteIncludeDirs);
+    return this;
+  }
+
+  /**
+   * Adds the given directories to the include directories (they are passed with {@code "-I"} to the
+   * compiler); these are also passed to dependent rules.
+   */
+  public CcCompilationHelper addIncludeDirs(NestedSet<PathFragment> includeDirs) {
+    this.includeDirs.addAll(includeDirs.toList());
     return this;
   }
 
@@ -718,7 +736,7 @@ public final class CcCompilationHelper {
    *
    * @throws RuleErrorException
    */
-  public CompilationInfo compile() throws RuleErrorException {
+  public CompilationInfo compile() throws RuleErrorException, InterruptedException {
 
     if (!generatePicAction && !generateNoPicAction) {
       ruleErrorConsumer.ruleError("Either PIC or no PIC actions have to be created.");
@@ -799,7 +817,7 @@ public final class CcCompilationHelper {
     }
   }
 
-  private PublicHeaders computePublicHeaders() {
+  private PublicHeaders computePublicHeaders() throws InterruptedException {
     PathFragment prefix = null;
     if (includePrefix != null) {
       prefix = PathFragment.create(includePrefix);
@@ -908,10 +926,8 @@ public final class CcCompilationHelper {
         virtualToOriginalHeaders.build());
   }
 
-  /**
-   * Create {@code CcCompilationContext} for cc compile action from generated inputs.
-   */
-  private CcCompilationContext initializeCcCompilationContext() {
+  /** Create {@code CcCompilationContext} for cc compile action from generated inputs. */
+  private CcCompilationContext initializeCcCompilationContext() throws InterruptedException {
     CcCompilationContext.Builder ccCompilationContextBuilder =
         CcCompilationContext.builder(actionConstructionContext, configuration, label);
 
@@ -923,8 +939,13 @@ public final class CcCompilationHelper {
     // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
+    boolean siblingRepositoryLayout =
+        actionConstructionContext
+            .getAnalysisEnvironment()
+            .getStarlarkSemantics()
+            .experimentalSiblingRepositoryLayout();
     PathFragment repositoryPath =
-        label.getPackageIdentifier().getRepository().getPathUnderExecRoot();
+        label.getPackageIdentifier().getRepository().getExecPath(siblingRepositoryLayout);
     ccCompilationContextBuilder.addQuoteIncludeDir(repositoryPath);
     ccCompilationContextBuilder.addQuoteIncludeDir(
         configuration.getGenfilesFragment().getRelative(repositoryPath));
@@ -965,16 +986,16 @@ public final class CcCompilationHelper {
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(privateHeaders);
     ccCompilationContextBuilder.addDeclaredIncludeSrcs(additionalInputs);
     ccCompilationContextBuilder.addNonCodeInputs(additionalInputs);
-    ccCompilationContextBuilder.addModularHdrs(publicHeaders.getHeaders());
-    ccCompilationContextBuilder.addModularHdrs(privateHeaders);
+    ccCompilationContextBuilder.addModularPublicHdrs(publicHeaders.getHeaders());
+    ccCompilationContextBuilder.addModularPrivateHdrs(privateHeaders);
     ccCompilationContextBuilder.addTextualHdrs(publicTextualHeaders);
 
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs
     // Note: no include dir for STRICT mode.
     if (headersCheckingMode == HeadersCheckingMode.LOOSE) {
-      ccCompilationContextBuilder.addDeclaredIncludeDir(label.getPackageFragment());
+      ccCompilationContextBuilder.addLooseHdrsDir(label.getPackageFragment());
       for (PathFragment looseIncludeDir : looseIncludeDirs) {
-        ccCompilationContextBuilder.addDeclaredIncludeDir(looseIncludeDir);
+        ccCompilationContextBuilder.addLooseHdrsDir(looseIncludeDir);
       }
       ccCompilationContextBuilder.setHeadersCheckingMode(headersCheckingMode);
     }
@@ -1045,7 +1066,8 @@ public final class CcCompilationHelper {
       CcCompilationOutputs ccCompilationOutputs) {
     NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo dep :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+        ruleContext.getPrerequisites(
+            "deps", TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
     }
     if (cppConfiguration.processHeadersInDependencies()) {
@@ -1111,7 +1133,7 @@ public final class CcCompilationHelper {
 
   public static CcCompilationContext getStlCcCompilationContext(RuleContext ruleContext) {
     if (ruleContext.attributes().has("$stl", BuildType.LABEL)) {
-      CcInfo ccInfo = ruleContext.getPrerequisite("$stl", Mode.TARGET, CcInfo.PROVIDER);
+      CcInfo ccInfo = ruleContext.getPrerequisite("$stl", TransitionMode.TARGET, CcInfo.PROVIDER);
       if (ccInfo != null) {
         return ccInfo.getCcCompilationContext();
       } else {
@@ -1123,26 +1145,30 @@ public final class CcCompilationHelper {
   }
 
   private List<CppModuleMap> collectModuleMaps() {
-    // Cpp module maps may be null for some rules.
-    List<CppModuleMap> result =
-        ccCompilationContexts.stream()
-            .map(CPP_DEPS_TO_MODULES)
-            .filter(Predicates.notNull())
-            .collect(toCollection(ArrayList::new));
+    ImmutableList.Builder<CppModuleMap> builder = ImmutableList.<CppModuleMap>builder();
+    for (CcCompilationContext ccCompilationContext : ccCompilationContexts) {
+      CppModuleMap moduleMap = ccCompilationContext.getCppModuleMap();
+      // Cpp module maps may be null for some rules.
+      if (moduleMap != null) {
+        builder.add(moduleMap);
+      }
+      // These can't be null which is enforced before adding to exportingModuleMaps.
+      builder.addAll(ccCompilationContext.getExportingModuleMaps());
+    }
 
     if (ccToolchain != null) {
       CppModuleMap toolchainModuleMap =
           ccToolchain.getCcInfo().getCcCompilationContext().getCppModuleMap();
       if (toolchainModuleMap != null) {
-        result.add(toolchainModuleMap);
+        builder.add(toolchainModuleMap);
       }
     }
     for (CppModuleMap additionalCppModuleMap : additionalCppModuleMaps) {
       // These can't be null which is enforced before adding to additionalCppModuleMaps.
-      result.add(additionalCppModuleMap);
+      builder.add(additionalCppModuleMap);
     }
 
-    return result;
+    return builder.build();
   }
 
   /** @return whether this target needs to generate a pic header module. */
@@ -2018,7 +2044,8 @@ public final class CcCompilationHelper {
       // b) Traversing the transitive closure for each C++ compile action would require more complex
       //    implementation (with caching results of this method) to avoid O(N^2) slowdown.
       if (ruleContext.getRule().isAttrDefined("deps", BuildType.LABEL_LIST)) {
-        for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+        for (TransitiveInfoCollection dep :
+            ruleContext.getPrerequisites("deps", TransitionMode.TARGET)) {
           CcInfo ccInfo = dep.get(CcInfo.PROVIDER);
           if (ccInfo != null
               && InstrumentedFilesCollector.shouldIncludeLocalSources(configuration, dep)) {

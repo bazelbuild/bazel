@@ -30,10 +30,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -131,7 +129,12 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
 
     ImmutableList<ConfiguredTargetKey> keys =
         labels.stream()
-            .map(label -> ConfiguredTargetKey.of(label, configuration))
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
             .collect(toImmutableList());
 
     Map<SkyKey, ValueOrException<ConfiguredValueCreationException>> values =
@@ -193,7 +196,8 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
    * Used to indicate that the given {@link Label} represents a {@link ConfiguredTarget} which is
    * not a valid {@link PlatformInfo} provider.
    */
-  static final class InvalidExecutionPlatformLabelException extends Exception {
+  static final class InvalidExecutionPlatformLabelException extends Exception
+      implements SaneAnalysisException {
 
     public InvalidExecutionPlatformLabelException(
         TargetPatternUtil.InvalidTargetPatternException e) {
@@ -225,16 +229,6 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
     }
   }
 
-  static boolean hasPlatformInfo(Target target) {
-    // If the rule uses toolchain resolution, it can't be used as a target or exec platform.
-    RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
-    if (ruleClass == null || ruleClass.useToolchainResolution()) {
-      return false;
-    }
-
-    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
-  }
-
   // This class uses AutoValue solely to get default equals/hashCode behavior, which is needed to
   // make skyframe serialization work properly.
   @AutoValue
@@ -246,7 +240,7 @@ public class RegisteredExecutionPlatformsFunction implements SkyFunction {
       if (explicit) {
         return true;
       }
-      return hasPlatformInfo(target);
+      return PlatformLookupUtil.hasPlatformInfo(target);
     }
 
     @AutoCodec.Instantiator

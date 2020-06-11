@@ -14,9 +14,19 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.events.Location;
+import com.google.common.base.Preconditions;
 
-/** A Node is a node in a Starlark syntax tree. */
+/**
+ * A Node is a node in a Starlark syntax tree.
+ *
+ * <p>Nodes may be constructed only by the parser.
+ *
+ * <p>The syntax tree records the offsets within the file of all salient tokens, such as brackets
+ * that mark the beginning or end of an expression, or operators whose position may be needed in a
+ * run-time error message. The start and end offsets of each Node are computed inductively from
+ * their tokens and subexpressions. Offsets are converted to Locations on demand in methods such as
+ * {@link #getStartLocation}.
+ */
 public abstract class Node {
 
   // Use these typical node distributions in Bazel files
@@ -51,42 +61,32 @@ public abstract class Node {
   //   1.0% Comprehension
   //   6  % all others
 
-  // TODO(adonovan): instead of creating Locations during parsing.
-  // record the LineNumberTable and the offsets of key tokens,
-  // then create Locations on demand for the node start and end
-  // and for key tokens.
-  private Lexer.LexerLocation location;
+  // The FileLocations table holds the file name and a compressed
+  // mapping from token char offsets to Locations.
+  // It is shared by all nodes from the same file.
+  final FileLocations locs;
 
-  Node() {}
-
-  final void setLocation(Lexer.LexerLocation location) {
-    this.location = location;
+  Node(FileLocations locs) {
+    this.locs = Preconditions.checkNotNull(locs);
   }
 
-  /** @return the same node with its location set, in a slightly more fluent style */
-  static <NodeT extends Node> NodeT setLocation(Lexer.LexerLocation location, NodeT node) {
-    node.setLocation(location);
-    return node;
-  }
+  /**
+   * Returns the node's start offset, as a char index (zero-based count of UTF-16 codes) from the
+   * start of the file.
+   */
+  public abstract int getStartOffset();
 
-  /** Returns the location of the start of this node. */
+  /** Returns the location of the start of this syntax node. */
   public final Location getStartLocation() {
-    return location;
+    return locs.getLocation(getStartOffset());
   }
 
-  /** Returns the char offset of the start of this node within its file. */
-  public final int getStartOffset() {
-    return location.startOffset;
-  }
+  /** Returns the char offset of the source position immediately after this syntax node. */
+  public abstract int getEndOffset();
 
-  /** Returns the char offset of the end of this node within its file. */
-  public final int getEndOffset() {
-    return location.endOffset;
-  }
-
-  /** Returns the Location of the end of this node. */
+  /** Returns the location of the source position immediately after this syntax node. */
   public final Location getEndLocation() {
-    return location.getEndLocation();
+    return locs.getLocation(getEndOffset());
   }
 
   /**

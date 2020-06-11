@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.skyframe.RegisteredToolchainsFunction.Inval
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionFunction.NoToolchainFoundException;
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
 import com.google.devtools.build.lib.skyframe.ToolchainTypeLookupUtil.InvalidToolchainTypeException;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext.UnloadedToolchainContextKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -63,10 +62,11 @@ public class ToolchainResolutionFunction implements SkyFunction {
   @Override
   public UnloadedToolchainContext compute(SkyKey skyKey, Environment env)
       throws ToolchainResolutionFunctionException, InterruptedException {
-    UnloadedToolchainContextKey key = (UnloadedToolchainContextKey) skyKey.argument();
+    ToolchainContextKey key = (ToolchainContextKey) skyKey.argument();
 
     try {
-      UnloadedToolchainContext.Builder builder = UnloadedToolchainContext.builder();
+      UnloadedToolchainContextImpl.Builder builder =
+          UnloadedToolchainContextImpl.builder().setKey(key);
 
       // Determine the configuration being used.
       BuildConfigurationValue value =
@@ -152,7 +152,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
       throws InvalidToolchainTypeException, InterruptedException, ValueMissingException {
     ImmutableSet<ConfiguredTargetKey> toolchainTypeKeys =
         requestedToolchainTypeLabels.stream()
-            .map(label -> ConfiguredTargetKey.of(label, configuration))
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
             .collect(toImmutableSet());
 
     ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypes =
@@ -195,9 +200,16 @@ public class ToolchainResolutionFunction implements SkyFunction {
     Label hostPlatformLabel = platformConfiguration.getHostPlatform();
     Label targetPlatformLabel = platformConfiguration.getTargetPlatform();
 
-    ConfiguredTargetKey hostPlatformKey = ConfiguredTargetKey.of(hostPlatformLabel, configuration);
+    ConfiguredTargetKey hostPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(hostPlatformLabel)
+            .setConfiguration(configuration)
+            .build();
     ConfiguredTargetKey targetPlatformKey =
-        ConfiguredTargetKey.of(targetPlatformLabel, configuration);
+        ConfiguredTargetKey.builder()
+            .setLabel(targetPlatformLabel)
+            .setConfiguration(configuration)
+            .build();
 
     // Load the host and target platforms early, to check for errors.
     PlatformLookupUtil.getPlatformInfo(
@@ -249,7 +261,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
     // Filter out execution platforms that don't satisfy the extra constraints.
     ImmutableList<ConfiguredTargetKey> execConstraintKeys =
         execConstraintLabels.stream()
-            .map(label -> ConfiguredTargetKey.of(label, configuration))
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
             .collect(toImmutableList());
 
     return filterAvailablePlatforms(
@@ -328,7 +345,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       Environment environment,
       BuildConfigurationValue.Key configurationKey,
       ImmutableSet<Label> requiredToolchainTypeLabels,
-      UnloadedToolchainContext.Builder builder,
+      UnloadedToolchainContextImpl.Builder builder,
       PlatformKeys platformKeys,
       boolean shouldSanityCheckConfiguration)
       throws InterruptedException, ValueMissingException, InvalidPlatformException,
@@ -545,7 +562,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
   }
 
-  /** Used to indicate errors during the computation of an {@link UnloadedToolchainContext}. */
+  /** Used to indicate errors during the computation of an {@link UnloadedToolchainContextImpl}. */
   private static final class ToolchainResolutionFunctionException extends SkyFunctionException {
     public ToolchainResolutionFunctionException(ToolchainException e) {
       super(e, Transience.PERSISTENT);

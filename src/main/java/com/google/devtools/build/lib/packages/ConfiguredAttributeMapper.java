@@ -109,6 +109,14 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         // predicates ineligible for "None" values. But no user-facing attributes should
         // do that anyway, so that isn't a loss.
         Attribute attr = getAttributeDefinition(attributeName);
+        if (attr.isMandatory()) {
+          throw new EvalException(
+              rule.getLocation(),
+              String.format(
+                  "Mandatory attribute '%s' resolved to 'None' after evaluating 'select'"
+                      + " expression",
+                  attributeName));
+        }
         Verify.verify(attr.getCondition() == Predicates.<AttributeMap>alwaysTrue());
         resolvedList.add((T) attr.getDefaultValue(null)); // unchecked cast
       } else {

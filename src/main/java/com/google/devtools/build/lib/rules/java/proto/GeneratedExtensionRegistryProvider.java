@@ -16,22 +16,21 @@ package com.google.devtools.build.lib.rules.java.proto;
 
 import com.google.common.base.Verify;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**
- * A {@link TransitiveInfoProvider} for {@link Artifact}s created and used to generate the proto
- * extension registry. This provider is used to ensure that if multiple registries are generated
- * from a target, that the top most target produces a registry that is a superset of any child
- * registries.
+ * A {@link com.google.devtools.build.lib.analysis.TransitiveInfoProvider} for {@link Artifact}s
+ * created and used to generate the proto extension registry. This provider is used to ensure that
+ * if multiple registries are generated from a target, that the top most target produces a registry
+ * that is a superset of any child registries.
  */
 @Immutable
 public final class GeneratedExtensionRegistryProvider extends NativeInfo
@@ -167,7 +166,7 @@ public final class GeneratedExtensionRegistryProvider extends NativeInfo
           classJar,
           srcJar,
           NestedSetBuilder.<Artifact>stableOrder()
-              .addTransitive(inputs.getSetFromParam(Artifact.class, "inputs"))
+              .addTransitive(Depset.cast(inputs, Artifact.class, "inputs"))
               .build());
     }
   }

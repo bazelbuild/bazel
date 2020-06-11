@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.lang.String.format;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree.PathOrBytes;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Message;
@@ -35,7 +34,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 /** A {@link RemoteCache} with additional functionality needed for remote execution. */
 public class RemoteExecutionCache extends RemoteCache {
@@ -57,21 +55,7 @@ public class RemoteExecutionCache extends RemoteCache {
       uploads.add(cacheProtocol.uploadBlob(entry.getKey(), entry.getValue()));
     }
 
-    try {
-      for (ListenableFuture<Void> upload : uploads) {
-        upload.get();
-      }
-    } catch (ExecutionException e) {
-      // Cancel remaining uploads.
-      for (ListenableFuture<Void> upload : uploads) {
-        upload.cancel(/* mayInterruptIfRunning= */ true);
-      }
-
-      Throwable cause = e.getCause();
-      Throwables.propagateIfPossible(cause, IOException.class);
-      Throwables.propagateIfPossible(cause, InterruptedException.class);
-      throw new IOException(cause);
-    }
+    waitForBulkTransfer(uploads, /* cancelRemainingOnInterrupt=*/ false);
   }
 
   /**
@@ -91,7 +75,7 @@ public class RemoteExecutionCache extends RemoteCache {
     Iterable<Digest> allDigests =
         Iterables.concat(merkleTree.getAllDigests(), additionalInputs.keySet());
     ImmutableSet<Digest> missingDigests =
-        Utils.getFromFuture(cacheProtocol.findMissingDigests(allDigests));
+        getFromFuture(cacheProtocol.findMissingDigests(allDigests));
     Map<Digest, Path> filesToUpload = new HashMap<>();
     Map<Digest, ByteString> blobsToUpload = new HashMap<>();
     for (Digest missingDigest : missingDigests) {

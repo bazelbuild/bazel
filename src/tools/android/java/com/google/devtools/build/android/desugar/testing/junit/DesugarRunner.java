@@ -19,12 +19,20 @@ package com.google.devtools.build.android.desugar.testing.junit;
 import static java.util.Collections.max;
 import static java.util.Collections.min;
 
+import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.android.desugar.testing.junit.SourceCompilationUnit.SourceCompilationException;
+import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.junit.Rule;
 import org.junit.Test;
@@ -45,6 +53,12 @@ import org.junit.runners.model.Statement;
 public final class DesugarRunner extends BlockJUnit4ClassRunner {
 
   private static final int JAVA_RUNTIME_VERSION = JdkVersion.getJavaRuntimeVersion();
+
+  private static final ImmutableSet<Class<? extends Annotation>> SUPPORTED_ANNOTATIONS =
+      ImmutableSet.<Class<? extends Annotation>>builder()
+          .addAll(RuntimeEntityResolver.SUPPORTED_QUALIFIERS)
+          .add(FromParameterValueSource.class)
+          .build();
 
   public DesugarRunner(Class<?> testClassLiteral) throws InitializationError {
     super(testClassLiteral);
@@ -72,6 +86,32 @@ public final class DesugarRunner extends BlockJUnit4ClassRunner {
     return jdkSuppress != null ? jdkSuppress : getTestClass().getAnnotation(JdkSuppress.class);
   }
 
+  @Override
+  protected List<FrameworkMethod> computeTestMethods() {
+    List<FrameworkMethod> frameworkMethods = super.computeTestMethods();
+    // Generates one method for each @ParameterValueSource instance.
+    ImmutableList.Builder<FrameworkMethod> expandedFrameworkMethods = ImmutableList.builder();
+    for (FrameworkMethod frameworkMethod : frameworkMethods) {
+      Method reflectMethod = frameworkMethod.getMethod();
+      if (reflectMethod.isAnnotationPresent(ParameterValueSourceSet.class)) {
+        ParameterValueSourceSet paramValues =
+            reflectMethod.getDeclaredAnnotation(ParameterValueSourceSet.class);
+        for (ParameterValueSource paramValueBundle : paramValues.value()) {
+          expandedFrameworkMethods.add(
+              ValueSourceAnnotatedMethod.create(frameworkMethod.getMethod(), paramValueBundle));
+        }
+      } else if (reflectMethod.isAnnotationPresent(ParameterValueSource.class)) {
+        ParameterValueSource paramValueBundle =
+            reflectMethod.getDeclaredAnnotation(ParameterValueSource.class);
+        expandedFrameworkMethods.add(
+            ValueSourceAnnotatedMethod.create(frameworkMethod.getMethod(), paramValueBundle));
+      } else {
+        expandedFrameworkMethods.add(frameworkMethod);
+      }
+    }
+    return expandedFrameworkMethods.build();
+  }
+
   /**
    * In replacement of {@link BlockJUnit4ClassRunner#validatePublicVoidNoArgMethods} for @Test
    * method signature validation.
@@ -81,16 +121,53 @@ public final class DesugarRunner extends BlockJUnit4ClassRunner {
     List<FrameworkMethod> methods = getTestClass().getAnnotatedMethods(annotation);
     for (FrameworkMethod eachTestMethod : methods) {
       eachTestMethod.validatePublicVoid(isStatic, errors);
-      for (Parameter parameter : eachTestMethod.getMethod().getParameters()) {
-        if (Arrays.stream(parameter.getDeclaredAnnotations())
-            .map(Annotation::annotationType)
-            .noneMatch(RuntimeEntityResolver.SUPPORTED_QUALIFIERS::contains)) {
+      validateInjectableParameters(eachTestMethod, errors);
+      validateParameterValueSource(eachTestMethod, errors);
+    }
+  }
+
+  private static void validateInjectableParameters(
+      FrameworkMethod eachTestMethod, List<Throwable> errors) {
+    for (Parameter parameter : eachTestMethod.getMethod().getParameters()) {
+      if (Arrays.stream(parameter.getDeclaredAnnotations())
+          .map(Annotation::annotationType)
+          .noneMatch(SUPPORTED_ANNOTATIONS::contains)) {
+        errors.add(
+            new Exception(
+                String.format(
+                    "Expected the parameter (%s) in @Test method (%s) annotated with one of"
+                        + " the supported qualifiers %s to be injectable.",
+                    parameter, eachTestMethod, SUPPORTED_ANNOTATIONS)));
+      }
+    }
+  }
+
+  private static void validateParameterValueSource(
+      FrameworkMethod eachTestMethod, List<Throwable> errors) {
+    Method reflectMethod = eachTestMethod.getMethod();
+    long numOfParamsWithValueRequest =
+        Arrays.stream(reflectMethod.getParameters())
+            .filter(parameter -> parameter.isAnnotationPresent(FromParameterValueSource.class))
+            .count();
+    if (numOfParamsWithValueRequest > 0) {
+      List<ParameterValueSource> parameterValueSources = new ArrayList<>();
+      if (reflectMethod.isAnnotationPresent(ParameterValueSource.class)) {
+        parameterValueSources.add(reflectMethod.getDeclaredAnnotation(ParameterValueSource.class));
+      }
+      if (reflectMethod.isAnnotationPresent(ParameterValueSourceSet.class)) {
+        Collections.addAll(
+            parameterValueSources,
+            reflectMethod.getDeclaredAnnotation(ParameterValueSourceSet.class).value());
+      }
+      for (ParameterValueSource parameterValueSource : parameterValueSources) {
+        int valueSourceLength = parameterValueSource.value().length;
+        if (valueSourceLength != numOfParamsWithValueRequest) {
           errors.add(
               new Exception(
                   String.format(
-                      "Expected the parameter (%s) in @Test method (%s) annotated with one of"
-                          + " the supported qualifiers %s to be injectable.",
-                      parameter, eachTestMethod, RuntimeEntityResolver.SUPPORTED_QUALIFIERS)));
+                      "Parameter value source bundle (%s) and @FromParameterValueSource-annotated"
+                          + " parameters in Method (%s) mismatch in length.",
+                      parameterValueSource, eachTestMethod)));
         }
       }
     }
@@ -101,27 +178,56 @@ public final class DesugarRunner extends BlockJUnit4ClassRunner {
     DesugarRule desugarRule =
         Iterables.getOnlyElement(
             getTestClass().getAnnotatedFieldValues(test, Rule.class, DesugarRule.class));
-    ImmutableSet<Integer> inputClassFileMajorVersions =
-        desugarRule.getInputClassFileMajorVersions();
 
-    JdkSuppress jdkSuppress = getJdkSuppress(method);
-    if (jdkSuppress != null
-        && (min(inputClassFileMajorVersions) < jdkSuppress.minJdkVersion()
-            || max(inputClassFileMajorVersions) > jdkSuppress.maxJdkVersion())) {
-      return new VacuousSuccess(
-          String.format(
-              "@Test method (%s) passed vacuously without execution: All or part of the input"
-                  + " class file versions (%s) does not meet the declared prerequisite version"
-                  + " range (%s) for testing.",
-              method, inputClassFileMajorVersions, jdkSuppress));
+    // Compile source Java files before desugar transformation.
+    try {
+      desugarRule.compileSourceInputs();
+    } catch (IOException | SourceCompilationException e) {
+      throw new IllegalStateException(e);
     }
 
-    return new InvokeMethodWithParams(
-        method,
-        test,
-        Arrays.stream(method.getMethod().getParameters())
-            .map(param -> desugarRule.resolve(param, param.getType()))
-            .toArray());
+    JdkSuppress jdkSuppress = getJdkSuppress(method);
+    if (jdkSuppress != null) {
+      ImmutableMap<String, Integer> inputClassFileMajorVersions =
+          desugarRule.getInputClassFileMajorVersionMap();
+      ImmutableCollection<Integer> classFileVersions = inputClassFileMajorVersions.values();
+      if (min(classFileVersions) < jdkSuppress.minJdkVersion()
+          || max(classFileVersions) > jdkSuppress.maxJdkVersion()) {
+        return new VacuousSuccess(
+            String.format(
+                "@Test method (%s) passed vacuously without execution: All or part of the input"
+                    + " class file versions (%s) does not meet the declared prerequisite version"
+                    + " range (%s) for testing.",
+                method, inputClassFileMajorVersions, jdkSuppress));
+      }
+    }
+
+    try {
+      desugarRule.executeDesugarTransformation();
+      desugarRule.injectTestInstanceFields();
+      Method reflectMethod = method.getMethod();
+
+      ImmutableMap.Builder<Parameter, Object> parameterBindingsBuilder = ImmutableMap.builder();
+      // Load bindings from annotations.
+      if (reflectMethod.isAnnotationPresent(ParameterValueSourceSet.class)
+          || reflectMethod.isAnnotationPresent(ParameterValueSource.class)) {
+        parameterBindingsBuilder.putAll(
+            ((ValueSourceAnnotatedMethod) method).getResolvableParameters());
+      }
+      // Load bindings from desugar rule.
+      parameterBindingsBuilder.putAll(desugarRule.getResolvableParameters(reflectMethod));
+
+      ImmutableMap<Parameter, Object> parameterBindings = parameterBindingsBuilder.build();
+      Parameter[] parameters = reflectMethod.getParameters();
+      int parameterCount = parameters.length;
+      Object[] resolvedParameterValues = new Object[parameterCount];
+      for (int i = 0; i < parameterCount; i++) {
+        resolvedParameterValues[i] = parameterBindings.get(parameters[i]);
+      }
+      return new InvokeMethodWithParams(method, test, resolvedParameterValues);
+    } catch (Throwable throwable) {
+      throw new IllegalStateException(throwable);
+    }
   }
 
   /**
@@ -162,6 +268,11 @@ public final class DesugarRunner extends BlockJUnit4ClassRunner {
     @Override
     public void evaluate() throws Throwable {
       logger.atWarning().log(reason);
+    }
+
+    @Override
+    public String toString() {
+      return getClass().getSimpleName() + ":" + reason;
     }
   }
 }

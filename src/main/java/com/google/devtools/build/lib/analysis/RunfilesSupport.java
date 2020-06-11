@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -107,7 +106,7 @@ public final class RunfilesSupport {
         && runUnder.getLabel() != null
         && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget =
-          ruleContext.getPrerequisite(":run_under", Mode.DONT_CHECK);
+          ruleContext.getPrerequisite(":run_under", TransitionMode.DONT_CHECK);
       runfiles =
           new Runfiles.Builder(
                   ruleContext.getWorkspaceName(),
@@ -165,7 +164,7 @@ public final class RunfilesSupport {
     this.args = args;
   }
 
-  /** Returns the executable owning this RunfilesSupport. Only use from Skylark. */
+  /** Returns the executable owning this RunfilesSupport. Only use from Starlark. */
   public Artifact getExecutable() {
     return owningExecutable;
   }
@@ -282,11 +281,7 @@ public final class RunfilesSupport {
     return runfiles.asMapWithoutRootSymlinks();
   }
 
-  /**
-   * Returns both runfiles artifacts and "conditional" artifacts that may be part of a Runfiles
-   * PruningManifest. This means the returned set may be an overapproximation of the actual set of
-   * runfiles (see {@link Runfiles.PruningManifest}).
-   */
+  /** Returns the artifacts in the runfiles tree. */
   public NestedSet<Artifact> getRunfilesArtifacts() {
     return runfiles.getArtifacts();
   }
@@ -314,8 +309,6 @@ public final class RunfilesSupport {
     deps.addTransitive(runfiles.getAllArtifacts());
     if (runfilesManifest != null) {
       deps.add(runfilesManifest);
-    } else {
-      deps.addTransitive(SourceManifestAction.getDependencies(runfiles));
     }
     return context
         .getAnalysisEnvironment()
@@ -373,7 +366,7 @@ public final class RunfilesSupport {
                 inputManifest,
                 runfiles,
                 outputManifest,
-                /*filesetTree=*/ false));
+                /*filesetRoot=*/ null));
     return outputManifest;
   }
 

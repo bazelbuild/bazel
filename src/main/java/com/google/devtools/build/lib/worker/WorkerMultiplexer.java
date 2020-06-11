@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.vfs.Path;
@@ -29,11 +31,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
-import java.util.logging.Logger;
 
 /** An intermediate worker that sends request and receives response from the worker process. */
 public class WorkerMultiplexer extends Thread {
-  private static final Logger logger = Logger.getLogger(WorkerMultiplexer.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   /**
    * WorkerMultiplexer is running as a thread on its own. When worker process returns the
    * WorkResponse, it is stored in this map and wait for WorkerProxy to retrieve the response.
@@ -77,11 +78,12 @@ public class WorkerMultiplexer extends Thread {
   public synchronized void createProcess(WorkerKey workerKey, Path workDir, Path logFile)
       throws IOException {
     if (this.process == null) {
-      List<String> args = workerKey.getArgs();
+      ImmutableList<String> args = workerKey.getArgs();
       File executable = new File(args.get(0));
       if (!executable.isAbsolute() && executable.getParent() != null) {
-        args = new ArrayList<>(args);
-        args.set(0, new File(workDir.getPathFile(), args.get(0)).getAbsolutePath());
+        List<String> newArgs = new ArrayList<>(args);
+        newArgs.set(0, new File(workDir.getPathFile(), newArgs.get(0)).getAbsolutePath());
+        args = ImmutableList.copyOf(newArgs);
       }
       SubprocessBuilder processBuilder = new SubprocessBuilder();
       processBuilder.setArgv(args);
@@ -208,16 +210,16 @@ public class WorkerMultiplexer extends Thread {
       } catch (IOException e) {
         isUnparseable = true;
         releaseAllSemaphores();
-        logger.warning(
+        logger.atWarning().withCause(e).log(
             "IOException was caught while waiting for worker response. "
                 + "It could because the worker returned unparseable response.");
       } catch (InterruptedException e) {
-        logger.warning(
+        logger.atWarning().withCause(e).log(
             "InterruptedException was caught while waiting for worker response. "
                 + "It could because the multiplexer was interrupted.");
       }
     }
-    logger.warning(
+    logger.atWarning().log(
         "Multiplexer thread has been terminated. It could because the memory is running low on"
             + " your machine. There may be other reasons.");
   }

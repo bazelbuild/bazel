@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
@@ -30,13 +32,17 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.PackageValidator;
+import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
@@ -70,10 +76,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.Mock;
+import org.mockito.junit.MockitoJUnit;
+import org.mockito.junit.MockitoRule;
 
 /**
  * Unit tests of specific functionality of PackageFunction. Note that it's already tested indirectly
@@ -81,6 +92,10 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class PackageFunctionTest extends BuildViewTestCase {
+
+  @Rule public final MockitoRule mockito = MockitoJUnit.rule();
+
+  @Mock private PackageValidator mockPackageValidator;
 
   private CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
@@ -91,17 +106,17 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
       StarlarkSemanticsOptions starlarkSemanticsOptions, Path... roots) {
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 Arrays.stream(roots).map(Root::fromPath).collect(ImmutableList.toImmutableList()),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
+            packageOptions,
             starlarkSemanticsOptions,
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
@@ -112,6 +127,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Override
   protected FileSystem createFileSystem() {
     return fs;
+  }
+
+  @Override
+  protected PackageValidator getPackageValidator() {
+    return mockPackageValidator;
   }
 
   private Package validPackageWithoutErrors(SkyKey skyKey) throws InterruptedException {
@@ -147,6 +167,77 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testValidPackage() throws Exception {
     scratch.file("pkg/BUILD");
     validPackageWithoutErrors(PackageValue.key(PackageIdentifier.parse("@//pkg")));
+  }
+
+  @Test
+  public void testInvalidPackage() throws Exception {
+    scratch.file("pkg/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+    scratch.file("pkg/foo.sh");
+
+    doAnswer(
+            inv -> {
+              Package pkg = inv.getArgument(0, Package.class);
+              if (pkg.getName().equals("pkg")) {
+                inv.getArgument(1, ExtendedEventHandler.class).handle(Event.warn("warning event"));
+                throw new InvalidPackageException(pkg.getPackageIdentifier(), "no good");
+              }
+              return null;
+            })
+        .when(mockPackageValidator)
+        .validate(any(Package.class), any(ExtendedEventHandler.class));
+
+    invalidatePackages();
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result).hasError();
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skyKey)
+        .hasExceptionThat()
+        .isInstanceOf(InvalidPackageException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(skyKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("no such package 'pkg': no good");
+    assertContainsEvent("warning event");
+  }
+
+  @Test
+  public void testSkyframeExecutorClearedPackagesResultsInReload() throws Exception {
+    scratch.file("pkg/BUILD", "sh_library(name='foo', srcs=['foo.sh'])");
+    scratch.file("pkg/foo.sh");
+
+    invalidatePackages();
+
+    // Use number of times the package was validated as a proxy for number of times it was loaded.
+    AtomicInteger validationCount = new AtomicInteger();
+    doAnswer(
+            inv -> {
+              if (inv.getArgument(0, Package.class).getName().equals("pkg")) {
+                validationCount.incrementAndGet();
+              }
+              return null;
+            })
+        .when(mockPackageValidator)
+        .validate(any(Package.class), any(ExtendedEventHandler.class));
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
+    EvaluationResult<PackageValue> result1 =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result1).hasNoError();
+
+    skyframeExecutor.clearLoadedPackages();
+
+    EvaluationResult<PackageValue> result2 =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
+    assertThatEvaluationResult(result2).hasNoError();
+
+    assertThat(validationCount.get()).isEqualTo(2);
   }
 
   @Test
@@ -341,23 +432,40 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
     getSkyframeExecutor().resetEvaluator();
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
+            packageOptions,
             Options.getDefaults(StarlarkSemanticsOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),
             tsgm);
     getSkyframeExecutor().setActionEnv(ImmutableMap.<String, String>of());
     assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:a.config", "//foo:b.txt");
+  }
+
+  @Test
+  public void globEscapesAt() throws Exception {
+    scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.txt']))");
+    scratch.file("foo/@f.txt");
+    preparePackageLoading(rootDirectory);
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
+    assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:@f.txt");
+
+    scratch.overwriteFile("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.txt'])) # comment");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            reporter,
+            ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
+            Root.fromPath(rootDirectory));
+    assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:@f.txt");
   }
 
   /**
@@ -456,7 +564,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTransitiveSkylarkDepsStoredInPackage() throws Exception {
+  public void testTransitiveStarlarkDepsStoredInPackage() throws Exception {
     scratch.file("foo/BUILD", "load('//bar:ext.bzl', 'a')");
     scratch.file("bar/BUILD");
     scratch.file("bar/ext.bzl", "load('//baz:ext.bzl', 'b')", "a = b");
@@ -469,7 +577,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     Package pkg = validPackageWithoutErrors(skyKey);
-    assertThat(pkg.getSkylarkFileDependencies())
+    assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
             Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
             Label.parseAbsolute("//baz:ext.bzl", ImmutableMap.of()));
@@ -482,14 +590,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
 
     pkg = validPackageWithoutErrors(skyKey);
-    assertThat(pkg.getSkylarkFileDependencies())
+    assertThat(pkg.getStarlarkFileDependencies())
         .containsExactly(
             Label.parseAbsolute("//bar:ext.bzl", ImmutableMap.of()),
             Label.parseAbsolute("//qux:ext.bzl", ImmutableMap.of()));
   }
 
   @Test
-  public void testNonExistingSkylarkExtension() throws Exception {
+  public void testNonExistingStarlarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/skylark/BUILD",
@@ -507,12 +615,12 @@ public class PackageFunctionTest extends BuildViewTestCase {
     ErrorInfo errorInfo = result.getError(skyKey);
     String expectedMsg =
         "error loading package 'test/skylark': "
-            + "Unable to load file '//test/skylark:bad_extension.bzl': file doesn't exist";
+            + "cannot load '//test/skylark:bad_extension.bzl': no such file";
     assertThat(errorInfo.getException()).hasMessageThat().isEqualTo(expectedMsg);
   }
 
   @Test
-  public void testNonExistingSkylarkExtensionFromExtension() throws Exception {
+  public void testNonExistingStarlarkExtensionFromExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "test/skylark/extension.bzl",
@@ -537,11 +645,11 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/skylark': "
                 + "in /workspace/test/skylark/extension.bzl: "
-                + "Unable to load file '//test/skylark:bad_extension.bzl': file doesn't exist");
+                + "cannot load '//test/skylark:bad_extension.bzl': no such file");
   }
 
   @Test
-  public void testSymlinkCycleWithSkylarkExtension() throws Exception {
+  public void testSymlinkCycleWithStarlarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path extensionFilePath = scratch.resolve("/workspace/test/skylark/extension.bzl");
     FileSystemUtils.ensureSymbolicLink(extensionFilePath, PathFragment.create("extension.bzl"));

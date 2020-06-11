@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.SingleToolchainResolutionValue.SingleToolchainResolutionKey;
-import com.google.devtools.build.lib.skyframe.UnloadedToolchainContext.UnloadedToolchainContextKey;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.CyclesReporter;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -89,9 +88,9 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
                 ((SingleToolchainResolutionKey) input.argument()).toolchainTypeLabel();
             return String.format("toolchain type %s", toolchainType);
           }
-          if (input.argument() instanceof UnloadedToolchainContextKey) {
+          if (input.argument() instanceof ToolchainContextKey) {
             ImmutableSet<Label> toolchainTypes =
-                ((UnloadedToolchainContextKey) input.argument()).requiredToolchainTypeLabels();
+                ((ToolchainContextKey) input.argument()).requiredToolchainTypeLabels();
             return String.format(
                 "toolchain types %s",
                 toolchainTypes.stream().map(Label::toString).collect(joining(", ")));

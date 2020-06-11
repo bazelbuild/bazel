@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.util.FileType;
 
@@ -30,12 +30,12 @@ public final class PrecompiledFiles {
   private final ImmutableList<Artifact> files;
 
   /**
-   * Initializes this object with the artifacts obtained from the "srcs" attribute of the given
-   * rule (this is the most common usage for this class).
+   * Initializes this object with the artifacts obtained from the "srcs" attribute of the given rule
+   * (this is the most common usage for this class).
    */
   public PrecompiledFiles(RuleContext ruleContext) {
     if (ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)) {
-      this.files = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
+      this.files = ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list();
     } else {
       this.files = ImmutableList.<Artifact>of();
     }

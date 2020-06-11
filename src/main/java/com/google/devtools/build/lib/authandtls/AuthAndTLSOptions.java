@@ -86,13 +86,32 @@ public class AuthAndTLSOptions extends OptionsBase {
   public boolean incompatibleTlsEnabledRemoved;
 
   @Option(
-    name = "tls_certificate",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Specify the TLS client certificate to use."
-  )
+      name = "tls_certificate",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Specify a path to a TLS certificate that is trusted to sign server certificates.")
   public String tlsCertificate;
+
+  @Option(
+      name = "tls_client_certificate",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify the TLS client certificate to use; you also need to provide a client key to "
+              + "enable client authentication.")
+  public String tlsClientCertificate;
+
+  @Option(
+      name = "tls_client_key",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Specify the TLS client key to use; you also need to provide a client certificate to "
+              + "enable client authentication.")
+  public String tlsClientKey;
 
   @Option(
     name = "tls_authority_override",

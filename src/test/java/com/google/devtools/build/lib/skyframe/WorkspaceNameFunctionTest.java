@@ -68,12 +68,10 @@ public class WorkspaceNameFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.deleteFile("WORKSPACE");
     FileSystemUtils.ensureSymbolicLink(scratch.resolve("WORKSPACE"), "WORKSPACE");
-    // Transitive errors from WorkspaceNameValue should manifest themselves as
-    // NoSuchPackageExceptions.
     assertThatEvaluationResult(eval())
         .hasErrorEntryForKeyThat(key)
         .hasExceptionThat()
-        .isInstanceOf(NoSuchPackageException.class);
+        .isInstanceOf(FileSymlinkCycleException.class);
   }
 
   @Test

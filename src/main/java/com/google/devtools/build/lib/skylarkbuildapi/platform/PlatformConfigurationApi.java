@@ -16,38 +16,29 @@ package com.google.devtools.build.lib.skylarkbuildapi.platform;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
-import java.util.List;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** The platform configuration. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "platform",
     doc = "The platform configuration.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public interface PlatformConfigurationApi extends StarlarkValue {
 
-  @SkylarkCallable(name = "host_platform", structField = true, doc = "The current host platform")
+  @StarlarkMethod(name = "host_platform", structField = true, doc = "The current host platform")
   Label getHostPlatform();
 
-  @SkylarkCallable(name = "platform", structField = true, doc = "The current target platform")
+  @StarlarkMethod(name = "platform", structField = true, doc = "The current target platform")
   Label getTargetPlatform();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "platforms",
       structField = true,
       doc = "The current target platforms",
       documented = false)
   @Deprecated
   ImmutableList<Label> getTargetPlatforms();
-
-  @SkylarkCallable(
-      name = "enabled_toolchain_types",
-      structField = true,
-      disableWithFlag = FlagIdentifier.INCOMPATIBLE_REMOVE_ENABLE_TOOLCHAIN_TYPES,
-      doc = "The set of toolchain types enabled for platform-based toolchain selection.")
-  List<Label> getEnabledToolchainTypes();
 }

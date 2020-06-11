@@ -21,7 +21,7 @@
 // The process-wrapper implementation that was used until and including Bazel
 // 0.4.5. Waits for the wrapped process to exit and then kills its process
 // group. Works on all POSIX operating systems (tested on Linux, macOS,
-// FreeBSD).
+// FreeBSD, and OpenBSD).
 //
 // Caveats:
 // - Killing just the process group of the spawned child means that daemons or
@@ -39,8 +39,10 @@ class LegacyProcessWrapper {
 
  private:
   static void SpawnChild();
+  static void SetupSignalHandlers();
   static void WaitForChild();
-  static void OnSignal(int sig);
+  static void OnAbruptSignal(int sig);
+  static void OnGracefulSignal(int sig);
 
   static pid_t child_pid;
   static volatile sig_atomic_t last_signal;

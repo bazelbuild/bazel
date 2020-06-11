@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
@@ -92,7 +91,7 @@ public class RepositoryMappingValue implements SkyValue {
     return repositoryMapping.toString();
   }
 
-  /** {@link SkyKey} for {@link RepositoryMappingValue}. */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link RepositoryMappingValue}. */
   @AutoCodec.VisibleForSerialization
   @AutoCodec
   static class Key extends AbstractSkyKey<RepositoryName> {

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
@@ -127,13 +126,12 @@ public class RunfilesTreeUpdater {
   public void updateRunfilesDirectory(
       Path execRoot,
       RunfilesSupplier runfilesSupplier,
-      ArtifactPathResolver pathResolver,
       BinTools binTools,
       ImmutableMap<String, String> env,
       OutErr outErr)
       throws ExecException, IOException {
     for (Map.Entry<PathFragment, Map<PathFragment, Artifact>> runfiles :
-        runfilesSupplier.getMappings(pathResolver).entrySet()) {
+        runfilesSupplier.getMappings().entrySet()) {
       PathFragment runfilesDir = runfiles.getKey();
       if (runfilesSupplier.isBuildRunfileLinks(runfilesDir)) {
         continue;

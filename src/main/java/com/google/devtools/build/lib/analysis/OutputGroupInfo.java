@@ -14,30 +14,29 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.syntax.EvalUtils.SKYLARK_COMPARATOR;
-
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.DuplicateException;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleConfiguredTargetUtil;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.SkylarkIndexable;
+import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
 import com.google.devtools.build.lib.syntax.StarlarkIterable;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -61,10 +60,10 @@ import javax.annotation.Nullable;
 @Immutable
 @AutoCodec
 public final class OutputGroupInfo extends StructImpl
-    implements SkylarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
-  public static final String SKYLARK_NAME = "output_groups";
+    implements StarlarkIndexable, StarlarkIterable<String>, OutputGroupInfoApi {
+  public static final String STARLARK_NAME = "output_groups";
 
-  public static final OutputGroupInfoProvider SKYLARK_CONSTRUCTOR = new OutputGroupInfoProvider();
+  public static final OutputGroupInfoProvider STARLARK_CONSTRUCTOR = new OutputGroupInfoProvider();
 
   /**
    * Prefix for output groups that are not reported to the user on the terminal output of Blaze when
@@ -138,20 +137,19 @@ public final class OutputGroupInfo extends StructImpl
   private final ImmutableMap<String, NestedSet<Artifact>> outputGroups;
 
   public OutputGroupInfo(ImmutableMap<String, NestedSet<Artifact>> outputGroups) {
-    super(SKYLARK_CONSTRUCTOR, Location.BUILTIN);
+    super(STARLARK_CONSTRUCTOR, Location.BUILTIN);
     this.outputGroups = outputGroups;
   }
 
-  @Nullable
-  public static OutputGroupInfo get(TransitiveInfoCollection collection) {
-    return collection.get(OutputGroupInfo.SKYLARK_CONSTRUCTOR);
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   @Nullable
-  public static OutputGroupInfo get(ConfiguredAspect aspect) {
-    return (OutputGroupInfo) aspect.get(SKYLARK_CONSTRUCTOR.getKey());
+  public static OutputGroupInfo get(ProviderCollection collection) {
+    return collection.get(STARLARK_CONSTRUCTOR);
   }
-
 
   /** Return the artifacts in a particular output group.
    *
@@ -240,31 +238,28 @@ public final class OutputGroupInfo extends StructImpl
   }
 
   @Override
-  public Object getIndex(Object key, Location loc) throws EvalException {
+  public Object getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
     if (!(key instanceof String)) {
-      throw new EvalException(loc, String.format(
-          "Output grout names must be strings, got %s instead",
-          EvalUtils.getDataTypeName(key)));
+      throw Starlark.errorf(
+          "Output group names must be strings, got %s instead", Starlark.type(key));
     }
 
     NestedSet<Artifact> result = outputGroups.get(key);
     if (result != null) {
       return Depset.of(Artifact.TYPE, result);
     } else {
-      throw new EvalException(loc, String.format(
-          "Output group %s not present", key
-      ));
+      throw Starlark.errorf("Output group %s not present", key);
     }
   }
 
   @Override
-  public boolean containsKey(Object key, Location loc) throws EvalException {
+  public boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     return outputGroups.containsKey(key);
   }
 
   @Override
   public Iterator<String> iterator() {
-    return SKYLARK_COMPARATOR.sortedCopy(outputGroups.keySet()).iterator();
+    return ImmutableList.sortedCopyOf(outputGroups.keySet()).iterator();
   }
 
   @Override
@@ -291,15 +286,14 @@ public final class OutputGroupInfo extends StructImpl
     }
 
     @Override
-    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs, Location loc) throws EvalException {
-      Map<String, Object> kwargsMap = kwargs.getContents(String.class, Object.class, "kwargs");
-
+    public OutputGroupInfoApi constructor(Dict<?, ?> kwargs) throws EvalException {
       ImmutableMap.Builder<String, NestedSet<Artifact>> builder = ImmutableMap.builder();
-      for (Map.Entry<String, Object> entry : kwargsMap.entrySet()) {
+      for (Map.Entry<String, Object> entry :
+          Dict.cast(kwargs, String.class, Object.class, "kwargs").entrySet()) {
         builder.put(
             entry.getKey(),
-            SkylarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
-                loc, entry.getKey(), entry.getValue()));
+            StarlarkRuleConfiguredTargetUtil.convertToOutputGroupValue(
+                entry.getKey(), entry.getValue()));
       }
       return new OutputGroupInfo(builder.build());
     }

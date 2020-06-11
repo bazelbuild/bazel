@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
-import com.google.devtools.build.lib.analysis.skylark.SkylarkRuleContext;
+import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkbuildapi.test.CoverageCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.test.InstrumentedFilesInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -34,27 +33,22 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Helper functions for Starlark to access coverage-related infrastructure. */
-public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, SkylarkRuleContext> {
+public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, StarlarkRuleContext> {
 
   @Override
-  @SuppressWarnings("unchecked") // Casting extensions param is verified by Starlark interpreter.
   public InstrumentedFilesInfoApi instrumentedFilesInfo(
-      SkylarkRuleContext skylarkRuleContext,
+      StarlarkRuleContext starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String>
       Sequence<?> dependencyAttributes, // <String>
-      Object extensions,
-      Location location)
+      Object extensions)
       throws EvalException {
     List<String> extensionsList =
-        extensions == Starlark.NONE
-            ? null
-            : Sequence.castList((List<?>) extensions, String.class, "extensions");
+        extensions == Starlark.NONE ? null : Sequence.cast(extensions, String.class, "extensions");
 
     return createInstrumentedFilesInfo(
-        location,
-        skylarkRuleContext.getRuleContext(),
-        sourceAttributes.getContents(String.class, "source_attributes"),
-        dependencyAttributes.getContents(String.class, "dependency_attributes"),
+        starlarkRuleContext.getRuleContext(),
+        Sequence.cast(sourceAttributes, String.class, "source_attributes"),
+        Sequence.cast(dependencyAttributes, String.class, "dependency_attributes"),
         extensionsList);
   }
 
@@ -64,7 +58,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
    * example, the instrumented sources are determined given the values of the attributes named in
    * {@code sourceAttributes} given by the {@code ruleContext}.
    *
-   * @param location the Starlark location that the instrumentation specification was defined
    * @param ruleContext the rule context
    * @param sourceAttributes a list of attribute names which contain source files for the rule
    * @param dependencyAttributes a list of attribute names which contain dependencies that might
@@ -74,7 +67,6 @@ public class CoverageCommon implements CoverageCommonApi<ConstraintValueInfo, Sk
    *     extensions listed in {@code extensions} will be used
    */
   public static InstrumentedFilesInfo createInstrumentedFilesInfo(
-      Location location,
       RuleContext ruleContext,
       List<String> sourceAttributes,
       List<String> dependencyAttributes,

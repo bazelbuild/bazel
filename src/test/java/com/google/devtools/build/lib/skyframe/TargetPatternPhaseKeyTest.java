@@ -85,9 +85,13 @@ public class TargetPatternPhaseKeyTest {
        .testEquals();
   }
 
-  private TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset,
+  private static TargetPatternPhaseKey of(
+      ImmutableList<String> targetPatterns,
+      String offset,
       ImmutableList<String> buildTagFilter,
-      boolean includeManualTests, boolean expandTestSuites, @Nullable TestFilter testFilter,
+      boolean includeManualTests,
+      boolean expandTestSuites,
+      @Nullable TestFilter testFilter,
       Flag... flags) {
     ImmutableSet<Flag> set = ImmutableSet.copyOf(flags);
     boolean compileOneDependency = set.contains(Flag.COMPILE_ONE_DEPENDENCY);
@@ -97,11 +101,11 @@ public class TargetPatternPhaseKeyTest {
         determineTests, buildTagFilter, includeManualTests, expandTestSuites, testFilter);
   }
 
-  private TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset) {
+  private static TargetPatternPhaseKey of(ImmutableList<String> targetPatterns, String offset) {
     return of(targetPatterns, offset, ImmutableList.<String>of(), false, true, null);
   }
 
-  private TestFilter emptyTestFilter() {
+  private static TestFilter emptyTestFilter() {
     LoadingOptions options = Options.getDefaults(LoadingOptions.class);
     return TestFilter.forOptions(options, NullEventHandler.INSTANCE, ImmutableSet.<String>of());
   }

@@ -6,13 +6,13 @@ package(default_visibility = [
 
 filegroup(
     name = "common_runner_java_files",
-    srcs = glob(
-        ["*.java"],
-        exclude =
-            [
-                "BazelTestRunner.java",
-            ],
-    ),
+    srcs = [
+        "BazelTestRunnerModule.java",
+        "JUnit4Bazel.java",
+        "ResultWriterFactory.java",
+        "StderrStreamFactory.java",
+        "StdoutStreamFactory.java",
+    ],
 )
 
 java_library(
@@ -23,12 +23,27 @@ java_library(
     ],
     data = ["//tools:test_sharding_compliant"],
     deps = [
+        ":persistent_test_runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/junit4",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/model",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util",
+        "//third_party:guava",
         "//third_party:junit4",
+    ],
+)
+
+java_binary(
+    name = "persistent_test_runner",
+    srcs = [
+        "PersistentTestRunner.java",
+        "SuiteTestRunner.java",
+    ],
+    deps = [
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
@@ -39,7 +54,9 @@ java_binary(
         "//src:__subpackages__",
         "//src/java_tools/junitrunner:junitrunner_package_group",
     ],
-    runtime_deps = [":test_runner"],
+    runtime_deps = [
+        ":test_runner",
+    ],
 )
 
 filegroup(
@@ -52,4 +69,5 @@ filegroup(
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/sharding:srcs",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/util:srcs",
     ],
+    visibility = ["//src:__subpackages__"],
 )

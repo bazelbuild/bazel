@@ -12,12 +12,12 @@ java_test(
     size = "medium",
     srcs = ["IndyStringConcatDesugaringlTest.java"],
     data = [
-        ":string_concat_cases",
+        ":string_concat_cases_srcs",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:android_jar_for_testing",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jacoco_agent_jar",
     ],
     jvm_flags = [
-        "-Dinput_jar=$(location :string_concat_cases)",
+        "-Dinput_srcs=$(locations :string_concat_cases_srcs)",
         # Required by Desugar#verifyLambdaDumpDirectoryRegistered
         "-Djdk.internal.lambda.dumpProxyClasses=$$(mktemp -d)",
         "-Dandroid_runtime_jar=$(location //src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:android_jar_for_testing)",
@@ -34,13 +34,12 @@ java_test(
         "//third_party:jsr330_inject",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party:truth8",
     ],
 )
 
 java_library(
     name = "string_concat_cases",
-    srcs = ["StringConcatTestCases.java"],
+    srcs = [":string_concat_cases_srcs"],
     javacopts = select({
         "//src/tools/android/java/com/google/devtools/build/android/desugar/testing/junit:jdk11-config": [
             "-source 11",
@@ -49,6 +48,11 @@ java_library(
         ],
         "//conditions:default": [],
     }),
+)
+
+filegroup(
+    name = "string_concat_cases_srcs",
+    srcs = ["StringConcatTestCases.java"],
 )
 
 filegroup(

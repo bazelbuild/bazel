@@ -19,12 +19,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithConfiguration;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import java.util.ArrayList;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * Error message of an analysis root cause. This is separate from {@link AnalysisFailureEvent} to
@@ -37,7 +40,7 @@ public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
   private final String errorMessage;
 
   public AnalysisRootCauseEvent(
-      BuildConfiguration configuration, Label label, String errorMessage) {
+      @Nullable BuildConfiguration configuration, Label label, String errorMessage) {
     this.configuration = configuration;
     this.label = label;
     this.errorMessage = errorMessage;
@@ -52,9 +55,9 @@ public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
   public BuildEventId getEventId() {
     // This needs to match AnalysisFailedCause.
     if (configuration == null) {
-      return BuildEventId.unconfiguredLabelId(label);
+      return BuildEventIdUtil.unconfiguredLabelId(label);
     }
-    return BuildEventId.configuredLabelId(label, configuration.getEventId());
+    return BuildEventIdUtil.configuredLabelId(label, configuration.getEventId());
   }
 
   @Override
@@ -75,6 +78,12 @@ public class AnalysisRootCauseEvent implements BuildEventWithConfiguration {
 
   @Override
   public Collection<BuildEvent> getConfigurations() {
-    return ImmutableList.<BuildEvent>of(configuration.toBuildEvent());
+    ArrayList<BuildEvent> result = new ArrayList<>();
+    if (configuration == null) {
+      result.add(null);
+    } else {
+      result.add(configuration.toBuildEvent());
+    }
+    return result;
   }
 }

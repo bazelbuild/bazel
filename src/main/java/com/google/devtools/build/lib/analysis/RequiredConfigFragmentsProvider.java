@@ -14,14 +14,18 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import java.util.List;
 
 /**
- * Provides a user-friendly list of the {@link BuildConfiguration.Fragment}s and
- * {@link FragmentOptions} required by this target and its transitive dependencies.
+ * Provides a user-friendly list of the
+ * {@link Fragment}s and
+ * {@link com.google.devtools.build.lib.analysis.config.FragmentOptions} required by this target
+ * and its transitive dependencies.
  *
  * <p>See {@link ConfiguredTargetFactory#getRequiredConfigFragments) for details.
  */
@@ -35,5 +39,19 @@ public class RequiredConfigFragmentsProvider implements TransitiveInfoProvider {
 
   public ImmutableSet<String> getRequiredConfigFragments() {
     return requiredConfigFragments;
+  }
+
+  /** Merges the values of multiple {@link RequiredConfigFragmentsProvider}s. */
+  public static RequiredConfigFragmentsProvider merge(
+      List<RequiredConfigFragmentsProvider> providers) {
+    checkArgument(!providers.isEmpty());
+    if (providers.size() == 1) {
+      return providers.get(0);
+    }
+    ImmutableSet.Builder<String> merged = ImmutableSet.builder();
+    for (RequiredConfigFragmentsProvider provider : providers) {
+      merged.addAll(provider.getRequiredConfigFragments());
+    }
+    return new RequiredConfigFragmentsProvider(merged.build());
   }
 }

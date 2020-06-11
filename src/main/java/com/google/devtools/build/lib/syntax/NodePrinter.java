@@ -55,8 +55,7 @@ final class NodePrinter {
       // of StarlarkFile. So don't bother word-wrapping and just print
       // it on a single line.
       printIndent();
-      buf.append("# ");
-      buf.append(comment.getValue());
+      buf.append(comment.getText());
 
     } else if (n instanceof Argument) {
       printArgument((Argument) n);
@@ -177,11 +176,11 @@ final class NodePrinter {
         {
           ForStatement stmt = (ForStatement) s;
           buf.append("for ");
-          printExpr(stmt.getLHS());
+          printExpr(stmt.getVars());
           buf.append(" in ");
           printExpr(stmt.getCollection());
           buf.append(":\n");
-          printSuite(stmt.getBlock());
+          printSuite(stmt.getBody());
           break;
         }
 
@@ -190,7 +189,7 @@ final class NodePrinter {
           DefStatement stmt = (DefStatement) s;
           printDefSignature(stmt);
           buf.append('\n');
-          printSuite(stmt.getStatements());
+          printSuite(stmt.getBody());
           break;
         }
 
@@ -244,9 +243,9 @@ final class NodePrinter {
         {
           ReturnStatement stmt = (ReturnStatement) s;
           buf.append("return");
-          if (stmt.getReturnExpression() != null) {
+          if (stmt.getResult() != null) {
             buf.append(' ');
-            printExpr(stmt.getReturnExpression());
+            printExpr(stmt.getResult());
           }
           buf.append('\n');
           break;
@@ -391,8 +390,8 @@ final class NodePrinter {
             printExpr(slice.getStart());
           }
           buf.append(':');
-          if (slice.getEnd() != null) {
-            printExpr(slice.getEnd());
+          if (slice.getStop() != null) {
+            printExpr(slice.getStop());
           }
           if (slice.getStep() != null) {
             buf.append(':');

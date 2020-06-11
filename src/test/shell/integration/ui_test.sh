@@ -545,11 +545,11 @@ function test_experimental_ui_attempt_to_print_relative_paths_failing_action() {
 
   bazel build --attempt_to_print_relative_paths=false \
       error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
-  expect_log "^ERROR: $(pwd)/error/BUILD:1:1: Executing genrule"
+  expect_log "^ERROR: $(pwd)/error/BUILD:1:8: Executing genrule"
 
   bazel build --attempt_to_print_relative_paths=true \
       error:failwitherror > "${TEST_log}" 2>&1 && fail "expected failure"
-  expect_log "^ERROR: error/BUILD:1:1: Executing genrule"
+  expect_log "^ERROR: error/BUILD:1:8: Executing genrule"
   expect_not_log "$(pwd)/error/BUILD"
 }
 
@@ -574,6 +574,30 @@ function test_fancy_symbol_encoding() {
     bazel build //fancyOutput:withFancyOutput > "${TEST_log}" 2>&1 \
         || fail "expected success"
     expect_log $'\xF0\x9F\x8D\x83'
+}
+
+function test_ui_events_filters() {
+  bazel clean || fail "${PRODUCT_NAME} clean failed"
+
+  bazel build pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=-error pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build --ui_event_filters=info pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_log "^INFO: Elapsed time"
+
+  bazel build  --ui_event_filters= pkgloadingerror:all > "${TEST_log}" 2>&1 && fail "expected failure"
+  expect_not_log "^ERROR: .*/bzl/bzl.bzl:1:5: name 'invalidsyntax' is not defined"
+  expect_not_log "^WARNING: Target pattern parsing failed."
+  expect_not_log "^INFO: Elapsed time"
 }
 
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"

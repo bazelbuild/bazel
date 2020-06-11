@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Getting Started
+title: Getting started
 ---
 
-# Getting Started with Bazel
+# Getting started with Bazel
 
 This page lists material that will help you get started with Bazel. If you have
 not already done so, first read the [Bazel Overview](bazel-overview.html).

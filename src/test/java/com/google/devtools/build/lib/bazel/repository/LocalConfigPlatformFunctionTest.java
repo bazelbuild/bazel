@@ -42,7 +42,7 @@ public class LocalConfigPlatformFunctionTest {
   @RunWith(Parameterized.class)
   public static class CpuConstraintTest {
     @Parameters
-    public static Collection createInputValues() {
+    public static Collection<Object[]> createInputValues() {
       return ImmutableList.of(
           // CPU value tests.
           new Object[] {CPU.X86_64, "@platforms//cpu:x86_64"},
@@ -78,7 +78,7 @@ public class LocalConfigPlatformFunctionTest {
   @RunWith(Parameterized.class)
   public static class OsConstraintTest {
     @Parameters
-    public static Collection createInputValues() {
+    public static Collection<Object[]> createInputValues() {
       return ImmutableList.of(
           // OS value tests.
           new Object[] {OS.LINUX, "@platforms//os:linux"},

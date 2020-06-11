@@ -21,6 +21,9 @@ Before creating or modifying any rule, ensure you are familiar with Bazel's
 [build phases](concepts.md). It will be important to understand the three phases
 of a build (loading, analysis and execution). It will also be useful to learn
 about [macros](macros.md) to understand the difference between rules and macros.
+To get started, we recommend that you first follow the
+[Rules Tutorial](rules-tutorial.md). The current page can be used as a
+reference.
 
 A few rules are built into Bazel itself. These *native rules*, such as
 `cc_library` and `java_binary`, provide some core support for certain languages.
@@ -42,13 +45,6 @@ needed.
 
 Rules also produce and pass along information that may be useful to other rules
 in the form of [providers](#providers).
-
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
-
 
 ## Rule creation
 
@@ -133,7 +129,7 @@ following attributes: `args`, `flaky`, `local`, `shard_count`, `size`,
 
 <a name="private-attributes"></a>
 
-### Private Attributes and Implicit Dependencies
+### Private attributes and implicit dependencies
 
 A dependency attribute with a default value is called an *implicit dependency*.
 The name comes from the fact that it is a part of the target graph that the user
@@ -398,7 +394,7 @@ which means `cfg` is optional, only set this when it truly helps readability.
 
 <a name="fragments"></a>
 
-## Configuration Fragments
+## Configuration fragments
 
 Rules may access [configuration fragments](lib/skylark-configuration-fragment.html)
 such as `cpp`, `java` and `jvm`. However, all required fragments must be
@@ -479,7 +475,7 @@ Providers are only available during the analysis phase. Examples of usage:
 * [providers with depsets](https://github.com/bazelbuild/examples/blob/master/rules/depsets/foo.bzl)
     This examples shows how a library and a binary rule can pass information.
 
-### Migrating from Legacy Providers
+### Migrating from legacy providers
 
 Historically, Bazel providers were simple fields on the `Target` object. They
 were accessed using the dot operator, and they were created by putting the field
@@ -522,11 +518,6 @@ provider).
 
 * The field `output_groups` takes a struct value and corresponds to an
   [`OutputGroupInfo`](lib/OutputGroupInfo.html).
-
-* The field `instrumented_files` is for
-  [code coverage instrumentation](#code-coverage-instrumentation). It does not
-  yet have a modern provider equivalent. If you need it, you cannot yet migrate
-  away from legacy providers.
 
 In [`provides`](lib/globals.html#rule.provides) declarations of rules, and in
 [`providers`](lib/attr.html#label_list.providers) declarations of dependency

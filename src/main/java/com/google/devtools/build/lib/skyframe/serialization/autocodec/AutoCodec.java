@@ -35,11 +35,10 @@ import java.lang.annotation.Target;
  * In the example, that results in a class named {@code Target_AutoCodec} but applications should
  * not need to directly access the generated class.
  *
- * <p>If applied to a field (which must be static and final), the field is stored as a "constant"
- * allowing for trivial serialization of it as an integer tag (see {@code CodecScanner} and
- * {@code ObjectCodecRegistry}). In order to do that, a trivial associated "RegisteredSingleton"
- * class is generated. Tagging such a field is harmless, and can be done conservatively.
+ * <p>DEPRECATED for this next purpose (use {@link SerializationConstant} instead): Alternative to
+ * {@link SerializationConstant}.
  */
+// TODO(janakr): remove ElementType.FIELD from this: migrate usages to @SerializationConstant.
 @Target({ElementType.TYPE, ElementType.FIELD})
 // TODO(janakr): remove once serialization is complete.
 @Retention(RetentionPolicy.RUNTIME)

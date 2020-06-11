@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -34,7 +33,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Output service implementation for the remote module */
@@ -62,7 +60,7 @@ public class RemoteOutputService implements OutputService {
       ImmutableList<Root> sourceRoots,
       ActionInputMap inputArtifactData,
       Iterable<Artifact> outputArtifacts,
-      Function<PathFragment, SourceArtifact> sourceArtifactFactory) {
+      boolean trackFailedRemoteReads) {
     Preconditions.checkNotNull(actionInputFetcher, "actionInputFetcher");
     return new RemoteActionFileSystem(
         sourceDelegate,

@@ -14,22 +14,19 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
-
 /**
- * Wrapper on a value that controls its accessibility in Starlark based on the value of a
- * semantic flag.
+ * Wrapper on a value in the predeclared lexical block that controls its accessibility to Starlark
+ * based on the value of a semantic flag.
  *
- * <p>For example, this could control whether symbol "Foo" exists in the Starlark
- * global frame: such a symbol might only be accessible if --experimental_foo is set to true.
- * In order to create this control, an instance of this class should be added to the global
- * frame under "Foo". This flag guard will throw a descriptive {@link EvalException} when
- * "Foo" would be accessed without the proper flag.
+ * <p>For example, this could control whether symbol "Foo" exists in the Starlark global frame: such
+ * a symbol might only be accessible if --experimental_foo is set to true. In order to create this
+ * control, an instance of this class should be added to the global frame under "Foo". This flag
+ * guard will throw a descriptive {@link EvalException} when "Foo" would be accessed without the
+ * proper flag.
  */
-public class FlagGuardedValue {
+public final class FlagGuardedValue {
   private final Object obj;
-  private final FlagIdentifier flagIdentifier;
+  private final String flag;
   private final FlagType flagType;
 
   private enum FlagType {
@@ -37,20 +34,19 @@ public class FlagGuardedValue {
     EXPERIMENTAL;
   }
 
-  private FlagGuardedValue(Object obj, FlagIdentifier flagIdentifier, FlagType flagType) {
+  private FlagGuardedValue(Object obj, String flag, FlagType flagType) {
     this.obj = obj;
-    this.flagIdentifier = flagIdentifier;
+    this.flag = flag;
     this.flagType = flagType;
   }
 
   /**
-   * Creates a flag guard which only permits access of the given object when the given flag is
-   * true. If the given flag is false and the object would be accessed, an error is thrown
-   * describing the feature as experimental, and describing that the flag must be set to true.
+   * Creates a flag guard which only permits access of the given object when the given flag is true.
+   * If the given flag is false and the object would be accessed, an error is thrown describing the
+   * feature as experimental, and describing that the flag must be set to true.
    */
-  public static FlagGuardedValue onlyWhenExperimentalFlagIsTrue(
-      FlagIdentifier flagIdentifier, Object obj) {
-    return new FlagGuardedValue(obj, flagIdentifier, FlagType.EXPERIMENTAL);
+  public static FlagGuardedValue onlyWhenExperimentalFlagIsTrue(String flag, Object obj) {
+    return new FlagGuardedValue(obj, flag, FlagType.EXPERIMENTAL);
   }
 
   /**
@@ -58,54 +54,41 @@ public class FlagGuardedValue {
    * false. If the given flag is true and the object would be accessed, an error is thrown
    * describing the feature as deprecated, and describing that the flag must be set to false.
    */
-  public static FlagGuardedValue onlyWhenIncompatibleFlagIsFalse(
-      FlagIdentifier flagIdentifier, Object obj) {
-    return new FlagGuardedValue(obj, flagIdentifier, FlagType.DEPRECATION);
+  public static FlagGuardedValue onlyWhenIncompatibleFlagIsFalse(String flag, Object obj) {
+    return new FlagGuardedValue(obj, flag, FlagType.DEPRECATION);
   }
 
   /**
    * Returns an error describing an attempt to access this guard's protected object when it should
-   * be inaccessible in the given semantics.
-   *
-   * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is true given the
-   *     semantics
+   * be inaccessible in the (contextually implied) semantics.
    */
-  String getErrorFromAttemptingAccess(StarlarkSemantics semantics, String name) {
-    Preconditions.checkArgument(!isObjectAccessibleUsingSemantics(semantics),
-        "getEvalExceptionFromAttemptingAccess should only be called if the underlying "
-            + "object is inaccessible given the semantics");
+  String getErrorFromAttemptingAccess(String name) {
     return flagType == FlagType.EXPERIMENTAL
         ? name
             + " is experimental and thus unavailable with the current flags. It may be enabled by"
             + " setting --"
-            + flagIdentifier.getFlagName()
+            + flag
         : name
             + " is deprecated and will be removed soon. It may be temporarily re-enabled by"
             + " setting --"
-            + flagIdentifier.getFlagName()
+            + flag
             + "=false";
   }
 
   /**
    * Returns this guard's underlying object. This should be called when appropriate validation has
-   * occurred to ensure that the object is accessible with the given semantics.
-   *
-   * @throws IllegalArgumentException if {@link #isObjectAccessibleUsingSemantics} is false given
-   *     the semantics
+   * occurred to ensure that the object is accessible with the (implied) semantics.
    */
-  public Object getObject(StarlarkSemantics semantics) {
-    Preconditions.checkArgument(isObjectAccessibleUsingSemantics(semantics),
-        "getObject should only be called if the underlying object is accessible given the "
-            + "semantics");
+  public Object getObject() {
     return obj;
   }
 
   /** Returns true if this guard's underlying object is accessible under the given semantics. */
-  public boolean isObjectAccessibleUsingSemantics(StarlarkSemantics semantics) {
+  boolean isObjectAccessibleUsingSemantics(StarlarkSemantics semantics) {
     if (flagType == FlagType.EXPERIMENTAL) {
-      return semantics.isFeatureEnabledBasedOnTogglingFlags(flagIdentifier, FlagIdentifier.NONE);
+      return semantics.isFeatureEnabledBasedOnTogglingFlags(flag, "");
     } else {
-      return semantics.isFeatureEnabledBasedOnTogglingFlags(FlagIdentifier.NONE, flagIdentifier);
+      return semantics.isFeatureEnabledBasedOnTogglingFlags("", flag);
     }
   }
 }

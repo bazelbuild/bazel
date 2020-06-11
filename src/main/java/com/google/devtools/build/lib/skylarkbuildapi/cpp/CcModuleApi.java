@@ -15,17 +15,12 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
@@ -34,28 +29,32 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.syntax.Tuple;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Utilites related to C++ support. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "cc_common",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface CcModuleApi<
-        SkylarkActionFactoryT extends SkylarkActionFactoryApi,
+        StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
         CcToolchainProviderT extends CcToolchainProviderApi<?>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CompilationContextT extends CcCompilationContextApi,
+        CompilationContextT extends CcCompilationContextApi<FileT>,
         LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
         LinkingContextT extends CcLinkingContextApi<?>,
         LibraryToLinkT extends LibraryToLinkApi<FileT>,
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "CcToolchainInfo",
       doc =
           "The key used to retrieve the provider that contains information about the C++ "
@@ -64,7 +63,7 @@ public interface CcModuleApi<
   ProviderApi getCcToolchainProvider();
 
   @Deprecated
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "do_not_use_tools_cpp_compiler_present",
       doc =
           "Do not use this field, its only puprose is to help with migration from "
@@ -73,9 +72,9 @@ public interface CcModuleApi<
       structField = true)
   default void compilerFlagExists() {}
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "configure_features",
-      doc = "Creates a feature_configuration instance.",
+      doc = "Creates a feature_configuration instance. Requires the cpp configuration fragment.",
       parameters = {
         @Param(
             name = "ctx",
@@ -83,7 +82,7 @@ public interface CcModuleApi<
             named = true,
             noneable = true,
             defaultValue = "None",
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
         @Param(
             name = "cc_toolchain",
@@ -113,7 +112,7 @@ public interface CcModuleApi<
       Sequence<?> unsupportedFeatures) // <String> expected
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_tool_for_action",
       doc = "Returns tool path for given action.",
       parameters = {
@@ -135,7 +134,7 @@ public interface CcModuleApi<
       })
   String getToolForAction(FeatureConfigurationT featureConfiguration, String actionName);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_execution_requirements",
       doc = "Returns execution requirements for given action.",
       parameters = {
@@ -158,7 +157,7 @@ public interface CcModuleApi<
   Sequence<String> getExecutionRequirements(
       FeatureConfigurationT featureConfiguration, String actionName);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "is_enabled",
       doc = "Returns True if given feature is enabled in the feature configuration.",
       parameters = {
@@ -176,7 +175,7 @@ public interface CcModuleApi<
       })
   boolean isEnabled(FeatureConfigurationT featureConfiguration, String featureName);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "action_is_enabled",
       doc = "Returns True if given action_config is enabled in the feature configuration.",
       parameters = {
@@ -194,7 +193,7 @@ public interface CcModuleApi<
       })
   boolean actionIsEnabled(FeatureConfigurationT featureConfiguration, String actionName);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_memory_inefficient_command_line",
       doc =
           "Returns flattened command line flags for given action, using given variables for "
@@ -230,7 +229,7 @@ public interface CcModuleApi<
       CcToolchainVariablesT variables)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "get_environment_variables",
       doc = "Returns environment variables to be set for given action.",
       parameters = {
@@ -262,7 +261,7 @@ public interface CcModuleApi<
       CcToolchainVariablesT variables)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_compile_variables",
       doc = "Returns variables used for compilation actions.",
       parameters = {
@@ -380,7 +379,7 @@ public interface CcModuleApi<
       boolean addLegacyCxxOptions)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_link_variables",
       doc = "Returns link variables used for linking actions.",
       parameters = {
@@ -501,18 +500,17 @@ public interface CcModuleApi<
       boolean isStaticLinkingMode)
       throws EvalException;
 
-  @SkylarkCallable(name = "empty_variables", documented = false)
+  @StarlarkMethod(name = "empty_variables", documented = false)
   CcToolchainVariablesT getVariables();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_library_to_link",
       doc = "Creates <code>LibraryToLink</code>",
-      useLocation = true,
       useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
-            type = SkylarkActionFactoryApi.class,
+            type = StarlarkActionFactoryApi.class,
             positional = false,
             named = true,
             doc = "<code>actions</code> object."),
@@ -598,16 +596,13 @@ public interface CcModuleApi<
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_linker_input",
       doc = "Creates a <code>LinkingContext</code>.",
-      useLocation = true,
       useStarlarkThread = true,
-      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
       parameters = {
         @Param(
             name = "owner",
@@ -645,14 +640,19 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs,
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
+      name = "check_experimental_cc_shared_library",
+      doc = "DO NOT USE. This is to guard use of cc_shared_library.",
+      useStarlarkThread = true,
+      documented = false)
+  void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException;
+
+  @StarlarkMethod(
       name = "create_linking_context",
       doc = "Creates a <code>LinkingContext</code>.",
-      useLocation = true,
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -660,32 +660,38 @@ public interface CcModuleApi<
             doc = "Depset of <code>LinkerInput</code>.",
             positional = false,
             named = true,
-            enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_CC_SHARED_LIBRARY,
-            valueWhenDisabled = "None",
+            noneable = true,
+            defaultValue = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
             name = "libraries_to_link",
             doc = "List of <code>LibraryToLink</code>.",
             positional = false,
             named = true,
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
+            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "user_link_flags",
             doc = "List of user link flags passed as strings.",
             positional = false,
             named = true,
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
+            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
         @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
             positional = false,
             named = true,
+            disableWithFlag = FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API,
             noneable = true,
             defaultValue = "None",
+            valueWhenDisabled = "None",
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Sequence.class)}),
       })
   LinkingContextT createCcLinkingInfo(
@@ -693,26 +699,38 @@ public interface CcModuleApi<
       Object librariesToLinkObject,
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge_cc_infos",
-      doc = "Merges a list of <code>CcInfo</code>s into one.",
+      doc = "Merges multiple <code>CcInfo</code>s into one.",
       parameters = {
         @Param(
+            name = "direct_cc_infos",
+            doc =
+                "List of <code>CcInfo</code>s to be merged, whose headers will be exported by "
+                    + "the direct fields in the returned provider.",
+            positional = false,
+            named = true,
+            defaultValue = "[]",
+            type = Sequence.class),
+        @Param(
             name = "cc_infos",
-            doc = "List of <code>CcInfo</code>s to be merged.",
+            doc =
+                "List of <code>CcInfo</code>s to be merged, whose headers will not be exported "
+                    + "by the direct fields in the returned provider.",
             positional = false,
             named = true,
             defaultValue = "[]",
             type = Sequence.class)
       })
-  CcInfoApi mergeCcInfos(Sequence<?> ccInfos) // <CcInfoApi> expected
+  CcInfoApi<FileT> mergeCcInfos(
+      Sequence<?> directCcInfos, // <CcInfoApi> expected
+      Sequence<?> ccInfos) // <CcInfoApi> expected
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_compilation_context",
       doc = "Creates a <code>CompilationContext</code>.",
       parameters = {
@@ -790,7 +808,7 @@ public interface CcModuleApi<
 
   // TODO(b/65151735): Remove when cc_flags is entirely set from features.
   // This should only be called from the cc_flags_supplier rule.
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "legacy_cc_flags_make_variable_do_not_use",
       documented = false,
       parameters = {
@@ -803,7 +821,7 @@ public interface CcModuleApi<
       })
   String legacyCcFlagsMakeVariable(CcToolchainProviderT ccToolchain);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "is_cc_toolchain_resolution_enabled_do_not_use",
       documented = false,
       parameters = {
@@ -811,13 +829,13 @@ public interface CcModuleApi<
             name = "ctx",
             positional = false,
             named = true,
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
       },
       doc = "Returns true if the --incompatible_enable_cc_toolchain_resolution flag is enabled.")
-  boolean isCcToolchainResolutionEnabled(SkylarkRuleContextT ruleContext);
+  boolean isCcToolchainResolutionEnabled(StarlarkRuleContextT ruleContext);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_cc_toolchain_config_info",
       doc = "Creates a <code>CcToolchainConfigInfo</code> provider",
       parameters = {
@@ -825,7 +843,7 @@ public interface CcModuleApi<
             name = "ctx",
             positional = false,
             named = true,
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
         @Param(
             name = "features",
@@ -959,8 +977,8 @@ public interface CcModuleApi<
             named = true,
             doc = "Internal purpose only, do not use."),
       })
-  CcToolchainConfigInfoT ccToolchainConfigInfoFromSkylark(
-      SkylarkRuleContextT skylarkRuleContext,
+  CcToolchainConfigInfoT ccToolchainConfigInfoFromStarlark(
+      StarlarkRuleContextT starlarkRuleContext,
       Sequence<?> features, // <StructApi> expected
       Sequence<?> actionConfigs, // <StructApi> expected
       Sequence<?> artifactNamePatterns, // <StructApi> expected
@@ -979,18 +997,18 @@ public interface CcModuleApi<
       Object ccTargetOs)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_linking_context_from_compilation_outputs",
       doc =
           "Should be used for creating library rules that can propagate information downstream in"
               + " order to be linked later by a top level rule that does transitive linking to"
-              + " create an executable or dynamic library.",
-      useLocation = true,
+              + " create an executable or dynamic library. Returns tuple of "
+              + "(<code>CcLinkingContext</code>, <code>CcLinkingOutputs</code>).",
       useStarlarkThread = true,
       parameters = {
         @Param(
             name = "actions",
-            type = SkylarkActionFactoryApi.class,
+            type = StarlarkActionFactoryApi.class,
             positional = false,
             named = true,
             doc = "<code>actions</code> object."),
@@ -1080,9 +1098,9 @@ public interface CcModuleApi<
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
       })
   Tuple<Object> createLinkingContextFromCompilationOutputs(
-      SkylarkActionFactoryT skylarkActionFactoryApi,
-      FeatureConfigurationT skylarkFeatureConfiguration,
-      CcToolchainProviderT skylarkCcToolchainProvider,
+      StarlarkActionFactoryT starlarkActionFactoryApi,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      CcToolchainProviderT starlarkCcToolchainProvider,
       CompilationOutputsT compilationOutputs,
       Sequence<?> userLinkFlags, // <String> expected
       Sequence<?> linkingContexts, // <LinkingContextT> expected
@@ -1093,7 +1111,6 @@ public interface CcModuleApi<
       boolean disallowStaticLibraries,
       boolean disallowDynamicLibraries,
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 }

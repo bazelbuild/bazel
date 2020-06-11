@@ -21,9 +21,9 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -45,35 +46,48 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   /**
    * The entry for WORSPACE.resolved corresponding to that rule invocation.
    *
-   * <p>It will always be a dict with three entries <ul>
-   *  <li> the original rule class (as String, e.g., "@bazel_tools//:git.bzl%git_repository")
-   *  <li> the original attributes (as dict, e.g., mapping "name" to "build_bazel"
-   *       and "remote" to "https://github.com/bazelbuild/bazel.git"), and
-   *  <li> a "repositories" entry; this is a list, often a single entry, of fully resolved
-   *       repositories the rule call expanded to (in the above example, the attributes entry
-   *       would have an additional "commit" and "shallow-since" entry).
+   * <p>It will always be a dict with three entries
+   *
+   * <ul>
+   *   <li>the original rule class (as String, e.g., "@bazel_tools//:git.bzl%git_repository")
+   *   <li>the original attributes (as dict, e.g., mapping "name" to "build_bazel" and "remote" to
+   *       "https://github.com/bazelbuild/bazel.git"), and
+   *   <li>a "repositories" entry; this is a list, often a single entry, of fully resolved
+   *       repositories the rule call expanded to (in the above example, the attributes entry would
+   *       have an additional "commit" and "shallow-since" entry).
    * </ul>
    */
-  private final Object resolvedInformation;
+  private Object resolvedInformation;
+  /**
+   * The builders for the resolved information.
+   *
+   * <p>As the resolved information contains a value, the hash of the output directory, that is
+   * expensive to compute, we delay computing it till its first use. In this way, we avoid the
+   * expensive operation if it is not needed, e.g., if no resolved file is generated.
+   */
+  private ImmutableMap.Builder<String, Object> resolvedInformationBuilder = ImmutableMap.builder();
+
+  private ImmutableMap.Builder<String, Object> repositoryBuilder =
+      ImmutableMap.<String, Object>builder();
+
+  private String directoryDigest;
+  private final Path outputDirectory;
 
   private final String name;
   private final boolean informationReturned;
   private final String message;
-  private final String directoryDigest;
 
   public RepositoryResolvedEvent(Rule rule, StructImpl attrs, Path outputDirectory, Object result) {
-    ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+    this.outputDirectory = outputDirectory;
 
     String originalClass =
         rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel() + "%" + rule.getRuleClass();
-    builder.put(ORIGINAL_RULE_CLASS, originalClass);
-
-    if (!Strings.isNullOrEmpty(rule.getDefinitionInformation())) {
-      builder.put(DEFINITION_INFORMATION, rule.getDefinitionInformation());
-    }
+    resolvedInformationBuilder.put(ORIGINAL_RULE_CLASS, originalClass);
+    resolvedInformationBuilder.put(DEFINITION_INFORMATION, getRuleDefinitionInformation(rule));
 
     ImmutableMap.Builder<String, Object> origAttrBuilder = ImmutableMap.builder();
     ImmutableMap.Builder<String, Object> defaults = ImmutableMap.builder();
+
     for (Attribute attr : rule.getAttributes()) {
       String name = attr.getPublicName();
       try {
@@ -90,34 +104,19 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
       }
     }
     ImmutableMap<String, Object> origAttr = origAttrBuilder.build();
-    builder.put(ORIGINAL_ATTRIBUTES, origAttr);
+    resolvedInformationBuilder.put(ORIGINAL_ATTRIBUTES, origAttr);
 
-    ImmutableMap.Builder<String, Object> repositoryBuilder =
-        ImmutableMap.<String, Object>builder().put(RULE_CLASS, originalClass);
-
-    String digest = "[unavailable]";
-    try {
-      digest = outputDirectory.getDirectoryDigest();
-      repositoryBuilder.put(OUTPUT_TREE_HASH, digest);
-    } catch (IOException e) {
-      // Digest not available, but we still have to report that a repository rule
-      // was invoked. So we can do nothing, but ignore the event.
-    }
-    this.directoryDigest = digest;
+    repositoryBuilder.put(RULE_CLASS, originalClass);
 
     if (result == Starlark.NONE) {
       // Rule claims to be already reproducible, so wants to be called as is.
-      builder.put(
-          REPOSITORIES,
-          ImmutableList.<Object>of(repositoryBuilder.put(ATTRIBUTES, origAttr).build()));
+      repositoryBuilder.put(ATTRIBUTES, origAttr);
       this.informationReturned = false;
       this.message = "Repository rule '" + rule.getName() + "' finished.";
     } else if (result instanceof Map) {
       // Rule claims that the returned (probably changed) arguments are a reproducible
       // version of itself.
-      builder.put(
-          REPOSITORIES,
-          ImmutableList.<Object>of(repositoryBuilder.put(ATTRIBUTES, result).build()));
+      repositoryBuilder.put(ATTRIBUTES, result);
       Pair<Map<String, Object>, List<String>> diff =
           compare(origAttr, defaults.build(), (Map<?, ?>) result);
       if (diff.getFirst().isEmpty() && diff.getSecond().isEmpty()) {
@@ -153,17 +152,44 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     } else {
       // TODO(aehlig): handle strings specially to allow encodings of the former
       // values to be accepted as well.
-      builder.put(REPOSITORIES, result);
+      resolvedInformationBuilder.put(REPOSITORIES, result);
+      repositoryBuilder = null; // We already added the REPOSITORIES entry
       this.informationReturned = true;
       this.message = "Repository rule '" + rule.getName() + "' returned: " + result;
     }
 
-    this.resolvedInformation = builder.build();
     this.name = rule.getName();
+  }
+
+  /**
+   * Ensure that the {@code resolvedInformation} and the {@code directoryDigest} fields are
+   * initialized properly. Does nothing, if the values are computed already.
+   */
+  private synchronized void finalizeResolvedInformation() {
+    if (resolvedInformation != null) {
+      return;
+    }
+    String digest = "[unavailable]";
+    try {
+      digest = outputDirectory.getDirectoryDigest();
+      repositoryBuilder.put(OUTPUT_TREE_HASH, digest);
+    } catch (IOException e) {
+      // Digest not available, but we still have to report that a repository rule
+      // was invoked. So we can do nothing, but ignore the event.
+    }
+    this.directoryDigest = digest;
+    if (repositoryBuilder != null) {
+      resolvedInformationBuilder.put(
+          REPOSITORIES, ImmutableList.<Object>of(repositoryBuilder.build()));
+    }
+    this.resolvedInformation = resolvedInformationBuilder.build();
+    this.resolvedInformationBuilder = null;
+    this.repositoryBuilder = null;
   }
 
   /** Return the entry for the given rule invocation in a format suitable for WORKSPACE.resolved. */
   public Object getResolvedInformation() {
+    finalizeResolvedInformation();
     return resolvedInformation;
   }
 
@@ -173,6 +199,7 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   }
 
   public String getDirectoryDigest() {
+    finalizeResolvedInformation();
     return directoryDigest;
   }
 
@@ -189,18 +216,61 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     return message;
   }
 
+  /** Returns an unstructured message explaining the origin of this rule. */
+  public static String getRuleDefinitionInformation(Rule rule) {
+    StringBuilder buf = new StringBuilder();
+
+    // Emit stack of rule instantiation.
+    buf.append("Repository ").append(rule.getName()).append(" instantiated at:\n");
+    ImmutableList<StarlarkThread.CallStackEntry> stack = rule.getCallStack().toList();
+    if (stack.isEmpty()) {
+      buf.append("  no stack (--record_rule_instantiation_callstack not enabled)\n");
+    } else {
+      for (StarlarkThread.CallStackEntry frame : stack) {
+        buf.append("  ").append(frame.location).append(": in ").append(frame.name).append('\n');
+      }
+    }
+
+    // Emit stack of rule class declaration.
+    stack = rule.getRuleClassObject().getCallStack();
+    if (stack.isEmpty()) {
+      buf.append("Repository rule ").append(rule.getRuleClass()).append(" is built-in.\n");
+    } else {
+      buf.append("Repository rule ").append(rule.getRuleClass()).append(" defined at:\n");
+      for (StarlarkThread.CallStackEntry frame : stack) {
+        buf.append("  ").append(frame.location).append(": in ").append(frame.name).append('\n');
+      }
+    }
+
+    return buf.toString();
+  }
+
+  /**
+   * Attributes that may be defined on a repository rule without affecting its canonical
+   * representation. These may be created implicitly by Bazel.
+   */
+  private static final ImmutableSet<String> IGNORED_ATTRIBUTE_NAMES =
+      ImmutableSet.of("generator_name", "generator_function", "generator_location");
+
   /**
    * Compare two maps from Strings to objects, returning a pair of the map with all entries not in
    * the original map or in the original map, but with a different value, and the keys dropped from
    * the original map. However, ignore changes where a value is explicitly set to its default.
+   *
+   * <p>Ignores attributes listed in {@code IGNORED_ATTRIBUTE_NAMES}.
    */
   static Pair<Map<String, Object>, List<String>> compare(
       Map<String, Object> orig, Map<String, Object> defaults, Map<?, ?> modified) {
     ImmutableMap.Builder<String, Object> valuesChanged = ImmutableMap.<String, Object>builder();
     for (Map.Entry<?, ?> entry : modified.entrySet()) {
       if (entry.getKey() instanceof String) {
-        Object value = entry.getValue();
         String key = (String) entry.getKey();
+        if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
+          // The dict returned by the repo rule really shouldn't know about these anyway, but
+          // for symmetry we'll ignore them if they happen to be present.
+          continue;
+        }
+        Object value = entry.getValue();
         Object old = orig.get(key);
         if (old == null) {
           Object defaultValue = defaults.get(key);
@@ -216,6 +286,9 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
     }
     ImmutableList.Builder<String> keysDropped = ImmutableList.<String>builder();
     for (String key : orig.keySet()) {
+      if (IGNORED_ATTRIBUTE_NAMES.contains(key)) {
+        continue;
+      }
       if (!modified.containsKey(key)) {
         keysDropped.add(key);
       }

@@ -15,11 +15,9 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.sandbox.SandboxfsProcess.Mapping;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -98,12 +96,7 @@ abstract class BaseSandboxfsProcessIntegrationTest {
       FileSystemUtils.writeContent(oneFile, UTF_8, "One test data");
       process.createSandbox(
           "first",
-          ImmutableList.of(
-              Mapping.builder()
-                  .setPath(PathFragment.create("/foo"))
-                  .setTarget(oneFile.asFragment())
-                  .setWritable(false)
-                  .build()));
+          (mapper) -> mapper.map(PathFragment.create("/foo"), oneFile.asFragment(), false));
       Path first = mountPoint.getRelative("first");
       assertThat(mountPoint.getDirectoryEntries()).containsExactly(first);
       assertThat(first.getDirectoryEntries()).containsExactly(first.getRelative("foo"));
@@ -118,17 +111,10 @@ abstract class BaseSandboxfsProcessIntegrationTest {
       longLink.createSymbolicLink(oneFile); // The target is irrelevant but must exist.
       process.createSandbox(
           "second",
-          ImmutableList.of(
-              Mapping.builder()
-                  .setPath(PathFragment.create("/foo"))
-                  .setTarget(twoFile.asFragment())
-                  .setWritable(false)
-                  .build(),
-              Mapping.builder()
-                  .setPath(PathFragment.create("/something/complex"))
-                  .setTarget(longLink.asFragment())
-                  .setWritable(false)
-                  .build()));
+          (mapper) -> {
+            mapper.map(PathFragment.create("/foo"), twoFile.asFragment(), false);
+            mapper.map(PathFragment.create("/something/complex"), longLink.asFragment(), false);
+          });
       Path second = mountPoint.getRelative("second");
       assertThat(mountPoint.getDirectoryEntries()).containsExactly(first, second);
       assertThat(second.getDirectoryEntries())

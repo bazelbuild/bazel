@@ -1,15 +1,15 @@
 ---
 layout: documentation
-title: "Command-Line Completion"
+title: Command-line completion
 ---
 
-# Command-Line Completion
+# Command-line completion
 
 You can enable command-line completion (also known as tab-completion) in Bash
 and Zsh. This lets you tab-complete command names, flags names and flag values,
 and target names.
 
-<h2 id="bash">Bash completion</h2>
+<h2 id="bash">Bash</h2>
 
 Bazel comes with a Bash completion script.
 
@@ -17,6 +17,9 @@ If you installed Bazel:
 
 *   From the APT repository, then you're done -- the Bash completion script is
     already installed in `/etc/bash_completion.d`.
+
+*   From Homebrew, then you're done -- the Bash completion script is
+    already installed in `$(brew --prefix)/etc/bash_completion.d`.
 
 *   From the installer downloaded from GitHub, then:
     1.  Locate the absolute path of the completion file. The installer copied it
@@ -65,26 +68,42 @@ If you installed Bazel:
             source /path/to/bazel-complete.bash
             ```
 
-<h2 id="zsh">Zsh completion</h2>
+<h2 id="zsh">Zsh</h2>
 
-Bazel also comes with a Zsh completion script. To install it:
+Bazel comes with a Zsh completion script.
 
-1.  Add this script to a directory on your `$fpath`:
+If you installed Bazel:
 
-    ```
-    fpath[1,0]=~/.zsh/completion/
-    mkdir -p ~/.zsh/completion/
-    cp scripts/zsh_completion/_bazel ~/.zsh/completion
-    ```
+*   From the APT repository, then you're done -- the Zsh completion script is
+    already installed in `/usr/share/zsh/vendor-completions`.
 
-    You may have to call `rm -f ~/.zcompdump; compinit`
-    the first time to make it work.
+*   From Homebrew, then you're done -- the Zsh completion script is
+    already installed in `$(brew --prefix)/share/zsh/site-functions`.
 
-2.  Optionally, add the following to your .zshrc.
+*   From the installer downloaded from GitHub, then:
+    1.  Locate the absolute path of the completion file. The installer copied it
+        to the `bin` directory.
 
-    ```
-    # This way the completion script does not have to parse Bazel's options
-    # repeatedly.  The directory in cache-path must be created manually.
-    zstyle ':completion:*' use-cache on
-    zstyle ':completion:*' cache-path ~/.zsh/cache
-    ```
+        Example: if you ran the installer with `--user`, this will be
+        `$HOME/.bazel/bin`. If you ran the installer as root, this will be
+        `/usr/local/lib/bazel/bin`.
+
+    2.  Add this script to a directory on your `$fpath`:
+
+        ```
+        fpath[1,0]=~/.zsh/completion/
+        mkdir -p ~/.zsh/completion/
+        cp /path/from/above/step/_bazel ~/.zsh/completion
+        ```
+
+        You may have to call `rm -f ~/.zcompdump; compinit`
+        the first time to make it work.
+
+    3.  Optionally, add the following to your .zshrc.
+
+        ```
+        # This way the completion script does not have to parse Bazel's options
+        # repeatedly.  The directory in cache-path must be created manually.
+        zstyle ':completion:*' use-cache on
+        zstyle ':completion:*' cache-path ~/.zsh/cache
+        ```

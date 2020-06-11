@@ -15,18 +15,17 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Attribute.SkylarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
+import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
-import com.google.devtools.build.lib.syntax.StarlarkCallable;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.util.Pair;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -78,8 +77,8 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
-      Location location,
-      @Nullable StarlarkThread thread,
+      StarlarkSemantics semantics,
+      ImmutableList<StarlarkThread.CallStackEntry> callstack,
       AttributeContainer attributeContainer)
       throws InvalidRuleException, InterruptedException {
     Preconditions.checkNotNull(ruleClass);
@@ -109,7 +108,16 @@ public class RuleFactory {
     }
 
     AttributesAndLocation generator =
-        generatorAttributesForMacros(pkgBuilder, attributeValues, thread, location, label);
+        generatorAttributesForMacros(pkgBuilder, attributeValues, callstack, label);
+
+    // The raw stack is of the form [<toplevel>@BUILD:1, macro@lib.bzl:1, cc_library@<builtin>].
+    // If we're recording it (--record_rule_instantiation_callstack),
+    // pop the innermost frame for the rule, since it's obvious.
+    callstack =
+        semantics.recordRuleInstantiationCallstack()
+            ? callstack.subList(0, callstack.size() - 1) // pop
+            : ImmutableList.of(); // save space
+
     try {
       // Examines --incompatible_disable_third_party_license_checking to see if we should check
       // third party targets for license existence.
@@ -117,14 +125,14 @@ public class RuleFactory {
       // This flag is overridable by RuleClass.ThirdPartyLicenseEnforcementPolicy (which is checked
       // in RuleClass). This lets Bazel and Blaze migrate away from license logic on independent
       // timelines. See --incompatible_disable_third_party_license_checking comments for details.
-      boolean checkThirdPartyLicenses =
-          thread != null && !thread.getSemantics().incompatibleDisableThirdPartyLicenseChecking();
+      boolean checkThirdPartyLicenses = !semantics.incompatibleDisableThirdPartyLicenseChecking();
       return ruleClass.createRule(
           pkgBuilder,
           label,
           generator.attributes,
           eventHandler,
-          generator.location,
+          generator.location, // see b/23974287 for rationale
+          callstack,
           attributeContainer,
           checkThirdPartyLicenses);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
@@ -144,8 +152,8 @@ public class RuleFactory {
    *     a map entry for each non-optional attribute of this class of rule.
    * @param eventHandler a eventHandler on which errors and warnings are reported during rule
    *     creation
-   * @param location the location at which this rule was declared
-   * @param thread the lexical environment of the function call which declared this rule (optional)
+   * @param semantics the Starlark semantics
+   * @param callstack the stack of active calls in the Starlark thread
    * @param attributeContainer the {@link AttributeContainer} the rule will contain
    * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
    *     {@code name} attribute is defined)
@@ -158,8 +166,8 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
-      Location location,
-      @Nullable StarlarkThread thread,
+      StarlarkSemantics semantics,
+      ImmutableList<StarlarkThread.CallStackEntry> callstack,
       AttributeContainer attributeContainer)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     Rule rule =
@@ -168,8 +176,8 @@ public class RuleFactory {
             ruleClass,
             attributeValues,
             eventHandler,
-            location,
-            thread,
+            semantics,
+            callstack,
             attributeContainer);
     pkgBuilder.addRule(rule);
     return rule;
@@ -198,8 +206,8 @@ public class RuleFactory {
       PackageContext context,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
-      Location loc,
-      @Nullable StarlarkThread thread,
+      StarlarkSemantics semantics,
+      ImmutableList<StarlarkThread.CallStackEntry> callstack,
       AttributeContainer attributeContainer)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     return createAndAddRule(
@@ -207,8 +215,8 @@ public class RuleFactory {
         ruleClass,
         attributeValues,
         context.eventHandler,
-        loc,
-        thread,
+        semantics,
+        callstack,
         attributeContainer);
   }
 
@@ -305,14 +313,12 @@ public class RuleFactory {
   private static AttributesAndLocation generatorAttributesForMacros(
       Package.Builder pkgBuilder,
       BuildLangTypedAttributeValuesMap args,
-      @Nullable StarlarkThread thread,
-      Location location,
+      ImmutableList<StarlarkThread.CallStackEntry> stack,
       Label label) {
-    // Returns the original arguments if a) there is only the rule itself on the stack
-    // trace (=> no macro) or b) the attributes have already been set by Python pre-processing.
-    if (thread == null) {
-      return new AttributesAndLocation(args, location);
-    }
+    // For a callstack [BUILD <toplevel>, .bzl <function>, <rule>],
+    // location is that of the caller of 'rule' (the .bzl function).
+    Location location = stack.size() < 2 ? Location.BUILTIN : stack.get(stack.size() - 2).location;
+
     boolean hasName = args.containsAttributeNamed("generator_name");
     boolean hasFunc = args.containsAttributeNamed("generator_function");
     // TODO(bazel-team): resolve cases in our code where hasName && !hasFunc, or hasFunc && !hasName
@@ -322,36 +328,40 @@ public class RuleFactory {
 
     // The "generator" of a rule is the function (sometimes called "macro")
     // outermost in the call stack.
-    Pair<Location, StarlarkCallable> topCall = thread.getOutermostCall();
-    if (topCall == null || !(topCall.second instanceof StarlarkFunction)) {
-      return new AttributesAndLocation(args, location);
+    // The stack must contain at least two entries:
+    // 0: the outermost function (e.g. a BUILD file),
+    // 1: the function called by it (e.g. a "macro" in a .bzl file).
+    if (stack.size() < 2 || !stack.get(1).location.file().endsWith(".bzl")) {
+      return new AttributesAndLocation(args, location); // macro is not a Starlark function
     }
-    // TODO(adonovan): is it correct that we clobber the location used by
-    // BuildLangTypedAttributeValuesMap?
-    location = topCall.first;
+    Location generatorLocation = stack.get(0).location; // location of call to generator
+    String generatorFunction = stack.get(1).name;
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
     for (Map.Entry<String, Object> attributeAccessor : args.getAttributeAccessors()) {
       String attributeName = args.getName(attributeAccessor);
       builder.put(attributeName, args.getValue(attributeAccessor));
     }
-    String generatorName = pkgBuilder.getGeneratorNameByLocation().get(location);
+    String generatorName = pkgBuilder.getGeneratorNameByLocation().get(generatorLocation);
     if (generatorName == null) {
       generatorName = (String) args.getAttributeValue("name");
     }
     builder.put("generator_name", generatorName);
-    builder.put("generator_function", topCall.second.getName());
-    String relativePath = maybeGetRelativeLocation(location, label);
+    builder.put("generator_function", generatorFunction);
+    String relativePath = maybeGetRelativeLocation(generatorLocation, label);
     if (relativePath != null) {
       builder.put("generator_location", relativePath);
     }
 
     try {
-      return new AttributesAndLocation(
-          new BuildLangTypedAttributeValuesMap(builder.build()), location);
-    } catch (IllegalArgumentException ex) {
+      args = new BuildLangTypedAttributeValuesMap(builder.build());
+    } catch (IllegalArgumentException unused) {
       // We just fall back to the default case and swallow any messages.
-      return new AttributesAndLocation(args, location);
     }
+
+    // TODO(adonovan): is it appropriate to use generatorLocation as the rule's main location?
+    // Or would 'location' (the immediate call) be more informative? When there are errors, the
+    // location of the toplevel call of the generator may be quite unrelated to the error message.
+    return new AttributesAndLocation(args, generatorLocation);
   }
 
   /**
@@ -363,6 +373,7 @@ public class RuleFactory {
    *
    * @return The workspace-relative path of the given location, or null if it could not be computed.
    */
+  // TODO(b/151151653): make Starlark file Locations relative from the outset.
   @Nullable
   private static String maybeGetRelativeLocation(@Nullable Location location, Label label) {
     if (location == null) {
@@ -374,6 +385,9 @@ public class RuleFactory {
     // rules created from function calls in a subincluded file, even if both files share a path
     // prefix (for example, when //a/package:BUILD subincludes //a/package/with/a/subpackage:BUILD).
     // We can revert to that approach once subincludes aren't supported anymore.
+    //
+    // TODO(b/151165647): this logic has always been wrong:
+    // it spuriously matches occurrences of the package name earlier in the path.
     String absolutePath = location.toString();
     int pos = absolutePath.indexOf(label.getPackageName());
     return (pos < 0) ? null : absolutePath.substring(pos);

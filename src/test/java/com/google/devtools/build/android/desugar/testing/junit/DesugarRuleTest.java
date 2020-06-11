@@ -18,15 +18,15 @@ package com.google.devtools.build.android.desugar.testing.junit;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.android.desugar.io.JarItem;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle.MemberUseContext;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.zip.ZipEntry;
 import javax.inject.Inject;
 import org.junit.Rule;
 import org.junit.Test;
@@ -36,6 +36,7 @@ import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
 /** The test for {@link DesugarRule}. */
+@JdkSuppress(minJdkVersion = JdkVersion.V11)
 @RunWith(DesugarRunner.class)
 public final class DesugarRuleTest {
 
@@ -43,6 +44,8 @@ public final class DesugarRuleTest {
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
           .addInputs(Paths.get(System.getProperty("input_jar")))
+          .addSourceInputsFromJvmFlag("input_srcs")
+          .addJavacOptions("-source 11", "-target 11")
           .enableIterativeTransformation(3)
           .setWorkingJavaPackage("com.google.devtools.build.android.desugar.testing.junit")
           .build();
@@ -73,14 +76,6 @@ public final class DesugarRuleTest {
   private Class<?> interfaceSubjectToDesugarCompanionClassRound2;
 
   @Inject
-  @RuntimeZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 1)
-  private ZipEntry interfaceSubjectToDesugarZipEntryRound1;
-
-  @Inject
-  @RuntimeZipEntry(value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class", round = 2)
-  private ZipEntry interfaceSubjectToDesugarZipEntryRound2;
-
-  @Inject
   @AsmNode(className = "DesugarRuleTestTarget")
   private ClassNode desugarRuleTestTargetClassNode;
 
@@ -94,10 +89,6 @@ public final class DesugarRuleTest {
       memberName = "multiplier",
       memberDescriptor = "J")
   private FieldNode multiplier;
-
-  @Inject
-  @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
-  private MethodHandle twoIntSumMH;
 
   @Inject
   @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "<init>")
@@ -154,9 +145,17 @@ public final class DesugarRuleTest {
   }
 
   @Test
-  public void idempotencyOperation() {
-    assertThat(interfaceSubjectToDesugarZipEntryRound1.getCrc())
-        .isEqualTo(interfaceSubjectToDesugarZipEntryRound2.getCrc());
+  public void idempotencyOperation(
+      @RuntimeJarEntry(
+              value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
+              round = 1)
+          JarItem interfaceSubjectToDesugarJarEntryRound1,
+      @RuntimeJarEntry(
+              value = "DesugarRuleTestTarget$InterfaceSubjectToDesugar$$CC.class",
+              round = 2)
+          JarItem interfaceSubjectToDesugarJarEntryRound2) {
+    assertThat(interfaceSubjectToDesugarJarEntryRound1.jarEntry().getCrc())
+        .isEqualTo(interfaceSubjectToDesugarJarEntryRound2.jarEntry().getCrc());
   }
 
   @Test
@@ -191,9 +190,17 @@ public final class DesugarRuleTest {
   }
 
   @Test
-  public void invokeStaticMethodHandle() throws Throwable {
-    int result = (int) twoIntSumMH.invoke(1, 2);
-    assertThat(result).isEqualTo(3);
+  @ParameterValueSource({"1", "2", "3"})
+  @ParameterValueSource({"100", "400", "500"})
+  public void invokeStaticMethodHandle(
+      @RuntimeMethodHandle(className = "DesugarRuleTestTarget$Alpha", memberName = "twoIntSum")
+          MethodHandle twoIntSum,
+      @FromParameterValueSource int x,
+      @FromParameterValueSource int y,
+      @FromParameterValueSource int expectedResult)
+      throws Throwable {
+    int result = (int) twoIntSum.invoke(x, y);
+    assertThat(result).isEqualTo(expectedResult);
   }
 
   @Test
@@ -216,5 +223,14 @@ public final class DesugarRuleTest {
 
     long result = (long) alphaMultiplierGetter.invoke(alpha);
     assertThat(result).isEqualTo(1111);
+  }
+
+  @Test
+  public void invokeRuntimeCompiledTarget(
+      @RuntimeMethodHandle(className = "DesugarRuleTestSourceTarget", memberName = "twoSum")
+          MethodHandle twoSum)
+      throws Throwable {
+    int result = (int) twoSum.invokeExact(1, 2);
+    assertThat(result).isEqualTo(3);
   }
 }

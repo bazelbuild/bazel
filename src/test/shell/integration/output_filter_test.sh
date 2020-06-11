@@ -318,4 +318,47 @@ deprecated target '//$pkg/ether:ether': Disproven"
 deprecated target '//$pkg/ether:ether': Disproven"
 }
 
+function test_workspace_status_command_error_output_printed() {
+  if type try_with_timeout >&/dev/null; then
+    # TODO(bazel-team): Hack to disable test since Bazel's
+    # workspace_status_cmd's stderr isn't reported. Determine if this a bug or
+    # a feature.
+    return
+  fi
+
+  local -r pkg="$FUNCNAME"
+
+  mkdir -p "$pkg"
+  cat >"$pkg/BUILD" <<EOF
+genrule(name = 'foo', outs = ['foo.txt'], cmd = 'touch \$@')
+EOF
+
+  local status_cmd="$TEST_TMPDIR/status_cmd.sh"
+
+  cat >"$status_cmd" <<EOF
+#!/bin/bash
+
+echo 'STATUS_COMMAND_RAN' >&2
+EOF
+  chmod +x "$status_cmd" || fail "Failed to mark $status_cmd executable"
+
+  bazel build --workspace_status_command="$status_cmd" \
+      --auto_output_filter=packages \
+      "//$pkg:foo" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_log STATUS_COMMAND_RAN
+
+  bazel build --workspace_status_command="$status_cmd" \
+      --auto_output_filter=subpackages \
+      "//$pkg:foo" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_log STATUS_COMMAND_RAN
+
+  bazel build --workspace_status_command="$status_cmd" \
+      --auto_output_filter=all \
+      "//$pkg:foo" >&"$TEST_log" \
+      || fail "Expected success"
+  expect_not_log STATUS_COMMAND_RAN
+}
+
 run_suite "Warning Filter tests"

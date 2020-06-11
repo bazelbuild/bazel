@@ -15,14 +15,14 @@ package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Provides information on Android resource, asset, and manifest information specific to binaries.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidBinaryData",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -30,20 +30,20 @@ import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
             + "Information about Android resource, asset, and manifest information specific to "
             + "binaries",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface AndroidBinaryDataInfoApi<FileT extends FileApi> extends StructApi {
 
   /** The name of the provider for this info object. */
   String NAME = "AndroidBinaryData";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_apk",
       structField = true,
       doc = "The resource apk.",
       documented = false)
   FileT getApk();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "resource_proguard_config",
       structField = true,
       doc = "Proguard config generated for the resources.",

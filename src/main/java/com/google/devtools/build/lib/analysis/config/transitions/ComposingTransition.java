@@ -15,10 +15,14 @@
 package com.google.devtools.build.lib.analysis.config.transitions;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -48,10 +52,25 @@ public class ComposingTransition implements ConfigurationTransition {
   }
 
   @Override
-  public List<BuildOptions> apply(BuildOptions buildOptions) {
-    ImmutableList.Builder<BuildOptions> toOptions = ImmutableList.builder();
-    for (BuildOptions transition1Options : transition1.apply(buildOptions)) {
-      toOptions.addAll(transition2.apply(transition1Options));
+  public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+    return ImmutableSet.<Class<? extends FragmentOptions>>builder()
+        .addAll(transition1.requiresOptionFragments())
+        .addAll(transition2.requiresOptionFragments())
+        .build();
+  }
+
+  @Override
+  public Map<String, BuildOptions> apply(BuildOptionsView buildOptions, EventHandler eventHandler) {
+    ImmutableMap.Builder<String, BuildOptions> toOptions = ImmutableMap.builder();
+    Map<String, BuildOptions> transition1Output =
+        transition1.apply(
+            TransitionUtil.restrict(transition1, buildOptions.underlying()), eventHandler);
+    for (Map.Entry<String, BuildOptions> entry1 : transition1Output.entrySet()) {
+      Map<String, BuildOptions> transition2Output =
+          transition2.apply(TransitionUtil.restrict(transition2, entry1.getValue()), eventHandler);
+      for (Map.Entry<String, BuildOptions> entry2 : transition2Output.entrySet()) {
+        toOptions.put(composeKeys(entry1.getKey(), entry2.getKey()), entry2.getValue());
+      }
     }
     return toOptions.build();
   }
@@ -64,6 +83,11 @@ public class ComposingTransition implements ConfigurationTransition {
   @Override
   public String getName() {
     return "(" + transition1.getName() + " + " + transition2.getName() + ")";
+  }
+
+  @Override
+  public boolean isHostTransition() {
+    return transition1.isHostTransition() || transition2.isHostTransition();
   }
 
   // Override to allow recursive visiting.
@@ -123,5 +147,24 @@ public class ComposingTransition implements ConfigurationTransition {
 
   private static boolean isFinal(ConfigurationTransition transition) {
     return transition == NullTransition.INSTANCE || transition.isHostTransition();
+  }
+
+  /**
+   * Composes a new key out of two given keys. Composing two split transitions is not allowed at the
+   * moment, so what this essentially does are (1) make sure not both transitions are split and (2)
+   * choose one from a split transition, if there's any, or return {@code PATCH_TRANSITION_KEY),
+   * if there isn't.
+   */
+  private String composeKeys(String key1, String key2) {
+    if (!key1.equals(PATCH_TRANSITION_KEY)) {
+      if (!key2.equals(PATCH_TRANSITION_KEY)) {
+        throw new IllegalStateException(
+            String.format(
+                "can't compose two split transitions %s and %s",
+                transition1.getName(), transition2.getName()));
+      }
+      return key1;
+    }
+    return key2;
   }
 }

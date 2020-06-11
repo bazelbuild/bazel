@@ -16,10 +16,10 @@
 
 syntax = "proto2";
 
-// option java_api_version = 2; // copybara-comment-this-out-please
-option java_package = "com.google.devtools.build.lib.view.config.crosstool";
-
 package com.google.devtools.build.lib.view.config.crosstool;
+
+// option java_api_version = 2;  // copybara-comment-this-out-please
+option java_package = "com.google.devtools.build.lib.view.config.crosstool";
 
 // A description of a toolchain, which includes all the tools generally expected
 // to be available for building C/C++ targets, based on the GNU C compiler.
@@ -235,8 +235,27 @@ message CToolchain {
 
   // Describes a tool associated with a crosstool action config.
   message Tool {
+    // Describes the origin of a path.
+    enum PathOrigin {
+      // Indicates that `tool_path` is relative to the location of the
+      // crosstool. For legacy reasons, absolute paths are als0 allowed here.
+      CROSSTOOL_PACKAGE = 0;
+
+      // Indicates that `tool_path` is an absolute path.
+      // This is enforced by Bazel.
+      FILESYSTEM_ROOT = 1;
+
+      // Indicates that `tool_path` is relative to the current workspace's
+      // exec root.
+      WORKSPACE_ROOT = 2;
+    }
+
     // Path to the tool, relative to the location of the crosstool.
     required string tool_path = 1;
+
+    // Origin of `tool_path`.
+    // Optional only for legacy reasons. New crosstools should set this value!
+    optional PathOrigin tool_path_origin = 4 [default = CROSSTOOL_PACKAGE];
 
     // A list of feature sets defining when this tool is applicable.  The tool
     // will used when any one of the feature sets evaluate to true. (That is,

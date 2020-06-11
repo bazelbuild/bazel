@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -35,8 +36,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /** A {@link QuiescingExecutor} implementation that wraps an {@link ExecutorService}. */
 public class AbstractQueueVisitor implements QuiescingExecutor {
@@ -131,7 +130,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   private final ErrorClassifier errorClassifier;
 
-  private static final Logger logger = Logger.getLogger(AbstractQueueVisitor.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Default function for constructing {@link ThreadPoolExecutor}s. The {@link ThreadPoolExecutor}s
@@ -314,7 +313,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
       case AS_CRITICAL_AS_POSSIBLE:
       case CRITICAL_AND_LOG:
         critical = true;
-        logger.log(Level.WARNING, "Found critical error in queue visitor", e);
+        logger.atWarning().withCause(e).log("Found critical error in queue visitor");
         break;
       case CRITICAL:
         critical = true;

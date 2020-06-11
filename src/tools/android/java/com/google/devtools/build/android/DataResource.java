@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.android.aapt.Resources.Reference;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
+import com.google.devtools.build.android.resources.Visibility;
 
 /** Represents an Android Resource parsed from an xml or binary file. */
 public interface DataResource extends DataValue {
@@ -35,4 +38,10 @@ public interface DataResource extends DataValue {
 
   /** Overwrite another {@link DataResource}. */
   DataResource overwrite(DataResource other);
+
+  /** Visibility of this resource as denoted by a {@code <public>} tag, or lack thereof. */
+  Visibility getVisibility();
+
+  /** Resources referenced via XML attributes or proxying resource definitions. */
+  ImmutableList<Reference> getReferencedResources();
 }

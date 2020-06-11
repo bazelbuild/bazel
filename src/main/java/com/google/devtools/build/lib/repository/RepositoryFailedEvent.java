@@ -18,8 +18,9 @@ import static com.google.devtools.build.lib.cmdline.LabelConstants.EXTERNAL_PACK
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -51,11 +52,12 @@ public class RepositoryFailedEvent implements ProgressLike, BuildEvent {
     }
     try {
       Label label = Label.create(EXTERNAL_PACKAGE_IDENTIFIER, strippedRepoName);
-      return BuildEventId.unconfiguredLabelId(label);
+      return BuildEventIdUtil.unconfiguredLabelId(label);
     } catch (LabelSyntaxException e) {
       // As the repository name was accepted earlier, the label construction really shouldn't fail.
       // In any case, return something still referring to the repository.
-      return BuildEventId.unknownBuildEventId(EXTERNAL_PACKAGE_IDENTIFIER + ":" + strippedRepoName);
+      return BuildEventIdUtil.unknownBuildEventId(
+          EXTERNAL_PACKAGE_IDENTIFIER + ":" + strippedRepoName);
     }
   }
 

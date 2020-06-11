@@ -16,23 +16,31 @@
 
 package com.google.devtools.build.android.desugar.langmodel;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.LongAdder;
+
+import com.google.common.collect.ConcurrentHashMultiset;
 
 /** The counter used to track a class member use. */
-public final class ClassMemberUseCounter {
+public final class ClassMemberUseCounter implements TypeMappable<ClassMemberUseCounter> {
 
   /** Tracks a class member with its associated count. */
-  private final ConcurrentHashMap<ClassMemberUse, LongAdder> memberUseCounter =
-      new ConcurrentHashMap<>();
+  private final ConcurrentHashMultiset<ClassMemberUse<?, ?, ?>> memberUseCounter;
+
+  public ClassMemberUseCounter(ConcurrentHashMultiset<ClassMemberUse<?, ?, ?>> memberUseCounter) {
+    this.memberUseCounter = memberUseCounter;
+  }
 
   /** Increases the member use count by one when an member access is encountered. */
-  public void incrementMemberUseCount(ClassMemberUse classMemberUse) {
-    memberUseCounter.computeIfAbsent(classMemberUse, k -> new LongAdder()).increment();
+  public boolean incrementMemberUseCount(ClassMemberUse classMemberUse) {
+    return memberUseCounter.add(classMemberUse);
   }
 
   /** Retrieves the total use count of a given class member. */
   public long getMemberUseCount(ClassMemberUse memberKey) {
-    return memberUseCounter.getOrDefault(memberKey, new LongAdder()).longValue();
+    return memberUseCounter.count(memberKey);
+  }
+
+  @Override
+  public ClassMemberUseCounter acceptTypeMapper(TypeMapper typeMapper) {
+    return new ClassMemberUseCounter(typeMapper.map(memberUseCounter));
   }
 }

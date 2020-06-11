@@ -35,8 +35,8 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.stringtemplate.ExpansionException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -132,15 +132,18 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
 
     Pair<CommandType, String> cmdTypeAndAttr = determineCommandTypeAndAttribute(ruleContext);
 
-    ImmutableMap.Builder<Label, NestedSet<Artifact>> labelMap = ImmutableMap.builder();
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("srcs", Mode.TARGET)) {
+    ImmutableMap.Builder<Label, Iterable<Artifact>> labelMap = ImmutableMap.builder();
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites("srcs", TransitionMode.TARGET)) {
       // This target provides specific types of files for genrules.
       GenRuleSourcesProvider provider = dep.getProvider(GenRuleSourcesProvider.class);
       NestedSet<Artifact> files = (provider != null)
           ? provider.getGenruleFiles()
           : dep.getProvider(FileProvider.class).getFilesToBuild();
       resolvedSrcsBuilder.addTransitive(files);
-      labelMap.put(AliasProvider.getDependencyLabel(dep), files);
+      // The CommandHelper class makes an explicit copy of this in the constructor, so flattening
+      // here should be benign.
+      labelMap.put(AliasProvider.getDependencyLabel(dep), files.toList());
     }
     NestedSet<Artifact> resolvedSrcs = resolvedSrcsBuilder.build();
 
@@ -183,7 +186,9 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
       command =
           String.format(
               "source %s; %s",
-              ruleContext.getPrerequisiteArtifact("$genrule_setup", Mode.HOST).getExecPath(),
+              ruleContext
+                  .getPrerequisiteArtifact("$genrule_setup", TransitionMode.HOST)
+                  .getExecPath(),
               command);
     }
 
@@ -212,7 +217,8 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     inputs.addTransitive(commandHelper.getResolvedTools());
     if (cmdType == CommandType.BASH) {
       FilesToRunProvider genruleSetup =
-          ruleContext.getPrerequisite("$genrule_setup", Mode.HOST, FilesToRunProvider.class);
+          ruleContext.getPrerequisite(
+              "$genrule_setup", TransitionMode.HOST, FilesToRunProvider.class);
       inputs.addTransitive(genruleSetup.getFilesToRun());
     }
     if (ruleContext.hasErrors()) {

@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Predicates.equalTo;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.skyframe.RegisteredExecutionPlatformsFunction.hasPlatformInfo;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.collect.ImmutableList;
@@ -33,8 +32,8 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.ValueOrException;
@@ -165,7 +164,7 @@ public class PlatformLookupUtil {
         String extraFragmentDescription =
             configurationKey.getFragments().stream()
                 .filter(not(equalTo(PlatformConfiguration.class)))
-                .map(cl -> cl.getSimpleName())
+                .map(Class::getSimpleName)
                 .collect(joining(","));
         throw new InvalidPlatformException(
             configuredTarget.getLabel(),
@@ -188,6 +187,19 @@ public class PlatformLookupUtil {
     } catch (ActionConflictException e) {
       throw new InvalidPlatformException(key.getLabel(), e);
     }
+  }
+
+  static boolean hasPlatformInfo(Target target) {
+    // If the rule uses toolchain resolution, it can't be used as a target or exec platform.
+    if (target.getAssociatedRule() == null) {
+      return false;
+    }
+    RuleClass ruleClass = target.getAssociatedRule().getRuleClassObject();
+    if (ruleClass == null || ruleClass.useToolchainResolution()) {
+      return false;
+    }
+
+    return ruleClass.getAdvertisedProviders().advertises(PlatformInfo.class);
   }
 
   /** Exception used when a platform label is not a valid platform. */

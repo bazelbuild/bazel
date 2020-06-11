@@ -19,8 +19,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaSemantics;
 import com.google.devtools.build.lib.rules.android.AndroidLocalTestBase;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
@@ -84,7 +84,8 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
   @Override
   protected TransitiveInfoCollection getAndCheckTestSupport(RuleContext ruleContext) {
     // Add the unit test support to the list of dependencies.
-    return Iterables.getOnlyElement(ruleContext.getPrerequisites("$testsupport", Mode.TARGET));
+    return Iterables.getOnlyElement(
+        ruleContext.getPrerequisites("$testsupport", TransitionMode.TARGET));
   }
 
   @Override
@@ -94,7 +95,7 @@ public class BazelAndroidLocalTest extends AndroidLocalTestBase {
   protected Artifact getAndroidAllJarsPropertiesFile(RuleContext ruleContext)
       throws RuleErrorException {
     Iterable<RunfilesProvider> runfilesProviders =
-        ruleContext.getPrerequisites("deps", Mode.TARGET, RunfilesProvider.class);
+        ruleContext.getPrerequisites("deps", TransitionMode.TARGET, RunfilesProvider.class);
     for (RunfilesProvider runfilesProvider : runfilesProviders) {
       Runfiles dataRunfiles = runfilesProvider.getDataRunfiles();
       for (Artifact artifact : dataRunfiles.getAllArtifacts().toList()) {

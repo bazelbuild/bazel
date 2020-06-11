@@ -31,10 +31,6 @@ filegroup(
 java_library(
     name = "junctions",
     srcs = glob(["*.java"]),
-    data = select({
-        "//src/conditions:windows": ["//src/main/native/windows:windows_jni.dll"],
-        "//conditions:default": [],
-    }),
     visibility = [
         ":android-prod",
         ":android-tests",

@@ -17,9 +17,11 @@ import com.google.common.base.MoreObjects;
 import com.google.devtools.build.android.DependencyInfo;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Objects;
 import org.objectweb.asm.AnnotationVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.InstructionAdapter;
 
 /** Models an int field initializer. */
@@ -28,26 +30,39 @@ public final class IntFieldInitializer implements FieldInitializer {
   private static final String DESC = "I";
 
   private final DependencyInfo dependencyInfo;
+  private final Visibility visibility;
   private final String fieldName;
   private final int value;
 
-  private IntFieldInitializer(DependencyInfo dependencyInfo, String fieldName, int value) {
+  private IntFieldInitializer(
+      DependencyInfo dependencyInfo, Visibility visibility, String fieldName, int value) {
     this.dependencyInfo = dependencyInfo;
+    this.visibility = visibility;
     this.fieldName = fieldName;
     this.value = value;
   }
 
-  public static FieldInitializer of(DependencyInfo dependencyInfo, String fieldName, String value) {
-    return of(dependencyInfo, fieldName, Integer.decode(value));
+  public static FieldInitializer of(
+      DependencyInfo dependencyInfo, Visibility visibility, String fieldName, String value) {
+    return of(dependencyInfo, visibility, fieldName, Integer.decode(value));
   }
 
-  public static IntFieldInitializer of(DependencyInfo dependencyInfo, String fieldName, int value) {
-    return new IntFieldInitializer(dependencyInfo, fieldName, value);
+  public static IntFieldInitializer of(
+      DependencyInfo dependencyInfo, Visibility visibility, String fieldName, int value) {
+    return new IntFieldInitializer(dependencyInfo, visibility, fieldName, value);
   }
 
   @Override
   public boolean writeFieldDefinition(
-      ClassWriter cw, int accessLevel, boolean isFinal, boolean annotateTransitiveFields) {
+      ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields) {
+    int accessLevel = Opcodes.ACC_STATIC;
+    if (visibility != Visibility.PRIVATE) {
+      accessLevel |= Opcodes.ACC_PUBLIC;
+    }
+    if (isFinal) {
+      accessLevel |= Opcodes.ACC_FINAL;
+    }
+
     FieldVisitor fv = cw.visitField(accessLevel, fieldName, DESC, null, isFinal ? value : null);
     if (annotateTransitiveFields
         && dependencyInfo.dependencyType() == DependencyInfo.DependencyType.TRANSITIVE) {
@@ -73,8 +88,11 @@ public final class IntFieldInitializer implements FieldInitializer {
   public void writeInitSource(Writer writer, boolean finalFields) throws IOException {
     writer.write(
         String.format(
-            "        public static %sint %s = 0x%x;\n",
-            finalFields ? "final " : "", fieldName, value));
+            "        %s static %sint %s = 0x%x;\n",
+            visibility != Visibility.PRIVATE ? "public" : "",
+            finalFields ? "final " : "",
+            fieldName,
+            value));
   }
 
   @Override
@@ -96,7 +114,10 @@ public final class IntFieldInitializer implements FieldInitializer {
   public boolean equals(Object obj) {
     if (obj instanceof IntFieldInitializer) {
       IntFieldInitializer other = (IntFieldInitializer) obj;
-      return value == other.value;
+      return Objects.equals(dependencyInfo, other.dependencyInfo)
+          && Objects.equals(visibility, other.visibility)
+          && Objects.equals(fieldName, other.fieldName)
+          && value == other.value;
     }
     return false;
   }

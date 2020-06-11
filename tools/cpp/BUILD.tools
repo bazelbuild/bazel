@@ -92,7 +92,7 @@ config_setting(
 #   * all file groups that said cc_toolchain might refer to
 alias(
     name = "toolchain",
-    actual = "//external:cc_toolchain",
+    actual = "@local_config_cc//:toolchain",
 )
 
 # Hardcoded toolchain, legacy behaviour.

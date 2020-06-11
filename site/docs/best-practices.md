@@ -23,15 +23,6 @@ principles as possible should make a project more readable, less error-prone, an
 This document uses the requirement levels described in
 [this RFC](https://www.ietf.org/rfc/rfc2119.txt).
 
-## Contents
-
-- [Running builds and tests](#running-builds-and-tests)
-- [Third party dependencies](#third-party-dependencies)
-- [Depending on binaries](#depending-on-binaries)
-- [Versioning](#versioning)
-- [.bazelrc](#bazelrc)
-- [Packages](#packages)
-
 ## Running builds and tests
 
 A project should always be able to run `bazel build //...` and `bazel test //...` successfully on
@@ -70,8 +61,7 @@ misleading alias to point both targets to one guava library, then the BUILD file
 ## `.bazelrc`
 
 For project-specific options, use the configuration file your
-`<workspace>/.bazelrc` (see
-[bazelrc format](https://docs.bazel.build/guide.html#bazelrc)).
+`<workspace>/.bazelrc` (see [bazelrc format](guide.html#bazelrc)).
 
 If you want to support per-user options for your project that you **do not** want to check
 into source control, include the line

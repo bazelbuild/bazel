@@ -43,7 +43,7 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
    * <p>The native aspects are loaded with blaze and are not stateful. Reference equality works fine
    * in this case.
    *
-   * <p>Caching of Skylark aspects is not yet implemented.
+   * <p>Caching of Starlark aspects is not yet implemented.
    */
   private static final LoadingCache<
           NativeAspectClass, LoadingCache<AspectParameters, AspectDefinition>>
@@ -82,11 +82,11 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
     return forNative(nativeAspectClass, AspectParameters.EMPTY);
   }
 
-  public static Aspect forSkylark(
-      SkylarkAspectClass skylarkAspectClass,
+  public static Aspect forStarlark(
+      StarlarkAspectClass starlarkAspectClass,
       AspectDefinition aspectDefinition,
       AspectParameters parameters) {
-    return new Aspect(skylarkAspectClass, aspectDefinition, parameters);
+    return new Aspect(starlarkAspectClass, aspectDefinition, parameters);
   }
 
   /**
@@ -150,8 +150,8 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
             aspectDescriptor.getParameters());
       } else {
         AspectDefinition aspectDefinition = context.deserialize(codedIn);
-        return forSkylark(
-            (SkylarkAspectClass) aspectDescriptor.getAspectClass(),
+        return forStarlark(
+            (StarlarkAspectClass) aspectDescriptor.getAspectClass(),
             aspectDefinition,
             aspectDescriptor.getParameters());
       }

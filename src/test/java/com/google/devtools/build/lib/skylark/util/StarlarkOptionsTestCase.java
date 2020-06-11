@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.skylark.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.runtime.ClientOptions;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -34,11 +35,11 @@ import java.util.List;
 import org.junit.Before;
 
 /** Helper base class for testing the use of Starlark-style flags. */
-public class StarlarkOptionsTestCase extends SkylarkTestCase {
+public class StarlarkOptionsTestCase extends BuildViewTestCase {
 
   private static final List<Class<? extends OptionsBase>> requiredOptionsClasses =
       ImmutableList.of(
-          PackageCacheOptions.class,
+          PackageOptions.class,
           StarlarkSemanticsOptions.class,
           KeepGoingOption.class,
           LoadingOptions.class,
@@ -68,8 +69,6 @@ public class StarlarkOptionsTestCase extends SkylarkTestCase {
 
   private void writeBuildSetting(String type, String defaultValue, boolean isFlag)
       throws Exception {
-    setSkylarkSemanticsOptions("--experimental_build_setting_api=True");
-
     String flag = isFlag ? "True" : "False";
 
     scratch.file(

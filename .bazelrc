@@ -1,6 +1,3 @@
-# Flags for Android
-build --android_aapt=aapt2 # Turn aapt2 on by default for Bazel's own Android builds and tests.
-
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --define=EXECUTOR=remote
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
@@ -26,7 +23,7 @@ build:ubuntu1804_java11 --host_platform=//:rbe_ubuntu1804_java11_platform
 build:ubuntu1804_java11 --platforms=//:rbe_ubuntu1804_java11_platform
 build:ubuntu1804_java11 --config=remote_shared
 
-# Configuration to build and test Bazel on RBE on Ubuntu 18.04 with Java 11
+# Configuration to build and test Bazel on RBE on Ubuntu 16.04 with Java 8
 build:ubuntu1604_java8 --host_javabase=@rbe_ubuntu1604_java8//java:jdk
 build:ubuntu1604_java8 --javabase=@rbe_ubuntu1604_java8//java:jdk
 build:ubuntu1604_java8 --host_java_toolchain=@bazel_tools//tools/jdk:toolchain_hostjdk8

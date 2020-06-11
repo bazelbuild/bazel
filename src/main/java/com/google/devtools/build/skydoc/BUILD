@@ -1,5 +1,5 @@
 # Description:
-#   Skydoc is a documentation generator for skylark files.
+#   Skydoc is a documentation generator for Starlark files.
 #
 #   It is currently experimental and in development.
 #
@@ -57,10 +57,11 @@ java_library(
     srcs = glob(["*.java"]),
     visibility = ["//src/test:__subpackages__"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:skylark_semantics_options",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages:starlark_semantics_options",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",

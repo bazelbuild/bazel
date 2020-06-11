@@ -13,19 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.LocalHostCapacity;
 import com.google.devtools.build.lib.util.ResourceConverter;
+import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.logging.Logger;
 
 /** Defines the --loading_phase_threads option which is used by multiple commands. */
 public class LoadingPhaseThreadsOption extends OptionsBase {
 
-  private static final Logger logger = Logger.getLogger(LoadingPhaseThreadsOption.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Option(
       name = "loading_phase_threads",
@@ -61,9 +62,9 @@ public class LoadingPhaseThreadsOption extends OptionsBase {
       // performance.
       //
       // TODO(jmmv): If tests care about this, it's them who should be setting a cap.
-      if (System.getenv("TEST_TMPDIR") != null) {
+      if (TestType.isInTest()) {
         value = Math.min(20, value);
-        logger.info("Running under a test; loading_phase_threads capped at " + value);
+        logger.atInfo().log("Running under a test; loading_phase_threads capped at %d", value);
       }
       return super.checkAndLimit(value);
     }

@@ -19,7 +19,6 @@ import com.google.common.base.Ascii;
 
 /** Enum to represent {@link NinjaRule} variables with the special value, like name or command. */
 public enum NinjaRuleVariable {
-  NAME,
   COMMAND,
   DEPFILE,
   DEPS,
@@ -30,6 +29,10 @@ public enum NinjaRuleVariable {
   RSPFILE,
   RSPFILE_CONTENT,
   POOL;
+
+  public String lowerCaseName() {
+    return Ascii.toLowerCase(name());
+  }
 
   public static NinjaRuleVariable nullOrValue(String name) {
     try {

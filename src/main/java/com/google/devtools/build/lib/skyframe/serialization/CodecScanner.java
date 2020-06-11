@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.reflect.ClassPath;
 import com.google.common.reflect.ClassPath.ClassInfo;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.RegisteredSingletonDoNotUse;
@@ -27,8 +28,6 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 /**
@@ -42,7 +41,7 @@ import java.util.stream.Stream;
  */
 public class CodecScanner {
 
-  private static final Logger log = Logger.getLogger(CodecScanner.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Initializes an {@link ObjectCodecRegistry} builder by scanning a given package prefix.
@@ -50,10 +49,9 @@ public class CodecScanner {
    * @param packagePrefix processes only classes in packages having this prefix
    * @see CodecRegisterer
    */
-  @SuppressWarnings("unchecked")
   static ObjectCodecRegistry.Builder initializeCodecRegistry(String packagePrefix)
       throws IOException, ReflectiveOperationException {
-    log.info("Building ObjectCodecRegistry");
+    logger.atInfo().log("Building ObjectCodecRegistry");
     ArrayList<Class<? extends ObjectCodec<?>>> codecs = new ArrayList<>();
     ArrayList<Class<? extends CodecRegisterer<?>>> registerers = new ArrayList<>();
     ObjectCodecRegistry.Builder builder = ObjectCodecRegistry.newBuilder();
@@ -141,7 +139,7 @@ public class CodecScanner {
     return registered;
   }
 
-  @SuppressWarnings({"rawtypes", "unchecked"})
+  @SuppressWarnings("rawtypes")
   private static void applyDefaultRegistration(
       ObjectCodecRegistry.Builder builder,
       HashSet<Class<? extends ObjectCodec<?>>> alreadyRegistered,
@@ -156,9 +154,8 @@ public class CodecScanner {
         constructor.setAccessible(true);
         builder.add((ObjectCodec<?>) constructor.newInstance());
       } catch (NoSuchMethodException e) {
-        log.log(
-            Level.FINE,
-            "Skipping registration of " + codecType + " because it had no default constructor.");
+        logger.atFine().withCause(e).log(
+            "Skipping registration of %s because it had no default constructor.", codecType);
       }
     }
   }

@@ -19,11 +19,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:execution_statistics_java_proto",
         "//third_party:auto_value",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
 
-# Bootstrapping SingleJar using Skylark rules
+# Bootstrapping SingleJar using Starlark rules
 #
 load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library")
 
@@ -35,6 +36,7 @@ bootstrap_java_library(
     ),
     jars = [
         "//third_party:auto_value-jars",
+        "//third_party:flogger-jars",
         "//third_party:bootstrap_guava_and_error_prone-jars",
     ],
 )

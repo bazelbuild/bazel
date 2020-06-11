@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ShToolchain;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -39,7 +40,6 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -151,7 +151,7 @@ public class BazelPythonSemantics implements PythonSemantics {
     String pythonBinary = getPythonBinary(ruleContext, common, bazelConfig);
 
     // Version information for host config diagnostic warning.
-    PythonVersion attrVersion = PyCommon.readPythonVersionFromAttributes(ruleContext.attributes());
+    PythonVersion attrVersion = PyCommon.readPythonVersionFromAttribute(ruleContext.attributes());
     boolean attrVersionSpecifiedExplicitly = attrVersion != null;
     if (!attrVersionSpecifiedExplicitly) {
       attrVersion = config.getDefaultPythonVersion();
@@ -235,13 +235,18 @@ public class BazelPythonSemantics implements PythonSemantics {
 
       if (OS.getCurrent() != OS.WINDOWS) {
         PathFragment shExecutable = ShToolchain.getPathOrError(ruleContext);
+        // TODO(#8685): Remove this special-case handling as part of making the proper shebang a
+        // property of the Python toolchain configuration.
+        String pythonExecutableName = OS.getCurrent() == OS.OPENBSD ? "python3" : "python";
         ruleContext.registerAction(
             new SpawnAction.Builder()
                 .addInput(zipFile)
                 .addOutput(executable)
                 .setShellCommand(
                     shExecutable,
-                    "echo '#!/usr/bin/env python' | cat - "
+                    "echo '#!/usr/bin/env "
+                        + pythonExecutableName
+                        + "' | cat - "
                         + zipFile.getExecPathString()
                         + " > "
                         + executable.getExecPathString())
@@ -294,7 +299,8 @@ public class BazelPythonSemantics implements PythonSemantics {
       RunfilesSupport runfilesSupport,
       PyCommon common,
       RuleConfiguredTargetBuilder builder) {
-    FilesToRunProvider zipper = ruleContext.getExecutablePrerequisite("$zipper", Mode.HOST);
+    FilesToRunProvider zipper =
+        ruleContext.getExecutablePrerequisite("$zipper", TransitionMode.HOST);
     Artifact executable = common.getExecutable();
     Artifact zipFile = common.getPythonZipArtifact(executable);
 
@@ -396,7 +402,8 @@ public class BazelPythonSemantics implements PythonSemantics {
   private static PyRuntimeInfo getRuntime(RuleContext ruleContext, PyCommon common) {
     return common.shouldGetRuntimeFromToolchain()
         ? common.getRuntimeFromToolchain()
-        : ruleContext.getPrerequisite(":py_interpreter", Mode.TARGET, PyRuntimeInfo.PROVIDER);
+        : ruleContext.getPrerequisite(
+            ":py_interpreter", TransitionMode.TARGET, PyRuntimeInfo.PROVIDER);
   }
 
   private static void addRuntime(

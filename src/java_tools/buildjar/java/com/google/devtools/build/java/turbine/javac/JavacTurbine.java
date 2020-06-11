@@ -428,9 +428,7 @@ public class JavacTurbine implements AutoCloseable {
   private static byte[] processBytecode(byte[] bytes) {
     ClassWriter cw = new ClassWriter(0);
     new ClassReader(bytes)
-        .accept(
-            new PrivateMemberPruner(cw),
-            ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES | ClassReader.SKIP_DEBUG);
+        .accept(new PrivateMemberPruner(cw), ClassReader.SKIP_CODE | ClassReader.SKIP_FRAMES);
     return cw.toByteArray();
   }
 

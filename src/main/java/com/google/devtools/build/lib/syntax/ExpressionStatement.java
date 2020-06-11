@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.syntax;
 
-
-/** Syntax node for a function call statement. Used for build rules. */
+/** Syntax node for a statement consisting of an expression evaluated for effect. */
 public final class ExpressionStatement extends Statement {
 
   private final Expression expression;
 
-  ExpressionStatement(Expression expression) {
+  ExpressionStatement(FileLocations locs, Expression expression) {
+    super(locs);
     this.expression = expression;
   }
 
@@ -31,6 +31,16 @@ public final class ExpressionStatement extends Statement {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
+  }
+
+  @Override
+  public int getStartOffset() {
+    return expression.getStartOffset();
+  }
+
+  @Override
+  public int getEndOffset() {
+    return expression.getEndOffset();
   }
 
   @Override

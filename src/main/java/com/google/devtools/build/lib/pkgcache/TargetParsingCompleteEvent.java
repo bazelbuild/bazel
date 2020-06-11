@@ -20,8 +20,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEventId;
+import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
 import com.google.devtools.build.lib.buildeventstream.GenericBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,7 +30,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import java.util.Collection;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /** This event is fired just after target pattern evaluation is completed. */
@@ -89,16 +89,16 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
       Collection<Target> targets,
       Collection<Target> filteredTargets,
       Collection<Target> testFilteredTargets,
-      List<String> originalTargetPattern,
+      ImmutableList<String> originalTargetPattern,
       Collection<Target> expandedTargets,
-      List<String> failedTargetPatterns,
+      ImmutableList<String> failedTargetPatterns,
       ImmutableSetMultimap<String, Label> originalPatternsToLabels) {
     this.targets = asThinTargets(targets);
     this.filteredTargets = asThinTargets(filteredTargets);
     this.testFilteredTargets = asThinTargets(testFilteredTargets);
-    this.originalTargetPattern = ImmutableList.copyOf(originalTargetPattern);
+    this.originalTargetPattern = Preconditions.checkNotNull(originalTargetPattern);
     this.expandedTargets = asThinTargets(expandedTargets);
-    this.failedTargetPatterns = ImmutableList.copyOf(failedTargetPatterns);
+    this.failedTargetPatterns = Preconditions.checkNotNull(failedTargetPatterns);
     this.originalPatternsToLabels = originalPatternsToLabels;
   }
 
@@ -165,12 +165,12 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.targetPatternExpanded(originalTargetPattern);
+    return BuildEventIdUtil.targetPatternExpanded(originalTargetPattern);
   }
 
   @Override
   public Collection<BuildEventId> postedAfter() {
-    return ImmutableList.<BuildEventId>of(BuildEventId.buildStartedId());
+    return ImmutableList.of(BuildEventIdUtil.buildStartedId());
   }
 
   @Override
@@ -178,13 +178,13 @@ public class TargetParsingCompleteEvent implements BuildEventWithOrderConstraint
     ImmutableList.Builder<BuildEventId> childrenBuilder = ImmutableList.builder();
     for (String failedTargetPattern : failedTargetPatterns) {
       childrenBuilder.add(
-          BuildEventId.targetPatternExpanded(ImmutableList.of(failedTargetPattern)));
+          BuildEventIdUtil.targetPatternExpanded(ImmutableList.of(failedTargetPattern)));
     }
     for (ThinTarget target : expandedTargets) {
       // Test suits won't produce target configuration and  target-complete events, so do not
       // announce here completion as children.
       if (!target.isTestSuiteRule()) {
-        childrenBuilder.add(BuildEventId.targetConfigured(target.getLabel()));
+        childrenBuilder.add(BuildEventIdUtil.targetConfigured(target.getLabel()));
       }
     }
     return childrenBuilder.build();

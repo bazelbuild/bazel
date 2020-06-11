@@ -20,6 +20,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.testing.junit.runner.util.TestClock.TestInstant;
 import java.time.Duration;
 import java.time.Instant;
@@ -30,9 +31,7 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
 
-/**
- * Unit test for {@link TestSuiteNode}.
- */
+/** Unit test for {@link TestSuiteNode}. */
 @RunWith(MockitoJUnitRunner.class)
 public class TestSuiteNodeTest {
 
@@ -87,4 +86,12 @@ public class TestSuiteNodeTest {
     verifyZeroInteractions(dynamicTestCaseDescription);
   }
 
+  @Test
+  public void testProperties() {
+    ImmutableMap<String, String> properties = ImmutableMap.of("key", "value");
+    testSuiteNode = new TestSuiteNode(Description.createSuiteDescription("suite"), properties);
+
+    TestResult result = testSuiteNode.getResult();
+    assertThat(result.getProperties()).containsExactlyEntriesIn(properties);
+  }
 }

@@ -258,9 +258,9 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
     name = 'endangered',
-    url = 'http://localhost:$nc_port/bleh',
+    url = 'file://$repo2_zip',
     type = 'zip',
-)
+    )
 EOF
 
   # Fetch; as we did not specify a hash, we expect bazel to tell us the hash
@@ -271,7 +271,6 @@ EOF
   # to do without checksum. But we can safely do so, as the loopback device
   # is reasonably safe against man-in-the-middle attacks.
   bazel fetch --repository_cache="$repo_cache_dir" \
-        --noincompatible_disallow_unverified_http_downloads \
         //zoo:breeding-program >& $TEST_log \
     || fail "expected fetch to succeed"
 
@@ -280,6 +279,7 @@ EOF
   # Shutdown the server; so fetching again won't work
   shutdown_server
   bazel clean --expunge
+  rm -f $repo2_zip
 
   # As we don't have a predicted cache, we expect fetching to fail now.
   bazel fetch --repository_cache="$repo_cache_dir" //zoo:breeding-program >& $TEST_log \

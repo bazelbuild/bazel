@@ -14,23 +14,20 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.config;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkGlobalLibrary;
+import net.starlark.java.annot.StarlarkMethod;
 
-/**
- * A collection of top-level Starlark functions pertaining to configuration.
- */
-@SkylarkGlobalLibrary
+/** A collection of top-level Starlark functions pertaining to configuration. */
+@StarlarkGlobalLibrary
 public interface ConfigGlobalLibraryApi {
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transition",
       doc =
           "A transition that reads a set of input build settings and writes a set of output build "
@@ -54,7 +51,7 @@ public interface ConfigGlobalLibraryApi {
       parameters = {
         @Param(
             name = "implementation",
-            type = BaseFunction.class,
+            type = StarlarkCallable.class,
             positional = false,
             named = true,
             // TODO(cparsons): The settings dict should take actual Label objects as keys and not
@@ -97,18 +94,16 @@ public interface ConfigGlobalLibraryApi {
                 "List of build settings that can be written by this transition. This must be "
                     + "a superset of the key set of the dictionary returned by this transition."),
       },
-      useLocation = true,
       useStarlarkThread = true)
-  @SkylarkConstructor(objectType = ConfigurationTransitionApi.class)
+  @StarlarkConstructor(objectType = ConfigurationTransitionApi.class)
   ConfigurationTransitionApi transition(
-      BaseFunction implementation,
+      StarlarkCallable implementation,
       Sequence<?> inputs, // <String> expected
       Sequence<?> outputs, // <String> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "analysis_test_transition",
       doc =
           "<p> Creates a configuration transition to be applied on "
@@ -117,7 +112,10 @@ public interface ConfigGlobalLibraryApi {
               + "restricted in capabilities (for example, the size of their dependency tree is "
               + "limited), so transitions created using this function are limited in potential "
               + "scope as compared to transitions created using "
-              + "<a href=\"#transition\">transition</a>.",
+              + "<a href=\"transition.html\">transition</a>. "
+              + "<p>This function is primarily designed to facilitate the "
+              + "<a href=\"../testing.html\">Analysis Test Framework</a> core library. See its "
+              + "documentation (or its implementation) for best practices.",
       parameters = {
         @Param(
             name = "settings",
@@ -131,9 +129,9 @@ public interface ConfigGlobalLibraryApi {
                     + "are unchanged. Use this to declare specific configuration settings that "
                     + "an analysis test requires to be set in order to pass."),
       },
-      useLocation = true)
+      useStarlarkThread = true)
   ConfigurationTransitionApi analysisTestTransition(
       Dict<?, ?> changedSettings, // <String, String> expected
-      Location location)
+      StarlarkThread thread)
       throws EvalException;
 }

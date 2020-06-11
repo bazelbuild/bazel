@@ -39,20 +39,57 @@ load(
     "workspace_and_buildfile",
 )
 
+# Shared between http_jar, http_file and http_archive.
+_AUTH_PATTERN_DOC = """An optional dict mapping host names to custom authorization patterns.
+
+If a URL's host name is present in this dict the value will be used as a pattern when
+generating the authorization header for the http request. This enables the use of custom
+authorization schemes used in a lot of common cloud storage providers.
+
+The pattern currently supports 2 tokens: <code>&lt;login&gt;</code> and
+<code>&lt;password&gt;</code>, which are replaced with their equivalent value
+in the netrc file for the same host name. After formatting, the result is set
+as the value for the <code>Authorization</code> field of the HTTP request.
+
+Example attribute and netrc for a http download to an oauth2 enabled API using a bearer token:
+
+<pre>
+auth_patterns = {
+    "storage.cloudprovider.com": "Bearer &lt;password&gt;"
+}
+</pre>
+
+netrc:
+
+<pre>
+machine storage.cloudprovider.com
+        password RANDOM-TOKEN
+</pre>
+
+The final HTTP request would have the following header:
+
+<pre>
+Authorization: Bearer RANDOM-TOKEN
+</pre>
+"""
+
 def _get_auth(ctx, urls):
     """Given the list of URLs obtain the correct auth dict."""
     if ctx.attr.netrc:
         netrc = read_netrc(ctx, ctx.attr.netrc)
-        return use_netrc(netrc, urls)
+        return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
-    if "HOME" in ctx.os.environ:
-        if not ctx.os.name.startswith("windows"):
-            netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"],)
-            if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
-                netrc = read_netrc(ctx, netrcfile)
-                return use_netrc(netrc, urls)
+    if "HOME" in ctx.os.environ and not ctx.os.name.startswith("windows"):
+        netrcfile = "%s/.netrc" % (ctx.os.environ["HOME"])
+        if ctx.execute(["test", "-f", netrcfile]).return_code == 0:
+            netrc = read_netrc(ctx, netrcfile)
+            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
-        # TODO: Search at a similarly canonical place for Windows as well
+    if "USERPROFILE" in ctx.os.environ and ctx.os.name.startswith("windows"):
+        netrcfile = "%s/.netrc" % (ctx.os.environ["USERPROFILE"])
+        if ctx.path(netrcfile).exists:
+            netrc = read_netrc(ctx, netrcfile)
+            return use_netrc(netrc, urls, ctx.attr.auth_patterns)
 
     return {}
 
@@ -80,8 +117,8 @@ def _http_archive_impl(ctx):
         canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
-    patch(ctx)
     workspace_and_buildfile(ctx)
+    patch(ctx)
 
     return update_attrs(ctx.attr, _http_archive_attrs.keys(), {"sha256": download_info.sha256})
 
@@ -115,6 +152,7 @@ def _http_file_impl(ctx):
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
+        canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
@@ -153,6 +191,7 @@ def _http_jar_impl(ctx):
         all_urls,
         "jar/downloaded.jar",
         ctx.attr.sha256,
+        canonical_id = ctx.attr.canonical_id,
         auth = auth,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
@@ -190,11 +229,14 @@ easier but should be set before shipping.""",
     "netrc": attr.string(
         doc = "Location of the .netrc file to use for authentication",
     ),
+    "auth_patterns": attr.string_dict(
+        doc = _AUTH_PATTERN_DOC,
+    ),
     "canonical_id": attr.string(
         doc = """A canonical id of the archive downloaded.
 
-If specified and non-empty, bazel will not take a the archive from cache,
-unless is was added to the cache by a request with the same canonical id.
+If specified and non-empty, bazel will not take the archive from cache,
+unless it was added to the cache by a request with the same canonical id.
 """,
     ),
     "strip_prefix": attr.string(
@@ -359,6 +401,13 @@ to omit the SHA-256 as remote files can change._ At best omitting this
 field will make your build non-hermetic. It is optional to make development
 easier but should be set before shipping.""",
     ),
+    "canonical_id": attr.string(
+        doc = """A canonical id of the archive downloaded.
+
+If specified and non-empty, bazel will not take the archive from cache,
+unless it was added to the cache by a request with the same canonical id.
+""",
+    ),
     "urls": attr.string_list(
         mandatory = True,
         doc = """A list of URLs to a file that will be made available to Bazel.
@@ -368,6 +417,9 @@ Authentication is not supported.""",
     ),
     "netrc": attr.string(
         doc = "Location of the .netrc file to use for authentication",
+    ),
+    "auth_patterns": attr.string_dict(
+        doc = _AUTH_PATTERN_DOC,
     ),
 }
 
@@ -401,6 +453,13 @@ _http_jar_attrs = {
     "sha256": attr.string(
         doc = "The expected SHA-256 of the file downloaded.",
     ),
+    "canonical_id": attr.string(
+        doc = """A canonical id of the archive downloaded.
+
+If specified and non-empty, bazel will not take the archive from cache,
+unless it was added to the cache by a request with the same canonical id.
+""",
+    ),
     "url": attr.string(
         doc =
             "The URL to fetch the jar from. It must end in `.jar`.",
@@ -412,6 +471,9 @@ _http_jar_attrs = {
     ),
     "netrc": attr.string(
         doc = "Location of the .netrc file to use for authentication",
+    ),
+    "auth_patterns": attr.string_dict(
+        doc = _AUTH_PATTERN_DOC,
     ),
 }
 

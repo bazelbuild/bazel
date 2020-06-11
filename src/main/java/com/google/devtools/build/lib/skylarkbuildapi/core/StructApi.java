@@ -14,27 +14,27 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.core;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Interface for the "struct" object in the build API. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "struct",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A generic object with fields."
             + "<p>Structs fields cannot be reassigned once the struct is created. Two structs are "
             + "equal if they have the same fields and if corresponding field values are equal.")
 public interface StructApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "to_proto",
       doc =
           "Creates a text message from the struct parameter. This method only works if all "
@@ -62,11 +62,10 @@ public interface StructApi extends StarlarkValue {
               + "#   key: 2\n"
               + "#   value: 1\n"
               + "# }\n"
-              + "</pre>",
-      useLocation = true)
-  String toProto(Location loc) throws EvalException;
+              + "</pre>")
+  String toProto() throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "to_json",
       doc =
           "Creates a JSON string from the struct parameter. This method only works if all "
@@ -83,15 +82,14 @@ public interface StructApi extends StarlarkValue {
               + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()\n"
               + "# {\"key\":[{\"inner_key\":1},{\"inner_key\":2}]}\n\n"
               + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()\n"
-              + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>",
-      useLocation = true)
-  String toJson(Location loc) throws EvalException;
+              + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>")
+  String toJson() throws EvalException;
 
   /** Callable Provider for new struct objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface StructProviderApi extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "struct",
         doc =
             "Creates an immutable struct using the keyword arguments as attributes. It is used to "
@@ -104,9 +102,9 @@ public interface StructApi extends StarlarkValue {
                 type = Dict.class,
                 defaultValue = "{}",
                 doc = "Dictionary of arguments."),
-        useLocation = true,
+        useStarlarkThread = true,
         selfCall = true)
-    @SkylarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
-    StructApi createStruct(Dict<?, ?> kwargs, Location loc) throws EvalException;
+    @StarlarkConstructor(objectType = StructApi.class, receiverNameForDoc = "struct")
+    StructApi createStruct(Dict<String, Object> kwargs, StarlarkThread thread) throws EvalException;
   }
 }

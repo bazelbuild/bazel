@@ -13,17 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.rules.android.AndroidSkylarkData.fromNoneable;
+import static com.google.devtools.build.lib.rules.android.AndroidStarlarkData.fromNoneable;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
+import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSdkProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
@@ -52,6 +53,7 @@ public final class AndroidSdkProvider extends NativeInfo
   private final FilesToRunProvider apkSigner;
   private final FilesToRunProvider proguard;
   private final FilesToRunProvider zipalign;
+  @Nullable private final BootClassPathInfo system;
 
   public AndroidSdkProvider(
       String buildToolsVersion,
@@ -70,7 +72,8 @@ public final class AndroidSdkProvider extends NativeInfo
       @Nullable FilesToRunProvider apkBuilder,
       FilesToRunProvider apkSigner,
       FilesToRunProvider proguard,
-      FilesToRunProvider zipalign) {
+      FilesToRunProvider zipalign,
+      @Nullable BootClassPathInfo system) {
     super(PROVIDER);
     this.buildToolsVersion = buildToolsVersion;
     this.frameworkAidl = frameworkAidl;
@@ -89,6 +92,7 @@ public final class AndroidSdkProvider extends NativeInfo
     this.apkSigner = apkSigner;
     this.proguard = proguard;
     this.zipalign = zipalign;
+    this.system = system;
   }
 
   /**
@@ -96,7 +100,8 @@ public final class AndroidSdkProvider extends NativeInfo
    * not specified.
    */
   public static AndroidSdkProvider fromRuleContext(RuleContext ruleContext) {
-    return ruleContext.getPrerequisite(":android_sdk", Mode.TARGET, AndroidSdkProvider.PROVIDER);
+    return ruleContext.getPrerequisite(
+        ":android_sdk", TransitionMode.TARGET, AndroidSdkProvider.PROVIDER);
   }
 
   /** Throws an error if the Android SDK cannot be found. */
@@ -195,6 +200,10 @@ public final class AndroidSdkProvider extends NativeInfo
     return zipalign;
   }
 
+  public BootClassPathInfo getSystem() {
+    return system;
+  }
+
   /** The provider can construct the Android SDK provider. */
   public static class Provider extends BuiltinProvider<AndroidSdkProvider>
       implements AndroidSdkProviderApi.Provider<
@@ -222,7 +231,8 @@ public final class AndroidSdkProvider extends NativeInfo
         Object apkBuilder,
         FilesToRunProvider apkSigner,
         FilesToRunProvider proguard,
-        FilesToRunProvider zipalign)
+        FilesToRunProvider zipalign,
+        Object system)
         throws EvalException {
       return new AndroidSdkProvider(
           buildToolsVersion,
@@ -241,7 +251,8 @@ public final class AndroidSdkProvider extends NativeInfo
           fromNoneable(apkBuilder, FilesToRunProvider.class),
           apkSigner,
           proguard,
-          zipalign);
+          zipalign,
+          fromNoneable(system, BootClassPathInfo.class));
     }
   }
 }

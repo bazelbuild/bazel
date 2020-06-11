@@ -13,242 +13,37 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
-import com.google.devtools.build.lib.actions.MiddlemanAction;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.profiler.analysis.ProfileInfo;
-import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.CriticalPathEntry;
-import com.google.devtools.build.lib.profiler.analysis.ProfileInfo.Task;
-import com.google.devtools.build.lib.util.Pair;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Iterator;
+import com.google.devtools.build.lib.profiler.TraceEvent;
+import java.time.Duration;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
- * Keeps a predefined list of {@link CriticalPathEntry}'s cumulative durations and allows
- * iterating over pairs of their descriptions and relative durations.
+ * Keeps a predefined list of {@link TraceEvent}'s cumulative durations and allows iterating over
+ * pairs of their descriptions and relative durations.
  */
-//TODO(bazel-team): Add remote vs build stats recorded by Logging.CriticalPathStats
-public final class CriticalPathStatistics implements Iterable<Pair<String, Double>> {
+public final class CriticalPathStatistics {
+  private final ImmutableList<TraceEvent> criticalPathEntries;
+  private Duration totalDuration = Duration.ZERO;
 
-  private static final EnumSet<ProfilerTask> FILTER_NONE = EnumSet.noneOf(ProfilerTask.class);
-  /** Always filter out ACTION_LOCK and WAIT tasks to simulate unlimited resource critical path.
-   * @see #optimalPath
-   */
-  private static final EnumSet<ProfilerTask> DEFAULT_FILTER =
-      EnumSet.of(ProfilerTask.ACTION_LOCK, ProfilerTask.WAIT);
-
-  private static final List<Pair<String, EnumSet<ProfilerTask>>> FILTERS =
-      Arrays.asList(
-          Pair.of("the builder overhead", EnumSet.allOf(ProfilerTask.class)),
-          Pair.of(
-              "the VFS calls",
-              ProfilerTask.allSatisfying(
-                  task -> DEFAULT_FILTER.contains(task) || task.name().startsWith("VFS_"))),
-          typeFilter("the dependency checking", ProfilerTask.ACTION_CHECK),
-          typeFilter("the execution setup", ProfilerTask.ACTION),
-          typeFilter("local execution", ProfilerTask.LOCAL_EXECUTION),
-          typeFilter("the include scanner", ProfilerTask.SCANNER),
-          typeFilter(
-              "Remote execution (cumulative)",
-              ProfilerTask.REMOTE_EXECUTION,
-              ProfilerTask.PROCESS_TIME,
-              ProfilerTask.LOCAL_PARSE,
-              ProfilerTask.UPLOAD_TIME,
-              ProfilerTask.REMOTE_QUEUE,
-              ProfilerTask.REMOTE_SETUP,
-              ProfilerTask.FETCH),
-          typeFilter("  file uploads", ProfilerTask.UPLOAD_TIME, ProfilerTask.REMOTE_SETUP),
-          typeFilter("  file fetching", ProfilerTask.FETCH),
-          typeFilter("  process time", ProfilerTask.PROCESS_TIME),
-          typeFilter("  remote queueing", ProfilerTask.REMOTE_QUEUE),
-          typeFilter("  remote execution parse", ProfilerTask.LOCAL_PARSE),
-          typeFilter("  other remote activities", ProfilerTask.REMOTE_EXECUTION));
-
-  private final List<Long> criticalPathDurations;
-
-  /**
-   * The actual critical path.
-   */
-  private final CriticalPathEntry totalPath;
-
-  /**
-   * Unlimited resource critical path. Essentially, we assume that if we remove all scheduling
-   * delays caused by resource semaphore contention, each action execution time would not change
-   * (even though load now would be substantially higher - so this assumption might be incorrect
-   * but it is the path excluding scheduling delays).
-   */
-  private final CriticalPathEntry optimalPath;
-
-  public CriticalPathStatistics(ProfileInfo info) {
-    totalPath = info.getCriticalPath(FILTER_NONE);
-    info.analyzeCriticalPath(FILTER_NONE, totalPath);
-
-    optimalPath = info.getCriticalPath(DEFAULT_FILTER);
-    info.analyzeCriticalPath(DEFAULT_FILTER, optimalPath);
-
-    if (totalPath == null || totalPath.isComponent()) {
-      criticalPathDurations = Collections.emptyList();
-    } else {
-      criticalPathDurations = getCriticalPathDurations(info);
+  public CriticalPathStatistics(List<TraceEvent> traceEvents) {
+    ImmutableList.Builder<TraceEvent> criticalPathEntriesBuilder = new ImmutableList.Builder<>();
+    for (TraceEvent traceEvent : traceEvents) {
+      if (ProfilerTask.CRITICAL_PATH_COMPONENT.description.equals(traceEvent.category())) {
+        criticalPathEntriesBuilder.add(traceEvent);
+        totalDuration = totalDuration.plus(traceEvent.duration());
+      }
     }
+    this.criticalPathEntries = criticalPathEntriesBuilder.build();
   }
 
-  /**
-   * @return the critical path obtained by not filtering out any {@link ProfilerTask}
-   */
-  public CriticalPathEntry getTotalPath() {
-    return totalPath;
+  public Duration getTotalDuration() {
+    return totalDuration;
   }
 
-  /**
-   * @return the critical path obtained by filtering out any lock and wait tasks (see
-   *    {@link #DEFAULT_FILTER})
-   */
-  public CriticalPathEntry getOptimalPath() {
-    return optimalPath;
-  }
-
-  /**
-   * Constructs a filtered Iterable from a critical path.
-   *
-   *  <p>Ignores all fake (task id < 0) path entries and
-   *  {@link com.google.devtools.build.lib.actions.MiddlemanAction}-related entries.
-   */
-  public Iterable<CriticalPathEntry> getMiddlemanFilteredPath(final CriticalPathEntry path) {
-    return () ->
-        new Iterator<CriticalPathEntry>() {
-          private CriticalPathEntry nextEntry = path;
-
-          @Override
-          public boolean hasNext() {
-            return nextEntry != null;
-          }
-
-          @Override
-          public CriticalPathEntry next() {
-            CriticalPathEntry current = nextEntry;
-            do {
-              nextEntry = nextEntry.next;
-            } while (nextEntry != null && (nextEntry.task.isFake() || isMiddleMan(nextEntry.task)));
-            return current;
-          }
-
-          @Override
-          public void remove() {
-            throw new UnsupportedOperationException();
-          }
-        };
-  }
-
-  @Override
-  public Iterator<Pair<String, Double>> iterator() {
-    return new Iterator<Pair<String, Double>>() {
-
-      Iterator<Long> durations = criticalPathDurations.iterator();
-      Iterator<Pair<String, EnumSet<ProfilerTask>>> filters = FILTERS.iterator();
-      boolean overheadFilter = true;
-
-      @Override
-      public boolean hasNext() {
-        return durations.hasNext();
-      }
-
-      @Override
-      public Pair<String, Double> next() {
-        long duration = durations.next();
-        String description = filters.next().first;
-        double relativeDuration;
-        if (overheadFilter) {
-          overheadFilter = false;
-          relativeDuration = (double) duration / totalPath.cumulativeDuration;
-        } else {
-          relativeDuration =
-              (double) (optimalPath.cumulativeDuration - duration) / optimalPath.cumulativeDuration;
-        }
-        return Pair.of(description, relativeDuration);
-      }
-
-      @Override
-      public void remove() {
-        throw new UnsupportedOperationException();
-      }
-    };
-  }
-
-  /**
-   * Extracts all {@link CriticalPathEntry} durations for the filters defined by {@link #FILTERS}.
-   */
-  private static List<Long> getCriticalPathDurations(ProfileInfo info) {
-    List<Long> list = new ArrayList<>(FILTERS.size());
-
-    for (Pair<String, EnumSet<ProfilerTask>> filter : FILTERS) {
-      list.add(info.getCriticalPath(filter.second).cumulativeDuration);
-    }
-    return list;
-  }
-
-  /**
-   * Returns set of profiler tasks to be filtered from critical path.
-   * Also always filters out ACTION_LOCK and WAIT tasks to simulate
-   * unlimited resource critical path (see comments inside formatExecutionPhaseStatistics()
-   * method).
-   */
-  private static Pair<String, EnumSet<ProfilerTask>> typeFilter(
-      String description, ProfilerTask... tasks) {
-    EnumSet<ProfilerTask> filter = EnumSet.of(ProfilerTask.ACTION_LOCK, ProfilerTask.WAIT);
-    Collections.addAll(filter, tasks);
-    return Pair.of(description, filter);
-  }
-
-  /**
-   * @return Whether the task is {@link MiddlemanAction}-related.
-   */
-  private static boolean isMiddleMan(Task task) {
-    String description = task.getDescription();
-    return description.startsWith(MiddlemanAction.MIDDLEMAN_MNEMONIC + " ")
-        || description.startsWith("TargetCompletionMiddleman");
-  }
-
-  /**
-   * Aggregates statistics related to {@link MiddlemanAction}s on the critical path.
-   */
-  public static final class MiddleManStatistics {
-    public final int count;
-    public final long duration;
-    public final long criticalTime;
-
-    private MiddleManStatistics(int count, long duration, long criticalTime) {
-      this.count = count;
-      this.duration = duration;
-      this.criticalTime = criticalTime;
-    }
-
-    /**
-     * Summarizes middleman actions on the critical path.
-     * @return null if path is null, else the aggregate statistics
-     */
-    public static MiddleManStatistics create(@Nullable CriticalPathEntry path) {
-      if (path == null) {
-        return null;
-      }
-      int middleManCount = 0;
-      long middleManDuration = 0;
-      long middleManCritTime = 0;
-      for (CriticalPathEntry entry = path; entry != null; entry = entry.next) {
-        Task task = entry.task;
-        if (!task.isFake() && isMiddleMan(task)) {
-          // Aggregate middleman actions.
-          middleManCount++;
-          middleManDuration += entry.duration;
-          middleManCritTime += entry.getCriticalTime();
-        }
-      }
-      return new MiddleManStatistics(middleManCount, middleManDuration, middleManCritTime);
-    }
+  public ImmutableList<TraceEvent> getCriticalPathEntries() {
+    return criticalPathEntries;
   }
 }
 

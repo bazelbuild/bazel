@@ -16,35 +16,33 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
-/**
- * {@link Bootstrap} for skylark objects related to cpp rules.
- */
+/** {@link Bootstrap} for Starlark objects related to cpp rules. */
 public class CcBootstrap implements Bootstrap {
   private final CcModuleApi<
-          ? extends SkylarkActionFactoryApi,
+          ? extends StarlarkActionFactoryApi,
           ? extends FileApi,
           ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
           ? extends FeatureConfigurationApi,
-          ? extends CcCompilationContextApi,
+          ? extends CcCompilationContextApi<? extends FileApi>,
           ? extends
               LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
           ? extends CcLinkingContextApi<? extends FileApi>,
           ? extends LibraryToLinkApi<? extends FileApi>,
           ? extends CcToolchainVariablesApi,
           ? extends ConstraintValueInfoApi,
-          ? extends SkylarkRuleContextApi<? extends ConstraintValueInfoApi>,
+          ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
           ? extends CcToolchainConfigInfoApi,
           ? extends CcCompilationOutputsApi<? extends FileApi>>
       ccModule;
 
-  private final CcInfoApi.Provider ccInfoProvider;
+  private final CcInfoApi.Provider<? extends FileApi> ccInfoProvider;
   private final CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider;
   private final PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper;
   private final GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper;
@@ -53,22 +51,22 @@ public class CcBootstrap implements Bootstrap {
 
   public CcBootstrap(
       CcModuleApi<
-              ? extends SkylarkActionFactoryApi,
+              ? extends StarlarkActionFactoryApi,
               ? extends FileApi,
               ? extends CcToolchainProviderApi<? extends FeatureConfigurationApi>,
               ? extends FeatureConfigurationApi,
-              ? extends CcCompilationContextApi,
+              ? extends CcCompilationContextApi<? extends FileApi>,
               ? extends
                   LinkerInputApi<? extends LibraryToLinkApi<? extends FileApi>, ? extends FileApi>,
               ? extends CcLinkingContextApi<? extends FileApi>,
               ? extends LibraryToLinkApi<? extends FileApi>,
               ? extends CcToolchainVariablesApi,
               ? extends ConstraintValueInfoApi,
-              ? extends SkylarkRuleContextApi<? extends ConstraintValueInfoApi>,
+              ? extends StarlarkRuleContextApi<? extends ConstraintValueInfoApi>,
               ? extends CcToolchainConfigInfoApi,
               ? extends CcCompilationOutputsApi<? extends FileApi>>
           ccModule,
-      CcInfoApi.Provider ccInfoProvider,
+      CcInfoApi.Provider<? extends FileApi> ccInfoProvider,
       CcToolchainConfigInfoApi.Provider ccToolchainConfigInfoProvider,
       PyWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?> pyWrapCcHelper,
       GoWrapCcHelperApi<?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?> goWrapCcHelper,

@@ -25,11 +25,11 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider.JavaPluginInfo;
@@ -37,10 +37,9 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -52,12 +51,12 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
-/** A Skylark declared provider that encapsulates all providers that are needed by Java rules. */
+/** A Starlark declared provider that encapsulates all providers that are needed by Java rules. */
 @Immutable
 @AutoCodec
 public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> {
 
-  public static final String SKYLARK_NAME = "JavaInfo";
+  public static final String STARLARK_NAME = "JavaInfo";
 
   public static final JavaInfoProvider PROVIDER = new JavaInfoProvider();
 
@@ -93,6 +92,16 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
    * for Proguarding (the compile time classpath is not enough because that contains only ijars)
    */
   private final ImmutableList<Artifact> directRuntimeJars;
+
+  /**
+   * A set of runtime jars corresponding to the transitive dependencies of a certain target,
+   * excluding the runtime jars for the target itself and its direct dependencies.
+   *
+   * <p>This set is required only when the persistent test runner is enabled. It is used to create a
+   * custom classloader for loading the jars in the transitive dependencies. The persistent test
+   * runner creates a separate classloader for the target itself and its direct dependencies.
+   */
+  private final NestedSet<Artifact> transitiveOnlyRuntimeJars;
 
   /** Java constraints (e.g. "android") that are present on the target. */
   private final ImmutableList<String> javaConstraints;
@@ -193,7 +202,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   /**
    * Returns a provider of the specified class, fetched from the specified target or, if not found,
    * from the JavaInfo of the given target. JavaInfo can be found as a declared provider in
-   * SkylarkProviders. Returns null if no such provider exists.
+   * StarlarkProviders. Returns null if no such provider exists.
    *
    * <p>A target can either have both the specified provider and JavaInfo that encapsulates the same
    * information, or just one of them.
@@ -246,11 +255,13 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   JavaInfo(
       TransitiveInfoProviderMap providers,
       ImmutableList<Artifact> directRuntimeJars,
+      NestedSet<Artifact> transitiveOnlyRuntimeJars,
       boolean neverlink,
       ImmutableList<String> javaConstraints,
       Location location) {
     super(PROVIDER, location);
     this.directRuntimeJars = directRuntimeJars;
+    this.transitiveOnlyRuntimeJars = transitiveOnlyRuntimeJars;
     this.providers = providers;
     this.neverlink = neverlink;
     this.javaConstraints = javaConstraints;
@@ -321,6 +332,11 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     return directRuntimeJars;
   }
 
+  // Do not expose to Starlark.
+  public NestedSet<Artifact> getTransitiveOnlyRuntimeJars() {
+    return transitiveOnlyRuntimeJars;
+  }
+
   @Override
   public Depset /*<Artifact>*/ getTransitiveDeps() {
     return Depset.of(
@@ -349,7 +365,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   @Override
   public Depset /*<Label>*/ getTransitiveExports() {
     return Depset.of(
-        SkylarkType.of(Label.class),
+        Depset.ElementType.of(Label.class),
         getProviderAsNestedSet(
             JavaExportsProvider.class, JavaExportsProvider::getTransitiveExports));
   }
@@ -405,7 +421,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
   public static class JavaInfoProvider extends BuiltinProvider<JavaInfo>
       implements JavaInfoProviderApi {
     private JavaInfoProvider() {
-      super(SKYLARK_NAME, JavaInfo.class);
+      super(STARLARK_NAME, JavaInfo.class);
     }
 
     @Override
@@ -419,7 +435,6 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
         Sequence<?> runtimeDeps,
         Sequence<?> exports,
         Object jdepsApi,
-        Location loc,
         StarlarkThread thread)
         throws EvalException {
       Artifact outputJar = (Artifact) outputJarApi;
@@ -427,7 +442,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
       @Nullable Artifact sourceJar = nullIfNone(sourceJarApi, Artifact.class);
       @Nullable Artifact jdeps = nullIfNone(jdepsApi, Artifact.class);
       if (compileJar == null) {
-        throw new EvalException(loc, "Expected 'File' for 'compile_jar', found 'None'");
+        throw Starlark.errorf("Expected 'File' for 'compile_jar', found 'None'");
       }
       return JavaInfoBuildHelper.getInstance()
           .createJavaInfo(
@@ -439,7 +454,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
               (Sequence<JavaInfo>) runtimeDeps,
               (Sequence<JavaInfo>) exports,
               jdeps,
-              loc);
+              thread.getCallerLocation());
     }
   }
 
@@ -448,6 +463,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     TransitiveInfoProviderMapBuilder providerMap;
     private ImmutableList<Artifact> runtimeJars;
     private ImmutableList<String> javaConstraints;
+    private final NestedSetBuilder<Artifact> transitiveOnlyRuntimeJars =
+        new NestedSetBuilder<>(Order.STABLE_ORDER);
     private boolean neverlink;
     private Location location = Location.BUILTIN;
 
@@ -464,6 +481,7 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
     public static Builder copyOf(JavaInfo javaInfo) {
       return new Builder(new TransitiveInfoProviderMapBuilder().addAll(javaInfo.getProviders()))
           .setRuntimeJars(javaInfo.getDirectRuntimeJars())
+          .addTransitiveOnlyRuntimeJars(javaInfo.getTransitiveOnlyRuntimeJars())
           .setNeverlink(javaInfo.isNeverlink())
           .setJavaConstraints(javaInfo.getJavaConstraints())
           .setLocation(javaInfo.getCreationLoc());
@@ -476,6 +494,27 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
     public Builder setNeverlink(boolean neverlink) {
       this.neverlink = neverlink;
+      return this;
+    }
+
+    public Builder maybeTransitiveOnlyRuntimeJarsToJavaInfo(
+        List<? extends TransitiveInfoCollection> deps, boolean shouldAdd) {
+      // TODO(b/149926109): Currently all callers call with shouldAdd=true as a temporary workaround
+      // to make --trim_test_configuration work again.
+      if (shouldAdd) {
+        deps.stream()
+            .map(JavaInfo::getJavaInfo)
+            .filter(Objects::nonNull)
+            .map(j -> j.getProvider(JavaCompilationArgsProvider.class))
+            .filter(Objects::nonNull)
+            .map(JavaCompilationArgsProvider::getRuntimeJars)
+            .forEach(this::addTransitiveOnlyRuntimeJars);
+      }
+      return this;
+    }
+
+    private Builder addTransitiveOnlyRuntimeJars(NestedSet<Artifact> runtimeJars) {
+      this.transitiveOnlyRuntimeJars.addTransitive(runtimeJars);
       return this;
     }
 
@@ -516,8 +555,8 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
 
     public JavaInfo build() {
       // TODO(twerth): Clean up after we remove java_proto_library.strict_deps.
-      // Instead of teaching every (potential Skylark) caller to also create the provider for strict
-      // deps we wrap the non strict provider instead.
+      // Instead of teaching every (potential Starlark) caller to also create the provider for
+      // strict deps we wrap the non strict provider instead.
       if (!providerMap.contains(JavaStrictCompilationArgsProvider.class)
           && providerMap.contains(JavaCompilationArgsProvider.class)) {
         JavaStrictCompilationArgsProvider javaStrictCompilationArgsProvider =
@@ -525,7 +564,13 @@ public final class JavaInfo extends NativeInfo implements JavaInfoApi<Artifact> 
                 providerMap.getProvider(JavaCompilationArgsProvider.class));
         addProvider(JavaStrictCompilationArgsProvider.class, javaStrictCompilationArgsProvider);
       }
-      return new JavaInfo(providerMap.build(), runtimeJars, neverlink, javaConstraints, location);
+      return new JavaInfo(
+          providerMap.build(),
+          runtimeJars,
+          transitiveOnlyRuntimeJars.build(),
+          neverlink,
+          javaConstraints,
+          location);
     }
   }
 }

@@ -20,8 +20,6 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.List;
-import java.util.Map;
 import java.util.SortedMap;
 
 /**
@@ -46,8 +44,8 @@ final class WorkerKey {
   private final boolean proxied;
 
   WorkerKey(
-      List<String> args,
-      Map<String, String> env,
+      ImmutableList<String> args,
+      ImmutableMap<String, String> env,
       Path execRoot,
       String mnemonic,
       HashCode workerFilesCombinedHash,
@@ -55,9 +53,9 @@ final class WorkerKey {
       boolean mustBeSandboxed,
       boolean proxied) {
     /** Build options. */
-    this.args = ImmutableList.copyOf(Preconditions.checkNotNull(args));
+    this.args = Preconditions.checkNotNull(args);
     /** Environment variables. */
-    this.env = ImmutableMap.copyOf(Preconditions.checkNotNull(env));
+    this.env = Preconditions.checkNotNull(env);
     /** Execution root of Bazel process. */
     this.execRoot = Preconditions.checkNotNull(execRoot);
     /** Mnemonic of the worker. */
@@ -110,6 +108,15 @@ final class WorkerKey {
   /** Getter function for variable proxied. */
   public boolean getProxied() {
     return proxied;
+  }
+
+  /** Returns a user-friendly name for this worker type. */
+  public static String makeWorkerTypeName(boolean proxied) {
+    if (proxied) {
+      return "multiplex-worker";
+    } else {
+      return "worker";
+    }
   }
 
   @Override

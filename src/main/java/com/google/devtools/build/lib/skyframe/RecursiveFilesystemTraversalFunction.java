@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.FileType;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
@@ -46,7 +47,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
@@ -73,34 +73,39 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
   private static final FileInfo NON_EXISTENT_FILE_INFO =
       new FileInfo(FileType.NONEXISTENT, NON_EXISTENT_HAS_DIGEST, null, null);
 
-  /** Base class for exceptions that {@link RecursiveFilesystemTraversalFunctionException} wraps. */
-  public abstract static class RecursiveFilesystemTraversalException extends Exception {
-    protected RecursiveFilesystemTraversalException(String message) {
-      super(message);
-    }
-  }
+  /** The exception that {@link RecursiveFilesystemTraversalFunctionException} wraps. */
+  public static class RecursiveFilesystemTraversalException extends Exception {
 
-  /** Thrown when a generated directory's root-relative path conflicts with a package's path. */
-  public static final class GeneratedPathConflictException extends
-      RecursiveFilesystemTraversalException {
-    GeneratedPathConflictException(TraversalRequest traversal) {
-      super(
-          String.format(
-              "Generated directory %s conflicts with package under the same path. "
-                  + "Additional info: %s",
-              traversal.root.asRootedPath().getRootRelativePath().getPathString(),
-              traversal.errorInfo != null ? traversal.errorInfo : traversal.toString()));
-    }
-  }
+    /**
+     * Categories of errors that prevent normal {@link RecursiveFilesystemTraversalFunction}
+     * evaluation.
+     */
+    public enum Type {
+      /**
+       * The traversal encountered a subdirectory with a BUILD file but is not allowed to recurse
+       * into it. See {@code PackageBoundaryMode#REPORT_ERROR}.
+       */
+      CANNOT_CROSS_PACKAGE_BOUNDARY,
 
-  /**
-   * Thrown when the traversal encounters a subdirectory with a BUILD file but is not allowed to
-   * recurse into it. See {@code PackageBoundaryMode#REPORT_ERROR}.
-   */
-  public static final class CannotCrossPackageBoundaryException extends
-      RecursiveFilesystemTraversalException {
-    CannotCrossPackageBoundaryException(String message) {
+      /** A dangling symlink was dereferenced. */
+      DANGLING_SYMLINK,
+
+      /** A file operation failed. */
+      FILE_OPERATION_FAILURE,
+
+      /** A generated directory's root-relative path conflicts with a package's path. */
+      GENERATED_PATH_CONFLICT,
+    }
+
+    private final Type type;
+
+    RecursiveFilesystemTraversalException(String message, Type type) {
       super(message);
+      this.type = type;
+    }
+
+    public Type getType() {
+      return type;
     }
   }
 
@@ -111,29 +116,14 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
    * and it's not easy to merge the two because of the dependency structure. The other one will
    * probably be removed along with the rest of the legacy Fileset code.
    */
-  public static final class DanglingSymlinkException extends RecursiveFilesystemTraversalException {
-    public final String path;
-    public final String unresolvedLink;
-
-    public DanglingSymlinkException(String path, String unresolvedLink) {
+  static final class DanglingSymlinkException extends RecursiveFilesystemTraversalException {
+    DanglingSymlinkException(String path, String unresolvedLink) {
       super(
           String.format(
-              "Found dangling symlink: %s, unresolved path: \"%s\"", path, unresolvedLink));
+              "Found dangling symlink: %s, unresolved path: \"%s\"", path, unresolvedLink),
+          Type.DANGLING_SYMLINK);
       Preconditions.checkArgument(path != null && !path.isEmpty());
       Preconditions.checkArgument(unresolvedLink != null && !unresolvedLink.isEmpty());
-      this.path = path;
-      this.unresolvedLink = unresolvedLink;
-    }
-
-    public String getPath() {
-      return path;
-    }
-  }
-
-  /** Thrown when we encounter errors from underlying File operations */
-  public static final class FileOperationException extends RecursiveFilesystemTraversalException {
-    public FileOperationException(String message) {
-      super(message);
     }
   }
 
@@ -172,11 +162,12 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           RootedPath path =
               RootedPath.toRootedPath(
                   traversal.root.asRootedPath().getRoot(), entry.getKey().getPath());
-          list.add(resultForFileRoot(
-              path,
-              // TreeArtifact can't have symbolic inside. So the assumption for FileType.FILE
-              // is always true.
-              new FileInfo(FileType.FILE, entry.getValue(), path, null)));
+          list.add(
+              resultForFileRoot(
+                  path,
+                  // TreeArtifact can't have symbolic inside. So the assumption for FileType.FILE
+                  // is always true.
+                  new FileInfo(FileType.FILE, entry.getValue(), path, null)));
         }
         return resultForDirectory(traversal, rootInfo, list.build());
       }
@@ -188,8 +179,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (pkgLookupResult.isConflicting()) {
         // The traversal was requested for an output directory whose root-relative path conflicts
         // with a source package. We can't handle that, bail out.
-        throw new RecursiveFilesystemTraversalFunctionException(
-            new GeneratedPathConflictException(traversal));
+        throw createGeneratedPathConflictException(traversal);
       } else if (pkgLookupResult.isPackage() && !traversal.skipTestingForSubpackage) {
         // The traversal was requested for a directory that defines a package.
         String msg =
@@ -207,7 +197,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           case REPORT_ERROR:
             // We cannot traverse the subpackage and should complain loudly (display an error).
             throw new RecursiveFilesystemTraversalFunctionException(
-                new CannotCrossPackageBoundaryException(msg));
+                new RecursiveFilesystemTraversalException(
+                    msg, RecursiveFilesystemTraversalException.Type.CANNOT_CROSS_PACKAGE_BOUNDARY));
           default:
             throw new IllegalStateException(traversal.toString());
         }
@@ -220,11 +211,26 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           rootInfo,
           traverseChildren(env, dependentKeys, /*inline=*/ traversal.isRootGenerated));
     } catch (IOException e) {
+      String message = "Error while traversing fileset: " + e.getMessage();
       throw new RecursiveFilesystemTraversalFunctionException(
-          new FileOperationException("Error while traversing fileset: " + e.getMessage()));
+          new RecursiveFilesystemTraversalException(
+              message, RecursiveFilesystemTraversalException.Type.FILE_OPERATION_FAILURE));
     } catch (MissingDepException e) {
       return null;
     }
+  }
+
+  private static RecursiveFilesystemTraversalFunctionException createGeneratedPathConflictException(
+      TraversalRequest traversal) {
+    String message =
+        String.format(
+            "Generated directory %s conflicts with package under the same path. "
+                + "Additional info: %s",
+            traversal.root.asRootedPath().getRootRelativePath().getPathString(),
+            traversal.errorInfo != null ? traversal.errorInfo : traversal.toString());
+    return new RecursiveFilesystemTraversalFunctionException(
+        new RecursiveFilesystemTraversalException(
+            message, RecursiveFilesystemTraversalException.Type.GENERATED_PATH_CONFLICT));
   }
 
   @Override
@@ -276,10 +282,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         if (value instanceof FileArtifactValue || value instanceof TreeArtifactValue) {
           fsVal = (HasDigest) value;
         } else if (value instanceof ActionExecutionValue) {
-          fsVal =
-              Preconditions.checkNotNull(
-                  ArtifactFunction.createSimpleFileArtifactValue(
-                      (Artifact.DerivedArtifact) artifact, (ActionExecutionValue) value));
+          fsVal = ((ActionExecutionValue) value).getExistingFileArtifactValue(artifact);
         } else {
           return NON_EXISTENT_FILE_INFO;
         }
@@ -289,7 +292,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         Preconditions.checkNotNull(fsVal, "Strict Fileset output tree has null FileArtifactValue");
         return new FileInfo(
             (fsVal instanceof TreeArtifactValue ? FileType.DIRECTORY : FileType.FILE),
-            fsVal, realPath, null);
+            fsVal,
+            realPath,
+            null);
       } else {
         // FileArtifactValue does not currently track symlinks. If it did, we could potentially
         // remove some of the filesystem operations we're doing here.
@@ -631,60 +636,4 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     return Collections2.transform(values.values(), RecursiveFilesystemTraversalValue.class::cast);
   }
 
-  /** Type information about the filesystem entry residing at a path. */
-  enum FileType {
-    /** A regular file. */
-    FILE {
-      @Override boolean isFile() { return true; }
-      @Override boolean exists() { return true; }
-      @Override public String toString() { return "<f>"; }
-    },
-    /**
-     * A symlink to a regular file.
-     *
-     * <p>The symlink may be direct (points to a non-symlink (here a file)) or it may be transitive
-     * (points to a direct or transitive symlink).
-     */
-    SYMLINK_TO_FILE {
-      @Override boolean isFile() { return true; }
-      @Override boolean isSymlink() { return true; }
-      @Override boolean exists() { return true; }
-      @Override public String toString() { return "<lf>"; }
-    },
-    /** A directory. */
-    DIRECTORY {
-      @Override boolean isDirectory() { return true; }
-      @Override boolean exists() { return true; }
-      @Override public String toString() { return "<d>"; }
-    },
-    /**
-     * A symlink to a directory.
-     *
-     * <p>The symlink may be direct (points to a non-symlink (here a directory)) or it may be
-     * transitive (points to a direct or transitive symlink).
-     */
-    SYMLINK_TO_DIRECTORY {
-      @Override boolean isDirectory() { return true; }
-      @Override boolean isSymlink() { return true; }
-      @Override boolean exists() { return true; }
-      @Override public String toString() { return "<ld>"; }
-    },
-    /** A dangling symlink, i.e. one whose target is known not to exist. */
-    DANGLING_SYMLINK {
-      @Override boolean isFile() { throw new UnsupportedOperationException(); }
-      @Override boolean isDirectory() { throw new UnsupportedOperationException(); }
-      @Override boolean isSymlink() { return true; }
-      @Override public String toString() { return "<l?>"; }
-    },
-    /** A path that does not exist or should be ignored. */
-    NONEXISTENT {
-      @Override public String toString() { return "<?>"; }
-    };
-
-    boolean isFile() { return false; }
-    boolean isDirectory() { return false; }
-    boolean isSymlink() { return false; }
-    boolean exists() { return false; }
-    @Override public abstract String toString();
-  }
 }

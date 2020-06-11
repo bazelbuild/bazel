@@ -85,7 +85,7 @@ public class DynamicExecutionOptions extends OptionsBase {
       converter = Converters.StringToStringListConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      defaultValue = "",
+      defaultValue = "null",
       allowMultiple = true,
       help =
           "The remote strategies to use for the given mnemonic. Passing 'remote'"
@@ -130,4 +130,16 @@ public class DynamicExecutionOptions extends OptionsBase {
           "If true, fail the build if there are actions that set requires-darwin but do not have"
               + "Xcode availability-related execution requirements set.")
   public boolean requireAvailabilityInfo;
+
+  @Option(
+      name = "experimental_availability_info_exempt",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      defaultValue = "Genrule,TestRunner",
+      converter = Converters.CommaSeparatedOptionListConverter.class,
+      help =
+          "A comma-separated list of mnemonics that are not required to have Xcode-related "
+              + "execution info if --experimental_require_availability_info=true. No-op if "
+              + "--experimental_require_availability_info=false.")
+  public List<String> availabilityInfoExempt;
 }

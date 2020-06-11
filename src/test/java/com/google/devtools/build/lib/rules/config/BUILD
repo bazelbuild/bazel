@@ -9,7 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    visibility = ["//src:__subpackages__"],
 )
 
 # Description:
@@ -18,25 +18,38 @@ java_library(
     name = "ConfigRulesTests_lib",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_provider",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transition_mode",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages:build_type",
+        "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/rules/config",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/test/java/com/google/devtools/build/lib:actions_testutil",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//src/test/java/com/google/devtools/build/lib/skylark:testutil",
+        "//src/test/java/com/google/devtools/build/lib/actions/util",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/skylark/util",
+        "//src/test/java/com/google/devtools/build/lib/syntax/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:guava-testlib",
-        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",
-        "//third_party:truth8",
     ],
 )
 
@@ -46,7 +59,6 @@ java_test(
     runtime_deps = [
         ":ConfigRulesTests_lib",
         "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
     ],
 )
 
@@ -56,7 +68,6 @@ test_suite(
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
@@ -64,5 +75,4 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

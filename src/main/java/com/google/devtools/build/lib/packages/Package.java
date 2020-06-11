@@ -37,15 +37,15 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.util.SpellChecker;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -61,9 +61,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import javax.annotation.Nullable;
+import net.starlark.java.spelling.SpellChecker;
 
 /**
  * A package, which is a container of {@link Rule}s, each of which contains a dictionary of named
@@ -109,9 +111,10 @@ public class Package {
 
   /**
    * The root of the source tree in which this package was found. It is an invariant that {@code
-   * sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}.
+   * sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}. Returns {@link
+   * Optional#empty} if this {@link Package} is derived from a WORKSPACE file.
    */
-  private Root sourceRoot;
+  private Optional<Root> sourceRoot;
 
   /**
    * The "Make" environment of this package, containing package-local
@@ -162,10 +165,11 @@ public class Package {
    */
   private boolean containsErrors;
 
-  /**
-   * The list of transitive closure of the Skylark file dependencies.
-   */
-  private ImmutableList<Label> skylarkFileDependencies;
+  /** The list of transitive closure of the Starlark file dependencies. */
+  private ImmutableList<Label> starlarkFileDependencies;
+
+  /** The package's default "applicable_licenses" attribute. */
+  private Set<Label> defaultApplicableLicenses = ImmutableSet.of();
 
   /**
    * The package's default "licenses" and "distribs" attributes, as specified
@@ -201,6 +205,13 @@ public class Package {
 
   private ImmutableList<String> registeredExecutionPlatforms;
   private ImmutableList<String> registeredToolchains;
+
+  private long computationSteps;
+
+  /** Returns the number of Starlark computation steps executed by this BUILD file. */
+  public long getComputationSteps() {
+    return computationSteps;
+  }
 
   /**
    * Package initialization, part 1 of 3: instantiates a new package with the
@@ -296,6 +307,14 @@ public class Package {
   }
 
   /**
+   * Sets the default 'applicable_licenses" value for this package attribute when not explicitly
+   * specified by the rule.
+   */
+  private void setDefaultApplicableLicenses(Set<Label> licenses) {
+    defaultApplicableLicenses = licenses;
+  }
+
+  /**
    * Sets the default value to use for a rule's {@link RuleClass#COMPATIBLE_ENVIRONMENT_ATTR}
    * attribute when not explicitly specified by the rule.
    */
@@ -312,12 +331,13 @@ public class Package {
   }
 
   /**
-   * Returns the source root (a directory) beneath which this package's BUILD file was found.
+   * Returns the source root (a directory) beneath which this package's BUILD file was found, or
+   * {@link Optional#empty} if this package was derived from a workspace file.
    *
-   * <p>Assumes invariant: {@code
-   * getSourceRoot().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
+   * <p>Assumes invariant: If non-empty, {@code
+   * getSourceRoot().get().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
    */
-  public Root getSourceRoot() {
+  public Optional<Root> getSourceRoot() {
     return sourceRoot;
   }
 
@@ -359,25 +379,30 @@ public class Package {
     }
     this.filename = builder.getFilename();
     this.packageDirectory = filename.asPath().getParentDirectory();
-
-    this.sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
     String baseName = filename.getRootRelativePath().getBaseName();
-    if ((sourceRoot.asPath() == null
-            || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory))
-        && !(baseName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
-            || baseName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString()))) {
-      throw new IllegalArgumentException(
-          "Invalid BUILD file name for package '"
-              + packageIdentifier
-              + "': "
-              + filename
-              + " (in source "
-              + sourceRoot
-              + " with packageDirectory "
-              + packageDirectory
-              + " and package identifier source root "
-              + packageIdentifier.getSourceRoot()
-              + ")");
+
+    if (isWorkspaceFile(baseName)) {
+      Preconditions.checkState(
+          packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER));
+      this.sourceRoot = Optional.empty();
+    } else {
+      Root sourceRoot = getSourceRoot(filename, packageIdentifier.getSourceRoot());
+      if (sourceRoot.asPath() == null
+          || !sourceRoot.getRelative(packageIdentifier.getSourceRoot()).equals(packageDirectory)) {
+        throw new IllegalArgumentException(
+            "Invalid BUILD file name for package '"
+                + packageIdentifier
+                + "': "
+                + filename
+                + " (in source "
+                + sourceRoot
+                + " with packageDirectory "
+                + packageDirectory
+                + " and package identifier source root "
+                + packageIdentifier.getSourceRoot()
+                + ")");
+      }
+      this.sourceRoot = Optional.of(sourceRoot);
     }
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
@@ -391,7 +416,7 @@ public class Package {
     }
     this.buildFile = builder.buildFile;
     this.containsErrors = builder.containsErrors;
-    this.skylarkFileDependencies = builder.skylarkFileDependencies;
+    this.starlarkFileDependencies = builder.starlarkFileDependencies;
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
@@ -415,11 +440,14 @@ public class Package {
     this.externalPackageRepositoryMappings = repositoryMappingsBuilder.build();
   }
 
-  /**
-   * Returns the list of transitive closure of the Skylark file dependencies of this package.
-   */
-  public ImmutableList<Label> getSkylarkFileDependencies() {
-    return skylarkFileDependencies;
+  private static boolean isWorkspaceFile(String baseFileName) {
+    return baseFileName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
+        || baseFileName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString());
+  }
+
+  /** Returns the list of transitive closure of the Starlark file dependencies of this package. */
+  public ImmutableList<Label> getStarlarkFileDependencies() {
+    return starlarkFileDependencies;
   }
 
   /**
@@ -659,6 +687,11 @@ public class Package {
     return defaultVisibilitySet;
   }
 
+  /** Gets the licenses list for the default applicable_licenses declared by this package. */
+  public Set<Label> getDefaultApplicableLicenses() {
+    return defaultApplicableLicenses;
+  }
+
   /**
    * Gets the parsed license object for the default license
    * declared by this package.
@@ -743,12 +776,13 @@ public class Package {
       RootedPath workspacePath,
       String runfilesPrefix,
       StarlarkSemantics starlarkSemantics) {
-    Builder b =
-        new Builder(
-            helper.createFreshPackage(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, runfilesPrefix),
-            starlarkSemantics);
-    b.setFilename(workspacePath);
-    return b;
+    return new Builder(
+            helper,
+            LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+            runfilesPrefix,
+            starlarkSemantics.incompatibleNoImplicitFileExport(),
+            Builder.EMPTY_REPOSITORY_MAPPING)
+        .setFilename(workspacePath);
   }
 
   /**
@@ -757,26 +791,15 @@ public class Package {
    */
   public static class Builder {
 
+    public static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
+        ImmutableMap.of();
+
     public interface Helper {
       /**
        * Returns a fresh {@link Package} instance that a {@link Builder} will internally mutate
        * during package loading. Called by {@link PackageFactory}.
        */
       Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix);
-
-      /**
-       * Called after {@link com.google.devtools.build.lib.skyframe.PackageFunction} is completely
-       * done loading the given {@link Package}.
-       *
-       * @param pkg the loaded {@link Package}
-       * @param starlarkSemantics are the semantics used to load the package
-       * @param loadTimeNanos the wall time, in ns, that it took to load the package. More
-       *     precisely, this is the wall time of the call to {@link
-       *     PackageFactory#createPackageFromAst}. Notably, this does not include the time to read
-       *     and parse the package's BUILD file, nor the time to read, parse, or evaluate any of the
-       *     transitively loaded .bzl files.
-       */
-      void onLoadingComplete(Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeNanos);
     }
 
     /** {@link Helper} that simply calls the {@link Package} constructor. */
@@ -790,10 +813,6 @@ public class Package {
       public Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix) {
         return new Package(packageId, runfilesPrefix);
       }
-
-      @Override
-      public void onLoadingComplete(
-          Package pkg, StarlarkSemantics starlarkSemantics, long loadTimeMs) {}
     }
 
     /**
@@ -804,16 +823,20 @@ public class Package {
      */
     private final Package pkg;
 
-    private final StarlarkSemantics starlarkSemantics;
+    private final boolean noImplicitFileExport;
+    private final CallStack.Builder callStackBuilder = new CallStack.Builder();
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
     public final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
-    // The map of repository reassignments for BUILD packages loaded within external repositories.
-    // It contains an entry from "@<main workspace name>" to "@" for packages within
-    // the main workspace.
-    private ImmutableMap<RepositoryName, RepositoryName> repositoryMapping = ImmutableMap.of();
+    /**
+     * The map of repository reassignments for BUILD packages loaded within external repositories.
+     * It contains an entry from "@<main workspace name>" to "@" for packages within the main
+     * workspace.
+     */
+    private final ImmutableMap<RepositoryName, RepositoryName> repositoryMapping;
+
     private RootedPath filename = null;
     private Label buildFileLabel = null;
     private InputFile buildFile = null;
@@ -830,13 +853,14 @@ public class Package {
     @Nullable private IOException ioException = null;
     private boolean containsErrors = false;
 
+    private ImmutableList<Label> defaultApplicableLicenses = ImmutableList.of();
     private License defaultLicense = License.NO_LICENSE;
     private Set<License.DistributionType> defaultDistributionSet = License.DEFAULT_DISTRIB;
 
     private BiMap<String, Target> targets = HashBiMap.create();
     private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
-    private ImmutableList<Label> skylarkFileDependencies = ImmutableList.of();
+    private ImmutableList<Label> starlarkFileDependencies = ImmutableList.of();
 
     private final List<String> registeredExecutionPlatforms = new ArrayList<>();
     private final List<String> registeredToolchains = new ArrayList<>();
@@ -885,27 +909,18 @@ public class Package {
 
     private boolean alreadyBuilt = false;
 
-    private EventHandler builderEventHandler = new EventHandler() {
-      @Override
-      public void handle(Event event) {
-        addEvent(event);
-      }
-    };
-
-    Builder(Package pkg, StarlarkSemantics starlarkSemantics) {
-      this.starlarkSemantics = starlarkSemantics;
-      this.pkg = pkg;
-      if (pkg.getName().startsWith("javatests/")) {
-        setDefaultTestonly(true);
-      }
-    }
-
     Builder(
         Helper helper,
         PackageIdentifier id,
         String runfilesPrefix,
-        StarlarkSemantics starlarkSemantics) {
-      this(helper.createFreshPackage(id, runfilesPrefix), starlarkSemantics);
+        boolean noImplicitFileExport,
+        ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
+      this.pkg = helper.createFreshPackage(id, runfilesPrefix);
+      this.noImplicitFileExport = noImplicitFileExport;
+      this.repositoryMapping = repositoryMapping;
+      if (pkg.getName().startsWith("javatests/")) {
+        setDefaultTestonly(true);
+      }
     }
 
     PackageIdentifier getPackageIdentifier() {
@@ -953,15 +968,6 @@ public class Package {
               repositoryNameRepositoryNameEntry.getValue());
         }
       }
-      return this;
-    }
-
-    /**
-     * Sets the repository mapping for a regular, BUILD file package (i.e. not the //external
-     * package)
-     */
-    Builder setRepositoryMapping(ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
       return this;
     }
 
@@ -1084,6 +1090,11 @@ public class Package {
       packageFunctionUsed = true;
     }
 
+    /** Sets the number of Starlark computation steps executed by this BUILD file. */
+    void setComputationSteps(long n) {
+      pkg.computationSteps = n;
+    }
+
     /**
      * Sets the default header checking mode.
      */
@@ -1143,9 +1154,26 @@ public class Package {
       return this;
     }
 
-    Builder setSkylarkFileDependencies(ImmutableList<Label> skylarkFileDependencies) {
-      this.skylarkFileDependencies = skylarkFileDependencies;
+    Builder setStarlarkFileDependencies(ImmutableList<Label> starlarkFileDependencies) {
+      this.starlarkFileDependencies = starlarkFileDependencies;
       return this;
+    }
+
+    /**
+     * Sets the default value to use for a rule's {@link RuleClass#APPLICABLE_LICENSES_ATTR}
+     * attribute when not explicitly specified by the rule. Records a package error if any labels
+     * are duplicated.
+     */
+    void setDefaultApplicableLicenses(List<Label> licenses, String attrName, Location location) {
+      if (hasDuplicateLabels(
+          licenses, "package " + pkg.getName(), attrName, location, this::addEvent)) {
+        setContainsErrors();
+      }
+      pkg.setDefaultApplicableLicenses(ImmutableSet.copyOf(licenses));
+    }
+
+    ImmutableList<Label> getDefaultApplicableLicenses() {
+      return defaultApplicableLicenses;
     }
 
     /**
@@ -1179,8 +1207,8 @@ public class Package {
      * any labels are duplicated.
      */
     void setDefaultCompatibleWith(List<Label> environments, String attrName, Location location) {
-      if (!checkForDuplicateLabels(environments, "package " + pkg.getName(), attrName, location,
-          builderEventHandler)) {
+      if (hasDuplicateLabels(
+          environments, "package " + pkg.getName(), attrName, location, this::addEvent)) {
         setContainsErrors();
       }
       pkg.setDefaultCompatibleWith(ImmutableSet.copyOf(environments));
@@ -1192,8 +1220,8 @@ public class Package {
      * any labels are duplicated.
      */
     void setDefaultRestrictedTo(List<Label> environments, String attrName, Location location) {
-      if (!checkForDuplicateLabels(environments, "package " + pkg.getName(), attrName, location,
-          builderEventHandler)) {
+      if (hasDuplicateLabels(
+          environments, "package " + pkg.getName(), attrName, location, this::addEvent)) {
         setContainsErrors();
       }
 
@@ -1211,24 +1239,22 @@ public class Package {
         Label label,
         RuleClass ruleClass,
         Location location,
+        List<StarlarkThread.CallStackEntry> callstack,
         AttributeContainer attributeContainer) {
       return new Rule(
-          pkg,
-          label,
-          ruleClass,
-          location,
-          attributeContainer);
+          pkg, label, ruleClass, location, callStackBuilder.of(callstack), attributeContainer);
     }
 
     /**
-     * Same as {@link #createRule(Label, RuleClass, Location, AttributeContainer)}, except
-     * allows specifying an {@link ImplicitOutputsFunction} override. Only use if you know what
-     * you're doing.
+     * Same as {@link #createRule(Label, RuleClass, Location, List<StarlarkThread.CallStackEntry>,
+     * AttributeContainer)}, except allows specifying an {@link ImplicitOutputsFunction} override.
+     * Only use if you know what you're doing.
      */
     Rule createRule(
         Label label,
         RuleClass ruleClass,
         Location location,
+        List<StarlarkThread.CallStackEntry> callstack,
         AttributeContainer attributeContainer,
         ImplicitOutputsFunction implicitOutputsFunction) {
       return new Rule(
@@ -1236,6 +1262,7 @@ public class Package {
           label,
           ruleClass,
           location,
+          callStackBuilder.of(callstack),
           attributeContainer,
           implicitOutputsFunction);
     }
@@ -1358,20 +1385,24 @@ public class Package {
     }
 
     /**
-     * Checks if any labels in the given list appear multiple times and reports an appropriate
-     * error message if so. Returns true if no duplicates were found, false otherwise.
+     * Returns true if any labels in the given list appear multiple times, reporting an appropriate
+     * error message if so.
      *
-     * <p> TODO(bazel-team): apply this to all build functions (maybe automatically?), possibly
+     * <p>TODO(bazel-team): apply this to all build functions (maybe automatically?), possibly
      * integrate with RuleClass.checkForDuplicateLabels.
      */
-    private static boolean checkForDuplicateLabels(Collection<Label> labels, String owner,
-        String attrName, Location location, EventHandler eventHandler) {
+    private static boolean hasDuplicateLabels(
+        Collection<Label> labels,
+        String owner,
+        String attrName,
+        Location location,
+        EventHandler eventHandler) {
       Set<Label> dupes = CollectionUtils.duplicatedElementsOf(labels);
       for (Label dupe : dupes) {
         eventHandler.handle(Event.error(location, String.format(
             "label '%s' is duplicated in the '%s' list of '%s'", dupe, attrName, owner)));
       }
-      return dupes.isEmpty();
+      return !dupes.isEmpty();
     }
 
     /**
@@ -1381,8 +1412,8 @@ public class Package {
         EventHandler eventHandler, Location location)
         throws NameConflictException, LabelSyntaxException {
 
-      if (!checkForDuplicateLabels(environments, name, "environments", location, eventHandler)
-          || !checkForDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
+      if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
+          || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
         setContainsErrors();
         return;
       }
@@ -1568,12 +1599,10 @@ public class Package {
     private InputFile createInputFileMaybe(Label label, Location location) {
       if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
         if (!targets.containsKey(label.getName())) {
-          if (starlarkSemantics.incompatibleNoImplicitFileExport()) {
-            return new InputFile(
-                pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE);
-          } else {
-            return new InputFile(pkg, label, location);
-          }
+          return noImplicitFileExport
+              ? new InputFile(
+                  pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
+              : new InputFile(pkg, label, location);
         }
       }
       return null;

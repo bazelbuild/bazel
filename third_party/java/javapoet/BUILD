@@ -1,4 +1,4 @@
-load("@rules_java//java:defs.bzl", "java_import")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import")
 
 licenses(["notice"])  # Apache License 2.0
 
@@ -13,7 +13,8 @@ filegroup(
     srcs = glob(["**"]),
 )
 
-java_import(
+distrib_java_import(
     name = "javapoet",
     jars = ["javapoet-1.8.0.jar"],
+    enable_distributions = ["debian"],
 )

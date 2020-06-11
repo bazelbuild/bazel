@@ -19,60 +19,79 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.desugar.io.FileContentProvider;
-import com.google.devtools.build.android.desugar.langmodel.ClassMemberRecord;
-import com.google.devtools.build.runtime.RunfilesPaths;
-import com.google.testing.testsize.MediumTest;
-import com.google.testing.testsize.MediumTestAttribute;
+import com.google.devtools.build.android.desugar.io.JarItem;
+import com.google.devtools.build.android.desugar.preanalysis.InputPreAnalyzer;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
+import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
+import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
+import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
+import com.google.devtools.build.android.desugar.testing.junit.RuntimeJarEntry;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
+import java.lang.invoke.MethodHandles;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import org.objectweb.asm.Attribute;
 
 /** The tests for {@link NestAnalyzer}. */
-@RunWith(JUnit4.class)
-@MediumTest(MediumTestAttribute.FILE)
-public class NestAnalyzerTest {
+@RunWith(DesugarRunner.class)
+@JdkSuppress(minJdkVersion = JdkVersion.V11)
+public final class NestAnalyzerTest {
 
-  private final ClassMemberRecord classMemberRecord = ClassMemberRecord.create();
-  private final NestCompanions nestCompanions = NestCompanions.create(classMemberRecord);
+  @Rule
+  public final DesugarRule desugarRule =
+      DesugarRule.builder(this, MethodHandles.lookup())
+          .addSourceInputsFromJvmFlag("input_srcs")
+          .addJavacOptions("-source 11", "-target 11")
+          .setWorkingJavaPackage(
+              "com.google.devtools.build.android.desugar.nest.testsrc.nestanalyzer")
+          .enableIterativeTransformation(0)
+          .build();
 
   @Test
   public void emptyInputFiles() throws IOException {
-    NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(ImmutableList.of(), nestCompanions, classMemberRecord);
-    nestAnalyzer.analyze();
-    assertThat(nestCompanions.getAllCompanionClasses()).isEmpty();
+    InputPreAnalyzer inputPreAnalyzer =
+        new InputPreAnalyzer(/* inputFileContents= */ ImmutableList.of(), new Attribute[] {});
+    inputPreAnalyzer.process();
+    NestDigest nestDigest =
+        NestAnalyzer.digest(
+            inputPreAnalyzer.getClassAttributeRecord(), inputPreAnalyzer.getClassMemberRecord());
+
+    assertThat(nestDigest.getAllCompanionClassNames()).isEmpty();
   }
 
   @Test
-  public void companionClassGeneration() throws IOException {
-    ZipFile jarFile =
-        new ZipFile(
-            RunfilesPaths.resolve(
-                    "third_party/bazel/src/test/java/com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer/libanalyzed_target.jar")
-                .toFile());
-    NestAnalyzer nestAnalyzer =
-        new NestAnalyzer(
+  public void companionClassGeneration(
+      @RuntimeJarEntry(
+              value = "AnalyzedTarget.class",
+              round = 0) // Without desugaring at zero-th round.
+          JarItem analyzedTarget)
+      throws IOException {
+    JarFile jarFile = analyzedTarget.jarFile();
+
+    InputPreAnalyzer inputPreAnalyzer =
+        new InputPreAnalyzer(
             jarFile.stream()
                 .map(
                     entry ->
                         new FileContentProvider<>(
-                            entry.getName(), () -> getZipEntryInputStream(jarFile, entry)))
+                            entry.getName(), () -> getJarEntryInputStream(jarFile, entry)))
                 .collect(toImmutableList()),
-            nestCompanions,
-            classMemberRecord);
+            new Attribute[] {});
+    inputPreAnalyzer.process();
+    NestDigest nestDigest =
+        NestAnalyzer.digest(
+            inputPreAnalyzer.getClassAttributeRecord(), inputPreAnalyzer.getClassMemberRecord());
 
-    nestAnalyzer.analyze();
-
-    assertThat(nestCompanions.getAllCompanionClasses())
+    assertThat(nestDigest.getAllCompanionClassNames())
         .containsExactly(
             "com/google/devtools/build/android/desugar/nest/testsrc/nestanalyzer/AnalyzedTarget$NestCC");
   }
 
-  private static InputStream getZipEntryInputStream(ZipFile jarFile, ZipEntry entry) {
+  private static InputStream getJarEntryInputStream(JarFile jarFile, JarEntry entry) {
     try {
       return jarFile.getInputStream(entry);
     } catch (IOException e) {

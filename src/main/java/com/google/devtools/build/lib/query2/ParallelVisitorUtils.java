@@ -76,8 +76,7 @@ public final class ParallelVisitorUtils {
           visitorFactory.create();
       // TODO(b/131109214): It's not ideal to have an operation like this in #process that blocks on
       // another, potentially expensive computation. Refactor to something like "processAsync".
-      visitor.visitAndWaitForCompletion(
-          SkyQueryEnvironment.makeTransitiveTraversalKeysStrict(partialResult));
+      visitor.visitAndWaitForCompletion(SkyQueryEnvironment.makeLabelsStrict(partialResult));
     }
   }
 

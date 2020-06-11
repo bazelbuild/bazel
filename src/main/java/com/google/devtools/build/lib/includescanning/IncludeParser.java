@@ -23,6 +23,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.CharStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -59,14 +60,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -81,7 +81,7 @@ import javax.annotation.Nullable;
 class IncludeParser {
 
   /**
-   * File types supported by the grep-includes binary. {@link #fileType} must be kept is sync with
+   * File types supported by the grep-includes binary. {@link #fileType} must be kept in sync with
    * //tools/cpp:grep-includes.
    */
   public enum GrepIncludesFileType {
@@ -99,8 +99,7 @@ class IncludeParser {
     }
   }
 
-  private static final Logger logger = Logger.getLogger(IncludeParser.class.getName());
-  private static final boolean LOG_FINE = logger.isLoggable(Level.FINE);
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Immutable object representation of the four columns making up a single Rule
@@ -303,16 +302,12 @@ class IncludeParser {
           hints = Sets.newTreeSet(Artifact.EXEC_PATH_COMPARATOR);
         }
         PathFragment relativePath = PathFragment.create(m.replaceFirst(rule.findRoot));
-        if (LOG_FINE) {
-          logger.fine(
-              "hint for " + rule.type + " " + firstMatchPathString + " root: " + relativePath);
-        }
+        logger.atFine().log(
+            "hint for %s %s root: %s", rule.type, firstMatchPathString, relativePath);
         if (!relativePath.getPathString().startsWith(ALLOWED_PREFIX)) {
-          logger.warning(
-              "Path "
-                  + relativePath.getPathString()
-                  + " to search after substitution does not start with "
-                  + ALLOWED_PREFIX);
+          logger.atWarning().log(
+              "Path %s to search after substitution does not start with %s",
+              relativePath.getPathString(), ALLOWED_PREFIX);
           continue;
         }
         rulePaths.add(
@@ -334,15 +329,14 @@ class IncludeParser {
               (ContainingPackageLookupValue)
                   containingPackageLookupValues.get(relativePathKey).get();
         } catch (NoSuchPackageException e) {
-          logger.warning(
-              "Unexpected exception when looking up containing package for "
-                  + relativePath
-                  + " (prodaccess expired?): "
-                  + e.getMessage());
+          logger.atWarning().withCause(e).log(
+              "Unexpected exception when looking up containing package for %s"
+                  + " (prodaccess expired?)",
+              relativePath);
           continue;
         }
         if (!containingPackageLookupValue.hasContainingPackage()) {
-          logger.warning(relativePath + " not contained in any package: skipping");
+          logger.atWarning().log("%s not contained in any package: skipping", relativePath);
           continue;
         }
         PathFragment packageFragment =
@@ -374,7 +368,7 @@ class IncludeParser {
         try {
           globValue = (GlobValue) globEntry.getValue().get();
         } catch (IOException e) {
-          logger.warning("Error getting hints for " + packageFragment + ": " + e);
+          logger.atWarning().withCause(e).log("Error getting hints for %s", packageFragment);
           continue;
         }
         for (PathFragment file : globValue.getMatches().toList()) {
@@ -408,18 +402,14 @@ class IncludeParser {
         if (hints == null) { hints = Sets.newTreeSet(); }
         String relativePath = m.replaceFirst(rule.findRoot);
         if (!relativePath.startsWith(ALLOWED_PREFIX)) {
-          logger.warning(
-              "Path "
-                  + relativePath
-                  + " to search after substitution does not start with "
-                  + ALLOWED_PREFIX);
+          logger.atWarning().log(
+              "Path %s to search after substitution does not start with %s",
+              relativePath, ALLOWED_PREFIX);
           continue;
         }
         Path root = sourceRoot.getRoot().getRelative(relativePath);
 
-        if (LOG_FINE) {
-          logger.fine("hint for " + rule.type + " " + pathString + " root: " + root);
-        }
+        logger.atFine().log("hint for %s %s root: %s", rule.type, pathString, root);
         try {
           // The assumption is made here that all files specified by this hint are under the same
           // package path as the original file -- this filesystem tree traversal is completely
@@ -428,15 +418,13 @@ class IncludeParser {
           // different package paths. In that case, this traversal would fail to pick up
           // foo/bar/**/*.h. No examples of this currently exist in the INCLUDE_HINTS
           // file.
-          if (LOG_FINE) {
-            logger.fine("Globbing: " + root + " " + rule.findFilter);
-          }
+          logger.atFine().log("Globbing: %s %s", root, rule.findFilter);
           hints.addAll(new UnixGlob.Builder(root)
               .setFilesystemCalls(syscallCache)
               .addPattern(rule.findFilter)
               .glob());
-        } catch (IOException e) {
-          logger.warning("Error in hint expansion: " + e);
+        } catch (UnixGlob.BadPattern | IOException e) {
+          logger.atWarning().withCause(e).log("Error in hint expansion");
         }
       }
       if (hints != null && !hints.isEmpty()) {
@@ -475,9 +463,7 @@ class IncludeParser {
         Inclusion inclusion = new Inclusion(rule.findRoot, rule.type == Rule.Type.INCLUDE_QUOTE
             ? Kind.QUOTE : Kind.ANGLE);
         hints.add(inclusion);
-        if (LOG_FINE) {
-          logger.fine("hint for " + rule.type + " " + pathString + " root: " + inclusion);
-        }
+        logger.atFine().log("hint for %s %s root: %s", rule.type, pathString, inclusion);
       }
       if (hints != null && !hints.isEmpty()) {
         return ImmutableList.copyOf(hints);
@@ -685,40 +671,64 @@ class IncludeParser {
       'a', Kind.NEXT_ANGLE);
 
   /**
-   * Processes the output generated by an auxiliary include-scanning binary. Closes the stream upon
-   * completion.
+   * Processes the output generated by an auxiliary include-scanning binary.
    *
    * <p>If a source file has the following include statements:
+   *
    * <pre>
    *   #include &lt;string&gt;
    *   #include "directory/header.h"
    * </pre>
    *
    * <p>Then the output file has the following contents:
+   *
    * <pre>
    *   "directory/header.h
    *   &lt;string
    * </pre>
+   *
    * <p>Each line of the output is translated into an Inclusion object.
    */
-  public static List<Inclusion> processIncludes(Object streamName, InputStream is)
-      throws IOException {
+  private static List<Inclusion> processIncludes(List<String> lines) throws IOException {
     List<Inclusion> inclusions = new ArrayList<>();
-    try (InputStreamReader reader = new InputStreamReader(is, ISO_8859_1)) {
-      for (String line : CharStreams.readLines(reader)) {
-        char qchar = line.charAt(0);
-        String name = line.substring(1);
-        Kind kind = KIND_MAP.get(qchar);
-        if (kind == null) {
-          throw new IOException("Illegal inclusion kind '" + qchar + "'");
-        }
-        inclusions.add(new Inclusion(name, kind));
+    for (String line : lines) {
+      if (line.isEmpty()) {
+        continue;
       }
-    } catch (IOException e) {
-      throw new IOException("Error reading include file " + streamName + ": " + e.getMessage());
+      char qchar = line.charAt(0);
+      String name = line.substring(1);
+      Kind kind = KIND_MAP.get(qchar);
+      if (kind == null) {
+        throw new IOException("Illegal inclusion kind '" + qchar + "'");
+      }
+      inclusions.add(new Inclusion(name, kind));
     }
     return inclusions;
   }
+
+  /** Processes the output generated by an auxiliary include-scanning binary stored in a file. */
+  public static List<Inclusion> processIncludes(Path file) throws IOException {
+    try {
+      byte[] data = FileSystemUtils.readContent(file);
+      return IncludeParser.processIncludes(Arrays.asList(new String(data, ISO_8859_1).split("\n")));
+    } catch (IOException e) {
+      throw new IOException("Error reading include file " + file + ": " + e.getMessage());
+    }
+  }
+
+  /**
+   * Processes the output generated by an auxiliary include-scanning binary read from a stream.
+   * Closes the stream upon completion.
+   */
+  public static List<Inclusion> processIncludes(Object streamName, InputStream is)
+      throws IOException {
+    try (InputStreamReader reader = new InputStreamReader(is, ISO_8859_1)) {
+      return processIncludes(CharStreams.readLines(reader));
+    } catch (IOException e) {
+      throw new IOException("Error reading include file " + streamName + ": " + e.getMessage());
+    }
+  }
+
 
   @VisibleForTesting
   Inclusion extractInclusion(String line) {
@@ -870,10 +880,8 @@ class IncludeParser {
                 FileSystemUtils.readContent(actionExecutionContext.getInputPath(file)));
       } catch (IOException e) {
         if (remoteIncludeScanner != null && grepIncludes != null) {
-          logger.log(
-              Level.WARNING,
-              "Falling back on remote parsing of " + actionExecutionContext.getInputPath(file),
-              e);
+          logger.atWarning().withCause(e).log(
+              "Falling back on remote parsing of %s", actionExecutionContext.getInputPath(file));
           inclusions =
               remoteIncludeScanner.extractInclusions(
                   file,
@@ -931,10 +939,8 @@ class IncludeParser {
                     FileSystemUtils.readContent(actionExecutionContext.getInputPath(file))));
       } catch (IOException e) {
         if (remoteIncludeScanner != null) {
-          logger.log(
-              Level.WARNING,
-              "Falling back on remote parsing of " + actionExecutionContext.getInputPath(file),
-              e);
+          logger.atWarning().withCause(e).log(
+              "Falling back on remote parsing of %s", actionExecutionContext.getInputPath(file));
           inclusions =
               remoteIncludeScanner.extractInclusionsAsync(
                   executor,

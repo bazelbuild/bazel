@@ -1,11 +1,14 @@
 load("@rules_java//java:defs.bzl", "java_test")
 
-licenses(["notice"])  # Apache 2.0
+package(
+    default_visibility = ["//src:__subpackages__"],
+)
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    testonly = 0,
+    srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_test(
@@ -14,22 +17,25 @@ java_test(
     srcs = glob(["*.java"]),
     shard_count = 10,
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:events",
-        "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/pkgcache",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/common:abstract-blaze-query-env",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:default_test_build_rules",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util:test-build-options",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/query2/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
     ],
 )

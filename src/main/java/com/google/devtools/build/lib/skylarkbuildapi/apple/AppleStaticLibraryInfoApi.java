@@ -17,35 +17,35 @@ package com.google.devtools.build.lib.skylarkbuildapi.apple;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * Interface for an info type containing information regarding multi-architecture Apple static
  * libraries.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AppleStaticLibrary",
-    category = SkylarkModuleCategory.PROVIDER,
-    doc = "A provider containing information regarding multi-architecture Apple static libraries, "
-        + "as is propagated by the apple_static_library rule."
-)
+    category = StarlarkDocumentationCategory.PROVIDER,
+    doc =
+        "A provider containing information regarding multi-architecture Apple static libraries, "
+            + "as is propagated by the apple_static_library rule.")
 public interface AppleStaticLibraryInfoApi extends StructApi {
 
-  /** Skylark name for this interface. */
-  String SKYLARK_NAME = "AppleStaticLibrary";
+  /** Starlark name for this interface. */
+  String STARLARK_NAME = "AppleStaticLibrary";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "archive",
       structField = true,
       doc = "The multi-arch archive (.a) output by apple_static_library.")
   FileApi getMultiArchArchive();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "objc",
       structField = true,
       doc =
@@ -58,8 +58,8 @@ public interface AppleStaticLibraryInfoApi extends StructApi {
           FileApiT extends FileApi, ObjcProviderApiT extends ObjcProviderApi<?>>
       extends ProviderApi {
 
-    @SkylarkCallable(
-        name = SKYLARK_NAME,
+    @StarlarkMethod(
+        name = STARLARK_NAME,
         doc = "The <code>AppleStaticLibrary</code> constructor.",
         parameters = {
           @Param(
@@ -78,7 +78,7 @@ public interface AppleStaticLibraryInfoApi extends StructApi {
                       + "linked into the archive."),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = AppleStaticLibraryInfoApi.class)
+    @StarlarkConstructor(objectType = AppleStaticLibraryInfoApi.class)
     AppleStaticLibraryInfoApi appleStaticLibrary(FileApiT archive, ObjcProviderApiT objcProvider)
         throws EvalException;
   }

@@ -30,7 +30,7 @@ public class CloseResourceMethodScanner extends ClassVisitor {
   private int classFileVersion;
 
   public CloseResourceMethodScanner() {
-    super(Opcodes.ASM7);
+    super(Opcodes.ASM8);
   }
 
   @Override
@@ -73,7 +73,7 @@ public class CloseResourceMethodScanner extends ClassVisitor {
     private boolean hasStackMapFrame;
 
     public StackMapFrameCollector(String name, String desc) {
-      super(Opcodes.ASM7);
+      super(Opcodes.ASM8);
       methodSignature = internalName + '.' + name + desc;
     }
 

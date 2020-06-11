@@ -15,11 +15,11 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.common.options.Options;
@@ -31,7 +31,7 @@ import java.util.Set;
  */
 public final class TestTrimmingTransitionFactory implements TransitionFactory<Rule> {
 
-  private static final Set<String> TEST_OPTIONS =
+  private static final ImmutableSet<String> TEST_OPTIONS =
       ImmutableSet.copyOf(Options.getDefaults(TestOptions.class).asMap().keySet());
 
   /**
@@ -41,7 +41,7 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     INSTANCE;
 
     @Override
-    public BuildOptions patch(BuildOptions originalOptions) {
+    public BuildOptions patch(BuildOptions originalOptions, EventHandler eventHandler) {
       if (!originalOptions.contains(TestOptions.class)) {
         // nothing to do, already trimmed this fragment
         return originalOptions;
@@ -51,13 +51,7 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
         // nothing to do, trimming is disabled
         return originalOptions;
       }
-      BuildOptions.Builder builder = BuildOptions.builder();
-      for (FragmentOptions options : originalOptions.getNativeOptions()) {
-        if (!(options instanceof TestOptions)) {
-          builder.addFragmentOptions(options);
-        }
-      }
-      return builder.build();
+      return originalOptions.toBuilder().removeFragmentOptions(TestOptions.class).build();
     }
   }
 

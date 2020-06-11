@@ -22,16 +22,16 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.IterablesChain;
@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.rules.android.databinding.DataBindingContex
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
+import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
 import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
@@ -66,14 +67,13 @@ import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import java.util.List;
 
 /**
@@ -96,7 +96,7 @@ public class AndroidCommon {
       ResourceSet.createWithRamCpu(/* memoryMb= */ 4096.0, /* cpuUsage= */ DEX_THREADS);
 
   public static final <T extends TransitiveInfoProvider> Iterable<T> getTransitivePrerequisites(
-      RuleContext ruleContext, Mode mode, final Class<T> classType) {
+      RuleContext ruleContext, TransitionMode mode, final Class<T> classType) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
@@ -108,7 +108,7 @@ public class AndroidCommon {
   }
 
   public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
-      RuleContext ruleContext, Mode mode, NativeProvider<T> key) {
+      RuleContext ruleContext, TransitionMode mode, NativeProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
@@ -120,7 +120,7 @@ public class AndroidCommon {
   }
 
   public static final <T extends Info> Iterable<T> getTransitivePrerequisites(
-      RuleContext ruleContext, Mode mode, BuiltinProvider<T> key) {
+      RuleContext ruleContext, TransitionMode mode, BuiltinProvider<T> key) {
     IterablesChain.Builder<T> builder = IterablesChain.builder();
     AttributeMap attributes = ruleContext.attributes();
     for (String attr : TRANSITIVE_ATTRIBUTES) {
@@ -277,7 +277,7 @@ public class AndroidCommon {
           .setDefinesAndroidResources(true)
           // Sets the possibly merged manifest and the raw manifest.
           .setGeneratedManifest(resourceApk.getManifest())
-          .setManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET))
+          .setManifest(ruleContext.getPrerequisiteArtifact("manifest", TransitionMode.TARGET))
           .setJavaPackage(getJavaPackage(ruleContext))
           .setResourceApk(resourceApk.getArtifact());
     }
@@ -380,7 +380,8 @@ public class AndroidCommon {
   public static NestedSetBuilder<Artifact> collectTransitiveNativeLibs(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> transitiveNativeLibs = NestedSetBuilder.naiveLinkOrder();
     Iterable<AndroidNativeLibsInfo> infos =
-        getTransitivePrerequisites(ruleContext, Mode.TARGET, AndroidNativeLibsInfo.PROVIDER);
+        getTransitivePrerequisites(
+            ruleContext, TransitionMode.TARGET, AndroidNativeLibsInfo.PROVIDER);
     for (AndroidNativeLibsInfo nativeLibsZipsInfo : infos) {
       transitiveNativeLibs.addTransitive(nativeLibsZipsInfo.getNativeLibs());
     }
@@ -464,20 +465,21 @@ public class AndroidCommon {
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
-    ImmutableList<Artifact> bootclasspath;
-    if (getAndroidConfig(ruleContext).desugarJava8()) {
-      bootclasspath =
-          ImmutableList.<Artifact>builder()
-              .addAll(
-                  ruleContext
-                      .getPrerequisiteArtifacts("$desugar_java8_extra_bootclasspath", Mode.HOST)
-                      .list())
-              .add(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar())
-              .build();
+    BootClassPathInfo bootClassPathInfo;
+    AndroidSdkProvider androidSdkProvider = AndroidSdkProvider.fromRuleContext(ruleContext);
+    if (androidSdkProvider.getSystem() != null) {
+      bootClassPathInfo = androidSdkProvider.getSystem();
     } else {
-      bootclasspath =
-          ImmutableList.of(AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar());
+      NestedSetBuilder<Artifact> bootclasspath = NestedSetBuilder.<Artifact>stableOrder();
+      if (getAndroidConfig(ruleContext).desugarJava8()) {
+        bootclasspath.addTransitive(
+            PrerequisiteArtifacts.nestedSet(
+                ruleContext, "$desugar_java8_extra_bootclasspath", TransitionMode.HOST));
+      }
+      bootclasspath.add(androidSdkProvider.getAndroidJar());
+      bootClassPathInfo = BootClassPathInfo.create(bootclasspath.build());
     }
+
     ImmutableList.Builder<String> javacopts = ImmutableList.builder();
     javacopts.addAll(androidSemantics.getCompatibleJavacOptions(ruleContext));
 
@@ -487,8 +489,7 @@ public class AndroidCommon {
     JavaTargetAttributes.Builder attributesBuilder =
         javaCommon
             .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts.build())
-            .setBootClassPath(
-                NestedSetBuilder.<Artifact>wrap(Order.NAIVE_LINK_ORDER, bootclasspath));
+            .setBootClassPath(bootClassPathInfo);
 
     resourceApk
         .asDataBindingContext()
@@ -723,17 +724,17 @@ public class AndroidCommon {
         && !isLibrary) {
       // Binary rule; allow extracting merged manifest from Starlark via
       // ctx.attr.android_binary.android.merged_manifest, but not much more.
-      builder.addSkylarkTransitiveInfo(
-          AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider(/*resourceInfo=*/ null));
+      builder.addStarlarkTransitiveInfo(
+          AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(/*resourceInfo=*/ null));
     } else {
       resourceApk.addToConfiguredTargetBuilder(
-          builder, ruleContext.getLabel(), /* includeSkylarkApiProvider = */ true, isLibrary);
+          builder, ruleContext.getLabel(), /* includeStarlarkApiProvider = */ true, isLibrary);
     }
 
     return builder
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(
-            JavaSkylarkApiProvider.NAME, JavaSkylarkApiProvider.fromRuleContext())
+        .addStarlarkTransitiveInfo(
+            JavaStarlarkApiProvider.NAME, JavaStarlarkApiProvider.fromRuleContext())
         .addNativeDeclaredProvider(javaInfo)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
         .addNativeDeclaredProvider(
@@ -823,7 +824,7 @@ public class AndroidCommon {
 
   static CcInfo getCcInfo(
       final Iterable<? extends TransitiveInfoCollection> deps,
-      final Collection<String> linkOpts,
+      final ImmutableList<String> linkOpts,
       Label label,
       SymbolGenerator<?> symbolGenerator) {
 
@@ -861,7 +862,8 @@ public class AndroidCommon {
   private NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (OutputGroupInfo provider :
-        getTransitivePrerequisites(ruleContext, Mode.TARGET, OutputGroupInfo.SKYLARK_CONSTRUCTOR)) {
+        getTransitivePrerequisites(
+            ruleContext, TransitionMode.TARGET, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
       builder.addTransitive(provider.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
     }
     return builder.build();
@@ -882,7 +884,7 @@ public class AndroidCommon {
       boolean isLibrary) {
 
     ImmutableList<Artifact> ruleSources =
-        ruleContext.getPrerequisiteArtifacts("srcs", RuleConfiguredTarget.Mode.TARGET).list();
+        ruleContext.getPrerequisiteArtifacts("srcs", TransitionMode.TARGET).list();
 
     ImmutableList<Artifact> dataBindingSources =
         dataBindingContext.getAnnotationSourceFiles(ruleContext);
@@ -904,8 +906,7 @@ public class AndroidCommon {
     } else {
       // Binary:
       compileDeps =
-          ImmutableList.copyOf(
-              ruleContext.getPrerequisites("deps", RuleConfiguredTarget.Mode.TARGET));
+          ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET));
       runtimeDeps = compileDeps;
       bothDeps = compileDeps;
     }
@@ -919,7 +920,8 @@ public class AndroidCommon {
    */
   static NestedSet<Artifact> getSupportApks(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> supportApks = NestedSetBuilder.stableOrder();
-    for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("support_apks", Mode.TARGET)) {
+    for (TransitiveInfoCollection dep :
+        ruleContext.getPrerequisites("support_apks", TransitionMode.TARGET)) {
       ApkInfo apkProvider = dep.get(ApkInfo.PROVIDER);
       FileProvider fileProvider = dep.getProvider(FileProvider.class);
       // If ApkInfo is present, do not check FileProvider for .apk files. For example,

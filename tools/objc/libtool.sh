@@ -34,14 +34,20 @@ fi
 
 WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
+TEMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/libtool.XXXXXXXX")"
+trap "rm -rf \"${TEMPDIR}\"" EXIT
+
 # Creates a symbolic link to the input argument file and returns the symlink
 # file path.
 function hash_objfile() {
   ORIGINAL_NAME="$1"
   ORIGINAL_HASH="$(/sbin/md5 -qs "${ORIGINAL_NAME}")"
-  SYMLINK_NAME="${ORIGINAL_NAME%.o}_${ORIGINAL_HASH}.o"
+  SYMLINK_NAME="${TEMPDIR}/$(basename "${ORIGINAL_NAME%.o}_${ORIGINAL_HASH}.o")"
   if [[ ! -e "$SYMLINK_NAME" ]]; then
-    ln -sf "$(basename "$ORIGINAL_NAME")" "$SYMLINK_NAME"
+    case "${ORIGINAL_NAME}" in
+      /*) ln -sf "$ORIGINAL_NAME" "$SYMLINK_NAME" ;;
+      *) ln -sf "$(pwd)/$ORIGINAL_NAME" "$SYMLINK_NAME" ;;
+    esac
   fi
   echo "$SYMLINK_NAME"
 }
@@ -66,8 +72,6 @@ while [[ $# -gt 0 ]]; do
       HASHED_FILELIST="${ARG%.objlist}_hashes.objlist"
       rm -f "${HASHED_FILELIST}"
       # Use python helper script for fast md5 calculation of many strings.
-      TEMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/libtool.XXXXXXXX")"
-      trap "rm -rf \"${TEMPDIR}\"" EXIT
       python "${MY_LOCATION}/make_hashed_objlist.py" \
         "${ARG}" "${HASHED_FILELIST}" "${TEMPDIR}"
       ARGS+=("${HASHED_FILELIST}")

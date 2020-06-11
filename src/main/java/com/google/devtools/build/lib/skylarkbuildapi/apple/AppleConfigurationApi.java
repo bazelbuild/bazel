@@ -14,22 +14,22 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.apple;
 
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.skylarkinterface.StarlarkDeprecated;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDeprecated;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** An interface for a configuration type containing info for Apple platforms and tools. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "apple",
     doc = "A configuration fragment for Apple platforms.",
-    category = SkylarkModuleCategory.CONFIGURATION_FRAGMENT)
+    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
 public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatformTypeApi>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ios_cpu",
       doc =
           "<b>Deprecated. Use <a href='#single_arch_cpu'>single_arch_cpu</a> instead.</b> "
@@ -37,7 +37,7 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
   @StarlarkDeprecated
   String getIosCpu();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "single_arch_cpu",
       structField = true,
       doc =
@@ -47,7 +47,7 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
               + " single-architecture compile actions).")
   String getSingleArchitecture();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "single_arch_platform",
       doc =
           "The platform of the current configuration. This should only be invoked in a context "
@@ -56,7 +56,7 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
       structField = true)
   ApplePlatformApi getSingleArchPlatform();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "multi_arch_platform",
       doc =
           "The platform of the current configuration for the given platform type. This should only "
@@ -72,7 +72,7 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
       })
   ApplePlatformApi getMultiArchPlatform(ApplePlatformTypeApiT platformType);
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "ios_cpu_platform",
       doc =
           "<b>Deprecated. Use <a href='#single_arch_platform'>single_arch_platform</a> or "
@@ -80,7 +80,7 @@ public interface AppleConfigurationApi<ApplePlatformTypeApiT extends ApplePlatfo
               + "The platform given by the ios_cpu flag.")
   ApplePlatformApi getIosCpuPlatform();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "bitcode_mode",
       doc =
           "Returns the Bitcode mode to use for compilation steps.<p>This field is only valid for"

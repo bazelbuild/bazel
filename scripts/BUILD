@@ -40,6 +40,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//scripts/docs:srcs",
+        "//scripts/fish:srcs",
         "//scripts/packages:srcs",
         "//scripts/release:srcs",
         "//scripts/zsh_completion:srcs",

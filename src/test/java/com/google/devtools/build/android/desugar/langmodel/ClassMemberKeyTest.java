@@ -29,149 +29,90 @@ public class ClassMemberKeyTest {
   @Test
   public void fieldKey_bridgeOfInstanceRead() {
     FieldKey fieldKey =
-        FieldKey.create(
-            /* ownerClass= */ "a/b/Charlie",
-            /* name= */ "instanceFieldOfLongType",
-            /* descriptor= */ "J");
+        FieldKey.create(ClassName.create("a/b/Charlie"), "instanceFieldOfLongType", "J");
     assertThat(fieldKey.bridgeOfInstanceRead())
         .isEqualTo(
             MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "instanceFieldOfLongType$bridge_getter",
-                /* descriptor= */ "(La/b/Charlie;)J"));
+                ClassName.create("a/b/Charlie"),
+                "instanceFieldOfLongType$bridge_getter",
+                "(La/b/Charlie;)J"));
   }
 
   @Test
   public void fieldKey_bridgeOfInstanceWrite() {
+
     FieldKey fieldKey =
-        FieldKey.create(
-            /* ownerClass= */ "a/b/Charlie",
-            /* name= */ "instanceFieldOfLongType",
-            /* descriptor= */ "J");
+        FieldKey.create(ClassName.create("a/b/Charlie"), "instanceFieldOfLongType", "J");
     assertThat(fieldKey.bridgeOfInstanceWrite())
         .isEqualTo(
             MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "instanceFieldOfLongType$bridge_setter",
-                /* descriptor= */ "(La/b/Charlie;J)J"));
+                ClassName.create("a/b/Charlie"),
+                "instanceFieldOfLongType$bridge_setter",
+                "(La/b/Charlie;J)J"));
   }
 
   @Test
   public void fieldKey_bridgeOfStaticRead() {
     FieldKey fieldKey =
-        FieldKey.create(
-            /* ownerClass= */ "a/b/Charlie",
-            /* name= */ "staticFieldOfLongType",
-            /* descriptor= */ "J");
+        FieldKey.create(ClassName.create("a/b/Charlie"), "staticFieldOfLongType", "J");
     assertThat(fieldKey.bridgeOfStaticRead())
         .isEqualTo(
             MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "staticFieldOfLongType$bridge_getter",
-                /* descriptor= */ "()J"));
+                ClassName.create("a/b/Charlie"), "staticFieldOfLongType$bridge_getter", "()J"));
   }
 
   @Test
   public void fieldKey_bridgeOfStaticWrite() {
     FieldKey fieldKey =
-        FieldKey.create(
-            /* ownerClass= */ "a/b/Charlie",
-            /* name= */ "staticFieldOfLongType",
-            /* descriptor= */ "J");
+        FieldKey.create(ClassName.create("a/b/Charlie"), "staticFieldOfLongType", "J");
     assertThat(fieldKey.bridgeOfStaticWrite())
         .isEqualTo(
             MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "staticFieldOfLongType$bridge_setter",
-                /* descriptor= */ "(J)J"));
+                ClassName.create("a/b/Charlie"), "staticFieldOfLongType$bridge_setter", "(J)J"));
   }
 
   @Test
   public void methodKey_bridgeOfClassInstanceMethod() {
-    MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie", /* name= */ "twoLongSum", /* descriptor= */ "(JJ)J");
+    MethodKey methodKey = MethodKey.create(ClassName.create("a/b/Charlie"), "twoLongSum", "(JJ)J");
     assertThat(methodKey.bridgeOfClassInstanceMethod())
         .isEqualTo(
             MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "twoLongSum$bridge",
-                /* descriptor= */ "(La/b/Charlie;JJ)J"));
+                ClassName.create("a/b/Charlie"), "twoLongSum$bridge", "(La/b/Charlie;JJ)J"));
   }
 
   @Test
   public void methodKey_bridgeOfClassStaticMethod() {
-    MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie", /* name= */ "twoLongSum", /* descriptor= */ "(JJ)J");
+    MethodKey methodKey = MethodKey.create(ClassName.create("a/b/Charlie"), "twoLongSum", "(JJ)J");
     assertThat(methodKey.bridgeOfClassStaticMethod())
-        .isEqualTo(
-            MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "twoLongSum$bridge",
-                /* descriptor= */ "(JJ)J"));
+        .isEqualTo(MethodKey.create(ClassName.create("a/b/Charlie"), "twoLongSum$bridge", "(JJ)J"));
   }
 
   @Test
   public void methodKey_bridgeOfConstructor() {
-    MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie", /* name= */ "<init>", /* descriptor= */ "(JJ)V");
-    assertThat(methodKey.bridgeOfConstructor())
+    MethodKey methodKey = MethodKey.create(ClassName.create("a/b/Charlie"), "<init>", "(JJ)V");
+    assertThat(methodKey.bridgeOfConstructor(ClassName.create("a/b/Charlie$NestCC")))
         .isEqualTo(
             MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "<init>",
-                /* descriptor= */ "(JJLa/b/Charlie$NestCC;)V"));
+                ClassName.create("a/b/Charlie"), "<init>", "(JJLa/b/Charlie$NestCC;)V"));
   }
 
   @Test
   public void methodKey_substituteOfInterfaceInstanceMethod() {
     MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie",
-            /* name= */ "instanceInstanceMethod",
-            /* descriptor= */ "(JJ)J");
+        MethodKey.create(ClassName.create("a/b/Charlie"), "instanceInstanceMethod", "(JJ)J");
     assertThat(methodKey.substituteOfInterfaceInstanceMethod())
         .isEqualTo(
             MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "instanceInstanceMethod",
-                /* descriptor= */ "(La/b/Charlie;JJ)J"));
+                ClassName.create("a/b/Charlie"), "instanceInstanceMethod", "(La/b/Charlie;JJ)J"));
   }
 
   @Test
   public void methodKey_substituteOfInterfaceStaticMethod() {
+
     MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie",
-            /* name= */ "instanceStaticMethod",
-            /* descriptor= */ "(JJ)J");
+        MethodKey.create(ClassName.create("a/b/Charlie"), "instanceStaticMethod", "(JJ)J");
     assertThat(methodKey.substituteOfInterfaceStaticMethod())
         .isEqualTo(
-            MethodKey.create(
-                /* ownerClass= */ "a/b/Charlie",
-                /* name= */ "instanceStaticMethod",
-                /* descriptor= */ "(JJ)J"));
-  }
-
-  @Test
-  public void nestHost() {
-    MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie$Depth1$Depth2",
-            /* name= */ "instanceStaticMethod",
-            /* descriptor= */ "(JJ)J");
-    assertThat(methodKey.nestHost()).isEqualTo("a/b/Charlie");
-  }
-
-  @Test
-  public void nestCompanion() {
-    MethodKey methodKey =
-        MethodKey.create(
-            /* ownerClass= */ "a/b/Charlie$Depth1$Depth2",
-            /* name= */ "instanceStaticMethod",
-            /* descriptor= */ "(JJ)J");
-    assertThat(methodKey.nestCompanion()).isEqualTo("a/b/Charlie$NestCC");
+            MethodKey.create(ClassName.create("a/b/Charlie"), "instanceStaticMethod", "(JJ)J"));
   }
 }

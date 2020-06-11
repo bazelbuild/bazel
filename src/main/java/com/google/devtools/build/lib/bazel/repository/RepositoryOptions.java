@@ -115,7 +115,7 @@ public class RepositoryOptions extends OptionsBase {
   @Option(
       name = "experimental_verify_repository_rules",
       allowMultiple = true,
-      defaultValue = "",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},

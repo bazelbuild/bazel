@@ -14,57 +14,54 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Wrapper for every C++ compilation and linking provider. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "CcInfo",
-    category = SkylarkModuleCategory.PROVIDER,
+    category = StarlarkDocumentationCategory.PROVIDER,
     doc =
         "A provider for compilation and linking of C++. This "
             + "is also a marking provider telling C++ rules that they can depend on the rule "
             + "with this provider. If it is not intended for the rule to be depended on by C++, "
             + "the rule should wrap the CcInfo in some other provider.")
-public interface CcInfoApi extends StructApi {
+public interface CcInfoApi<FileT extends FileApi> extends StructApi {
   String NAME = "CcInfo";
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compilation_context",
       doc = "Returns the <code>CompilationContext</code>",
       structField = true)
-  CcCompilationContextApi getCcCompilationContext();
+  CcCompilationContextApi<FileT> getCcCompilationContext();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "linking_context",
       doc = "Returns the <code>LinkingContext</code>",
       structField = true)
   CcLinkingContextApi<?> getCcLinkingContext();
 
   /** The provider implementing this can construct CcInfo objects. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc = "",
       // This object is documented via the CcInfo documentation and the docuemntation of its
       // callable function.
       documented = false)
-  interface Provider extends ProviderApi {
+  interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>CcInfo</code> constructor.",
-        useLocation = true,
-        useStarlarkThread = true,
         parameters = {
           @Param(
               name = "compilation_context",
@@ -90,9 +87,8 @@ public interface CcInfoApi extends StructApi {
               })
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = CcInfoApi.class, receiverNameForDoc = NAME)
-    CcInfoApi createInfo(
-        Object ccCompilationContext, Object ccLinkingInfo, Location location, StarlarkThread thread)
+    @StarlarkConstructor(objectType = CcInfoApi.class, receiverNameForDoc = NAME)
+    CcInfoApi<FileT> createInfo(Object ccCompilationContext, Object ccLinkingInfo)
         throws EvalException;
   }
 }

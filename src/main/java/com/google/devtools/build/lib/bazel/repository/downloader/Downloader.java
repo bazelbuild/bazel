@@ -43,6 +43,7 @@ public interface Downloader {
       List<URL> urls,
       Map<URI, Map<String, String>> authHeaders,
       Optional<Checksum> checksum,
+      String canonicalId,
       Path output,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv)

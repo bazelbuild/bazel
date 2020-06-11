@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.License;
@@ -27,7 +26,8 @@ public interface LicensesProvider extends TransitiveInfoProvider {
   /**
    * The set of label - license associations in the transitive closure.
    *
-   * <p>Always returns an empty set if {@link BuildConfiguration#checkLicenses()} is false.
+   * <p>Always returns an empty set if {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration#checkLicenses()} is false.
    */
   NestedSet<TargetLicense> getTransitiveLicenses();
 

@@ -42,22 +42,24 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
 import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.extra.CppLinkInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.skylark.Args;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
+import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -314,7 +316,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     Spawn spawn = createSpawn(actionExecutionContext);
     SpawnContinuation spawnContinuation =
         actionExecutionContext
-            .getContext(SpawnActionContext.class)
+            .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
     return new CppLinkActionContinuation(actionExecutionContext, spawnContinuation);
   }
@@ -566,11 +568,21 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
+        Label label = getOwner().getLabel();
         throw e.toActionExecutionException(
-            "Linking of rule '" + getOwner().getLabel() + "'",
-            actionExecutionContext.getVerboseFailures(),
+            "Linking of rule '" + label + "'",
+            actionExecutionContext.showVerboseFailures(label),
             CppLinkAction.this);
       }
+    }
+  }
+
+  @Override
+  public Sequence<String> getStarlarkArgv() throws EvalException {
+    try {
+      return StarlarkList.immutableCopyOf(getArguments());
+    } catch (CommandLineExpansionException exception) {
+      throw new EvalException(Location.BUILTIN, exception);
     }
   }
 }

@@ -20,29 +20,24 @@ import javax.annotation.Nullable;
  *
  * <p>Parameters may be of four forms, as in {@code def f(a, b=c, *args, **kwargs)}. They are
  * represented by the subclasses Mandatory, Optional, Star, and StarStar.
- *
- * <p>See FunctionSignature for how a valid list of Parameters is organized as a signature, e.g. def
- * foo(mandatory, optional = e1, *args, mandatorynamedonly, optionalnamedonly = e2, **kw): ...
- *
- * <p>V is the class of a defaultValue (Expression at compile-time, Object at runtime), T is the
- * class of a type (Expression at compile-time, SkylarkType at runtime).
  */
 public abstract class Parameter extends Node {
 
-  @Nullable private final Identifier identifier;
+  @Nullable private final Identifier id;
 
-  private Parameter(@Nullable Identifier identifier) {
-    this.identifier = identifier;
+  private Parameter(FileLocations locs, @Nullable Identifier id) {
+    super(locs);
+    this.id = id;
   }
 
   @Nullable
   public String getName() {
-    return identifier != null ? identifier.getName() : null;
+    return id != null ? id.getName() : null;
   }
 
   @Nullable
   public Identifier getIdentifier() {
-    return identifier;
+    return id;
   }
 
   @Nullable
@@ -55,8 +50,18 @@ public abstract class Parameter extends Node {
    * depending on its position.
    */
   public static final class Mandatory extends Parameter {
-    Mandatory(Identifier identifier) {
-      super(identifier);
+    Mandatory(FileLocations locs, Identifier id) {
+      super(locs, id);
+    }
+
+    @Override
+    public int getStartOffset() {
+      return getIdentifier().getStartOffset();
+    }
+
+    @Override
+    public int getEndOffset() {
+      return getIdentifier().getEndOffset();
     }
   }
 
@@ -68,8 +73,8 @@ public abstract class Parameter extends Node {
 
     public final Expression defaultValue;
 
-    Optional(Identifier identifier, @Nullable Expression defaultValue) {
-      super(identifier);
+    Optional(FileLocations locs, Identifier id, @Nullable Expression defaultValue) {
+      super(locs, id);
       this.defaultValue = defaultValue;
     }
 
@@ -80,22 +85,58 @@ public abstract class Parameter extends Node {
     }
 
     @Override
+    public int getStartOffset() {
+      return getIdentifier().getStartOffset();
+    }
+
+    @Override
+    public int getEndOffset() {
+      return getDefaultValue().getEndOffset();
+    }
+
+    @Override
     public String toString() {
       return getName() + "=" + defaultValue;
     }
   }
 
-  /** Syntax node for a star parameter, {@code f(*identifier)} or or {@code f(..., *, ...)}. */
+  /** Syntax node for a star parameter, {@code f(*id)} or or {@code f(..., *, ...)}. */
   public static final class Star extends Parameter {
-    Star(@Nullable Identifier identifier) {
-      super(identifier);
+    private final int starOffset;
+
+    Star(FileLocations locs, int starOffset, @Nullable Identifier id) {
+      super(locs, id);
+      this.starOffset = starOffset;
+    }
+
+    @Override
+    public int getStartOffset() {
+      return starOffset;
+    }
+
+    @Override
+    public int getEndOffset() {
+      return getIdentifier().getEndOffset();
     }
   }
 
-  /** Syntax node for a parameter of the form {@code f(**identifier)}. */
+  /** Syntax node for a parameter of the form {@code f(**id)}. */
   public static final class StarStar extends Parameter {
-    StarStar(Identifier identifier) {
-      super(identifier);
+    private final int starStarOffset;
+
+    StarStar(FileLocations locs, int starStarOffset, Identifier id) {
+      super(locs, id);
+      this.starStarOffset = starStarOffset;
+    }
+
+    @Override
+    public int getStartOffset() {
+      return starStarOffset;
+    }
+
+    @Override
+    public int getEndOffset() {
+      return getIdentifier().getEndOffset();
     }
   }
 

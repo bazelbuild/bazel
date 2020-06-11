@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetExpander;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -68,7 +70,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
 
   @Test
   public void testInputArtifactIsInput() {
-    Iterable<Artifact> inputs = action.getInputs();
+    Iterable<Artifact> inputs = action.getInputs().toList();
     assertThat(inputs).containsExactly(inputArtifact);
   }
 
@@ -89,6 +91,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 ActionInputPrefetcher.NONE,
                 actionKeyContext,
                 /*metadataHandler=*/ null,
+                /*rewindingEnabled=*/ false,
                 LostInputsCheck.NONE,
                 /*fileOutErr=*/ null,
                 new StoredEventHandler(),
@@ -96,7 +99,8 @@ public class SymlinkActionTest extends BuildViewTestCase {
                 /*topLevelFilesets=*/ ImmutableMap.of(),
                 /*artifactExpander=*/ null,
                 /*actionFileSystem=*/ null,
-                /*skyframeDepsResult=*/ null));
+                /*skyframeDepsResult=*/ null,
+                NestedSetExpander.DEFAULT));
     assertThat(actionResult.spawnResults()).isEmpty();
     assertThat(output.isSymbolicLink()).isTrue();
     assertThat(output.resolveSymbolicLinks()).isEqualTo(input);
@@ -108,6 +112,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
   public void testCodec() throws Exception {
     new SerializationTester(action)
         .addDependency(FileSystem.class, scratch.getFileSystem())
+        .addDependency(Root.RootCodecDependencies.class, new Root.RootCodecDependencies(root))
         .addDependencies(SerializationDepsUtils.SERIALIZATION_DEPS_FOR_TEST)
         .setVerificationFunction(
             (in, out) -> {

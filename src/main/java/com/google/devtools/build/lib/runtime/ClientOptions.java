@@ -98,15 +98,14 @@ public class ClientOptions extends OptionsBase {
   }
 
   @Option(
-    name = "client_env",
-    defaultValue = "",
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    converter = Converters.AssignmentConverter.class,
-    allowMultiple = true,
-    help = "A system-generated parameter which specifies the client's environment"
-  )
+      name = "client_env",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      converter = Converters.AssignmentConverter.class,
+      allowMultiple = true,
+      help = "A system-generated parameter which specifies the client's environment")
   public List<Map.Entry<String, String>> clientEnv;
 
   /**
@@ -116,26 +115,24 @@ public class ClientOptions extends OptionsBase {
    * <p>For example: "--default_override=rc:build=--cpu=piii"
    */
   @Option(
-    name = "default_override",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    converter = OptionOverrideConverter.class,
-    help = ""
-  )
+      name = "default_override",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      converter = OptionOverrideConverter.class,
+      help = "")
   public List<OptionOverride> optionsOverrides;
 
   /** This is the filename that the Blaze client parsed. */
   @Option(
-    name = "rc_source",
-    defaultValue = "",
-    allowMultiple = true,
-    documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-    effectTags = {OptionEffectTag.CHANGES_INPUTS},
-    metadataTags = {OptionMetadataTag.HIDDEN},
-    help = ""
-  )
+      name = "rc_source",
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.HIDDEN},
+      help = "")
   public List<String> rcSource;
 }

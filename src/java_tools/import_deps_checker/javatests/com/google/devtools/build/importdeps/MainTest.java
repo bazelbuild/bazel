@@ -15,7 +15,7 @@
 package com.google.devtools.build.importdeps;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import java.nio.file.Path;
 import org.junit.Ignore;

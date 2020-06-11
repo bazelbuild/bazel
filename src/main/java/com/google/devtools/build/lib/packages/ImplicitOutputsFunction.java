@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static java.util.Collections.singleton;
 import static java.util.stream.Collectors.toCollection;
 
@@ -28,11 +27,12 @@ import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.ClassObject;
+import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -61,9 +61,10 @@ import java.util.Set;
 public abstract class ImplicitOutputsFunction {
 
   /**
-   * Implicit output functions for Skylark supporting key value access of expanded implicit outputs.
+   * Implicit output functions for Starlark supporting key value access of expanded implicit
+   * outputs.
    */
-  public abstract static class SkylarkImplicitOutputsFunction extends ImplicitOutputsFunction {
+  public abstract static class StarlarkImplicitOutputsFunction extends ImplicitOutputsFunction {
 
     public abstract ImmutableMap<String, String> calculateOutputs(
         EventHandler eventHandler, AttributeMap map) throws EvalException, InterruptedException;
@@ -75,15 +76,15 @@ public abstract class ImplicitOutputsFunction {
     }
   }
 
-  /** Implicit output functions executing Skylark code. */
+  /** Implicit output functions executing Starlark code. */
   @AutoCodec
-  public static final class SkylarkImplicitOutputsFunctionWithCallback
-      extends SkylarkImplicitOutputsFunction {
+  public static final class StarlarkImplicitOutputsFunctionWithCallback
+      extends StarlarkImplicitOutputsFunction {
 
     private final StarlarkCallbackHelper callback;
     private final Location loc;
 
-    public SkylarkImplicitOutputsFunctionWithCallback(
+    public StarlarkImplicitOutputsFunctionWithCallback(
         StarlarkCallbackHelper callback, Location loc) {
       this.callback = callback;
       this.loc = loc;
@@ -100,7 +101,7 @@ public abstract class ImplicitOutputsFunction {
         if (!map.isConfigurable(attrName)) {
           Object value = map.get(attrName, attrType);
           attrValues.put(
-              Attribute.getSkylarkName(attrName), Starlark.fromJava(value, /*mutability=*/ null));
+              Attribute.getStarlarkName(attrName), Starlark.fromJava(value, /*mutability=*/ null));
         }
       }
       ClassObject attrs =
@@ -111,7 +112,7 @@ public abstract class ImplicitOutputsFunction {
       try {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (Map.Entry<String, String> entry :
-            castMap(
+            Dict.cast(
                     callback.call(eventHandler, attrs),
                     String.class,
                     String.class,
@@ -140,12 +141,12 @@ public abstract class ImplicitOutputsFunction {
 
   /** Implicit output functions using a simple an output map. */
   @AutoCodec
-  public static final class SkylarkImplicitOutputsFunctionWithMap
-      extends SkylarkImplicitOutputsFunction {
+  public static final class StarlarkImplicitOutputsFunctionWithMap
+      extends StarlarkImplicitOutputsFunction {
 
     private final ImmutableMap<String, String> outputMap;
 
-    public SkylarkImplicitOutputsFunctionWithMap(ImmutableMap<String, String> outputMap) {
+    public StarlarkImplicitOutputsFunctionWithMap(ImmutableMap<String, String> outputMap) {
       this.outputMap = outputMap;
     }
 

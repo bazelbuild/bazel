@@ -416,6 +416,22 @@ public class CppRuleClasses {
 
   public static final String COMPIILER_PARAM_FILE = "compiler_param_file";
 
+  /**
+   * A feature to indicate that this target generates debug symbols for a dSYM file. For Apple
+   * platform only.
+   */
+  public static final String GENERATE_DSYM_FILE_FEATURE_NAME = "generate_dsym_file";
+
+  /**
+   * A feature to indicate that this target does not generate debug symbols. For Apple platform
+   * only.
+   *
+   * <p>Note that the crosstool does not support feature negation in FlagSet.with_feature, which is
+   * the mechanism used to condition linker arguments here. Therefore, we expose
+   * "no_generate_debug_symbols" in addition to "generate_dsym_file"
+   */
+  public static final String NO_GENERATE_DEBUG_SYMBOLS_FEATURE_NAME = "no_generate_debug_symbols";
+
   /** Ancestor for all rules that do include scanning. */
   public static final class CcIncludeScanningRule implements RuleDefinition {
     @Override

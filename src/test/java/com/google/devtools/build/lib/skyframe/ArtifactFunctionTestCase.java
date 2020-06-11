@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -87,10 +88,12 @@ abstract class ArtifactFunctionTestCase {
             root,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    ExternalFilesHelper externalFilesHelper = ExternalFilesHelper.createForTesting(
-        pkgLocator,
-        ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
-        directories);
+    ExternalFilesHelper externalFilesHelper =
+        ExternalFilesHelper.createForTesting(
+            pkgLocator,
+            ExternalFileAction.DEPEND_ON_EXTERNAL_PKG_FOR_EXTERNAL_REPO_PATHS,
+            directories,
+            BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER);
     differencer = new SequencedRecordingDifferencer();
     evaluator =
         new InMemoryMemoizingEvaluator(
@@ -106,13 +109,14 @@ abstract class ArtifactFunctionTestCase {
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(
                     SkyFunctions.PACKAGE,
-                    new PackageFunction(null, null, null, null, null, null, null))
+                    new PackageFunction(null, null, null, null, null, null, null, null))
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(
                         null,
                         CrossRepositoryLabelViolationStrategy.ERROR,
-                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY))
+                        BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
@@ -120,12 +124,15 @@ abstract class ArtifactFunctionTestCase {
                     WorkspaceFileValue.WORKSPACE_FILE,
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
-                        TestConstants.PACKAGE_FACTORY_BUILDER_FACTORY_FOR_TESTING
+                        TestPackageFactoryBuilderFactory.getInstance()
                             .builder(directories)
                             .build(TestRuleClassProvider.getRuleClassProvider(), fs),
                         directories,
-                        /*skylarkImportLookupFunctionForInlining=*/ null))
-                .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
+                        /*bzlLoadFunctionForInlining=*/ null))
+                .put(
+                    SkyFunctions.EXTERNAL_PACKAGE,
+                    new ExternalPackageFunction(
+                        BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER))
                 .put(
                     SkyFunctions.ACTION_TEMPLATE_EXPANSION,
                     new ActionTemplateExpansionFunction(actionKeyContext))

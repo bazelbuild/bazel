@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.lib.util.Pair;
 import javax.annotation.Nullable;
@@ -27,7 +27,7 @@ import javax.annotation.Nullable;
  * <p>Every non-abstract derived class of {@link NativeProvider} corresponds to a single declared
  * provider. This is enforced by final {@link #equals(Object)} and {@link #hashCode()}.
  *
- * <p>Typical implementation of a non-constructable from Skylark declared provider is as follows:
+ * <p>Typical implementation of a non-constructable from Starlark declared provider is as follows:
  *
  * <pre>
  *     public static final Provider PROVIDER = new NativeProvider("link_params") {};
@@ -49,15 +49,15 @@ public abstract class NativeProvider<V extends Info> implements StarlarkValue, P
   }
 
   /**
-   * Implement this to mark that a native provider should be exported with certain name to Skylark.
+   * Implement this to mark that a native provider should be exported with certain name to Starlark.
    * Broken: only works for rules, not for aspects. DO NOT USE FOR NEW CODE!
    *
    * <p>Use native declared providers mechanism exclusively to expose providers to both native and
-   * Skylark code.
+   * Starlark code.
    */
   @Deprecated
-  public interface WithLegacySkylarkName {
-    String getSkylarkName();
+  public interface WithLegacyStarlarkName {
+    String getStarlarkName();
   }
 
   protected NativeProvider(Class<V> valueClass, String name) {
@@ -68,8 +68,13 @@ public abstract class NativeProvider<V extends Info> implements StarlarkValue, P
         String.format("'%s' value has no field or method '%%s'", name);
   }
 
-  public final SkylarkProviderIdentifier id() {
-    return SkylarkProviderIdentifier.forKey(getKey());
+  public final StarlarkProviderIdentifier id() {
+    return StarlarkProviderIdentifier.forKey(getKey());
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   /**

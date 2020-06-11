@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ARTIFACT_OWNER;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -75,7 +75,7 @@ public class ArtifactFactoryTest {
     clientRoot = Root.fromPath(scratch.dir("/client/workspace"));
     clientRoRoot = Root.fromPath(scratch.dir("/client/RO/workspace"));
     alienRoot = Root.fromPath(scratch.dir("/client/workspace"));
-    outRoot = ArtifactRoot.asDerivedRoot(execRoot, execRoot.getRelative("out-root/x/bin"));
+    outRoot = ArtifactRoot.asDerivedRoot(execRoot, "out-root", "x", "bin");
 
     fooPath = PathFragment.create("foo");
     fooPackage = PackageIdentifier.createInMainRepo(fooPath);

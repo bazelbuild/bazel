@@ -65,7 +65,7 @@ public class XcodeConfigRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(remote_versions) -->
-        The <code>xcode_version<code> targets that are avaialable remotely.
+        The <code>xcode_version<code> targets that are available remotely.
         These are used along with <code>remote_versions</code> to select a mutually available
         version. This may not be set if <code>versions</code> is set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -75,7 +75,7 @@ public class XcodeConfigRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(local_versions) -->
-        The <code>xcode_version<code> targets that are avaialable locally.
+        The <code>xcode_version<code> targets that are available locally.
         These are used along with <code>local_versions</code> to select a mutually available
         version. This may not be set if <code>versions</code> is set.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

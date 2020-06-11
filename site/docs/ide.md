@@ -11,7 +11,7 @@ highlighting of the BUILD files.
 
 If you are interested in developing an editor or IDE plugin for Bazel, please
 join the `#ide` channel on the [Bazel Slack](https://slack.bazel.build) or email
-[bazel-dev@googlegroups.com](bazel-dev@googlegroups.com).
+the [bazel-dev](https://groups.google.com/forum/#!forum/bazel-dev) mailing list.
 
 ## IDEs and editors
 

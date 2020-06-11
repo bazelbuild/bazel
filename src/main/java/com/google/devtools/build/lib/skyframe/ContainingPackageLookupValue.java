@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nonnull;
 
@@ -105,7 +104,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
     return message;
   }
 
-  /** {@link SkyKey} for {@code ContainingPackageLookupValue}. */
+  /** {@link com.google.devtools.build.skyframe.SkyKey} for {@code ContainingPackageLookupValue}. */
   @AutoCodec
   public static class Key extends AbstractSkyKey<PackageIdentifier> {
     private static final Interner<Key> interner = BlazeInterners.newWeakInterner();

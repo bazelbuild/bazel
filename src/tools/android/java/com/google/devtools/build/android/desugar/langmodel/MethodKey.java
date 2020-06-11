@@ -17,24 +17,23 @@
 package com.google.devtools.build.android.desugar.langmodel;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.auto.value.AutoValue;
-import java.util.Arrays;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import java.util.List;
 import org.objectweb.asm.Type;
 
 /** The key to index a class or interface method or constructor. */
 @AutoValue
-public abstract class MethodKey extends ClassMemberKey {
+public abstract class MethodKey extends ClassMemberKey<MethodKey> {
+
+  private static final Splitter COLON_SPLITTER = Splitter.on(":");
 
   /** The factory method for {@link MethodKey}. */
-  public static MethodKey create(String ownerClass, String name, String descriptor) {
-    checkState(
-        !ownerClass.contains("."),
-        "Expected a binary/internal class name ('/'-delimited) instead of a qualified name."
-            + " Actual: (%s#%s:%s)",
-        ownerClass,
-        name,
-        descriptor);
+  public static MethodKey create(ClassName ownerClass, String name, String descriptor) {
     checkState(
         descriptor.isEmpty() // Allows empty descriptor for non-overloaded methods.
             || descriptor.startsWith("("),
@@ -45,58 +44,122 @@ public abstract class MethodKey extends ClassMemberKey {
     return new AutoValue_MethodKey(ownerClass, name, descriptor);
   }
 
+  public final String encode() {
+    return ownerName() + ":" + name() + ":" + descriptor();
+  }
+
+  public static MethodKey decode(String textFormat) {
+    List<String> payloads = COLON_SPLITTER.splitToList(textFormat);
+    checkState(payloads.size() == 3, "Invalid text format for method key: Actual(%s)", textFormat);
+    return MethodKey.create(ClassName.create(payloads.get(0)), payloads.get(1), payloads.get(2));
+  }
+
+  public static MethodKey fromProto(MethodId methodId) {
+    return create(ClassName.create(methodId.getOwner()), methodId.getName(), methodId.getDesc());
+  }
+
+  public MethodId toMethodIdProto() {
+    return MethodId.newBuilder()
+        .setOwner(ownerName())
+        .setName(name())
+        .setDesc(descriptor())
+        .build();
+  }
+
   /** The return type of a method. */
   public Type getReturnType() {
     return Type.getReturnType(descriptor());
   }
 
+  /** The return type of a method. */
+  public ClassName getReturnTypeName() {
+    return ClassName.create(Type.getReturnType(descriptor()));
+  }
+
   /** The formal parameter types of a method. */
-  public Type[] getArgumentTypes() {
+  public Type[] getArgumentTypeArray() {
     return Type.getArgumentTypes(descriptor());
   }
 
-  /** The synthetic constructor for a private constructor. */
-  public final MethodKey bridgeOfConstructor() {
-    checkState(isConstructor(), "Expect to use for a constructor but is %s", this);
-    Type companionClassType = Type.getObjectType(nestCompanion());
-    Type[] argumentTypes = getArgumentTypes();
-    Type[] bridgeConstructorArgTypes = Arrays.copyOf(argumentTypes, argumentTypes.length + 1);
-    bridgeConstructorArgTypes[argumentTypes.length] = companionClassType;
+  /** The formal parameter types of a method. */
+  public ImmutableList<Type> getArgumentTypes() {
+    return ImmutableList.copyOf(getArgumentTypeArray());
+  }
+
+  /** The formal parameter type names of a method. */
+  public ImmutableList<ClassName> getArgumentTypeNames() {
+    return getArgumentTypes().stream().map(ClassName::create).collect(toImmutableList());
+  }
+
+  /**
+   * Returns the set of all types referenced in the method header, i.e. all types in the method
+   * return type and argument types.
+   */
+  public ImmutableSet<ClassName> getHeaderTypeNameSet() {
+    return ImmutableSet.<ClassName>builder()
+        .add(getReturnTypeName())
+        .addAll(getArgumentTypeNames())
+        .build();
+  }
+
+  public MethodKey toAdapterMethodForArgsAndReturnTypes(
+      boolean fromStaticOrigin, int invocationSiteHashCode) {
+    checkState(
+        !isConstructor(), "Argument type adapter for constructor is not supported: %s. ", this);
     return MethodKey.create(
-        owner(), name(), Type.getMethodDescriptor(getReturnType(), bridgeConstructorArgTypes));
+            owner().typeAdapterOwner(invocationSiteHashCode),
+            name(),
+            fromStaticOrigin ? descriptor() : instanceMethodToStaticDescriptor())
+        .acceptTypeMapper(ClassName.SHADOWED_TO_MIRRORED_TYPE_MAPPER);
+  }
+
+  /** The synthetic constructor for a private constructor. */
+  public final MethodKey bridgeOfConstructor(ClassName nestCompanion) {
+    checkState(isConstructor(), "Expect to use for a constructor but is %s", this);
+    Type companionClassType = nestCompanion.toAsmObjectType();
+    ImmutableList<Type> argumentTypes = getArgumentTypes();
+    ImmutableList<Type> bridgeConstructorArgTypes =
+        ImmutableList.<Type>builder().addAll(argumentTypes).add(companionClassType).build();
+    return create(
+        owner(),
+        name(),
+        Type.getMethodDescriptor(getReturnType(), bridgeConstructorArgTypes.toArray(new Type[0])));
   }
 
   /** The synthetic bridge method for a private static method in a class. */
   public final MethodKey bridgeOfClassStaticMethod() {
     checkState(!isConstructor(), "Expect a non-constructor method but is a constructor %s", this);
-    return MethodKey.create(owner(), nameWithSuffix("bridge"), descriptor());
+    return create(owner(), nameWithSuffix("bridge"), descriptor());
   }
 
   /** The synthetic bridge method for a private instance method in a class. */
   public final MethodKey bridgeOfClassInstanceMethod() {
-    return MethodKey.create(
-        owner(), nameWithSuffix("bridge"), instanceMethodToStaticDescriptor(this));
+    return create(owner(), nameWithSuffix("bridge"), this.instanceMethodToStaticDescriptor());
   }
 
   /** The substitute method for a private static method in an interface. */
   public final MethodKey substituteOfInterfaceStaticMethod() {
     checkState(!isConstructor(), "Expect a non-constructor: %s", this);
-    return MethodKey.create(owner(), name(), descriptor());
+    return create(owner(), name(), descriptor());
   }
 
   /** The substitute method for a private instance method in an interface. */
   public final MethodKey substituteOfInterfaceInstanceMethod() {
-    return MethodKey.create(owner(), name(), instanceMethodToStaticDescriptor(this));
+    return create(owner(), name(), this.instanceMethodToStaticDescriptor());
   }
 
   /** The descriptor of the static version of a given instance method. */
-  private static String instanceMethodToStaticDescriptor(MethodKey methodKey) {
-    checkState(!methodKey.isConstructor(), "Expect a Non-constructor method: %s", methodKey);
-    Type[] argumentTypes = methodKey.getArgumentTypes();
-    Type[] bridgeMethodArgTypes = new Type[argumentTypes.length + 1];
-    bridgeMethodArgTypes[0] = Type.getObjectType(methodKey.owner());
-    System.arraycopy(argumentTypes, 0, bridgeMethodArgTypes, 1, argumentTypes.length);
-    return Type.getMethodDescriptor(methodKey.getReturnType(), bridgeMethodArgTypes);
+  public final String instanceMethodToStaticDescriptor() {
+    checkState(!isConstructor(), "Expect a Non-constructor method: %s", this);
+    ImmutableList<Type> argumentTypes = getArgumentTypes();
+    ImmutableList<Type> bridgeMethodArgTypes =
+        ImmutableList.<Type>builder().add(ownerAsmObjectType()).addAll(argumentTypes).build();
+    return Type.getMethodDescriptor(getReturnType(), bridgeMethodArgTypes.toArray(new Type[0]));
+  }
+
+  @Override
+  public MethodKey acceptTypeMapper(TypeMapper typeMapper) {
+    return MethodKey.create(typeMapper.map(owner()), name(), typeMapper.mapDesc(descriptor()));
   }
 
   /**

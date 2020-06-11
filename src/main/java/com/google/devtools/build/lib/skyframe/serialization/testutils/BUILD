@@ -5,6 +5,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -17,12 +18,16 @@ java_library(
             "SerializationDepsUtils.java",
         ],
     ),
+    runtime_deps = [
+        "//src/test/java/com/google/devtools/build/lib/vfs/util",  # For FileSystem modules
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -50,7 +55,8 @@ java_library(
     srcs = ["FakeDirectories.java"],
     deps = [
         ":testutils",
-        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/vfs",
     ],
 )

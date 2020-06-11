@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -48,7 +49,7 @@ public class ConfigFeatureFlagTaggedTrimmingTransitionFactory implements Transit
     }
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
       if (!(options.contains(ConfigFeatureFlagOptions.class)
           && options.get(ConfigFeatureFlagOptions.class)
               .enforceTransitiveConfigsForConfigFeatureFlag

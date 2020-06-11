@@ -30,7 +30,6 @@ import java.util.Set;
  *
  * @param <E> the data type
  */
-// @ThreadSafety.ThreadSafe
 public final class NestedSetVisitor<E> {
 
   /**
@@ -55,12 +54,12 @@ public final class NestedSetVisitor<E> {
    *
    * @param nestedSet the nested set to visit transitively.
    */
-  public void visit(NestedSet<E> nestedSet) {
+  public void visit(NestedSet<E> nestedSet) throws InterruptedException {
     Preconditions.checkArgument(nestedSet.getOrder() == Order.STABLE_ORDER);
     // We can short-circuit empty nested set visitation here, avoiding load on the shared map
     // VisitedState#seenNodes.
     if (!nestedSet.isEmpty()) {
-      visitRaw(nestedSet.getChildren());
+      visitRaw(nestedSet.getChildrenInterruptibly());
     }
   }
 
@@ -77,8 +76,9 @@ public final class NestedSetVisitor<E> {
   private void visitRaw(Object node) {
     if (visited.add(node)) {
       if (node instanceof Object[]) {
-        for (Object child : (Object[]) node) {
-          visitRaw(child);
+        Object[] children = (Object[]) node;
+        for (int i = 1; i < children.length; i++) { // skip depth
+          visitRaw(children[i]);
         }
       } else {
         callback.accept((E) node);

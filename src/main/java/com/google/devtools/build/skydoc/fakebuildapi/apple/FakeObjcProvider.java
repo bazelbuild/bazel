@@ -14,9 +14,10 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.apple;
 
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 
@@ -41,7 +42,7 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public Depset frameworkSearchPathOnly() {
+  public Depset frameworkIncludeForStarlark() {
     return null;
   }
 
@@ -66,17 +67,22 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
   }
 
   @Override
-  public Depset include() {
+  public Depset includeForStarlark() {
     return null;
   }
 
   @Override
-  public Depset includeSystem() {
+  public Depset /*<String>*/ strictIncludeForStarlark() {
     return null;
   }
 
   @Override
-  public Depset iquote() {
+  public Depset systemIncludeForStarlark() {
+    return null;
+  }
+
+  @Override
+  public Depset quoteIncludeForStarlark() {
     return null;
   }
 
@@ -177,6 +183,11 @@ public class FakeObjcProvider implements ObjcProviderApi<FileApi> {
 
   @Override
   public Depset weakSdkFramework() {
+    return null;
+  }
+
+  @Override
+  public CcCompilationContextApi getCcCompilationContext() {
     return null;
   }
 

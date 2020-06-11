@@ -14,21 +14,21 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.python;
 
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Provider instance for {@code py_runtime}. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "PyRuntimeInfo",
     doc =
         "Contains information about a Python runtime, as returned by the <code>py_runtime</code>"
@@ -40,10 +40,10 @@ import javax.annotation.Nullable;
             + "interpreter. In both cases, an \"interpreter\" is really any executable binary or "
             + "wrapper script that is capable of running a Python script passed on the command "
             + "line, following the same conventions as the standard CPython interpreter.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "interpreter_path",
       structField = true,
       allowReturnNones = true,
@@ -53,7 +53,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   @Nullable
   String getInterpreterPathString();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "interpreter",
       structField = true,
       allowReturnNones = true,
@@ -65,7 +65,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   @Nullable
   FileT getInterpreter();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "files",
       structField = true,
       allowReturnNones = true,
@@ -78,7 +78,7 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   @Nullable
   Depset getFilesForStarlark();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "python_version",
       structField = true,
       doc =
@@ -87,10 +87,10 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
   String getPythonVersionForStarlark();
 
   /** Provider type for {@link PyRuntimeInfoApi} objects. */
-  @SkylarkModule(name = "Provider", documented = false, doc = "")
+  @StarlarkBuiltin(name = "Provider", documented = false, doc = "")
   interface PyRuntimeInfoProviderApi extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = "PyRuntimeInfo",
         doc = "The <code>PyRuntimeInfo</code> constructor.",
         parameters = {
@@ -134,15 +134,15 @@ public interface PyRuntimeInfoApi<FileT extends FileApi> extends StarlarkValue {
               named = true,
               doc = "The value for the new object's <code>python_version</code> field."),
         },
-        selfCall = true,
-        useLocation = true)
-    @SkylarkConstructor(objectType = PyRuntimeInfoApi.class, receiverNameForDoc = "PyRuntimeInfo")
+        useStarlarkThread = true,
+        selfCall = true)
+    @StarlarkConstructor(objectType = PyRuntimeInfoApi.class, receiverNameForDoc = "PyRuntimeInfo")
     PyRuntimeInfoApi<?> constructor(
         Object interpreterPathUncast,
         Object interpreterUncast,
         Object filesUncast,
         String pythonVersion,
-        Location loc)
+        StarlarkThread thread)
         throws EvalException;
   }
 }

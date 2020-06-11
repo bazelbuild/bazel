@@ -309,8 +309,3 @@ toolchain(
     toolchain = ":cc-compiler-armeabi-v7a",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
-
-filegroup(
-    name = "link_dynamic_library",
-    srcs = ["link_dynamic_library.sh"],
-)

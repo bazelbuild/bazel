@@ -16,10 +16,10 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.util.StringUtilities;
 import java.util.Date;
 import java.util.Map;
-import java.util.logging.Logger;
 
 /**
  * Determines the version information of the current process.
@@ -31,14 +31,14 @@ import java.util.logging.Logger;
  */
 public class BlazeVersionInfo {
   public static final String BUILD_LABEL = "Build label";
-  
-  private final Map<String, String> buildData = Maps.newTreeMap();
-  private static BlazeVersionInfo instance = null;
-
-  private static final Logger logger = Logger.getLogger(BlazeVersionInfo.class.getName());
-
   /** Key for the release timestamp is seconds. */
   public static final String BUILD_TIMESTAMP = "Build timestamp as int";
+
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
+  private static BlazeVersionInfo instance = null;
+
+  private final Map<String, String> buildData = Maps.newTreeMap();
 
   public BlazeVersionInfo(Map<String, String> info) {
     buildData.putAll(info);
@@ -59,9 +59,9 @@ public class BlazeVersionInfo {
 
   private static void logVersionInfo(BlazeVersionInfo info) {
     if (info.getSummary() == null) {
-      logger.warning("Bazel release version information not available");
+      logger.atWarning().log("Bazel release version information not available");
     } else {
-      logger.info("Bazel version info: " + info.getSummary());
+      logger.atInfo().log("Bazel version info: %s", info.getSummary());
     }
   }
 

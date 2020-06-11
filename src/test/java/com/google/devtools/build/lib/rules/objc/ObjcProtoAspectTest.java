@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
@@ -65,12 +65,11 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
   }
 
-  @Test
-  public void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
+  private void testObjcProtoAspectPropagatesProtobufProvider() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("x/data_filter.pbascii");
     scratch.file(
@@ -87,20 +86,32 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
-    assertThat(Artifact.toExecPaths(objcProtoProvider.getProtobufHeaders()))
+    assertThat(Artifact.asExecPaths(objcProtoProvider.getProtobufHeaders()))
         .containsExactly(TestConstants.TOOLS_REPOSITORY_PATH_PREFIX + "objcproto/include/header.h");
 
-    Artifact header = Iterables.getOnlyElement(objcProtoProvider.getProtobufHeaders());
+    Artifact header = objcProtoProvider.getProtobufHeaders().getSingleton();
     PathFragment includePath = header.getExecPath().getParentDirectory();
     PathFragment genIncludePath =
         PathFragment.create(
             configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
                 + "/" + includePath);
 
-    assertThat(objcProtoProvider.getProtobufHeaderSearchPaths())
+    assertThat(objcProtoProvider.getProtobufHeaderSearchPaths().toList())
         .containsExactly(includePath, genIncludePath);
+  }
+
+  @Test
+  public void testObjcProtoAspectPropagatesProtobufProviderPreMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=false");
+    testObjcProtoAspectPropagatesProtobufProvider();
+  }
+
+  @Test
+  public void testObjcProtoAspectPropagatesProtobufProviderPostMigration() throws Exception {
+    useConfiguration("--incompatible_objc_compile_info_migration=true");
+    testObjcProtoAspectPropagatesProtobufProvider();
   }
 
   @Test
@@ -111,7 +122,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  srcs = ['A.m'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNull();
   }
 
@@ -146,12 +157,12 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  portable_proto_filters = ['data_filter.pbascii'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
-    assertThat(Artifact.toExecPaths(Iterables.concat(objcProtoProvider.getProtoFiles())))
+    assertThat(Artifact.asExecPaths(Iterables.concat(objcProtoProvider.getProtoFiles().toList())))
         .containsExactly("x/data.proto");
-    assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
+    assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsExactly("x/data_filter.pbascii");
   }
 
@@ -178,10 +189,10 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  deps = [':protos'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
-    assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
+    assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsExactly(
             configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
                 + "/x/_proto_filters/objc_proto/generated_filter_file.pbascii");
@@ -221,10 +232,10 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
         "  deps = [':protos'],",
         ")");
     ConfiguredTarget topTarget = getObjcProtoAspectConfiguredTarget("//x:x");
-    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = topTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
     assertThat(objcProtoProvider).isNotNull();
 
-    assertThat(Artifact.toExecPaths(objcProtoProvider.getPortableProtoFilters()))
+    assertThat(Artifact.asExecPaths(objcProtoProvider.getPortableProtoFilters()))
         .containsAtLeast(
             "x/filter.pbascii",
             configurationGenfiles("x86_64", ConfigurationDistinguisher.APPLEBIN_IOS, null)
@@ -232,7 +243,7 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
   }
 
   @Test
-  public void testObjcProtoAspectPropagatesProviderThroughSkylarkRule() throws Exception {
+  public void testObjcProtoAspectPropagatesProviderThroughStarlarkRule() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
     scratch.file("x/data_filter.pbascii");
     scratch.file("test_skylark/BUILD");
@@ -277,12 +288,12 @@ public final class ObjcProtoAspectTest extends ObjcRuleTestCase {
     ConfiguredTarget topTarget = getConfiguredTarget("//bin:link_target");
 
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//test_skylark:top_level_stub.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl info = (StructImpl) topTarget.get(key);
 
     ConfiguredTarget depTarget = (ConfiguredTarget) info.getValue("dep");
-    ObjcProtoProvider objcProtoProvider = depTarget.get(ObjcProtoProvider.SKYLARK_CONSTRUCTOR);
+    ObjcProtoProvider objcProtoProvider = depTarget.get(ObjcProtoProvider.STARLARK_CONSTRUCTOR);
 
     assertThat(objcProtoProvider).isNotNull();
   }

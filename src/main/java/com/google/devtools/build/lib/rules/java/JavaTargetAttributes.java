@@ -61,7 +61,7 @@ public class JavaTargetAttributes {
     private final NestedSetBuilder<Artifact> compileTimeClassPathBuilder =
         NestedSetBuilder.naiveLinkOrder();
 
-    private NestedSet<Artifact> bootClassPath = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
+    private BootClassPathInfo bootClassPath = BootClassPathInfo.empty();
     private ImmutableList<Artifact> sourcePath = ImmutableList.of();
     private final ImmutableList.Builder<Artifact> nativeLibraries = ImmutableList.builder();
 
@@ -187,11 +187,11 @@ public class JavaTargetAttributes {
      * <p>If this method is called, then the bootclasspath specified in this JavaTargetAttributes
      * instance overrides the default bootclasspath.
      */
-    public Builder setBootClassPath(NestedSet<Artifact> jars) {
+    public Builder setBootClassPath(BootClassPathInfo bootClassPath) {
       Preconditions.checkArgument(!built);
-      Preconditions.checkArgument(!jars.isEmpty());
-      Preconditions.checkState(bootClassPath.isEmpty());
-      bootClassPath = jars;
+      Preconditions.checkArgument(!bootClassPath.isEmpty());
+      Preconditions.checkState(this.bootClassPath.isEmpty());
+      this.bootClassPath = bootClassPath;
       return this;
     }
 
@@ -358,6 +358,12 @@ public class JavaTargetAttributes {
     public boolean hasSources() {
       return !sourceFiles.isEmpty() || !sourceJars.isEmpty();
     }
+
+    /** @deprecated prefer {@link JavaTargetAttributes#getSourceFiles} */
+    @Deprecated
+    public boolean hasSourceFiles() {
+      return !sourceFiles.isEmpty();
+    }
   }
 
   //
@@ -369,7 +375,7 @@ public class JavaTargetAttributes {
   private final NestedSet<Artifact> runtimeClassPath;
   private final NestedSet<Artifact> compileTimeClassPath;
 
-  private final NestedSet<Artifact> bootClassPath;
+  private final BootClassPathInfo bootClassPath;
   private final ImmutableList<Artifact> sourcePath;
   private final ImmutableList<Artifact> nativeLibraries;
 
@@ -398,7 +404,7 @@ public class JavaTargetAttributes {
       ImmutableSet<Artifact> sourceFiles,
       NestedSet<Artifact> runtimeClassPath,
       NestedSet<Artifact> compileTimeClassPath,
-      NestedSet<Artifact> bootClassPath,
+      BootClassPathInfo bootClassPath,
       ImmutableList<Artifact> sourcePath,
       ImmutableList<Artifact> nativeLibraries,
       JavaPluginInfoProvider plugins,
@@ -433,6 +439,38 @@ public class JavaTargetAttributes {
     this.injectingRuleKind = injectingRuleKind;
     this.excludedArtifacts = excludedArtifacts;
     this.strictJavaDeps = strictJavaDeps;
+  }
+
+  JavaTargetAttributes withAdditionalClassPathEntries(
+      NestedSet<Artifact> additionalClassPathEntries) {
+    NestedSet<Artifact> compileTimeClassPath =
+        NestedSetBuilder.fromNestedSet(additionalClassPathEntries)
+            .addTransitive(this.compileTimeClassPath)
+            .build();
+    NestedSet<Artifact> directJars =
+        NestedSetBuilder.fromNestedSet(additionalClassPathEntries)
+            .addTransitive(this.directJars)
+            .build();
+    return new JavaTargetAttributes(
+        sourceFiles,
+        runtimeClassPath,
+        compileTimeClassPath,
+        bootClassPath,
+        sourcePath,
+        nativeLibraries,
+        plugins,
+        resources,
+        resourceJars,
+        messages,
+        sourceJars,
+        classPathResources,
+        additionalOutputs,
+        directJars,
+        compileTimeDependencyArtifacts,
+        targetLabel,
+        injectingRuleKind,
+        excludedArtifacts,
+        strictJavaDeps);
   }
 
   public NestedSet<Artifact> getDirectJars() {
@@ -503,7 +541,7 @@ public class JavaTargetAttributes {
     return compileTimeClassPath;
   }
 
-  public NestedSet<Artifact> getBootClassPath() {
+  public BootClassPathInfo getBootClassPath() {
     return bootClassPath;
   }
 

@@ -83,4 +83,9 @@ public class QueryableGraphBackedSkyFunctionEnvironment extends AbstractSkyFunct
   public boolean inErrorBubblingForTesting() {
     return false;
   }
+
+  @Override
+  public boolean restartPermitted() {
+    return false;
+  }
 }

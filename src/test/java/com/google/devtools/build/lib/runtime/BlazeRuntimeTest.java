@@ -22,7 +22,10 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsBase;
@@ -130,11 +133,21 @@ public class BlazeRuntimeTest {
             Thread.currentThread(),
             VersionCommand.class.getAnnotation(Command.class),
             options,
-            ImmutableList.of());
+            ImmutableList.of(),
+            0L,
+            0L);
     runtime.beforeCommand(env, options.getOptions(CommonCommandOptions.class));
-    runtime.cleanUpForCrash(ExitCode.OOM_ERROR);
-    BlazeCommandResult mainThreadCrash = BlazeCommandResult.exitCode(ExitCode.BLAZE_INTERNAL_ERROR);
-    assertThat(runtime.afterCommand(env, mainThreadCrash).getExitCode())
-        .isEqualTo(ExitCode.OOM_ERROR);
+    DetailedExitCode oom =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setCrash(Crash.newBuilder().setCode(Code.CRASH_OOM))
+                .build());
+    runtime.cleanUpForCrash(oom);
+    BlazeCommandResult mainThreadCrash =
+        BlazeCommandResult.failureDetail(
+            FailureDetail.newBuilder()
+                .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
+                .build());
+    assertThat(runtime.afterCommand(env, mainThreadCrash).getDetailedExitCode()).isEqualTo(oom);
   }
 }

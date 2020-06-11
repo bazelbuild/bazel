@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.buildjar.javac.plugins;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.statistics.BlazeJavacStatistics;
 import com.sun.tools.javac.comp.AttrContext;
@@ -20,7 +21,6 @@ import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
-import java.util.List;
 
 /**
  * An interface for additional static analyses that need access to the javac compiler's AST at
@@ -42,13 +42,14 @@ public abstract class BlazeJavaCompilerPlugin {
    * #init(Context, Log, JavaCompiler, BlazeJavacStatistics.Builder)} and {@link
    * #initializeContext(Context)}.
    *
-   * @param args The command-line flags that javac was invoked with.
+   * @param standardJavacopts The standard javac command-line flags.
+   * @param blazeJavacopts Blaze-specific command-line flags.
    * @throws InvalidCommandLineException if the arguments are invalid
    * @return The flags that do not belong to this plugin.
    */
-  public List<String> processArgs(List<String> args) throws InvalidCommandLineException {
-    return args;
-  }
+  public void processArgs(
+      ImmutableList<String> standardJavacopts, ImmutableList<String> blazeJavacopts)
+      throws InvalidCommandLineException {}
 
   /**
    * Called after all plugins have processed arguments and can be used to customize the Java

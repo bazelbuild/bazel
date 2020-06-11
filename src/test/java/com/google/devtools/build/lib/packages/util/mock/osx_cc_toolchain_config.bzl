@@ -57,16 +57,6 @@ _default_feature = feature(
     ],
 )
 
-_contains_objc_sources_feature = feature(
-    name = "contains_objc_sources",
-    flag_sets = [
-        flag_set(
-            actions = [ACTION_NAMES.cpp_compile],
-            flag_groups = [flag_group(flags = ["DUMMY_FLAG"])],
-        ),
-    ],
-)
-
 _supports_interface_shared_libraries_feature = feature(
     name = "supports_interface_shared_libraries",
     enabled = True,
@@ -79,7 +69,6 @@ _supports_dynamic_linker_feature = feature(
 
 _feature_name_to_feature = {
     "default_feature": _default_feature,
-    "contains_objc_sources": _contains_objc_sources_feature,
     "supports_interface_shared_libraries": _supports_interface_shared_libraries_feature,
     "supports_dynamic_linker": _supports_dynamic_linker_feature,
 }
@@ -6119,8 +6108,8 @@ def _impl(ctx):
                     flag_group(
                         flags = [
                             "-fprofile-use=%{fdo_profile_path}",
-                            "-Xclang-only=-Wno-profile-instr-unprofiled",
-                            "-Xclang-only=-Wno-profile-instr-out-of-date",
+                            "-Wno-profile-instr-unprofiled",
+                            "-Wno-profile-instr-out-of-date",
                             "-fprofile-correction",
                         ],
                         expand_if_available = "fdo_profile_path",
@@ -6819,7 +6808,7 @@ def _impl(ctx):
                     "objc-executable",
                     "objc++-executable",
                 ],
-                flag_groups = [flag_group(flags = ["-g"])],
+                flag_groups = [flag_group(flags = ["-g", "-DDUMMY_GENERATE_DSYM_FILE"])],
             ),
             flag_set(
                 actions = ["objc-executable", "objc++-executable"],

@@ -93,43 +93,6 @@ EOF
   expect_log "major version: 52"
 }
 
-function test_tools_jdk_toolchain_java10() {
-  mkdir -p java/main
-  cat >java/main/BUILD <<EOF
-java_binary(
-    name = 'JavaBinary',
-    srcs = ['JavaBinary.java'],
-    main_class = 'JavaBinary',
-)
-EOF
-
-   cat >java/main/JavaBinary.java <<EOF
-import java.util.ArrayList;
-public class JavaBinary {
-   public static void main(String[] args) {
-    var myList = new ArrayList<String>();
-    for (int i = 0; i < 3; i++) {
-      myList.add("myString" + i);
-    }
-
-    for (String string : myList) {
-      System.out.println(string);
-    }
-  }
-}
-EOF
-  bazel run java/main:JavaBinary \
-      --java_toolchain=@bazel_tools//tools/jdk:toolchain_java10 \
-      --javabase=@bazel_tools//tools/jdk:remote_jdk10 \
-      --verbose_failures -s &>"${TEST_log}" \
-      || fail "Building with @bazel_tools//tools/jdk:toolchain_java10 failed"
-  expect_log "myString0"
-  expect_log "myString1"
-  expect_log "myString2"
-  javap -verbose -cp bazel-bin/java/main/JavaBinary.jar JavaBinary | grep major &>"${TEST_log}"
-  expect_log "major version: 54"
-}
-
 function test_tools_jdk_toolchain_java11() {
   mkdir -p java/main
   cat >java/main/BUILD <<EOF

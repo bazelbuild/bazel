@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.util.FileType;
 import java.util.Set;
@@ -24,6 +25,7 @@ import java.util.Set;
  * Common superclass for InputFile and OutputFile which provides implementation for the file
  * operations in common.
  */
+@Immutable
 public abstract class FileTarget implements Target, FileType.HasFileType {
   protected final Package pkg;
   protected final Label label;
@@ -35,6 +37,11 @@ public abstract class FileTarget implements Target, FileType.HasFileType {
     Preconditions.checkArgument(label.getPackageFragment().equals(pkg.getNameFragment()));
     this.pkg = pkg;
     this.label = label;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   public String getFilename() {

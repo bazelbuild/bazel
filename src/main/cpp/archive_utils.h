@@ -27,6 +27,7 @@ void DetermineArchiveContents(const std::string &archive_path,
                               std::string *install_md5);
 
 // Extracts the embedded data files in `archive_path` into `output_dir`.
+// It's expected that `output_dir` already exists and that it's a directory.
 // Fails if `expected_install_md5` doesn't match that contained in the archive,
 // as this could indicate that the contents has unexpectedly changed.
 void ExtractArchiveOrDie(const std::string &archive_path,

@@ -1,15 +1,13 @@
 load("@rules_java//java:defs.bzl", "java_library")
 
-licenses(["notice"])  # Apache 2.0
-
-package(
-    default_visibility = ["//src:__subpackages__"],
-)
+package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:srcs",
+    ],
+    visibility = ["//src:__subpackages__"],
 )
 
 java_library(
@@ -21,5 +19,4 @@ java_library(
 java_library(
     name = "annotations_internal",
     srcs = glob(["*.java"]),
-    visibility = ["//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:__pkg__"],
 )

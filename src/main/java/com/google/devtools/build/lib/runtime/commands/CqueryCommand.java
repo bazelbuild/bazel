@@ -30,7 +30,10 @@ import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionPriority.PriorityCategory;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
@@ -73,6 +76,11 @@ public final class CqueryCommand implements BlazeCommand {
           PriorityCategory.COMPUTED_DEFAULT,
           "cquery should include 'tags = [\"manual\"]' targets by default",
           ImmutableList.of("--build_manual_tests"));
+      optionsParser.parse(
+          PriorityCategory.COMPUTED_DEFAULT,
+          // https://github.com/bazelbuild/bazel/issues/11078
+          "cquery should not exclude test_suite rules",
+          ImmutableList.of("--noexpand_test_suites"));
       if (cqueryOptions.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         optionsParser.parse(
             PriorityCategory.COMPUTED_DEFAULT,
@@ -89,11 +97,10 @@ public final class CqueryCommand implements BlazeCommand {
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     if (options.getResidue().isEmpty()) {
-      env.getReporter()
-          .handle(
-              Event.error(
-                  "Missing query expression. Use the 'help cquery' command for syntax and help."));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String message =
+          "Missing query expression. Use the 'help cquery' command for syntax and help.";
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.COMMAND_LINE_EXPRESSION_MISSING);
     }
     String query = Joiner.on(' ').join(options.getResidue());
     HashMap<String, QueryFunction> functions = new HashMap<>();
@@ -107,9 +114,9 @@ public final class CqueryCommand implements BlazeCommand {
     try {
       expr = QueryParser.parse(query, functions);
     } catch (QueryException e) {
-      env.getReporter()
-          .handle(Event.error("Error while parsing '" + query + "': " + e.getMessage()));
-      return BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR);
+      String message = "Error while parsing '" + query + "': " + e.getMessage();
+      env.getReporter().handle(Event.error(message));
+      return createFailureResult(message, Code.EXPRESSION_PARSE_FAILURE);
     }
 
     List<String> topLevelTargets = options.getOptions(CqueryOptions.class).universeScope;
@@ -128,8 +135,16 @@ public final class CqueryCommand implements BlazeCommand {
             env.getReporter().getOutErr(),
             env.getCommandId(),
             env.getCommandStartTime());
-    ExitCode exitCode =
-        new CqueryBuildTool(env, expr).processRequest(request, null).getExitCondition();
-    return BlazeCommandResult.exitCode(exitCode);
+    DetailedExitCode detailedExitCode =
+        new CqueryBuildTool(env, expr).processRequest(request, null).getDetailedExitCode();
+    return BlazeCommandResult.detailedExitCode(detailedExitCode);
+  }
+
+  private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
+    return BlazeCommandResult.failureDetail(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setConfigurableQuery(ConfigurableQuery.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

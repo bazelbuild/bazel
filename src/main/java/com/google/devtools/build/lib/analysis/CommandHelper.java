@@ -23,7 +23,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -80,7 +79,7 @@ public final class CommandHelper {
      */
     public Builder addHostToolDependencies(String toolAttributeName) {
       List<? extends TransitiveInfoCollection> dependencies =
-          ruleContext.getPrerequisites(toolAttributeName, Mode.HOST);
+          ruleContext.getPrerequisites(toolAttributeName, TransitionMode.HOST);
       addToolDependencies(dependencies);
       return this;
     }
@@ -91,7 +90,7 @@ public final class CommandHelper {
      */
     public Builder addToolDependencies(String toolAttributeName) {
       List<? extends TransitiveInfoCollection> dependencies =
-          ruleContext.getPrerequisites(toolAttributeName, Mode.TARGET);
+          ruleContext.getPrerequisites(toolAttributeName, TransitionMode.TARGET);
       return addToolDependencies(dependencies);
     }
 
@@ -244,11 +243,8 @@ public final class CommandHelper {
     return values;
   }
 
-  /**
-   * Resolves a command, and expands known locations for $(location)
-   * variables.
-   */
-  @Deprecated // Only exists to support a legacy Skylark API.
+  /** Resolves a command, and expands known locations for $(location) variables. */
+  @Deprecated // Only exists to support a legacy Starlark API.
   public String resolveCommandAndExpandLabels(
       String command, @Nullable String attribute, boolean allowDataInLabel) {
     LocationExpander expander;

@@ -20,7 +20,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.ParseableRequirement.ValidationException;
 import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -172,7 +171,8 @@ public class TestTargetProperties {
   }
 
   /**
-   * Returns a map of execution info. See {@link Spawn#getExecutionInfo}.
+   * Returns a map of execution info. See {@link
+   * com.google.devtools.build.lib.actions.Spawn#getExecutionInfo}.
    */
   public ImmutableMap<String, String> getExecutionInfo() {
     return executionInfo;

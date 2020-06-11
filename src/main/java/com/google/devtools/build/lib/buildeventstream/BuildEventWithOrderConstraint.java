@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import java.util.Collection;
 
 /** Interface for {@link BuildEvent}s with order constraints. */

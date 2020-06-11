@@ -26,10 +26,10 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.VisibilityProviderImpl;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -44,7 +44,8 @@ public class Alias implements RuleConfiguredTargetFactory {
   @Override
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
-    ConfiguredTarget actual = (ConfiguredTarget) ruleContext.getPrerequisite("actual", Mode.TARGET);
+    ConfiguredTarget actual =
+        (ConfiguredTarget) ruleContext.getPrerequisite("actual", TransitionMode.TARGET);
 
     // TODO(b/129045294): Remove once the flag is flipped.
     if (ruleContext.getLabel().getCanonicalForm().startsWith("@bazel_tools//platforms")

@@ -14,13 +14,18 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
+import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkConfigApi.ExecTransitionFactoryApi;
 import javax.annotation.Nullable;
 
 /**
@@ -28,31 +33,38 @@ import javax.annotation.Nullable;
  * transition to a configuration suitable for building dependencies for the execution platform of
  * the depending target.
  */
-public class ExecutionTransitionFactory implements TransitionFactory<AttributeTransitionData> {
+public class ExecutionTransitionFactory
+    implements TransitionFactory<AttributeTransitionData>, ExecTransitionFactoryApi {
 
-  private ExecutionTransitionFactory() {}
+  private final String execGroup;
 
-  /** Returns a new {@link ExecutionTransitionFactory}. */
-  public static ExecutionTransitionFactory create() {
-    return new ExecutionTransitionFactory();
+  private ExecutionTransitionFactory(String execGroup) {
+    this.execGroup = execGroup;
   }
 
   /**
-   * Returns either a new {@link ExecutionTransitionFactory} or a factory for the {@link
-   * HostTransition}, depending on the value of {@code enableExecutionTransition}.
+   * Returns a new {@link ExecutionTransitionFactory} for the default {@link
+   * com.google.devtools.build.lib.packages.ExecGroup}.
    */
-  public static TransitionFactory<AttributeTransitionData> create(
-      boolean enableExecutionTransition) {
-    if (enableExecutionTransition) {
-      return create();
-    } else {
-      return HostTransition.createFactory();
-    }
+  public static ExecutionTransitionFactory create() {
+    return new ExecutionTransitionFactory(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  /**
+   * Returns a new {@link ExecutionTransitionFactory} for the given {@link
+   * com.google.devtools.build.lib.packages.ExecGroup}.
+   */
+  public static ExecutionTransitionFactory create(String execGroup) {
+    return new ExecutionTransitionFactory(execGroup);
   }
 
   @Override
   public PatchTransition create(AttributeTransitionData data) {
     return new ExecutionTransition(data.executionPlatform());
+  }
+
+  public String getExecGroup() {
+    return execGroup;
   }
 
   @Override
@@ -88,10 +100,15 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
     private static final BuildOptionsCache<Label> cache = new BuildOptionsCache<>();
 
     @Override
-    public BuildOptions patch(BuildOptions options) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(CoreOptions.class, PlatformOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       if (executionPlatform == null) {
         // No execution platform is known, so don't change anything.
-        return options;
+        return options.underlying();
       }
       return cache.applyTransition(
           options,
@@ -99,11 +116,13 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
           executionPlatform,
           () -> {
             // Start by converting to host options.
-            BuildOptions execConfiguration = options.createHostOptions();
+            BuildOptionsView execOptions =
+                new BuildOptionsView(
+                    options.underlying().createHostOptions(), requiresOptionFragments());
 
             // Then unset isHost, if CoreOptions is available.
             CoreOptions coreOptions =
-                Preconditions.checkNotNull(execConfiguration.get(CoreOptions.class));
+                Preconditions.checkNotNull(execOptions.get(CoreOptions.class));
             coreOptions.isHost = false;
             coreOptions.isExec = true;
             coreOptions.outputDirectoryName = null;
@@ -111,12 +130,12 @@ public class ExecutionTransitionFactory implements TransitionFactory<AttributeTr
                 String.format("-exec-%X", executionPlatform.getCanonicalForm().hashCode());
 
             // Then set the target to the saved execution platform if there is one.
-            if (execConfiguration.get(PlatformOptions.class) != null) {
-              execConfiguration.get(PlatformOptions.class).platforms =
+            if (execOptions.get(PlatformOptions.class) != null) {
+              execOptions.get(PlatformOptions.class).platforms =
                   ImmutableList.of(executionPlatform);
             }
 
-            return execConfiguration;
+            return execOptions.underlying();
           });
     }
   }

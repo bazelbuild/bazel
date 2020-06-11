@@ -31,7 +31,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /**
@@ -40,7 +39,6 @@ import javax.annotation.Nullable;
  * representation if desired.
  */
 public class ObjectCodecRegistry {
-  private static final Logger logger = Logger.getLogger(ObjectCodecRegistry.class.getName());
   /** Creates a new, empty builder. */
   public static Builder newBuilder() {
     return new Builder();
@@ -425,16 +423,5 @@ public class ObjectCodecRegistry {
         .add("classNames.size", classNames.size())
         .add("dynamicCodecs.size", dynamicCodecs.size())
         .toString();
-  }
-
-  private static int hashClass(Class<?> clazz) {
-    if (LambdaCodec.isProbablyLambda(clazz)) {
-      String name = clazz.getName();
-      int indexOfLambda = name.lastIndexOf("$$Lambda$");
-      if (indexOfLambda > -1) {
-        return name.substring(0, indexOfLambda + 9).hashCode();
-      }
-    }
-    return clazz.getName().hashCode();
   }
 }

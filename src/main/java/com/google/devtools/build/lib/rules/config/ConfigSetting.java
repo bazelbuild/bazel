@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -29,7 +28,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BuildSettingProvider;
@@ -41,6 +39,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
@@ -49,7 +48,6 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFr
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
@@ -156,6 +154,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .addProvider(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .addProvider(LicensesProviderImpl.EMPTY)
         .addProvider(ConfigMatchingProvider.class, configMatcher)
+        .addRequiredConfigFragments(configMatcher.getRequiredFragmentOptions())
         .build();
   }
 
@@ -169,7 +168,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     List<ConstraintValueInfo> constraintValues = new ArrayList<>();
     for (TransitiveInfoCollection dep :
         ruleContext.getPrerequisites(
-            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, Mode.DONT_CHECK)) {
+            ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, TransitionMode.DONT_CHECK)) {
       if (!PlatformProviderUtils.hasConstraintValue(dep)) {
         ruleContext.attributeError(
             ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE,
@@ -271,15 +270,9 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
     // to check they're indeed valid flag specifications.
     boolean foundMismatch = false;
 
-    // Flags that appear multiple times are known as "multi-value options". Each time the options
-    // parser parses one of their values it adds it to an existing list. In those cases we need to
-    // make sure to examine only the value we just parsed: not the entire list.
-    Multiset<String> optionsCount = HashMultiset.create();
-
     for (Map.Entry<String, String> setting : expectedSettings) {
       String optionName = setting.getKey();
       String expectedRawValue = setting.getValue();
-      int previousOptionCount = optionsCount.add(optionName, 1);
 
       Class<? extends FragmentOptions> optionClass = options.getOptionClass(optionName);
       if (optionClass == null) {
@@ -289,7 +282,25 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         foundMismatch = true;
         continue;
       }
-      requiredFragmentOptions.add(ClassName.getSimpleNameWithOuter(optionClass));
+
+      if (optionName.equals("define")) {
+        // --define is more like user-defined build flags than traditional native flags. Report it
+        // like user-defined flags: the dependency is directly on the flag vs. the fragment that
+        // contains the flag. This frees a rule that depends on "--define a=1" from preserving
+        // another rule's dependency on "--define b=2". In other words, if both rules simply said
+        // "I require CoreOptions" (which is the FragmentOptions --define belongs to), that would
+        // hide the reality that they really have orthogonal dependencies: removing
+        // "--define b=2" is perfectly safe for the rule that needs "--define a=1".
+        int equalsIndex = expectedRawValue.indexOf('=');
+        requiredFragmentOptions.add(
+            "--define:"
+                + (equalsIndex > 0
+                    ? expectedRawValue.substring(0, equalsIndex)
+                    : expectedRawValue));
+      } else {
+        // For other native flags, it's reasonable to report the fragment they belong to.
+        requiredFragmentOptions.add(ClassName.getSimpleNameWithOuter(optionClass));
+      }
 
       SelectRestriction selectRestriction = options.getSelectRestriction(optionName);
       if (selectRestriction != null) {
@@ -325,11 +336,6 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       }
 
       Object expectedParsedValue = parser.getOptions(optionClass).asMap().get(optionName);
-      if (previousOptionCount > 0) {
-        // We've seen this option before, so it's a multi-value option with multiple entries.
-        int listLength = ((List<?>) expectedParsedValue).size();
-        expectedParsedValue = ((List<?>) expectedParsedValue).subList(listLength - 1, listLength);
-      }
       if (!optionMatches(options, optionName, expectedParsedValue)) {
         foundMismatch = true;
       }
@@ -446,7 +452,8 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
       // Get the actual targets the 'flag_values' keys reference.
       Iterable<? extends TransitiveInfoCollection> prerequisites =
-          ruleContext.getPrerequisites(ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, Mode.TARGET);
+          ruleContext.getPrerequisites(
+              ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE, TransitionMode.TARGET);
 
       for (TransitiveInfoCollection target : prerequisites) {
         Label actualLabel = target.getLabel();
@@ -506,9 +513,18 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
 
             // If the config_setting expects "foo", convertedSpecifiedValue converts it to the
             // flag's native type, which produces ["foo"]. So unpack that again.
-            Object specifiedUnpacked =
-                Iterables.getOnlyElement((Iterable<?>) convertedSpecifiedValue);
-            if (!((List<?>) configurationValue).contains(specifiedUnpacked)) {
+            Iterable<?> specifiedValueAsIterable = (Iterable<?>) convertedSpecifiedValue;
+            if (Iterables.size(specifiedValueAsIterable) != 1) {
+              ruleContext.attributeError(
+                  ConfigSettingRule.FLAG_SETTINGS_ATTRIBUTE,
+                  String.format(
+                      "\"%s\" not a valid value for flag %s. Only single, exact values are allowed."
+                          + " If you want to match multiple values, consider Skylib's "
+                          + "selects.config_setting_group",
+                      specifiedValue, specifiedLabel));
+              matches = false;
+            } else if (!((List<?>) configurationValue)
+                .contains(Iterables.getOnlyElement(specifiedValueAsIterable))) {
               matches = false;
             }
           } else if (!configurationValue.equals(convertedSpecifiedValue)) {

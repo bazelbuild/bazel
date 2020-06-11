@@ -25,11 +25,17 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
+import com.google.devtools.build.lib.server.FailureDetails.TestCommand;
+import com.google.devtools.build.lib.server.FailureDetails.TestCommand.Code;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -59,6 +65,32 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class CommandInterruptionTest {
 
+  private static final DetailedExitCode NO_TEST_TARGETS_CODE =
+      DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setTestCommand(TestCommand.newBuilder().setCode(Code.NO_TEST_TARGETS))
+              .build());
+  private static final DetailedExitCode UNEXPECTED_INTERRUPTION =
+      DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage("unexpected interruption")
+              .setInterrupted(
+                  Interrupted.newBuilder().setCode(Interrupted.Code.INTERRUPTED_UNKNOWN))
+              .build());
+  private static final DetailedExitCode CRASH =
+      DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setMessage("crash")
+              .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_UNKNOWN))
+              .build());
+  private static final DetailedExitCode OPTIONS_FAILURE =
+      DetailedExitCode.of(
+          FailureDetail.newBuilder()
+              .setCommand(
+                  FailureDetails.Command.newBuilder()
+                      .setCode(FailureDetails.Command.Code.OPTIONS_PARSE_FAILURE))
+              .build());
+
   /** Options class to pass configuration to our dummy wait command. */
   public static class WaitOptions extends OptionsBase {
     public WaitOptions() {}
@@ -86,7 +118,7 @@ public final class CommandInterruptionTest {
     private final AtomicBoolean isTestShuttingDown;
     private final AtomicReference<SettableFuture<CommandState>> commandStateHandoff;
 
-    public WaitForCompletionCommand(AtomicBoolean isTestShuttingDown) {
+    WaitForCompletionCommand(AtomicBoolean isTestShuttingDown) {
       this.isTestShuttingDown = isTestShuttingDown;
       this.commandStateHandoff = new AtomicReference<>();
     }
@@ -96,7 +128,7 @@ public final class CommandInterruptionTest {
       CommandState commandState = new CommandState(
           env, options.getOptions(WaitOptions.class).expectInterruption, isTestShuttingDown);
       commandStateHandoff.getAndSet(null).set(commandState);
-      return BlazeCommandResult.exitCode(commandState.waitForExitCodeFromTest());
+      return BlazeCommandResult.detailedExitCode(commandState.waitForDetailedCodeFromTest());
     }
 
     @Override
@@ -106,7 +138,7 @@ public final class CommandInterruptionTest {
      * Runs an instance of this command on the given executor, waits for it to start and returns a
      * CommandState which can be used to control and assert on the status of that command.
      */
-    public CommandState runIn(
+    CommandState runIn(
         ExecutorService executor, BlazeCommandDispatcher dispatcher, boolean expectInterruption)
         throws InterruptedException, ExecutionException {
       SettableFuture<CommandState> newHandoff = SettableFuture.create();
@@ -122,13 +154,14 @@ public final class CommandInterruptionTest {
   }
 
   /** Callable to run the above command on a different thread. */
-  private static final class RunCommandThroughDispatcher implements Callable<Integer> {
+  private static final class RunCommandThroughDispatcher implements Callable<DetailedExitCode> {
     private final BlazeCommandDispatcher dispatcher;
     private final SettableFuture<CommandState> commandStateHandoff;
     private final boolean expectInterruption;
 
-    public RunCommandThroughDispatcher(
-        BlazeCommandDispatcher dispatcher, SettableFuture<CommandState> commandStateHandoff,
+    RunCommandThroughDispatcher(
+        BlazeCommandDispatcher dispatcher,
+        SettableFuture<CommandState> commandStateHandoff,
         boolean expectInterruption) {
       this.dispatcher = dispatcher;
       this.commandStateHandoff = commandStateHandoff;
@@ -136,15 +169,18 @@ public final class CommandInterruptionTest {
     }
 
     @Override
-    public Integer call() throws Exception {
-      int result;
+    public DetailedExitCode call() throws Exception {
+      DetailedExitCode result;
       try {
-        result = dispatcher.exec(
-            ImmutableList.of(
-                "snooze",
-                expectInterruption ? "--expect_interruption" : "--noexpect_interruption"),
-            "CommandInterruptionTest",
-            OutErr.SYSTEM_OUT_ERR).getExitCode().getNumericExitCode();
+        result =
+            dispatcher
+                .exec(
+                    ImmutableList.of(
+                        "snooze",
+                        expectInterruption ? "--expect_interruption" : "--noexpect_interruption"),
+                    "CommandInterruptionTest",
+                    OutErr.SYSTEM_OUT_ERR)
+                .getDetailedExitCode();
       } catch (Exception throwable) {
         if (commandStateHandoff.isDone()) {
           commandStateHandoff.get().completeWithFailure(throwable);
@@ -158,7 +194,7 @@ public final class CommandInterruptionTest {
       }
 
       if (commandStateHandoff.isDone()) {
-        commandStateHandoff.get().completeWithExitCode(result);
+        commandStateHandoff.get().completeWithDetailedCode(result);
       } else {
         commandStateHandoff.setException(
             new IllegalStateException(
@@ -174,24 +210,29 @@ public final class CommandInterruptionTest {
    * A remote control allowing the test to control and assert on the WaitForCompletionCommand.
    */
   private static final class CommandState {
-    private final SettableFuture<Integer> result;
+    private final SettableFuture<DetailedExitCode> result;
     private final CommandEnvironment commandEnvironment;
     private final Thread thread;
-    private final BlockingQueue<ExitCode> exitCodeQueue;
+    private final BlockingQueue<DetailedExitCode> detailedCodeQueue;
     private final AtomicBoolean isTestShuttingDown;
     private boolean expectInterruption;
     private final CyclicBarrier barrier;
 
-    private static final ExitCode SENTINEL =
-        ExitCode.createInfrastructureFailure(-1, "GO TO THE BARRIER");
+    private static final DetailedExitCode SENTINEL =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("GO TO THE BARRIER")
+                .setCrash(Crash.newBuilder().setCode(Crash.Code.CRASH_UNKNOWN))
+                .build());
 
-    public CommandState(
-        CommandEnvironment commandEnvironment, boolean expectInterruption,
+    CommandState(
+        CommandEnvironment commandEnvironment,
+        boolean expectInterruption,
         AtomicBoolean isTestShuttingDown) {
       this.result = SettableFuture.create();
       this.commandEnvironment = commandEnvironment;
       this.thread = Thread.currentThread();
-      this.exitCodeQueue = new ArrayBlockingQueue<ExitCode>(1);
+      this.detailedCodeQueue = new ArrayBlockingQueue<>(1);
       this.isTestShuttingDown = isTestShuttingDown;
       this.expectInterruption = expectInterruption;
       this.barrier = new CyclicBarrier(2);
@@ -203,8 +244,8 @@ public final class CommandInterruptionTest {
      * Marks the Future associated with this CommandState completed with the given exit code, then
      * waits at the barrier for the test thread to catch up.
      */
-    private void completeWithExitCode(int exitCode) {
-      result.set(exitCode);
+    private void completeWithDetailedCode(DetailedExitCode detailedExitCode) {
+      result.set(detailedExitCode);
       if (!isTestShuttingDown.get()) {
         // Wait at the barrier for the test to assert on status, unless the test is shutting down.
         try {
@@ -233,14 +274,14 @@ public final class CommandInterruptionTest {
 
     /**
      * Waits for an exit code to come from the test, either INTERRUPTED via thread interruption, or
-     * a test-specified exit code via requestExitWith(). If expectInterruption was set,
-     * a single interruption will be ignored.
+     * a test-specified exit code via requestExitWith(). If expectInterruption was set, a single
+     * interruption will be ignored.
      */
-    private ExitCode waitForExitCodeFromTest() {
+    private DetailedExitCode waitForDetailedCodeFromTest() {
       while (true) {
-        ExitCode exitCode = null;
+        DetailedExitCode detailedCode = null;
         try {
-          exitCode = exitCodeQueue.take();
+          detailedCode = detailedCodeQueue.take();
           if (Thread.interrupted()) {
             // the interruption and the exit code delivery may have come in simultaneously, which
             // may result in a successful return from the queue with interrupted() set.
@@ -250,7 +291,7 @@ public final class CommandInterruptionTest {
           if (!expectInterruption || isTestShuttingDown.get()) {
             // This is not an expected interruption (possibly because the test is shutting down and
             // it's the executor's please stop interruption) so give up.
-            return ExitCode.INTERRUPTED;
+            return UNEXPECTED_INTERRUPTION;
           }
           // Otherwise, that was an expected interruption, so return to looking for exit codes.
           // But we only expect one, so the next one will be fatal.
@@ -259,7 +300,7 @@ public final class CommandInterruptionTest {
           // the same time.
         }
 
-        if (SENTINEL.equals(exitCode)) {
+        if (SENTINEL.equals(detailedCode)) {
           // The test just wants us to go wait at the barrier for an assertion.
           try {
             barrier.await();
@@ -269,9 +310,8 @@ public final class CommandInterruptionTest {
             // accidentally passing any tests that might have been looking for INTERRUPTED.
             return SENTINEL;
           }
-          continue;
-        } else if (exitCode != null) {
-          return exitCode;
+        } else if (detailedCode != null) {
+          return detailedCode;
         }
       }
     }
@@ -279,13 +319,13 @@ public final class CommandInterruptionTest {
     // test side
 
     /** Gets the ModuleEnvironment modules will see when executing this command. */
-    public BlazeModule.ModuleEnvironment getModuleEnvironment() {
+    BlazeModule.ModuleEnvironment getModuleEnvironment() {
       return commandEnvironment.getBlazeModuleEnvironment();
     }
 
     /** Sends an exit code to the command, which will then return with it if it is still running. */
-    public void requestExitWith(ExitCode exitCode) {
-      exitCodeQueue.offer(exitCode);
+    void requestExitWith(DetailedExitCode detailedExitCode) {
+      detailedCodeQueue.offer(detailedExitCode);
     }
 
     /** Sends an interrupt directly to the command's thread. */
@@ -303,23 +343,22 @@ public final class CommandInterruptionTest {
       }
       // Offer the sentinel to the queue - if the command is still waiting and it sees the sentinel,
       // it will go to the barrier.
-      exitCodeQueue.offer(SENTINEL);
+      detailedCodeQueue.offer(SENTINEL);
       // Then wait for the command to finish processing.
       barrier.await();
     }
 
     /** Asserts that the command finished and returned the given ExitCode. */
-    public void assertFinishedWith(ExitCode exitCode)
+    void assertFinishedWith(DetailedExitCode detailedExitCode)
         throws InterruptedException, ExecutionException, BrokenBarrierException {
       synchronizeWithCommand();
       assertWithMessage("The command should have been finished, but it was not.")
           .that(result.isDone()).isTrue();
-      assertThat(Futures.getDone(result)).isEqualTo(exitCode.getNumericExitCode());
+      assertThat(Futures.getDone(result)).isEqualTo(detailedExitCode);
     }
 
     /** Asserts that the command has not finished yet. */
-    public void assertNotFinishedYet()
-        throws InterruptedException, ExecutionException, BrokenBarrierException {
+    void assertNotFinishedYet() throws InterruptedException, BrokenBarrierException {
       synchronizeWithCommand();
       if (result.isDone()) {
         try {
@@ -333,7 +372,7 @@ public final class CommandInterruptionTest {
     }
 
     /** Asserts that both commands were executed on the same thread. */
-    public void assertOnSameThreadAs(CommandState other) {
+    void assertOnSameThreadAs(CommandState other) {
       assertThat(thread).isSameInstanceAs(other.thread);
     }
   }
@@ -363,7 +402,7 @@ public final class CommandInterruptionTest {
                 new BlazeModule() {
                   @Override
                   public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
-                    // Can't create a Skylark environment without a tools repository!
+                    // Can't create a Starlark environment without a tools repository!
                     builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                     // Can't create a defaults package without the base options in there!
                     builder.addConfigurationOptions(CoreOptions.class);
@@ -401,15 +440,15 @@ public final class CommandInterruptionTest {
   @Test
   public void sendingExitCodeToTestCommandResultsInExitWithThatStatus() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
-    command.requestExitWith(ExitCode.SUCCESS);
-    command.assertFinishedWith(ExitCode.SUCCESS);
+    command.requestExitWith(DetailedExitCode.success());
+    command.assertFinishedWith(DetailedExitCode.success());
   }
 
   @Test
   public void interruptingTestCommandMakesItExitWithInterruptedStatus() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
     command.interrupt();
-    command.assertFinishedWith(ExitCode.INTERRUPTED);
+    command.assertFinishedWith(UNEXPECTED_INTERRUPTION);
   }
 
   @Test
@@ -417,8 +456,8 @@ public final class CommandInterruptionTest {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
     command.interrupt();
     command.assertNotFinishedYet();
-    command.requestExitWith(ExitCode.SUCCESS);
-    command.assertFinishedWith(ExitCode.SUCCESS);
+    command.requestExitWith(DetailedExitCode.success());
+    command.assertFinishedWith(DetailedExitCode.success());
   }
 
   @Test
@@ -427,7 +466,7 @@ public final class CommandInterruptionTest {
     command.interrupt();
     command.assertNotFinishedYet();
     command.interrupt();
-    command.assertFinishedWith(ExitCode.INTERRUPTED);
+    command.assertFinishedWith(UNEXPECTED_INTERRUPTION);
   }
 
   // These tests get into the meat of actual abrupt exits.
@@ -441,60 +480,46 @@ public final class CommandInterruptionTest {
       // Good!
     }
     command.assertNotFinishedYet();
-    command.requestExitWith(ExitCode.SUCCESS);
-  }
-
-  @Test
-  public void exitForbidsNullExitCode() throws Exception {
-    CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
-    try {
-      command.getModuleEnvironment().exit(new AbruptExitException("", null));
-      throw new AssertionError(
-          "It shouldn't be allowed to pass an AbruptExitException with null ExitCode to exit()!");
-    } catch (NullPointerException expected) {
-      // Good!
-    }
-    command.assertNotFinishedYet();
-    command.requestExitWith(ExitCode.SUCCESS);
+    command.requestExitWith(DetailedExitCode.success());
   }
 
   @Test
   public void callingExitOnceInterruptsAndOverridesExitCode() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
-    command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.NO_TESTS_FOUND));
-    command.assertFinishedWith(ExitCode.NO_TESTS_FOUND);
+    command.getModuleEnvironment().exit(new AbruptExitException(NO_TEST_TARGETS_CODE));
+    command.assertFinishedWith(NO_TEST_TARGETS_CODE);
   }
 
   @Test
   public void callingExitSecondTimeNeitherInterruptsNorReOverridesExitCode() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
-    command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.NO_TESTS_FOUND));
+    command.getModuleEnvironment().exit(new AbruptExitException(NO_TEST_TARGETS_CODE));
     command.assertNotFinishedYet();
-    command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.ANALYSIS_FAILURE));
+    command.getModuleEnvironment().exit(new AbruptExitException(OPTIONS_FAILURE));
     command.assertNotFinishedYet();
-    command.requestExitWith(ExitCode.SUCCESS);
-    command.assertFinishedWith(ExitCode.NO_TESTS_FOUND);
+    command.requestExitWith(DetailedExitCode.success());
+    command.assertFinishedWith(NO_TEST_TARGETS_CODE);
   }
 
   @Test
   public void abruptExitCodesDontOverrideInfrastructureFailures() throws Exception {
     CommandState command = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ true);
-    command.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.NO_TESTS_FOUND));
+    command.getModuleEnvironment().exit(new AbruptExitException(NO_TEST_TARGETS_CODE));
     command.assertNotFinishedYet();
-    command.requestExitWith(ExitCode.BLAZE_INTERNAL_ERROR);
-    command.assertFinishedWith(ExitCode.BLAZE_INTERNAL_ERROR);
+    command.requestExitWith(CRASH);
+    command.assertFinishedWith(CRASH);
   }
 
   @Test
   public void callingExitAfterCommandCompletesDoesNothing() throws Exception {
     CommandState firstCommand = snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
-    firstCommand.requestExitWith(ExitCode.SUCCESS);
-    firstCommand.assertFinishedWith(ExitCode.SUCCESS);
+    firstCommand.requestExitWith(DetailedExitCode.success());
+    firstCommand.assertFinishedWith(DetailedExitCode.success());
     CommandState newCommandOnSameThread =
         snooze.runIn(executor, dispatcher, /*expectInterruption=*/ false);
     firstCommand.assertOnSameThreadAs(newCommandOnSameThread);
-    firstCommand.getModuleEnvironment().exit(new AbruptExitException("", ExitCode.RUN_FAILURE));
+    firstCommand.getModuleEnvironment().exit(new AbruptExitException(OPTIONS_FAILURE));
     newCommandOnSameThread.assertNotFinishedYet();
-    newCommandOnSameThread.requestExitWith(ExitCode.SUCCESS);
+    newCommandOnSameThread.requestExitWith(DetailedExitCode.success());
   }
 }

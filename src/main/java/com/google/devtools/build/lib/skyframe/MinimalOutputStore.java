@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 
 /**
@@ -31,7 +30,4 @@ final class MinimalOutputStore extends OutputStore {
       super.putArtifactData(artifact, value);
     }
   }
-
-  @Override
-  void addTreeArtifactContents(Artifact artifact, TreeFileArtifact contents) {}
 }

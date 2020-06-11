@@ -51,8 +51,11 @@ public class UnknownRuleConfiguredTarget implements RuleConfiguredTargetFactory 
     }
 
     Rule rule = context.getRule();
-    context.registerAction(new FailAction(context.getActionOwner(),
-        filesToBuild, "cannot build " + rule.getRuleClass() + " rules such as " + rule.getLabel()));
+    context.registerAction(
+        new FailAction(
+            context.getActionOwner(),
+            filesToBuild.toList(),
+            "cannot build " + rule.getRuleClass() + " rules such as " + rule.getLabel()));
     return new RuleConfiguredTargetBuilder(context)
         .setFilesToBuild(filesToBuild)
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))

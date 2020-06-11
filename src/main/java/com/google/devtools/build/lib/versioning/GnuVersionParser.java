@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.versioning;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
@@ -125,7 +126,7 @@ public class GnuVersionParser<VersionT> {
   public VersionT fromProgram(PathFragment program) throws IOException, ParseException {
     Subprocess process =
         new SubprocessBuilder()
-            .setArgv(program.getPathString(), "--version")
+            .setArgv(ImmutableList.of(program.getPathString(), "--version"))
             .setStdout(StreamAction.STREAM)
             .redirectErrorStream(true)
             .start();

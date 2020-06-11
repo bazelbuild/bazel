@@ -44,7 +44,7 @@ Things to note:
 * Sometimes functions might be re-executed, in which case the related
   events will show up in the log multiple times.
 
-* Workspace rules log currently only logs Skylark events. Some native rules
+* Workspace rules log currently only logs Starlark events. Some native rules
   may cause non-hermetic behavior but not show up in this log. Examples of those
   rules include
   [maven_jar](/be/workspace.html#maven_jar).

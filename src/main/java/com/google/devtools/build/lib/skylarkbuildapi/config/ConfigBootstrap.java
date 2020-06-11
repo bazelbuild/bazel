@@ -24,22 +24,22 @@ import com.google.devtools.build.lib.syntax.Starlark;
  */
 public class ConfigBootstrap implements Bootstrap {
 
-  private final ConfigSkylarkCommonApi configSkylarkCommonApi;
+  private final ConfigStarlarkCommonApi configStarlarkCommonApi;
   private final StarlarkConfigApi starlarkConfigApi;
   private final ConfigGlobalLibraryApi configGlobalLibrary;
 
   public ConfigBootstrap(
-      ConfigSkylarkCommonApi configSkylarkCommonApi,
+      ConfigStarlarkCommonApi configStarlarkCommonApi,
       StarlarkConfigApi starlarkConfigApi,
       ConfigGlobalLibraryApi configGlobalLibrary) {
-    this.configSkylarkCommonApi = configSkylarkCommonApi;
+    this.configStarlarkCommonApi = configStarlarkCommonApi;
     this.starlarkConfigApi = starlarkConfigApi;
     this.configGlobalLibrary = configGlobalLibrary;
   }
 
   @Override
   public void addBindingsToBuilder(Builder<String, Object> builder) {
-    builder.put("config_common", configSkylarkCommonApi);
+    builder.put("config_common", configStarlarkCommonApi);
     builder.put("config", starlarkConfigApi);
     Starlark.addMethods(builder, configGlobalLibrary);
   }

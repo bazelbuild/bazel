@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec.local;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.util.OS;
 import java.io.IOException;
@@ -51,6 +52,6 @@ public interface LocalEnvProvider {
    *     typically the "TMPDIR" environment variable in the Bazel client's environment, but if
    *     that's unavailable, the implementation may decide to use this {@code fallbackTmpDir}.
    */
-  Map<String, String> rewriteLocalEnv(
+  ImmutableMap<String, String> rewriteLocalEnv(
       Map<String, String> env, BinTools binTools, String fallbackTmpDir) throws IOException;
 }

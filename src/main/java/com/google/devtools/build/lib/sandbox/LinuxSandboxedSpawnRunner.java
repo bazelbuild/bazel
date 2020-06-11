@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.exec.local.PosixLocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -85,6 +86,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
     return true;
   }
 
+  private final SandboxHelpers helpers;
   private final FileSystem fileSystem;
   private final BlazeDirectories blazeDirs;
   private final Path execRoot;
@@ -95,13 +97,14 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   private final Path inaccessibleHelperDir;
   private final LocalEnvProvider localEnvProvider;
   private final Duration timeoutKillDelay;
-  private final @Nullable SandboxfsProcess sandboxfsProcess;
+  @Nullable private final SandboxfsProcess sandboxfsProcess;
   private final boolean sandboxfsMapSymlinkTargets;
   private final TreeDeleter treeDeleter;
 
   /**
    * Creates a sandboxed spawn runner that uses the {@code linux-sandbox} tool.
    *
+   * @param helpers common tools and state across all spawns during sandboxed execution
    * @param cmdEnv the command environment to use
    * @param sandboxBase path to the sandbox base directory
    * @param inaccessibleHelperFile path to a file that is (already) inaccessible
@@ -112,6 +115,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
    * @param sandboxfsMapSymlinkTargets map the targets of symlinks within the sandbox if true
    */
   LinuxSandboxedSpawnRunner(
+      SandboxHelpers helpers,
       CommandEnvironment cmdEnv,
       Path sandboxBase,
       Path inaccessibleHelperFile,
@@ -121,10 +125,11 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       boolean sandboxfsMapSymlinkTargets,
       TreeDeleter treeDeleter) {
     super(cmdEnv);
+    this.helpers = helpers;
     this.fileSystem = cmdEnv.getRuntime().getFileSystem();
     this.blazeDirs = cmdEnv.getDirectories();
     this.execRoot = cmdEnv.getExecRoot();
-    this.allowNetwork = SandboxHelpers.shouldAllowNetwork(cmdEnv.getOptions());
+    this.allowNetwork = helpers.shouldAllowNetwork(cmdEnv.getOptions());
     this.linuxSandbox = LinuxSandboxUtil.getLinuxSandbox(cmdEnv);
     this.sandboxBase = sandboxBase;
     this.inaccessibleHelperFile = inaccessibleHelperFile;
@@ -149,15 +154,25 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     // b/64689608: The execroot of the sandboxed process must end with the workspace name, just like
     // the normal execroot does.
-    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(execRoot.getBaseName());
+    String workspaceName = execRoot.getBaseName();
+    Path sandboxExecRoot = sandboxPath.getRelative("execroot").getRelative(workspaceName);
     sandboxExecRoot.getParentDirectory().createDirectory();
     sandboxExecRoot.createDirectory();
 
-    Map<String, String> environment =
+    ImmutableMap<String, String> environment =
         localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
 
     ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
-    SandboxOutputs outputs = SandboxHelpers.getOutputs(spawn);
+
+    SandboxInputs inputs =
+        helpers.processInputFiles(
+            context.getInputMapping(
+                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+            spawn,
+            context.getArtifactExpander(),
+            execRoot);
+    SandboxOutputs outputs = helpers.getOutputs(spawn);
+
     Duration timeout = context.getTimeout();
 
     LinuxSandboxUtil.CommandLineBuilder commandLineBuilder =
@@ -193,13 +208,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       return new SandboxfsSandboxedSpawn(
           sandboxfsProcess,
           sandboxPath,
+          workspaceName,
           commandLineBuilder.build(),
           environment,
-          SandboxHelpers.processInputFiles(
-              spawn,
-              context,
-              execRoot,
-              getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+          inputs,
           outputs,
           ImmutableSet.of(),
           sandboxfsMapSymlinkTargets,
@@ -211,11 +223,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
           sandboxExecRoot,
           commandLineBuilder.build(),
           environment,
-          SandboxHelpers.processInputFiles(
-              spawn,
-              context,
-              execRoot,
-              getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
+          inputs,
           outputs,
           writableDirs,
           treeDeleter,

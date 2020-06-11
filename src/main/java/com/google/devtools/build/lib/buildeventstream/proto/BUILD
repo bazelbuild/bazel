@@ -1,9 +1,8 @@
 load("@rules_java//java:defs.bzl", "java_proto_library")
-
-package(default_visibility = ["//src:__subpackages__"])
-
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 load("@rules_proto//proto:defs.bzl", "proto_library")
+
+package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
@@ -28,6 +27,7 @@ proto_library(
     srcs = ["build_event_stream.proto"],
     deps = [
         "//src/main/protobuf:command_line_proto",
+        "//src/main/protobuf:failure_details_proto",
         "//src/main/protobuf:invocation_policy_proto",
     ],
 )

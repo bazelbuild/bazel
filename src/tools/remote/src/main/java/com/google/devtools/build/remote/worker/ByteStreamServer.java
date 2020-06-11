@@ -15,8 +15,6 @@
 package com.google.devtools.build.remote.worker;
 
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static java.util.logging.Level.SEVERE;
-import static java.util.logging.Level.WARNING;
 
 import build.bazel.remote.execution.v2.Digest;
 import com.google.bytestream.ByteStreamGrpc.ByteStreamImplBase;
@@ -24,6 +22,7 @@ import com.google.bytestream.ByteStreamProto.ReadRequest;
 import com.google.bytestream.ByteStreamProto.ReadResponse;
 import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.Chunker;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -35,12 +34,11 @@ import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.UUID;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 
 /** A basic implementation of a {@link ByteStreamImplBase} service. */
 final class ByteStreamServer extends ByteStreamImplBase {
-  private static final Logger logger = Logger.getLogger(ByteStreamServer.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final OnDiskBlobStoreCache cache;
   private final Path workPath;
   private final DigestUtil digestUtil;
@@ -89,7 +87,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
     } catch (CacheNotFoundException e) {
       responseObserver.onError(StatusUtils.notFoundError(digest));
     } catch (Exception e) {
-      logger.log(WARNING, "Read request failed.", e);
+      logger.atWarning().withCause(e).log("Read request failed");
       responseObserver.onError(StatusUtils.internalError(e));
     }
   }
@@ -101,7 +99,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
       FileSystemUtils.createDirectoryAndParents(temp.getParentDirectory());
       FileSystemUtils.createEmptyFile(temp);
     } catch (IOException e) {
-      logger.log(SEVERE, "Failed to create temporary file for upload", e);
+      logger.atSevere().withCause(e).log("Failed to create temporary file for upload");
       responseObserver.onError(StatusUtils.internalError(e));
       // We need to make sure that subsequent onNext or onCompleted calls don't make any further
       // calls on the responseObserver after the onError above, so we return a no-op observer.
@@ -190,13 +188,13 @@ final class ByteStreamServer extends ByteStreamImplBase {
       @Override
       public void onError(Throwable t) {
         if (Status.fromThrowable(t).getCode() != Status.Code.CANCELLED) {
-          logger.log(WARNING, "Write request failed remotely.", t);
+          logger.atWarning().withCause(t).log("Write request failed remotely");
         }
         closed = true;
         try {
           temp.delete();
         } catch (IOException e) {
-          logger.log(WARNING, "Could not delete temp file.", e);
+          logger.atWarning().withCause(e).log("Could not delete temp file");
         }
       }
 
@@ -223,7 +221,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
           try {
             temp.delete();
           } catch (IOException e) {
-            logger.log(WARNING, "Could not delete temp file.", e);
+            logger.atWarning().withCause(e).log("Could not delete temp file");
           }
 
           if (!d.equals(digest)) {
@@ -238,7 +236,7 @@ final class ByteStreamServer extends ByteStreamImplBase {
           responseObserver.onNext(WriteResponse.newBuilder().setCommittedSize(offset).build());
           responseObserver.onCompleted();
         } catch (Exception e) {
-          logger.log(WARNING, "Write request failed.", e);
+          logger.atWarning().withCause(e).log("Write request failed");
           responseObserver.onError(StatusUtils.internalError(e));
           closed = true;
         }

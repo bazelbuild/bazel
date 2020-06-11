@@ -45,7 +45,7 @@ public class CqueryOptions extends CommonQueryOptions {
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
           "The format in which the cquery results should be printed. Allowed values for cquery "
-              + "are: label, textproto, transitions, proto, jsonproto. If you select "
+              + "are: label, label_kind, textproto, transitions, proto, jsonproto. If you select "
               + "'transitions', you also have to specify the --transitions=(lite|full) option.")
   public String outputFormat;
 

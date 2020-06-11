@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -57,13 +58,12 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     public String adb;
 
     @Option(
-      name = "adb_arg",
-      allowMultiple = true,
-      defaultValue = "",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
-      help = "Extra arguments to pass to adb. Usually used to designate a device to install to."
-    )
+        name = "adb_arg",
+        allowMultiple = true,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+        help = "Extra arguments to pass to adb. Usually used to designate a device to install to.")
     public List<String> adbArgs;
 
     @Option(
@@ -130,8 +130,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
     final String device = options.device;
     final String incrementalInstallVerbosity = options.incrementalInstallVerbosity;
     final StartType start = options.start;
-    final String userHomeDirectory =
-        ctx.getContext(WriteAdbArgsActionContext.class).getUserHomeDirectory();
+    final String userHomeDirectory = ctx.getClientEnv().get("HOME");
 
     return new DeterministicWriter() {
       @Override

@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -50,7 +50,7 @@ public class PatchUtilTest {
         scratch.file(
             "/root/patchfile",
             "diff --git a/newfile b/newfile",
-            "new file mode 100644",
+            "new file mode 100544",
             "index 0000000..f742c88",
             "--- /dev/null",
             "+++ b/newfile",
@@ -63,6 +63,10 @@ public class PatchUtilTest {
     Path newFile = root.getRelative("newfile");
     ImmutableList<String> newFileContent = ImmutableList.of("I'm a new file", "hello, world");
     assertThat(PatchUtil.readFile(newFile)).containsExactlyElementsIn(newFileContent);
+    // Make sure file permission is set as specified.
+    assertThat(newFile.isReadable()).isTrue();
+    assertThat(newFile.isWritable()).isFalse();
+    assertThat(newFile.isExecutable()).isTrue();
   }
 
   @Test
@@ -154,6 +158,9 @@ public class PatchUtilTest {
   public void testApplyToNewFile() throws IOException, PatchFailedException {
     // If only newfile exists, we should patch the new file.
     Path newFile = scratch.file("/root/newfile", "line one");
+    newFile.setReadable(true);
+    newFile.setWritable(true);
+    newFile.setExecutable(true);
     Path patchFile =
         scratch.file(
             "/root/patchfile",
@@ -165,6 +172,29 @@ public class PatchUtilTest {
     PatchUtil.apply(patchFile, 0, root);
     ImmutableList<String> newContent = ImmutableList.of("line one", "line two");
     assertThat(PatchUtil.readFile(newFile)).containsExactlyElementsIn(newContent);
+    // Make sure file permission is preserved.
+    assertThat(newFile.isReadable()).isTrue();
+    assertThat(newFile.isWritable()).isTrue();
+    assertThat(newFile.isExecutable()).isTrue();
+  }
+
+  @Test
+  public void testChangeFilePermission() throws IOException, PatchFailedException {
+    Path myFile = scratch.file("/root/test.sh", "line one");
+    myFile.setReadable(true);
+    myFile.setWritable(true);
+    myFile.setExecutable(false);
+    Path patchFile =
+        scratch.file(
+            "/root/patchfile",
+            "diff --git a/test.sh b/test.sh",
+            "old mode 100644",
+            "new mode 100755");
+    PatchUtil.apply(patchFile, 1, root);
+    assertThat(PatchUtil.readFile(myFile)).containsExactly("line one");
+    assertThat(myFile.isReadable()).isTrue();
+    assertThat(myFile.isWritable()).isTrue();
+    assertThat(myFile.isExecutable()).isTrue();
   }
 
   @Test
@@ -378,7 +408,7 @@ public class PatchUtilTest {
     Path patchFile =
         scratch.file(
             "/root/patchfile",
-            "diff --git a/foo.cc b/foo.cc",
+            "diff --git a/ b/",
             "index f3008f9..ec4aaa0 100644",
             "@@ -2,4 +2,5 @@",
             " ",

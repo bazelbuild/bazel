@@ -23,12 +23,12 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -42,8 +42,6 @@ public enum CompileBuildVariables {
    * --conlyopt options.
    */
   USER_COMPILE_FLAGS("user_compile_flags"),
-  /** Variable for flags coming from unfiltered_cxx_flag CROSSTOOL fields. */
-  UNFILTERED_COMPILE_FLAGS("unfiltered_compile_flags"),
   /** Variable for the path to the compilation output file. */
   OUTPUT_FILE("output_file"),
   /** Variable for the dependency file path */
@@ -360,10 +358,10 @@ public enum CompileBuildVariables {
       List<VariablesExtension> variablesExtensions,
       Map<String, String> additionalBuildVariables,
       Iterable<Artifact> directModuleMaps,
-      Iterable<PathFragment> includeDirs,
-      Iterable<PathFragment> quoteIncludeDirs,
-      Iterable<PathFragment> systemIncludeDirs,
-      Iterable<PathFragment> frameworkIncludeDirs,
+      List<PathFragment> includeDirs,
+      List<PathFragment> quoteIncludeDirs,
+      List<PathFragment> systemIncludeDirs,
+      List<PathFragment> frameworkIncludeDirs,
       NestedSet<String> defines,
       Iterable<String> localDefines) {
     setupCommonVariablesInternal(
@@ -461,7 +459,12 @@ public enum CompileBuildVariables {
   }
 
   /** Get the safe path strings for a list of paths to use in the build variables. */
-  private static NestedSet<String> getSafePathStrings(Iterable<PathFragment> paths) {
+  private static NestedSet<String> getSafePathStrings(NestedSet<PathFragment> paths) {
+    return getSafePathStrings(paths.toList());
+  }
+
+  /** Get the safe path strings for a list of paths to use in the build variables. */
+  private static NestedSet<String> getSafePathStrings(List<PathFragment> paths) {
     // Using ImmutableSet first to remove duplicates, then NestedSet for smaller memory footprint.
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,

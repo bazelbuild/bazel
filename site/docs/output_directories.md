@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Output Directory Layout
+title: Output directory layout
 ---
 
-# Output Directory Layout
+# Output directory layout
 
 ## Requirements
 
@@ -20,15 +20,19 @@ Requirements for an output directory layout:
 * All the build state per user should be underneath one directory ("I'd like to
   clean all the .o files from all my clients.")
 
-## Documentation of the current Bazel output directory layout
+## Current layout
 
 The solution that's currently implemented:
 
-* Bazel must be invoked from a directory containing a WORKSPACE file. It reports
-  an error if it is not. We call this the _workspace directory_.
-* The _outputRoot_ directory is ~/.cache/bazel. (Unless `$TEST_TMPDIR` is
-  set, as in a test of bazel itself, in which case this directory is used
-  instead.)
+* Bazel must be invoked from a directory containing a WORKSPACE file (the
+  "_workspace directory_"), or a subdirectory thereof. It reports an error if it
+  is not.
+* The _outputRoot_ directory defaults to `~/.cache/bazel` on Linux,
+  `/private/var/tmp` on macOS, and on Windows it defaults to `%HOME%` if set,
+  else `%USERPROFILE%` if set, else the result of calling
+  `SHGetKnownFolderPath()` with the `FOLDERID_Profile` flag set. If the
+  environment variable `$TEST_TMPDIR` is set, as in a test of bazel itself,
+  then that value overrides the default.
 * We stick the Bazel user's build state beneath `outputRoot/_bazel_$USER`. This
   is called the _outputUserRoot_ directory.
 * Beneath the `outputUserRoot` directory, we create an `installBase` directory
@@ -46,16 +50,13 @@ The solution that's currently implemented:
   default install base and output base directories. For example:
   `bazel --output_user_root=/tmp/bazel build x/y:z`.
 
-We put symlinks "bazel-&lt;workspace-name&gt;" and "bazel-out", as well as
-"bazel-bin", "bazel-genfiles", and "bazel-includes" in the workspace directory;
-these symlinks points to some directories inside a target-specific directory
-inside the output directory. These symlinks are only for the user's convenience,
-as Bazel itself does not use them. Also, we only do this if the workspace
-directory is writable. The names of the "bazel-bin", "bazel-genfiles", and
-"bazel-include" symlinks are affected by the `--symlink_prefix` option to bazel,
-but "bazel-&lt;workspace-name&gt;" and "bazel-out" are not.
+We put symlinks "bazel-&lt;workspace-name&gt;", "bazel-out", "bazel-testlogs",
+and "bazel-bin" in the workspace directory; these symlinks points to some
+directories inside a target-specific directory inside the output directory.
+These symlinks are only for the user's convenience, as Bazel itself does not
+use them. Also, we only do this if the workspace directory is writable.
 
-## Bazel internals: Directory layout
+## Layout diagram
 
 The directories are laid out as follows:
 
@@ -64,7 +65,7 @@ The directories are laid out as follows:
   bazel-my-project => <...my-project>     <== Symlink to execRoot
   bazel-out => <...bin>                   <== Convenience symlink to outputPath
   bazel-bin => <...bin>                   <== Convenience symlink to most recent written bin dir $(BINDIR)
-  bazel-genfiles => <...genfiles>         <== Convenience symlink to most recent written genfiles dir $(GENDIR)
+  bazel-testlogs => <...testlogs>         <== Convenience symlink to the test logs directory
 
 /home/user/.cache/bazel/                  <== Root for all Bazel output on a machine: outputRoot
   _bazel_$USER/                           <== Top level directory for a given user depends on the user name:

@@ -162,6 +162,17 @@ public class AppleCommandLineOptions extends FragmentOptions {
               + "If unspecified, uses 'macos_sdk_version'.")
   public DottedVersion.Option macosMinimumOs;
 
+  @Option(
+      name = "experimental_prefer_mutual_xcode",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+      help =
+          "If true, use the most recent Xcode that is available both locally and remotely. If"
+              + " false, or if there are no mutual available versions, use the local Xcode version"
+              + " selected via xcode-select.")
+  public boolean preferMutualXcode;
+
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   @VisibleForTesting public static final String DEFAULT_WATCHOS_SDK_VERSION = "2.0";
   @VisibleForTesting public static final String DEFAULT_MACOS_SDK_VERSION = "10.10";
@@ -269,7 +280,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "ios_multi_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "unused",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
@@ -281,7 +292,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "watchos_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "unused",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple watchOS binaries.")
@@ -291,7 +302,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "tvos_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "unused",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple tvOS binaries.")
@@ -301,7 +312,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
       name = "macos_cpus",
       allowMultiple = true,
       converter = CommaSeparatedOptionListConverter.class,
-      defaultValue = "unused",
+      defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.LOADING_AND_ANALYSIS},
       help = "Comma-separated list of architectures for which to build Apple macOS binaries.")
@@ -407,6 +418,11 @@ public class AppleCommandLineOptions extends FragmentOptions {
     private AppleBitcodeMode(String mode, ImmutableList<String> featureNames) {
       this.mode = mode;
       this.featureNames = featureNames;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true; // immutable and Starlark-hashable
     }
 
     @Override

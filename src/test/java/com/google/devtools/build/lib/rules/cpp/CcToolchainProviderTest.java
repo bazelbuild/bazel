@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.SkylarkProvider;
+import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
@@ -39,7 +39,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CcToolchainProviderTest extends BuildViewTestCase {
   @Test
-  public void testSkylarkCallables() throws Exception {
+  public void testStarlarkCallables() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -77,7 +77,7 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
 
     ConfiguredTarget ct = getConfiguredTarget("//test:target");
     Provider.Key key =
-        new SkylarkProvider.SkylarkKey(
+        new StarlarkProvider.Key(
             Label.parseAbsolute("//test:rule.bzl", ImmutableMap.of()), "MyInfo");
     StructImpl info = (StructImpl) ct.get(key);
 

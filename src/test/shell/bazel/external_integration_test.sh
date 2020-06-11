@@ -623,6 +623,10 @@ EOF
   bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
   [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
 
+  bazel query --output=build --nohost_deps --noimplicit_deps 'deps(//zoo:ball-pit)' >& $TEST_log \
+    || fail "bazel query failed"
+  expect_log "maven_coordinates=com.example.carnivore:carnivore:1.23"
+
   # Rerun fetch while nc isn't serving anything to make sure the fetched result
   # is cached.
   bazel fetch //zoo:ball-pit >& $TEST_log || fail "Incremental fetch failed"
@@ -2238,12 +2242,17 @@ def foo_repos():
     )
 EOF
 
-  bazel build @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
+  bazel build --record_rule_instantiation_callstack @foo//... > "${TEST_log}" 2>&1 && fail "expected failure"
+  inplace-sed -e "s?$WRKDIR/?WRKDIR/?g" -e "s?$TEST_TMPDIR/?TEST_TMPDIR/?g" "${TEST_log}"
+
   expect_log 'error.*repository.*foo'
   expect_log '@bar//:foo.build'
-  expect_log 'path/to/main/foo.bzl'
-  expect_log 'path/to/main/repos.bzl'
-  expect_log 'path/to/main/WORKSPACE'
+  expect_log "Repository foo instantiated at:"
+  expect_log "  WRKDIR/path/to/main/WORKSPACE:"
+  expect_log "  WRKDIR/path/to/main/repos.bzl:5"
+  expect_log "  WRKDIR/path/to/main/foo.bzl:4"
+  expect_log "Repository rule http_archive defined at:"
+  expect_log "  TEST_TMPDIR/.*/external/bazel_tools/tools/build_defs/repo/http.bzl:"
 }
 
 function test_circular_definition_reported() {
@@ -2309,7 +2318,8 @@ load("@a//:notabuildfile.bzl", "x")
 EOF
   touch BUILD
 
-  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  bazel build --record_rule_instantiation_callstack //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
 
   expect_not_log '[iI]nternal [eE]rror'
   expect_not_log 'IllegalStateException'
@@ -2319,11 +2329,11 @@ EOF
 
   # We expect to find the call stack for the definition of the repositories
   # a and b
-  expect_log "WORKSPACE:4:1"
-  expect_log "foo.bzl:4:3"
+  expect_log "WORKSPACE:4:4"
+  expect_log "foo.bzl:4:15"
 
-  expect_log "WORKSPACE:5:1"
-  expect_log "bar.bzl:4:3"
+  expect_log "WORKSPACE:5:4"
+  expect_log "bar.bzl:4:15"
 }
 
 function test_missing_repo_reported() {
@@ -2360,13 +2370,17 @@ data_repo(
 load("@data//:value.bzl", "value")
 EOF
 
-  bazel build //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  # TODO(adonovan): add a test that the error message contains a hint to set the flag if unset.
+  bazel build --record_rule_instantiation_callstack //... > "${TEST_log}" 2>&1 && fail "expected failure" || :
+  inplace-sed -e 's?$(pwd)/?PWD/?g' "${TEST_log}"
 
-  expect_log "add.*this_repo_is_missing.*WORKSPACE"
+  expect_log "you have to add.*this_repo_is_missing.*WORKSPACE"
   # Also verify that the repository class and its definition is reported, to
   # help finding out where the implict dependency comes from.
-  expect_log 'data.*is.*data_repo'
-  expect_log 'data_repo.*main/withimplicit.bzl:6'
+  expect_log "Repository data instantiated at:"
+  expect_log ".../WORKSPACE:47"
+  expect_log "Repository rule data_repo defined at:"
+  expect_log ".../withimplicit.bzl:6"
 }
 
 function test_overwrite_existing_workspace_build() {

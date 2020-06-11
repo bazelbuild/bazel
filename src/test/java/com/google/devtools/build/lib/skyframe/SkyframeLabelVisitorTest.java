@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
+import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -416,17 +416,17 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
 
   @Test
   public void testWithNoSubincludes() throws Exception {
-    PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-    packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
-    packageCacheOptions.showLoadingProgress = true;
-    packageCacheOptions.globbingThreads = 7;
+    PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+    packageOptions.defaultVisibility = ConstantRuleVisibility.PRIVATE;
+    packageOptions.showLoadingProgress = true;
+    packageOptions.globbingThreads = 7;
     getSkyframeExecutor()
         .preparePackageLoading(
             new PathPackageLocator(
                 outputBase,
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-            packageCacheOptions,
+            packageOptions,
             Options.getDefaults(StarlarkSemanticsOptions.class),
             UUID.randomUUID(),
             ImmutableMap.<String, String>of(),

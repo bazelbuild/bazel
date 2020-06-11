@@ -15,37 +15,43 @@
 # limitations under the License.
 #
 # Tests remote execution and caching.
-#
 
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../../integration_test_setup.sh" \
+set -euo pipefail
+
+# --- begin runfiles.bash initialization ---
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
-source "${CURRENT_DIR}/../../sandboxing_test_utils.sh" \
+source "$(rlocation "io_bazel/src/test/shell/sandboxing_test_utils.sh")" \
   || { echo "sandboxing_test_utils.sh not found!" >&2; exit 1; }
+source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
+  || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  work_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
-  cas_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   writable_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
   readonly_path=$(mktemp -d "${TEST_TMPDIR}/remote.XXXXXXXX")
-  pid_file=$(mktemp -u "${TEST_TMPDIR}/remote.XXXXXXXX")
-  worker_port=$(pick_random_unused_tcp_port) || fail "no port found"
-  "${BAZEL_RUNFILES}/src/tools/remote/worker" \
-      --work_path="${work_path}" \
-      --cas_path="${cas_path}" \
-      --listen_port=${worker_port} \
+  start_worker \
       --sandboxing \
-      --sandboxing_writable_path="${writable_path}" \
-      --pid_file="${pid_file}" >& $TEST_log &
-  local wait_seconds=0
-  until [ -s "${pid_file}" ] || [ "$wait_seconds" -eq 30 ]; do
-    sleep 1
-    ((wait_seconds++)) || true
-  done
-  if [ ! -s "${pid_file}" ]; then
-    fail "Timed out waiting for remote worker to start."
-  fi
+      --sandboxing_writable_path="${writable_path}"
 
   mkdir -p examples/genrule
   cat > examples/genrule/BUILD <<'EOF'
@@ -76,13 +82,14 @@ EOF
 }
 
 function tear_down() {
-  if [ -s "${pid_file}" ]; then
-    local pid=$(cat "${pid_file}")
-    kill "${pid}" || true
+  bazel clean >& $TEST_log
+  stop_worker
+  if [ -d "${readonly_path}" ]; then
+    rm -rf "${readonly_path}"
   fi
-  rm -rf "${pid_file}"
-  rm -rf "${work_path}"
-  rm -rf "${cas_path}"
+  if [ -d "${writable_path}" ]; then
+    rm -rf "${writable_path}"
+  fi
 }
 
 function test_genrule() {

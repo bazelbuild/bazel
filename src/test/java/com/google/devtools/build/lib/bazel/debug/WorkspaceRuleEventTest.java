@@ -18,7 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Location;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,22 +31,16 @@ import org.junit.runners.JUnit4;
 /** Tests handling of WorkspaceRuleEvent */
 @RunWith(JUnit4.class)
 public final class WorkspaceRuleEventTest {
-  static class DummyString {
-    @Override
-    public String toString() {
-      return "dummy string";
-    }
-  }
 
   @Before
   public void setUp() {}
 
   @Test
   public void newExecuteEvent_expectedResult() {
-    // Set up arguments, as a combination of String and SkylarkPath
-    ArrayList<Object> arguments = new ArrayList<>();
+    // Set up arguments, as a combination of String and StarlarkPath
+    ArrayList<String> arguments = new ArrayList<>();
     arguments.add("argument 1");
-    arguments.add(new DummyString());
+    arguments.add("dummy string");
 
     Map<String, String> commonEnv = ImmutableMap.of("key1", "val1", "key3", "val3");
     Map<String, String> customEnv = ImmutableMap.of("key2", "val2!", "key3", "val3!");

@@ -5,32 +5,38 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-      - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
-      - "--"
       - "//scripts/..."
       - "//src/java_tools/..."
       - "//src/test/..."
+      - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
-      # TODO(iirina): Re-enable after #7952 was released.
-      - "-//src/test/shell/bazel:embedded_tools_deps_test"
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
-      # TODO(philwo): Re-enable after #8708 is fixed.
+      # These tests are not compatible with the gcov version of CentOS 7.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
       - "-//src/test/shell/bazel:bazel_coverage_cc_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
-      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
-      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -39,28 +45,34 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-      - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
-      - "--"
       - "//scripts/..."
       - "//src/java_tools/..."
       - "//src/test/..."
+      - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
-      # TODO(iirina): Re-enable after #7952 was released.
-      - "-//src/test/shell/bazel:embedded_tools_deps_test"
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/buildjar/..."
       - "-//src/java_tools/import_deps_checker/..."
-      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
-      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -69,31 +81,36 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-      - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
       # Configure and enable tests that require access to the network.
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     test_targets:
-      - "--"
       - "//scripts/..."
       - "//src/java_tools/..."
       - "//src/test/..."
+      - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
-      # Some prebuilt jars don't run with Java 11
-      - "-//src/test/shell/bazel:external_integration_test"
-      # TODO(iirina): Re-enable after #7952 was released.
-      - "-//src/test/shell/bazel:embedded_tools_deps_test"
       # Re-enable once fixed: https://github.com/bazelbuild/bazel/issues/8162
       - "-//src/java_tools/import_deps_checker/..."
-      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
-      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -107,13 +124,21 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
+    build_flags:
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-      - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
-      - "--"
       - "//src/test/shell/bazel:cc_integration_test"
     include_json_profile:
       - build
@@ -123,41 +148,36 @@ tasks:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE
       - rm -f WORKSPACE.bak
+      - rm -rf $HOME/bazeltest
+      - mkdir $HOME/bazeltest
     build_flags:
-      - "--apple_platform_type=macos"
-      # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
-      - "--noincompatible_strict_action_env"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
+      - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
-      - "--test_timeout=1200"
+      - "--sandbox_default_allow_network=false"
+      - "--sandbox_writable_path=$HOME/bazeltest"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest/install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
       # Configure and enable tests that require access to the network.
       - "--test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80"
-      # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
-      - "--noincompatible_strict_action_env"
     test_targets:
-      - "--"
       - "//scripts/..."
       - "//src/test/..."
+      - "//src/tools/execlog/..."
       - "//src/tools/singlejar/..."
+      - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
       - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/osx/crosstool/..."
       - "//tools/python/..."
-      - "-//src/test/shell/integration:minimal_jdk_test"
-        # C++ coverage is not supported on macOS yet.
+      # C++ coverage is not supported on macOS yet.
       - "-//src/test/shell/bazel:bazel_cc_code_coverage_test"
-      # TODO(iirina): Re-enable after #7952 was released.
-      - "-//src/test/shell/bazel:embedded_tools_deps_test"
-      - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_released"
-      - "-//src/test/shell/bazel:bazel_java_test_jdk9_toolchain_head"
-      - "-//src/test/shell/bazel:bazel_java_test_jdk10_toolchain_head"
-      # Docker sandboxing needs Docker installed
-      - "-//src/test/shell/bazel:bazel_docker_sandboxing_test"
-      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
-      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test
@@ -167,25 +187,21 @@ tasks:
     build_flags:
       - "--copt=-w"
       - "--host_copt=-w"
-      # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
-      - "--noincompatible_strict_action_env"
+      - "--test_env=JAVA_HOME"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     build_targets:
       - "//src:bazel.exe"
       - "//src:bazel_jdk_minimal"
+      - "//src:test_repos"
     test_flags:
       - "--copt=-w"
       - "--host_copt=-w"
       - "--test_env=JAVA_HOME"
-      - "--test_timeout=1200"
-      # Remove when https://github.com/bazelbuild/bazel/issues/7026 is fixed.
-      - "--noincompatible_strict_action_env"
+      - "--test_env=TEST_INSTALL_BASE=$HOME/bazeltest_install_base"
+      - "--test_env=TEST_REPOSITORY_HOME=$OUTPUT_BASE/external"
     test_targets:
-      - "--"
       - "//src:all_windows_tests"
-      # TODO(iirina): Re-enable after #7952 was released.
-      - "-//src/test/shell/bazel:embedded_tools_deps_test"
-      # TODO(katre): Re-enable after 0.29.0: https://github.com/bazelbuild/bazel/issues/9148
-      - "-//src/tools/singlejar:combiners_test"
     include_json_profile:
       - build
       - test

@@ -244,7 +244,12 @@ public final class License implements LicenseApi {
   }
 
   @Override
+  public boolean isImmutable() {
+    return true; // licences are Starlark-hashable
+  }
+
+  @Override
   public void repr(Printer printer) {
-    printer.append("<license object>");
+    printer.append(this.toString());
   }
 }

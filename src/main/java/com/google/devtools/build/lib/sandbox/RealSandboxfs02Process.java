@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.vfs.Path;
@@ -31,14 +32,13 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -48,8 +48,7 @@ import javax.annotation.concurrent.GuardedBy;
  * <p>This implementation provides support for the reconfiguration protocol introduced in 0.2.0.
  */
 final class RealSandboxfs02Process extends RealSandboxfsProcess {
-
-  private static final Logger log = Logger.getLogger(RealSandboxfsProcess.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * Writer with which to send data to the sandboxfs instance. Null only after {@link #destroy()}
@@ -139,7 +138,7 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
       } catch (EOFException e) {
         // OK, nothing to do.
       } catch (IOException e) {
-        log.log(Level.WARNING, "Failed to read responses from sandboxfs", e);
+        logger.atWarning().withCause(e).log("Failed to read responses from sandboxfs");
       }
 
       // sandboxfs has either replied with an unrecoverable error or has stopped providing
@@ -160,6 +159,66 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
       }
     }
   }
+
+  /** A pair that represents the identifier and the path of a prefix as it will be serialized. */
+  private static class Prefix {
+    Integer id;
+    String serializedPath;
+
+    /**
+     * Constructs a new prefix from its components.
+     *
+     * @param id the numerical identifier of the prefix
+     * @param serializedPath the path of the prefix. Given that this is typically comes from a call
+     *     to {@link Path#getParentDirectory()}, the value may be null or empty.
+     */
+    Prefix(Integer id, @Nullable PathFragment serializedPath) {
+      this.id = id;
+      if (serializedPath == null || serializedPath.isEmpty()) {
+        this.serializedPath = "/";
+      } else {
+        this.serializedPath = serializedPath.getPathString();
+      }
+    }
+  }
+
+  /** Registers and assigns unique identifiers to path prefixes. */
+  private static class Prefixes {
+    /** Collection of all known path prefixes to this sandboxfs instance. */
+    @GuardedBy("this")
+    private final Map<PathFragment, Integer> prefixes = new HashMap<>();
+
+    /** Last identifier assigned to a path prefix. */
+    @GuardedBy("this")
+    private Integer lastPrefixId = 1;
+
+    /**
+     * Registers the given path as a prefix.
+     *
+     * @param path the path to register as a prefix, which should always be the return value of a
+     *     call to {@link Path#getParentDirectory()}. As a result, this should either be an absolute
+     *     path, or a null or empty path.
+     * @param newPrefixes tracker for any new prefixes registered by this function. If the given
+     *     path is not yet known, it will be added to this collection.
+     * @return the identifier for the prefix
+     */
+    private synchronized Integer registerPrefix(PathFragment path, ArrayList<Prefix> newPrefixes) {
+      Integer id = prefixes.get(path);
+      if (id != null) {
+        return id;
+      }
+
+      id = lastPrefixId;
+      prefixes.put(path, id);
+      newPrefixes.add(new Prefix(id, path));
+      lastPrefixId++;
+
+      return id;
+    }
+  }
+
+  /** Tracker for all known path prefixes to this sandboxfs instance. */
+  private final Prefixes allPrefixes = new Prefixes();
 
   /**
    * Initializes a new sandboxfs process instance.
@@ -191,7 +250,8 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
     try {
       responsesReader.join();
     } catch (InterruptedException e) {
-      log.warning("Interrupted while waiting for responses processor thread");
+      logger.atWarning().withCause(e).log(
+          "Interrupted while waiting for responses processor thread");
       Thread.currentThread().interrupt();
     }
 
@@ -276,41 +336,62 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
     }
   }
 
-  /** Encodes a mapping into JSON. */
-  @SuppressWarnings("UnnecessaryParentheses")
-  private static void writeMapping(JsonWriter writer, Mapping mapping) throws IOException {
-    writer.beginObject();
-    {
-      writer.name("path");
-      writer.value(mapping.path().getPathString());
-      writer.name("underlying_path");
-      writer.value(mapping.target().getPathString());
-      writer.name("writable");
-      writer.value(mapping.writable());
-    }
-    writer.endObject();
-  }
-
   @Override
   @SuppressWarnings("UnnecessaryParentheses")
-  public void createSandbox(String id, List<Mapping> mappings) throws IOException {
+  public void createSandbox(String id, SandboxCreator creator) throws IOException {
     checkArgument(!PathFragment.containsSeparator(id));
 
     SettableFuture<Void> future = newRequest(id);
     synchronized (this) {
       processStdIn.beginObject();
       {
-        processStdIn.name("CreateSandbox");
+        processStdIn.name("C");
         processStdIn.beginObject();
         {
-          processStdIn.name("id");
+          processStdIn.name("i");
           processStdIn.value(id);
-          processStdIn.name("mappings");
+          processStdIn.name("m");
           processStdIn.beginArray();
-          for (Mapping mapping : mappings) {
-            writeMapping(processStdIn, mapping);
-          }
+          ArrayList<Prefix> newPrefixes = new ArrayList<>();
+          creator.create(
+              (path, underlyingPath, writable) -> {
+                Integer pathPrefix =
+                    allPrefixes.registerPrefix(path.getParentDirectory(), newPrefixes);
+                Integer underlyingPathPrefix =
+                    allPrefixes.registerPrefix(underlyingPath.getParentDirectory(), newPrefixes);
+
+                // This synchronized block is theoretically unnecessary because the lock is already
+                // held by the caller of this lambda. However, we need to reenter it to appease
+                // the @GuardedBy clauses.
+                synchronized (this) {
+                  processStdIn.beginObject();
+                  {
+                    processStdIn.name("x");
+                    processStdIn.value(pathPrefix);
+                    processStdIn.name("p");
+                    processStdIn.value(path.getBaseName());
+                    processStdIn.name("y");
+                    processStdIn.value(underlyingPathPrefix);
+                    processStdIn.name("u");
+                    processStdIn.value(underlyingPath.getBaseName());
+                    if (writable) {
+                      processStdIn.name("w");
+                      processStdIn.value(writable);
+                    }
+                  }
+                  processStdIn.endObject();
+                }
+              });
           processStdIn.endArray();
+          if (!newPrefixes.isEmpty()) {
+            processStdIn.name("q");
+            processStdIn.beginObject();
+            for (Prefix prefix : newPrefixes) {
+              processStdIn.name(prefix.id.toString());
+              processStdIn.value(prefix.serializedPath);
+            }
+            processStdIn.endObject();
+          }
         }
         processStdIn.endObject();
       }
@@ -330,7 +411,7 @@ final class RealSandboxfs02Process extends RealSandboxfsProcess {
     synchronized (this) {
       processStdIn.beginObject();
       {
-        processStdIn.name("DestroySandbox");
+        processStdIn.name("D");
         processStdIn.value(id);
       }
       processStdIn.endObject();

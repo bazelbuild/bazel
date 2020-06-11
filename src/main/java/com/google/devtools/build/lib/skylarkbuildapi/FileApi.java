@@ -15,15 +15,16 @@
 package com.google.devtools.build.lib.skylarkbuildapi;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
-/** The interface for files in Skylark. */
-@SkylarkModule(
+/** The interface for files in Starlark. */
+@StarlarkBuiltin(
     name = "File",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "This object is created during the analysis phase to represent a file or directory that "
             + "will be read or written during the execution phase. It is not an open file"
@@ -39,7 +40,7 @@ import com.google.devtools.build.lib.syntax.StarlarkValue;
             + " its <code>path</code> field.")
 public interface FileApi extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "dirname",
       structField = true,
       doc =
@@ -47,39 +48,41 @@ public interface FileApi extends StarlarkValue {
               + "<a href=\"#path\">path</a> and is always relative to the execution directory.")
   String getDirname();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "basename",
       structField = true,
       doc = "The base name of this file. This is the name of the file inside the directory.")
   String getFilename();
 
-  @SkylarkCallable(name = "extension", structField = true, doc = "The file extension of this file.")
+  @StarlarkMethod(name = "extension", structField = true, doc = "The file extension of this file.")
   String getExtension();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "owner",
       structField = true,
       allowReturnNones = true,
       doc = "A label of a target that produces this File.")
   Label getOwnerLabel();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "root",
       structField = true,
       doc = "The root beneath which this file resides.")
   FileRootApi getRoot();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "is_source",
       structField = true,
       doc = "Returns true if this is a source file, i.e. it is not generated.")
   boolean isSourceArtifact();
 
-  // TODO(rduan): Document this Skylark method once TreeArtifact is no longer experimental.
-  @SkylarkCallable(name = "is_directory", structField = true, documented = false)
+  @StarlarkMethod(
+      name = "is_directory",
+      structField = true,
+      doc = "Returns true if this is a directory.")
   boolean isDirectory();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "short_path",
       structField = true,
       doc =
@@ -88,7 +91,7 @@ public interface FileApi extends StarlarkValue {
               + "path under which the file is mapped if it's in the runfiles of a binary.")
   String getRunfilesPathString();
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "path",
       structField = true,
       doc =
@@ -102,4 +105,15 @@ public interface FileApi extends StarlarkValue {
               + "<code>short_path</code> for the path under which the file is mapped if it's in "
               + "the runfiles of a binary.")
   String getExecPathString();
+
+  @StarlarkMethod(
+      name = "tree_relative_path",
+      structField = true,
+      doc =
+          "The path of this file relative to the root of the ancestor's tree, if the ancestor's "
+              + "<a href=\"#is_directory\">is_directory</a> field is true. <code>tree_relative_path"
+              + "</code> is only available for expanded files of a directory in an action command, "
+              + "i.e. <a href=\"Args.html#add_all\">Args.add_all()</a>. For other types of files, "
+              + "it is an error to access this field.")
+  String getTreeRelativePathString() throws EvalException;
 }

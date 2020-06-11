@@ -33,7 +33,7 @@ def workspace_and_buildfile(ctx):
 
     This rule is inteded to be used in the implementation function of a
     repository rule.
-    It assumes the parameters `name`, `build_file`, `build_file_contents`,
+    It assumes the parameters `name`, `build_file`, `build_file_content`,
     `workspace_file`, and `workspace_file_content` to be
     present in `ctx.attr`, the latter four possibly with value None.
 
@@ -48,16 +48,14 @@ def workspace_and_buildfile(ctx):
         ctx.fail("Only one of workspace_file and workspace_file_content can be provided.")
 
     if ctx.attr.workspace_file:
-        ctx.delete("WORKSPACE")
-        ctx.symlink(ctx.attr.workspace_file, "WORKSPACE")
+        ctx.file("WORKSPACE", ctx.read(ctx.attr.workspace_file))
     elif ctx.attr.workspace_file_content:
         ctx.file("WORKSPACE", ctx.attr.workspace_file_content)
     else:
         ctx.file("WORKSPACE", "workspace(name = \"{name}\")\n".format(name = ctx.name))
 
     if ctx.attr.build_file:
-        ctx.delete("BUILD.bazel")
-        ctx.symlink(ctx.attr.build_file, "BUILD.bazel")
+        ctx.file("BUILD.bazel", ctx.read(ctx.attr.build_file))
     elif ctx.attr.build_file_content:
         ctx.file("BUILD.bazel", ctx.attr.build_file_content)
 
@@ -291,19 +289,20 @@ def read_netrc(ctx, filename):
         netrc[currentmachinename] = currentmachine
     return netrc
 
-def use_netrc(netrc, urls):
+def use_netrc(netrc, urls, patterns):
     """compute an auth dict from a parsed netrc file and a list of URLs
 
     Args:
       netrc: a netrc file already parsed to a dict, e.g., as obtained from
         read_netrc
       urls: a list of URLs.
+      patterns: optional dict of url to authorization patterns
 
     Returns:
       dict suitable as auth argument for ctx.download; more precisely, the dict
       will map all URLs where the netrc file provides login and password to a
-      dict containing the corresponding login and passwored, as well as the
-      mapping of "type" to "basic"
+      dict containing the corresponding login, password and optional authorization pattern,
+      as well as the mapping of "type" to "basic" or "pattern".
     """
     auth = {}
     for url in urls:
@@ -318,10 +317,24 @@ def use_netrc(netrc, urls):
         if not host in netrc:
             continue
         authforhost = netrc[host]
-        if "login" in authforhost and "password" in authforhost:
+        if host in patterns:
+            auth_dict = {
+                "type": "pattern",
+                "pattern": patterns[host],
+            }
+
+            if "login" in authforhost:
+                auth_dict["login"] = authforhost["login"]
+
+            if "password" in authforhost:
+                auth_dict["password"] = authforhost["password"]
+
+            auth[url] = auth_dict
+        elif "login" in authforhost and "password" in authforhost:
             auth[url] = {
                 "type": "basic",
                 "login": authforhost["login"],
                 "password": authforhost["password"],
             }
+
     return auth

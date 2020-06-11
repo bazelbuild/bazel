@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.ScratchAttributeWriter;
@@ -57,8 +56,7 @@ public class CcToolchainSelectionTest extends BuildViewTestCase {
             getRuleContext(target)
                 .getToolchainContext()
                 .forToolchainType(Label.parseAbsolute(CPP_TOOLCHAIN_TYPE, ImmutableMap.of()));
-    assertThat(Iterables.getOnlyElement(toolchain.getCompilerFiles()).getExecPathString())
-        .endsWith("k8");
+    assertThat(toolchain.getCompilerFiles().getSingleton().getExecPathString()).endsWith("k8");
   }
 
   @Test

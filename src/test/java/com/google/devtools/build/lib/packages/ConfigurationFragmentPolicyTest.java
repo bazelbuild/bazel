@@ -15,15 +15,16 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
-import java.util.List;
+import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,13 +35,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ConfigurationFragmentPolicyTest {
 
-  @SkylarkModule(name = "test_fragment", doc = "first fragment")
+  @StarlarkBuiltin(name = "test_fragment", doc = "first fragment")
   private static final class TestFragment implements StarlarkValue {}
 
-  @SkylarkModule(name = "other_fragment", doc = "second fragment")
+  @StarlarkBuiltin(name = "other_fragment", doc = "second fragment")
   private static final class OtherFragment implements StarlarkValue {}
 
-  @SkylarkModule(name = "unknown_fragment", doc = "useless waste of permgen")
+  @StarlarkBuiltin(name = "unknown_fragment", doc = "useless waste of permgen")
   private static final class UnknownFragment implements StarlarkValue {}
 
   @Test
@@ -78,8 +79,9 @@ public final class ConfigurationFragmentPolicyTest {
   private static final ConfigurationTransition TEST_HOST_TRANSITION =
       new ConfigurationTransition() {
         @Override
-        public List<BuildOptions> apply(BuildOptions buildOptions) {
-          return ImmutableList.of(buildOptions);
+        public ImmutableMap<String, BuildOptions> apply(
+            BuildOptionsView buildOptions, EventHandler eventHandler) {
+          return ImmutableMap.of("", buildOptions.underlying());
         }
 
         @Override
@@ -129,13 +131,13 @@ public final class ConfigurationFragmentPolicyTest {
   }
 
   @Test
-  public void testRequiresConfigurationFragments_MapSetsLegalityBySkylarkModuleName_NoRequires()
+  public void testRequiresConfigurationFragments_MapSetsLegalityByStarlarkModuleName_NoRequires()
       throws Exception {
     ConfigurationFragmentPolicy policy =
         new ConfigurationFragmentPolicy.Builder()
-            .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableSet.of("test_fragment"))
-            .requiresConfigurationFragmentsBySkylarkModuleName(TEST_HOST_TRANSITION,
-                ImmutableSet.of("other_fragment"))
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableSet.of("test_fragment"))
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(
+                TEST_HOST_TRANSITION, ImmutableSet.of("other_fragment"))
             .build();
 
     assertThat(policy.getRequiredConfigurationFragments()).isEmpty();
@@ -171,17 +173,17 @@ public final class ConfigurationFragmentPolicyTest {
       throws Exception {
     ConfigurationFragmentPolicy basePolicy =
         new ConfigurationFragmentPolicy.Builder()
-            .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableSet.of("test_fragment"))
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableSet.of("test_fragment"))
             .requiresConfigurationFragments(ImmutableSet.<Class<?>>of(Integer.class, Double.class))
             .build();
     ConfigurationFragmentPolicy addedPolicy =
         new ConfigurationFragmentPolicy.Builder()
-            .requiresConfigurationFragmentsBySkylarkModuleName(ImmutableSet.of("other_fragment"))
-            .requiresConfigurationFragmentsBySkylarkModuleName(TEST_HOST_TRANSITION,
-                ImmutableSet.of("other_fragment"))
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(ImmutableSet.of("other_fragment"))
+            .requiresConfigurationFragmentsByStarlarkBuiltinName(
+                TEST_HOST_TRANSITION, ImmutableSet.of("other_fragment"))
             .requiresConfigurationFragments(ImmutableSet.<Class<?>>of(Boolean.class))
-            .requiresConfigurationFragments(TEST_HOST_TRANSITION,
-                ImmutableSet.<Class<?>>of(Character.class))
+            .requiresConfigurationFragments(
+                TEST_HOST_TRANSITION, ImmutableSet.<Class<?>>of(Character.class))
             .build();
     ConfigurationFragmentPolicy combinedPolicy =
         new ConfigurationFragmentPolicy.Builder()

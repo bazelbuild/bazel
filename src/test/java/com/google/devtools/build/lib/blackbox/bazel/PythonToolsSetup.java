@@ -16,18 +16,11 @@ package com.google.devtools.build.lib.blackbox.bazel;
 
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.ToolsSetup;
-import java.io.IOException;
 
 /** Setup for Bazel Python tools */
 public class PythonToolsSetup implements ToolsSetup {
   @Override
-  public void setup(BlackBoxTestContext context) throws IOException {
-    context.write(
-        "third_party/py/gflags/build",
-        "licenses([\"notice\"])"
-            + "package(default_visibility = [\"//visibility:public\"])"
-            + "py_library("
-            + "    name = \"gflags\","
-            + ")");
+  public void setup(BlackBoxTestContext context) {
+    // nothing needed to be done
   }
 }

@@ -16,31 +16,27 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
 
 /**
  * A {@link ConfiguredTarget} is conceptually a {@link TransitiveInfoCollection} coupled with the
- * {@link Target} and {@link BuildConfiguration} objects it was created from.
+ * {@link com.google.devtools.build.lib.packages.Target} and {@link
+ * com.google.devtools.build.lib.analysis.config.BuildConfiguration} objects it was created from.
  *
  * <p>This interface is supposed to only be used in {@link BuildView} and above. In particular, rule
  * implementations should not be able to access the {@link ConfiguredTarget} objects associated with
  * their direct dependencies, only the corresponding {@link TransitiveInfoCollection}s. Also, {@link
  * ConfiguredTarget} objects should not be accessible from the action graph.
  */
-public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject, StarlarkValue {
+public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject {
 
-  /**
-   *  All <code>ConfiguredTarget</code>s have a "label" field.
-   */
+  /** All <code>ConfiguredTarget</code>s have a "label" field. */
   String LABEL_FIELD = "label";
 
-  /**
-   *  All <code>ConfiguredTarget</code>s have a "files" field.
-   */
+  /** All <code>ConfiguredTarget</code>s have a "files" field. */
   String FILES_FIELD = "files";
 
   default String getConfigurationChecksum() {
@@ -49,15 +45,26 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
         : getConfigurationKey().getOptionsDiff().getChecksum();
   }
 
-  /** Returns keys for a legacy Skylark provider. */
+  /**
+   * Returns the {@link BuildConfigurationValue.Key} naming the {@link
+   * com.google.devtools.build.lib.analysis.config.BuildConfiguration} for which this configured
+   * target is defined. Configuration is defined for all configured targets with exception of {@link
+   * com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget} and {@link
+   * com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget} for
+   * which it is always <b>null</b>.
+   */
+  @Nullable
+  BuildConfigurationValue.Key getConfigurationKey();
+
+  /** Returns keys for a legacy Starlark provider. */
   @Override
   ImmutableCollection<String> getFieldNames();
 
   /**
-   * Returns a legacy Skylark provider.
+   * Returns a legacy Starlark provider.
    *
-   * Overrides {@link ClassObject#getValue(String)}, but does not allow EvalException to
-   * be thrown.
+   * <p>Overrides {@link ClassObject#getValue(String)}, but does not allow EvalException to be
+   * thrown.
    */
   @Nullable
   @Override
@@ -67,5 +74,22 @@ public interface ConfiguredTarget extends TransitiveInfoCollection, ClassObject,
   @Nullable
   default SourceArtifact getSourceArtifact() {
     return null;
+  }
+
+  /**
+   * If the configured target is an alias, return the actual target, otherwise return the current
+   * target. This follows alias chains.
+   */
+  default ConfiguredTarget getActual() {
+    return this;
+  }
+
+  /**
+   * If the configured target is an alias, return the original label, otherwise return the current
+   * label. This is not the same as {@code getActual().getLabel()}, because it does not follow alias
+   * chains.
+   */
+  default Label getOriginalLabel() {
+    return getLabel();
   }
 }

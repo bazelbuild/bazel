@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.AggregatingQueryExpressionVisitor.ContainsFunctionQueryExpressionVisitor;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.syntax.Location;
 import java.io.IOException;
 import java.io.OutputStream;
 

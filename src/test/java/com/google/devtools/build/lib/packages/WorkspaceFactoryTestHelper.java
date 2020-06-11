@@ -51,7 +51,7 @@ class WorkspaceFactoryTestHelper {
     this.exception = null;
     this.events = null;
     this.allowOverride = allowOverride;
-    this.starlarkSemantics = StarlarkSemantics.DEFAULT_SEMANTICS;
+    this.starlarkSemantics = StarlarkSemantics.DEFAULT;
   }
 
   void parse(String... args) {
@@ -67,7 +67,7 @@ class WorkspaceFactoryTestHelper {
             Package.Builder.DefaultHelper.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFilePath),
             "",
-            StarlarkSemantics.DEFAULT_SEMANTICS);
+            StarlarkSemantics.DEFAULT);
     WorkspaceFactory factory =
         new WorkspaceFactory(
             builder,
@@ -77,13 +77,14 @@ class WorkspaceFactoryTestHelper {
             allowOverride,
             root.asPath(),
             root.asPath(),
-            /* defaultSystemJavabaseDir= */ null);
+            /* defaultSystemJavabaseDir= */ null,
+            starlarkSemantics);
     Exception exception = null;
     try {
       byte[] bytes =
           FileSystemUtils.readWithKnownFileSize(workspaceFilePath, workspaceFilePath.getFileSize());
       factory.parseForTesting(
-          ParserInput.create(bytes, workspaceFilePath.toString()), starlarkSemantics, eventHandler);
+          ParserInput.create(bytes, workspaceFilePath.toString()), eventHandler);
     } catch (BuildFileContainsErrorsException e) {
       exception = e;
     } catch (IOException | InterruptedException e) {
@@ -113,16 +114,16 @@ class WorkspaceFactoryTestHelper {
     return events.get(0).getMessage();
   }
 
-  protected void setSkylarkSemantics(String... options) throws Exception {
-    starlarkSemantics = parseSkylarkSemanticsOptions(options);
+  protected void setStarlarkSemantics(String... options) throws Exception {
+    starlarkSemantics = parseStarlarkSemanticsOptions(options);
   }
 
-  private static StarlarkSemantics parseSkylarkSemanticsOptions(String... options)
+  private static StarlarkSemantics parseStarlarkSemanticsOptions(String... options)
       throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(StarlarkSemanticsOptions.class).build();
     parser.parse(options);
-    return parser.getOptions(StarlarkSemanticsOptions.class).toSkylarkSemantics();
+    return parser.getOptions(StarlarkSemanticsOptions.class).toStarlarkSemantics();
   }
 
 }

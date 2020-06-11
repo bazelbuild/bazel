@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildtool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -25,7 +26,9 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs;
 import com.google.devtools.build.lib.buildeventstream.BuildToolLogs.LogFileEntry;
-import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
@@ -49,14 +52,14 @@ public final class BuildResult {
   private Throwable crash = null;
   private boolean catastrophe = false;
   private boolean stopOnFirstFailure;
-  private ExitCode exitCondition = ExitCode.BLAZE_INTERNAL_ERROR;
+  @Nullable private DetailedExitCode detailedExitCode;
 
   private BuildConfigurationCollection configurations;
   private Collection<ConfiguredTarget> actualTargets;
   private Collection<ConfiguredTarget> testTargets;
   private Collection<ConfiguredTarget> successfulTargets;
   private Collection<ConfiguredTarget> skippedTargets;
-  private Collection<AspectValue> successfulAspects;
+  private ImmutableSet<AspectKey> successfulAspects;
 
   private final BuildToolLogCollection buildToolLogCollection = new BuildToolLogCollection();
 
@@ -101,30 +104,31 @@ public final class BuildResult {
     return wasSuspended;
   }
 
-  public void setExitCondition(ExitCode exitCondition) {
-    this.exitCondition = exitCondition;
+  public void setDetailedExitCode(DetailedExitCode detailedExitCode) {
+    this.detailedExitCode = detailedExitCode;
   }
 
-  /**
-   * True iff the build request has been successfully completed.
-   */
+  /** True iff the build request has been successfully completed. */
   public boolean getSuccess() {
-    return exitCondition.equals(ExitCode.SUCCESS);
+    return detailedExitCode != null && detailedExitCode.isSuccess();
   }
 
   /**
-   * Gets the Blaze exit condition.
+   * Gets the {@link DetailedExitCode} containing the {@link ExitCode} and optional failure detail
+   * to complete the command with.
    */
-  public ExitCode getExitCondition() {
-    return exitCondition;
+  public DetailedExitCode getDetailedExitCode() {
+    if (detailedExitCode != null) {
+      return detailedExitCode;
+    }
+    return CrashFailureDetails.detailedExitCodeForThrowable(
+        new IllegalStateException("Unspecified DetailedExitCode"));
   }
 
-  /**
-   * Sets the RuntimeException / Error that induced a Blaze crash.
-   */
+  /** Sets the RuntimeException / Error that induced a Blaze crash. */
   public void setUnhandledThrowable(Throwable crash) {
-    Preconditions.checkState(crash == null ||
-        ((crash instanceof RuntimeException) || (crash instanceof Error)));
+    Preconditions.checkState(
+        crash == null || ((crash instanceof RuntimeException) || (crash instanceof Error)));
     this.crash = crash;
   }
 
@@ -221,8 +225,8 @@ public final class BuildResult {
     this.successfulTargets = successfulTargets;
   }
 
-  /** @see #getSuccessfulAspects */
-  void setSuccessfulAspects(Collection<AspectValue> successfulAspects) {
+  /** See #getSuccessfulAspects */
+  void setSuccessfulAspects(ImmutableSet<AspectKey> successfulAspects) {
     this.successfulAspects = successfulAspects;
   }
 
@@ -246,7 +250,7 @@ public final class BuildResult {
    * null if the execution phase was not attempted, as may happen if there are errors in the loading
    * phase, for example.
    */
-  public Collection<AspectValue> getSuccessfulAspects() {
+  ImmutableSet<AspectKey> getSuccessfulAspects() {
     return successfulAspects;
   }
 
@@ -283,7 +287,7 @@ public final class BuildResult {
         .add("stopTimeMillis", stopTimeMillis)
         .add("crash", crash)
         .add("catastrophe", catastrophe)
-        .add("exitCondition", exitCondition)
+        .add("detailedExitCode", detailedExitCode)
         .add("actualTargets", actualTargets)
         .add("testTargets", testTargets)
         .add("successfulTargets", successfulTargets)

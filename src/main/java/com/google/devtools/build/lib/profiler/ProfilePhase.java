@@ -25,7 +25,8 @@ public enum ProfilePhase {
   LICENSE("license checking", "Analyze licenses"),
   PREPARE("preparation", "Prepare for build"),
   EXECUTE("execution", "Build artifacts"),
-  FINISH("finish", "Complete build");
+  FINISH("finish", "Complete build"),
+  UNKNOWN("unknown", "unknown");
 
   /** Short name for the phase */
   public final String nick;
@@ -35,5 +36,14 @@ public enum ProfilePhase {
   ProfilePhase(String nick, String description) {
     this.nick = nick;
     this.description = description;
+  }
+
+  public static ProfilePhase getPhaseFromDescription(String description) {
+    for (ProfilePhase profilePhase : ProfilePhase.values()) {
+      if (profilePhase.description.equals(description)) {
+        return profilePhase;
+      }
+    }
+    return UNKNOWN;
   }
 }

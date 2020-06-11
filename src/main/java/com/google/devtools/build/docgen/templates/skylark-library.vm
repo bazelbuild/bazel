@@ -3,6 +3,8 @@ layout: documentation
 title: ${module.title}
 ---
 
+<!-- {% raw %} -->
+
 <a href="../concepts.html">Extensions</a> &gt;
 <a href="skylark-overview.html">API reference</a> &gt;
 ${module.title}
@@ -39,7 +41,8 @@ ${module.documentation}
     ${method.documentation}
 
     #if (!$method.params.isEmpty())
-      <h3>Parameters</h3>
+      <!-- no_toc is a class used by the jekyll-toc plugin for docs.bazel.build -->
+      <h3 class="no_toc">Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
         <colgroup>
           <col class="col-param">
@@ -71,3 +74,5 @@ ${module.documentation}
     ${method.returnTypeExtraMessage}
   #end
 #end
+
+<!-- {% endraw %} -->

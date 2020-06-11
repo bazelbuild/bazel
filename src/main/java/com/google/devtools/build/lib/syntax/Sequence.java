@@ -14,14 +14,12 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import java.util.Collections;
 import java.util.List;
 import java.util.RandomAccess;
-import javax.annotation.Nullable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A Sequence is a finite iterable sequence of Starlark values, such as a list or tuple.
@@ -35,13 +33,13 @@ import javax.annotation.Nullable;
  * but there appears to be little demand, and doing so carries some risk of obscuring unintended
  * mutations to Starlark values that would currently cause the program to crash.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "sequence",
     documented = false,
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc = "common type of lists and tuples.")
 public interface Sequence<E>
-    extends StarlarkValue, List<E>, RandomAccess, SkylarkIndexable, StarlarkIterable<E> {
+    extends StarlarkValue, List<E>, RandomAccess, StarlarkIndexable, StarlarkIterable<E> {
 
   @Override
   default boolean truth() {
@@ -53,94 +51,53 @@ public interface Sequence<E>
     return ImmutableList.copyOf(this);
   }
 
-  /**
-   * Retrieve an entry from a Sequence.
-   *
-   * @param key the index
-   * @param loc a {@link Location} in case of error
-   * @throws EvalException if the key is invalid
-   */
+  /** Retrieves an entry from a Sequence. */
   @Override
-  default E getIndex(Object key, Location loc) throws EvalException {
-    return get(EvalUtils.getSequenceIndex(key, size(), loc));
+  default E getIndex(StarlarkSemantics semantics, Object key) throws EvalException {
+    int index = Starlark.toInt(key, "sequence index");
+    return get(EvalUtils.getSequenceIndex(index, size()));
   }
 
   @Override
-  default boolean containsKey(Object key, Location loc) throws EvalException {
+  default boolean containsKey(StarlarkSemantics semantics, Object key) throws EvalException {
     return contains(key);
   }
 
   /**
-   * Constructs a version of this {@code Sequence} containing just the items in a slice.
-   *
-   * <p>{@code mutability} will be used for the resulting list. If it is null, the list will be
-   * immutable. For {@code Tuple}s, which are always immutable, this argument is ignored.
-   *
-   * @see EvalUtils#getSliceIndices
-   * @throws EvalException if the key is invalid; uses {@code loc} for error reporting
+   * Returns the slice of this sequence, {@code this[start:stop:step]}. <br>
+   * For positive strides ({@code step > 0}), {@code 0 <= start <= stop <= size()}. <br>
+   * For negative strides ({@code step < 0}), {@code -1 <= stop <= start < size()}. <br>
+   * The caller must ensure that the start and stop indices are valid and that step is non-zero.
    */
-  Sequence<E> getSlice(Object start, Object end, Object step, Location loc, Mutability mutability)
-      throws EvalException;
+  Sequence<E> getSlice(Mutability mu, int start, int stop, int step);
 
   /**
-   * Casts a {@code List<?>} to an unmodifiable {@code List<T>}, after checking that its contents
-   * all have type {@code type}.
-   *
-   * <p>The returned list may or may not be a view that is affected by updates to the original list.
-   *
-   * @param list the original list to cast
-   * @param type the expected type of all the list's elements
-   * @param description a description of the argument being converted, or null, for debugging
+   * Casts a non-null Starlark value {@code x} to a {@code Sequence<T>}, after checking that each
+   * element is an instance of {@code elemType}. On error, it throws an EvalException whose message
+   * includes {@code what}, ideally a string literal, as a description of the role of {@code x}.
    */
-  // We could have used bounded generics to ensure that only downcasts are possible (i.e. cast
-  // List<S> to List<T extends S>), but this would be less convenient for some callers, and it would
-  // disallow casting an empty list to any type.
-  // TODO(adonovan): this method doesn't belong here.
-  @SuppressWarnings("unchecked")
-  public static <T> List<T> castList(List<?> list, Class<T> type, @Nullable String description)
+  public static <T> Sequence<T> cast(Object x, Class<T> elemType, String what)
       throws EvalException {
-    Object desc = description == null ? null : Printer.formattable("'%s' element", description);
-    for (Object value : list) {
-      SkylarkType.checkType(value, type, desc);
+    Preconditions.checkNotNull(x);
+    if (!(x instanceof Sequence)) {
+      throw Starlark.errorf("for %s, got %s, want sequence", what, Starlark.type(x));
     }
-    return Collections.unmodifiableList((List<T>) list);
+    int i = 0;
+    for (Object elem : (Sequence) x) {
+      if (!elemType.isAssignableFrom(elem.getClass())) {
+        throw Starlark.errorf(
+            "at index %d of %s, got element of type %s, want %s",
+            i, what, Starlark.type(elem), Starlark.classType(elemType));
+      }
+    }
+    @SuppressWarnings("unchecked") // safe
+    Sequence<T> result = (Sequence) x;
+    return result;
   }
 
-  /**
-   * If {@code obj} is a {@code Sequence}, casts it to an unmodifiable {@code List<T>} after
-   * checking that each element has type {@code type}. If {@code obj} is {@code None} or null,
-   * treats it as an empty list. For all other values, throws an {@link EvalException}.
-   *
-   * <p>The returned list may or may not be a view that is affected by updates to the original list.
-   *
-   * @param obj the object to cast. null and None are treated as an empty list.
-   * @param type the expected type of all the list's elements
-   * @param description a description of the argument being converted, or null, for debugging
-   */
-  // TODO(adonovan): this method doesn't belong here.
-  public static <T> List<T> castSkylarkListOrNoneToList(
-      Object obj, Class<T> type, @Nullable String description) throws EvalException {
-    if (EvalUtils.isNullOrNone(obj)) {
-      return ImmutableList.of();
-    }
-    if (obj instanceof Sequence) {
-      return ((Sequence<?>) obj).getContents(type, description);
-    }
-    throw Starlark.errorf(
-        "Illegal argument: %s is not of expected type list or NoneType",
-        description == null ? Starlark.repr(obj) : String.format("'%s'", description));
-  }
-
-  /**
-   * Casts this list as an unmodifiable {@code List<T>}, after checking that each element has type
-   * {@code type}.
-   *
-   * @param type the expected type of all the list's elements
-   * @param description a description of the argument being converted, or null, for debugging
-   */
-  // TODO(adonovan): this method doesn't belong here.
-  default <T> List<T> getContents(Class<T> type, @Nullable String description)
+  /** Like {@link #cast}, but if x is None, returns an immutable empty list. */
+  public static <T> Sequence<T> noneableCast(Object x, Class<T> type, String what)
       throws EvalException {
-    return castList(this, type, description);
+    return x == Starlark.NONE ? StarlarkList.empty() : cast(x, type, what);
   }
 }

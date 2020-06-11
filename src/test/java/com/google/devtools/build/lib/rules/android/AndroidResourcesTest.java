@@ -283,12 +283,8 @@ public class AndroidResourcesTest extends ResourceTestBase {
     // We use the compiled symbols file to build the resource class jar
     assertActionArtifacts(
         ruleContext,
-        /* inputs = */ ImmutableList.<Artifact>builder()
-            .addAll(merged.getResources())
-            .add(merged.getCompiledSymbols())
-            .add(parsed.getManifest())
-            .build(),
-        /* outputs = */ ImmutableList.of(merged.getClassJar(), merged.getManifest()));
+        /*inputs=*/ ImmutableList.of(merged.getCompiledSymbols(), parsed.getManifest()),
+        /*outputs=*/ ImmutableList.of(merged.getClassJar(), merged.getManifest()));
   }
 
   @Test

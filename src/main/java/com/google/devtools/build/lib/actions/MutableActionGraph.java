@@ -24,6 +24,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
 import java.util.Set;
 
 /**
@@ -64,7 +65,7 @@ public interface MutableActionGraph extends ActionGraph {
    * about the artifact for which the conflict is found, and data about the two conflicting actions
    * and their owners.
    */
-  final class ActionConflictException extends Exception {
+  final class ActionConflictException extends Exception implements SaneAnalysisException {
 
     private final Artifact artifact;
     private final String suffix;

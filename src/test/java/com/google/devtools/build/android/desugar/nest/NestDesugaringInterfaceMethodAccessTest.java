@@ -19,16 +19,16 @@ package com.google.devtools.build.android.desugar.nest;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.desugar.testing.junit.AsmNode;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRule;
 import com.google.devtools.build.android.desugar.testing.junit.DesugarRunner;
 import com.google.devtools.build.android.desugar.testing.junit.DynamicClassLiteral;
+import com.google.devtools.build.android.desugar.testing.junit.JdkSuppress;
+import com.google.devtools.build.android.desugar.testing.junit.JdkVersion;
 import com.google.devtools.build.android.desugar.testing.junit.RuntimeMethodHandle;
-import com.google.testing.testsize.MediumTest;
-import com.google.testing.testsize.MediumTestAttribute;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Method;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -37,16 +37,18 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.objectweb.asm.tree.ClassNode;
 
 /** Tests for accessing private interface methods from another class within a nest. */
 @RunWith(DesugarRunner.class)
-@MediumTest(MediumTestAttribute.FILE)
-public class NestDesugaringInterfaceMethodAccessTest {
+@JdkSuppress(minJdkVersion = JdkVersion.V11)
+public final class NestDesugaringInterfaceMethodAccessTest {
 
   @Rule
   public final DesugarRule desugarRule =
       DesugarRule.builder(this, MethodHandles.lookup())
-          .addInputs(Paths.get(System.getProperty("input_jar")))
+          .addSourceInputsFromJvmFlag("input_srcs")
+          .addJavacOptions("-source 11", "-target 11")
           .setWorkingJavaPackage(
               "com.google.devtools.build.android.desugar.nest.testsrc.simpleunit.interfacemethod")
           .addCommandOptions("desugar_nest_based_private_access", "true")
@@ -65,6 +67,14 @@ public class NestDesugaringInterfaceMethodAccessTest {
   @Before
   public void loadClassesInNest() throws Exception {
     mateInstance = concreteMate.getDeclaredConstructor().newInstance();
+  }
+
+  @Test
+  public void inputClassFileMajorVersions(
+      @AsmNode(className = "InterfaceNest", round = 0) ClassNode beforeDesugarClassNode,
+      @AsmNode(className = "InterfaceNest", round = 1) ClassNode afterDesugarClassNode) {
+    assertThat(beforeDesugarClassNode.version).isEqualTo(JdkVersion.V11);
+    assertThat(afterDesugarClassNode.version).isEqualTo(JdkVersion.V1_7);
   }
 
   @Test

@@ -14,43 +14,46 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
+import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A target that provides C++ libraries to be linked into Android targets. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "AndroidCcLinkParamsInfo",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
             + "you will be broken when it is removed."
             + "Information about the c++ libraries to be linked into Android targets.",
     documented = false,
-    category = SkylarkModuleCategory.PROVIDER)
-public interface AndroidCcLinkParamsProviderApi<T extends CcInfoApi> extends StructApi {
+    category = StarlarkDocumentationCategory.PROVIDER)
+public interface AndroidCcLinkParamsProviderApi<
+        FileT extends FileApi, CcInfoT extends CcInfoApi<FileT>>
+    extends StructApi {
   /** Name of this info object. */
   String NAME = "AndroidCcLinkParamsInfo";
 
   /** Returns the cc link params. */
-  @SkylarkCallable(name = "link_params", structField = true, doc = "", documented = false)
-  T getLinkParams();
+  @StarlarkMethod(name = "link_params", structField = true, doc = "", documented = false)
+  CcInfoT getLinkParams();
 
   /** The provider implementing this can construct the AndroidCcLinkParamsInfo provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
               + "it, you will be broken when it is removed.",
       documented = false)
-  interface Provider<T extends CcInfoApi> extends ProviderApi {
+  interface Provider<FileT extends FileApi, CcInfoT extends CcInfoApi<FileT>> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>AndroidCcLinkParamsInfo</code> constructor.",
         documented = false,
@@ -63,9 +66,10 @@ public interface AndroidCcLinkParamsProviderApi<T extends CcInfoApi> extends Str
               type = CcInfoApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(
+    @StarlarkConstructor(
         objectType = AndroidCcLinkParamsProviderApi.class,
         receiverNameForDoc = NAME)
-    AndroidCcLinkParamsProviderApi<T> createInfo(T store) throws EvalException;
+    public AndroidCcLinkParamsProviderApi<FileT, CcInfoT> createInfo(CcInfoT store)
+        throws EvalException;
   }
 }

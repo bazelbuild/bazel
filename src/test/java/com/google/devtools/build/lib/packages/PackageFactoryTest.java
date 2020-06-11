@@ -15,35 +15,30 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageFactoryTestBase;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
-import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -60,31 +55,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("pkgname", RootedPath.toRootedPath(root, buildFile));
     assertThat(pkg.getName()).isEqualTo("pkgname");
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class))).isEmpty();
-  }
-
-  @Test
-  public void testCreatePackageIsolatedFromOuterErrors() throws Exception {
-    ExecutorService e = Executors.newCachedThreadPool();
-
-    final Semaphore beforeError = new Semaphore(0);
-    final Semaphore afterError = new Semaphore(0);
-    Reporter reporter = new Reporter(new EventBus());
-    ParsingTracker parser = new ParsingTracker(beforeError, afterError, reporter);
-    final Logger log = Logger.getLogger(PackageFactory.class.getName());
-    log.addHandler(parser);
-    Level originalLevel = log.getLevel();
-    log.setLevel(Level.FINE);
-
-    e.execute(new ErrorReporter(reporter, beforeError, afterError));
-    e.execute(parser);
-
-    // wait for all to finish
-    e.shutdown();
-    assertThat(e.awaitTermination(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS))
-        .isTrue();
-    log.removeHandler(parser);
-    log.setLevel(originalLevel);
-    assertThat(parser.hasParsed()).isTrue();
   }
 
   @Test
@@ -151,7 +121,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   public void testExportsFilesLicensesMustBeSequence() throws Exception {
     expectEvalError(
         "in call to exports_files(), parameter 'licenses' got value of type 'depset', want"
-            + " 'sequence of strings or NoneType'",
+            + " 'sequence or NoneType'",
         "exports_files(srcs=[], licenses=depset(['notice']))");
   }
 
@@ -180,9 +150,8 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.getRule("has_dupe")).isNotNull();
     assertThat(pkg.getRule("dep")).isNotNull();
     assertThat(pkg.getRule("has_dupe").containsErrors()).isTrue();
-    assertThat(pkg.getRule("dep").containsErrors()).isTrue(); // because all rules in an
-    // errant package are
-    // themselves errant.
+    // All rules in an errant package are themselves errant.
+    assertThat(pkg.getRule("dep").containsErrors()).isTrue();
   }
 
   @Test
@@ -236,14 +205,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
-  public void testPackageConstantIsForbidden() throws Exception {
-    events.setFailFast(false);
-    Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=PACKAGE_NAME + '-colada')");
-    packages.createPackage("pina", RootedPath.toRootedPath(root, buildFile));
-    events.assertContainsError("The value 'PACKAGE_NAME' has been removed");
-  }
-
-  @Test
   public void testPackageNameFunction() throws Exception {
     Path buildFile = scratch.file("/pina/BUILD", "cc_library(name=package_name() + '-colada')");
 
@@ -253,19 +214,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertThat(pkg.getRule("pina-colada")).isNotNull();
     assertThat(pkg.getRule("pina-colada").containsErrors()).isFalse();
     assertThat(Sets.newHashSet(pkg.getTargets(Rule.class)).size()).isSameInstanceAs(1);
-  }
-
-  @Test
-  public void testPackageConstantInExternalRepositoryIsForbidden() throws Exception {
-    events.setFailFast(false);
-    Path buildFile =
-        scratch.file(
-            "/external/a/b/BUILD", "genrule(name='c', srcs=[], outs=['ao'], cmd=REPOSITORY_NAME)");
-    packages.createPackage(
-        PackageIdentifier.create("@a", PathFragment.create("b")),
-        RootedPath.toRootedPath(root, buildFile),
-        events.reporter());
-    events.assertContainsError("The value 'REPOSITORY_NAME' has been removed");
   }
 
   @Test
@@ -526,6 +474,34 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   }
 
   @Test
+  public void testPackageValidationFailureRegisteredAfterLoading() throws Exception {
+    Path path = scratch.file("/x/BUILD", "sh_library(name='y')");
+
+    dummyPackageValidator.setImpl(
+        (pkg, eventHandler) -> {
+          if (pkg.getName().equals("x")) {
+            eventHandler.handle(Event.warn("warning event"));
+            throw new InvalidPackageException(pkg.getPackageIdentifier(), "nope");
+          }
+        });
+
+    Package pkg = packages.createPackage("x", RootedPath.toRootedPath(root, path));
+    assertThat(pkg.containsErrors()).isFalse();
+
+    StoredEventHandler eventHandler = new StoredEventHandler();
+    InvalidPackageException expected =
+        assertThrows(
+            InvalidPackageException.class,
+            () ->
+                packages
+                    .factory()
+                    .afterDoneLoadingPackage(
+                        pkg, StarlarkSemantics.DEFAULT, /*loadTimeNanos=*/ 0, eventHandler));
+    assertThat(expected).hasMessageThat().contains("no such package 'x': nope");
+    assertThat(eventHandler.getEvents()).containsExactly(Event.warn("warning event"));
+  }
+
+  @Test
   public void testGlobDirectoryExclusion() throws Exception {
     emptyFile("/fruit/data/apple");
     emptyFile("/fruit/data/pear");
@@ -655,8 +631,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     events.setFailFast(false);
     assertGlobFails(
         "glob(1, exclude=2)",
-        "in call to glob(), parameter 'include' got value of type 'int', want 'sequence of"
-            + " strings'");
+        "in call to glob(), parameter 'include' got value of type 'int', want 'sequence'");
   }
 
   @Test
@@ -679,7 +654,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
                     /*includes=*/ ImmutableList.of("W*", "subdir"),
                     /*excludes=*/ ImmutableList.<String>of(),
                     /* excludeDirs= */ true));
-    assertThat(e).hasMessageThat().isEqualTo("ERROR /globs/BUILD:2:73: incorrect glob result");
+    assertThat(e).hasMessageThat().isEqualTo("ERROR /globs/BUILD:2:77: incorrect glob result");
   }
 
   @Test
@@ -750,6 +725,27 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
   public void testBadCharacterInGlob() throws Exception {
    events.setFailFast(false);
    assertGlobFails("glob(['?'])", "glob pattern '?' contains forbidden '?' wildcard");
+  }
+
+  @Test
+  public void testBadExcludePattern() throws Exception {
+    events.setFailFast(false);
+    // The 'exclude' check is currently only reached if the pattern is "complex".
+    // This seems like a bug:
+    //   assertGlobFails("glob(['BUILD'], ['/'])", "pattern cannot be absolute");
+    assertGlobFails("glob(['BUILD'], ['/*/*'])", "pattern cannot be absolute");
+  }
+
+  @Test
+  public void testGlobEscapesAt() throws Exception {
+    // See lib.skyframe.PackageFunctionTest.globEscapesAt and
+    // https://github.com/bazelbuild/bazel/issues/10606.
+    scratch.file("/p/@f.txt");
+    Path file = scratch.file("/p/BUILD", "print(glob(['*.txt'])[0])");
+    events.setFailFast(false); // we need this to use print (!)
+    packages.eval("p", RootedPath.toRootedPath(root, file));
+    events.assertNoWarningsOrErrors();
+    events.assertContainsDebug(":@f.txt"); // observe prepended colon
   }
 
   /**
@@ -1158,16 +1154,6 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         "package(default_restricted_to=['//foo', '//bar', '//foo'])");
   }
 
-  @Override
-  protected PackageFactoryApparatus createPackageFactoryApparatus() {
-    return new PackageFactoryApparatus(events.reporter());
-  }
-
-  @Override
-  protected String getPathPrefix() {
-    return "";
-  }
-
   @Test
   public void testGlobPatternExtractor() {
     StarlarkFile file =
@@ -1187,5 +1173,57 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
         file, globs, globsWithDirs, new HashMap<>(), /*eventHandler=*/ null);
     assertThat(globs).containsExactly("ab", "a", "**/*");
     assertThat(globsWithDirs).containsExactly("c");
+  }
+
+  // Tests of BUILD file dialect checks:
+
+  @Test
+  public void testDefInBuild() throws Exception {
+    checkBuildDialectError(
+        "def func(): pass", //
+        "function definitions are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testForStatementForbiddenInBuild() throws Exception {
+    checkBuildDialectError(
+        "for _ in []: pass", //
+        "for loops are not allowed");
+  }
+
+  @Test
+  public void testIfStatementForbiddenInBuild() throws Exception {
+    checkBuildDialectError(
+        "if False: pass", //
+        "if statements are not allowed");
+  }
+
+  @Test
+  public void testKwargsForbiddenInBuild() throws Exception {
+    checkBuildDialectError(
+        "print(**dict)", //
+        "**kwargs arguments are not allowed in BUILD files");
+    checkBuildDialectError(
+        "len(dict(**{'a': 1}))", //
+        "**kwargs arguments are not allowed in BUILD files");
+  }
+
+  @Test
+  public void testArgsForbiddenInBuild() throws Exception {
+    checkBuildDialectError(
+        "print(*['a'])", //
+        "*args arguments are not allowed in BUILD files");
+  }
+
+  // Asserts that evaluation of the specified BUILD file produces the expected error.
+  // Modifies: scratch, events, packages; be careful when calling more than once per @Test!
+  private void checkBuildDialectError(String content, String expectedError)
+      throws IOException, InterruptedException, NoSuchPackageException {
+    events.clear();
+    events.setFailFast(false);
+    Path file = scratch.overwriteFile("/p/BUILD", content);
+    Package pkg = packages.eval("p", RootedPath.toRootedPath(root, file));
+    assertThat(pkg.containsErrors()).isTrue();
+    events.assertContainsError(expectedError);
   }
 }

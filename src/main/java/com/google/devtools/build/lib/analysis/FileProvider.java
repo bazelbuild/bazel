@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.FileProviderApi;
-import com.google.devtools.build.lib.syntax.Depset;
 
 /**
  * A representation of the concept "this transitive info provider builds these files".
@@ -38,6 +38,11 @@ public final class FileProvider implements TransitiveInfoProvider, FileProviderA
 
   public FileProvider(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return true; // immutable and Starlark-hashable
   }
 
   /**

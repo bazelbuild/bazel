@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 
@@ -39,8 +39,6 @@ public class PythonConfigurationLoader implements ConfigurationFragmentFactory {
         pythonOptions.getDefaultPythonVersion(),
         pythonOptions.buildPythonZip,
         pythonOptions.buildTransitiveRunfilesTrees,
-        /*oldPyVersionApiAllowed=*/ !pythonOptions.incompatibleRemoveOldPythonVersionApi,
-        /*useNewPyVersionSemantics=*/ pythonOptions.incompatibleAllowPythonVersionTransitions,
         /*py2OutputsAreSuffixed=*/ pythonOptions.incompatiblePy2OutputsAreSuffixed,
         /*disallowLegacyPyProvider=*/ pythonOptions.incompatibleDisallowLegacyPyProvider,
         /*useToolchains=*/ pythonOptions.incompatibleUsePythonToolchains,

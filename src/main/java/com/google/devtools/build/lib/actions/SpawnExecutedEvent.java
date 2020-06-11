@@ -16,17 +16,18 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import java.time.Instant;
 
 /** This event is fired during the build, when a subprocess is executed. */
 public class SpawnExecutedEvent implements ExtendedEventHandler.ProgressLike {
   private final Spawn spawn;
   private final SpawnResult result;
+  private final Instant startTimeInstant;
 
-  public SpawnExecutedEvent(
-      Spawn spawn,
-      SpawnResult result) {
+  public SpawnExecutedEvent(Spawn spawn, SpawnResult result, Instant startTimeInstant) {
     this.spawn = Preconditions.checkNotNull(spawn);
     this.result = Preconditions.checkNotNull(result);
+    this.startTimeInstant = startTimeInstant;
   }
 
   /** Returns the Spawn. */
@@ -47,6 +48,11 @@ public class SpawnExecutedEvent implements ExtendedEventHandler.ProgressLike {
   /** Returns the distributor reply. */
   public SpawnResult getSpawnResult() {
     return result;
+  }
+
+  /** Returns the instant in time when the spawn starts. */
+  public Instant getStartTimeInstant() {
+    return startTimeInstant;
   }
 
   /**

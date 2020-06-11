@@ -84,21 +84,21 @@ public final class StringConcatTestCases {
       float floatValue,
       long longValue) {
     return stringValue
-        + '-'
+        + '/'
         + intValue
-        + '-'
+        + '/'
         + booleanValue
-        + '-'
+        + '/'
         + byteValue
-        + '-'
+        + '/'
         + charValue
-        + '-'
+        + '/'
         + shortValue
-        + '-'
+        + '/'
         + doubleValue
-        + '-'
+        + '/'
         + floatValue
-        + '-'
+        + '/'
         + longValue;
   }
 

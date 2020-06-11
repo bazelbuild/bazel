@@ -181,6 +181,9 @@ public abstract class TransitiveBaseTraversalFunction<ProcessedTargetsT> impleme
     }
 
     Rule rule = (Rule) target;
+    if (!rule.hasAspects()) {
+      return ImmutableList.of();
+    }
 
     List<SkyKey> depKeys = Lists.newArrayList();
     Multimap<Attribute, Label> transitions =

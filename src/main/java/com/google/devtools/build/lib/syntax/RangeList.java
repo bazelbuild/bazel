@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.UnmodifiableIterator;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
 import java.util.AbstractList;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
+import javax.annotation.concurrent.Immutable;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /**
  * A sequence returned by the {@code range} function invocation.
@@ -35,9 +34,9 @@ import java.util.NoSuchElementException;
  * the case in Python 3, but for now to preserve backwards compatibility with Python 2, {@code list}
  * is returned.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "range",
-    category = SkylarkModuleCategory.BUILTIN,
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
         "A language built-in type to support ranges. Example of range literal:<br>"
             + "<pre class=language-python>x = range(1, 10, 3)</pre>"
@@ -160,19 +159,12 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
   }
 
   @Override
-  public Sequence<Integer> getSlice(
-      Object start, Object end, Object step, Location loc, Mutability mutability)
-      throws EvalException {
-    Slice slice = Slice.from(size(), start, end, step, loc);
-    int substep = slice.step * this.step;
-    // Unlike get, no bounds check is wanted here. Consider:
-    // range(1, 10, 2)[:99] == range(1, 11, 2).
-    int substart = at(slice.start);
-    int substop = at(slice.stop);
-    return new RangeList(substart, substop, substep);
+  public Sequence<Integer> getSlice(Mutability mu, int start, int stop, int step) {
+    return new RangeList(at(start), at(stop), step * this.step);
   }
 
-  private int at(int i) {
+  // Like get, but without bounds check or Integer allocation.
+  int at(int i) {
     return start + step * i;
   }
 
@@ -182,91 +174,6 @@ final class RangeList extends AbstractList<Integer> implements Sequence<Integer>
       printer.format("range(%d, %d)", start, stop);
     } else {
       printer.format("range(%d, %d, %d)", start, stop, step);
-    }
-  }
-
-  /**
-   * Represents a slice produced by applying {@code [start:end:step]} to a {@code range}.
-   *
-   * <p>{@code start} and {@code stop} define a half-open interval
-   *
-   * <pre>[start, stop)</pre>
-   */
-  private static class Slice {
-
-    private final int start;
-    private final int stop;
-    private final int step;
-
-    private Slice(int start, int stop, int step) {
-      this.start = start;
-      this.stop = stop;
-      this.step = step;
-    }
-
-    /**
-     * Computes slice indices for the requested range slice.
-     *
-     * <p>The implementation is based on CPython
-     * https://github.com/python/cpython/blob/09bb918a61031377d720f1a0fa1fe53c962791b6/Objects/sliceobject.c#L366-L509
-     */
-    static Slice from(int length, Object startObj, Object endObj, Object stepObj, Location loc)
-        throws EvalException {
-      int start;
-      int stop;
-      int step;
-
-      if (stepObj == Starlark.NONE) {
-        step = 1;
-      } else if (stepObj instanceof Integer) {
-        step = (Integer) stepObj;
-      } else {
-        throw new EvalException(
-            loc, String.format("slice step must be an integer, not '%s'", stepObj));
-      }
-      if (step == 0) {
-        throw new EvalException(loc, "slice step cannot be zero");
-      }
-
-      int upper; // upper bound for stop (exclusive)
-      int lower; // lower bound for start (inclusive)
-      if (step < 0) {
-        lower = -1;
-        upper = length - 1;
-      } else {
-        lower = 0;
-        upper = length;
-      }
-
-      if (startObj == Starlark.NONE) {
-        start = step < 0 ? upper : lower;
-      } else if (startObj instanceof Integer) {
-        start = (Integer) startObj;
-        if (start < 0) {
-          start += length;
-          start = Math.max(start, lower);
-        } else {
-          start = Math.min(start, upper);
-        }
-      } else {
-        throw new EvalException(
-            loc, String.format("slice start must be an integer, not '%s'", startObj));
-      }
-      if (endObj == Starlark.NONE) {
-        stop = step < 0 ? lower : upper;
-      } else if (endObj instanceof Integer) {
-        stop = (Integer) endObj;
-        if (stop < 0) {
-          stop += length;
-          stop = Math.max(stop, lower);
-        } else {
-          stop = Math.min(stop, upper);
-        }
-      } else {
-        throw new EvalException(
-            loc, String.format("slice end must be an integer, not '%s'", endObj));
-      }
-      return new Slice(start, stop, step);
     }
   }
 }

@@ -27,6 +27,7 @@ import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -56,8 +57,6 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -71,7 +70,7 @@ import javax.annotation.concurrent.GuardedBy;
  */
 class ByteStreamUploader extends AbstractReferenceCounted {
 
-  private static final Logger logger = Logger.getLogger(ByteStreamUploader.class.getName());
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final String instanceName;
   private final ReferenceCountedChannel channel;
@@ -543,7 +542,7 @@ class ByteStreamUploader extends AbstractReferenceCounted {
                     // This exception indicates that closing the underlying input stream failed.
                     // We don't expect this to ever happen, but don't want to swallow the exception
                     // completely.
-                    logger.log(Level.WARNING, "Chunker failed closing data source.", e1);
+                    logger.atWarning().withCause(e1).log("Chunker failed closing data source.");
                   } finally {
                     call.cancel("Failed to read next chunk.", e);
                   }

@@ -43,6 +43,7 @@ public class AutoRegistry {
       ImmutableList.of(
           "com.google.devtools.build.lib.google",
           "com.google.devtools.build.lib.vfs",
+          "com.google.devtools.build.lib.bazel.rules.ninja",
           "com.google.devtools.build.lib.actions.ArtifactFactory",
           "com.google.devtools.build.lib.packages.PackageFactory$BuiltInRuleFunction",
           "com.google.devtools.build.skyframe.SkyFunctionEnvironment");
@@ -55,9 +56,9 @@ public class AutoRegistry {
           "java.lang.StackTraceElement",
           "java.lang.invoke.SerializedLambda",
           "com.google.common.base.Predicates$InPredicate",
-          // Sadly, these builders are serialized as part of SkylarkCustomCommandLine$Builder, which
-          // apparently can be preserved through analysis. We may investigate if this actually has
-          // performance/correctness implications.
+          // Sadly, these builders are serialized as part of StarlarkCustomCommandLine$Builder,
+          // which apparently can be preserved through analysis. We may investigate if this actually
+          // has performance/correctness implications.
           "com.google.common.collect.ImmutableList$Builder");
 
   private static final ImmutableList<Object> REFERENCE_CONSTANTS_TO_REGISTER =

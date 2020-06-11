@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static java.util.Map.Entry.comparingByKey;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.common.options.OptionDefinition;
@@ -135,15 +134,5 @@ public abstract class FragmentOptions extends OptionsBase implements Cloneable, 
    */
   public Map<OptionDefinition, SelectRestriction> getSelectRestrictions() {
     return ImmutableMap.of();
-  }
-
-  public void describe(StringBuilder sb) {
-    sb.append("Fragment ").append(getClass().getName()).append(" {\n");
-    Map<String, Object> options = asMap();
-    options.entrySet().stream()
-        .sorted(comparingByKey())
-        .forEach(
-            e -> sb.append("  ").append(e.getKey()).append(": ").append(e.getValue()).append("\n"));
-    sb.append("}\n");
   }
 }

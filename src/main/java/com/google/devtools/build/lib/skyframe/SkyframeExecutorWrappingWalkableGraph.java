@@ -18,12 +18,13 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.NodeEntry;
 import com.google.devtools.build.skyframe.QueryableGraph;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.WalkableGraph;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
-/** {@link WalkableGraph} backed by a {@link SkyframeExecutor}. */
+/**
+ * {@link com.google.devtools.build.skyframe.WalkableGraph} backed by a {@link SkyframeExecutor}.
+ */
 public class SkyframeExecutorWrappingWalkableGraph extends DelegatingWalkableGraph {
 
   private SkyframeExecutorWrappingWalkableGraph(MemoizingEvaluator evaluator) {
@@ -33,7 +34,7 @@ public class SkyframeExecutorWrappingWalkableGraph extends DelegatingWalkableGra
           @Override
           public NodeEntry get(@Nullable SkyKey requestor, Reason reason, SkyKey key)
               throws InterruptedException {
-            return evaluator.getExistingEntryAtLatestVersion(key);
+            return evaluator.getExistingEntryAtCurrentlyEvaluatingVersion(key);
           }
 
           @Override
@@ -49,7 +50,6 @@ public class SkyframeExecutorWrappingWalkableGraph extends DelegatingWalkableGra
             }
             return result;
           }
-
         });
   }
 

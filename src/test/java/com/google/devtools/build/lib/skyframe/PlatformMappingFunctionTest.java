@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -23,9 +23,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -49,8 +49,8 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
   // We don't actually care about the contents of this set other than that it is passed intact
   // through the mapping logic. The platform fragment in it is purely an example, it could be any
   // set of fragments.
-  private static final ImmutableSet<Class<? extends BuildConfiguration.Fragment>>
-      PLATFORM_FRAGMENT_CLASS = ImmutableSet.of(PlatformConfiguration.class);
+  private static final ImmutableSet<Class<? extends Fragment>> PLATFORM_FRAGMENT_CLASS =
+      ImmutableSet.of(PlatformConfiguration.class);
 
   private static final ImmutableList<Class<? extends FragmentOptions>>
       BUILD_CONFIG_PLATFORM_OPTIONS = ImmutableList.of(CoreOptions.class, PlatformOptions.class);
@@ -127,7 +127,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
   public void testMappingFileIsRead_fromAlternatePackagePath() throws Exception {
     scratch.setWorkingDir("/other/package/path");
     scratch.file("WORKSPACE");
-    setPackageCacheOptions("--package_path=/other/package/path");
+    setPackageOptions("--package_path=/other/package/path");
     scratch.file(
         "my_mapping_file",
         "platforms:", // Force line break
@@ -155,7 +155,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
         "    --cpu=one");
-    setPackageCacheOptions("--package_path=/other/package/path");
+    setPackageOptions("--package_path=/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -177,7 +177,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
         "    --cpu=one");
-    setPackageCacheOptions("--package_path=%workspace%:/other/package/path");
+    setPackageOptions("--package_path=%workspace%:/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -205,7 +205,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
         "platforms:", // Force line break
         "  //platforms:one", // Force line break
         "    --cpu=two");
-    setPackageCacheOptions("--package_path=%workspace%:/other/package/path");
+    setPackageOptions("--package_path=%workspace%:/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
@@ -259,7 +259,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
     return result.get(key);
   }
 
-  private BuildOptions toMappedOptions(BuildConfigurationValue.Key mapped) {
+  private static BuildOptions toMappedOptions(BuildConfigurationValue.Key mapped) {
     return DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS.applyDiff(mapped.getOptionsDiff());
   }
 
@@ -271,7 +271,7 @@ public class PlatformMappingFunctionTest extends BuildViewTestCase {
     }
   }
 
-  private BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
+  private static BuildConfigurationValue.Key keyForOptions(BuildOptions modifiedOptions) {
     BuildOptions.OptionsDiffForReconstruction diff =
         BuildOptions.diffForReconstruction(DEFAULT_BUILD_CONFIG_PLATFORM_OPTIONS, modifiedOptions);
 

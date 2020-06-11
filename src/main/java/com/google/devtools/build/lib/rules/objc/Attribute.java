@@ -15,20 +15,18 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 
 /**
- * Container for an attribute name and access mode such as are commonly passed to
- * {@link RuleContext#getPrerequisite(String, Mode)} and related methods.
+ * Container for an attribute name and access mode such as are commonly passed to {@link
+ * RuleContext#getPrerequisite(String, TransitionMode)} and related methods.
  */
 public class Attribute {
   private final String name;
-  private final Mode accessMode;
+  private final TransitionMode accessMode;
 
-  /**
-   * Creates an attribute reference with the given name and access mode.
-   */
-  public Attribute(String name, Mode accessMode) {
+  /** Creates an attribute reference with the given name and access mode. */
+  public Attribute(String name, TransitionMode accessMode) {
     this.name = name;
     this.accessMode = accessMode;
   }
@@ -37,7 +35,7 @@ public class Attribute {
     return name;
   }
 
-  public Mode getAccessMode() {
+  public TransitionMode getAccessMode() {
     return accessMode;
   }
 }

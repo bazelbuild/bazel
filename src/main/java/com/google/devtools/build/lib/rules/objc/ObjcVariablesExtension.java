@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
@@ -157,10 +157,10 @@ class ObjcVariablesExtension implements VariablesExtension {
 
   private void addPchVariables(CcToolchainVariables.Builder builder) {
     if (ruleContext.attributes().has("pch", BuildType.LABEL)
-        && ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET) != null) {
+        && ruleContext.getPrerequisiteArtifact("pch", TransitionMode.TARGET) != null) {
       builder.addStringVariable(
           PCH_FILE_VARIABLE_NAME,
-          ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET).getExecPathString());
+          ruleContext.getPrerequisiteArtifact("pch", TransitionMode.TARGET).getExecPathString());
     }
   }
 

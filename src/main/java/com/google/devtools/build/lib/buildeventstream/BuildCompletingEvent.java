@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.buildeventstream;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.util.ExitCode;
 import java.util.Collection;
 
@@ -54,7 +55,7 @@ public abstract class BuildCompletingEvent implements BuildEvent {
 
   @Override
   public BuildEventId getEventId() {
-    return BuildEventId.buildFinished();
+    return BuildEventIdUtil.buildFinished();
   }
 
   @Override

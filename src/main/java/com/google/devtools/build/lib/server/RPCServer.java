@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.server;
 
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.runtime.CommandDispatcher;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.Path;
-import java.io.IOException;
 
 /**
  * A gRPC server instance.
@@ -25,9 +25,10 @@ public interface RPCServer {
   /**
    * Factory class for the gRPC server.
    *
-   * Present so that we don't need to invoke a constructor with multiple arguments by reflection.
+   * <p>Present so that we don't need to invoke a constructor with multiple arguments by reflection.
    */
   interface Factory {
+
     RPCServer create(
         CommandDispatcher dispatcher,
         Clock clock,
@@ -36,13 +37,11 @@ public interface RPCServer {
         int maxIdleSeconds,
         boolean shutdownOnLowSysMem,
         boolean idleServerTasks)
-        throws IOException;
+        throws AbruptExitException;
   }
 
-  /**
-   * Start serving and block until the a shutdown command is received.
-   */
-  void serve() throws IOException;
+  /** Start serving and block until the a shutdown command is received. */
+  void serve() throws AbruptExitException;
 
   /**
    * Called when the server receives a SIGINT.

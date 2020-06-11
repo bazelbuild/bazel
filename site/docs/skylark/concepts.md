@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Extension Overview
+title: Extension overview
 ---
 
-# Extension Overview
+# Extension overview
 
 <!-- [TOC] -->
 

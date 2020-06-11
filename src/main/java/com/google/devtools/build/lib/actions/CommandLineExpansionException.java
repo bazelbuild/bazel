@@ -19,7 +19,7 @@ package com.google.devtools.build.lib.actions;
  *
  * <p>This exception should be thrown deterministically, i.e. the command line should fail to expand
  * in exactly the same way every time at attempt is made. An example would be an illegal format
- * string, or a failure in Skylark evaluation of a compact command line.
+ * string, or a failure in Starlark evaluation of a compact command line.
  */
 public final class CommandLineExpansionException extends Exception {
   /** @param userVisibleErrorMessage An error string that will be displayed to the user. */

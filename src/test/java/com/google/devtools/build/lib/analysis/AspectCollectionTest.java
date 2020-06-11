@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -411,14 +411,14 @@ public class AspectCollectionTest {
    * that requires any of providers {@code requiredAspects}.
    */
   private Aspect createAspect(final String className, String... requiredAspects) {
-    ImmutableList.Builder<ImmutableSet<SkylarkProviderIdentifier>> requiredProvidersBuilder =
+    ImmutableList.Builder<ImmutableSet<StarlarkProviderIdentifier>> requiredProvidersBuilder =
         ImmutableList.builder();
 
     for (String requiredAspect : requiredAspects) {
       requiredProvidersBuilder.add(
-          ImmutableSet.of((SkylarkProviderIdentifier.forLegacy(requiredAspect))));
+          ImmutableSet.of((StarlarkProviderIdentifier.forLegacy(requiredAspect))));
     }
-    final ImmutableList<ImmutableSet<SkylarkProviderIdentifier>> requiredProviders =
+    final ImmutableList<ImmutableSet<StarlarkProviderIdentifier>> requiredProviders =
         requiredProvidersBuilder.build();
     return Aspect.forNative(
         new NativeAspectClass() {
@@ -431,11 +431,11 @@ public class AspectCollectionTest {
           public AspectDefinition getDefinition(AspectParameters aspectParameters) {
             return AspectDefinition.builder(this)
                 .requireAspectsWithProviders(requiredProviders)
-                .advertiseProvider(ImmutableList.of(SkylarkProviderIdentifier.forLegacy(className)))
+                .advertiseProvider(
+                    ImmutableList.of(StarlarkProviderIdentifier.forLegacy(className)))
                 .build();
           }
-        }
-    );
+        });
   }
 
 

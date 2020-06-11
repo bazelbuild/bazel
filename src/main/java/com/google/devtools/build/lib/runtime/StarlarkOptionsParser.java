@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.devtools.build.lib.analysis.config.CoreOptionConverters.BUILD_SETTING_CONVERTERS;
-import static com.google.devtools.build.lib.packages.RuleClass.Builder.SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
+import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -23,6 +23,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -66,7 +68,7 @@ public class StarlarkOptionsParser {
     this.nativeOptionsParser = nativeOptionsParser;
   }
 
-  static StarlarkOptionsParser newStarlarkOptionsParser(
+  public static StarlarkOptionsParser newStarlarkOptionsParser(
       CommandEnvironment env, OptionsParser optionsParser) {
     return new StarlarkOptionsParser(
         env.getSkyframeExecutor(),
@@ -75,6 +77,7 @@ public class StarlarkOptionsParser {
         optionsParser);
   }
 
+  /** Parses all pre "--" residue for Starlark options. */
   // TODO(juliexxia): This method somewhat reinvents the wheel of
   // OptionsParserImpl.identifyOptionAndPossibleArgument. Consider combining. This would probably
   // require multiple rounds of parsing to fit starlark-defined options into native option format.
@@ -98,8 +101,10 @@ public class StarlarkOptionsParser {
 
       parseArg(arg, unparsedArgs, unparsedOptions, eventHandler);
     }
-    residue.addAll(nativeOptionsParser.getPostDoubleDashResidue());
-    nativeOptionsParser.setResidue(residue.build());
+
+    List<String> postDoubleDashResidue = nativeOptionsParser.getPostDoubleDashResidue();
+    residue.addAll(postDoubleDashResidue);
+    nativeOptionsParser.setResidue(residue.build(), postDoubleDashResidue);
 
     if (unparsedOptions.isEmpty()) {
       return;
@@ -133,7 +138,7 @@ public class StarlarkOptionsParser {
           buildSettingTarget
               .getAssociatedRule()
               .getAttributeContainer()
-              .getAttr(SKYLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+              .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
         parsedOptions.put(loadedFlag, value);
       }
     }
@@ -187,9 +192,7 @@ public class StarlarkOptionsParser {
   }
 
   private Target loadBuildSetting(
-      String targetToBuild,
-      OptionsParser optionsParser,
-      ExtendedEventHandler eventHandler)
+      String targetToBuild, OptionsParser optionsParser, ExtendedEventHandler eventHandler)
       throws OptionsParsingException {
     Target buildSetting;
     try {
@@ -215,6 +218,46 @@ public class StarlarkOptionsParser {
     return buildSetting;
   }
 
+  /**
+   * Separates out any Starlark options from the given list
+   *
+   * <p>This method doesn't go through the trouble to actually load build setting targets and verify
+   * they are build settings, it just assumes all strings that look like they could be build
+   * settings, aka are formatted like a flag and can parse out to a proper label, are build
+   * settings. Use actual parsing functions above to do full build setting verification.
+   *
+   * @param list List of strings from which to parse out starlark options
+   * @return Returns a pair of string lists. The first item contains the list of starlark options
+   *     that were removed; the second contains the remaining string from the original list.
+   */
+  public static Pair<ImmutableList<String>, ImmutableList<String>> removeStarlarkOptions(
+      List<String> list) {
+    ImmutableList.Builder<String> keep = ImmutableList.builder();
+    ImmutableList.Builder<String> remove = ImmutableList.builder();
+    for (String name : list) {
+      // Check if the string is a flag and trim off "--" if so.
+      if (!name.startsWith("--")) {
+        keep.add(name);
+        continue;
+      }
+      String potentialStarlarkFlag = name.substring(2);
+      // Check if the string uses the "no" prefix for setting boolean flags to false, trim
+      // off "no" if so.
+      if (name.startsWith("no")) {
+        potentialStarlarkFlag = potentialStarlarkFlag.substring(2);
+      }
+      // Check if we can properly parse the (potentially trimmed) string as a label. If so, count
+      // as starlark flag, else count as regular residue.
+      try {
+        LabelValidator.validateAbsoluteLabel(potentialStarlarkFlag);
+        remove.add(name);
+      } catch (BadLabelException e) {
+        keep.add(name);
+      }
+    }
+    return Pair.of(remove.build(), keep.build());
+  }
+
   @VisibleForTesting
   public static StarlarkOptionsParser newStarlarkOptionsParserForTesting(
       SkyframeExecutor skyframeExecutor,
@@ -227,7 +270,7 @@ public class StarlarkOptionsParser {
 
   @VisibleForTesting
   public void setResidueForTesting(List<String> residue) {
-    nativeOptionsParser.setResidue(residue);
+    nativeOptionsParser.setResidue(residue, ImmutableList.of());
   }
 
   @VisibleForTesting

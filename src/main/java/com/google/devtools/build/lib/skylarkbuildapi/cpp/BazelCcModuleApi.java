@@ -14,34 +14,33 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkActionFactoryApi;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkActionFactoryApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.ParamType;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Tuple;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Utilites related to C++ support. */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "cc_common",
     doc = "Utilities for C++ compilation, linking, and command line generation.")
 public interface BazelCcModuleApi<
-        SkylarkActionFactoryT extends SkylarkActionFactoryApi,
+        StarlarkActionFactoryT extends StarlarkActionFactoryApi,
         FileT extends FileApi,
         ConstraintValueT extends ConstraintValueInfoApi,
-        SkylarkRuleContextT extends SkylarkRuleContextApi<ConstraintValueT>,
+        StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>,
         CcToolchainProviderT extends CcToolchainProviderApi<FeatureConfigurationT>,
         FeatureConfigurationT extends FeatureConfigurationApi,
-        CompilationContextT extends CcCompilationContextApi,
+        CompilationContextT extends CcCompilationContextApi<FileT>,
         CompilationOutputsT extends CcCompilationOutputsApi<FileT>,
         LinkingOutputsT extends CcLinkingOutputsApi<FileT>,
         LinkerInputT extends LinkerInputApi<LibraryToLinkT, FileT>,
@@ -50,7 +49,7 @@ public interface BazelCcModuleApi<
         CcToolchainVariablesT extends CcToolchainVariablesApi,
         CcToolchainConfigInfoT extends CcToolchainConfigInfoApi>
     extends CcModuleApi<
-        SkylarkActionFactoryT,
+        StarlarkActionFactoryT,
         FileT,
         CcToolchainProviderT,
         FeatureConfigurationT,
@@ -60,21 +59,20 @@ public interface BazelCcModuleApi<
         LibraryToLinkT,
         CcToolchainVariablesT,
         ConstraintValueT,
-        SkylarkRuleContextT,
+        StarlarkRuleContextT,
         CcToolchainConfigInfoT,
         CompilationOutputsT> {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "compile",
       doc =
           "Should be used for C++ compilation. Returns tuple of "
               + "(<code>CompilationContext</code>, <code>CcCompilationOutputs</code>).",
       useStarlarkThread = true,
-      useLocation = true,
       parameters = {
         @Param(
             name = "actions",
-            type = SkylarkActionFactoryApi.class,
+            type = StarlarkActionFactoryApi.class,
             positional = false,
             named = true,
             doc = "<code>actions</code> object."),
@@ -219,9 +217,9 @@ public interface BazelCcModuleApi<
             type = Sequence.class),
       })
   Tuple<Object> compile(
-      SkylarkActionFactoryT skylarkActionFactoryApi,
-      FeatureConfigurationT skylarkFeatureConfiguration,
-      CcToolchainProviderT skylarkCcToolchainProvider,
+      StarlarkActionFactoryT starlarkActionFactoryApi,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      CcToolchainProviderT starlarkCcToolchainProvider,
       Sequence<?> sources, // <FileT> expected
       Sequence<?> publicHeaders, // <FileT> expected
       Sequence<?> privateHeaders, // <FileT> expected
@@ -237,19 +235,17 @@ public interface BazelCcModuleApi<
       boolean disallowPicOutputs,
       boolean disallowNopicOutputs,
       Sequence<?> additionalInputs, // <FileT> expected
-      Location location,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "link",
       doc = "Should be used for C++ transitive linking.",
       useStarlarkThread = true,
-      useLocation = true,
       parameters = {
         @Param(
             name = "actions",
-            type = SkylarkActionFactoryApi.class,
+            type = StarlarkActionFactoryApi.class,
             positional = false,
             named = true,
             doc = "<code>actions</code> object."),
@@ -322,6 +318,18 @@ public interface BazelCcModuleApi<
             defaultValue = "True",
             type = Boolean.class),
         @Param(
+            name = "stamp",
+            doc =
+                "Whether to include build information in the linked executable, if output_type is "
+                    + "'executable'. If 1, build information is always included. If 0 (the "
+                    + "default build information is always excluded. If -1, uses the default "
+                    + "behavior, which may be overridden by the --[no]stamp flag. This should be "
+                    + "unset (or set to 0) when generating the executable output for test rules.",
+            positional = false,
+            named = true,
+            defaultValue = "0",
+            type = Integer.class),
+        @Param(
             name = "additional_inputs",
             doc = "For additional inputs to the linking action, e.g.: linking scripts.",
             positional = false,
@@ -337,9 +345,9 @@ public interface BazelCcModuleApi<
             allowedTypes = {@ParamType(type = FileApi.class), @ParamType(type = NoneType.class)}),
       })
   LinkingOutputsT link(
-      SkylarkActionFactoryT skylarkActionFactoryApi,
-      FeatureConfigurationT skylarkFeatureConfiguration,
-      CcToolchainProviderT skylarkCcToolchainProvider,
+      StarlarkActionFactoryT starlarkActionFactoryApi,
+      FeatureConfigurationT starlarkFeatureConfiguration,
+      CcToolchainProviderT starlarkCcToolchainProvider,
       Object compilationOutputs,
       Sequence<?> userLinkFlags, // <String> expected
       Sequence<?> linkingContexts, // <LinkingContextT> expected
@@ -347,16 +355,15 @@ public interface BazelCcModuleApi<
       String language,
       String outputType,
       boolean linkDepsStatically,
+      int stamp,
       Sequence<?> additionalInputs, // <FileT> expected
       Object grepIncludes,
-      Location location,
       StarlarkThread thread)
       throws InterruptedException, EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "create_compilation_outputs",
       doc = "Create compilation outputs object.",
-      useLocation = true,
       parameters = {
         @Param(
             name = "objects",
@@ -375,10 +382,10 @@ public interface BazelCcModuleApi<
             defaultValue = "None",
             allowedTypes = {@ParamType(type = Depset.class), @ParamType(type = NoneType.class)}),
       })
-  CompilationOutputsT createCompilationOutputsFromSkylark(
-      Object objectsObject, Object picObjectsObject, Location location) throws EvalException;
+  CompilationOutputsT createCompilationOutputsFromStarlark(
+      Object objectsObject, Object picObjectsObject) throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "merge_compilation_outputs",
       doc = "Merge compilation outputs.",
       parameters = {
@@ -389,7 +396,7 @@ public interface BazelCcModuleApi<
             defaultValue = "[]",
             type = Sequence.class),
       })
-  CompilationOutputsT mergeCcCompilationOutputsFromSkylark(
+  CompilationOutputsT mergeCcCompilationOutputsFromStarlark(
       Sequence<?> compilationOutputs) // <CompilationOutputsT> expected
       throws EvalException;
 }

@@ -90,6 +90,22 @@ EOF
  assert_contains "name: \"//$pkg:japanese\"" output
 }
 
+function test_basic_query_output_labelkind() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+sh_library(name='maple', data=[':japanese'])
+cc_binary(name='japanese', srcs = ['japanese.cc'])
+EOF
+
+ bazel cquery --output=label_kind "deps(//$pkg:maple)" > output 2>"$TEST_log" ||
+ --noimplicit_deps --nohost_deps fail "Expected success"
+
+ assert_contains "sh_library rule //$pkg:maple" output
+ assert_contains "cc_binary rule //$pkg:japanese" output
+ assert_contains "source file //$pkg:japanese.cc" output
+}
+
 function test_respects_selects() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -200,6 +216,12 @@ java_library(name = "dep")
 java_plugin(name = "plugin")
 EOF
 }
+
+# TODO(gregce): --show_config_fragments and RequiredConfigFragmentsProvider
+# (the native Java code that powers --show_config_fragments) were originally
+# conceived as two pieces of the same functionality. But the former is just
+# a provider, which means it can be consumed by other logic. Consider moving
+# these tests out of cquery and into proper Java integration tests.
 
 function test_show_transitive_config_fragments() {
   local -r pkg=$FUNCNAME
@@ -576,6 +598,121 @@ EOF
   assert_not_contains "//$pkg:foo_feature .*//$pkg:foo_feature" output
 }
 
+function test_show_config_fragments_on_define() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+config_setting(
+    name = "is_a_on",
+    define_values = {"a": "on"}
+)
+
+cc_library(
+    name = "cclib_with_select",
+    srcs = select({
+        ":is_a_on": ["version1.cc"],
+        "//conditions:default": ["version2.cc"],
+    })
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct --define a=on \
+    --define b=on > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:cclib_with_select .*CppConfiguration" output
+  assert_contains "//$pkg:cclib_with_select .*--define:a" output
+  assert_not_contains "//$pkg:cclib_with_select .*--define:b" output
+}
+
+function test_show_config_fragments_on_starlark_required_fragments() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/defs.bzl <<EOF
+def _impl(ctx):
+  pass
+
+java_requiring_rule = rule(
+  implementation = _impl,
+  fragments = ["java"],
+  attrs = {}
+)
+EOF
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:defs.bzl", "java_requiring_rule")
+java_requiring_rule(
+  name = "buildme"
+)
+EOF
+
+  bazel cquery "//$pkg:all" --show_config_fragments=direct \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:buildme .*JavaConfiguration" output
+}
+
+# Starlark aspects can't directly require configuration fragments. But they can
+# have implicit label dependencies on rules that do. This test ensures that
+# gets factored in.
+#
+# Note that cquery doesn't support queries over aspects: `deps(//foo)` won't
+# list aspects or traverse their dependencies. This makes it hard to understand
+# *why* a rule requires a fragment if only through an aspect. That's an argument
+# for making cquery generally aspect-aware.
+function test_show_config_fragments_includes_starlark_aspects() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/defs.bzl <<EOF
+def _aspect_impl(target, ctx):
+    return []
+
+cc_depending_aspect = aspect(
+    attrs = {
+        # This creates an implicit dependency on a C++ library that
+        # only comes through the aspect.
+        "_extra_dep": attr.label(default = "//$pkg:cclib"),
+    },
+    implementation = _aspect_impl,
+)
+
+def _impl(ctx):
+    pass
+
+simple_rule = rule(
+  implementation = _impl,
+  attrs = {
+    "deps": attr.label_list(aspects = [cc_depending_aspect])
+  }
+)
+EOF
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:defs.bzl", "simple_rule")
+
+simple_rule(
+    name = "buildme",
+    deps = [":simple_dep"],
+)
+
+simple_rule(
+    name = "simple_dep",
+)
+
+cc_library(
+    name = "cclib",
+    srcs = ["cclib.cc"],
+)
+EOF
+
+  # No direct requirement:
+  bazel cquery "//$pkg:buildme" --show_config_fragments=direct \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_not_contains "//$pkg:buildme .*CppConfiguration" output
+
+  # But there is a transitive requirement through the aspect:
+  bazel cquery "//$pkg:buildme" --show_config_fragments=transitive \
+    > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:buildme .*CppConfiguration" output
+}
+
 function test_manual_tagged_targets_always_included_for_queries() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -596,6 +733,23 @@ EOF
   bazel cquery "//$pkg:all" > output 2>"$TEST_log" || fail "Expected success"
   assert_contains "//$pkg:always_build" output
   assert_contains "//$pkg:only_build_explicitly" output
+}
+
+function test_include_test_suites() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+test_suite(
+  name = "my_suite",
+  tests = [":my_test"])
+cc_test(
+  name = "my_test",
+  srcs = ["my_test.cc"])
+EOF
+
+  bazel cquery "//$pkg:all" > output 2>"$TEST_log" || fail "Expected success"
+  assert_contains "//$pkg:my_suite" output
+  assert_contains "//$pkg:my_test" output
 }
 
 run_suite "${PRODUCT_NAME} configured query tests"

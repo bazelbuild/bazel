@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.RESOLVE;
+import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.RESOLVE_FULLY;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -46,6 +49,8 @@ public abstract class CompletionContext {
 
   public abstract boolean expandFilesets();
 
+  public abstract boolean fullyResolveFilesetLinks();
+
   @Nullable
   public abstract Path execRoot();
 
@@ -53,6 +58,7 @@ public abstract class CompletionContext {
       Map<Artifact, Collection<Artifact>> expandedArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       boolean expandFilesets,
+      boolean fullyResolveFilesetSymlinks,
       ActionInputMap inputMap,
       PathResolverFactory pathResolverFactory,
       Path execRoot,
@@ -64,12 +70,13 @@ public abstract class CompletionContext {
             ? pathResolverFactory.createPathResolverForArtifactValues(
                 inputMap, expandedArtifacts, expandedFilesets, workspaceName)
             : ArtifactPathResolver.IDENTITY;
-    return new AutoValue_CompletionContext(expander, pathResolver, expandFilesets, execRoot);
+    return new AutoValue_CompletionContext(
+        expander, pathResolver, expandFilesets, fullyResolveFilesetSymlinks, execRoot);
   }
 
   private static CompletionContext createNull() {
     return new AutoValue_CompletionContext(
-        (artifact, output) -> {}, ArtifactPathResolver.IDENTITY, false, null);
+        (artifact, output) -> {}, ArtifactPathResolver.IDENTITY, false, false, null);
   }
 
   public void visitArtifacts(Iterable<Artifact> artifacts, ArtifactReceiver receiver) {
@@ -78,7 +85,7 @@ public abstract class CompletionContext {
         continue;
       } else if (artifact.isFileset()) {
         if (expandFilesets()) {
-          visitFileset(artifact, receiver);
+          visitFileset(artifact, receiver, fullyResolveFilesetLinks() ? RESOLVE_FULLY : RESOLVE);
         }
       } else if (artifact.isTreeArtifact()) {
         List<Artifact> expandedArtifacts = new ArrayList<>();
@@ -92,13 +99,16 @@ public abstract class CompletionContext {
     }
   }
 
-  private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
+  private void visitFileset(
+      Artifact filesetArtifact,
+      ArtifactReceiver receiver,
+      RelativeSymlinkBehavior relativeSymlinkBehavior) {
     ImmutableList<FilesetOutputSymlink> links = expander().getFileset(filesetArtifact);
     FilesetManifest filesetManifest;
     try {
       filesetManifest =
           FilesetManifest.constructFilesetManifest(
-              links, PathFragment.EMPTY_FRAGMENT, RelativeSymlinkBehavior.RESOLVE);
+              links, PathFragment.EMPTY_FRAGMENT, relativeSymlinkBehavior);
     } catch (IOException e) {
       // Unexpected: RelativeSymlinkBehavior.RESOLVE should not throw.
       throw new IllegalStateException(e);

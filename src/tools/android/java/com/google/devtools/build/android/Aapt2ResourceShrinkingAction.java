@@ -48,7 +48,8 @@ public class Aapt2ResourceShrinkingAction {
     // Parse arguments.
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, Aapt2ConfigOptions.class)
+            .optionsClasses(
+                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);

@@ -49,51 +49,23 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
   }
 
   @Test
-  public void python2WithPy3SrcsVersionDependency_OldSemantics() throws Exception {
-    reporter.removeHandler(failFastHandler); // expect errors
-    useConfiguration("--incompatible_allow_python_version_transitions=false");
-    declareBinDependingOnLibWithVersions("PY2", "PY3");
-    assertThat(view.hasErrors(getConfiguredTarget("//pkg:bin"))).isTrue();
-    assertContainsEvent("//pkg:lib: Rule '//pkg:lib' can only be used with Python 3");
-  }
-
-  @Test
-  public void python2WithPy3SrcsVersionDependency_NewSemantics() throws Exception {
-    useConfiguration("--incompatible_allow_python_version_transitions=true");
+  public void python2WithPy3SrcsVersionDependency() throws Exception {
     declareBinDependingOnLibWithVersions("PY2", "PY3");
     assertThat(getPyExecutableDeferredError("//pkg:bin"))
-        .contains("being built for Python 2 but (transitively) includes Python 3-only sources");
+        .startsWith(
+            "//pkg:bin: This target is being built for Python 2 but (transitively) "
+                + "includes Python 3-only sources");
   }
 
   @Test
-  public void python2WithPy3OnlySrcsVersionDependency_OldSemantics() throws Exception {
-    reporter.removeHandler(failFastHandler); // expect errors
-    useConfiguration("--incompatible_allow_python_version_transitions=false");
-    declareBinDependingOnLibWithVersions("PY2", "PY3ONLY");
-    assertThat(view.hasErrors(getConfiguredTarget("//pkg:bin"))).isTrue();
-    assertContainsEvent("//pkg:lib: Rule '//pkg:lib' can only be used with Python 3");
-  }
-
-  @Test
-  public void python2WithPy3OnlySrcsVersionDependency_NewSemantics() throws Exception {
-    useConfiguration("--incompatible_allow_python_version_transitions=true");
+  public void python2WithPy3OnlySrcsVersionDependency() throws Exception {
     declareBinDependingOnLibWithVersions("PY2", "PY3ONLY");
     assertThat(getPyExecutableDeferredError("//pkg:bin"))
         .contains("being built for Python 2 but (transitively) includes Python 3-only sources");
-  }
-
-  @Test
-  public void python3WithPy2OnlySrcsVersionDependency_OldSemantics() throws Exception {
-    reporter.removeHandler(failFastHandler); // expect errors
-    useConfiguration("--incompatible_allow_python_version_transitions=false");
-    declareBinDependingOnLibWithVersions("PY3", "PY2ONLY");
-    assertThat(view.hasErrors(getConfiguredTarget("//pkg:bin"))).isTrue();
-    assertContainsEvent("//pkg:lib: Rule '//pkg:lib' can only be used with Python 2");
   }
 
   @Test
   public void python3WithPy2OnlySrcsVersionDependency_NewSemantics() throws Exception {
-    useConfiguration("--incompatible_allow_python_version_transitions=true");
     declareBinDependingOnLibWithVersions("PY3", "PY2ONLY");
     assertThat(getPyExecutableDeferredError("//pkg:bin"))
         .contains("being built for Python 3 but (transitively) includes Python 2-only sources");
@@ -107,7 +79,7 @@ public class PyBinaryConfiguredTargetTest extends PyExecutableConfiguredTargetTe
         "    srcs = ['foo.py'])");
     ConfiguredTarget target = getOkPyTarget("//pkg:foo");
     FileConfiguredTarget srcFile = getFileConfiguredTarget("//pkg:foo.py");
-    assertThat(getFilesToBuild(target))
+    assertThat(getFilesToBuild(target).toList())
         .containsExactly(getExecutable(target), srcFile.getArtifact());
     assertThat(getExecutable(target).getExecPath().getPathString())
         .containsMatch(TestConstants.PRODUCT_NAME + "-out/.*/bin/pkg/foo");

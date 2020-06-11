@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -38,15 +36,10 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     return (CppCompileAction)
         getGeneratingAction(
             Iterables.find(
-                getGeneratingAction(
-                    Iterables.getOnlyElement(getFilesToBuild(getConfiguredTarget(label))))
-                    .getInputs(),
-                new Predicate<Artifact>() {
-                  @Override
-                  public boolean apply(Artifact artifact) {
-                    return artifact.getExecPath().getBaseName().startsWith(name);
-                  }
-                }));
+                getGeneratingAction(getFilesToBuild(getConfiguredTarget(label)).getSingleton())
+                    .getInputs()
+                    .toList(),
+                (artifact) -> artifact.getExecPath().getBaseName().startsWith(name)));
   }
 
   /** Returns active build variables for a compile action of given type for given target. */

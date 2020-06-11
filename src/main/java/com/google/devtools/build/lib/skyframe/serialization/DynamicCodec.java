@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -34,6 +35,7 @@ import sun.reflect.ReflectionFactory;
  * <p>TODO(shahan): replace Unsafe with VarHandle once it's available.
  */
 public class DynamicCodec implements ObjectCodec<Object> {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private final Class<?> type;
   private final Constructor<?> constructor;
@@ -70,6 +72,7 @@ public class DynamicCodec implements ObjectCodec<Object> {
    * @param type class of the field to serialize
    * @param offset unsafe offset into obj where the field will be found
    */
+  @SuppressWarnings("LogAndThrow") // Want the full stack trace of serialization attempts.
   private void serializeField(
       SerializationContext context,
       CodedOutputStream codedOut,
@@ -133,6 +136,8 @@ public class DynamicCodec implements ObjectCodec<Object> {
       try {
         context.serialize(UnsafeProvider.getInstance().getObject(obj, offset), codedOut);
       } catch (SerializationException e) {
+        logger.atSevere().withCause(e).log(
+            "Unserializable object and superclass: %s %s", obj, obj.getClass().getSuperclass());
         e.addTrail(this.type);
         throw e;
       }
@@ -159,42 +164,43 @@ public class DynamicCodec implements ObjectCodec<Object> {
    * Deserializes a field directly into the supplied object.
    *
    * @param obj the object containing the field to deserialize. Can be an array or a plain object.
-   * @param type class of the field to deserialize
+   * @param fieldType class of the field to deserialize
    * @param offset unsafe offset into obj where the field should be written
    */
   private void deserializeField(
       DeserializationContext context,
       CodedInputStream codedIn,
       Object obj,
-      Class<?> type,
+      Class<?> fieldType,
       long offset)
       throws SerializationException, IOException {
-    if (type.isPrimitive()) {
-      if (type.equals(boolean.class)) {
+    if (fieldType.isPrimitive()) {
+      if (fieldType.equals(boolean.class)) {
         UnsafeProvider.getInstance().putBoolean(obj, offset, codedIn.readBool());
-      } else if (type.equals(byte.class)) {
+      } else if (fieldType.equals(byte.class)) {
         UnsafeProvider.getInstance().putByte(obj, offset, codedIn.readRawByte());
-      } else if (type.equals(short.class)) {
+      } else if (fieldType.equals(short.class)) {
         ByteBuffer buffer = ByteBuffer.allocate(2).put(codedIn.readRawBytes(2));
         UnsafeProvider.getInstance().putShort(obj, offset, buffer.getShort(0));
-      } else if (type.equals(char.class)) {
+      } else if (fieldType.equals(char.class)) {
         ByteBuffer buffer = ByteBuffer.allocate(2).put(codedIn.readRawBytes(2));
         UnsafeProvider.getInstance().putChar(obj, offset, buffer.getChar(0));
-      } else if (type.equals(int.class)) {
+      } else if (fieldType.equals(int.class)) {
         UnsafeProvider.getInstance().putInt(obj, offset, codedIn.readInt32());
-      } else if (type.equals(long.class)) {
+      } else if (fieldType.equals(long.class)) {
         UnsafeProvider.getInstance().putLong(obj, offset, codedIn.readInt64());
-      } else if (type.equals(float.class)) {
+      } else if (fieldType.equals(float.class)) {
         UnsafeProvider.getInstance().putFloat(obj, offset, codedIn.readFloat());
-      } else if (type.equals(double.class)) {
+      } else if (fieldType.equals(double.class)) {
         UnsafeProvider.getInstance().putDouble(obj, offset, codedIn.readDouble());
-      } else if (type.equals(void.class)) {
+      } else if (fieldType.equals(void.class)) {
         // Does nothing for void type.
       } else {
-        throw new UnsupportedOperationException("Unknown primitive type: " + type);
+        throw new UnsupportedOperationException(
+            "Unknown primitive field type " + fieldType + " for " + type);
       }
-    } else if (type.isArray()) {
-      if (type.getComponentType().equals(byte.class)) {
+    } else if (fieldType.isArray()) {
+      if (fieldType.getComponentType().equals(byte.class)) {
         boolean isNonNull = codedIn.readBool();
         UnsafeProvider.getInstance()
             .putObject(obj, offset, isNonNull ? codedIn.readByteArray() : null);
@@ -205,19 +211,32 @@ public class DynamicCodec implements ObjectCodec<Object> {
         UnsafeProvider.getInstance().putObject(obj, offset, null);
         return;
       }
-      Object arr = Array.newInstance(type.getComponentType(), length);
+      Object arr = Array.newInstance(fieldType.getComponentType(), length);
       UnsafeProvider.getInstance().putObject(obj, offset, arr);
-      int base = UnsafeProvider.getInstance().arrayBaseOffset(type);
-      int scale = UnsafeProvider.getInstance().arrayIndexScale(type);
+      int base = UnsafeProvider.getInstance().arrayBaseOffset(fieldType);
+      int scale = UnsafeProvider.getInstance().arrayIndexScale(fieldType);
       if (scale == 0) {
-        throw new SerializationException("Failed to get index scale for type: " + type);
+        throw new SerializationException(
+            "Failed to get index scale for field type " + fieldType + " for " + type);
       }
       for (int i = 0; i < length; ++i) {
         // Deserializes type directly into array memory.
-        deserializeField(context, codedIn, arr, type.getComponentType(), base + scale * i);
+        deserializeField(context, codedIn, arr, fieldType.getComponentType(), base + scale * i);
       }
     } else {
-      UnsafeProvider.getInstance().putObject(obj, offset, context.deserialize(codedIn));
+      Object fieldValue = context.deserialize(codedIn);
+      if (fieldValue != null && !fieldType.isInstance(fieldValue)) {
+        throw new SerializationException(
+            "Field "
+                + fieldValue
+                + " was not instance of "
+                + fieldType
+                + " (was "
+                + fieldValue.getClass()
+                + ") for "
+                + type);
+      }
+      UnsafeProvider.getInstance().putObject(obj, offset, fieldValue);
     }
   }
 

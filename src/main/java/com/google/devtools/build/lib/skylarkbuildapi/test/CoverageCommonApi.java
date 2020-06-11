@@ -14,26 +14,25 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkbuildapi.SkylarkRuleContextApi;
+import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** Helper functions for Starlark to access coverage-related infrastructure */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "coverage_common",
     doc = "Helper functions to access coverage-related infrastructure.")
 public interface CoverageCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
-        RuleContextT extends SkylarkRuleContextApi<ConstraintValueT>>
+        RuleContextT extends StarlarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "instrumented_files_info",
       doc =
           "Creates a new "
@@ -45,7 +44,7 @@ public interface CoverageCommonApi<
             name = "ctx",
             positional = true,
             named = true,
-            type = SkylarkRuleContextApi.class,
+            type = StarlarkRuleContextApi.class,
             doc = "The rule context."),
         @Param(
             name = "source_attributes",
@@ -75,13 +74,11 @@ public interface CoverageCommonApi<
             noneable = true,
             defaultValue = "None",
             type = Sequence.class),
-      },
-      useLocation = true)
+      })
   InstrumentedFilesInfoApi instrumentedFilesInfo(
-      RuleContextT skylarkRuleContext,
+      RuleContextT starlarkRuleContext,
       Sequence<?> sourceAttributes, // <String> expected
       Sequence<?> dependencyAttributes, // <String> expected
-      Object extensions,
-      Location location)
+      Object extensions)
       throws EvalException;
 }

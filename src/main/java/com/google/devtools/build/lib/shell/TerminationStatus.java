@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -133,12 +134,26 @@ public final class TerminationStatus {
   // that waitResult is the exit status when the process returns normally, or
   // 128+signalnumber when the process is terminated by a signal.  We further
   // assume that value signal numbers fall in the interval [1, 63].
-  private static final int SIGNAL_1  = 128 + 1;
-  private static final int SIGNAL_63 = 128 + 63;
+  @VisibleForTesting static final int SIGNAL_1 = 128 + 1;
+  @VisibleForTesting static final int SIGNAL_63 = 128 + 63;
+  @VisibleForTesting static final int SIGNAL_SIGABRT = 128 + 6;
+  @VisibleForTesting static final int SIGNAL_SIGKILL = 128 + 9;
+  @VisibleForTesting static final int SIGNAL_SIGBUS = 128 + 10;
+  @VisibleForTesting static final int SIGNAL_SIGTERM = 128 + 15;
 
   /**
-   * Returns true iff the process exited normally.
+   * Returns true if the given exit code represents a crash.
+   *
+   * <p>This is a static function that processes a raw exit status because that's all the
+   * information that we have around in the single use case of this function. Propagating a {@link
+   * TerminationStatus} object to that point would be costly. If this function is needed for
+   * anything else, then this should be reevaluated.
    */
+  public static boolean crashed(int rawStatus) {
+    return rawStatus == SIGNAL_SIGABRT || rawStatus == SIGNAL_SIGBUS;
+  }
+
+  /** Returns true iff the process exited normally. */
   public boolean exited() {
     return !timedOut && (waitResult < SIGNAL_1 || waitResult > SIGNAL_63);
   }

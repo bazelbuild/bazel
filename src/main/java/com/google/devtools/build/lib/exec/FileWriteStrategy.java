@@ -18,29 +18,25 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.RunningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction.DeterministicWriter;
+import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.logging.Logger;
+import java.time.Duration;
 
 /**
- * A strategy for executing an {@link AbstractFileWriteAction}.
+ * A strategy for executing an {@link
+ * com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction}.
  */
-@ExecutionStrategy(name = { "local" }, contextType = FileWriteActionContext.class)
 public final class FileWriteStrategy implements FileWriteActionContext {
-  private static final Logger logger = Logger.getLogger(FileWriteStrategy.class.getName());
   public static final Class<FileWriteStrategy> TYPE = FileWriteStrategy.class;
-
-  public FileWriteStrategy() {
-  }
+  private static final Duration MIN_LOGGING = Duration.ofMillis(100);
 
   @Override
   public SpawnContinuation beginWriteOutputToFile(
@@ -52,10 +48,8 @@ public final class FileWriteStrategy implements FileWriteActionContext {
     actionExecutionContext.getEventHandler().post(new RunningActionEvent(action, "local"));
     // TODO(ulfjack): Consider acquiring local resources here before trying to write the file.
     try (AutoProfiler p =
-        AutoProfiler.logged(
-            "running write for action " + action.prettyPrint(),
-            logger,
-            /*minTimeForLoggingInMilliseconds=*/ 100)) {
+        GoogleAutoProfilerUtils.logged(
+            "running write for action " + action.prettyPrint(), MIN_LOGGING)) {
       Path outputPath =
           actionExecutionContext.getInputPath(Iterables.getOnlyElement(action.getOutputs()));
       try {

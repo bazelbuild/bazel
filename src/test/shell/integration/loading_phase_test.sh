@@ -104,11 +104,11 @@ function test_query_buildfiles_with_load() {
     printf "//$pkg/y:rules.bzl\0//$pkg/y:BUILD\0//$pkg/x:BUILD\0" >$pkg/null.ref.log
     cmp $pkg/null.ref.log $pkg/null.log || fail "Expected match"
 
-    # Missing skylark file:
+    # Missing Starlark file:
     rm -f $pkg/y/rules.bzl
     bazel query --noshow_progress "buildfiles(//$pkg/x)" 2>$TEST_log &&
         fail "Expected error"
-    expect_log "Unable to load file '//$pkg/y:rules.bzl'"
+    expect_log "cannot load '//$pkg/y:rules.bzl'"
 }
 
 # Regression test for:
@@ -420,7 +420,7 @@ EOF
   bazel query //badglob-bzl:BUILD >& "$TEST_log" && fail "Expected failure"
   local exit_code=$?
   assert_equals 7 "$exit_code"
-  expect_log "illegal argument in call to glob"
+  expect_log "recursive wildcard must be its own segment"
   expect_not_log "IllegalArgumentException"
 }
 
@@ -470,6 +470,32 @@ function test_bazel_bin_is_not_a_package() {
   expect_log_once "//$pkg:$pkg"
   expect_log_once "//.*:$pkg"
   expect_not_log "//foo_prefix"
+}
+
+function test_starlark_cpu_profile() {
+  if $is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
+  mkdir -p test
+  echo 'load("inc.bzl", "main"); main()' > test/BUILD
+  cat >> test/inc.bzl <<'EOF'
+def main():
+   for i in range(2000):
+      foo()
+def foo():
+   list(range(10000))
+   sorted(range(10000))
+main() # uses ~3 seconds of CPU
+EOF
+  bazel query --starlark_cpu_profile="${TEST_TMPDIR}/pprof.gz" test/BUILD
+  # We don't depend on pprof, so just look for some strings in the raw file.
+  gunzip "${TEST_TMPDIR}/pprof.gz"
+  for str in sorted list range foo test/BUILD test/inc.bzl main; do
+    grep -q sorted "${TEST_TMPDIR}/pprof" ||
+      fail "string '$str' not found in profiler output"
+  done
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

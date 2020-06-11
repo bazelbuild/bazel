@@ -31,7 +31,8 @@ java_library(
     javacopts = ["-source 7 -target 7"],  # we run this through dx for testing, so no lambdas!
     resources = ["testresource.txt"],
     deps = [
-        "//src/test/java/com/google/devtools/build/lib:testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//src/tools/android/java/com/google/devtools/build/android/dexer",
         "//third_party:guava",
         "//third_party:junit4",

@@ -19,6 +19,7 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.Runfiles.Builder;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
@@ -36,7 +38,6 @@ import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.Substitution.ComputedSubstitution;
 import com.google.devtools.build.lib.analysis.actions.Template;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -183,7 +184,7 @@ public class BazelJavaSemantics implements JavaSemantics {
       return ImmutableList.of();
     }
 
-    return ruleContext.getPrerequisiteArtifacts("resources", Mode.TARGET).list();
+    return ruleContext.getPrerequisiteArtifacts("resources", TransitionMode.TARGET).list();
   }
 
   /**
@@ -306,7 +307,43 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
     NestedSet<Artifact> classpath = classpathBuilder.build();
 
-    arguments.add(new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
+    if (JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
+      // Create an artifact that stores the test's runtime classpath (excluding the test support
+      // classpath). The file is read by the test runner. The jars inside the file are loaded
+      // dynamically for every test run into a custom classloader.
+      arguments.add(
+          new ComputedClasspathSubstitution(
+              JavaSemantics.getTestSupportRuntimeClasspath(ruleContext),
+              workspacePrefix,
+              isRunfilesEnabled));
+
+      // Create an artifact that stores the test's runtime classpath.
+      Artifact testRuntimeClasspathArtifact =
+          ruleContext.getBinArtifact(
+              ruleContext.getLabel().getName() + "_test_runtime_classpath.txt");
+      ruleContext.registerAction(
+          new LazyWritePathsFileAction(
+              ruleContext.getActionOwner(),
+              testRuntimeClasspathArtifact,
+              javaCommon.getRuntimeClasspath(),
+              /* filesToIgnore= */ ImmutableSet.of(),
+              true));
+      filesBuilder.add(testRuntimeClasspathArtifact);
+
+      arguments.add(
+          Substitution.of(
+              TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER,
+              "export WORKSPACE_PREFIX="
+                  + workspacePrefix
+                  + "\nexport TEST_RUNTIME_CLASSPATH_FILE=${JAVA_RUNFILES}"
+                  + File.separator
+                  + workspacePrefix
+                  + testRuntimeClasspathArtifact.getRootRelativePathString()));
+    } else {
+      arguments.add(
+          new ComputedClasspathSubstitution(classpath, workspacePrefix, isRunfilesEnabled));
+      arguments.add(Substitution.of(TEST_RUNTIME_CLASSPATH_FILE_PLACEHOLDER, ""));
+    }
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       if (createCoverageMetadataJar) {
@@ -320,6 +357,7 @@ public class BazelJavaSemantics implements JavaSemantics {
                 ruleContext.getActionOwner(),
                 runtimeClassPathArtifact,
                 javaCommon.getRuntimeClasspath(),
+                /* filesToIgnore= */ ImmutableSet.of(),
                 true));
         filesBuilder.add(runtimeClassPathArtifact);
         arguments.add(
@@ -453,9 +491,14 @@ public class BazelJavaSemantics implements JavaSemantics {
       // targets may break, we are keeping it behind this flag.
       return;
     }
-    TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
-    if (testSupport != null) {
-      builder.add(testSupport);
+    if (!JavaSemantics.isTestTargetAndPersistentTestRunner(ruleContext)) {
+      // Only add the test support to the dependencies when running in regular mode.
+      // In persistent test runner mode don't pollute the classpath of the test with
+      // the test support classes.
+      TransitiveInfoCollection testSupport = JavaSemantics.getTestSupport(ruleContext);
+      if (testSupport != null) {
+        builder.add(testSupport);
+      }
     }
   }
 
@@ -574,7 +617,7 @@ public class BazelJavaSemantics implements JavaSemantics {
 
       // Add the coverage runner to the list of dependencies when compiling in coverage mode.
       TransitiveInfoCollection runnerTarget =
-          helper.getRuleContext().getPrerequisite("$jacocorunner", Mode.TARGET);
+          helper.getRuleContext().getPrerequisite("$jacocorunner", TransitionMode.TARGET);
       if (JavaInfo.getProvider(JavaCompilationArgsProvider.class, runnerTarget) != null) {
         helper.addLibrariesToAttributes(ImmutableList.of(runnerTarget));
       } else {
@@ -607,7 +650,8 @@ public class BazelJavaSemantics implements JavaSemantics {
       boolean usingNativeSinglejar,
       // Explicitly ignoring params since Bazel doesn't yet support one version
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact) {
+      Artifact oneVersionWhitelistArtifact,
+      Artifact sharedArchive) {
     return DeployArchiveBuilder.defaultSingleJarCommandLineWithoutOneVersion(
             output,
             mainClass,
@@ -717,3 +761,4 @@ public class BazelJavaSemantics implements JavaSemantics {
   @Override
   public void checkDependencyRuleKinds(RuleContext ruleContext) {}
 }
+

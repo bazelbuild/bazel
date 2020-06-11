@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.SkyframeExecutorTestHelper;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -80,7 +80,7 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class IncrementalLoadingTest {
-  protected PackageCacheTester tester;
+  protected PackageLoadingTester tester;
 
   private Path throwOnReaddir = null;
   private Path throwOnStat = null;
@@ -110,8 +110,8 @@ public class IncrementalLoadingTest {
     tester = createTester(fs, clock);
   }
 
-  protected PackageCacheTester createTester(FileSystem fs, ManualClock clock) throws Exception {
-    return new PackageCacheTester(fs, clock);
+  protected PackageLoadingTester createTester(FileSystem fs, ManualClock clock) throws Exception {
+    return new PackageLoadingTester(fs, clock);
   }
 
   @Test
@@ -386,8 +386,7 @@ public class IncrementalLoadingTest {
     assertThrows(NoSuchThingException.class, () -> tester.getTarget("//a:BUILD"));
   }
 
-
-  static class PackageCacheTester {
+  static class PackageLoadingTester {
     private class ManualDiffAwareness implements DiffAwareness {
       private View lastView;
       private View currentView;
@@ -410,7 +409,7 @@ public class IncrementalLoadingTest {
 
       @Override
       public String name() {
-        return "PackageCacheTester.DiffAwareness";
+        return "PackageLoadingTester.DiffAwareness";
       }
 
       @Override
@@ -436,7 +435,7 @@ public class IncrementalLoadingTest {
     private ModifiedFileSet modifiedFileSet;
     private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
-    public PackageCacheTester(FileSystem fs, ManualClock clock) throws IOException {
+    public PackageLoadingTester(FileSystem fs, ManualClock clock) throws IOException {
       this.clock = clock;
       workspace = fs.getPath("/workspace");
       workspace.createDirectory();
@@ -465,11 +464,11 @@ public class IncrementalLoadingTest {
                   DefaultBuildOptionsForTesting.getDefaultBuildOptionsForTest(ruleClassProvider))
               .setDiffAwarenessFactories(ImmutableList.of(new ManualDiffAwarenessFactory()))
               .build();
-      TestConstants.processSkyframeExecutorForTesting(skyframeExecutor);
-      PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-      packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-      packageCacheOptions.showLoadingProgress = true;
-      packageCacheOptions.globbingThreads = 7;
+      SkyframeExecutorTestHelper.process(skyframeExecutor);
+      PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+      packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+      packageOptions.showLoadingProgress = true;
+      packageOptions.globbingThreads = 7;
       skyframeExecutor.injectExtraPrecomputedValues(
           ImmutableList.of(
               PrecomputedValue.injected(
@@ -480,7 +479,7 @@ public class IncrementalLoadingTest {
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-          packageCacheOptions,
+          packageOptions,
           Options.getDefaults(StarlarkSemanticsOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),
@@ -561,16 +560,16 @@ public class IncrementalLoadingTest {
       clock.advanceMillis(1);
 
       modifiedFileSet = getModifiedFileSet();
-      PackageCacheOptions packageCacheOptions = Options.getDefaults(PackageCacheOptions.class);
-      packageCacheOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
-      packageCacheOptions.showLoadingProgress = true;
-      packageCacheOptions.globbingThreads = 7;
+      PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
+      packageOptions.defaultVisibility = ConstantRuleVisibility.PUBLIC;
+      packageOptions.showLoadingProgress = true;
+      packageOptions.globbingThreads = 7;
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(
               outputBase,
               ImmutableList.of(Root.fromPath(workspace)),
               BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
-          packageCacheOptions,
+          packageOptions,
           Options.getDefaults(StarlarkSemanticsOptions.class),
           UUID.randomUUID(),
           ImmutableMap.<String, String>of(),

@@ -14,25 +14,24 @@
 package com.google.devtools.build.lib.skylarkbuildapi.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkConstructor;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.Depset;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import javax.annotation.Nullable;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
  * An interface for a provider that exposes the use of <a
  * href="https://developer.android.com/topic/libraries/data-binding/index.html">data binding</a>.
  */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "DataBindingV2Info",
     doc =
         "Do not use this module. It is intended for migration purposes only. If you depend on it, "
@@ -45,7 +44,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
    * rules. This is for reporting a useful error message if multiple android_library rules with the
    * same Java package end up in the same android_binary.
    */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "LabelJavaPackagePair",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -53,7 +52,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
       documented = false)
   final class LabelJavaPackagePair implements StarlarkValue {
 
-    public static final SkylarkType TYPE = SkylarkType.of(LabelJavaPackagePair.class);
+    public static final Depset.ElementType TYPE = Depset.ElementType.of(LabelJavaPackagePair.class);
 
     private final String label;
     private final String javaPackage;
@@ -63,12 +62,12 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
       this.javaPackage = javaPackage;
     }
 
-    @SkylarkCallable(name = "label", structField = true, doc = "", documented = false)
+    @StarlarkMethod(name = "label", structField = true, doc = "", documented = false)
     public String getLabel() {
       return label;
     }
 
-    @SkylarkCallable(name = "java_package", structField = true, doc = "", documented = false)
+    @StarlarkMethod(name = "java_package", structField = true, doc = "", documented = false)
     public String getJavaPackage() {
       return javaPackage;
     }
@@ -82,7 +81,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
    * android_libraries in the exports attribute, where the providers from exports are merged into a
    * single provider. In a rule without exports, this will be at most 1 file.
    */
-  @SkylarkCallable(name = "setter_stores", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "setter_stores", structField = true, doc = "", documented = false)
   ImmutableList<T> getSetterStores();
 
   /**
@@ -90,28 +89,26 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
    * android_libraries in the exports attribute, where the providers from exports are merged into a
    * single provider. In a rule without exports, this will be at most 1 file.
    */
-  @SkylarkCallable(name = "class_infos", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "class_infos", structField = true, doc = "", documented = false)
   ImmutableList<T> getClassInfos();
 
   /** Returns the BR files from this rule and its dependencies. */
-  @SkylarkCallable(name = "transitive_br_files", structField = true, doc = "", documented = false)
+  @StarlarkMethod(name = "transitive_br_files", structField = true, doc = "", documented = false)
   Depset /*<T>*/ getTransitiveBRFilesForStarlark();
 
   /**
    * Returns a NestedSet containing the label and java package for this rule and its transitive
    * dependencies.
    */
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "transitive_label_and_java_packages",
       structField = true,
       doc = "",
       documented = false)
   Depset /*<LabelJavaPackagePair>*/ getTransitiveLabelAndJavaPackagesForStarlark();
 
-  /**
-   * Returns the label and java package for this rule and any rules that this rule exports.
-   */
-  @SkylarkCallable(
+  /** Returns the label and java package for this rule and any rules that this rule exports. */
+  @StarlarkMethod(
       name = "label_and_java_packages",
       structField = true,
       doc = "",
@@ -120,7 +117,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
   ImmutableList<LabelJavaPackagePair> getLabelAndJavaPackages();
 
   /** The provider implementing this can construct the DataBindingV2Info provider. */
-  @SkylarkModule(
+  @StarlarkBuiltin(
       name = "Provider",
       doc =
           "Do not use this module. It is intended for migration purposes only. If you depend on "
@@ -128,7 +125,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
       documented = false)
   interface Provider<FileT extends FileApi> extends ProviderApi {
 
-    @SkylarkCallable(
+    @StarlarkMethod(
         name = NAME,
         doc = "The <code>DataBindingV2Info</code> constructor.",
         documented = false,
@@ -191,7 +188,7 @@ public interface DataBindingV2ProviderApi<T extends FileApi> extends StructApi {
               generic1 = DataBindingV2ProviderApi.class),
         },
         selfCall = true)
-    @SkylarkConstructor(objectType = DataBindingV2ProviderApi.class)
+    @StarlarkConstructor(objectType = DataBindingV2ProviderApi.class)
     DataBindingV2ProviderApi<FileT> createInfo(
         Object setterStoreFile,
         Object classInfoFile,

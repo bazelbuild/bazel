@@ -223,6 +223,14 @@ public class QueryOptions extends CommonQueryOptions {
               + " output formatters.")
   public TriState useGraphlessQuery;
 
+  @Option(
+      name = "experimental_graphless_genquery_force_sort",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.EAGERNESS_TO_EXIT},
+      help = "If true, and graphless query is enabled, sorts the output alphabetically.")
+  public boolean forceSortForGraphlessGenquery;
+
   /** Ugly workaround since line terminator option default has to be constant expression. */
   public String getLineTerminator() {
     if (lineTerminatorNull) {

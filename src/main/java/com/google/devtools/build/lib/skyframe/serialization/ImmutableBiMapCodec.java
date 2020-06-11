@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -24,9 +23,11 @@ import java.io.IOException;
  * Encodes an {@link ImmutableBiMap}. The iteration order of the deserialized map is the same as the
  * original map's.
  *
- * <p>We handle {@link ImmutableBiMap} by treating it as an {@link ImmutableMap} and calling the
- * proper conversion method ({@link ImmutableBiMap#copyOf}) when deserializing. This is valid
- * because every {@link ImmutableBiMap} is also an {@link ImmutableMap}.
+ * <p>We handle {@link ImmutableBiMap} by treating it as an {@link
+ * com/google/devtools/build/lib/skyframe/serialization/ImmutableBiMapCodec.java used only in
+ * javadoc: com.google.common.collect.ImmutableMap} and calling the proper conversion method ({@link
+ * ImmutableBiMap#copyOf}) when deserializing. This is valid because every {@link ImmutableBiMap} is
+ * also an {@link com.google.common.collect.ImmutableMap}.
  *
  * <p>Any {@link SerializationException} or {@link IOException} that arises while serializing or
  * deserializing a map entry's value (not its key) will be wrapped in a new {@link

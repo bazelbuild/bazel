@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.events.EventHandler;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -59,7 +61,13 @@ public class TransitionFactoriesTest {
   public void splitTransition() {
     TransitionFactory<Object> factory =
         TransitionFactories.of(
-            (SplitTransition) buildOptions -> ImmutableList.of(buildOptions.clone()));
+            new SplitTransition() {
+              @Override
+              public Map<String, BuildOptions> split(
+                  BuildOptions buildOptions, EventHandler eventHandler) {
+                return ImmutableMap.of("test0", buildOptions.clone());
+              }
+            });
     assertThat(factory).isNotNull();
     assertThat(factory.isHost()).isFalse();
     assertThat(factory.isSplit()).isTrue();

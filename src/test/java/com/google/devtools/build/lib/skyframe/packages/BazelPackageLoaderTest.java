@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -58,7 +58,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     fetchExternalRepo(RepositoryName.create("@bazel_tools"));
   }
 
-  private void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
+  private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
     Path tools = embeddedBinaries.getRelative("embedded_tools");
     tools.getRelative("tools/cpp").createDirectoryAndParents();
     tools.getRelative("tools/osx").createDirectoryAndParents();
@@ -95,10 +95,7 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   private void fetchExternalRepo(RepositoryName externalRepo) {
     PackageLoader pkgLoaderForFetch =
-        newPackageLoaderBuilder(root)
-            .setFetchForTesting()
-            .useDefaultSkylarkSemantics()
-            .build();
+        newPackageLoaderBuilder(root).setFetchForTesting().useDefaultStarlarkSemantics().build();
     // Load the package '' in this repo. This package may or may not exist; we don't care since we
     // merely need the side-effects of the 'fetch' work.
     PackageIdentifier pkgId = PackageIdentifier.create(externalRepo, PathFragment.create(""));

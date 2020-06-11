@@ -113,7 +113,7 @@ targets.
 
 Take a look at the `java-tutorial/BUILD` file:
 
-```
+```python
 java_binary(
     name = "ProjectRunner",
     srcs = glob(["src/main/java/com/example/*.java"]),
@@ -205,7 +205,7 @@ building multiple parts of a project at once.
 Let's split our sample project build into two targets. Replace the contents of
 the `java-tutorial/BUILD` file with the following:
 
-```
+```python
 java_binary(
     name = "ProjectRunner",
     srcs = ["src/main/java/com/example/ProjectRunner.java"],
@@ -268,12 +268,12 @@ there is a `BUILD` file at the root of the workspace).
 
 Take a look at the `src/main/java/com/example/cmdline/BUILD` file:
 
-```
+```python
 java_binary(
     name = "runner",
     srcs = ["Runner.java"],
     main_class = "com.example.cmdline.Runner",
-    deps = ["//:greeter"]
+    deps = ["//:greeter"],
 )
 ```
 
@@ -293,12 +293,12 @@ leaking into public APIs.)
 To do this, add the `visibility` attribute to the `greeter` target in
 `java-tutorial/BUILD` as shown below:
 
-```
+```python
 java_library(
     name = "greeter",
     srcs = ["src/main/java/com/example/Greeting.java"],
     visibility = ["//src/main/java/com/example/cmdline:__pkg__"],
-    )
+)
 ```
 
 Let's now build the new package. Run the following command at the root of the
@@ -322,7 +322,6 @@ Now test your freshly built binary:
 
 ```
 ./bazel-bin/src/main/java/com/example/cmdline/runner
-
 ```
 
 You've now modified the project to build as two packages, each containing one
@@ -386,9 +385,8 @@ As you can see, `runner.jar` contains `Runner.class`, but not its dependency,
 `Greeting.class`. The `runner` script that Bazel generates adds `greeter.jar`
 to the classpath, so if you leave it like this, it will run locally, but it
 won't run standalone on another machine. Fortunately, the `java_binary` rule
-allows you to build a self-contained, deployable binary. To build it, add the
-`_deploy.jar` suffix to the file name when building `runner.jar`
-(<target-name>_deploy.jar):
+allows you to build a self-contained, deployable binary. To build it, append
+`_deploy.jar` to the target name:
 
 ```
 bazel build //src/main/java/com/example/cmdline:runner_deploy.jar

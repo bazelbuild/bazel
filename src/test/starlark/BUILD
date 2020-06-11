@@ -10,6 +10,7 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
+    visibility = ["//src:__subpackages__"],
 )
 
 [
@@ -21,7 +22,7 @@ filegroup(
         ],
         args = [test_file],
         data = [
-            "//src/main/java/com/google/devtools/starlark:Starlark",
+            "//src/main/java/net/starlark/java/cmd:Starlark",
             test_file,
         ],
         main = "starlark_test.py",

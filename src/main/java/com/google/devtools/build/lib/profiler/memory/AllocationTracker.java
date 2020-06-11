@@ -15,19 +15,18 @@
 package com.google.devtools.build.lib.profiler.memory;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFunction;
-import com.google.devtools.build.lib.syntax.Callstack;
-import com.google.devtools.build.lib.syntax.Node;
+import com.google.devtools.build.lib.syntax.Debug;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.monitoring.runtime.instrumentation.Sampler;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Line;
@@ -38,7 +37,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.zip.GZIPOutputStream;
@@ -46,23 +44,51 @@ import javax.annotation.Nullable;
 
 /** Tracks allocations for memory reporting. */
 @ConditionallyThreadCompatible
-public final class AllocationTracker implements Sampler {
+@SuppressWarnings("ThreadLocalUsage") // the AllocationTracker is effectively a global
+public final class AllocationTracker implements Sampler, Debug.ThreadHook {
+
+  // A mapping from Java thread to StarlarkThread.
+  // Used to effect a hidden StarlarkThread parameter to sampleAllocation.
+  // TODO(adonovan): opt: merge the three different ThreadLocals in use here.
+  private final ThreadLocal<StarlarkThread> starlarkThread = new ThreadLocal<>();
+
+  @Override
+  public void onPushFirst(StarlarkThread thread) {
+    starlarkThread.set(thread);
+  }
+
+  @Override
+  public void onPopLast(StarlarkThread thread) {
+    starlarkThread.remove();
+  }
 
   private static class AllocationSample {
     @Nullable final RuleClass ruleClass; // Current rule being analysed, if any
     @Nullable final AspectClass aspectClass; // Current aspect being analysed, if any
-    final List<Object> callstack; // Skylark callstack, if any
+    final ImmutableList<Frame> callstack; // Starlark callstack, if any
     final long bytes;
 
     AllocationSample(
         @Nullable RuleClass ruleClass,
         @Nullable AspectClass aspectClass,
-        List<Object> callstack,
+        ImmutableList<Frame> callstack,
         long bytes) {
       this.ruleClass = ruleClass;
       this.aspectClass = aspectClass;
       this.callstack = callstack;
       this.bytes = bytes;
+    }
+  }
+
+  private static class Frame {
+    final String name;
+    final Location loc;
+    @Nullable final RuleFunction ruleFunction;
+
+    Frame(String name, Location loc, @Nullable RuleFunction ruleFunction) {
+      this.name = name;
+      this.loc = loc;
+      this.ruleFunction = ruleFunction;
     }
   }
 
@@ -87,19 +113,60 @@ public final class AllocationTracker implements Sampler {
     this.sampleVariance = variance;
   }
 
+  // Called by instrumentation.recordAllocation, which is in turn called
+  // by an instrumented version of the application assembled on the fly
+  // by instrumentation.AllocationInstrumenter.
+  // The instrumenter inserts a call to recordAllocation after every
+  // memory allocation instruction in the original class.
+  //
+  // This function runs within 'new', so is not supposed to allocate memory;
+  // see Sampler interface. In fact it allocates in nearly a dozen places.
+  // TODO(adonovan): suppress reentrant calls by setting a thread-local flag.
   @Override
   @ThreadSafe
   public void sampleAllocation(int count, String desc, Object newObj, long size) {
     if (!enabled) {
       return;
     }
-    List<Object> callstack = Callstack.get();
+
+    @Nullable StarlarkThread thread = starlarkThread.get();
+
+    // Calling Debug.getCallStack is a dubious operation here.
+    // First it allocates memory, which breaks the Sampler contract.
+    // Second, the allocation could in principle occur while the thread's
+    // representation invariants are temporarily broken (that is, during
+    // the call to ArrayList.add when pushing a new stack frame).
+    // For now at least, the allocation done by ArrayList.add occurs before
+    // the representation of the ArrayList is changed, so it is safe,
+    // but this is a fragile assumption.
+    ImmutableList<Debug.Frame> callstack =
+        thread != null ? Debug.getCallStack(thread) : ImmutableList.of();
+
     RuleClass ruleClass = CurrentRuleTracker.getRule();
     AspectClass aspectClass = CurrentRuleTracker.getAspect();
+
     // Should we bother sampling?
     if (callstack.isEmpty() && ruleClass == null && aspectClass == null) {
       return;
     }
+
+    // Convert the thread's stack right away to our internal form.
+    // It is not safe to inspect Debug.Frame references once the thread resumes,
+    // and keeping StarlarkCallable values live defeats garbage collection.
+    ImmutableList.Builder<Frame> frames = ImmutableList.builderWithExpectedSize(callstack.size());
+    for (Debug.Frame fr : callstack) {
+      // The frame's PC location is currently not updated at every step,
+      // only at function calls, so the leaf frame's line number may be
+      // slightly off; see the tests.
+      // TODO(b/149023294): remove comment when we move to a compiled representation.
+      StarlarkCallable fn = fr.getFunction();
+      frames.add(
+          new Frame(
+              fn.getName(),
+              fr.getLocation(),
+              fn instanceof RuleFunction ? (RuleFunction) fn : null));
+    }
+
     // If we start getting stack overflows here, it's because the memory sampling
     // implementation has changed to call back into the sampling method immediately on
     // every allocation. Since thread locals can allocate, this can in this case lead
@@ -113,9 +180,7 @@ public final class AllocationTracker implements Sampler {
     }
     bytesValue.value = 0;
     nextSampleBytes.set(getNextSample());
-    allocations.put(
-        newObj,
-        new AllocationSample(ruleClass, aspectClass, ImmutableList.copyOf(callstack), bytes));
+    allocations.put(newObj, new AllocationSample(ruleClass, aspectClass, frames.build(), bytes));
   }
 
   private long getNextSample() {
@@ -165,13 +230,11 @@ public final class AllocationTracker implements Sampler {
     }
   }
 
+  // If the topmost stack entry is a call to a rule function, returns it.
   @Nullable
-  private static RuleFunction getRuleCreationCall(AllocationSample allocationSample) {
-    Object topOfCallstack = Iterables.getLast(allocationSample.callstack, null);
-    if (topOfCallstack instanceof RuleFunction) {
-      return (RuleFunction) topOfCallstack;
-    }
-    return null;
+  private static RuleFunction getRule(AllocationSample sample) {
+    Frame top = Iterables.getLast(sample.callstack, null);
+    return top != null ? top.ruleFunction : null;
   }
 
   /**
@@ -185,37 +248,36 @@ public final class AllocationTracker implements Sampler {
     System.gc();
 
     // Get loading phase memory for rules.
-    for (AllocationSample allocationSample : allocations.values()) {
-      RuleFunction ruleCreationCall = getRuleCreationCall(allocationSample);
-      if (ruleCreationCall != null) {
-        RuleClass ruleClass = ruleCreationCall.getRuleClass();
+    for (AllocationSample sample : allocations.values()) {
+      RuleFunction rule = getRule(sample);
+      if (rule != null) {
+        RuleClass ruleClass = rule.getRuleClass();
         String key = ruleClass.getKey();
         RuleBytes ruleBytes = rules.computeIfAbsent(key, k -> new RuleBytes(ruleClass.getName()));
-        rules.put(key, ruleBytes.addBytes(allocationSample.bytes));
+        rules.put(key, ruleBytes.addBytes(sample.bytes));
       }
     }
     // Get analysis phase memory for rules and aspects
-    for (AllocationSample allocationSample : allocations.values()) {
-      if (allocationSample.ruleClass != null) {
-        String key = allocationSample.ruleClass.getKey();
+    for (AllocationSample sample : allocations.values()) {
+      if (sample.ruleClass != null) {
+        String key = sample.ruleClass.getKey();
         RuleBytes ruleBytes =
-            rules.computeIfAbsent(key, k -> new RuleBytes(allocationSample.ruleClass.getName()));
-        rules.put(key, ruleBytes.addBytes(allocationSample.bytes));
+            rules.computeIfAbsent(key, k -> new RuleBytes(sample.ruleClass.getName()));
+        rules.put(key, ruleBytes.addBytes(sample.bytes));
       }
-      if (allocationSample.aspectClass != null) {
-        String key = allocationSample.aspectClass.getKey();
+      if (sample.aspectClass != null) {
+        String key = sample.aspectClass.getKey();
         RuleBytes ruleBytes =
-            aspects.computeIfAbsent(
-                key, k -> new RuleBytes(allocationSample.aspectClass.getName()));
-        aspects.put(key, ruleBytes.addBytes(allocationSample.bytes));
+            aspects.computeIfAbsent(key, k -> new RuleBytes(sample.aspectClass.getName()));
+        aspects.put(key, ruleBytes.addBytes(sample.bytes));
       }
     }
 
     enabled = true;
   }
 
-  /** Dumps all skylark analysis time allocations to a pprof-compatible file. */
-  public void dumpSkylarkAllocations(String path) throws IOException {
+  /** Dumps all Starlark analysis time allocations to a pprof-compatible file. */
+  public void dumpStarlarkAllocations(String path) throws IOException {
     // Make sure we don't track our own allocations
     enabled = false;
     System.gc();
@@ -237,38 +299,16 @@ public final class AllocationTracker implements Sampler {
             .setType(stringTable.get("memory"))
             .setUnit(stringTable.get("bytes"))
             .build());
-    for (AllocationSample allocationSample : allocations.values()) {
+    for (AllocationSample sample : allocations.values()) {
       // Skip empty callstacks
-      if (allocationSample.callstack.isEmpty()) {
+      if (sample.callstack.isEmpty()) {
         continue;
       }
-      Sample.Builder sample = Sample.newBuilder().addValue(allocationSample.bytes);
-      int line = -1;
-      String file = null;
-      for (int i = allocationSample.callstack.size() - 1; i >= 0; --i) {
-        Object object = allocationSample.callstack.get(i);
-        if (line == -1) {
-          final Location location;
-          if (object instanceof Node) {
-            location = ((Node) object).getStartLocation();
-          } else if (object instanceof StarlarkCallable) {
-            location = ((StarlarkCallable) object).getLocation();
-          } else {
-            throw new IllegalStateException(
-                "Unknown node type: " + object.getClass().getSimpleName());
-          }
-          file = location.file();
-          line = location.line();
-        }
-        if (object instanceof StarlarkCallable) {
-          String function = ((StarlarkCallable) object).getName();
-          sample.addLocationId(
-              locationTable.get(Strings.nullToEmpty(file), Strings.nullToEmpty(function), line));
-          line = -1;
-          file = null;
-        }
+      Sample.Builder b = Sample.newBuilder().addValue(sample.bytes);
+      for (Frame fr : sample.callstack.reverse()) {
+        b.addLocationId(locationTable.get(fr.loc.file(), fr.name, fr.loc.line()));
       }
-      profile.addSample(sample.build());
+      profile.addSample(b.build());
     }
     profile.setTimeNanos(Instant.now().getEpochSecond() * 1000000000);
     return profile.build();

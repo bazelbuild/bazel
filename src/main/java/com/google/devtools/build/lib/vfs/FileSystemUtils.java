@@ -406,6 +406,25 @@ public class FileSystemUtils {
   }
 
   /**
+   * copyLargeBuffer is a replacement for ByteStreams.copy which uses a larger buffer. Increasing
+   * the buffer size is a performance improvement when copying from/to FUSE file systems, where
+   * individual requests are more costly, but can also be larger.
+   */
+  private static long copyLargeBuffer(InputStream from, OutputStream to) throws IOException {
+    byte[] buf = new byte[131072];
+    long total = 0;
+    while (true) {
+      int r = from.read(buf);
+      if (r == -1) {
+        break;
+      }
+      to.write(buf, 0, r);
+      total += r;
+    }
+    return total;
+  }
+
+  /**
    * Moves the file from location "from" to location "to", while overwriting a potentially existing
    * "to". If "from" is a regular file, its last modified time, executable and writable bits are
    * also preserved. Symlinks are also supported but not directories or special files.
@@ -436,7 +455,7 @@ public class FileSystemUtils {
       if (stat.isFile()) {
         try (InputStream in = from.getInputStream();
             OutputStream out = to.getOutputStream()) {
-          ByteStreams.copy(in, out);
+          copyLargeBuffer(in, out);
         }
         to.setLastModifiedTime(stat.getLastModifiedTime()); // Preserve mtime.
         if (!from.isWritable()) {

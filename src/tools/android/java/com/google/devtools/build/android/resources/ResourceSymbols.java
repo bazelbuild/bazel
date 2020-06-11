@@ -77,9 +77,12 @@ public class ResourceSymbols {
 
           FieldInitializer initializer;
           if ("int".equals(type)) {
-            initializer = IntFieldInitializer.of(DependencyInfo.UNKNOWN, name, value);
+            initializer =
+                IntFieldInitializer.of(DependencyInfo.UNKNOWN, Visibility.UNKNOWN, name, value);
           } else {
-            initializer = IntArrayFieldInitializer.of(DependencyInfo.UNKNOWN, name, value);
+            initializer =
+                IntArrayFieldInitializer.of(
+                    DependencyInfo.UNKNOWN, Visibility.UNKNOWN, name, value);
           }
 
           initializers

@@ -1,4 +1,7 @@
-load("@rules_java//java:defs.bzl", "java_test")
+# Description:
+#   Tests for whitelisting mechanism for rolling out and deprecating pieces of Blaze functionality.
+
+load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
     default_testonly = 1,
@@ -8,32 +11,44 @@ package(
 filegroup(
     name = "srcs",
     testonly = 0,
-    srcs = glob(["**"]),
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
+    srcs = glob(["*"]),
+    visibility = ["//src:__subpackages__"],
+)
+
+java_library(
+    name = "WhitelistUtil",
+    testonly = 1,
+    srcs = ["WhitelistDummyRule.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+    ],
 )
 
 # Description:
 #   Tests for whitelisting mechanism for rolling out and deprecating pieces of Bazel functionality.
 java_test(
     name = "WhitelistingTests",
-    srcs = glob(["*.java"]),
+    srcs = [
+        "WhitelistCachingTest.java",
+        "WhitelistTest.java",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib:build-base",
-        "//src/main/java/com/google/devtools/build/lib:packages-internal",
-        "//src/main/java/com/google/devtools/build/lib:util",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/test/java/com/google/devtools/build/lib:analysis_testutil",
-        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+    runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
-        "//src/test/java/com/google/devtools/build/lib:testutil",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
+    ],
+    deps = [
+        ":WhitelistUtil",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
         "//third_party:junit4",
-        "//third_party:truth",
     ],
 )
 
@@ -43,7 +58,6 @@ test_suite(
         "-no_windows",
         "-slow",
     ],
-    visibility = ["//visibility:private"],
 )
 
 test_suite(
@@ -51,5 +65,4 @@ test_suite(
     tests = [
         ":windows_tests",
     ],
-    visibility = ["//src/test/java/com/google/devtools/build/lib:__pkg__"],
 )

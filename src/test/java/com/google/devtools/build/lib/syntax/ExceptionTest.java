@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.events.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,12 +24,12 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class ExceptionTest {
-  private static final Node DUMMY_NODE = Identifier.of("DUMMY");
 
   @Test
   public void testEmptyMessage() throws Exception {
+    Node dummyNode = Expression.parse(ParserInput.fromLines("DUMMY"));
     EvalExceptionWithStackTrace ex =
-        new EvalExceptionWithStackTrace(new NullPointerException(), DUMMY_NODE);
+        new EvalExceptionWithStackTrace(new NullPointerException(), dummyNode);
     assertThat(ex)
         .hasMessageThat()
         .contains("Null Pointer: ExceptionTest.testEmptyMessage() in ExceptionTest.java:");
@@ -45,8 +44,10 @@ public class ExceptionTest {
     runExceptionTest(ee, iae);
   }
 
-  private void runExceptionTest(Exception toThrow, Exception expectedCause) {
-    EvalExceptionWithStackTrace ex = new EvalExceptionWithStackTrace(toThrow, DUMMY_NODE);
+  private static void runExceptionTest(Exception toThrow, Exception expectedCause)
+      throws Exception {
+    Node dummyNode = Expression.parse(ParserInput.fromLines("DUMMY"));
+    EvalExceptionWithStackTrace ex = new EvalExceptionWithStackTrace(toThrow, dummyNode);
     assertThat(ex).hasCauseThat().isEqualTo(expectedCause);
   }
 }

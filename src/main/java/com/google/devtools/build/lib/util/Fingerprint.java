@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
@@ -21,21 +23,43 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.security.DigestException;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /**
- * Simplified wrapper for computing message digests.
+ * Simplified wrapper for using {@link MessageDigest} to generate fingerprints.
+ *
+ * <p>A fingerprint is a cryptographic hash of a message that encodes the representation of an
+ * object. Two objects of the same type have the same fingerprint if and only if they are equal.
+ * This property allows fingerprints to be used as unique identifiers for objects of a particular
+ * type, and for fingerprint equivalence to be used as a proxy for object equivalence, and these
+ * properties hold even outside the process. Note that this is a stronger requirement than {@link
+ * Object#hashCode}, which allows unequal objects to share the same hash code.
+ *
+ * <p>Values are added to the fingerprint by converting them to bytes and digesting the bytes.
+ * Therefore, there are two potential sources of bugs: 1) a proper hash collision where two distinct
+ * streams of bytes produce the same digest, and 2) a programming oversight whereby two unequal
+ * values produce the same bytes, or conversely, two equal values produce distinct bytes.
+ *
+ * <p>The case of a hash collision is statistically very unlikely, so we just need to ensure a
+ * one-to-one relationship between equality classes of values and their byte representation. A good
+ * way to do this is to literally serialize the values such that there is enough information to
+ * unambiguously deserialize them. For example, when serializing a list of strings ({@link
+ * #addStrings}, it is enough to write each string's content along with its length, plus the overall
+ * number of strings in the list. This ensures that no other list of strings can generate the same
+ * bytes. Note that it is not necessary to avoid collisions between different fingerprinting methods
+ * (e.g., between {@link #addStrings} and {@link #addString}) because the caller will only use one
+ * or the other in a given context, or else the user is required to write a disambiguating tag if
+ * both are possible.
  *
  * @see java.security.MessageDigest
  */
-public final class Fingerprint implements Consumer<String> {
+public final class Fingerprint {
 
   // Make novel use of a CodedOutputStream, which is good at efficiently serializing data. By
   // flushing at the end of each digest we can continue to use the stream.
@@ -101,8 +125,11 @@ public final class Fingerprint implements Consumer<String> {
   }
 
   /**
-   * Updates the digest with 0 or more bytes. Same as {@link #addBytes(byte[])}, but potentially
-   * more performant when only a {@link ByteString} is available.
+   * Appends the specified bytes to the fingerprint message. Same as {@link #addBytes(byte[])}, but
+   * faster when only a {@link ByteString} is available.
+   *
+   * <p>The fingerprint directly injects the bytes with no framing or tags added. Thus, not
+   * guaranteed to be unambiguous; especially if input length is data-dependent.
    */
   public Fingerprint addBytes(ByteString bytes) {
     try {
@@ -113,13 +140,18 @@ public final class Fingerprint implements Consumer<String> {
     return this;
   }
 
-  /** Updates the digest with 0 or more bytes. */
+  /** Appends the specified bytes to the fingerprint message. */
   public Fingerprint addBytes(byte[] input) {
     addBytes(input, 0, input.length);
     return this;
   }
 
-  /** Updates the digest with the specified number of bytes starting at offset. */
+  /**
+   * Appends the specified bytes to the fingerprint message, starting at offset.
+   *
+   * <p>The bytes are directly injected into the fingerprint with no framing or tags added. Thus,
+   * not guaranteed to be unambiguous; especially if len is data-dependent.
+   */
   public Fingerprint addBytes(byte[] input, int offset, int len) {
     try {
       codedOut.write(input, offset, len);
@@ -134,7 +166,7 @@ public final class Fingerprint implements Consumer<String> {
     try {
       codedOut.writeBoolNoTag(input);
     } catch (IOException e) {
-      throw new IllegalStateException(e);
+      throw new IllegalStateException("failed to write bool", e);
     }
     return this;
   }
@@ -150,30 +182,20 @@ public final class Fingerprint implements Consumer<String> {
     return this;
   }
 
-  /** Updates the digest with the varint representation of input. */
-  public Fingerprint addInt(int input) {
+  /** Appends an int to the fingerprint message. */
+  public Fingerprint addInt(int x) {
     try {
-      codedOut.writeInt32NoTag(input);
+      codedOut.writeInt32NoTag(x);
     } catch (IOException e) {
-      throw new IllegalStateException(e);
+      throw new IllegalStateException("failed to write int", e);
     }
     return this;
   }
 
-  /** Updates the digest with the signed varint representation of input. */
-  Fingerprint addSInt(int input) {
+  /** Appends a long to the fingerprint message. */
+  public Fingerprint addLong(long x) {
     try {
-      codedOut.writeSInt32NoTag(input);
-    } catch (IOException e) {
-      throw new IllegalStateException(e);
-    }
-    return this;
-  }
-
-  /** Updates the digest with the varint representation of a long value. */
-  public Fingerprint addLong(long input) {
-    try {
-      codedOut.writeInt64NoTag(input);
+      codedOut.writeInt64NoTag(x);
     } catch (IOException e) {
       throw new IllegalStateException("failed to write long", e);
     }
@@ -191,14 +213,14 @@ public final class Fingerprint implements Consumer<String> {
     return this;
   }
 
-  /** Updates the digest with a UUID. */
+  /** Appends a {@link UUID} to the fingerprint message. */
   public Fingerprint addUUID(UUID uuid) {
     addLong(uuid.getLeastSignificantBits());
     addLong(uuid.getMostSignificantBits());
     return this;
   }
 
-  /** Updates the digest with a String using UTF8 encoding. */
+  /** Appends a String to the fingerprint message. */
   public Fingerprint addString(String input) {
     try {
       codedOut.writeStringNoTag(input);
@@ -219,28 +241,45 @@ public final class Fingerprint implements Consumer<String> {
     return this;
   }
 
-  /** Updates the digest with a {@link Path}. */
+  /** Appends a {@link Path} to the fingerprint message. */
   public Fingerprint addPath(Path input) {
     addString(input.getPathString());
     return this;
   }
 
-  /** Updates the digest with a {@link PathFragment}. */
+  /** Appends a {@link PathFragment} to the fingerprint message. */
   public Fingerprint addPath(PathFragment input) {
     return addString(input.getPathString());
   }
 
   /**
-   * Add the supplied sequence of {@link String}s to the digest as an atomic unit, that is this is
-   * different from adding them each individually.
+   * Appends a collection of strings to the fingerprint message as a unit. The collection must have
+   * a deterministic iteration order.
+   *
+   * <p>The fingerprint effectively records the sequence of calls, not just the elements. That is,
+   * addStrings(x+y).addStrings(z) is different from addStrings(x).addStrings(y+z).
    */
-  public Fingerprint addStrings(Iterable<String> inputs) {
-    int count = 0;
+  public Fingerprint addStrings(Collection<String> inputs) {
+    addInt(inputs.size());
     for (String input : inputs) {
       addString(input);
-      count++;
     }
-    addInt(count);
+
+    return this;
+  }
+
+  /**
+   * Appends an arbitrary sequence of Strings as a unit.
+   *
+   * <p>This is slightly less efficient than {@link #addStrings}.
+   */
+  // TODO(b/150312032): Deprecate this method.
+  public Fingerprint addIterableStrings(Iterable<String> inputs) {
+    for (String input : inputs) {
+      addBoolean(true);
+      addString(input);
+    }
+    addBoolean(false);
 
     return this;
   }
@@ -256,20 +295,12 @@ public final class Fingerprint implements Consumer<String> {
     return this;
   }
 
-  /**
-   * Add the supplied sequence of {@link PathFragment}s to the digest as an atomic unit, that is
-   * this is different from adding each item individually.
-   *
-   * @param inputs the paths with which to update the digest
-   */
-  public Fingerprint addPaths(Iterable<PathFragment> inputs) {
-    int count = 0;
-    for (PathFragment path : inputs) {
-      addPath(path);
-      count++;
+  /** Like {@link #addStrings} but for {@link PathFragment}. */
+  public Fingerprint addPaths(Collection<PathFragment> inputs) {
+    addInt(inputs.size());
+    for (PathFragment input : inputs) {
+      addPath(input);
     }
-    addInt(count);
-
     return this;
   }
 
@@ -296,13 +327,6 @@ public final class Fingerprint implements Consumer<String> {
     // loading in a few places, before setDefault() has been called, so these call-sites should be
     // removed before this can be done safely.
     return hexDigest(
-        DigestHashFunction.SHA256
-            .cloneOrCreateMessageDigest()
-            .digest(input.getBytes(StandardCharsets.UTF_8)));
-  }
-
-  @Override
-  public void accept(String s) {
-    addString(s);
+        DigestHashFunction.SHA256.cloneOrCreateMessageDigest().digest(input.getBytes(UTF_8)));
   }
 }

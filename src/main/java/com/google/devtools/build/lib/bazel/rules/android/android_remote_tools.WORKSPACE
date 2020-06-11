@@ -1,8 +1,8 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+# This must be kept in sync with the top-level WORKSPACE file.
 http_archive(
     name = "android_tools",
-    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.13.tar.gz",
-    sha256 = "3ca6a5e6576a9cda7c59f5fd33b1fe096725730712057c5893589ac15b019407", # built at f6846f6052b8723fb46eb60b9cb165c4718bf323
+    sha256 = "8d0bf8ab83c9e38ec6ed5ce7bf425dbdc6469cec9e078559d4e8da42b705410f",
+    url = "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.17.0.tar.gz",
 )
-

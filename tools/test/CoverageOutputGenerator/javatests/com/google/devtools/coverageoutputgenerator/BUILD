@@ -122,6 +122,9 @@ java_test(
         "//third_party:junit4",
         "//third_party:truth",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Constants",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Coverage",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovParser",
+        "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:LcovPrinter",
         "//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:MainLibrary",
     ],
 )

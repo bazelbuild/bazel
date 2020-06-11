@@ -19,14 +19,17 @@ import static java.util.stream.Collectors.toList;
 import com.android.builder.core.VariantType;
 import com.android.utils.StdLogger;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
 import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
 import com.google.devtools.build.android.Converters.VariantTypeConverter;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.PackagedResources;
+import com.google.devtools.build.android.aapt2.ProtoApk;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
@@ -141,6 +144,16 @@ public class Aapt2ResourcePackagingAction {
                 + SerializedAndroidData.EXPECTED_FORMAT
                 + "[,...]")
     public List<SerializedAndroidData> directAssets;
+
+    @Option(
+        name = "additionalApksToLinkAgainst",
+        defaultValue = "null",
+        category = "input",
+        converter = PathListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "List of APKs used during linking.")
+    public List<Path> additionalApksToLinkAgainst;
 
     @Option(
         name = "rOutput",
@@ -315,13 +328,15 @@ public class Aapt2ResourcePackagingAction {
         effectTags = {OptionEffectTag.NO_OP},
         help = "Unused/deprecated option.")
     public boolean isTestWithResources;
+
   }
 
   public static void main(String[] args) throws Exception {
     Profiler profiler = InMemoryProfiler.createAndStart("setup");
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, Aapt2ConfigOptions.class)
+            .optionsClasses(
+                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
     optionsParser.parseAndExitUponError(args);
@@ -340,8 +355,7 @@ public class Aapt2ResourcePackagingAction {
       final Path compiledResources = Files.createDirectories(tmp.resolve("compiled"));
       final Path linkedOut = Files.createDirectories(tmp.resolve("linked"));
       final AndroidCompiledDataDeserializer dataDeserializer =
-          AndroidCompiledDataDeserializer.create(
-              /*includeFileContentsForValidation=*/ options.throwOnResourceConflict);
+          AndroidCompiledDataDeserializer.create(/*includeFileContentsForValidation=*/ true);
       final ResourceCompiler compiler =
           ResourceCompiler.create(
               executorService,
@@ -365,7 +379,9 @@ public class Aapt2ResourcePackagingAction {
                               options.versionCode,
                               options.versionName,
                               manifest,
-                              processedManifest))
+                              processedManifest,
+                              optionsParser.getOptions(ResourceProcessorCommonOptions.class)
+                                  .logWarnings))
               .processManifest(
                   manifest ->
                       new DensitySpecificManifestProcessor(options.densities, densityManifest)
@@ -426,12 +442,21 @@ public class Aapt2ResourcePackagingAction {
                       .flatMap(dep -> dep.assetDirs.stream()))
               .collect(toList());
 
+      List<StaticLibrary> dependencies =
+          Lists.newArrayList(StaticLibrary.from(aaptConfigOptions.androidJar));
+      if (options.additionalApksToLinkAgainst != null) {
+        dependencies.addAll(
+            options.additionalApksToLinkAgainst.stream()
+                .map(StaticLibrary::from)
+                .collect(toList()));
+      }
+
       final PackagedResources packagedResources =
           ResourceLinker.create(aaptConfigOptions.aapt2, executorService, linkedOut)
               .profileUsing(profiler)
               .customPackage(options.packageForR)
               .outputAsProto(aaptConfigOptions.resourceTableAsProto)
-              .dependencies(ImmutableList.of(StaticLibrary.from(aaptConfigOptions.androidJar)))
+              .dependencies(ImmutableList.copyOf(dependencies))
               .include(compiledResourceDeps)
               .withAssets(assetDirs)
               .buildVersion(aaptConfigOptions.buildToolsVersion)
@@ -442,7 +467,14 @@ public class Aapt2ResourcePackagingAction {
               .includeGeneratedLocales(aaptConfigOptions.generatePseudoLocale)
               .includeOnlyConfigs(aaptConfigOptions.resourceConfigs)
               .link(compiled);
-      profiler.recordEndOf("link");
+      profiler.recordEndOf("link").startTask("validate");
+
+      ValidateAndLinkResourcesAction.checkVisibilityOfResourceReferences(
+          ProtoApk.readFrom(packagedResources.proto()).getManifest(),
+          compiled,
+          compiledResourceDeps);
+
+      profiler.recordEndOf("validate");
 
       if (options.packagePath != null) {
         copy(packagedResources.apk(), options.packagePath);

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
@@ -32,7 +34,6 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -42,20 +43,15 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider.TargetMode;
-import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
-import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
+import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
@@ -66,7 +62,6 @@ import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -95,7 +90,9 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import com.google.devtools.build.lib.skyframe.SaneAnalysisException;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
@@ -103,6 +100,7 @@ import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -116,10 +114,10 @@ import javax.annotation.Nullable;
 /**
  * The totality of data available during the analysis of a rule.
  *
- * <p>These objects should not outlast the analysis phase. Do not pass them to {@link Action}
- * objects or other persistent objects. There are internal tests to ensure that RuleContext objects
- * are not persisted that check the name of this class, so update those tests if you change this
- * class's name.
+ * <p>These objects should not outlast the analysis phase. Do not pass them to {@link
+ * com.google.devtools.build.lib.actions.Action} objects or other persistent objects. There are
+ * internal tests to ensure that RuleContext objects are not persisted that check the name of this
+ * class, so update those tests if you change this class's name.
  *
  * @see com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory
  */
@@ -127,12 +125,23 @@ public final class RuleContext extends TargetContext
     implements ActionConstructionContext, ActionRegistry, RuleErrorConsumer {
 
   public boolean isAllowTagsPropagation() throws InterruptedException {
-    return this.getAnalysisEnvironment().getSkylarkSemantics().experimentalAllowTagsPropagation();
+    return this.getAnalysisEnvironment().getStarlarkSemantics().experimentalAllowTagsPropagation();
   }
 
-  /**
-   * The configured version of FilesetEntry.
-   */
+  /** Custom dependency validation logic. */
+  public interface PrerequisiteValidator {
+    /**
+     * Checks whether the rule in {@code contextBuilder} is allowed to depend on {@code
+     * prerequisite} through the attribute {@code attribute}.
+     *
+     * <p>Can be used for enforcing any organization-specific policies about the layout of the
+     * workspace.
+     */
+    void validate(
+        Builder contextBuilder, ConfiguredTargetAndData prerequisite, Attribute attribute);
+  }
+
+  /** The configured version of FilesetEntry. */
   @Immutable
   public static final class ConfiguredFilesetEntry {
     private final FilesetEntry entry;
@@ -189,13 +198,17 @@ public final class RuleContext extends TargetContext
   private final String ruleClassNameForLogging;
   private final BuildConfiguration hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-  private final ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
+  private final ImmutableList<Class<? extends Fragment>> universalFragments;
   private final RuleErrorConsumer reporter;
-  @Nullable private final ResolvedToolchainContext toolchainContext;
-  private final ConstraintSemantics constraintSemantics;
+  @Nullable private final ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
+  private final ConstraintSemantics<RuleContext> constraintSemantics;
   private final ImmutableSet<String> requiredConfigFragments;
+  private final List<Expander> makeVariableExpanders = new ArrayList<>();
+  private final ImmutableMap<String, ImmutableMap<String, String>> execProperties;
 
-  private ActionOwner actionOwner;
+  /** Map of exec group names to ActionOwners. */
+  private final Map<String, ActionOwner> actionOwners = new HashMap<>();
+
   private final SymbolGenerator<ActionLookupValue.ActionLookupKey> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
@@ -211,9 +224,10 @@ public final class RuleContext extends TargetContext
       String ruleClassNameForLogging,
       ActionLookupValue.ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
-      @Nullable ResolvedToolchainContext toolchainContext,
-      ConstraintSemantics constraintSemantics,
-      ImmutableSet<String> requiredConfigFragments) {
+      @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
+      ConstraintSemantics<RuleContext> constraintSemantics,
+      ImmutableSet<String> requiredConfigFragments)
+      throws InvalidExecGroupException {
     super(
         builder.env,
         builder.target.getAssociatedRule(),
@@ -243,7 +257,8 @@ public final class RuleContext extends TargetContext
     this.hostConfiguration = builder.hostConfiguration;
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
-    this.toolchainContext = toolchainContext;
+    this.toolchainContexts = toolchainContexts;
+    this.execProperties = parseExecProperties();
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
   }
@@ -416,15 +431,26 @@ public final class RuleContext extends TargetContext
 
   @Override
   public ActionOwner getActionOwner() {
-    if (actionOwner == null) {
-      actionOwner =
-          createActionOwner(
-              rule,
-              aspectDescriptors,
-              getConfiguration(),
-              getTargetExecProperties(),
-              getExecutionPlatform());
+    return getActionOwner(DEFAULT_EXEC_GROUP_NAME);
+  }
+
+  @Override
+  public ActionOwner getActionOwner(String execGroup) {
+    if (actionOwners.containsKey(execGroup)) {
+      return actionOwners.get(execGroup);
     }
+    Preconditions.checkState(
+        toolchainContexts == null || toolchainContexts.hasToolchainContext(execGroup),
+        "action owner requested for non-existent exec group '%s'.",
+        execGroup);
+    ActionOwner actionOwner =
+        createActionOwner(
+            rule,
+            aspectDescriptors,
+            getConfiguration(),
+            getExecProperties(execGroup, execProperties),
+            getExecutionPlatform(execGroup));
+    actionOwners.put(execGroup, actionOwner);
     return actionOwner;
   }
 
@@ -476,10 +502,10 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  public Fragment getSkylarkFragment(String name, ConfigurationTransition transition)
+  public Fragment getStarlarkFragment(String name, ConfigurationTransition transition)
       throws EvalException {
     Class<? extends Fragment> fragmentClass =
-        getConfiguration(transition).getSkylarkFragmentByName(name);
+        getConfiguration(transition).getStarlarkFragmentByName(name);
     if (fragmentClass == null) {
       return null;
     }
@@ -497,14 +523,13 @@ public final class RuleContext extends TargetContext
     }
   }
 
-  public ImmutableCollection<String> getSkylarkFragmentNames(ConfigurationTransition transition) {
-    return getConfiguration(transition).getSkylarkFragmentNames();
+  public ImmutableCollection<String> getStarlarkFragmentNames(ConfigurationTransition transition) {
+    return getConfiguration(transition).getStarlarkFragmentNames();
   }
 
   public <T extends Fragment> boolean isLegalFragment(
       Class<T> fragment, ConfigurationTransition transition) {
     return universalFragments.contains(fragment)
-        || fragment == PlatformConfiguration.class
         || configurationFragmentPolicy.isLegalConfigurationFragment(fragment, transition);
   }
 
@@ -856,7 +881,7 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the prerequisites keyed by the CPU of their configurations. If the split transition
+   * Returns the prerequisites keyed by their configuration transition keys. If the split transition
    * is not active (e.g. split() returned an empty list), the key is an empty Optional.
    */
   public Map<Optional<String>, ? extends List<? extends TransitiveInfoCollection>>
@@ -872,15 +897,15 @@ public final class RuleContext extends TargetContext
    * exception will be raised.
    */
   public List<ConfiguredTargetAndData> getPrerequisiteConfiguredTargetAndTargets(
-      String attributeName, Mode mode) {
+      String attributeName, TransitionMode mode) {
     Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
-    if ((mode == Mode.TARGET) && (attributeDefinition.getTransitionFactory().isSplit())) {
+    if ((mode == TransitionMode.TARGET) && (attributeDefinition.getTransitionFactory().isSplit())) {
       // TODO(bazel-team): If you request a split-configured attribute in the target configuration,
       // we return only the list of configured targets for the first architecture; this is for
       // backwards compatibility with existing code in cases where the call to getPrerequisites is
       // deeply nested and we can't easily inject the behavior we want. However, we should fix all
       // such call sites.
-      checkAttribute(attributeName, Mode.SPLIT);
+      checkAttribute(attributeName, TransitionMode.SPLIT);
       Map<Optional<String>, List<ConfiguredTargetAndData>> map =
           getSplitPrerequisiteConfiguredTargetAndTargets(attributeName);
       return map.isEmpty() ? ImmutableList.of() : map.entrySet().iterator().next().getValue();
@@ -891,63 +916,38 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the prerequisites keyed by the CPU of their configurations. If the split transition is
-   * not active (e.g. split() returned an empty list), the key is an empty Optional.
+   * Returns the prerequisites keyed by their transition keys. If the split transition is not active
+   * (e.g. split() returned an empty list), the key is an empty Optional.
    */
   public Map<Optional<String>, List<ConfiguredTargetAndData>>
       getSplitPrerequisiteConfiguredTargetAndTargets(String attributeName) {
-    checkAttribute(attributeName, Mode.SPLIT);
-    Attribute attributeDefinition = attributes().getAttributeDefinition(attributeName);
-    Preconditions.checkState(attributeDefinition.getTransitionFactory().isSplit());
-    SplitTransition transition =
-        (SplitTransition)
-            attributeDefinition
-                .getTransitionFactory()
-                .create(
-                    AttributeTransitionData.builder()
-                        .attributes(ConfiguredAttributeMapper.of(rule, configConditions))
-                        .executionPlatform(getToolchainContext().executionPlatform().label())
-                        .build());
-    BuildOptions fromOptions = getConfiguration().getOptions();
-    List<BuildOptions> splitOptions = transition.split(fromOptions);
-    List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
-
-    if (SplitTransition.equals(fromOptions, splitOptions)) {
-      // The split transition is not active. Defer the decision on which CPU to use.
-      return ImmutableMap.of(Optional.<String>absent(), deps);
-    }
-
-    Set<String> cpus = new HashSet<>();
-    for (BuildOptions options : splitOptions) {
-      // This method should only be called when the split config is enabled on the command line, in
-      // which case this cpu can't be null.
-      cpus.add(options.get(CoreOptions.class).cpu);
-    }
-
+    checkAttribute(attributeName, TransitionMode.SPLIT);
     // Use an ImmutableListMultimap.Builder here to preserve ordering.
     ImmutableListMultimap.Builder<Optional<String>, ConfiguredTargetAndData> result =
         ImmutableListMultimap.builder();
+    List<ConfiguredTargetAndData> deps = getConfiguredTargetAndTargetDeps(attributeName);
     for (ConfiguredTargetAndData t : deps) {
-      if (t.getConfiguration() != null) {
-        result.put(Optional.of(t.getConfiguration().getCpu()), t);
-      } else {
-        // Source files don't have a configuration, so we add them to all architecture entries.
-        for (String cpu : cpus) {
-          result.put(Optional.of(cpu), t);
-        }
+      ImmutableList<String> transitionKeys = t.getTransitionKeys();
+      if (transitionKeys.isEmpty()) {
+        // The split transition is not active, i.e. does not change build configurations.
+        // TODO(jungjw): Investigate if we need to do a sanity check here.
+        return ImmutableMap.of(Optional.absent(), deps);
+      }
+      for (String key : transitionKeys) {
+        result.put(Optional.of(key), t);
       }
     }
     return Multimaps.asMap(result.build());
   }
 
   /**
-   * Returns the specified provider of the prerequisite referenced by the attribute in the
-   * argument. Note that you need to specify the correct mode for the attribute, otherwise an
-   * assertion will be raised. If the attribute is empty or it does not support the specified
-   * provider, returns null.
+   * Returns the specified provider of the prerequisite referenced by the attribute in the argument.
+   * Note that you need to specify the correct mode for the attribute, otherwise an assertion will
+   * be raised. If the attribute is empty or it does not support the specified provider, returns
+   * null.
    */
   public <C extends TransitiveInfoProvider> C getPrerequisite(
-      String attributeName, Mode mode, Class<C> provider) {
+      String attributeName, TransitionMode mode, Class<C> provider) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.getProvider(provider);
   }
@@ -957,7 +957,7 @@ public final class RuleContext extends TargetContext
    * attribute. Note that you need to specify the correct mode for the attribute, otherwise an
    * assertion will be raised. Returns null if the attribute is empty.
    */
-  public TransitiveInfoCollection getPrerequisite(String attributeName, Mode mode) {
+  public TransitiveInfoCollection getPrerequisite(String attributeName, TransitionMode mode) {
     ConfiguredTargetAndData result = getPrerequisiteConfiguredTargetAndData(attributeName, mode);
     return result == null ? null : result.getConfiguredTarget();
   }
@@ -968,7 +968,7 @@ public final class RuleContext extends TargetContext
    * assertion will be raised. Returns null if the attribute is empty.
    */
   public ConfiguredTargetAndData getPrerequisiteConfiguredTargetAndData(
-      String attributeName, Mode mode) {
+      String attributeName, TransitionMode mode) {
     checkAttribute(attributeName, mode);
     List<ConfiguredTargetAndData> elements = getConfiguredTargetAndTargetDeps(attributeName);
     if (elements.size() > 1) {
@@ -983,7 +983,8 @@ public final class RuleContext extends TargetContext
    * ConfiguredTargetAndData is keyed by the {@link BuildConfiguration} that created it.
    */
   public ImmutableListMultimap<BuildConfiguration, ConfiguredTargetAndData>
-      getPrerequisiteCofiguredTargetAndTargetsByConfiguration(String attributeName, Mode mode) {
+      getPrerequisiteCofiguredTargetAndTargetsByConfiguration(
+          String attributeName, TransitionMode mode) {
     List<ConfiguredTargetAndData> ctatCollection =
         getPrerequisiteConfiguredTargetAndTargets(attributeName, mode);
     ImmutableListMultimap.Builder<BuildConfiguration, ConfiguredTargetAndData> result =
@@ -999,13 +1000,13 @@ public final class RuleContext extends TargetContext
    * Each declared provider is keyed by the {@link BuildConfiguration} under which the provider was
    * created.
    *
-   * @deprecated use {@link #getPrerequisitesByConfiguration(String, Mode, BuiltinProvider)}
-   *     instead
+   * @deprecated use {@link #getPrerequisitesByConfiguration(String, TransitionMode,
+   *     BuiltinProvider)} instead
    */
   @Deprecated
   public <C extends Info>
-  ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-      String attributeName, Mode mode, final NativeProvider<C> provider) {
+      ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
+          String attributeName, TransitionMode mode, final NativeProvider<C> provider) {
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -1025,7 +1026,7 @@ public final class RuleContext extends TargetContext
    */
   public <C extends Info>
       ImmutableListMultimap<BuildConfiguration, C> getPrerequisitesByConfiguration(
-          String attributeName, Mode mode, final BuiltinProvider<C> provider) {
+          String attributeName, TransitionMode mode, final BuiltinProvider<C> provider) {
     ImmutableListMultimap.Builder<BuildConfiguration, C> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -1039,12 +1040,12 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets
-   * of that attribute. Each {@link TransitiveInfoCollection} is keyed by the
-   * {@link BuildConfiguration} under which the collection was created.
+   * For a given attribute, returns all {@link TransitiveInfoCollection}s provided by targets of
+   * that attribute. Each {@link TransitiveInfoCollection} is keyed by the {@link
+   * BuildConfiguration} under which the collection was created.
    */
   public ImmutableListMultimap<BuildConfiguration, TransitiveInfoCollection>
-      getPrerequisitesByConfiguration(String attributeName, Mode mode) {
+      getPrerequisitesByConfiguration(String attributeName, TransitionMode mode) {
     ImmutableListMultimap.Builder<BuildConfiguration, TransitiveInfoCollection> result =
         ImmutableListMultimap.builder();
     for (ConfiguredTargetAndData prerequisite :
@@ -1059,8 +1060,8 @@ public final class RuleContext extends TargetContext
    * specified attribute. Note that you need to specify the correct mode for the attribute,
    * otherwise an assertion will be raised.
    */
-  public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
-      Mode mode) {
+  public List<? extends TransitiveInfoCollection> getPrerequisites(
+      String attributeName, TransitionMode mode) {
     return Lists.transform(
         getPrerequisiteConfiguredTargetAndTargets(attributeName, mode),
         ConfiguredTargetAndData::getConfiguredTarget);
@@ -1071,60 +1072,60 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file.
    */
   public <C extends TransitiveInfoProvider> List<C> getPrerequisites(
-      String attributeName, Mode mode, final Class<C> classType) {
+      String attributeName, TransitionMode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), classType);
   }
 
   /**
-   * Returns all the declared providers (native and Skylark) for the specified constructor under the
-   * specified attribute of this target in the BUILD file.
+   * Returns all the declared providers (native and Starlark) for the specified constructor under
+   * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final NativeProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
 
   /**
-   * Returns all the declared providers (native and Skylark) for the specified constructor under the
-   * specified attribute of this target in the BUILD file.
+   * Returns all the declared providers (native and Starlark) for the specified constructor under
+   * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final BuiltinProvider<T> skylarkKey) {
     return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
   }
 
   /**
-   * Returns the declared provider (native and Skylark) for the specified constructor under the
+   * Returns the declared provider (native and Starlark) for the specified constructor under the
    * specified attribute of this target in the BUILD file. May return null if there is no
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
   public <T extends Info> T getPrerequisite(
-      String attributeName, Mode mode, final NativeProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final NativeProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
   }
 
   /**
-   * Returns the declared provider (native and Skylark) for the specified constructor under the
+   * Returns the declared provider (native and Starlark) for the specified constructor under the
    * specified attribute of this target in the BUILD file. May return null if there is no
    * TransitiveInfoCollection under the specified attribute.
    */
   @Nullable
   public <T extends Info> T getPrerequisite(
-      String attributeName, Mode mode, final BuiltinProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final BuiltinProvider<T> skylarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
     return prerequisite == null ? null : prerequisite.get(skylarkKey);
   }
-
 
   /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file, and that contain the specified provider.
    */
-  public <C extends TransitiveInfoProvider> Iterable<? extends TransitiveInfoCollection>
-      getPrerequisitesIf(String attributeName, Mode mode, final Class<C> classType) {
+  public <C extends TransitiveInfoProvider>
+      Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
+          String attributeName, TransitionMode mode, final Class<C> classType) {
     AnalysisUtils.checkProvider(classType);
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
@@ -1134,7 +1135,7 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file, and that contain the specified provider.
    */
   public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, Mode mode, final NativeProvider<C> classType) {
+      String attributeName, TransitionMode mode, final NativeProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
 
@@ -1143,25 +1144,23 @@ public final class RuleContext extends TargetContext
    * of this target in the BUILD file, and that contain the specified provider.
    */
   public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, Mode mode, final BuiltinProvider<C> classType) {
+      String attributeName, TransitionMode mode, final BuiltinProvider<C> classType) {
     return AnalysisUtils.filterByProvider(getPrerequisites(attributeName, mode), classType);
   }
 
   /**
-   * Returns the prerequisite referred to by the specified attribute. Also checks whether
-   * the attribute is marked as executable and that the target referred to can actually be
-   * executed.
+   * Returns the prerequisite referred to by the specified attribute. Also checks whether the
+   * attribute is marked as executable and that the target referred to can actually be executed.
    *
    * <p>The {@code mode} argument must match the configuration transition specified in the
    * definition of the attribute.
    *
    * @param attributeName the name of the attribute
    * @param mode the configuration transition of the attribute
-   *
    * @return the {@link FilesToRunProvider} interface of the prerequisite.
    */
   @Nullable
-  public FilesToRunProvider getExecutablePrerequisite(String attributeName, Mode mode) {
+  public FilesToRunProvider getExecutablePrerequisite(String attributeName, TransitionMode mode) {
     Attribute ruleDefinition = attributes().getAttributeDefinition(attributeName);
 
     if (ruleDefinition == null) {
@@ -1199,15 +1198,21 @@ public final class RuleContext extends TargetContext
   }
 
   public Expander getExpander(TemplateContext templateContext) {
-    return new Expander(this, templateContext);
+    Expander expander = new Expander(this, templateContext);
+    makeVariableExpanders.add(expander);
+    return expander;
   }
 
   public Expander getExpander() {
-    return new Expander(this, getConfigurationMakeVariableContext());
+    Expander expander = new Expander(this, getConfigurationMakeVariableContext());
+    makeVariableExpanders.add(expander);
+    return expander;
   }
 
   public Expander getExpander(ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap) {
-    return new Expander(this, getConfigurationMakeVariableContext(), labelMap);
+    Expander expander = new Expander(this, getConfigurationMakeVariableContext(), labelMap);
+    makeVariableExpanders.add(expander);
+    return expander;
   }
 
   /**
@@ -1223,29 +1228,184 @@ public final class RuleContext extends TargetContext
 
   @Nullable
   public ResolvedToolchainContext getToolchainContext() {
-    return toolchainContext;
+    return toolchainContexts == null ? null : toolchainContexts.getDefaultToolchainContext();
+  }
+
+  @Nullable
+  private ResolvedToolchainContext getToolchainContext(String execGroup) {
+    return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
+  }
+
+  public boolean hasToolchainContext(String execGroup) {
+    return toolchainContexts != null && toolchainContexts.hasToolchainContext(execGroup);
+  }
+
+  @Nullable
+  public ToolchainCollection<ResolvedToolchainContext> getToolchainContexts() {
+    return toolchainContexts;
   }
 
   public boolean targetPlatformHasConstraint(ConstraintValueInfo constraintValue) {
-    if (toolchainContext == null || toolchainContext.targetPlatform() == null) {
+    if (toolchainContexts == null
+        || toolchainContexts.getDefaultToolchainContext().targetPlatform() == null) {
       return false;
     }
-    return toolchainContext.targetPlatform().constraints().hasConstraintValue(constraintValue);
+    // All toolchain contexts should have the same target platform so we access via the default.
+    return toolchainContexts
+        .getDefaultToolchainContext()
+        .targetPlatform()
+        .constraints()
+        .hasConstraintValue(constraintValue);
   }
 
-  public ConstraintSemantics getConstraintSemantics() {
+  public ConstraintSemantics<RuleContext> getConstraintSemantics() {
     return constraintSemantics;
   }
 
-  public ImmutableSet<String> getRequiredConfigFragments() {
-    return requiredConfigFragments;
+  /**
+   * Returns the configuration fragments this rule uses.
+   *
+   * <p>Returned results are alphabetically ordered.
+   */
+  public ImmutableSortedSet<String> getRequiredConfigFragments() {
+    ImmutableSortedSet.Builder<String> ans = ImmutableSortedSet.naturalOrder();
+    ans.addAll(requiredConfigFragments);
+    for (Expander makeVariableExpander : makeVariableExpanders) {
+      for (String makeVariable : makeVariableExpander.lookedUpVariables()) {
+        // User-defined make values may be set either in "--define foo=bar" or in a vardef in the
+        // rule's package. Both are equivalent for these purposes, since in both cases setting
+        // "--define foo=bar" impacts the rule's output.
+        if (getRule().getPackage().getMakeEnvironment().containsKey(makeVariable)
+            || getConfiguration().getCommandLineBuildVariables().containsKey(makeVariable)) {
+          ans.add("--define:" + makeVariable);
+        }
+      }
+    }
+    return ans.build();
   }
 
-  public Map<String, String> getTargetExecProperties() {
-    if (isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
-      return attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT);
+  private ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties()
+      throws InvalidExecGroupException {
+    if (!isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+      return ImmutableMap.of(DEFAULT_EXEC_GROUP_NAME, ImmutableMap.of());
     } else {
-      return ImmutableMap.of();
+      return parseExecProperties(
+          attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT),
+          toolchainContexts == null ? ImmutableSet.of() : toolchainContexts.getExecGroups());
+    }
+  }
+
+  /**
+   * Parse raw exec properties attribute value into a map of exec group names to their properties.
+   * The raw map can have keys of two forms: (1) 'property' and (2) 'exec_group_name.property'. The
+   * former get parsed into the target's default exec group, the latter get parsed into their
+   * relevant exec groups.
+   */
+  private static ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
+      Map<String, String> rawExecProperties, Set<String> execGroups)
+      throws InvalidExecGroupException {
+    Map<String, Map<String, String>> consolidatedProperties = new HashMap<>();
+    consolidatedProperties.put(DEFAULT_EXEC_GROUP_NAME, new HashMap<>());
+    for (Map.Entry<String, String> execProperty : rawExecProperties.entrySet()) {
+      String rawProperty = execProperty.getKey();
+      int delimiterIndex = rawProperty.indexOf('.');
+      if (delimiterIndex == -1) {
+        consolidatedProperties
+            .get(DEFAULT_EXEC_GROUP_NAME)
+            .put(rawProperty, execProperty.getValue());
+      } else {
+        String execGroup = rawProperty.substring(0, delimiterIndex);
+        String property = rawProperty.substring(delimiterIndex + 1);
+        if (!execGroups.contains(execGroup)) {
+          throw new InvalidExecGroupException(
+              String.format(
+                  "Tried to set exec property '%s' for non-existent exec group '%s'.",
+                  property, execGroup));
+        }
+        consolidatedProperties.putIfAbsent(execGroup, new HashMap<>());
+        consolidatedProperties.get(execGroup).put(property, execProperty.getValue());
+      }
+    }
+
+    // Copy everything to immutable maps.
+    ImmutableMap.Builder<String, ImmutableMap<String, String>> execProperties =
+        new ImmutableMap.Builder<>();
+    for (Map.Entry<String, Map<String, String>> execGroupMap : consolidatedProperties.entrySet()) {
+      execProperties.put(execGroupMap.getKey(), ImmutableMap.copyOf(execGroupMap.getValue()));
+    }
+
+    return execProperties.build();
+  }
+
+  /**
+   * Gets the combined exec properties of the given exec group and the target's exec properties. If
+   * a property is set in both, the exec group properties take precedence. If a non-existent exec
+   * group is passed in, just returns the target's exec properties.
+   *
+   * @param execGroup group whose properties to retrieve
+   * @param execProperties Map of exec group name to map of properties and values
+   */
+  private static ImmutableMap<String, String> getExecProperties(
+      String execGroup, Map<String, ImmutableMap<String, String>> execProperties) {
+    if (!execProperties.containsKey(execGroup) || execGroup.equals(DEFAULT_EXEC_GROUP_NAME)) {
+      return execProperties.get(DEFAULT_EXEC_GROUP_NAME);
+    }
+
+    // Use a HashMap to build here because we expect duplicate keys to happen
+    // (and rewrite previous entries).
+    Map<String, String> targetAndGroupProperties =
+        new HashMap<>(execProperties.get(DEFAULT_EXEC_GROUP_NAME));
+    targetAndGroupProperties.putAll(execProperties.get(execGroup));
+    return ImmutableMap.copyOf(targetAndGroupProperties);
+  }
+
+  /** An error for when the user tries to access an non-existent exec group */
+  public static final class InvalidExecGroupException extends Exception
+      implements SaneAnalysisException {
+    InvalidExecGroupException(String message) {
+      super(message);
+    }
+  }
+
+  @VisibleForTesting
+  public ImmutableMap<String, ImmutableMap<String, String>> getExecPropertiesForTesting() {
+    return execProperties;
+  }
+
+  private void checkAttribute(String attributeName, TransitionMode mode) {
+    Attribute attributeDefinition = attributes.getAttributeDefinition(attributeName);
+    if (attributeDefinition == null) {
+      throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
+        + " attribute " + attributeName + " is not defined");
+    }
+    if (attributeDefinition.getType().getLabelClass() != LabelClass.DEPENDENCY) {
+      throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
+        + " is not a label type attribute");
+    }
+    TransitionFactory<AttributeTransitionData> transitionFactory =
+        attributeDefinition.getTransitionFactory();
+    if (mode == TransitionMode.HOST) {
+      if (transitionFactory.isSplit()) {
+        throw new IllegalStateException(getRule().getLocation() + ": "
+            + getRuleClassNameForLogging() + " attribute " + attributeName
+            + " is not configured for the host configuration");
+      }
+    } else if (mode == TransitionMode.TARGET) {
+      if (transitionFactory.isSplit() && !NoTransition.isInstance(transitionFactory)) {
+        throw new IllegalStateException(getRule().getLocation() + ": "
+            + getRuleClassNameForLogging() + " attribute " + attributeName
+            + " is not configured for the target configuration");
+      }
+    } else if (mode == TransitionMode.DATA) {
+      throw new IllegalStateException(getRule().getLocation() + ": "
+          + getRuleClassNameForLogging() + " attribute " + attributeName
+          + ": DATA transition no longer supported"); // See b/80157700.
+    } else if (mode == TransitionMode.SPLIT) {
+      if (!(attributeDefinition.getTransitionFactory().isSplit())) {
+        throw new IllegalStateException(getRule().getLocation() + ": "
+            + getRuleClassNameForLogging() + " attribute " + attributeName
+            + " is not configured for a split transition");
+      }
     }
   }
 
@@ -1258,64 +1418,36 @@ public final class RuleContext extends TargetContext
     return getToolchainContext().executionPlatform();
   }
 
-  private void checkAttribute(String attributeName, Mode mode) {
-    Attribute attributeDefinition = attributes.getAttributeDefinition(attributeName);
-    if (attributeDefinition == null) {
-      throw new IllegalStateException(getRule().getLocation() + ": " + getRuleClassNameForLogging()
-        + " attribute " + attributeName + " is not defined");
+  @Override
+  @Nullable
+  public PlatformInfo getExecutionPlatform(String execGroup) {
+    if (getToolchainContexts() == null) {
+      return null;
     }
-    if (attributeDefinition.getType().getLabelClass() != LabelClass.DEPENDENCY) {
-      throw new IllegalStateException(getRuleClassNameForLogging() + " attribute " + attributeName
-        + " is not a label type attribute");
-    }
-    TransitionFactory<AttributeTransitionData> transitionFactory =
-        attributeDefinition.getTransitionFactory();
-    if (mode == Mode.HOST) {
-      if (transitionFactory.isSplit()) {
-        throw new IllegalStateException(getRule().getLocation() + ": "
-            + getRuleClassNameForLogging() + " attribute " + attributeName
-            + " is not configured for the host configuration");
-      }
-    } else if (mode == Mode.TARGET) {
-      if (transitionFactory.isSplit() && !NoTransition.isInstance(transitionFactory)) {
-        throw new IllegalStateException(getRule().getLocation() + ": "
-            + getRuleClassNameForLogging() + " attribute " + attributeName
-            + " is not configured for the target configuration");
-      }
-    } else if (mode == Mode.DATA) {
-      throw new IllegalStateException(getRule().getLocation() + ": "
-          + getRuleClassNameForLogging() + " attribute " + attributeName
-          + ": DATA transition no longer supported"); // See b/80157700.
-    } else if (mode == Mode.SPLIT) {
-      if (!(attributeDefinition.getTransitionFactory().isSplit())) {
-        throw new IllegalStateException(getRule().getLocation() + ": "
-            + getRuleClassNameForLogging() + " attribute " + attributeName
-            + " is not configured for a split transition");
-      }
-    }
+    ResolvedToolchainContext toolchainContext = getToolchainContext(execGroup);
+    return toolchainContext == null ? null : toolchainContext.executionPlatform();
   }
 
   /**
-   * For the specified attribute "attributeName" (which must be of type
-   * list(label)), resolve all the labels into ConfiguredTargets (for the
-   * configuration appropriate to the attribute) and return their build
-   * artifacts as a {@link PrerequisiteArtifacts} instance.
+   * For the specified attribute "attributeName" (which must be of type list(label)), resolve all
+   * the labels into ConfiguredTargets (for the configuration appropriate to the attribute) and
+   * return their build artifacts as a {@link PrerequisiteArtifacts} instance.
    *
    * @param attributeName the name of the attribute to traverse
    */
-  public PrerequisiteArtifacts getPrerequisiteArtifacts(String attributeName, Mode mode) {
+  public PrerequisiteArtifacts getPrerequisiteArtifacts(String attributeName, TransitionMode mode) {
     return PrerequisiteArtifacts.get(this, attributeName, mode);
   }
 
   /**
-   * For the specified attribute "attributeName" (which must be of type label),
-   * resolves the ConfiguredTarget and returns its single build artifact.
+   * For the specified attribute "attributeName" (which must be of type label), resolves the
+   * ConfiguredTarget and returns its single build artifact.
    *
-   * <p>If the attribute is optional, has no default and was not specified, then
-   * null will be returned. Note also that null is returned (and an attribute
-   * error is raised) if there wasn't exactly one build artifact for the target.
+   * <p>If the attribute is optional, has no default and was not specified, then null will be
+   * returned. Note also that null is returned (and an attribute error is raised) if there wasn't
+   * exactly one build artifact for the target.
    */
-  public Artifact getPrerequisiteArtifact(String attributeName, Mode mode) {
+  public Artifact getPrerequisiteArtifact(String attributeName, TransitionMode mode) {
     TransitiveInfoCollection target = getPrerequisite(attributeName, mode);
     return transitiveInfoCollectionToArtifact(attributeName, target);
   }
@@ -1325,7 +1457,7 @@ public final class RuleContext extends TargetContext
    * host-configuration is appropriate for the specified attribute.
    */
   public Artifact getHostPrerequisiteArtifact(String attributeName) {
-    TransitiveInfoCollection target = getPrerequisite(attributeName, Mode.HOST);
+    TransitiveInfoCollection target = getPrerequisite(attributeName, TransitionMode.HOST);
     return transitiveInfoCollectionToArtifact(attributeName, target);
   }
 
@@ -1348,7 +1480,7 @@ public final class RuleContext extends TargetContext
    * expected type.
    */
   public Artifact getSingleSource(String fileTypeName) {
-    List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs", Mode.TARGET).list();
+    List<Artifact> srcs = PrerequisiteArtifacts.get(this, "srcs", TransitionMode.TARGET).list();
     switch (srcs.size()) {
       case 0 : // error already issued by getSrc()
         return null;
@@ -1393,7 +1525,7 @@ public final class RuleContext extends TargetContext
    */
   public void checkSrcsSamePackage(boolean onlyWarn) {
     PathFragment packageName = getLabel().getPackageFragment();
-    for (Artifact srcItem : PrerequisiteArtifacts.get(this, "srcs", Mode.TARGET).list()) {
+    for (Artifact srcItem : PrerequisiteArtifacts.get(this, "srcs", TransitionMode.TARGET).list()) {
       if (!srcItem.isSourceArtifact()) {
         // In theory, we should not do this check. However, in practice, we
         // have a couple of rules that do not obey the "srcs must contain
@@ -1453,15 +1585,13 @@ public final class RuleContext extends TargetContext
           function.getImplicitOutputs(
               getAnalysisEnvironment().getEventHandler(), RawAttributeMapper.of(rule));
     } catch (EvalException e) {
-      // It's ok as long as we don't use this method from Skylark.
+      // It's ok as long as we don't use this method from Starlark.
       throw new IllegalStateException(e);
     }
     return getImplicitOutputArtifact(Iterables.getOnlyElement(result), contentBasedPath);
   }
 
-  /**
-   * Only use from Skylark. Returns the implicit output artifact for a given output path.
-   */
+  /** Only use from Starlark. Returns the implicit output artifact for a given output path. */
   public Artifact getImplicitOutputArtifact(String path) {
     return getImplicitOutputArtifact(path, /*contentBasedPath=*/ false);
   }
@@ -1490,7 +1620,7 @@ public final class RuleContext extends TargetContext
     if (warnIfNotDefault && !label.equals(getRule().getAttrDefaultValue("compiler"))) {
       attributeWarning("compiler", "setting the compiler is strongly discouraged");
     }
-    return getExecutablePrerequisite("compiler", Mode.HOST);
+    return getExecutablePrerequisite("compiler", TransitionMode.HOST);
   }
 
   /**
@@ -1550,8 +1680,7 @@ public final class RuleContext extends TargetContext
    * Returns true if {@code label} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by {@link
-   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   * whether a dependency is allowed is made by {@link PrerequisiteValidator}.
    */
   public static boolean isVisible(Label label, TransitiveInfoCollection prerequisite) {
     // Check visibility attribute
@@ -1569,8 +1698,7 @@ public final class RuleContext extends TargetContext
    * Returns true if {@code rule} is visible from {@code prerequisite}.
    *
    * <p>This only computes the logic as implemented by the visibility system. The final decision
-   * whether a dependency is allowed is made by {@link
-   * ConfiguredRuleClassProvider.PrerequisiteValidator}.
+   * whether a dependency is allowed is made by {@link PrerequisiteValidator}.
    */
   public static boolean isVisible(Rule rule, TransitiveInfoCollection prerequisite) {
     return isVisible(rule.getLabel(), prerequisite);
@@ -1603,7 +1731,7 @@ public final class RuleContext extends TargetContext
     private final AnalysisEnvironment env;
     private final Target target;
     private final ConfigurationFragmentPolicy configurationFragmentPolicy;
-    private ImmutableList<Class<? extends BuildConfiguration.Fragment>> universalFragments;
+    private ImmutableList<Class<? extends Fragment>> universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
     private final ActionLookupValue.ActionLookupKey actionOwnerSymbol;
@@ -1614,8 +1742,8 @@ public final class RuleContext extends TargetContext
     private NestedSet<PackageGroupContents> visibility;
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
-    private ResolvedToolchainContext toolchainContext;
-    private ConstraintSemantics constraintSemantics;
+    private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
+    private ConstraintSemantics<RuleContext> constraintSemantics;
     private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
 
     @VisibleForTesting
@@ -1646,7 +1774,7 @@ public final class RuleContext extends TargetContext
     }
 
     @VisibleForTesting
-    public RuleContext build() {
+    public RuleContext build() throws InvalidExecGroupException {
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
@@ -1667,7 +1795,7 @@ public final class RuleContext extends TargetContext
           getRuleClassNameForLogging(),
           actionOwnerSymbol,
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of(),
-          toolchainContext,
+          toolchainContexts,
           constraintSemantics,
           requiredConfigFragments);
     }
@@ -1712,11 +1840,8 @@ public final class RuleContext extends TargetContext
       return this;
     }
 
-    /**
-     * Sets the fragment that can be legally accessed even when not explicitly declared.
-     */
-    public Builder setUniversalFragments(
-        ImmutableList<Class<? extends BuildConfiguration.Fragment>> fragments) {
+    /** Sets the fragment that can be legally accessed even when not explicitly declared. */
+    public Builder setUniversalFragments(ImmutableList<Class<? extends Fragment>> fragments) {
       // TODO(bazel-team): Add this directly to ConfigurationFragmentPolicy, so we
       // don't need separate logic specifically for checking this fragment. The challenge is
       // that we need RuleClassProvider to figure out what this fragment is, and not every
@@ -1727,11 +1852,28 @@ public final class RuleContext extends TargetContext
 
     /** Sets the {@link ResolvedToolchainContext} used to access toolchains used by this rule. */
     public Builder setToolchainContext(ResolvedToolchainContext toolchainContext) {
-      this.toolchainContext = toolchainContext;
+      Preconditions.checkState(
+          this.toolchainContexts == null,
+          "toolchainContexts has already been set for this Builder");
+      this.toolchainContexts =
+          ToolchainCollection.<ResolvedToolchainContext>builder()
+              .addDefaultContext(toolchainContext)
+              .build();
       return this;
     }
 
-    public Builder setConstraintSemantics(ConstraintSemantics constraintSemantics) {
+    /** Sets the collection of {@link ResolvedToolchainContext}s available to this rule. */
+    @VisibleForTesting
+    public Builder setToolchainContexts(
+        ToolchainCollection<ResolvedToolchainContext> toolchainContexts) {
+      Preconditions.checkState(
+          this.toolchainContexts == null,
+          "toolchainContexts has already been set for this Builder");
+      this.toolchainContexts = toolchainContexts;
+      return this;
+    }
+
+    public Builder setConstraintSemantics(ConstraintSemantics<RuleContext> constraintSemantics) {
       this.constraintSemantics = constraintSemantics;
       return this;
     }
@@ -1972,7 +2114,7 @@ public final class RuleContext extends TargetContext
      * build)
      */
     public StarlarkSemantics getStarlarkSemantics() throws InterruptedException {
-      return env.getSkylarkSemantics();
+      return env.getStarlarkSemantics();
     }
 
     /**
@@ -1995,11 +2137,10 @@ public final class RuleContext extends TargetContext
 
     /**
      * @return true if {@code rule} is visible from {@code prerequisite}.
-     *
-     * <p>This only computes the logic as implemented by the visibility system. The final decision
-     * whether a dependency is allowed is made by
-     * {@link ConfiguredRuleClassProvider.PrerequisiteValidator}, who is supposed to call this
-     * method to determine whether a dependency is allowed as per visibility rules.
+     *     <p>This only computes the logic as implemented by the visibility system. The final
+     *     decision whether a dependency is allowed is made by {@link PrerequisiteValidator}, who is
+     *     supposed to call this method to determine whether a dependency is allowed as per
+     *     visibility rules.
      */
     public boolean isVisible(TransitiveInfoCollection prerequisite) {
       return RuleContext.isVisible(target.getAssociatedRule(), prerequisite);

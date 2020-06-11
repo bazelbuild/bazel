@@ -71,7 +71,7 @@ public class JavaInfoTest {
 
     NestedSet<Label> labels = javaInfoMerged.getTransitiveExports().getSet(Label.class);
 
-    assertThat(labels)
+    assertThat(labels.toList())
         .containsExactly(
             Label.parseAbsolute("//foo:foo0.bzl", ImmutableMap.of()),
             Label.parseAbsolute("//foo:foo1.bzl", ImmutableMap.of()),

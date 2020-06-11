@@ -1,9 +1,9 @@
 ---
 layout: documentation
-title: Optimizing Performance
+title: Optimizing performance
 ---
 
-# Optimizing Performance
+# Optimizing performance
 
 When writing rules, the most common performance pitfall is to traverse or copy
 data that is accumulated from dependencies. When aggregated over the whole
@@ -15,11 +15,6 @@ assists you in finding spots where you might have made a mistake. Be warned:
 The cost of writing an inefficient rule may not be evident until it is in
 widespread use.
 
-## Contents
-{:.no_toc}
-
-* ToC
-{:toc}
 
 ## Use depsets
 
@@ -211,7 +206,7 @@ This profiling method consists of two steps, first you have to execute your
 build/test with the `--profile` flag, for example
 
 ```
-$ bazel build --nobuild --profile=/tmp/prof //path/to:target
+$ bazel build --profile=/tmp/prof //path/to:target
 ```
 
 The file generated (in this case `/tmp/prof`) is a binary file, which can be
@@ -357,7 +352,7 @@ Note that we filter out fast tasks and certain task types completely to keep the
 profile files small enough to render fast in the Chrome Trace Viewer.
 
 
-## Memory Profiling
+## Memory profiling
 
 Bazel comes with a built-in memory profiler that can help you check your rule's
 memory use. If there is a problem you can dump the heap to find the
@@ -419,7 +414,7 @@ And finally let's have a look at where the memory is going by producing a
 
 ```
 $ bazel $(STARTUP_FLAGS) dump --skylark_memory=$HOME/prof.gz
-> Dumping skylark heap to: /usr/local/google/home/$USER/prof.gz
+> Dumping Starlark heap to: /usr/local/google/home/$USER/prof.gz
 ```
 
 Next, we use the `pprof` tool to investigate the heap. A good starting point is

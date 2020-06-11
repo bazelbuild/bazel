@@ -15,10 +15,9 @@ package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.android.desugar.LambdaClassMaker.LAMBDA_METAFACTORY_DUMPER_PROPERTY;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Strings;
-import java.io.IOError;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -60,15 +59,7 @@ public class DesugarMainClassTest {
   private void testLambdaDumpDirPassSpecifiedInCmdPass() throws IOException {
     // The following lambda ensures that the LambdaMetafactory is loaded at the beginning of this
     // test, so that the dump directory can be registered.
-    Supplier<Path> supplier =
-        () -> {
-          try {
-            return Desugar.createAndRegisterLambdaDumpDirectory();
-          } catch (IOException e) {
-            throw new IOError(e);
-          }
-        };
-    Path dumpDirectory = supplier.get();
+    Path dumpDirectory = Desugar.createAndRegisterLambdaDumpDirectory();
     assertThat(dumpDirectory.toAbsolutePath().toString())
         .isEqualTo(
             Paths.get(System.getProperty(LAMBDA_METAFACTORY_DUMPER_PROPERTY))

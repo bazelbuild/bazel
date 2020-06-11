@@ -65,7 +65,7 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
-        fixture.get(AndroidDeviceScriptFixtureInfoProvider.SKYLARK_CONSTRUCTOR);
+        fixture.get(AndroidDeviceScriptFixtureInfoProvider.STARLARK_CONSTRUCTOR);
     assertThat(deviceScriptFixtureInfoProvider).isNotNull();
     assertThat(deviceScriptFixtureInfoProvider.getFixtureScript()).isNotNull();
     assertThat(deviceScriptFixtureInfoProvider.getFixtureScript().prettyPrint())
@@ -83,7 +83,7 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
-        fixture.get(AndroidDeviceScriptFixtureInfoProvider.SKYLARK_CONSTRUCTOR);
+        fixture.get(AndroidDeviceScriptFixtureInfoProvider.STARLARK_CONSTRUCTOR);
     assertThat(deviceScriptFixtureInfoProvider).isNotNull();
     assertThat(deviceScriptFixtureInfoProvider.getFixtureScript()).isNotNull();
     assertThat(deviceScriptFixtureInfoProvider.getFixtureScript().prettyPrint())
@@ -134,7 +134,7 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
-        fixture.get(AndroidDeviceScriptFixtureInfoProvider.SKYLARK_CONSTRUCTOR);
+        fixture.get(AndroidDeviceScriptFixtureInfoProvider.STARLARK_CONSTRUCTOR);
     assertThat(deviceScriptFixtureInfoProvider).isNotNull();
 
     assertThat(
@@ -168,7 +168,7 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
-        fixture.get(AndroidDeviceScriptFixtureInfoProvider.SKYLARK_CONSTRUCTOR);
+        fixture.get(AndroidDeviceScriptFixtureInfoProvider.STARLARK_CONSTRUCTOR);
     assertThat(deviceScriptFixtureInfoProvider).isNotNull();
     assertThat(deviceScriptFixtureInfoProvider.getDaemon()).isTrue();
   }
@@ -185,7 +185,7 @@ public class AndroidDeviceScriptFixtureTest extends AndroidBuildViewTestCase {
     ConfiguredTarget fixture = getConfiguredTarget("//javatests/com/app:fixture");
     assertThat(fixture).isNotNull();
     AndroidDeviceScriptFixtureInfoProvider deviceScriptFixtureInfoProvider =
-        fixture.get(AndroidDeviceScriptFixtureInfoProvider.SKYLARK_CONSTRUCTOR);
+        fixture.get(AndroidDeviceScriptFixtureInfoProvider.STARLARK_CONSTRUCTOR);
     assertThat(deviceScriptFixtureInfoProvider).isNotNull();
     assertThat(deviceScriptFixtureInfoProvider.getStrictExit()).isTrue();
   }

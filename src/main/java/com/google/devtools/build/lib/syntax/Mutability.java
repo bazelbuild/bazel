@@ -14,18 +14,13 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.events.Location;
-import java.util.ArrayList;
 import java.util.IdentityHashMap;
-import java.util.List;
 
 /**
- * An object that manages the capability to mutate Skylark objects and their {@link
+ * An object that manages the capability to mutate Starlark objects and their {@link
  * StarlarkThread}s. Collectively, the managed objects are called {@link Freezable}s.
  *
- * <p>Each {@code StarlarkThread}, and each of the mutable Skylark values (i.e., {@link
+ * <p>Each {@code StarlarkThread}, and each of the mutable Starlark values (i.e., {@link
  * StarlarkMutable}s) that are created in that {@code StarlarkThread}, holds a pointer to the same
  * {@code Mutability} instance. Once the {@code StarlarkThread} is done evaluating, its {@code
  * Mutability} is irreversibly closed ("frozen"). At that point, it is no longer possible to change
@@ -34,8 +29,8 @@ import java.util.List;
  *
  * <p>{@code Mutability}s enforce isolation between {@code StarlarkThread}s; it is illegal for an
  * evaluation in one {@code StarlarkThread} to affect the bindings or values of another. In
- * particular, the {@code StarlarkThread} for any Skylark module is frozen before its symbols can be
- * imported for use by another module. Each individual {@code StarlarkThread}'s evaluation is
+ * particular, the {@code StarlarkThread} for any Starlark module is frozen before its symbols can
+ * be imported for use by another module. Each individual {@code StarlarkThread}'s evaluation is
  * single-threaded, so this isolation also translates to thread safety. Any number of threads may
  * simultaneously access frozen data. (The {@code Mutability} itself is also thread-safe if and only
  * if it is frozen.}
@@ -45,26 +40,20 @@ import java.util.List;
  * point of view, the only thing that matters is whether the {@code Mutability} is frozen, not what
  * particular {@code Mutability} object is pointed to.
  *
- * <p>A {@code Mutability} also tracks which {@code Freezable} objects in its {@code StarlarkThread}
- * are temporarily locked from mutation. This is used to prevent modification of iterables during
- * loops. A {@code Freezable} may be locked multiple times (e.g., nested loops over the same
- * iterable). Locking an object does not prohibit mutating its deeply contained values, such as in
- * the case of a list of lists.
+ * <p>When a Starlark program iterates over a mutable sequence value in a for-loop or comprehension,
+ * the sequence value becomes temporarily immutable for the duration of the loop. Conceptually, the
+ * value maintains a counter of active iterations, and the interpreter notifies the {@code
+ * Freezable} value before and after the loop so that it can alter its counter by calling its {@code
+ * updateIteratorCount} method. While the counter value is nonzero, the value should cause all
+ * attempts to mutate it to fail. The temporary immutability applies only to the sequence itself,
+ * not to its elements. Once a mutable sequence becomes frozen, there is no need to count active
+ * iterators (and doing so would be racy as frozen objects may be published to other Starlark
+ * threads). The default implementation of {@code updateIteratorCount} uses a set of counters in the
+ * Mutability, but a Freezable object may define a more efficient intrusive counter implementation.
  *
- * <p>We follow two disciplines to ensure safety. First, all mutation methods of a {@code Freezable}
- * must take in a {@code Mutability} as a parameter, and confirm that
- *
- * <ol>
- *   <li>the {@code Freezable} is not yet frozen,
- *   <li>the given {@code Mutability} matches the one referred to by the {@code Freezable}, and
- *   <li>the {@code Freezable} is not locked.
- * </ol>
- *
- * It is a high-level error ({@link MutabilityException}, which gets translated to {@link
- * EvalException}) to attempt to modify a frozen or locked value. But it is a low-level error
- * ({@link IllegalArgumentException}) to attempt to modify a value using the wrong {@link
- * Mutability} instance, since the user shouldn't be able to trigger this situation under normal
- * circumstances.
+ * <p>We follow two disciplines to ensure safety. First, all mutation methods of a Freezable value
+ * must confirm that the value's Mutability is not yet frozen, nor is the value temporarily
+ * immutable due to active iterators.
  *
  * <p>Second, {@code Mutability}s are created using the try-with-resource style:
  *
@@ -103,19 +92,12 @@ import java.util.List;
  */
 public final class Mutability implements AutoCloseable {
 
-  /**
-   * If true, mutation of any {@link Freezable} associated with this {@code Mutability} is
-   * disallowed.
-   */
-  private boolean isFrozen;
-
-  /**
-   * For each locked {@link Freezable}, stores all {@link Location}s where it is locked.
-   *
-   * This field is set null once the {@code Mutability} is closed. This saves some space, and avoids
-   * a concurrency bug from multiple Skylark modules accessing the same {@code Mutability} at once.
-   */
-  private IdentityHashMap<Freezable, List<Location>> lockedItems;
+  // Maps each temporarily frozen Freezable value to the (positive) count of active iterators over
+  // the value. This field is set to null when the Mutability becomes permanently frozen, at which
+  // point there is no need to track iterators. This map does not contain Freezable values that
+  // define their own implementation of updateIteratorCount.
+  private IdentityHashMap<Freezable, Integer> iteratorCount =
+      new IdentityHashMap<>(10); // 10 nested for-loops seems plenty
 
   // An optional list of values that are formatted with toString and joined with spaces to yield the
   // "annotation", an internal name describing the purpose of this Mutability.
@@ -125,9 +107,6 @@ public final class Mutability implements AutoCloseable {
   private final boolean allowsUnsafeShallowFreeze;
 
   private Mutability(Object[] annotation, boolean allowsUnsafeShallowFreeze) {
-    this.isFrozen = false;
-    // Seems unlikely that we'll often lock more than 10 things at once.
-    this.lockedItems = new IdentityHashMap<>(10);
     this.annotation = annotation;
     this.allowsUnsafeShallowFreeze = allowsUnsafeShallowFreeze;
   }
@@ -159,92 +138,34 @@ public final class Mutability implements AutoCloseable {
 
   @Override
   public String toString() {
-    return (isFrozen ? "(" : "[") + getAnnotation() + (isFrozen ? ")" : "]");
+    return (isFrozen() ? "(" : "[") + getAnnotation() + (isFrozen() ? ")" : "]");
   }
 
   public boolean isFrozen() {
-    return isFrozen;
+    return this.iteratorCount == null;
   }
 
-  /**
-   * Return whether a {@link Freezable} belonging to this {@code Mutability} is currently locked.
-   * Frozen objects are not considered locked, though they are of course immutable nonetheless.
-   *
-   * @throws IllegalArgumentException if the {@code Freezable} does not belong to this {@code
-   *     Mutability}
-   */
-  public boolean isLocked(Freezable object) {
-    Preconditions.checkArgument(object.mutability().equals(this),
-        "trying to check the lock of an object from a different context");
-    if (isFrozen) {
+  // Defines the default behavior of mutable Freezable sequence values,
+  // which become temporarily immutable while there are active iterators.
+  private boolean updateIteratorCount(Freezable x, int delta) {
+    if (isFrozen()) {
       return false;
     }
-    return lockedItems.containsKey(object);
-  }
-
-  /**
-   * For a locked {@link Freezable} that belongs to this {@code Mutability}, return a List of the
-   * {@link Location}s corresponding to its current locks.
-   *
-   * @throws IllegalArgumentException if the {@code Freezable} does not belong to this {@code
-   *     Mutability}
-   */
-  public List<Location> getLockLocations(Freezable object) {
-    Preconditions.checkArgument(isLocked(object),
-        "trying to get lock locations for an object that is not locked");
-    return lockedItems.get(object);
-  }
-
-  /**
-   * Add a lock on a {@link Freezable} belonging to this {@code Mutability}. The object cannot be
-   * mutated until all locks on it are gone. For error reporting purposes each lock is
-   * associated with its originating {@link Location}.
-   *
-   * @throws IllegalArgumentException if the {@code Freezable} does not belong to this {@code
-   *     Mutability}
-   */
-  public void lock(Freezable object, Location loc) {
-    Preconditions.checkArgument(object.mutability().equals(this),
-        "trying to lock an object from a different context");
-    if (isFrozen) {
-      return;
+    int i = this.iteratorCount.getOrDefault(x, 0);
+    if (delta > 0) {
+      i++;
+      this.iteratorCount.put(x, i);
+    } else if (delta < 0) {
+      i--;
+      if (i == 0) {
+        this.iteratorCount.remove(x);
+      } else if (i > 0) {
+        this.iteratorCount.put(x, i);
+      } else {
+        throw new IllegalStateException("zero value in this.iteratorCount");
+      }
     }
-    List<Location> locList;
-    if (!lockedItems.containsKey(object)) {
-      locList = new ArrayList<>();
-      lockedItems.put(object, locList);
-    } else {
-      locList = lockedItems.get(object);
-    }
-    locList.add(loc);
-  }
-
-  /**
-   * Remove the lock for a given {@link Freezable} that is associated with the given {@link
-   * Location}.
-   *
-   * @throws IllegalArgumentException if the object does not belong to this {@code Mutability}, or
-   *     if the object has no lock corresponding to {@code loc}
-   */
-  public void unlock(Freezable object, Location loc) {
-    Preconditions.checkArgument(object.mutability().equals(this),
-        "trying to unlock an object from a different context");
-    if (isFrozen) {
-      // It's okay if we somehow got frozen while there were still locked objects.
-      return;
-    }
-    Preconditions.checkArgument(lockedItems.containsKey(object),
-        "trying to unlock an object that is not locked");
-
-    List<Location> locList = lockedItems.get(object);
-    if (!locList.remove(loc)) {
-      throw new IllegalArgumentException(
-          Starlark.format(
-              "trying to unlock an object for a location at which it was not locked (%r)", loc));
-    }
-    if (locList.isEmpty()) {
-      lockedItems.remove(object);
-    }
+    return i > 0;
   }
 
   /**
@@ -257,9 +178,7 @@ public final class Mutability implements AutoCloseable {
    * @return this object, in the fluent style
    */
   public Mutability freeze() {
-    // No need to track per-Freezable info since everything is immutable now.
-    lockedItems = null;
-    isFrozen = true;
+    this.iteratorCount = null;
     return this;
   }
 
@@ -276,16 +195,9 @@ public final class Mutability implements AutoCloseable {
     return allowsUnsafeShallowFreeze;
   }
 
-  /** Indicates an illegal attempt to mutate a frozen or locked {@link Freezable}. */
-  static class MutabilityException extends Exception {
-    MutabilityException(String message) {
-      super(message);
-    }
-  }
-
   /**
    * An object that refers to a {@link Mutability} to decide whether to allow mutation. All {@link
-   * Freezable} Skylark objects created within a given {@link StarlarkThread} will share the same
+   * Freezable} Starlark objects created within a given {@link StarlarkThread} will share the same
    * {@code Mutability} as that {@code StarlarkThread}.
    */
   public interface Freezable {
@@ -294,6 +206,30 @@ public final class Mutability implements AutoCloseable {
      * over the lifetime of the object, except by calling {@link #shallowFreeze} if applicable.
      */
     Mutability mutability();
+
+    /**
+     * Registers a change to this Freezable's iterator count and reports whether it is temporarily
+     * immutable.
+     *
+     * <p>If the value is permanently frozen ({@code mutability().isFrozen()), this function is a
+     * no-op that returns false.
+     *
+     * <p>Otherwise, if delta is positive, this increments the count of active iterators over the
+     * value, causing it to appear temporarily frozen (if it wasn't already). If delta is negative,
+     * the counter is decremented, and if delta is zero the counter is unchanged. It is illegal to
+     * decrement the counter if it was already zero. The return value is true if the count is
+     * positive after the change, and false otherwise.
+     *
+     * <p>The default implementation stores the counter of iterators in a hash table in the
+     * Mutability, but a subclass of Freezable may define a more efficient implementation such as an
+     * integer field in the freezable value itself.
+     *
+     * <p>Call this function with a positive value when starting an iteration and with a negative
+     * value when ending it.
+     */
+    default boolean updateIteratorCount(int delta) {
+      return mutability().updateIteratorCount(this, delta);
+    }
 
     /**
      * Freezes this object (and not its contents). Use with care.
@@ -332,44 +268,6 @@ public final class Mutability implements AutoCloseable {
             "cannot call unsafeShallowFreeze() on a mutable object whose Mutability's "
                 + "allowsUnsafeShallowFreeze() == false");
       }
-    }
-  }
-
-  /**
-   * Checks that the given {@code Freezable} can be mutated using the given {@code Mutability}, and
-   * throws an exception if it cannot.
-   *
-   * @throws MutabilityException if the object is either frozen or locked
-   * @throws IllegalArgumentException if the given {@code Mutability} is not the same as the one
-   *     the {@code Freezable} is associated with
-   */
-  public static void checkMutable(Freezable object, Mutability mutability)
-      throws MutabilityException {
-    if (object.mutability().isFrozen()) {
-      // Throw MutabilityException, not IllegalArgumentException, even if the object was from
-      // another context.
-      throw new MutabilityException("trying to mutate a frozen object");
-    }
-
-    // Consider an {@link StarlarkThread} e1, in which is created {@link StarlarkFunction} f1, that
-    // closes over some variable v1 bound to list l1. If somehow, via the magic of callbacks, f1 or
-    // l1 is passed as an argument to some function f2 evaluated in {@link StarlarkThread} e2 while
-    // e1 is still mutable, then e2, being a different {@link StarlarkThread}, should not be allowed
-    // to mutate objects from e1. It's a bug, that shouldn't happen in our current code base, so we
-    // throw an IllegalArgumentException. If in the future such situations are allowed to happen,
-    // then we should throw a MutabilityException instead.
-    if (!object.mutability().equals(mutability)) {
-      throw new IllegalArgumentException("trying to mutate an object from a different context");
-    }
-
-    if (mutability.isLocked(object)) {
-      Iterable<String> locs =
-          Iterables.transform(mutability.getLockLocations(object), Location::toString);
-      throw new MutabilityException(
-          "trying to mutate a locked object (is it currently being iterated over by a for loop "
-          + "or comprehension?)\n"
-          + "Object locked at the following location(s): "
-          + String.join(", ", locs));
     }
   }
 

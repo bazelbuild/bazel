@@ -13,14 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.build.skyframe.ValueOrException3;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
@@ -42,7 +51,7 @@ import java.util.concurrent.ConcurrentMap;
  * <p>[1] Heuristic: If the size of the NestedSet exceeds a certain threshold, we evaluate it as an
  * ArtifactNestedSetKey.
  */
-class ArtifactNestedSetFunction implements SkyFunction {
+final class ArtifactNestedSetFunction implements SkyFunction {
 
   /**
    * A concurrent map from Artifacts' SkyKeys to their ValueOrException, for Artifacts that are part
@@ -67,46 +76,80 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * therefore not populating artifactSkyKeyToValueOrException with X2's member Artifacts. Hence if
    * we clear artifactSkyKeyToValueOrException between build 0 and 1, X2's member artifacts'
    * SkyValues would not be available in the map.
+   *
+   * <p>We can't make this a:
+   *
+   * <p>- Weak-keyd map since ActionExecutionValue holds a reference to Artifact.
+   *
+   * <p>- Weak-valued map since there's nothing else holding on to ValueOrException and the entry
+   * will GCed immediately. // TODO(leba): Re-evaluate the above point about weak-valued map.
+   *
+   * <p>This map will be removed when --experimental_nsos_eval_keys_as_one_group is stable, and
+   * replaced by {@link #artifactSkyKeyToSkyValue}.
    */
-  private final ConcurrentMap<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
+  private ConcurrentMap<
+          SkyKey,
+          ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
       artifactSkyKeyToValueOrException;
+
+  /**
+   * A concurrent map from Artifacts' SkyKeys to their SkyValue, for Artifacts that are part of
+   * NestedSets which were evaluated as {@link ArtifactNestedSetKey}. This is expected to replace
+   * the above {@link #artifactSkyKeyToValueOrException}.
+   */
+  private ConcurrentMap<SkyKey, SkyValue> artifactSkyKeyToSkyValue;
 
   /**
    * Maps the NestedSets' underlying objects to the corresponding SkyKey. This is to avoid
    * re-creating SkyKey for the same nested set upon reevaluation because of e.g. a missing value.
    *
-   * <p>The map has weak references to keys to prevent memory leaks: if a nested set no longer
-   * exists, its entry would be automatically removed from the map by the GC.
+   * <p>The map weakly references its values: when the ArtifactNestedSetKey becomes otherwise
+   * unreachable, the map entry is collected.
    */
-  private final ConcurrentMap<Object, SkyKey> nestedSetToSkyKey;
+  private final ConcurrentMap<NestedSet.Node, ArtifactNestedSetKey>
+      nestedSetToSkyKey; // note: weak values!
 
   private static ArtifactNestedSetFunction singleton = null;
 
   private static Integer sizeThreshold = null;
 
+  private static Boolean evalKeysAsOneGroup = null;
+
   private ArtifactNestedSetFunction() {
+    artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
     artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
-    nestedSetToSkyKey = new MapMaker().weakKeys().makeMap();
+    nestedSetToSkyKey = new MapMaker().weakValues().makeMap();
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
-    ArtifactNestedSetKey artifactNestedSetKey = (ArtifactNestedSetKey) skyKey;
-    Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
-        directArtifactsEvalResult =
-            env.getValuesOrThrow(
-                artifactNestedSetKey.directKeys(),
-                IOException.class,
-                ActionExecutionException.class);
-    if (env.valuesMissing()) {
-      return null;
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws InterruptedException, ArtifactNestedSetFunctionException {
+
+    if (evalKeysAsOneGroup) {
+      return evalDepsInOneGroup(skyKey, env);
     }
 
+    ArtifactNestedSetKey key = (ArtifactNestedSetKey) skyKey;
+    Map<
+            SkyKey,
+            ValueOrException3<
+                IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+        directArtifactsEvalResult =
+            env.getValuesOrThrow(
+                Iterables.transform(key.getSet().getLeaves(), Artifact::key),
+                IOException.class,
+                ActionExecutionException.class,
+                ArtifactNestedSetEvalException.class);
+
     // Evaluate all children.
-    for (Object transitive : artifactNestedSetKey.transitiveMembers()) {
-      nestedSetToSkyKey.putIfAbsent(transitive, new ArtifactNestedSetKey(transitive));
-      env.getValue(nestedSetToSkyKey.get(transitive));
+    List<NestedSet<Artifact>> nonleaves = key.getSet().getNonLeaves();
+    List<SkyKey> transitiveKeys = Lists.newArrayListWithCapacity(nonleaves.size());
+    for (NestedSet<Artifact> nonleaf : nonleaves) {
+      transitiveKeys.add(
+          nestedSetToSkyKey.computeIfAbsent(
+              nonleaf.toNode(), (node) -> new ArtifactNestedSetKey(nonleaf, node)));
     }
+    env.getValues(transitiveKeys);
 
     if (env.valuesMissing()) {
       return null;
@@ -117,7 +160,73 @@ class ArtifactNestedSetFunction implements SkyFunction {
     return new ArtifactNestedSetValue();
   }
 
-  public static ArtifactNestedSetFunction getInstance() {
+  /** The main path with --experimental_nsos_eval_keys_as_one_group. */
+  private SkyValue evalDepsInOneGroup(SkyKey skyKey, Environment env)
+      throws InterruptedException, ArtifactNestedSetFunctionException {
+    NestedSet<Artifact> set = ((ArtifactNestedSetKey) skyKey).getSet();
+    List<SkyKey> keys = new ArrayList<>();
+    for (Artifact file : set.getLeaves()) {
+      keys.add(Artifact.key(file));
+    }
+    for (NestedSet<Artifact> nonleaf : set.getNonLeaves()) {
+      keys.add(
+          nestedSetToSkyKey.computeIfAbsent(
+              nonleaf.toNode(), (node) -> new ArtifactNestedSetKey(nonleaf, node)));
+    }
+    Map<
+            SkyKey,
+            ValueOrException3<
+                IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+        depsEvalResult =
+            env.getValuesOrThrow(
+                keys,
+                IOException.class,
+                ActionExecutionException.class,
+                ArtifactNestedSetEvalException.class);
+
+    NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
+        NestedSetBuilder.stableOrder();
+
+    // Throw a SkyFunctionException when a dep evaluation results in an exception.
+    // Only non-null values should be committed to
+    // ArtifactNestedSetFunction#artifacSkyKeyToSkyValue.
+    for (Map.Entry<
+            SkyKey,
+            ValueOrException3<
+                IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
+        entry : depsEvalResult.entrySet()) {
+      try {
+        // Trigger the exception, if any.
+        SkyValue value = entry.getValue().get();
+        if (entry.getKey() instanceof ArtifactNestedSetKey || value == null) {
+          continue;
+        }
+        artifactSkyKeyToSkyValue.put(entry.getKey(), value);
+      } catch (IOException | ActionExecutionException e) {
+        transitiveExceptionsBuilder.add(Pair.of(entry.getKey(), e));
+      } catch (ArtifactNestedSetEvalException e) {
+        transitiveExceptionsBuilder.addTransitive(e.getNestedExceptions());
+      }
+    }
+
+    if (!transitiveExceptionsBuilder.isEmpty()) {
+      NestedSet<Pair<SkyKey, Exception>> transitiveExceptions = transitiveExceptionsBuilder.build();
+      throw new ArtifactNestedSetFunctionException(
+          new ArtifactNestedSetEvalException(
+              transitiveExceptions.memoizedFlattenAndGetSize()
+                  + " error(s) encountered while evaluating NestedSet.",
+              transitiveExceptions),
+          skyKey);
+    }
+
+    // This should only happen when all error handling is done.
+    if (env.valuesMissing()) {
+      return null;
+    }
+    return new ArtifactNestedSetValue();
+  }
+
+  static ArtifactNestedSetFunction getInstance() {
     if (singleton == null) {
       return createInstance();
     }
@@ -129,12 +238,24 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * this method separated from {@code #getInstance} since sometimes we need to overwrite the
    * existing instance.
    */
-  public static ArtifactNestedSetFunction createInstance() {
+  static ArtifactNestedSetFunction createInstance() {
     singleton = new ArtifactNestedSetFunction();
     return singleton;
   }
 
-  Map<SkyKey, ValueOrException2<IOException, ActionExecutionException>>
+  /** Reset the various state-keeping maps of ArtifactNestedSetFunction. */
+  void resetArtifactNestedSetFunctionMaps() {
+    artifactSkyKeyToValueOrException = Maps.newConcurrentMap();
+    artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
+  }
+
+  Map<SkyKey, SkyValue> getArtifactSkyKeyToSkyValue() {
+    return artifactSkyKeyToSkyValue;
+  }
+
+  Map<
+          SkyKey,
+          ValueOrException3<IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
       getArtifactSkyKeyToValueOrException() {
     return artifactSkyKeyToValueOrException;
   }
@@ -148,8 +269,32 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * Get the threshold to which we evaluate a NestedSet as a Skykey. If sizeThreshold is unset,
    * return the default value of 0.
    */
-  public static int getSizeThreshold() {
+  static int getSizeThreshold() {
     return sizeThreshold == null ? 0 : sizeThreshold;
+  }
+
+  static boolean evalKeysAsOneGroup() {
+    return evalKeysAsOneGroup;
+  }
+
+  /**
+   * Updates the evalKeysAsOneGroup attr if the existing value differs from the new one.
+   *
+   * @return whether an update was made.
+   */
+  static boolean evalKeysAsOneGroupUpdated(boolean newEvalKeysAsOneGroup) {
+    // If this is the first time the value is set, it's not considered "updated".
+    if (evalKeysAsOneGroup == null) {
+      evalKeysAsOneGroup = newEvalKeysAsOneGroup;
+      return false;
+    }
+
+    if (evalKeysAsOneGroup != newEvalKeysAsOneGroup) {
+      evalKeysAsOneGroup = newEvalKeysAsOneGroup;
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -158,7 +303,7 @@ class ArtifactNestedSetFunction implements SkyFunction {
    * @param newValue The new value from --experimental_nested_set_as_skykey_threshold.
    * @return whether an update was made.
    */
-  public static boolean sizeThresholdUpdatedTo(int newValue) {
+  static boolean sizeThresholdUpdated(int newValue) {
     // If this is the first time the value is set, it's not considered "updated".
     if (sizeThreshold == null) {
       sizeThreshold = newValue;
@@ -170,5 +315,34 @@ class ArtifactNestedSetFunction implements SkyFunction {
     }
     sizeThreshold = newValue;
     return true;
+  }
+
+  /** Mainly used for error bubbling when evaluating direct/transitive children. */
+  private static final class ArtifactNestedSetFunctionException extends SkyFunctionException {
+
+    ArtifactNestedSetFunctionException(ArtifactNestedSetEvalException e, SkyKey child) {
+      super(e, child);
+    }
+
+    @Override
+    public boolean isCatastrophic() {
+      return false;
+    }
+  }
+
+  /** Bundles the exceptions from the evaluation of the children keys together. */
+  static final class ArtifactNestedSetEvalException extends Exception {
+
+    private final NestedSet<Pair<SkyKey, Exception>> nestedExceptions;
+
+    ArtifactNestedSetEvalException(
+        String message, NestedSet<Pair<SkyKey, Exception>> nestedExceptions) {
+      super(message);
+      this.nestedExceptions = nestedExceptions;
+    }
+
+    NestedSet<Pair<SkyKey, Exception>> getNestedExceptions() {
+      return nestedExceptions;
+    }
   }
 }

@@ -31,7 +31,7 @@
 set -euo pipefail
 
 # The version of android_tools.tar.gz
-VERSION="0.13"
+VERSION="0.17.0"
 VERSIONED_FILENAME="android_tools_pkg-$VERSION.tar.gz"
 
 # Create a temp directory to hold the versioned tarball, and clean it up when the script exits.
@@ -48,11 +48,10 @@ cp $android_tools_archive $versioned_android_tools_archive
 
 # Upload the tarball to GCS.
 # -n for no-clobber, so we don't overwrite existing files
-gsutil cp -n $versioned_android_tools_archive \
+gsutil cp $versioned_android_tools_archive \
   gs://bazel-mirror/bazel_android_tools/$VERSIONED_FILENAME
 
 checksum=$(sha256sum $versioned_android_tools_archive | cut -f 1 -d ' ')
-commit=$(cd $BUILD_WORKSPACE_DIRECTORY && git rev-parse HEAD)
 
 echo
 echo "Run this command to update Bazel to use the new version:"
@@ -60,9 +59,10 @@ echo
 
 cat <<EOF
 sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' WORKSPACE  && \\
-  sed -i 's/"android_tools_pkg.*[0-9a-FA-F]\{64\}",.*/"$VERSIONED_FILENAME": "$checksum", # built at $commit/g' WORKSPACE && \\
+  sed -i 's/"[0-9a-fA-F]\{64\}", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER/"$checksum", # DO_NOT_REMOVE_THIS_ANDROID_TOOLS_UPDATE_MARKER/g' WORKSPACE && \\
+  sed -i 's/"android_tools_pkg.*[0-9a-FA-F]\{64\}",.*/"$VERSIONED_FILENAME": "$checksum",/g' WORKSPACE && \\
   sed -i 's/android_tools_pkg.*\.tar\.gz/$VERSIONED_FILENAME/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE && \\
-  sed -i 's/"[0-9a-fA-F]\{64\}",.*/"$checksum", # built at $commit/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
+  sed -i 's/"[0-9a-fA-F]\{64\}",.*/"$checksum",/g' src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
 EOF
 
 echo

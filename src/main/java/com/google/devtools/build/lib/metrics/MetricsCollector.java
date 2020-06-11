@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
 class MetricsCollector {
@@ -97,6 +98,11 @@ class MetricsCollector {
       System.gc();
       MemoryMXBean memBean = ManagementFactory.getMemoryMXBean();
       memoryMetrics.setUsedHeapSizePostBuild(memBean.getHeapMemoryUsage().getUsed());
+      Optional<Long> peakPostGcHeapSize =
+          PostGCMemoryUseRecorder.get().getPeakPostGCHeapMemoryUsed();
+      if (peakPostGcHeapSize.isPresent()) {
+        memoryMetrics.setPeakPostGcHeapSize(peakPostGcHeapSize.get());
+      }
     }
     return memoryMetrics.build();
   }

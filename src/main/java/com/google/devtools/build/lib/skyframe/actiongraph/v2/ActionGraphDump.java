@@ -26,20 +26,18 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.analysis.AnalysisProtosV2;
-import com.google.devtools.build.lib.analysis.AnalysisProtosV2.ActionGraphComponent;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetView;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.query2.aquery.AqueryActionFilter;
 import com.google.devtools.build.lib.query2.aquery.AqueryUtils;
-import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
-import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
+import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -60,12 +58,12 @@ public class ActionGraphDump {
   private final KnownConfigurations knownConfigurations;
   private final KnownNestedSets knownNestedSets;
   private final KnownAspectDescriptors knownAspectDescriptors;
-  private final KnownRuleConfiguredTargets knownRuleConfiguredTargets;
+  private final KnownTargets knownTargets;
   private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
   private final boolean includeParamFiles;
-  private final StreamedOutputHandler streamedOutputHandler;
+  private final AqueryOutputHandler aqueryOutputHandler;
 
   private Map<String, Iterable<String>> paramFileNameToContentMap;
 
@@ -74,14 +72,14 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      StreamedOutputHandler streamedOutputHandler) {
+      AqueryOutputHandler aqueryOutputHandler) {
     this(
         /* actionGraphTargets= */ ImmutableList.of("..."),
         includeActionCmdLine,
         includeArtifacts,
         actionFilters,
         includeParamFiles,
-        streamedOutputHandler);
+        aqueryOutputHandler);
   }
 
   public ActionGraphDump(
@@ -90,21 +88,20 @@ public class ActionGraphDump {
       boolean includeArtifacts,
       AqueryActionFilter actionFilters,
       boolean includeParamFiles,
-      StreamedOutputHandler streamedOutputHandler) {
+      AqueryOutputHandler aqueryOutputHandler) {
     this.actionGraphTargets = ImmutableSet.copyOf(actionGraphTargets);
     this.includeActionCmdLine = includeActionCmdLine;
     this.includeArtifacts = includeArtifacts;
     this.actionFilters = actionFilters;
     this.includeParamFiles = includeParamFiles;
-    this.streamedOutputHandler = streamedOutputHandler;
+    this.aqueryOutputHandler = aqueryOutputHandler;
 
-    knownRuleClassStrings = new KnownRuleClassStrings(streamedOutputHandler);
-    knownArtifacts = new KnownArtifacts(streamedOutputHandler);
-    knownConfigurations = new KnownConfigurations(streamedOutputHandler);
-    knownNestedSets = new KnownNestedSets(streamedOutputHandler, knownArtifacts);
-    knownAspectDescriptors = new KnownAspectDescriptors(streamedOutputHandler);
-    knownRuleConfiguredTargets =
-        new KnownRuleConfiguredTargets(streamedOutputHandler, knownRuleClassStrings);
+    knownRuleClassStrings = new KnownRuleClassStrings(aqueryOutputHandler);
+    knownArtifacts = new KnownArtifacts(aqueryOutputHandler);
+    knownConfigurations = new KnownConfigurations(aqueryOutputHandler);
+    knownNestedSets = new KnownNestedSets(aqueryOutputHandler, knownArtifacts);
+    knownAspectDescriptors = new KnownAspectDescriptors(aqueryOutputHandler);
+    knownTargets = new KnownTargets(aqueryOutputHandler, knownRuleClassStrings);
   }
 
   public ActionKeyContext getActionKeyContext() {
@@ -135,17 +132,18 @@ public class ActionGraphDump {
       return;
     }
 
-    while (configuredTarget instanceof AliasConfiguredTarget) {
-      configuredTarget = ((AliasConfiguredTarget) configuredTarget).getActual();
-    }
+    // Dereference any aliases that might be present.
+    configuredTarget = configuredTarget.getActual();
 
     Preconditions.checkState(configuredTarget instanceof RuleConfiguredTarget);
-    RuleConfiguredTarget ruleConfiguredTarget = (RuleConfiguredTarget) configuredTarget;
+    Pair<String, String> targetIdentifier =
+        new Pair<>(
+            configuredTarget.getLabel().toString(),
+            ((RuleConfiguredTarget) configuredTarget).getRuleClassString());
     AnalysisProtosV2.Action.Builder actionBuilder =
         AnalysisProtosV2.Action.newBuilder()
             .setMnemonic(action.getMnemonic())
-            .setTargetId(
-                knownRuleConfiguredTargets.dataToIdAndStreamOutputProto(ruleConfiguredTarget));
+            .setTargetId(knownTargets.dataToIdAndStreamOutputProto(targetIdentifier));
 
     if (action instanceof ActionExecutionMetadata) {
       ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
@@ -161,12 +159,11 @@ public class ActionGraphDump {
       // environment as well.
       Map<String, String> fixedEnvironment = spawnAction.getEnvironment().getFixedEnv().toMap();
       for (Map.Entry<String, String> environmentVariable : fixedEnvironment.entrySet()) {
-        AnalysisProtosV2.KeyValuePair.Builder keyValuePairBuilder =
-            AnalysisProtosV2.KeyValuePair.newBuilder();
-        keyValuePairBuilder
-            .setKey(environmentVariable.getKey())
-            .setValue(environmentVariable.getValue());
-        actionBuilder.addEnvironmentVariables(keyValuePairBuilder.build());
+        actionBuilder.addEnvironmentVariables(
+            AnalysisProtosV2.KeyValuePair.newBuilder()
+                .setKey(environmentVariable.getKey())
+                .setValue(environmentVariable.getValue())
+                .build());
       }
     }
 
@@ -220,25 +217,20 @@ public class ActionGraphDump {
     if (includeArtifacts) {
       // Store inputs
       NestedSet<Artifact> inputs = action.getInputs();
-      NestedSetView<Artifact> nestedSetView = new NestedSetView<>(inputs);
-
-      if (nestedSetView.directs().size() > 0 || nestedSetView.transitives().size() > 0) {
-        actionBuilder.addInputDepSetIds(
-            knownNestedSets.dataToIdAndStreamOutputProto(nestedSetView));
+      if (!inputs.isEmpty()) {
+        actionBuilder.addInputDepSetIds(knownNestedSets.dataToIdAndStreamOutputProto(inputs));
       }
 
       // store outputs
       for (Artifact artifact : action.getOutputs()) {
         actionBuilder.addOutputIds(knownArtifacts.dataToIdAndStreamOutputProto(artifact));
       }
+
+      actionBuilder.setPrimaryOutputId(
+          knownArtifacts.dataToIdAndStreamOutputProto(action.getPrimaryOutput()));
     }
 
-    printToOutput(actionBuilder.build());
-  }
-
-  private void printToOutput(AnalysisProtosV2.Action actionProto) throws IOException {
-    ActionGraphComponent message = ActionGraphComponent.newBuilder().setAction(actionProto).build();
-    streamedOutputHandler.printActionGraphComponent(message);
+    aqueryOutputHandler.outputAction(actionBuilder.build());
   }
 
   public void dumpAspect(AspectValue aspectValue, ConfiguredTargetValue configuredTargetValue)

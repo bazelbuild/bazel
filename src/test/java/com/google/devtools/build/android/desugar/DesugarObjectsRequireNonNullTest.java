@@ -14,7 +14,7 @@
 package com.google.devtools.build.android.desugar;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertThrows;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 import static org.objectweb.asm.Opcodes.INVOKESTATIC;
 

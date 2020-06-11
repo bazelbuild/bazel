@@ -13,18 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.vfs.RootedPath;
 
 /** Exception indicating that a cycle was found in the filesystem. */
-@VisibleForSerialization
+@VisibleForTesting
 public class FileSymlinkCycleException extends FileSymlinkException {
   private final ImmutableList<RootedPath> pathToCycle;
   private final ImmutableList<RootedPath> cycle;
 
+  @VisibleForTesting
   public FileSymlinkCycleException(
       ImmutableList<RootedPath> pathToCycle, ImmutableList<RootedPath> cycle) {
     // The cycle itself has already been reported by FileSymlinkCycleUniquenessValue, but we still
@@ -38,7 +39,7 @@ public class FileSymlinkCycleException extends FileSymlinkException {
    * The symlink path to the symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'.
    * The path to the cycle is 'a', 'b'.
    */
-  @VisibleForSerialization
+  @VisibleForTesting
   public ImmutableList<RootedPath> getPathToCycle() {
     return pathToCycle;
   }
@@ -46,7 +47,7 @@ public class FileSymlinkCycleException extends FileSymlinkException {
   /**
    * The symlink cycle. For example, suppose 'a' -> 'b' -> 'c' -> 'd' -> 'c'. The cycle is 'c', 'd'.
    */
-  @VisibleForSerialization
+  @VisibleForTesting
   public ImmutableList<RootedPath> getCycle() {
     return cycle;
   }

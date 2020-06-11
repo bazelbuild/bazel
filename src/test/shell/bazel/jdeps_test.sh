@@ -83,7 +83,7 @@ function test_jdeps() {
     grep -v "notfound" | \
     sort -u > jdeps-sorted
   expected=$(rlocation io_bazel/src/jdeps_modules.golden)
-  diff -u jdeps-sorted "$expected" || fail "List of modules has changed."
+  diff -u "$expected" jdeps-sorted || fail "List of modules has changed."
 }
 
 run_suite "Tests included JDK modules."

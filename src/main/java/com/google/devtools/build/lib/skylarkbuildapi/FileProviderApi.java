@@ -14,17 +14,17 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi;
 
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkModuleCategory;
-import com.google.devtools.build.lib.syntax.Depset;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
+import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
 /** A representation of the concept "this builds these files". */
-@SkylarkModule(
+@StarlarkBuiltin(
     name = "file_provider",
     doc = "An interface for rules that provide files.",
-    category = SkylarkModuleCategory.PROVIDER)
+    category = StarlarkDocumentationCategory.PROVIDER)
 public interface FileProviderApi extends StarlarkValue {
 
   /**
@@ -42,6 +42,6 @@ public interface FileProviderApi extends StarlarkValue {
    * <p>Also, some rules may generate files that are not listed here by way of defining other
    * implicit targets, for example, deploy jars.
    */
-  @SkylarkCallable(name = "files_to_build", documented = false, structField = true)
+  @StarlarkMethod(name = "files_to_build", documented = false, structField = true)
   Depset /*<? extends FileApi>*/ getFilesToBuildForStarlark();
 }

@@ -14,26 +14,24 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.repository;
 
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.skylarkinterface.Param;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkGlobalLibrary;
-import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.StarlarkFunction;
+import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkGlobalLibrary;
+import net.starlark.java.annot.StarlarkMethod;
 
 /**
- * The Skylark module containing the definition of {@code repository_rule} function to define a
- * skylark remote repository.
+ * The Starlark module containing the definition of {@code repository_rule} function to define a
+ * Starlark remote repository.
  */
-@SkylarkGlobalLibrary
+@StarlarkGlobalLibrary
 public interface RepositoryModuleApi {
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "repository_rule",
       doc =
           "Creates a new repository rule. Store it in a global value, so that it can be loaded and "
@@ -41,10 +39,10 @@ public interface RepositoryModuleApi {
       parameters = {
         @Param(
             name = "implementation",
-            type = StarlarkFunction.class,
+            type = StarlarkCallable.class,
             named = true,
             doc =
-                "the Starlark function that implements this rule. Must have a single parameter,"
+                "the function that implements this rule. Must have a single parameter,"
                     + " <code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The"
                     + " function is called during the loading phase for each instance of the"
                     + " rule."),
@@ -108,28 +106,25 @@ public interface RepositoryModuleApi {
             named = true,
             positional = false)
       },
-      useLocation = true,
       useStarlarkThread = true)
-  BaseFunction repositoryRule(
-      StarlarkFunction implementation,
+  StarlarkCallable repositoryRule(
+      StarlarkCallable implementation,
       Object attrs,
       Boolean local,
       Sequence<?> environ, // <String> expected
       Boolean configure,
       Boolean remotable,
       String doc,
-      Location loc,
       StarlarkThread thread)
       throws EvalException;
 
-  @SkylarkCallable(
+  @StarlarkMethod(
       name = "__do_not_use_fail_with_incompatible_use_cc_configure_from_rules_cc",
       doc =
           "When --incompatible_use_cc_configure_from_rules_cc is set to true, Bazel will "
               + "fail the build. Please see https://github.com/bazelbuild/bazel/issues/10134 for "
               + "details and migration instructions.",
-      useLocation = true,
+      documented = false,
       useStarlarkThread = true)
-  void failWithIncompatibleUseCcConfigureFromRulesCc(Location location, StarlarkThread thread)
-      throws EvalException;
+  void failWithIncompatibleUseCcConfigureFromRulesCc(StarlarkThread thread) throws EvalException;
 }

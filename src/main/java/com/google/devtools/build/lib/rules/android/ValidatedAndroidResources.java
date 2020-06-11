@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skylarkbuildapi.android.ValidatedAndroidDataApi;
 import com.google.devtools.build.lib.syntax.Sequence;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import java.util.Objects;
 import java.util.Optional;
@@ -28,7 +28,8 @@ import javax.annotation.Nullable;
 public class ValidatedAndroidResources extends MergedAndroidResources
     implements ValidatedAndroidDataApi<Artifact, AndroidResourcesInfo> {
 
-  public static final SkylarkType TYPE = SkylarkType.of(ValidatedAndroidResources.class);
+  public static final Depset.ElementType TYPE =
+      Depset.ElementType.of(ValidatedAndroidResources.class);
 
   private final Artifact rTxt;
   private final Artifact sourceJar;

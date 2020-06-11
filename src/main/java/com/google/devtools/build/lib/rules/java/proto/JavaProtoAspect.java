@@ -29,8 +29,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -39,15 +39,15 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
-import com.google.devtools.build.lib.packages.SkylarkProviderIdentifier;
+import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Exports;
 import com.google.devtools.build.lib.rules.proto.ProtoCompileActionBuilder.Services;
@@ -95,7 +95,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       AspectParameters parameters,
       String toolsRepository)
       throws InterruptedException, ActionConflictException {
-    ConfiguredAspect.Builder aspect = new ConfiguredAspect.Builder(this, parameters, ruleContext);
+    ConfiguredAspect.Builder aspect = new ConfiguredAspect.Builder(ruleContext);
 
     if (!rpcSupport.checkAttributes(ruleContext, parameters)) {
       return aspect.build();
@@ -118,11 +118,11 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
             .propagateAlongAttribute("exports")
             .requiresConfigurationFragments(
                 JavaConfiguration.class, ProtoConfiguration.class, PlatformConfiguration.class)
-            .requireSkylarkProviders(ProtoInfo.PROVIDER.id())
+            .requireStarlarkProviders(ProtoInfo.PROVIDER.id())
             .advertiseProvider(JavaProtoLibraryAspectProvider.class)
             .advertiseProvider(
-                ImmutableList.of(SkylarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))
-            .advertiseProvider(ImmutableList.of(JavaSkylarkApiProvider.SKYLARK_NAME))
+                ImmutableList.of(StarlarkProviderIdentifier.forKey(JavaInfo.PROVIDER.getKey())))
+            .advertiseProvider(ImmutableList.of(JavaStarlarkApiProvider.STARLARK_NAME))
             .add(
                 attr(JavaProtoAspectCommon.SPEED_PROTO_TOOLCHAIN_ATTR, LABEL)
                     // TODO(carmi): reinstate mandatoryNativeProviders(ProtoLangToolchainProvider)
@@ -175,19 +175,17 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       this.aspectCommon = aspectCommon;
       this.javaProtoLibraryAspectProviders =
           ruleContext.getPrerequisites(
-              "deps", RuleConfiguredTarget.Mode.TARGET, JavaProtoLibraryAspectProvider.class);
+              "deps", TransitionMode.TARGET, JavaProtoLibraryAspectProvider.class);
 
       this.dependencyCompilationArgs =
           JavaCompilationArgsProvider.merge(
               ruleContext.getPrerequisites(
-                  "deps", RuleConfiguredTarget.Mode.TARGET, JavaCompilationArgsProvider.class));
+                  "deps", TransitionMode.TARGET, JavaCompilationArgsProvider.class));
 
-        this.exportsCompilationArgs =
-            JavaCompilationArgsProvider.merge(
-                ruleContext.getPrerequisites(
-                    "exports",
-                    RuleConfiguredTarget.Mode.TARGET,
-                    JavaCompilationArgsProvider.class));
+      this.exportsCompilationArgs =
+          JavaCompilationArgsProvider.merge(
+              ruleContext.getPrerequisites(
+                  "exports", TransitionMode.TARGET, JavaCompilationArgsProvider.class));
     }
 
     void addProviders(ConfiguredAspect.Builder aspect) throws InterruptedException {
@@ -249,9 +247,9 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       javaInfo.addProvider(JavaCompilationArgsProvider.class, generatedCompilationArgsProvider);
       aspect.addNativeDeclaredProvider(
           createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
-      JavaSkylarkApiProvider javaSkylarkApiProvider = JavaSkylarkApiProvider.fromRuleContext();
+      JavaStarlarkApiProvider javaStarlarkApiProvider = JavaStarlarkApiProvider.fromRuleContext();
       aspect
-          .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, javaSkylarkApiProvider)
+          .addStarlarkTransitiveInfo(JavaStarlarkApiProvider.NAME, javaStarlarkApiProvider)
           .addNativeDeclaredProvider(javaInfo.build())
           .addProvider(
               new JavaProtoLibraryAspectProvider(
@@ -281,7 +279,7 @@ public class JavaProtoAspect extends NativeAspectClass implements ConfiguredAspe
       return protoBlackList.checkSrcs(protoInfo.getDirectProtoSources(), "java_proto_library");
     }
 
-    private void createProtoCompileAction(Artifact sourceJar) {
+    private void createProtoCompileAction(Artifact sourceJar) throws InterruptedException {
       ImmutableList.Builder<ToolchainInvocation> invocations = ImmutableList.builder();
       invocations.add(
           new ToolchainInvocation(

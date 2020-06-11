@@ -79,7 +79,7 @@ EOF
   expect_log "exec .*foobar/bin/java"
   expect_not_log "exec external/remotejdk_.*/bin/java"
 
-  bazel aquery --output=text --incompatible_use_jdk11_as_host_javabase \
+  bazel aquery --output=text \
     //java:javalib >& $TEST_log
   expect_log "exec external/remotejdk11_.*/bin/java"
 }

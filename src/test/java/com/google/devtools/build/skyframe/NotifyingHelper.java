@@ -171,6 +171,7 @@ public class NotifyingHelper {
     MARK_DIRTY,
     MARK_CLEAN,
     IS_CHANGED,
+    GET_DIRTY_STATE,
     GET_VALUE_WITH_METADATA,
     IS_DIRTY,
     IS_READY,
@@ -219,7 +220,7 @@ public class NotifyingHelper {
   }
 
   /** {@link NodeEntry} that informs a {@link Listener} of various method calls. */
-  protected class NotifyingNodeEntry extends DelegatingNodeEntry {
+  protected class NotifyingNodeEntry extends DelegatingNodeEntry implements TestOnlyNodeEntry {
     private final SkyKey myKey;
     private final ThinNodeEntry delegate;
 
@@ -229,7 +230,7 @@ public class NotifyingHelper {
     }
 
     @Override
-    protected NodeEntry getDelegate() {
+    public NodeEntry getDelegate() {
       return (NodeEntry) delegate;
     }
 
@@ -318,6 +319,14 @@ public class NotifyingHelper {
     public boolean isReady() {
       graphListener.accept(myKey, EventType.IS_READY, Order.BEFORE, this);
       return super.isReady();
+    }
+
+    @Override
+    public DirtyState getDirtyState() {
+      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.BEFORE, this);
+      DirtyState dirtyState = super.getDirtyState();
+      graphListener.accept(myKey, EventType.GET_DIRTY_STATE, Order.AFTER, dirtyState);
+      return dirtyState;
     }
 
     @Override

@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.SkylarkType;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 
 /**
@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.FileType;
  *
  * <p>This class exposes a unified view over both the legacy and modern Python providers.
  */
+// TODO(b/153363654): Delete this class, go directly through PyInfo instead.
 public class PyProviderUtils {
 
   // Disable construction.
@@ -62,15 +63,15 @@ public class PyProviderUtils {
    */
   public static StructImpl getLegacyProvider(TransitiveInfoCollection target) throws EvalException {
     Object info = target.get(PyStructUtils.PROVIDER_NAME);
-    if (info == null) {
-      throw new EvalException(/*location=*/ null, "Target does not have 'py' provider");
+    if (info instanceof StructImpl) {
+      return (StructImpl) info;
     }
-    return SkylarkType.cast(
-        info,
-        StructImpl.class,
-        null,
-        "'%s' provider should be a struct",
-        PyStructUtils.PROVIDER_NAME);
+    if (info == null) {
+      throw Starlark.errorf("Target does not have '%s' provider", PyStructUtils.PROVIDER_NAME);
+    }
+    throw Starlark.errorf(
+        "'%s' provider should be a struct (got %s)",
+        PyStructUtils.PROVIDER_NAME, Starlark.type(info));
   }
 
   /**
@@ -224,7 +225,7 @@ public class PyProviderUtils {
         RuleConfiguredTargetBuilder targetBuilder) {
       targetBuilder.addNativeDeclaredProvider(modernBuilder.build());
       if (createLegacy) {
-        targetBuilder.addSkylarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
+        targetBuilder.addStarlarkTransitiveInfo(PyStructUtils.PROVIDER_NAME, legacyBuilder.build());
       }
       return targetBuilder;
     }

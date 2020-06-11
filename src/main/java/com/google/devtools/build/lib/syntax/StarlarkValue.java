@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.syntax;
 
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
-
 /** Base interface for all Starlark values besides boxed Java primitives. */
 public interface StarlarkValue {
 
@@ -47,7 +45,7 @@ public interface StarlarkValue {
    * Prints an informal debug representation of the value.
    *
    * <p>This debug representation is only ever printed to the terminal or to another out-of-band
-   * channel, and is never accessible to Skylark code. Therefore, it is safe for the debug
+   * channel, and is never accessible to Starlark code. Therefore, it is safe for the debug
    * representation to reveal properties of the value that are usually hidden for the sake of
    * performance, determinism, or forward-compatibility.
    *
@@ -64,27 +62,17 @@ public interface StarlarkValue {
     return true;
   }
 
-  /**
-   * Returns if the value is immutable.
-   *
-   * <p>Immutability is deep, i.e. in order for a value to be immutable, all values it is composed
-   * of must be immutable, too.
-   */
+  /** Reports whether the value is deeply immutable. */
   // TODO(adonovan): eliminate this concept. All uses really need to know is, is it hashable?,
   // because Starlark values must have stable hashes: a hashable value must either be immutable or
   // its hash must be part of its identity.
   // But this must wait until --incompatible_disallow_hashing_frozen_mutables=true is removed.
   // (see github.com/bazelbuild/bazel/issues/7800)
   default boolean isImmutable() {
-    // TODO(adonovan): this is an abuse of an unrelated annotation.
-    return getClass().isAnnotationPresent(ThreadSafety.Immutable.class);
+    return false;
   }
 
-  /**
-   * Returns if the value is hashable and thus suitable for being used as a dictionary key.
-   *
-   * <p>Hashability implies immutability, but not vice versa.
-   */
+  /** Reports whether the Starlark value is hashable and thus suitable as a dict key. */
   default boolean isHashable() {
     return this.isImmutable();
   }

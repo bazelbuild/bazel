@@ -76,6 +76,9 @@ class RemoteServerCapabilities {
               : GetCapabilitiesRequest.newBuilder().setInstanceName(instanceName).build();
       return retrier.execute(() -> capabilitiesBlockingStub().getCapabilities(request));
     } catch (StatusRuntimeException e) {
+      if (e.getCause() instanceof IOException) {
+        throw (IOException) e.getCause();
+      }
       throw new IOException(e);
     } finally {
       withMetadata.detach(previous);
