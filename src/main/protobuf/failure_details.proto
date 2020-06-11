@@ -349,6 +349,7 @@ message Execution {
     PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 6
         [(metadata) = { exit_code: 36 }];
     LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE = 7 [(metadata) = { exit_code: 36 }];
+    ACTION_INPUT_FILES_MISSING = 8 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

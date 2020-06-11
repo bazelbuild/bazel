@@ -94,12 +94,13 @@ public class ActionExecutionException extends Exception {
       String message,
       ActionAnalysisMetadata action,
       NestedSet<Cause> rootCauses,
-      boolean catastrophe) {
+      boolean catastrophe,
+      DetailedExitCode detailedExitCode) {
     super(message);
     this.action = action;
     this.rootCauses = rootCauses;
     this.catastrophe = catastrophe;
-    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.detailedExitCode = detailedExitCode;
   }
 
   public ActionExecutionException(

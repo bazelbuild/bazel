@@ -67,6 +67,9 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlan;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
@@ -1357,11 +1360,7 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     if (!missingArtifactCauses.isEmpty()) {
-      throw new ActionExecutionException(
-          missingArtifactCauses.size() + " input file(s) do not exist",
-          action,
-          NestedSetBuilder.wrap(Order.STABLE_ORDER, missingArtifactCauses),
-          /*catastrophe=*/ false);
+      throw createMissingInputsException(action, missingArtifactCauses);
     }
     return accumulateInputResultsFactory.create(
         inputArtifactData, expandedArtifacts, filesetsInsideRunfiles, topLevelFilesets);
@@ -1718,11 +1717,7 @@ public class ActionExecutionFunction implements SkyFunction {
               action,
               null);
         }
-        throw new ActionExecutionException(
-            missingArtifactCauses.size() + " input file(s) do not exist",
-            action,
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, missingArtifactCauses),
-            /*catastrophe=*/ false);
+        throw createMissingInputsException(action, missingArtifactCauses);
       }
     }
 
@@ -1758,5 +1753,20 @@ public class ActionExecutionFunction implements SkyFunction {
                 action.getOwner().getLabel()));
       }
     }
+  }
+
+  private static ActionExecutionException createMissingInputsException(
+      Action action, List<LabelCause> missingArtifactCauses) {
+    String message = missingArtifactCauses.size() + " input file(s) do not exist";
+    return new ActionExecutionException(
+        message,
+        action,
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, missingArtifactCauses),
+        /*catastrophe=*/ false,
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setExecution(Execution.newBuilder().setCode(Code.ACTION_INPUT_FILES_MISSING))
+                .build()));
   }
 }
