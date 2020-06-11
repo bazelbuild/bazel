@@ -132,9 +132,8 @@ public class WorkspaceASTFunction implements SkyFunction {
         // Starlark semantics was not found, but Skyframe is happy. That means we're in the test
         // that didn't provide complete Skyframe environment. Just move along.
         suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
-        // TODO(hlopko): Uncomment once Bazel tests pass with --all_incompatible_changes
-        // } else if (semantics.incompatibleUseCcConfigureFromRulesCc()) {
-        //   suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
+      } else if (semantics.incompatibleUseCcConfigureFromRulesCc()) {
+          suffix = ruleClassProvider.getDefaultWorkspaceSuffix();
       } else if (!ruleClassProvider.getDefaultWorkspaceSuffix().contains("sh_configure")) {
         // It might look fragile to check for sh_configure in the WORKSPACE file, but it turns
         // out its the best approximation. The problem is that some tests want the ruleClassProvider
