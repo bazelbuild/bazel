@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -88,7 +87,6 @@ import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -304,7 +302,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   /** Hook for subclasses to perform work before the spawn is executed. */
-  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws IOException {}
+  protected void beforeExecute(ActionExecutionContext actionExecutionContext)
+      throws ExecException {}
 
   /**
    * Hook for subclasses to perform work after the spawn is executed. This method is only executed
@@ -313,7 +312,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    */
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws IOException, ExecException {}
+      throws ExecException {}
 
   @Override
   public final ActionContinuationOrResult beginExecution(
@@ -324,9 +323,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     try {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
-    } catch (IOException e) {
-      throw toActionExecutionException(
-          new EnvironmentalExecException(e), actionExecutionContext.showVerboseFailures(label));
+    } catch (ExecException e) {
+      throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
     } catch (CommandLineExpansionException e) {
       throw createDetailedException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
@@ -1404,9 +1402,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation, label);
-      } catch (IOException e) {
-        throw toActionExecutionException(
-            new EnvironmentalExecException(e), actionExecutionContext.showVerboseFailures(label));
       } catch (ExecException e) {
         throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
       }

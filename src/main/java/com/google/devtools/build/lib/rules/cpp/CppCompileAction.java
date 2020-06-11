@@ -72,6 +72,9 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
+import com.google.devtools.build.lib.server.FailureDetails.CppCompile;
+import com.google.devtools.build.lib.server.FailureDetails.CppCompile.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -424,12 +427,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), ExecException.class);
         Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
-        if (e.getCause() instanceof IORuntimeException) {
+        IOException ioException = getIoExceptionIfAny(e);
+        if (ioException != null) {
           throw new EnvironmentalExecException(
-              ((IORuntimeException) e.getCause()).getCauseIOException());
-        }
-        if (e.getCause() instanceof IOException) {
-          throw new EnvironmentalExecException((IOException) e.getCause());
+              ioException,
+              createFailureDetail(
+                  "Find used headers failure", Code.FIND_USED_HEADERS_IO_EXCEPTION));
         }
         Throwables.throwIfUnchecked(e.getCause());
         throw new IllegalStateException(e.getCause());
@@ -441,6 +444,18 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           actionExecutionContext.showVerboseFailures(label),
           this);
     }
+  }
+
+  @Nullable
+  private static IOException getIoExceptionIfAny(ExecutionException e) {
+    IOException ioException = null;
+    if (e.getCause() instanceof IORuntimeException) {
+      ioException = ((IORuntimeException) e.getCause()).getCauseIOException();
+    }
+    if (e.getCause() instanceof IOException) {
+      ioException = (IOException) e.getCause();
+    }
+    return ioException;
   }
 
   /**
@@ -1904,7 +1919,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             }
           }
         } catch (IOException e) {
-          throw new EnvironmentalExecException(e)
+          throw new EnvironmentalExecException(
+                  e, createFailureDetail("OutErr copy failure", Code.COPY_OUT_ERR_FAILURE))
               .toActionExecutionException(
                   getRawProgressMessage(),
                   actionExecutionContext.showVerboseFailures(getOwner().getLabel()),
@@ -1912,5 +1928,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         }
       }
     }
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setCppCompile(CppCompile.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

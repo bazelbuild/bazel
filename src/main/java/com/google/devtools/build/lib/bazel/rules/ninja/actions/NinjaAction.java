@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -108,7 +109,7 @@ public class NinjaAction extends SpawnAction {
   }
 
   @Override
-  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws IOException {
+  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws ExecException {
     if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       checkInputsForDirectories(
           actionExecutionContext.getEventHandler(), actionExecutionContext.getMetadataProvider());

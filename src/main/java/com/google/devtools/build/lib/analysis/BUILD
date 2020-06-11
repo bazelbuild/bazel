@@ -1414,6 +1414,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
@@ -71,12 +72,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
                   : actionExecutionContext.getInputPath(action.getInputManifest());
           Map<PathFragment, PathFragment> symlinks;
           if (action.getRunfiles() != null) {
-            try {
-              symlinks =
-                  Maps.transformValues(runfilesToMap(action, actionExecutionContext), TO_PATH);
-            } catch (IOException e) {
-              throw new EnvironmentalExecException(e);
-            }
+            symlinks = Maps.transformValues(runfilesToMap(action, actionExecutionContext), TO_PATH);
           } else {
             Preconditions.checkState(action.isFilesetTree());
             Preconditions.checkNotNull(inputManifest);
@@ -105,7 +101,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
                 .createSymlinksDirectly(
                     action.getOutputManifest().getPath().getParentDirectory(), runfiles);
           } catch (IOException e) {
-            throw new EnvironmentalExecException(e).toActionExecutionException(action);
+            throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_CREATION_IO_EXCEPTION)
+                .toActionExecutionException(action);
           }
 
           Path inputManifest =
@@ -133,7 +130,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   }
 
   private static Map<PathFragment, Artifact> runfilesToMap(
-      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) throws IOException {
+      SymlinkTreeAction action, ActionExecutionContext actionExecutionContext) {
     // This call outputs warnings about overlapping symlinks. However, this is already called by the
     // SourceManifestAction, so it can happen that we generate the warning twice. If the input
     // manifest is null, then we print the warning. Otherwise we assume that the
