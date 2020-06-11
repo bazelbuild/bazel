@@ -117,7 +117,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   }
 
   @Test
-  public void configFeatureFlagProvider_skylarkConstructor() throws Exception {
+  public void configFeatureFlagProvider_starlarkConstructor() throws Exception {
     scratch.file(
         "test/wrapper.bzl",
         "def _flag_reading_wrapper_impl(ctx):",

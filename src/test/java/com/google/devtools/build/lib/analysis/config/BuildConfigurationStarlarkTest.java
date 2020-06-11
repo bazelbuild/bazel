@@ -45,14 +45,14 @@ public final class BuildConfigurationStarlarkTest extends BuildViewTestCase {
         ")");
 
     scratch.file(
-        "examples/config_skylark/BUILD",
+        "examples/config_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:config_test.bzl', 'test_rule')",
         "test_rule(",
         "    name = 'my_target',",
         ")");
 
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/config_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/config_starlark:my_target");
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//examples/rule:config_test.bzl", ImmutableMap.of()), "MyInfo");

@@ -563,7 +563,7 @@ public class BzlLoadFunction implements SkyFunction {
     }
     StarlarkFile file = astLookupValue.getAST();
     if (!file.ok()) {
-      throw BzlLoadFailedException.skylarkErrors(filePath);
+      throw BzlLoadFailedException.starlarkErrors(filePath);
     }
 
     // Process the load statements in the file,
@@ -576,7 +576,7 @@ public class BzlLoadFunction implements SkyFunction {
         getLoadLabels(env.getListener(), file, label.getPackageIdentifier(), repoMapping);
     if (loads == null) {
       // malformed load statements
-      throw BzlLoadFailedException.skylarkErrors(filePath);
+      throw BzlLoadFailedException.starlarkErrors(filePath);
     }
 
     // Compute Skyframe key for each label in 'loads'.
@@ -959,7 +959,7 @@ public class BzlLoadFunction implements SkyFunction {
               containingPackageLookupValue));
     }
 
-    static BzlLoadFailedException skylarkErrors(PathFragment file) {
+    static BzlLoadFailedException starlarkErrors(PathFragment file) {
       return new BzlLoadFailedException(String.format("Extension '%s' has errors", file));
     }
 

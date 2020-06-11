@@ -128,11 +128,11 @@ final class DebuggerSerialization {
   }
 
   private static ImmutableList<Value> getChildren(
-      ThreadObjectMap objectMap, StarlarkValue skylarkValue) {
+      ThreadObjectMap objectMap, StarlarkValue starlarkValue) {
     StarlarkSemantics semantics = StarlarkSemantics.DEFAULT; // TODO(adonovan): obtain from thread.
     Set<String> fieldNames;
     try {
-      fieldNames = CallUtils.getFieldNames(semantics, skylarkValue);
+      fieldNames = CallUtils.getFieldNames(semantics, starlarkValue);
     } catch (IllegalArgumentException e) {
       // silently return no children
       return ImmutableList.of();
@@ -142,7 +142,7 @@ final class DebuggerSerialization {
       try {
         children.add(
             getValueProto(
-                objectMap, fieldName, CallUtils.getField(semantics, skylarkValue, fieldName)));
+                objectMap, fieldName, CallUtils.getField(semantics, starlarkValue, fieldName)));
       } catch (EvalException | InterruptedException | IllegalArgumentException e) {
         // silently ignore errors
       }

@@ -62,9 +62,9 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
         "   fragments = ['swift']",
         ")");
 
-    scratch.file("examples/swift_skylark/a.m");
+    scratch.file("examples/swift_starlark/a.m");
     scratch.file(
-        "examples/swift_skylark/BUILD",
+        "examples/swift_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
         "swift_binary(",
@@ -72,10 +72,10 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
         ")");
 
     useConfiguration("--swiftcopt=foo", "--swiftcopt=bar");
-    ConfiguredTarget skylarkTarget = getConfiguredTarget("//examples/swift_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/swift_starlark:my_target");
 
     @SuppressWarnings("unchecked")
-    List<String> copts = (List<String>) getMyInfoFromTarget(skylarkTarget).getValue("copts");
+    List<String> copts = (List<String>) getMyInfoFromTarget(starlarkTarget).getValue("copts");
 
     assertThat(copts).containsAtLeast("foo", "bar");
   }
@@ -97,7 +97,7 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
         ")");
 
     scratch.file(
-        "examples/swift_skylark/BUILD",
+        "examples/swift_starlark/BUILD",
         "load('//examples/rule:apple_rules.bzl', 'swift_binary')",
         "swift_binary(",
         "   name='my_target',",
@@ -105,7 +105,7 @@ public class SwiftConfigurationTest extends BuildViewTestCase {
 
     useConfiguration("--swiftcopt=foo", "--host_swiftcopt=bar", "--host_swiftcopt=baz");
     ConfiguredTarget target =
-        getConfiguredTarget("//examples/swift_skylark:my_target", getHostConfiguration());
+        getConfiguredTarget("//examples/swift_starlark:my_target", getHostConfiguration());
 
     @SuppressWarnings("unchecked")
     List<String> copts = (List<String>) getMyInfoFromTarget(target).getValue("copts");

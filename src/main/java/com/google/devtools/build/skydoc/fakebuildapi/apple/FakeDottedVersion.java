@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 public class FakeDottedVersion implements DottedVersionApi<FakeDottedVersion> {
 
   @Override
-  public int compareTo_skylark(FakeDottedVersion other) {
+  public int compareTo_starlark(FakeDottedVersion other) {
     return 0;
   }
 

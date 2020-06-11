@@ -868,7 +868,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   private static RuleClass newRuleClass(
       String name,
-      boolean skylarkExecutable,
+      boolean starlarkExecutable,
       boolean documented,
       boolean publicByDefault,
       boolean binaryOutput,
@@ -892,8 +892,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         DUMMY_STACK,
         /*key=*/ name,
         RuleClassType.NORMAL,
-        /*isStarlark=*/ skylarkExecutable,
-        /*skylarkTestable=*/ false,
+        /*isStarlark=*/ starlarkExecutable,
+        /*starlarkTestable=*/ false,
         documented,
         publicByDefault,
         binaryOutput,
@@ -1188,7 +1188,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   @Test
   public void testBuildTooManyAttributesRejected() {
     RuleClass.Builder builder =
-        new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+        new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*starlark=*/ false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
     for (int i = 0; i < 200; i++) {
@@ -1209,7 +1209,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+                new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*starlark=*/ false)
                     .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
                     .add(attr("tags", STRING_LIST))
                     .add(attr(Strings.repeat("x", 150), STRING))

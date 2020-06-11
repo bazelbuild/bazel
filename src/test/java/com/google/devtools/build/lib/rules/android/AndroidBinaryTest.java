@@ -100,7 +100,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testAndroidSplitTransitionWithInvalidCpu() throws Exception {
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def impl(ctx): ",
         "  return []",
         "my_rule = rule(",
@@ -111,8 +111,8 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', deps = [':main'], dep = ':main')",
         "cc_binary(name = 'main', srcs = ['main.c'])");
     BazelMockAndroidSupport.setupNdk(mockToolsConfig);
@@ -122,7 +122,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "--fat_apk_cpu=doesnotexist", "--android_crosstool_top=//android/crosstool:everything");
 
     AssertionError noToolchainError =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test/skylark:test"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test/starlark:test"));
     assertThat(noToolchainError)
         .hasMessageThat()
         .contains("does not contain a toolchain for cpu 'doesnotexist'");

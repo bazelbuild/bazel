@@ -106,7 +106,7 @@ public class BazelJavaRuleClasses {
           "cc_binary", // NB: linkshared=1
           "cc_library",
           "genrule",
-          "genproto", // TODO(bazel-team): we should filter using providers instead (skylark rule).
+          "genproto", // TODO(bazel-team): we should filter using providers instead (starlark rule).
           "java_import",
           "java_library",
           "java_proto_library",

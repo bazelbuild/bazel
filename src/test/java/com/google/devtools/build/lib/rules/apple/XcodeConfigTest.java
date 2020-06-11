@@ -446,9 +446,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   @Test
   public void testConfigAlias_configSetting() throws Exception {
-    scratch.file("skylark/BUILD");
+    scratch.file("starlark/BUILD");
     scratch.file(
-        "skylark/version_retriever.bzl",
+        "starlark/version_retriever.bzl",
         "def _version_retriever_impl(ctx):",
         "  xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]",
         "  version = xcode_properties.xcode_version",
@@ -461,7 +461,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     scratch.file(
         "xcode/BUILD",
-        "load('//skylark:version_retriever.bzl', 'version_retriever')",
+        "load('//starlark:version_retriever.bzl', 'version_retriever')",
         "version_retriever(",
         "    name = 'flag_propagator',",
         "    dep = ':alias',",
@@ -522,9 +522,9 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
   @Test
   public void testDefaultVersion_configSetting() throws Exception {
-    scratch.file("skylark/BUILD");
+    scratch.file("starlark/BUILD");
     scratch.file(
-        "skylark/version_retriever.bzl",
+        "starlark/version_retriever.bzl",
         "def _version_retriever_impl(ctx):",
         "  xcode_properties = ctx.attr.dep[apple_common.XcodeProperties]",
         "  version = xcode_properties.xcode_version",
@@ -537,7 +537,7 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     scratch.file(
         "xcode/BUILD",
-        "load('//skylark:version_retriever.bzl', 'version_retriever')",
+        "load('//starlark:version_retriever.bzl', 'version_retriever')",
         "version_retriever(",
         "    name = 'flag_propagator',",
         "    dep = ':alias',",

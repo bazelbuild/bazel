@@ -60,7 +60,7 @@ public final class XcodeVersionTest extends BuildViewTestCase {
         "   },",
         ")");
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'my_rule')",
         "my_rule(",
@@ -76,12 +76,12 @@ public final class XcodeVersionTest extends BuildViewTestCase {
         "    default_macos_sdk_version = '9.3',",
         ")");
 
-    RuleConfiguredTarget skylarkTarget =
-        (RuleConfiguredTarget) getConfiguredTarget("//examples/apple_skylark:my_target");
+    RuleConfiguredTarget starlarkTarget =
+        (RuleConfiguredTarget) getConfiguredTarget("//examples/apple_starlark:my_target");
     Provider.Key key =
         new StarlarkProvider.Key(
             Label.parseAbsolute("//examples/rule:apple_rules.bzl", ImmutableMap.of()), "MyInfo");
-    StructImpl myInfo = (StructImpl) skylarkTarget.get(key);
+    StructImpl myInfo = (StructImpl) starlarkTarget.get(key);
     assertThat((String) myInfo.getValue("xcode_version")).isEqualTo("8");
     assertThat((String) myInfo.getValue("ios_version")).isEqualTo("9.0");
     assertThat((String) myInfo.getValue("watchos_version")).isEqualTo("9.1");
