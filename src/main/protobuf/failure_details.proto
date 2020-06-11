@@ -133,6 +133,8 @@ message FailureDetail {
     ActionRewinding action_rewinding = 160;
     CppCompile cpp_compile = 161;
     StarlarkAction starlark_action = 162;
+    NinjaAction ninja_action = 163;
+    DynamicExecution dynamic_execution = 164;
   }
 
   reserved 102; // For internal use
@@ -603,6 +605,7 @@ message IncludeScanning {
     INCLUDE_SCANNING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INITIALIZE_INCLUDE_HINTS_ERROR = 1 [(metadata) = { exit_code: 36 }];
     SCANNING_IO_EXCEPTION = 2 [(metadata) = { exit_code: 36 }];
+    INCLUDE_HINTS_FILE_NOT_IN_PACKAGE = 3 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -834,6 +837,25 @@ message StarlarkAction {
   enum Code {
     STARLARK_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     UNUSED_INPUT_LIST_READ_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message NinjaAction {
+  enum Code {
+    NINJA_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INVALID_DEPFILE_DECLARED_DEPENDENCY = 1 [(metadata) = { exit_code: 36 }];
+    D_FILE_PARSE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message DynamicExecution {
+  enum Code {
+    DYNAMIC_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    XCODE_RELATED_PREREQ_UNMET = 1 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;

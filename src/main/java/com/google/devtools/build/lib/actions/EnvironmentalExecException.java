@@ -56,9 +56,9 @@ public class EnvironmentalExecException extends ExecException {
     failureDetail = null;
   }
 
-  public EnvironmentalExecException(String message) {
-    super(message);
-    failureDetail = null;
+  public EnvironmentalExecException(FailureDetail failureDetail) {
+    super(failureDetail.getMessage());
+    this.failureDetail = failureDetail;
   }
 
   @Override
