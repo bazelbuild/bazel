@@ -14,13 +14,13 @@
 
 package com.google.devtools.common.options;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.common.options.OptionsParser.ConstructionException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -267,8 +267,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     }
 
     if (isSpecialNullDefault()) {
-      // TODO(b/138573276): fix style warnings separately from behavioral changes
-      return allowsMultiple() ? Collections.emptyList() : null;
+      return allowsMultiple() ? ImmutableList.of() : null;
     }
 
     Converter<?> converter = getConverter();
