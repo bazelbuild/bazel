@@ -267,6 +267,11 @@ public class ActionExecutionValue implements SkyValue {
       Artifact newArtifact, TreeArtifactValue tree) {
     Preconditions.checkState(
         newArtifact.isTreeArtifact(), "Expected tree artifact, got %s", newArtifact);
+
+    if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(tree)) {
+      return TreeArtifactValue.OMITTED_TREE_MARKER;
+    }
+
     SpecialArtifact newParent = (SpecialArtifact) newArtifact;
 
     Map<TreeFileArtifact, FileArtifactValue> newChildren =
