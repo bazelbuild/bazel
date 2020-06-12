@@ -435,14 +435,14 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
+  @Nullable
   public ActionOwner getActionOwner(String execGroup) {
     if (actionOwners.containsKey(execGroup)) {
       return actionOwners.get(execGroup);
     }
-    Preconditions.checkState(
-        toolchainContexts == null || toolchainContexts.hasToolchainContext(execGroup),
-        "action owner requested for non-existent exec group '%s'.",
-        execGroup);
+    if (toolchainContexts != null && !toolchainContexts.hasToolchainContext(execGroup)) {
+      return null;
+    }
     ActionOwner actionOwner =
         createActionOwner(
             rule,

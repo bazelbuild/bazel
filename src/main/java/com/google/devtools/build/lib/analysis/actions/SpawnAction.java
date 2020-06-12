@@ -1309,6 +1309,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
+    /**
+     * Sets the exec group for this action by name. This does not check that {@code execGroup} is
+     * being set to a valid exec group (i.e. one that actually exists). This method expects callers
+     * to do that work.
+     */
     public Builder setExecGroup(String execGroup) {
       this.execGroup = execGroup;
       return this;
