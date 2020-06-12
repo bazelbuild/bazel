@@ -758,7 +758,8 @@ public class RuleClass {
         } catch (DuplicateExecGroupError e) {
           throw new IllegalArgumentException(
               String.format(
-                  "An execution group named '%s' is inherited multiple times in %s ruleclass",
+                  "An execution group named '%s' is inherited multiple times with different"
+                      + " requirements in %s ruleclass",
                   e.getDuplicateGroup(), name));
         }
 
@@ -1419,14 +1420,22 @@ public class RuleClass {
     }
 
     /**
-     * Adds execution groups to this rule class. Errors out if multiple groups with the same name
-     * are added.
+     * Adds execution groups to this rule class. Errors out if multiple different groups with the
+     * same name are added.
      */
     public Builder addExecGroups(Map<String, ExecGroup> execGroups) throws DuplicateExecGroupError {
       for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
         String name = group.getKey();
-        if (this.execGroups.put(name, group.getValue()) != null) {
-          throw new DuplicateExecGroupError(name);
+        if (this.execGroups.containsKey(name)) {
+          // If trying to add a new execution group with the same name as a execution group that
+          // already exists, check if they are equivalent and error out if not.
+          ExecGroup existingGroup = this.execGroups.get(name);
+          ExecGroup newGroup = group.getValue();
+          if (!existingGroup.equals(newGroup)) {
+            throw new DuplicateExecGroupError(name);
+          }
+        } else {
+          this.execGroups.put(name, group.getValue());
         }
       }
       return this;

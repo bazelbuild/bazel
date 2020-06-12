@@ -215,13 +215,38 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testDuplicateExecGroupNamesErrors() throws Exception {
+  public void testDuplicateExecGroupsThatAreEqualIsOk() throws Exception {
+    ExecGroup execGroup =
+        ExecGroup.create(
+            ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")),
+            ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/constraint")));
+    RuleClass a =
+        new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .addExecGroups(ImmutableMap.of("blueberry", execGroup))
+            .add(attr("tags", STRING_LIST))
+            .build();
+    RuleClass b =
+        new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
+            .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
+            .addExecGroups(ImmutableMap.of("blueberry", execGroup))
+            .add(attr("tags", STRING_LIST))
+            .build();
+    RuleClass c = new RuleClass.Builder("$ruleC", RuleClassType.ABSTRACT, false, a, b).build();
+    assertThat(c.getExecGroups()).containsExactly("blueberry", execGroup);
+  }
+
+  @Test
+  public void testDuplicateExecGroupsThrowsError() throws Exception {
     RuleClass a =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(
                 ImmutableMap.of(
-                    "blueberry", ExecGroup.create(ImmutableSet.of(), ImmutableSet.of())))
+                    "blueberry",
+                    ExecGroup.create(
+                        ImmutableSet.of(Label.parseAbsoluteUnchecked("//some/toolchain")),
+                        ImmutableSet.of())))
             .add(attr("tags", STRING_LIST))
             .build();
     RuleClass b =
@@ -239,7 +264,8 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
-            "An execution group named 'blueberry' is inherited multiple times in ruleC ruleclass");
+            "An execution group named 'blueberry' is inherited multiple times with different"
+                + " requirements in ruleC ruleclass");
   }
 
   @Test
