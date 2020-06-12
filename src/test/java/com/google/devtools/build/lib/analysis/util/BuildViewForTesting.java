@@ -511,7 +511,7 @@ public class BuildViewForTesting {
           execGroup.getKey(),
           ToolchainContextKey.key()
               .configurationKey(BuildConfigurationValue.key(targetConfig))
-              .requiredToolchainTypeLabels(execGroup.getValue().getRequiredToolchains())
+              .requiredToolchainTypeLabels(execGroup.getValue().requiredToolchains())
               .build());
     }
     String targetUnloadedToolchainContextKey = "target-unloaded-toolchain-context";

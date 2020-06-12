@@ -197,8 +197,8 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     Label mockToolchainType = Label.parseAbsoluteUnchecked("//mock_toolchain_type");
     Label mockConstraint = Label.parseAbsoluteUnchecked("//mock_constraint");
     ExecGroup parentGroup =
-        new ExecGroup(ImmutableSet.of(mockToolchainType), ImmutableSet.of(mockConstraint));
-    ExecGroup childGroup = new ExecGroup(ImmutableSet.of(), ImmutableSet.of());
+        ExecGroup.create(ImmutableSet.of(mockToolchainType), ImmutableSet.of(mockConstraint));
+    ExecGroup childGroup = ExecGroup.create(ImmutableSet.of(), ImmutableSet.of());
     RuleClass parent =
         new RuleClass.Builder("$parent", RuleClassType.ABSTRACT, false)
             .add(attr("tags", STRING_LIST))
@@ -220,14 +220,16 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(
-                ImmutableMap.of("blueberry", new ExecGroup(ImmutableSet.of(), ImmutableSet.of())))
+                ImmutableMap.of(
+                    "blueberry", ExecGroup.create(ImmutableSet.of(), ImmutableSet.of())))
             .add(attr("tags", STRING_LIST))
             .build();
     RuleClass b =
         new RuleClass.Builder("ruleB", RuleClassType.NORMAL, false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .addExecGroups(
-                ImmutableMap.of("blueberry", new ExecGroup(ImmutableSet.of(), ImmutableSet.of())))
+                ImmutableMap.of(
+                    "blueberry", ExecGroup.create(ImmutableSet.of(), ImmutableSet.of())))
             .add(attr("tags", STRING_LIST))
             .build();
     IllegalArgumentException e =

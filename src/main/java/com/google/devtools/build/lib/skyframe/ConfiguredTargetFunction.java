@@ -525,8 +525,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           group.getKey(),
           ToolchainContextKey.key()
               .configurationKey(toolchainConfig)
-              .requiredToolchainTypeLabels(execGroup.getRequiredToolchains())
-              .execConstraintLabels(execGroup.getExecutionPlatformConstraints())
+              .requiredToolchainTypeLabels(execGroup.requiredToolchains())
+              .execConstraintLabels(execGroup.execCompatibleWith())
               .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
               .build());
     }

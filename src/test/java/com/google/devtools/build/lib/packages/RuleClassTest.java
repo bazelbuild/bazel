@@ -1145,14 +1145,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
-            "cherry", new ExecGroup(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+            "cherry", ExecGroup.create(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry").getRequiredToolchains())
+    assertThat(ruleClass.getExecGroups().get("cherry").requiredToolchains())
         .containsExactly(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry").getExecutionPlatformConstraints())
+    assertThat(ruleClass.getExecGroups().get("cherry").execCompatibleWith())
         .containsExactly(constraint);
   }
 
