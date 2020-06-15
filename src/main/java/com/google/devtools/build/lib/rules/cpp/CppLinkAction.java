@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.server.FailureDetails.CppLink;
@@ -125,7 +127,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   private final LibraryToLink interfaceOutputLibrary;
   private final ImmutableMap<String, String> toolchainEnv;
   private final ImmutableMap<String, String> executionRequirements;
-  private final ImmutableList<Artifact> linkstampObjects;
+  private final ImmutableMap<Linkstamp, Artifact> linkstamps;
 
   private final LinkCommandLine linkCommandLine;
 
@@ -172,7 +174,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       boolean fake,
       Iterable<Artifact> fakeLinkerInputArtifacts,
       boolean isLtoIndexing,
-      ImmutableList<Artifact> linkstampObjects,
+      ImmutableMap<Linkstamp, Artifact> linkstamps,
       LinkCommandLine linkCommandLine,
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
@@ -188,7 +190,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     this.fake = fake;
     this.fakeLinkerInputArtifacts = CollectionUtils.makeImmutable(fakeLinkerInputArtifacts);
     this.isLtoIndexing = isLtoIndexing;
-    this.linkstampObjects = linkstampObjects;
+    this.linkstamps = linkstamps;
     this.linkCommandLine = linkCommandLine;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
@@ -306,7 +308,13 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
    * provenance.
    */
   public ImmutableList<Artifact> getLinkstampObjects() {
-    return linkstampObjects;
+    return linkstamps.keySet().stream()
+        .map(CcLinkingContext.Linkstamp::getArtifact)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  public ImmutableCollection<Artifact> getLinkstampObjectFileInputs() {
+    return linkstamps.values();
   }
 
   @Override

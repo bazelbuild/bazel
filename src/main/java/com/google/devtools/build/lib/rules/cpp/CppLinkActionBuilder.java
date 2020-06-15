@@ -1079,9 +1079,7 @@ public class CppLinkActionBuilder {
         fake,
         fakeLinkerInputArtifacts,
         isLtoIndexing,
-        linkstampMap.keySet().stream()
-            .map(CcLinkingContext.Linkstamp::getArtifact)
-            .collect(ImmutableList.toImmutableList()),
+        linkstampMap,
         linkCommandLine,
         configuration.getActionEnvironment(),
         toolchainEnv,

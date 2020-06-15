@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -1128,7 +1129,13 @@ public class CompilationSupport {
             ? objcProvider.getObjcLibraries()
             : substituteJ2ObjcPrunedLibraries(objcProvider);
 
+    // Passing large numbers of inputs on the command line triggers a bug in Apple's Clang
+    // (b/29094356), so we'll create an input list manually and pass -filelist path/to/input/list.
+    // We can't populate this list yet--it needs to contain any linkstamp objects, which we won't
+    // know about until we actually create the CppLinkAction--but it needs to go into the
+    // CppLinkAction too, so create it now.
     Artifact inputFileList = intermediateArtifacts.linkerObjList();
+
     ImmutableSet<Artifact> forceLinkArtifacts = getForceLoadArtifacts(objcProvider);
 
     // Clang loads archives specified in filelists and also specified as -force_load twice,
@@ -1141,7 +1148,6 @@ public class CompilationSupport {
                     objcProvider.get(IMPORTED_LIBRARY).toList(),
                     objcProvider.getCcLibraries()),
                 Predicates.not(Predicates.in(forceLinkArtifacts))));
-    registerObjFilelistAction(objFiles, inputFileList);
 
     LinkTargetType linkType =
         objcProvider.is(Flag.USES_CPP)
@@ -1162,7 +1168,7 @@ public class CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    CppLinkActionBuilder executableLinkAction =
+    CppLinkActionBuilder executableLinkActionBuilder =
         new CppLinkActionBuilder(
                 ruleContext,
                 ruleContext,
@@ -1199,13 +1205,13 @@ public class CompilationSupport {
       extensionBuilder
           .setDsymSymbol(dsymSymbol)
           .addVariableCategory(VariableCategory.DSYM_VARIABLES);
-      executableLinkAction.addActionOutput(dsymSymbol);
+      executableLinkActionBuilder.addActionOutput(dsymSymbol);
     }
 
     if (objcConfiguration.generateLinkmap()) {
       Artifact linkmap = intermediateArtifacts.linkmap();
       extensionBuilder.setLinkmap(linkmap).addVariableCategory(VariableCategory.LINKMAP_VARIABLES);
-      executableLinkAction.addActionOutput(linkmap);
+      executableLinkActionBuilder.addActionOutput(linkmap);
     }
 
     if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
@@ -1213,11 +1219,29 @@ public class CompilationSupport {
       extensionBuilder
           .setBitcodeSymbolMap(bitcodeSymbolMap)
           .addVariableCategory(VariableCategory.BITCODE_VARIABLES);
-      executableLinkAction.addActionOutput(bitcodeSymbolMap);
+      executableLinkActionBuilder.addActionOutput(bitcodeSymbolMap);
     }
 
-    executableLinkAction.addVariablesExtension(extensionBuilder.build());
-    ruleContext.registerAction(executableLinkAction.build());
+    executableLinkActionBuilder.addVariablesExtension(extensionBuilder.build());
+
+    for (CcLinkingContext context :
+        CppHelper.getLinkingContextsFromDeps(
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET)))) {
+      executableLinkActionBuilder.addLinkstamps(context.getLinkstamps().toList());
+    }
+
+    CppLinkAction executableLinkAction = executableLinkActionBuilder.build();
+
+    // Populate the input file list with both the compiled object files and any linkstamp object
+    // files.
+    registerObjFilelistAction(
+        ImmutableSet.<Artifact>builder()
+            .addAll(objFiles)
+            .addAll(executableLinkAction.getLinkstampObjectFileInputs())
+            .build(),
+        inputFileList);
+
+    ruleContext.registerAction(executableLinkAction);
 
     if (objcConfiguration.shouldStripBinary()) {
       registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));
