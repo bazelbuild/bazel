@@ -183,6 +183,10 @@ public class FakeCcModule
   public void checkExperimentalCcSharedLibrary(StarlarkThread thread) {}
 
   @Override
+  public void checkExperimentalStarlarkCcImport(
+      StarlarkActionFactoryApi starlarkActionFactoryApi) {}
+
+  @Override
   public CcLinkingContextApi<FileApi> createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,

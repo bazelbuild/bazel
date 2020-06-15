@@ -961,6 +961,17 @@ public class CppOptions extends FragmentOptions {
       help = "Whether to force enable generating debug symbol(.dSYM) file(s) for dbg builds.")
   public boolean appleEnableAutoDsymDbg;
 
+  @Option(
+      name = "experimental_starlark_cc_import",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "If enabled, the Starlark version of cc_import can be used.")
+  public boolean experimentalStarlarkCcImport;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {

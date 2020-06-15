@@ -35,6 +35,7 @@ filegroup(
     name = "bzl_srcs",
     srcs = [
         "//tools/build_defs/cc:action_names.bzl",
+        "//tools/build_defs/cc:cc_import.bzl",
         "//tools/build_defs/hash:hash.bzl",
         "//tools/build_defs/pkg:bzl_srcs",
         "//tools/build_defs/repo:bzl_srcs",

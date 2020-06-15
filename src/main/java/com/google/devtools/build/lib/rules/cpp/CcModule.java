@@ -693,6 +693,18 @@ public abstract class CcModule
   }
 
   @Override
+  public void checkExperimentalStarlarkCcImport(StarlarkActionFactory starlarkActionFactoryApi)
+      throws EvalException {
+    if (!starlarkActionFactoryApi
+        .getActionConstructionContext()
+        .getConfiguration()
+        .getFragment(CppConfiguration.class)
+        .experimentalStarlarkCcImport()) {
+      throw Starlark.errorf("Pass --experimental_starlark_cc_import to use cc_shared_library");
+    }
+  }
+
+  @Override
   public CcLinkingContext createCcLinkingInfo(
       Object linkerInputs,
       Object librariesToLinkObject,
