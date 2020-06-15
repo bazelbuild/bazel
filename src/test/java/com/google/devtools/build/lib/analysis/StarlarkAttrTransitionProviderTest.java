@@ -69,7 +69,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     return (StructImpl) configuredTarget.get(key);
   }
 
-  private void writeWhitelistFile() throws Exception {
+  private void writeAllowlistFile() throws Exception {
     scratch.file(
         "tools/whitelists/function_transition_whitelist/BUILD",
         "package_group(",
@@ -82,7 +82,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   private void writeBasicTestFiles() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -119,7 +119,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testStarlarkSplitTransitionSplitAttr() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -177,7 +177,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testStarlarkListSplitTransitionSplitAttr() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -229,7 +229,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testStarlarkPatchTransitionSplitAttr() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -280,7 +280,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     // This is a customized test case for b/152078818, where a starlark transition that takes a
     // starlark config as input caused a failure when no custom values were provided for the config.
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -342,12 +342,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTargetAndRuleNotInWhitelist() throws Exception {
+  public void testTargetAndRuleNotInAllowlist() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
-        "not_whitelisted/my_rule.bzl",
+        "not_allowlisted/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
         "  return [",
@@ -370,14 +370,14 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "    ),",
         "  })");
     scratch.file(
-        "not_whitelisted/BUILD",
-        "load('//not_whitelisted:my_rule.bzl', 'my_rule')",
+        "not_allowlisted/BUILD",
+        "load('//not_allowlisted:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main')",
         "cc_binary(name = 'main', srcs = ['main.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//not_whitelisted:test");
-    assertContainsEvent("Non-whitelisted use of Starlark transition");
+    getConfiguredTarget("//not_allowlisted:test");
+    assertContainsEvent("Non-allowlisted use of Starlark transition");
   }
 
   private void testSplitTransitionCheckAttrDeps(ConfiguredTarget target) throws Exception {
@@ -412,7 +412,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   private void writeReadSettingsTestFiles() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -462,7 +462,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   private void writeOptionConversionTestFiles() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -512,7 +512,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testUndeclaredOptionKey() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -545,7 +545,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testDeclaredOutputNotReturned() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -582,7 +582,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testSettingsContainOnlyInputs() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -619,7 +619,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidInputKey() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -654,7 +654,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidNativeOptionInput() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -690,7 +690,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidNativeOptionOutput() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -725,7 +725,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidOutputKey() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -760,7 +760,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidOptionValue() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -793,7 +793,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testDuplicateOutputs() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -936,7 +936,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_fromDefault() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeBuildSettingsBzl();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
@@ -962,7 +962,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_fromCommandLine() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeBuildSettingsBzl();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
@@ -1000,7 +1000,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testOutputDirHash_multipleNativeOptionTransitions() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_impl(settings, attr):",
@@ -1066,7 +1066,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   // results in the same configuration.
   @Test
   public void testOutputDirHash_noop_changeToSameState() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _bar_impl(settings, attr):",
@@ -1115,7 +1115,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testOutputDirHash_noop_emptyReturns() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _bar_impl(settings, attr):",
@@ -1162,7 +1162,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   // TODO(bazel-team): This can be optimized. Make these the same configuration.
   @Test
   public void testOutputDirHash_noop_changeToDifferentStateAsTopLevel() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _bar_impl(settings, attr):",
@@ -1226,7 +1226,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testOutputDirHash_multipleStarlarkOptionTransitions_backToDefaultCommandLine()
       throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_two_impl(settings, attr):",
@@ -1278,7 +1278,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   // TODO(bazel-team): This can be optimized. Make these the same configuration.
   @Test
   public void testOutputDirHash_multipleStarlarkOptionTransitions_backToDefault() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_two_impl(settings, attr):",
@@ -1329,7 +1329,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testOutputDirHash_starlarkOption_differentBoolRepresentationsNotEquals()
       throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_impl(settings, attr):",
@@ -1384,7 +1384,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testOutputDirHash_nativeOption_differentBoolRepresentationsEquals() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _bool_impl(settings, attr):",
@@ -1432,7 +1432,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testOutputDirHash_multipleStarlarkTransitions() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_impl(settings, attr):",
@@ -1500,7 +1500,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   // properly amidst multiple complicated transitions.
   @Test
   public void testOutputDirHash_multipleMixedTransitions() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_impl(settings, attr):",
@@ -1625,7 +1625,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_badValue() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeBuildSettingsBzl();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -1677,7 +1677,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_noSuchTarget() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeRulesWithAttrTransitionBzl();
     // Still need to write this file in order not to rewrite rules.bzl file (has loads from this
     // file)
@@ -1697,7 +1697,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_notABuildSetting() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
         "test/starlark/build_settings.bzl",
@@ -1728,7 +1728,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
    */
   @Test
   public void testBuildSettingTransitionsWorkWithExecTransitions() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     // This setup creates an int_flag_reading_rule whose output is the value of an int_flag (which
     // guarantees actions in configurations with different Starlark flag values are different). It
     // then makes this a genrule exec tool (so it applies after an exec transition). And finally

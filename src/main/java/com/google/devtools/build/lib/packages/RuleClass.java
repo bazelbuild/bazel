@@ -659,7 +659,7 @@ public class RuleClass {
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
-    private boolean hasFunctionTransitionWhitelist = false;
+    private boolean hasFunctionTransitionAllowlist = false;
     private boolean hasStarlarkRuleTransition = false;
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
@@ -857,7 +857,7 @@ public class RuleClass {
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
-          hasFunctionTransitionWhitelist,
+          hasFunctionTransitionAllowlist,
           ignoreLicenses,
           implicitOutputsFunction,
           transitionFactory,
@@ -1311,11 +1311,11 @@ public class RuleClass {
     }
 
     /**
-     * This rule class has the _whitelist_function_transition attribute. Intended only for Starlark
+     * This rule class has the _allowlist_function_transition attribute. Intended only for Starlark
      * rules.
      */
-    public <TYPE> Builder setHasFunctionTransitionWhitelist() {
-      this.hasFunctionTransitionWhitelist = true;
+    public <TypeT> Builder setHasFunctionTransitionAllowlist() {
+      this.hasFunctionTransitionAllowlist = true;
       return this;
     }
 
@@ -1526,7 +1526,7 @@ public class RuleClass {
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
-  private final boolean hasFunctionTransitionWhitelist;
+  private final boolean hasFunctionTransitionAllowlist;
   private final boolean ignoreLicenses;
   private final boolean hasAspects;
 
@@ -1661,7 +1661,7 @@ public class RuleClass {
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
-      boolean hasFunctionTransitionWhitelist,
+      boolean hasFunctionTransitionAllowlist,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
       TransitionFactory<Rule> transitionFactory,
@@ -1713,7 +1713,7 @@ public class RuleClass {
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
-    this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
+    this.hasFunctionTransitionAllowlist = hasFunctionTransitionAllowlist;
     this.ignoreLicenses = ignoreLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
@@ -2608,11 +2608,9 @@ public class RuleClass {
     return hasAnalysisTestTransition;
   }
 
-  /**
-   * Returns true if this rule class has the _whitelist_function_transition attribute.
-   */
-  public boolean hasFunctionTransitionWhitelist() {
-    return hasFunctionTransitionWhitelist;
+  /** Returns true if this rule class has the _allowlist_function_transition attribute. */
+  public boolean hasFunctionTransitionAllowlist() {
+    return hasFunctionTransitionAllowlist;
   }
 
   /**

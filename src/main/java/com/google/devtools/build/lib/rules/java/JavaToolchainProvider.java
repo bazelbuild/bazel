@@ -91,7 +91,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
-      @Nullable Artifact oneVersionWhitelist,
+      @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
@@ -115,7 +115,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         forciblyDisableHeaderCompilation,
         singleJar,
         oneVersion,
-        oneVersionWhitelist,
+        oneVersionAllowlist,
         genClass,
         resourceJarBuilder,
         timezoneData,
@@ -145,7 +145,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
   @Nullable private final Artifact oneVersion;
-  @Nullable private final Artifact oneVersionWhitelist;
+  @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
   @Nullable private final Artifact resourceJarBuilder;
   @Nullable private final Artifact timezoneData;
@@ -176,7 +176,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
-      @Nullable Artifact oneVersionWhitelist,
+      @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
@@ -206,7 +206,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
-    this.oneVersionWhitelist = oneVersionWhitelist;
+    this.oneVersionAllowlist = oneVersionAllowlist;
     this.genClass = genClass;
     this.resourceJarBuilder = resourceJarBuilder;
     this.timezoneData = timezoneData;
@@ -302,10 +302,16 @@ public class JavaToolchainProvider extends ToolchainInfo
     return oneVersion;
   }
 
-  /** Return the {@link Artifact} of the whitelist used by the one-version compliance checker. */
+  /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
+  @Nullable
+  public Artifact getOneVersionAllowlist() {
+    return oneVersionAllowlist;
+  }
+
+  /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
   @Nullable
   public Artifact getOneVersionWhitelist() {
-    return oneVersionWhitelist;
+    return oneVersionAllowlist;
   }
 
   /** Returns the {@link Artifact} of the GenClass deploy jar */

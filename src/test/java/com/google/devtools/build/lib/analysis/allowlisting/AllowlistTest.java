@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.whitelisting;
+package com.google.devtools.build.lib.analysis.allowlisting;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -21,27 +21,27 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for the Whitelist methods. */
+/** Tests for the Allowlist methods. */
 @RunWith(JUnit4.class)
-public final class WhitelistTest extends BuildViewTestCase {
+public final class AllowlistTest extends BuildViewTestCase {
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    return builder.addRuleDefinition(WhitelistDummyRule.DEFINITION).build();
+    return builder.addRuleDefinition(AllowlistDummyRule.DEFINITION).build();
   }
 
   @Test
   public void testDirectPackage() throws Exception {
     scratch.file(
-        "whitelist/BUILD",
+        "allowlist/BUILD",
         "package_group(",
-        "    name='whitelist',",
+        "    name='allowlist',",
         "    packages=[",
         "        '//direct',",
         "    ])");
-    scratch.file("direct/BUILD", "rule_with_whitelist(name='x')");
+    scratch.file("direct/BUILD", "rule_with_allowlist(name='x')");
     getConfiguredTarget("//direct:x");
     assertNoEvents();
   }
@@ -49,13 +49,13 @@ public final class WhitelistTest extends BuildViewTestCase {
   @Test
   public void testRecursivePackage() throws Exception {
     scratch.file(
-        "whitelist/BUILD",
+        "allowlist/BUILD",
         "package_group(",
-        "    name='whitelist',",
+        "    name='allowlist',",
         "    packages=[",
         "        '//recursive/...',",
         "    ])");
-    scratch.file("recursive/x/BUILD", "rule_with_whitelist(name='y')");
+    scratch.file("recursive/x/BUILD", "rule_with_allowlist(name='y')");
     getConfiguredTarget("//recursive/x:y");
     assertNoEvents();
   }
@@ -63,33 +63,33 @@ public final class WhitelistTest extends BuildViewTestCase {
   @Test
   public void testAbsentPackage() throws Exception {
     scratch.file(
-        "whitelist/BUILD",
+        "allowlist/BUILD",
         "package_group(",
-        "    name='whitelist',",
+        "    name='allowlist',",
         "    packages=[",
         "        '//somethingelse/...',",
         "    ])");
-    checkError("absent", "x", "Dummy is not available.", "rule_with_whitelist(name='x')");
+    checkError("absent", "x", "Dummy is not available.", "rule_with_allowlist(name='x')");
   }
 
   @Test
   public void testCatchAll() throws Exception {
     scratch.file(
-        "whitelist/BUILD",
+        "allowlist/BUILD",
         "package_group(",
-        "    name='whitelist',",
+        "    name='allowlist',",
         "    packages=[",
         "        '//...',",
         "    ])");
-    scratch.file("notingroup/BUILD", "rule_with_whitelist(name='x')");
+    scratch.file("notingroup/BUILD", "rule_with_allowlist(name='x')");
     getConfiguredTarget("//notingroup:x");
     assertNoEvents();
   }
 
   @Test
   public void testEmptyPackageGroup() throws Exception {
-    scratch.file("whitelist/BUILD", "package_group(name='whitelist', packages=[])");
-    checkError("x", "x", "Dummy is not available.", "rule_with_whitelist(name='x')");
+    scratch.file("allowlist/BUILD", "package_group(name='allowlist', packages=[])");
+    checkError("x", "x", "Dummy is not available.", "rule_with_allowlist(name='x')");
   }
 
   @Test
@@ -97,31 +97,31 @@ public final class WhitelistTest extends BuildViewTestCase {
     checkError(
         "x",
         "x",
-        "every rule of type rule_with_whitelist implicitly depends upon the target"
-            + " '//whitelist:whitelist', but this target could not be found because of: no such"
-            + " package 'whitelist': BUILD file not found",
-        "rule_with_whitelist(name='x')");
+        "every rule of type rule_with_allowlist implicitly depends upon the target"
+            + " '//allowlist:allowlist', but this target could not be found because of: no such"
+            + " package 'allowlist': BUILD file not found",
+        "rule_with_allowlist(name='x')");
   }
 
   @Test
   public void testIncludes() throws Exception {
     scratch.file(
-        "subwhitelist/BUILD",
+        "suballowlist/BUILD",
         "package_group(",
-        "    name='whitelist',",
+        "    name='allowlist',",
         "    packages=[",
         "        '//x',",
         "    ])");
     scratch.file(
-        "whitelist/BUILD",
+        "allowlist/BUILD",
         "package_group(",
-        "    name='whitelist',",
+        "    name='allowlist',",
         "    includes=[",
-        "        '//subwhitelist:whitelist',",
+        "        '//suballowlist:allowlist',",
         "    ],",
         "    packages=[",
         "    ])");
-    scratch.file("x/BUILD", "rule_with_whitelist(", "name='x'", ")");
+    scratch.file("x/BUILD", "rule_with_allowlist(", "name='x'", ")");
     getConfiguredTarget("//x:x");
     assertNoEvents();
   }

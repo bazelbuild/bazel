@@ -648,9 +648,9 @@ test_suite(
     name = "all_windows_tests",
     tests = [
         ":windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/analysis/whitelisting:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/blackbox/tests:blackbox_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:all_windows_tests",

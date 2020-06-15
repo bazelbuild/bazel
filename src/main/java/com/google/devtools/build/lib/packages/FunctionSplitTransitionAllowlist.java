@@ -17,11 +17,13 @@ package com.google.devtools.build.lib.packages;
 import com.google.devtools.build.lib.cmdline.Label;
 
 /**
- * This class provides constants associated with the function split transition whitelist.
+ * This class provides constants associated with the function split transition allowlist.
  */
-public class FunctionSplitTransitionWhitelist {
-  public static final String WHITELIST_NAME = "function_transition";
-  public static final String WHITELIST_ATTRIBUTE_NAME = "$whitelist_function_transition";
-  public static final Label WHITELIST_LABEL =
+public class FunctionSplitTransitionAllowlist {
+  public static final String NAME = "function_transition";
+  public static final String ATTRIBUTE_NAME = "$whitelist_function_transition";
+  public static final Label LABEL =
       Label.parseAbsoluteUnchecked("//tools/whitelists/function_transition_whitelist");
+
+  private FunctionSplitTransitionAllowlist() {}
 }

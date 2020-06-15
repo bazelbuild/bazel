@@ -166,6 +166,7 @@ java_library(
     name = "analysis_cluster",
     srcs = [
         "AliasProvider.java",
+        "Allowlist.java",
         "AnalysisEnvironment.java",
         "AnalysisFailureEvent.java",
         "AnalysisResult.java",
@@ -217,7 +218,6 @@ java_library(
         "TargetContext.java",
         "TopLevelArtifactHelper.java",
         "Util.java",
-        "Whitelist.java",
         "WindowsBatchCommandConstructor.java",
         "WindowsPowershellCommandConstructor.java",
         "actions/ActionConstructionContext.java",

@@ -576,9 +576,9 @@ sh_test(
 )
 
 sh_test(
-    name = "whitelist_test",
+    name = "allowlist_test",
     size = "medium",
-    srcs = ["whitelist_test.sh"],
+    srcs = ["allowlist_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
     tags = ["no_windows"],

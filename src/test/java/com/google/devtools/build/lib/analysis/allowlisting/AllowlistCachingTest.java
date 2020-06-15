@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.whitelisting;
+package com.google.devtools.build.lib.analysis.allowlisting;
 
 import static org.junit.Assert.assertThrows;
 
@@ -25,22 +25,22 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests that whitelists are invalidated after change. */
+/** Tests that allowlists are invalidated after change. */
 @RunWith(JUnit4.class)
-public final class WhitelistCachingTest extends AnalysisCachingTestBase {
+public final class AllowlistCachingTest extends AnalysisCachingTestBase {
 
   @Before
   public void addDummyRule() throws Exception {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
-    builder.addRuleDefinition(WhitelistDummyRule.DEFINITION);
+    builder.addRuleDefinition(AllowlistDummyRule.DEFINITION);
     useRuleClassProvider(builder.build());
   }
 
   @Test
-  public void testStillCorrectAfterChangesToWhitelist() throws Exception {
-    scratch.file("whitelist/BUILD", "package_group(name='whitelist', packages=[])");
-    scratch.file("x/BUILD", "rule_with_whitelist(name='x')");
+  public void testStillCorrectAfterChangesToAllowlist() throws Exception {
+    scratch.file("allowlist/BUILD", "package_group(name='allowlist', packages=[])");
+    scratch.file("x/BUILD", "rule_with_allowlist(name='x')");
 
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//x:x"));
@@ -48,9 +48,9 @@ public final class WhitelistCachingTest extends AnalysisCachingTestBase {
     eventCollector.clear();
     reporter.addHandler(failFastHandler);
     scratch.overwriteFile(
-        "whitelist/BUILD",
+        "allowlist/BUILD",
         "package_group(",
-        "    name='whitelist',",
+        "    name='allowlist',",
         "    packages=[",
         "        '//...'",
         "    ])");

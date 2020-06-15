@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skylark;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
-import static com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildSetting;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -2491,49 +2491,52 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBadWhitelistTransition_onNonLabelAttr() throws Exception {
-    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
+  public void testBadAllowlistTransition_onNonLabelAttr() throws Exception {
+    String allowlistAttributeName =
+        FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
         "my_rule = rule(_impl, attrs = {'"
-            + whitelistAttributeName
+            + allowlistAttributeName
             + "':attr.string(default = 'blah')})");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
-    assertContainsEvent("_whitelist_function_transition attribute must be a label type");
+    assertContainsEvent("_allowlist_function_transition attribute must be a label type");
   }
 
   @Test
-  public void testBadWhitelistTransition_noDefaultValue() throws Exception {
-    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
+  public void testBadAllowlistTransition_noDefaultValue() throws Exception {
+    String allowlistAttributeName =
+        FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
-        "my_rule = rule(_impl, attrs = {'" + whitelistAttributeName + "':attr.label()})");
+        "my_rule = rule(_impl, attrs = {'" + allowlistAttributeName + "':attr.label()})");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'my_rule')");
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
-    assertContainsEvent("_whitelist_function_transition attribute must have a default value");
+    assertContainsEvent("_allowlist_function_transition attribute must have a default value");
   }
 
   @Test
-  public void testBadWhitelistTransition_wrongDefaultValue() throws Exception {
-    String whitelistAttributeName = WHITELIST_ATTRIBUTE_NAME.replace("$", "_");
+  public void testBadAllowlistTransition_wrongDefaultValue() throws Exception {
+    String allowlistAttributeName =
+        FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME.replace("$", "_");
     scratch.file(
         "test/rules.bzl",
         "def _impl(ctx):",
         "    return []",
         "",
         "my_rule = rule(_impl, attrs = {'"
-            + whitelistAttributeName
+            + allowlistAttributeName
             + "':attr.label(default = Label('//test:my_other_rule'))})");
     scratch.file(
         "test/BUILD",
@@ -2544,7 +2547,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
     assertContainsEvent(
-        " _whitelist_function_transition attribute (//test:my_other_rule) does not have the"
+        " _allowlist_function_transition attribute (//test:my_other_rule) does not have the"
             + " expected value");
   }
 
@@ -2589,7 +2592,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBadWhitelistTransition_noWhitelist() throws Exception {
+  public void testBadAllowlistTransition_noAllowlist() throws Exception {
     scratch.file(
         "tools/whitelists/function_transition_whitelist/BUILD",
         "package_group(",
@@ -2627,7 +2630,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
-    assertContainsEvent("Use of Starlark transition without whitelist");
+    assertContainsEvent("Use of Starlark transition without allowlist");
   }
 
   @Test
@@ -2743,7 +2746,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testBadWhitelistTransition_whitelistNoCfg() throws Exception {
+  public void testBadAllowlistTransition_allowlistNoCfg() throws Exception {
     scratch.file(
         "tools/whitelists/function_transition_whitelist/BUILD",
         "package_group(",
@@ -2777,7 +2780,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_rule");
-    assertContainsEvent("Unused function-based split transition whitelist");
+    assertContainsEvent("Unused function-based split transition allowlist");
   }
 
   @Test

@@ -1,5 +1,5 @@
 # Description:
-#   Tests for whitelisting mechanism for rolling out and deprecating pieces of Blaze functionality.
+#   Tests for allowlisting mechanism for rolling out and deprecating pieces of Blaze functionality.
 
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
@@ -16,9 +16,9 @@ filegroup(
 )
 
 java_library(
-    name = "WhitelistUtil",
+    name = "AllowlistUtil",
     testonly = 1,
-    srcs = ["WhitelistDummyRule.java"],
+    srcs = ["AllowlistDummyRule.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -31,19 +31,19 @@ java_library(
 )
 
 # Description:
-#   Tests for whitelisting mechanism for rolling out and deprecating pieces of Bazel functionality.
+#   Tests for allowlisting mechanism for rolling out and deprecating pieces of Bazel functionality.
 java_test(
-    name = "WhitelistingTests",
+    name = "AllowlistingTests",
     srcs = [
-        "WhitelistCachingTest.java",
-        "WhitelistTest.java",
+        "AllowlistCachingTest.java",
+        "AllowlistTest.java",
     ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",
     ],
     deps = [
-        ":WhitelistUtil",
+        ":AllowlistUtil",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
