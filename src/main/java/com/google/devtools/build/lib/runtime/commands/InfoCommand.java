@@ -18,6 +18,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -77,6 +78,7 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -216,6 +218,7 @@ public class InfoCommand implements BlazeCommand {
 
       env.getEventBus().post(new NoBuildEvent());
       if (residue.size() > 0) {
+        ImmutableSet.Builder<String> unknownKeysBuilder = ImmutableSet.builder();
         for (String key : residue) {
           byte[] value;
           if (items.containsKey(key)) {
@@ -227,13 +230,21 @@ public class InfoCommand implements BlazeCommand {
               outErr.getOutputStream().write(value);
             }
           } else {
-            String message = "unknown key: '" + key + "'";
+            unknownKeysBuilder.add(key);
+          }
+        }
+        ImmutableSet<String> unknownKeys = unknownKeysBuilder.build();
+        if (!unknownKeys.isEmpty()) {
+            String message = "unknown key(s): " +
+                unknownKeys
+                  .stream()
+                  .map(key -> "'" + key + "'")
+                  .collect(Collectors.joining(", "));
             env.getReporter().handle(Event.error(message));
             return createFailureResult(
                 message,
                 ExitCode.COMMAND_LINE_ERROR,
                 FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
-          }
         }
       } else { // print them all
         configurationSupplier.get();  // We'll need this later anyway
