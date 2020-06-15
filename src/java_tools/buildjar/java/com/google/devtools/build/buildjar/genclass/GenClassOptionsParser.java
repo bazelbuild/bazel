@@ -30,9 +30,6 @@ public class GenClassOptionsParser {
         case "--manifest_proto":
           builder.setManifest(readPath(it));
           break;
-        case "--generated_source_jar":
-          builder.addGeneratedSourceJar(readPath(it));
-          break;
         case "--class_jar":
           builder.setClassJar(readPath(it));
           break;
