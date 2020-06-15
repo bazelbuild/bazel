@@ -213,37 +213,27 @@ public class InfoCommand implements BlazeCommand {
                     "Blaze info does not support starlark options. Ignoring options: "
                         + removedStarlarkOptions));
       }
-      if (residue.size() > 1) {
-        String message = "at most one key may be specified";
-        env.getReporter().handle(Event.error(message));
-        return createFailureResult(
-            message, ExitCode.COMMAND_LINE_ERROR, FailureDetails.InfoCommand.Code.TOO_MANY_KEYS);
-      }
 
-      String key = residue.size() == 1 ? residue.get(0) : null;
       env.getEventBus().post(new NoBuildEvent());
-      if (key != null) { // print just the value for the specified key:
-        byte[] value;
-        if (items.containsKey(key)) {
-          value = items.get(key).get(configurationSupplier, env);
-        } else {
-          String message = "unknown key: '" + key + "'";
-          env.getReporter().handle(Event.error(message));
-          return createFailureResult(
-              message,
-              ExitCode.COMMAND_LINE_ERROR,
-              FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
-        }
-        try {
-          outErr.getOutputStream().write(value);
-          outErr.getOutputStream().flush();
-        } catch (IOException e) {
-          String message = "Cannot write info block: " + e.getMessage();
-          env.getReporter().handle(Event.error(message));
-          return createFailureResult(
-              message,
-              ExitCode.ANALYSIS_FAILURE,
-              FailureDetails.InfoCommand.Code.INFO_BLOCK_WRITE_FAILURE);
+      if (residue.size() > 0) {
+        for (String key : residue) {
+          byte[] value;
+          if (items.containsKey(key)) {
+            try (SilentCloseable c = Profiler.instance().profile(key + ".infoItem")) {
+              value = items.get(key).get(configurationSupplier, env);
+              if (residue.size() > 1) {
+                outErr.getOutputStream().write((key + ": ").getBytes(StandardCharsets.UTF_8));
+              }
+              outErr.getOutputStream().write(value);
+            }
+          } else {
+            String message = "unknown key: '" + key + "'";
+            env.getReporter().handle(Event.error(message));
+            return createFailureResult(
+                message,
+                ExitCode.COMMAND_LINE_ERROR,
+                FailureDetails.InfoCommand.Code.KEY_NOT_RECOGNIZED);
+          }
         }
       } else { // print them all
         configurationSupplier.get();  // We'll need this later anyway
@@ -258,6 +248,7 @@ public class InfoCommand implements BlazeCommand {
           }
         }
       }
+      outErr.getOutputStream().flush();
     } catch (AbruptExitException e) {
       return BlazeCommandResult.detailedExitCode(e.getDetailedExitCode());
     } catch (AbruptExitRuntimeException e) {
