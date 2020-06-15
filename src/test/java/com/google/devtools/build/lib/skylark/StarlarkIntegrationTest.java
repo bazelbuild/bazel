@@ -3319,7 +3319,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         "def custom_rule_impl(ctx):",
-        "  return struct(foo = apple_common.new_objc_provider(define=depset(['foo'])))",
+        "  return struct(foo = apple_common.new_objc_provider(linkopt=depset(['foo'])))",
         "",
         "custom_rule = rule(implementation = custom_rule_impl)");
 
@@ -3336,9 +3336,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
 
     // The modern key and the canonical legacy key "objc" are set to the one available ObjcProvider.
-    assertThat(providerFromModernKey.define().toList()).containsExactly("foo");
-    assertThat(providerFromObjc.define().toList()).containsExactly("foo");
-    assertThat(providerFromFoo.define().toList()).containsExactly("foo");
+    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
+    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
+    assertThat(providerFromFoo.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
   }
 
   @Test
@@ -3347,9 +3347,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         "def custom_rule_impl(ctx):",
-        "  return struct(providers = [apple_common.new_objc_provider(define=depset(['prov']))],",
-        "       bah = apple_common.new_objc_provider(define=depset(['bah'])),",
-        "       objc = apple_common.new_objc_provider(define=depset(['objc'])))",
+        "  return struct(providers = [apple_common.new_objc_provider(linkopt=depset(['prov']))],",
+        "       bah = apple_common.new_objc_provider(linkopt=depset(['bah'])),",
+        "       objc = apple_common.new_objc_provider(linkopt=depset(['objc'])))",
         "",
         "custom_rule = rule(implementation = custom_rule_impl)");
 
@@ -3365,9 +3365,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromObjc = (ObjcProvider) target.get("objc");
     ObjcProvider providerFromBah = (ObjcProvider) target.get("bah");
 
-    assertThat(providerFromModernKey.define().toList()).containsExactly("prov");
-    assertThat(providerFromObjc.define().toList()).containsExactly("objc");
-    assertThat(providerFromBah.define().toList()).containsExactly("bah");
+    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("prov");
+    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("objc");
+    assertThat(providerFromBah.get(ObjcProvider.LINKOPT).toList()).containsExactly("bah");
   }
 
   @Test
@@ -3376,9 +3376,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/extension.bzl",
         "def custom_rule_impl(ctx):",
-        "  return struct(providers = [apple_common.new_objc_provider(define=depset(['prov']))],",
-        "       foo = apple_common.new_objc_provider(define=depset(['foo'])),",
-        "       bar = apple_common.new_objc_provider(define=depset(['bar'])))",
+        "  return struct(providers = [apple_common.new_objc_provider(linkopt=depset(['prov']))],",
+        "       foo = apple_common.new_objc_provider(linkopt=depset(['foo'])),",
+        "       bar = apple_common.new_objc_provider(linkopt=depset(['bar'])))",
         "",
         "custom_rule = rule(implementation = custom_rule_impl)");
 
@@ -3395,11 +3395,11 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ObjcProvider providerFromFoo = (ObjcProvider) target.get("foo");
     ObjcProvider providerFromBar = (ObjcProvider) target.get("bar");
 
-    assertThat(providerFromModernKey.define().toList()).containsExactly("prov");
+    assertThat(providerFromModernKey.get(ObjcProvider.LINKOPT).toList()).containsExactly("prov");
     // The first defined provider is set to the legacy "objc" key.
-    assertThat(providerFromObjc.define().toList()).containsExactly("foo");
-    assertThat(providerFromFoo.define().toList()).containsExactly("foo");
-    assertThat(providerFromBar.define().toList()).containsExactly("bar");
+    assertThat(providerFromObjc.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
+    assertThat(providerFromFoo.get(ObjcProvider.LINKOPT).toList()).containsExactly("foo");
+    assertThat(providerFromBar.get(ObjcProvider.LINKOPT).toList()).containsExactly("bar");
   }
 
   @Test

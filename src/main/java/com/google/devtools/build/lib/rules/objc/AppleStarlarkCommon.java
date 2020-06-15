@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.Map;
@@ -61,6 +62,15 @@ public class AppleStarlarkCommon
         ObjcProvider,
         XcodeConfigInfo,
         ApplePlatform> {
+
+  @VisibleForTesting
+  public static final String DEPRECATED_KEY_ERROR =
+      "Key '%s' no longer supported in ObjcProvider (use CcInfo instead).";
+
+  @VisibleForTesting
+  public static final String BAD_DIRECT_DEP_PROVIDERS_ERROR =
+      "Argument 'direct_dep_providers' no longer supported.  Please use 'strict_include' field "
+          + "in ObjcProvider.";
 
   @VisibleForTesting
   public static final String BAD_KEY_ERROR =
@@ -188,8 +198,8 @@ public class AppleStarlarkCommon
   // This method is registered statically for Starlark, and never called directly.
   public ObjcProvider newObjcProvider(Boolean usesSwift, Dict<?, ?> kwargs, StarlarkThread thread)
       throws EvalException {
-    ObjcProvider.StarlarkBuilder resultBuilder =
-        new ObjcProvider.StarlarkBuilder(thread.getSemantics());
+    StarlarkSemantics semantics = thread.getSemantics();
+    ObjcProvider.StarlarkBuilder resultBuilder = new ObjcProvider.StarlarkBuilder(semantics);
     if (usesSwift) {
       resultBuilder.add(ObjcProvider.FLAG, ObjcProvider.Flag.USES_SWIFT);
     }
@@ -202,6 +212,9 @@ public class AppleStarlarkCommon
       } else if (entry.getKey().equals("providers")) {
         resultBuilder.addProvidersFromStarlark(entry.getValue());
       } else if (entry.getKey().equals("direct_dep_providers")) {
+        if (semantics.incompatibleObjcProviderRemoveCompileInfo()) {
+          throw new EvalException(null, BAD_DIRECT_DEP_PROVIDERS_ERROR);
+        }
         resultBuilder.addDirectDepProvidersFromStarlark(entry.getValue());
       } else {
         throw new EvalException(null, String.format(BAD_KEY_ERROR, entry.getKey()));
