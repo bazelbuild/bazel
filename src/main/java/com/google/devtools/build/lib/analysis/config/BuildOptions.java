@@ -1255,15 +1255,13 @@ public final class BuildOptions implements Cloneable, Serializable {
    * Implementation of the {@link OptionsDiffCache} that acts as a {@code BiMap} utilizing two
    * {@code ConcurrentHashMaps}.
    */
-  public static class DiffToByteCache implements OptionsDiffCache {
+  public static final class DiffToByteCache implements OptionsDiffCache {
     // We expect there to be very few elements so keeping the reverse map as well as the forward
     // map should be very cheap.
-    private static final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString>
-        diffToByteStringMap = new ConcurrentHashMap<>();
-    private static final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction>
-        byteStringToDiffMap = new ConcurrentHashMap<>();
-
-    public DiffToByteCache() {}
+    private final ConcurrentHashMap<OptionsDiffForReconstruction, ByteString> diffToByteStringMap =
+        new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<ByteString, OptionsDiffForReconstruction> byteStringToDiffMap =
+        new ConcurrentHashMap<>();
 
     @Override
     public ByteString getBytesFromOptionsDiff(OptionsDiffForReconstruction diff) {
