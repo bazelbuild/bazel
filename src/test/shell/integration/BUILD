@@ -693,6 +693,15 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "info_test",
+    srcs = ["info_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
 ########################################################################
 # Test suites.
 
