@@ -66,6 +66,7 @@ public final class AspectDefinition {
   private final RequiredProviders requiredProvidersForAspects;
   private final ImmutableMap<String, Attribute> attributes;
   private final ImmutableSet<Label> requiredToolchains;
+  private final boolean useToolchainTransition;
 
   /**
    * Which attributes aspect should propagate along:
@@ -91,6 +92,7 @@ public final class AspectDefinition {
       RequiredProviders requiredProvidersForAspects,
       ImmutableMap<String, Attribute> attributes,
       ImmutableSet<Label> requiredToolchains,
+      boolean useToolchainTransition,
       @Nullable ImmutableSet<String> restrictToAttributes,
       @Nullable ConfigurationFragmentPolicy configurationFragmentPolicy,
       boolean applyToFiles,
@@ -102,6 +104,7 @@ public final class AspectDefinition {
 
     this.attributes = attributes;
     this.requiredToolchains = requiredToolchains;
+    this.useToolchainTransition = useToolchainTransition;
     this.restrictToAttributes = restrictToAttributes;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.applyToFiles = applyToFiles;
@@ -128,6 +131,10 @@ public final class AspectDefinition {
   /** Returns the required toolchains declared by this aspect. */
   public ImmutableSet<Label> getRequiredToolchains() {
     return requiredToolchains;
+  }
+
+  public boolean useToolchainTransition() {
+    return useToolchainTransition;
   }
 
   /**
@@ -249,6 +256,7 @@ public final class AspectDefinition {
     private boolean applyToFiles = false;
     private boolean applyToGeneratingRules = false;
     private final List<Label> requiredToolchains = new ArrayList<>();
+    private boolean useToolchainTransition = false;
 
     public Builder(AspectClass aspectClass) {
       this.aspectClass = aspectClass;
@@ -518,6 +526,12 @@ public final class AspectDefinition {
       this.requiredToolchains.addAll(requiredToolchains);
       return this;
     }
+
+    public Builder useToolchainTransition(boolean useToolchainTransition) {
+      this.useToolchainTransition = useToolchainTransition;
+      return this;
+    }
+
     /**
      * Builds the aspect definition.
      *
@@ -538,6 +552,7 @@ public final class AspectDefinition {
           requiredAspectProviders.build(),
           ImmutableMap.copyOf(attributes),
           ImmutableSet.copyOf(requiredToolchains),
+          useToolchainTransition,
           propagateAlongAttributes == null ? null : ImmutableSet.copyOf(propagateAlongAttributes),
           configurationFragmentPolicy.build(),
           applyToFiles,

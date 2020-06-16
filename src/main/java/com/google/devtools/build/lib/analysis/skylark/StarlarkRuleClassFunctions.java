@@ -491,6 +491,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Boolean applyToGeneratingRules,
       StarlarkThread thread)
@@ -591,6 +592,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
         parseToolchains(toolchains, thread),
+        useToolchainTransition,
         applyToGeneratingRules);
   }
 

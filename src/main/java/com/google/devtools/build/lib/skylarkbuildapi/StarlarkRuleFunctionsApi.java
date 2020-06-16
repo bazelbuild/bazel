@@ -484,6 +484,15 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
                     + "found by checking the current platform, and provided to the rule "
                     + "implementation via <code>ctx.toolchain</code>."),
         @Param(
+            name = "incompatible_use_toolchain_transition",
+            type = Boolean.class,
+            defaultValue = "False",
+            named = true,
+            doc =
+                "If set, this aspect will use the toolchain transition for toolchain dependencies."
+                    + " This is ignored if the --incompatible_use_toolchain_transition flag is"
+                    + " set."),
+        @Param(
             name = "doc",
             type = String.class,
             named = true,
@@ -518,6 +527,7 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Boolean applyToGeneratingRules,
       StarlarkThread thread)
