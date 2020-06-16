@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
@@ -584,9 +585,18 @@ public class CompilationSupport {
     activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
     try {
-      return ccToolchain
-          .getFeatures()
-          .getFeatureConfiguration(activatedCrosstoolSelectables.build());
+      ImmutableSet<String> activatedCrosstoolSelectablesSet;
+      if (!ccToolchain.supportsHeaderParsing()) {
+        // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
+        // cc_toolchain rule.
+        activatedCrosstoolSelectablesSet =
+            activatedCrosstoolSelectables.build().stream()
+                .filter(feature -> !feature.equals(CppRuleClasses.PARSE_HEADERS))
+                .collect(toImmutableSet());
+      } else {
+        activatedCrosstoolSelectablesSet = activatedCrosstoolSelectables.build();
+      }
+      return ccToolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectablesSet);
     } catch (CollidingProvidesException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
