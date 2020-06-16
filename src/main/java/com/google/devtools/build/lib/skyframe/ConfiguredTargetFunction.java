@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -314,6 +315,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
+              DependencyResolver.shouldUseToolchainTransition(configuration, ctgValue.getTarget()),
               ruleClassProvider,
               view.getHostConfiguration(configuration),
               transitivePackagesForPackageRootResolution,
@@ -615,6 +617,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      boolean useToolchainTransition,
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
@@ -634,6 +637,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               aspects,
               configConditions,
               toolchainContexts,
+              useToolchainTransition,
               transitiveRootCauses,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
     } catch (EvalException e) {

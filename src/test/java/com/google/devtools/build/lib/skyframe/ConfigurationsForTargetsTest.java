@@ -142,6 +142,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 ImmutableList.<Aspect>of(),
                 ImmutableMap.<Label, ConfigMatchingProvider>of(),
                 /*toolchainContext=*/ null,
+                /* useToolchainTransition= */ false,
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig(),
                 NestedSetBuilder.<Package>stableOrder(),

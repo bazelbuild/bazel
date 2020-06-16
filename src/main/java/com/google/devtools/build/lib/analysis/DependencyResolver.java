@@ -73,6 +73,30 @@ import javax.annotation.Nullable;
 public abstract class DependencyResolver {
 
   /**
+   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
+   * change flag and the rule's toolchain transition readiness attribute.
+   */
+  // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
+  public static boolean shouldUseToolchainTransition(
+      @Nullable BuildConfiguration configuration, Target target) {
+    // Check whether the global incompatible change flag is set.
+    if (configuration != null) {
+      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
+      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
+        return true;
+      }
+    }
+
+    // Check the rule definition to see if it is ready.
+    if (target instanceof Rule && ((Rule) target).getRuleClassObject().useToolchainTransition()) {
+      return true;
+    }
+
+    // Default to false.
+    return false;
+  }
+
+  /**
    * What we know about a dependency edge after factoring in the properties of the configured target
    * that the edge originates from, but not the properties of target it points to.
    */
@@ -148,6 +172,7 @@ public abstract class DependencyResolver {
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      boolean useToolchainTransition,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
@@ -155,9 +180,10 @@ public abstract class DependencyResolver {
         dependentNodeMap(
             node,
             hostConfig,
-            aspect != null ? ImmutableList.of(aspect) : ImmutableList.<Aspect>of(),
+            aspect != null ? ImmutableList.of(aspect) : ImmutableList.of(),
             configConditions,
             toolchainContexts,
+            useToolchainTransition,
             rootCauses,
             trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
@@ -203,6 +229,7 @@ public abstract class DependencyResolver {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      boolean useToolchainTransition,
       NestedSetBuilder<Cause> rootCauses,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
@@ -239,9 +266,6 @@ public abstract class DependencyResolver {
       return OrderedSetMultimap.create();
     }
 
-    // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
-    boolean useToolchainTransition =
-        shouldUseToolchainTransition(node.getConfiguration(), fromRule);
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
             outgoingLabels,
@@ -256,29 +280,6 @@ public abstract class DependencyResolver {
             partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
 
     return outgoingEdges;
-  }
-
-  /**
-   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
-   * change flag and the rule's toolchain transition readiness attribute.
-   */
-  private static boolean shouldUseToolchainTransition(
-      @Nullable BuildConfiguration configuration, @Nullable Rule fromRule) {
-    // Check whether the global incompatible change flag is set.
-    if (configuration != null) {
-      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
-      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
-        return true;
-      }
-    }
-
-    // Check the rule definition to see if it is ready.
-    if (fromRule != null && fromRule.getRuleClassObject().useToolchainTransition()) {
-      return true;
-    }
-
-    // Default to false.
-    return false;
   }
 
   /**
