@@ -79,7 +79,8 @@ public interface AppleCommonApi<
               + "<li><code>watchos_device</code></li>"
               + "</ul><p>"
               + "These values can be passed to methods that expect a platform, like "
-              + "<a href='apple.html#sdk_version_for_platform'>apple.sdk_version_for_platform</a>.",
+              + "<a href='XcodeVersionConfig.html#sdk_version_for_platform'>"
+              + "XcodeVersionConfig.sdk_version_for_platform</a>.",
       structField = true)
   StructApi getPlatformStruct();
 
