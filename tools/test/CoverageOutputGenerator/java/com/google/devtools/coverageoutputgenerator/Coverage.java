@@ -41,13 +41,12 @@ class Coverage {
     }
   }
 
-  static Coverage merge(Coverage c1, Coverage c2) {
+  static Coverage merge(Coverage... coverages) {
     Coverage merged = new Coverage();
-    for (SourceFileCoverage sourceFile : c1.getAllSourceFiles()) {
-      merged.add(sourceFile);
-    }
-    for (SourceFileCoverage sourceFile : c2.getAllSourceFiles()) {
-      merged.add(sourceFile);
+    for (Coverage c : coverages) {
+      for (SourceFileCoverage sourceFile : c.getAllSourceFiles()) {
+        merged.add(sourceFile);
+      }
     }
     return merged;
   }
