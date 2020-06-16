@@ -542,6 +542,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
       commandLine.addFormatted("-XX:SharedArchiveConfigFile=%s", configFile.getExecPath());
     }
     commandLine.add("-cp").addExecPath(merged);
+    if (ruleContext.getRule().isAttrDefined("jvm_flags_for_cds_image_creation", Type.STRING_LIST)) {
+      commandLine.addAll(
+          ruleContext.getExpander().withDataLocations().list("jvm_flags_for_cds_image_creation"));
+    }
+
     SpawnAction.Builder spawnAction =
         new SpawnAction.Builder()
             .setExecutable(javaRuntime.javaBinaryExecPathFragment())
