@@ -199,9 +199,9 @@ output base. The location can be configured using the `--profile` flag, for
 example `--profile=/tmp/profile.gz`. If that location ends with `.gz`, the
 profile will be compressed with GZIP.
 
-The resulting profile (potentially compressed) profile file can be loaded and
-viewed in Chrome. For this, open `chrome://tracing` in a new tab, click "Load"
-and pick the profile file.
+The resulting (potentially compressed) profile file can be loaded and viewed in
+Chrome. For this, open `chrome://tracing` in a new tab, click "Load" and pick
+the profile file.
 
 You can get more details by clicking on the boxes and inspecting the details in
 the lower left corner.
@@ -253,9 +253,9 @@ When analyzing these kind of profiles look for the following:
     set of (transitive) dependencies to speed them up. Also check for an unusual
     high non-`PROCESS_TIME` (e.g. `REMOTE_SETUP` or `FETCH`).
 *   Bottlenecks, that is a small number of threads is busy while all others are
-    idleing waiting for the result (see around 15s-30s in above screenshot).
+    idling / waiting for the result (see around 15s-30s in above screenshot).
     Optimizing this will most likely require touching the rule implementations
-    or Bazel changes to introduce more parallelism. This can also happen when
+    or Bazel itself to introduce more parallelism. This can also happen when
     there is an unusual amount of GC.
 
 ### Profile file format
