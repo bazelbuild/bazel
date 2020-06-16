@@ -190,14 +190,18 @@ public class NestedSetImplTest {
     return new SetWrapper<>(builder.build());
   }
 
+  private static final int UNKNOWN_DEPTH = 7;
+
   @Test
   public void shallowEquality() {
     // Used below to check that inner nested sets can be compared by reference equality.
     SetWrapper<Integer> myRef = nest(nest(flat(7, 8)), flat(9));
     // Used to check equality for deserializing nested sets
     ListenableFuture<Object[]> contents = Futures.immediateFuture(new Object[] {"a", "b"});
-    NestedSet<String> referenceNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, contents);
-    NestedSet<String> otherReferenceNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, contents);
+    NestedSet<String> referenceNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, contents);
+    NestedSet<String> otherReferenceNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, contents);
 
     // Each "equality group" contains elements that are equal to one another
     // (according to equals() and hashCode()), yet distinct from all elements
@@ -231,15 +235,18 @@ public class NestedSetImplTest {
     assertThat(nestedSetBuilder("a").build().shallowEquals(null)).isFalse();
     Object[] contents = {"a", "b"};
     assertThat(
-            NestedSet.withFuture(Order.STABLE_ORDER, Futures.immediateFuture(contents))
+            NestedSet.withFuture(
+                    Order.STABLE_ORDER, UNKNOWN_DEPTH, Futures.immediateFuture(contents))
                 .shallowEquals(null))
         .isFalse();
 
     // shallowEquals() should require reference equality for underlying futures
     assertThat(
-            NestedSet.withFuture(Order.STABLE_ORDER, Futures.immediateFuture(contents))
+            NestedSet.withFuture(
+                    Order.STABLE_ORDER, UNKNOWN_DEPTH, Futures.immediateFuture(contents))
                 .shallowEquals(
-                    NestedSet.withFuture(Order.STABLE_ORDER, Futures.immediateFuture(contents))))
+                    NestedSet.withFuture(
+                        Order.STABLE_ORDER, UNKNOWN_DEPTH, Futures.immediateFuture(contents))))
         .isFalse();
   }
 
@@ -334,47 +341,49 @@ public class NestedSetImplTest {
 
   @Test
   public void buildInterruptibly_propagatesInterrupt() {
-    NestedSet<String> deserialzingNestedSet =
-        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());
     NestedSetBuilder<String> builder =
-        NestedSetBuilder.<String>stableOrder().addTransitive(deserialzingNestedSet).add("a");
+        NestedSetBuilder.<String>stableOrder().addTransitive(deserializingNestedSet).add("a");
     Thread.currentThread().interrupt();
     assertThrows(InterruptedException.class, builder::buildInterruptibly);
   }
 
   @Test
   public void getChildrenInterruptibly_propagatesInterrupt() {
-    NestedSet<String> deserialzingNestedSet =
-        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());
     Thread.currentThread().interrupt();
-    assertThrows(InterruptedException.class, deserialzingNestedSet::getChildrenInterruptibly);
+    assertThrows(InterruptedException.class, deserializingNestedSet::getChildrenInterruptibly);
   }
 
   @Test
   public void toListWithTimeout_propagatesInterrupt() {
-    NestedSet<String> deserialzingNestedSet =
-        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());
     Thread.currentThread().interrupt();
     assertThrows(
         InterruptedException.class,
-        () -> deserialzingNestedSet.toListWithTimeout(Duration.ofDays(1)));
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofDays(1)));
   }
 
   @Test
   public void toListWithTimeout_timesOut() {
-    NestedSet<String> deserialzingNestedSet =
-        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());
     assertThrows(
-        TimeoutException.class, () -> deserialzingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
+        TimeoutException.class,
+        () -> deserializingNestedSet.toListWithTimeout(Duration.ofNanos(1)));
   }
 
   @Test
   public void toListWithTimeout_waits() throws Exception {
     SettableFuture<Object[]> future = SettableFuture.create();
-    NestedSet<String> deserialzingNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, future);
+    NestedSet<String> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, future);
     Future<ImmutableList<String>> result =
         Executors.newSingleThreadExecutor()
-            .submit(() -> deserialzingNestedSet.toListWithTimeout(Duration.ofMinutes(1)));
+            .submit(() -> deserializingNestedSet.toListWithTimeout(Duration.ofMinutes(1)));
     Thread.sleep(100);
     assertThat(result.isDone()).isFalse();
     future.set(new Object[] {"a", "b"});
@@ -384,7 +393,7 @@ public class NestedSetImplTest {
   @Test
   public void isFromStorage_true() {
     NestedSet<?> deserializingNestedSet =
-        NestedSet.withFuture(Order.STABLE_ORDER, SettableFuture.create());
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, SettableFuture.create());
     assertThat(deserializingNestedSet.isFromStorage()).isTrue();
   }
 
@@ -403,9 +412,48 @@ public class NestedSetImplTest {
   @Test
   public void isReady_fromStorage() {
     SettableFuture<Object[]> future = SettableFuture.create();
-    NestedSet<?> deserializingNestedSet = NestedSet.withFuture(Order.STABLE_ORDER, future);
+    NestedSet<?> deserializingNestedSet =
+        NestedSet.withFuture(Order.STABLE_ORDER, UNKNOWN_DEPTH, future);
     assertThat(deserializingNestedSet.isReady()).isFalse();
     future.set(new Object[] {"a", "b"});
     assertThat(deserializingNestedSet.isReady()).isTrue();
+  }
+
+  @Test
+  public void getApproxDepth() {
+    NestedSet<String> empty = nestedSetBuilder().build();
+    NestedSet<String> justA = nestedSetBuilder("a").build();
+    NestedSet<String> justB = nestedSetBuilder("b").build();
+    NestedSet<String> ab = nestedSetBuilder().addTransitive(justA).addTransitive(justB).build();
+
+    assertThat(empty.getApproxDepth()).isEqualTo(0);
+    assertThat(
+            nestedSetBuilder().addTransitive(empty).addTransitive(empty).build().getApproxDepth())
+        .isEqualTo(0);
+    assertThat(justA.getApproxDepth()).isEqualTo(1);
+    assertThat(justB.getApproxDepth()).isEqualTo(1);
+    assertThat(
+            nestedSetBuilder().addTransitive(empty).addTransitive(empty).build().getApproxDepth())
+        .isEqualTo(0);
+    assertThat(
+            nestedSetBuilder().addTransitive(empty).addTransitive(justA).build().getApproxDepth())
+        .isEqualTo(1);
+    assertThat(
+            nestedSetBuilder().addTransitive(justA).addTransitive(empty).build().getApproxDepth())
+        .isEqualTo(1);
+    assertThat(
+            nestedSetBuilder().addTransitive(justA).addTransitive(justA).build().getApproxDepth())
+        .isEqualTo(1);
+    assertThat(
+            nestedSetBuilder().addTransitive(justA).addTransitive(justB).build().getApproxDepth())
+        .isEqualTo(2);
+    assertThat(
+            nestedSetBuilder("a", "b", "c")
+                .addTransitive(justA)
+                .addTransitive(justB)
+                .addTransitive(ab)
+                .build()
+                .getApproxDepth())
+        .isEqualTo(3);
   }
 }

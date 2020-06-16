@@ -431,19 +431,25 @@ public final class DepsetTest {
   }
 
   @Test
-  public void testDepthExceedsLimitDuringIteration() throws Exception {
-    NestedSet.setApplicationDepthLimit(2000);
+  public void testConstructorDepthLimit() throws Exception {
     ev.new Scenario()
         .setUp(
             "def create_depset(depth):",
             "  x = depset([0])",
             "  for i in range(1, depth):",
-            "    x = depset([i], transitive = [x])",
-            "  for element in x.to_list():",
-            "    str(x)",
-            "  return None")
-        .testEval("create_depset(1000)", "None")
-        .testIfErrorContains("depset exceeded maximum depth", "create_depset(3000)");
+            "    x = depset([i], transitive = [x])")
+        .testEval("create_depset(3000)", "None") // succeeds
+        .testIfErrorContains("depset depth 3501 exceeds limit (3500)", "create_depset(4000)");
+
+    Depset.setDepthLimit(100);
+    ev.new Scenario()
+        .setUp(
+            "def create_depset(depth):",
+            "  x = depset([0])",
+            "  for i in range(1, depth):",
+            "    x = depset([i], transitive = [x])")
+        .testEval("create_depset(99)", "None") // succeeds
+        .testIfErrorContains("depset depth 101 exceeds limit (100)", "create_depset(1000)");
   }
 
   @Test
@@ -507,38 +513,5 @@ public final class DepsetTest {
                 + "It may be temporarily re-enabled by setting "
                 + "--incompatible_disable_depset_inputs=false",
             "depset(items=[0,1])");
-  }
-
-  @Test
-  public void testDepsetDepthLimit() throws Exception {
-    NestedSet.setApplicationDepthLimit(2000);
-    ev.new Scenario()
-        .setUp(
-            "def create_depset(depth):",
-            "  x = depset([0])",
-            "  for i in range(1, depth):",
-            "    x = depset([i], transitive = [x])",
-            "  return x",
-            "too_deep_depset = create_depset(3000)",
-            "fine_depset = create_depset(900)")
-        .testEval("fine_depset.to_list()[0]", "0")
-        .testEval("str(fine_depset)[0:6]", "'depset'")
-        .testIfErrorContains("depset exceeded maximum depth", "print(too_deep_depset)")
-        .testIfErrorContains("depset exceeded maximum depth", "str(too_deep_depset)")
-        .testIfErrorContains("depset exceeded maximum depth", "too_deep_depset.to_list()");
-  }
-
-  @Test
-  public void testDepsetDebugDepth() throws Exception {
-    NestedSet.setApplicationDepthLimit(2000);
-    ev.new Scenario("--debug_depset_depth=true")
-        .setUp(
-            "def create_depset(depth):",
-            "  x = depset([0])",
-            "  for i in range(1, depth):",
-            "    x = depset([i], transitive = [x])",
-            "  return x")
-        .testEval("str(create_depset(900))[0:6]", "'depset'")
-        .testIfErrorContains("depset exceeded maximum depth", "create_depset(3000)");
   }
 }

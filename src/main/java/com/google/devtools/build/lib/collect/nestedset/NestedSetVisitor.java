@@ -30,7 +30,6 @@ import java.util.Set;
  *
  * @param <E> the data type
  */
-// @ThreadSafety.ThreadSafe
 public final class NestedSetVisitor<E> {
 
   /**

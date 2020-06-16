@@ -162,6 +162,10 @@ public class NestedSetTopologyTest {
     NestedSet<String> s = v.splitIfExceedsMaximumSize(2);
     assertThat(s).isNotSameInstanceAs(v);
     assertThat(collectCheckSize(s, 2)).containsExactly("a", "b", "c", "d", "e");
+
+    // Splitting may increment the graph depth, possibly more than once.
+    assertThat(v.getApproxDepth()).isEqualTo(2);
+    assertThat(s.getApproxDepth()).isEqualTo(4);
   }
 
   private static <T> List<T> collectCheckSize(NestedSet<T> set, int maxSize) {

@@ -119,7 +119,6 @@ public class StarlarkSemanticsConsistencyTest {
   private static StarlarkSemanticsOptions buildRandomOptions(Random rand) throws Exception {
     return parseOptions(
         // <== Add new options here in alphabetic order ==>
-        "--debug_depset_depth=" + rand.nextBoolean(),
         "--experimental_action_args=" + rand.nextBoolean(),
         "--experimental_disable_external_package=" + rand.nextBoolean(),
         "--experimental_sibling_repository_layout=" + rand.nextBoolean(),
@@ -174,7 +173,6 @@ public class StarlarkSemanticsConsistencyTest {
   private static StarlarkSemantics buildRandomSemantics(Random rand) {
     return StarlarkSemantics.builder()
         // <== Add new options here in alphabetic order ==>
-        .debugDepsetDepth(rand.nextBoolean())
         .experimentalActionArgs(rand.nextBoolean())
         .experimentalDisableExternalPackage(rand.nextBoolean())
         .experimentalSiblingRepositoryLayout(rand.nextBoolean())

@@ -198,8 +198,6 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
-  public abstract boolean debugDepsetDepth();
-
   public abstract boolean experimentalActionArgs();
 
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
@@ -317,7 +315,6 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT =
       builder()
           // <== Add new options here in alphabetic order ==>
-          .debugDepsetDepth(false)
           .experimentalActionArgs(true)
           .experimentalAllowTagsPropagation(false)
           .experimentalBuiltinsBzlPath("")
@@ -367,8 +364,6 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
-    public abstract Builder debugDepsetDepth(boolean value);
-
     public abstract Builder experimentalActionArgs(boolean value);
 
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);

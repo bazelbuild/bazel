@@ -33,17 +33,15 @@ public class NestedSetOptionsModule extends BlazeModule {
         documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
         help =
-            "Limit on the depth of NestedSet, which is the internal data structure used to "
-                + "implement `depset` in Starlark. If a depset is flattened during evaluation of "
-                + "Starlark code or a NestedSet is flattened internally, and that data structure "
-                + "has a depth exceeding this limit, then the Bazel invocation will fail.")
+            "The maximum depth of the graph internal to a depset (also known as NestedSet), above"
+                + " which the depset() constructor will fail.")
     public int nestedSetDepthLimit;
   }
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
     Options options = env.getOptions().getOptions(Options.class);
-    boolean changed = NestedSet.setApplicationDepthLimit(options.nestedSetDepthLimit);
+    boolean changed = Depset.setDepthLimit(options.nestedSetDepthLimit);
     if (changed) {
       env.getSkyframeExecutor().resetEvaluator();
     }

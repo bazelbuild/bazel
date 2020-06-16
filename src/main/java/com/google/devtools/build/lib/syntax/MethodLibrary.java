@@ -291,20 +291,7 @@ class MethodLibrary {
               + "str(8) == \"8\"</pre>",
       parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
   public String str(Object x) throws EvalException {
-    try {
-      return Starlark.str(x);
-    } catch (RuntimeException ex) {
-      // TODO(adonovan): get rid of this somehow.
-      if (ex.getClass().getSimpleName().equals("NestedSetDepthException")) {
-        throw Starlark.errorf(
-            "depset exceeded maximum depth"
-                + ". This was only discovered when attempting to flatten the depset for str(), as "
-                + "the size of depsets is unknown until flattening. "
-                + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-                + "solutions.");
-      }
-      throw ex;
-    }
+    return Starlark.str(x);
   }
 
   @StarlarkMethod(
@@ -734,19 +721,7 @@ class MethodLibrary {
     String separator = "";
     for (Object x : args) {
       p.append(separator);
-      try {
-        p.debugPrint(x);
-      } catch (RuntimeException ex) {
-        // TODO(adonovan): get rid of this somehow.
-        if (ex.getClass().getSimpleName().equals("NestedSetDepthException")) {
-          throw Starlark.errorf(
-              "depset exceeded maximum depth. This was only discovered when attempting to"
-                  + " flatten the depset for print(), as the size of depsets is unknown until"
-                  + " flattening. See https://github.com/bazelbuild/bazel/issues/9180 for details"
-                  + " and possible solutions.");
-        }
-        throw ex;
-      }
+      p.debugPrint(x);
       separator = sep;
     }
     // As part of the integration test "starlark_flag_test.sh", if the
