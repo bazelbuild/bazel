@@ -109,7 +109,18 @@ function process_doc {
   local tempf=$(mktemp -t bazel-doc-XXXXXX)
 
   chmod +w $f
-  cat "$f" | sed 's,\.md,.html,g;s,Blaze,Bazel,g;s,blaze,bazel,g' > "$tempf"
+  # Replace .md with .html only in relative links to other Bazel docs.
+  # sed regexp explanation:
+  # \( and \)         delimits a capturing group
+  # \1                inserts the capture
+  # [( "'\'']         character preceding a url in markdown syntax (open paren
+  #                   or space) or html syntax (a quote); note that '\'' embeds
+  #                   a single quote in a bash single-quoted string.
+  # [a-zA-Z0-9/._-]*  zero or more legal url characters but not ':' - meaning
+  #                   that the url is not absolute.
+  cat "$f" | \
+    sed -e 's,\([( "'\''][a-zA-Z0-9/._-]*\)\.md,\1.html,g' \
+        -e 's,Blaze,Bazel,g;s,blaze,bazel,g' > "$tempf"
   cat "$tempf" > "$f"
 }
 
