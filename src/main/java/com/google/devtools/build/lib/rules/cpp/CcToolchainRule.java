@@ -145,7 +145,7 @@ public final class CcToolchainRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    final Label zipper = env.getToolsLabel("//tools/zip:zipper");
+    final Label zipper = env.getToolsLabel("//tools/zip:unzip_fdo");
     return builder
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
