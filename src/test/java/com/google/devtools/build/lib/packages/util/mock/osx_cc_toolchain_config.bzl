@@ -67,10 +67,15 @@ _supports_dynamic_linker_feature = feature(
     enabled = True,
 )
 
+_parse_headers_feature = feature(
+    name = "parse_headers",
+)
+
 _feature_name_to_feature = {
     "default_feature": _default_feature,
     "supports_interface_shared_libraries": _supports_interface_shared_libraries_feature,
     "supports_dynamic_linker": _supports_dynamic_linker_feature,
+    "parse_headers": _parse_headers_feature,
 }
 
 _action_name_to_action = {}
@@ -6900,6 +6905,7 @@ def _impl(ctx):
             "preprocess-assemble",
             "c-compile",
             "c++-compile",
+            "c++-header-parsing",
             "c++-link-static-library",
             "c++-link-dynamic-library",
             "c++-link-nodeps-dynamic-library",

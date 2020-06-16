@@ -573,6 +573,7 @@ public final class Crosstool {
           "    objcopy_files = ':empty',",
           "    strip_files = ':empty',",
           "    supports_param_files = 0,",
+          supportsHeaderParsing ? "    supports_header_parsing = 1," : "",
           ")",
           "toolchain(name = 'cc-toolchain-" + toolchainConfig.getTargetCpu() + "',",
           "    exec_compatible_with = [],",
