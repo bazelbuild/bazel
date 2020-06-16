@@ -267,7 +267,8 @@ public class CompilationSupport {
       Artifact pchHdr,
       ObjcCppSemantics semantics,
       String purpose,
-      boolean generateModuleMap)
+      boolean generateModuleMap,
+      boolean shouldProcessHeaders)
       throws RuleErrorException, InterruptedException {
     CcCompilationHelper result =
         new CcCompilationHelper(
@@ -282,7 +283,8 @@ public class CompilationSupport {
                 fdoContext,
                 buildConfiguration,
                 TargetUtils.getExecutionInfo(
-                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
+                shouldProcessHeaders)
             .addSources(sources)
             .addPublicHeaders(publicHdrs)
             .addPublicTextualHeaders(objcCompilationContext.getPublicTextualHeaders())
@@ -392,7 +394,8 @@ public class CompilationSupport {
             pchHdr,
             semantics,
             purpose,
-            /* generateModuleMap= */ true);
+            /* generateModuleMap= */ true,
+            /* shouldProcessHeaders= */ true);
 
     purpose = String.format("%s_non_objc_arc", semantics.getPurpose());
     extensionBuilder.setArcEnabled(false);
@@ -411,7 +414,9 @@ public class CompilationSupport {
             semantics,
             purpose,
             // Only generate the module map once (see above) and re-use it here.
-            /* generateModuleMap= */ false);
+            /* generateModuleMap= */ false,
+            // We only need to validate headers once, in arc compilation above.
+            /* shouldProcessHeaders= */ false);
 
     FeatureConfiguration featureConfiguration =
         getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration);

@@ -1738,7 +1738,8 @@ public abstract class CcModule
                 fdoContext,
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
-                    actions.getRuleContext().isAllowTagsPropagation()))
+                    actions.getRuleContext().isAllowTagsPropagation()),
+                /* shouldProcessHeaders= */ true)
             .addPublicHeaders(publicHeaders)
             .addPrivateHeaders(privateHeaders)
             .addSources(sources)
