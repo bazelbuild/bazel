@@ -1,3 +1,46 @@
+## Release 3.3.0 (2020-06-17)
+
+```
+Baseline: c063b5caf776dee665497b64c5c17d4ed7e6750a
+
+Cherry picks:
+
+   + 23bd69d7499de097b15e6025cc0796bdbc9886b8:
+     Restore missing Building with Platforms docs.
+```
+
+Incompatible changes:
+
+  - The startup option --fatal_event_bus_exceptions is now a no-op
+    and will be removed soon.
+
+New features:
+
+  - Bazel offers basic completion for the fish shell.
+
+Important changes:
+
+  - Add configuration_field for --custom_malloc to cpp config fragment
+  - Flip --incompatible_objc_compile_info_migration to true.  See
+    #10854.
+  - It is now possible to use different action mnemonics while still
+    sharing the same pool of persistent workers. It requires setting
+    a new property
+    on the execution requirements (`worker-key-mnemonic`). The value
+    overrides
+    the action's mnemonic when it comes to reusing worker processes.
+  - linkshared=1 in cc_binary no longer requires '.so' or '.dll' in
+    the target name
+  - Revert --incompatible_objc_compile_info_migration to false.  See
+    #10854.
+  - Invoke clang with the correct -target flag when building for
+    watchOS.
+  - NA
+  - Add experiment flag to forward InstrumentedFilesInfo from
+    non-tool deps by default.
+
+This release contains contributions from many people at Google, as well as Abhishek Kumar, Adam Azarchs, Akira Baruah, Daniel Wagner-Hall, Derek Argueta, glukasiknuro, Greg Estren, Greg, Jason Furmanek, Jiri Dank, Keith Smiley, Kseniia Vasilchuk, Laurent Le Brun, Matt Mackay, Michael Klemm, Nikolay Shelukhin, Patrick Balestra, Rui Chen, Siggi Simonarson, sventiffe, Tobias Werth, Tom de Goede, Vladimir Chebotarev, Yannic Bonenberger.
+
 ## Release 3.2.0 (2020-05-27)
 
 ```
