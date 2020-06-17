@@ -21,12 +21,12 @@ import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
@@ -145,7 +145,7 @@ public final class CcToolchainRule implements RuleDefinition {
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-    final Label zipper = env.getToolsLabel("//tools/zip:zipper");
+    final Label zipper = env.getToolsLabel("//tools/zip:unzip_fdo");
     return builder
         .requiresConfigurationFragments(CppConfiguration.class, PlatformConfiguration.class)
         .advertiseProvider(TemplateVariableInfo.class)
@@ -357,8 +357,8 @@ public final class CcToolchainRule implements RuleDefinition {
                 .mandatoryProviders(CcToolchainConfigInfo.PROVIDER.id())
                 .mandatory())
         .add(
-            Whitelist.getAttributeFromWhitelistName(
-                    CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_WHITELIST)
+            Allowlist.getAttributeFromAllowlistName(
+                    CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST)
                 .value(CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_LABEL))
         .build();
   }

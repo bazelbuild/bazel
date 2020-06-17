@@ -1159,4 +1159,40 @@ public class CppLinkActionTest extends BuildViewTestCase {
             "--sysroot=/usr/grte/v1")
         .inOrder();
   }
+
+  @Test
+  public void testExposesLinkstampSources() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'bin',",
+        "  deps = [':lib'],",
+        ")",
+        "cc_library(",
+        "  name = 'lib',",
+        "  linkstamp = 'linkstamp.cc',",
+        ")");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
+    assertThat(artifactsToStrings(linkAction.getLinkstampObjects()))
+        .containsExactly("src x/linkstamp.cc");
+  }
+
+  @Test
+  public void testExposesLinkstampObjects() throws Exception {
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(",
+        "  name = 'bin',",
+        "  deps = [':lib'],",
+        ")",
+        "cc_library(",
+        "  name = 'lib',",
+        "  linkstamp = 'linkstamp.cc',",
+        ")");
+    ConfiguredTarget configuredTarget = getConfiguredTarget("//x:bin");
+    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(configuredTarget, "x/bin");
+    assertThat(artifactsToStrings(linkAction.getLinkstampObjectFileInputs()))
+        .containsExactly("bin x/_objs/bin/x/linkstamp.o");
+  }
 }

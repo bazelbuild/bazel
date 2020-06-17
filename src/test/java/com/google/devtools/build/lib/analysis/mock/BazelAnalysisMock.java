@@ -251,7 +251,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "bazel_tools_workspace/tools/zip/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['precompile.py'])",
-        "cc_binary(name='zipper', srcs=['zip_main.cc'])");
+        "cc_binary(name='zipper', srcs=['zip_main.cc'])",
+        "alias(name='unzip_fdo', actual=':zipper')");
 
     config.create(
         "bazel_tools_workspace/tools/launcher/BUILD",

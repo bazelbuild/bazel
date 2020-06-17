@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.cpp.Link.LINK_LIBRARY_FILETYPES;
@@ -82,6 +83,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper.CompilationInfo;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.CollidingProvidesException;
@@ -265,7 +267,8 @@ public class CompilationSupport {
       Artifact pchHdr,
       ObjcCppSemantics semantics,
       String purpose,
-      boolean generateModuleMap)
+      boolean generateModuleMap,
+      boolean shouldProcessHeaders)
       throws RuleErrorException, InterruptedException {
     CcCompilationHelper result =
         new CcCompilationHelper(
@@ -280,7 +283,8 @@ public class CompilationSupport {
                 fdoContext,
                 buildConfiguration,
                 TargetUtils.getExecutionInfo(
-                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
+                shouldProcessHeaders)
             .addSources(sources)
             .addPublicHeaders(publicHdrs)
             .addPublicTextualHeaders(objcCompilationContext.getPublicTextualHeaders())
@@ -390,7 +394,8 @@ public class CompilationSupport {
             pchHdr,
             semantics,
             purpose,
-            /* generateModuleMap= */ true);
+            /* generateModuleMap= */ true,
+            /* shouldProcessHeaders= */ true);
 
     purpose = String.format("%s_non_objc_arc", semantics.getPurpose());
     extensionBuilder.setArcEnabled(false);
@@ -409,7 +414,9 @@ public class CompilationSupport {
             semantics,
             purpose,
             // Only generate the module map once (see above) and re-use it here.
-            /* generateModuleMap= */ false);
+            /* generateModuleMap= */ false,
+            // We only need to validate headers once, in arc compilation above.
+            /* shouldProcessHeaders= */ false);
 
     FeatureConfiguration featureConfiguration =
         getFeatureConfiguration(ruleContext, ccToolchain, buildConfiguration);
@@ -583,9 +590,18 @@ public class CompilationSupport {
     activatedCrosstoolSelectables.addAll(CcCommon.getCoverageFeatures(cppConfiguration));
 
     try {
-      return ccToolchain
-          .getFeatures()
-          .getFeatureConfiguration(activatedCrosstoolSelectables.build());
+      ImmutableSet<String> activatedCrosstoolSelectablesSet;
+      if (!ccToolchain.supportsHeaderParsing()) {
+        // TODO(b/159096411): Remove once supports_header_parsing has been removed from the
+        // cc_toolchain rule.
+        activatedCrosstoolSelectablesSet =
+            activatedCrosstoolSelectables.build().stream()
+                .filter(feature -> !feature.equals(CppRuleClasses.PARSE_HEADERS))
+                .collect(toImmutableSet());
+      } else {
+        activatedCrosstoolSelectablesSet = activatedCrosstoolSelectables.build();
+      }
+      return ccToolchain.getFeatures().getFeatureConfiguration(activatedCrosstoolSelectablesSet);
     } catch (CollidingProvidesException e) {
       ruleContext.ruleError(e.getMessage());
       return FeatureConfiguration.EMPTY;
@@ -1128,7 +1144,13 @@ public class CompilationSupport {
             ? objcProvider.getObjcLibraries()
             : substituteJ2ObjcPrunedLibraries(objcProvider);
 
+    // Passing large numbers of inputs on the command line triggers a bug in Apple's Clang
+    // (b/29094356), so we'll create an input list manually and pass -filelist path/to/input/list.
+    // We can't populate this list yet--it needs to contain any linkstamp objects, which we won't
+    // know about until we actually create the CppLinkAction--but it needs to go into the
+    // CppLinkAction too, so create it now.
     Artifact inputFileList = intermediateArtifacts.linkerObjList();
+
     ImmutableSet<Artifact> forceLinkArtifacts = getForceLoadArtifacts(objcProvider);
 
     // Clang loads archives specified in filelists and also specified as -force_load twice,
@@ -1141,7 +1163,6 @@ public class CompilationSupport {
                     objcProvider.get(IMPORTED_LIBRARY).toList(),
                     objcProvider.getCcLibraries()),
                 Predicates.not(Predicates.in(forceLinkArtifacts))));
-    registerObjFilelistAction(objFiles, inputFileList);
 
     LinkTargetType linkType =
         objcProvider.is(Flag.USES_CPP)
@@ -1162,7 +1183,7 @@ public class CompilationSupport {
             .addVariableCategory(VariableCategory.EXECUTABLE_LINKING_VARIABLES);
 
     Artifact binaryToLink = getBinaryToLink();
-    CppLinkActionBuilder executableLinkAction =
+    CppLinkActionBuilder executableLinkActionBuilder =
         new CppLinkActionBuilder(
                 ruleContext,
                 ruleContext,
@@ -1199,13 +1220,13 @@ public class CompilationSupport {
       extensionBuilder
           .setDsymSymbol(dsymSymbol)
           .addVariableCategory(VariableCategory.DSYM_VARIABLES);
-      executableLinkAction.addActionOutput(dsymSymbol);
+      executableLinkActionBuilder.addActionOutput(dsymSymbol);
     }
 
     if (objcConfiguration.generateLinkmap()) {
       Artifact linkmap = intermediateArtifacts.linkmap();
       extensionBuilder.setLinkmap(linkmap).addVariableCategory(VariableCategory.LINKMAP_VARIABLES);
-      executableLinkAction.addActionOutput(linkmap);
+      executableLinkActionBuilder.addActionOutput(linkmap);
     }
 
     if (appleConfiguration.getBitcodeMode() == AppleBitcodeMode.EMBEDDED) {
@@ -1213,11 +1234,29 @@ public class CompilationSupport {
       extensionBuilder
           .setBitcodeSymbolMap(bitcodeSymbolMap)
           .addVariableCategory(VariableCategory.BITCODE_VARIABLES);
-      executableLinkAction.addActionOutput(bitcodeSymbolMap);
+      executableLinkActionBuilder.addActionOutput(bitcodeSymbolMap);
     }
 
-    executableLinkAction.addVariablesExtension(extensionBuilder.build());
-    ruleContext.registerAction(executableLinkAction.build());
+    executableLinkActionBuilder.addVariablesExtension(extensionBuilder.build());
+
+    for (CcLinkingContext context :
+        CppHelper.getLinkingContextsFromDeps(
+            ImmutableList.copyOf(ruleContext.getPrerequisites("deps", TransitionMode.TARGET)))) {
+      executableLinkActionBuilder.addLinkstamps(context.getLinkstamps().toList());
+    }
+
+    CppLinkAction executableLinkAction = executableLinkActionBuilder.build();
+
+    // Populate the input file list with both the compiled object files and any linkstamp object
+    // files.
+    registerObjFilelistAction(
+        ImmutableSet.<Artifact>builder()
+            .addAll(objFiles)
+            .addAll(executableLinkAction.getLinkstampObjectFileInputs())
+            .build(),
+        inputFileList);
+
+    ruleContext.registerAction(executableLinkAction);
 
     if (objcConfiguration.shouldStripBinary()) {
       registerBinaryStripAction(binaryToLink, getStrippingType(extraLinkArgs));

@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.EmptyConfiguredTarget;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
@@ -46,10 +47,12 @@ import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.ToolchainContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationResolver;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -312,6 +315,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               unloadedToolchainContexts == null
                   ? null
                   : unloadedToolchainContexts.asToolchainContexts(),
+              DependencyResolver.shouldUseToolchainTransition(configuration, ctgValue.getTarget()),
               ruleClassProvider,
               view.getHostConfiguration(configuration),
               transitivePackagesForPackageRootResolution,
@@ -488,10 +492,14 @@ public final class ConfiguredTargetFunction implements SkyFunction {
     //         ...
     //
     // None of this has any effect on rules that don't utilize manual trimming.
+    PatchTransition toolchainTaggedTrimmingTransition =
+        ((ConfiguredRuleClassProvider) ruleClassProvider).getToolchainTaggedTrimmingTransition();
     BuildOptions toolchainOptions =
-        ((ConfiguredRuleClassProvider) ruleClassProvider)
-            .getToolchainTaggedTrimmingTransition()
-            .patch(configuration.getOptions(), env.getListener());
+        toolchainTaggedTrimmingTransition.patch(
+            new BuildOptionsView(
+                configuration.getOptions(),
+                toolchainTaggedTrimmingTransition.requiresOptionFragments()),
+            env.getListener());
 
     BuildConfigurationValue.Key toolchainConfig =
         BuildConfigurationValue.keyWithoutPlatformMapping(
@@ -519,8 +527,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           group.getKey(),
           ToolchainContextKey.key()
               .configurationKey(toolchainConfig)
-              .requiredToolchainTypeLabels(execGroup.getRequiredToolchains())
-              .execConstraintLabels(execGroup.getExecutionPlatformConstraints())
+              .requiredToolchainTypeLabels(execGroup.requiredToolchains())
+              .execConstraintLabels(execGroup.execCompatibleWith())
               .shouldSanityCheckConfiguration(configuration.trimConfigurationsRetroactively())
               .build());
     }
@@ -609,6 +617,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      boolean useToolchainTransition,
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
       @Nullable NestedSetBuilder<Package> transitivePackagesForPackageRootResolution,
@@ -628,6 +637,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               aspects,
               configConditions,
               toolchainContexts,
+              useToolchainTransition,
               transitiveRootCauses,
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
     } catch (EvalException e) {

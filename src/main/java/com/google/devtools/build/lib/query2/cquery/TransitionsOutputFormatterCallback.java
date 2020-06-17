@@ -132,6 +132,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     /*aspect=*/ null,
                     configConditions,
                     toolchainContexts,
+                    DependencyResolver.shouldUseToolchainTransition(config, target),
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
         throw new InterruptedException(e.getMessage());

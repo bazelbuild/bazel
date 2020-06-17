@@ -33,12 +33,12 @@ public final class ClientEnv extends InfoItem {
   @Override
   public byte[] get(Supplier<BuildConfiguration> configurationSupplier, CommandEnvironment env) {
     String result = "";
-    for (Map.Entry<String, String> entry : env.getWhitelistedActionEnv().entrySet()) {
+    for (Map.Entry<String, String> entry : env.getAllowlistedActionEnv().entrySet()) {
       // TODO(bazel-team): as the syntax of our rc-files does not support to express new-lines in
       // values, we produce syntax errors if the value of the entry contains a newline character.
       result += "build --action_env=" + entry.getKey() + "=" + entry.getValue() + "\n";
     }
-    for (Map.Entry<String, String> entry : env.getWhitelistedTestEnv().entrySet()) {
+    for (Map.Entry<String, String> entry : env.getAllowlistedTestEnv().entrySet()) {
       // TODO(bazel-team): as the syntax of our rc-files does not support to express new-lines in
       // values, we produce syntax errors if the value of the entry contains a newline character.
       result += "build --test_env=" + entry.getKey() + "=" + entry.getValue() + "\n";

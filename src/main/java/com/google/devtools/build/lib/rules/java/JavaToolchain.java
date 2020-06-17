@@ -88,7 +88,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
         ruleContext.attributes().get("forcibly_disable_header_compilation", Type.BOOLEAN);
     Artifact singleJar = ruleContext.getPrerequisiteArtifact("singlejar", TransitionMode.HOST);
     Artifact oneVersion = ruleContext.getPrerequisiteArtifact("oneversion", TransitionMode.HOST);
-    Artifact oneVersionWhitelist =
+    Artifact oneVersionAllowlist =
         ruleContext.getPrerequisiteArtifact("oneversion_whitelist", TransitionMode.HOST);
     Artifact genClass = ruleContext.getPrerequisiteArtifact("genclass", TransitionMode.HOST);
     Artifact resourceJarBuilder =
@@ -157,7 +157,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             forciblyDisableHeaderCompilation,
             singleJar,
             oneVersion,
-            oneVersionWhitelist,
+            oneVersionAllowlist,
             genClass,
             resourceJarBuilder,
             timezoneData,

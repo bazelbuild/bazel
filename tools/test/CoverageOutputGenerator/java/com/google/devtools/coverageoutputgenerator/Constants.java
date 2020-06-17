@@ -39,6 +39,7 @@ class Constants {
   static final String TAKEN = "-";
   static final String TRACEFILE_EXTENSION = ".dat";
   static final String GCOV_EXTENSION = ".gcov";
+  static final String GCOV_JSON_EXTENSION = ".gcov.json.gz";
   static final String PROFDATA_EXTENSION = ".profdata";
   static final String DELIMITER = ",";
   static final String GCOV_VERSION_MARKER = "version:";

@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.buildeventstream.TestFileNameConstants;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -585,7 +586,7 @@ public class StandaloneTestStrategy extends TestStrategy {
           streamed.close();
         }
       } catch (IOException e) {
-        throw new EnvironmentalExecException(e);
+        throw new EnvironmentalExecException(e, Code.TEST_OUT_ERR_IO_EXCEPTION);
       }
 
       // SpawnActionContext guarantees the first entry to correspond to the spawn passed in (there

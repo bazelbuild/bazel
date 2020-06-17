@@ -31,6 +31,9 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScannerSupplier;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanner.IncludeScanningHeaderData;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -117,7 +120,8 @@ public class IncludeScanning implements IncludeProcessing {
           },
           MoreExecutors.directExecutor());
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e);
+      throw new EnvironmentalExecException(
+          e, createFailureDetail("Include scanning IOException", Code.SCANNING_IO_EXCEPTION));
     }
   }
 
@@ -151,5 +155,12 @@ public class IncludeScanning implements IncludeProcessing {
       }
     }
     return inputs;
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setIncludeScanning(FailureDetails.IncludeScanning.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

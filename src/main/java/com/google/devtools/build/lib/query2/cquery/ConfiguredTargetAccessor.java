@@ -232,8 +232,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
                 walkableGraph.getValue(
                     ToolchainContextKey.key()
                         .configurationKey(BuildConfigurationValue.key(config))
-                        .requiredToolchainTypeLabels(execGroup.getRequiredToolchains())
-                        .execConstraintLabels(execGroup.getExecutionPlatformConstraints())
+                        .requiredToolchainTypeLabels(execGroup.requiredToolchains())
+                        .execConstraintLabels(execGroup.execCompatibleWith())
                         .build());
         if (context == null) {
           return null;

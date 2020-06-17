@@ -254,7 +254,6 @@ public class GlobCache {
     }
 
     HashSet<String> results = new HashSet<>();
-    Preconditions.checkState(!results.contains(null), "glob returned null");
     for (String pattern : includes) {
       List<String> items = getGlobUnsorted(pattern, excludeDirs);
       if (!allowEmpty && items.isEmpty()) {

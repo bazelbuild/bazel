@@ -666,7 +666,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
 
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'starlark_static_lib')",
         "starlark_static_lib(",
@@ -674,7 +674,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         "   proxy='//x:x'",
         ")");
 
-    ConfiguredTarget binTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget binTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
 
     AppleStaticLibraryInfo provider = binTarget.get(AppleStaticLibraryInfo.STARLARK_CONSTRUCTOR);
     assertThat(provider).isNotNull();
@@ -706,7 +706,7 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
 
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'starlark_static_lib')",
         "starlark_static_lib(",
@@ -715,8 +715,8 @@ public class AppleStaticLibraryTest extends ObjcRuleTestCase {
         ")");
 
     AssertionError expected =
-        assertThrows(AssertionError.class, () ->
-            getConfiguredTarget("//examples/apple_skylark:my_target"));
+        assertThrows(
+            AssertionError.class, () -> getConfiguredTarget("//examples/apple_starlark:my_target"));
     assertThat(expected).hasMessageThat().contains("unexpected keyword argument 'foo'");
   }
 

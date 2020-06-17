@@ -230,9 +230,9 @@ public class JavaLiteProtoAspect extends NativeAspectClass implements Configured
       aspect.addNativeDeclaredProvider(
           createCcLinkingInfo(ruleContext, aspectCommon.getProtoRuntimeDeps()));
 
-      JavaStarlarkApiProvider skylarkApiProvider = JavaStarlarkApiProvider.fromRuleContext();
+      JavaStarlarkApiProvider starlarkApiProvider = JavaStarlarkApiProvider.fromRuleContext();
       aspect
-          .addStarlarkTransitiveInfo(JavaStarlarkApiProvider.NAME, skylarkApiProvider)
+          .addStarlarkTransitiveInfo(JavaStarlarkApiProvider.NAME, starlarkApiProvider)
           .addNativeDeclaredProvider(javaInfo.build())
           .addProvider(
               new JavaProtoLibraryAspectProvider(

@@ -43,6 +43,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
   private final ConfigurationTransition hostTransition;
   private final ImmutableSet<String> hostFragments;
   private final ImmutableList<Label> requiredToolchains;
+  private final boolean useToolchainTransition;
   private final boolean applyToGeneratingRules;
 
   private StarlarkAspectClass aspectClass;
@@ -59,6 +60,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableList<Label> requiredToolchains,
+      boolean useToolchainTransition,
       boolean applyToGeneratingRules) {
     this.implementation = implementation;
     this.attributeAspects = attributeAspects;
@@ -70,6 +72,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
     this.hostTransition = hostTransition;
     this.hostFragments = hostFragments;
     this.requiredToolchains = requiredToolchains;
+    this.useToolchainTransition = useToolchainTransition;
     this.applyToGeneratingRules = applyToGeneratingRules;
   }
 
@@ -88,6 +91,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
       ConfigurationTransition hostTransition,
       ImmutableSet<String> hostFragments,
       ImmutableList<Label> requiredToolchains,
+      boolean useToolchainTransition,
       boolean applyToGeneratingRules,
       StarlarkAspectClass aspectClass) {
     this(
@@ -101,6 +105,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
         hostTransition,
         hostFragments,
         requiredToolchains,
+        useToolchainTransition,
         applyToGeneratingRules);
     this.aspectClass = aspectClass;
   }
@@ -186,6 +191,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(fragments);
     builder.requiresConfigurationFragmentsByStarlarkBuiltinName(hostTransition, hostFragments);
     builder.addRequiredToolchains(requiredToolchains);
+    builder.useToolchainTransition(useToolchainTransition);
     builder.applyToGeneratingRules(applyToGeneratingRules);
     return builder.build();
   }
@@ -234,6 +240,10 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
     return requiredToolchains;
   }
 
+  public boolean useToolchainTransition() {
+    return useToolchainTransition;
+  }
+
   @Override
   public void attachToAttribute(Attribute.Builder<?> attrBuilder) throws EvalException {
     if (!isExported()) {
@@ -262,6 +272,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
         && Objects.equals(hostTransition, that.hostTransition)
         && Objects.equals(hostFragments, that.hostFragments)
         && Objects.equals(requiredToolchains, that.requiredToolchains)
+        && Objects.equals(useToolchainTransition, that.useToolchainTransition)
         && Objects.equals(aspectClass, that.aspectClass);
   }
 
@@ -278,6 +289,7 @@ public class StarlarkDefinedAspect implements StarlarkExportable, StarlarkAspect
         hostTransition,
         hostFragments,
         requiredToolchains,
+        useToolchainTransition,
         aspectClass);
   }
 }

@@ -184,8 +184,8 @@ public class CcToolchainProviderHelper {
     ImmutableList<PathFragment> builtInIncludeDirectories =
         builtInIncludeDirectoriesBuilder.build();
 
-    PackageSpecificationProvider whitelistForLayeringCheck =
-        attributes.getWhitelistForLayeringCheck();
+    PackageSpecificationProvider allowlistForLayeringCheck =
+        attributes.getAllowlistForLayeringCheck();
 
     return new CcToolchainProvider(
         getToolchainForStarlark(toolPaths),
@@ -249,7 +249,7 @@ public class CcToolchainProviderHelper {
         toolchainConfigInfo.getTargetSystemName(),
         computeAdditionalMakeVariables(toolchainConfigInfo),
         computeLegacyCcFlagsMakeVariable(toolchainConfigInfo),
-        whitelistForLayeringCheck);
+        allowlistForLayeringCheck);
   }
 
   @Nullable

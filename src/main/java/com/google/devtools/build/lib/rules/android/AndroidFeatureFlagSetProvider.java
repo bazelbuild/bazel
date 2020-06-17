@@ -66,10 +66,10 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
 
   /**
    * Constructs a definition for the attribute used to restrict access to feature flags. The
-   * whitelist will only be reached if the feature_flags attribute is explicitly set.
+   * allowlist will only be reached if the feature_flags attribute is explicitly set.
    */
-  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
-    return ConfigFeatureFlag.getWhitelistAttribute(env, FEATURE_FLAG_ATTR);
+  public static Attribute.Builder<Label> getAllowlistAttribute(RuleDefinitionEnvironment env) {
+    return ConfigFeatureFlag.getAllowlistAttribute(env, FEATURE_FLAG_ATTR);
   }
 
   /**

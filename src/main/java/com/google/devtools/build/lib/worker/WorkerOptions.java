@@ -27,26 +27,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-/**
- * Options related to worker processes.
- */
+/** Options related to worker processes. */
 public class WorkerOptions extends OptionsBase {
   public static final WorkerOptions DEFAULTS = Options.getDefaults(WorkerOptions.class);
 
   @Option(
-    name = "experimental_persistent_javac",
-    defaultValue = "null",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "Enable the experimental persistent Java compiler.",
-    expansion = {
-      "--strategy=Javac=worker",
-      "--strategy=JavaIjar=local",
-      "--strategy=JavaDeployJar=local",
-      "--strategy=JavaSourceJar=local",
-      "--strategy=Turbine=local"
-    }
-  )
+      name = "experimental_persistent_javac",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Enable the experimental persistent Java compiler.",
+      expansion = {
+        "--strategy=Javac=worker",
+        "--strategy=JavaIjar=local",
+        "--strategy=JavaDeployJar=local",
+        "--strategy=JavaSourceJar=local",
+        "--strategy=Turbine=local"
+      })
   public Void experimentalPersistentJavac;
 
   /**
@@ -57,13 +54,10 @@ public class WorkerOptions extends OptionsBase {
    */
   public static class MultiResourceConverter implements Converter<Entry<String, Integer>> {
 
-    static ResourceConverter valueConverter;
-
     public static final int DEFAULT_VALUE = 4;
 
-    public MultiResourceConverter() {
-      valueConverter = new ResourceConverter(() -> DEFAULT_VALUE, 0, Integer.MAX_VALUE);
-    }
+    static ResourceConverter valueConverter =
+        new ResourceConverter(() -> DEFAULT_VALUE, 0, Integer.MAX_VALUE);
 
     @Override
     public Map.Entry<String, Integer> convert(String input) throws OptionsParsingException {
@@ -111,21 +105,19 @@ public class WorkerOptions extends OptionsBase {
   public List<String> highPriorityWorkers;
 
   @Option(
-    name = "worker_quit_after_build",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If enabled, all workers quit after a build is done."
-  )
+      name = "worker_quit_after_build",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, all workers quit after a build is done.")
   public boolean workerQuitAfterBuild;
 
   @Option(
-    name = "worker_verbose",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
-  )
+      name = "worker_verbose",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, prints verbose messages when workers are started, shutdown, ...")
   public boolean workerVerbose;
 
   @Option(
@@ -141,12 +133,10 @@ public class WorkerOptions extends OptionsBase {
   public List<Map.Entry<String, String>> workerExtraFlags;
 
   @Option(
-    name = "worker_sandboxing",
-    defaultValue = "false",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "If enabled, workers will be executed in a sandboxed environment."
-  )
+      name = "worker_sandboxing",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "If enabled, workers will be executed in a sandboxed environment.")
   public boolean workerSandboxing;
-
 }

@@ -216,6 +216,7 @@ public final class CcCompilationHelper {
   private final BuildConfiguration configuration;
   private final ImmutableMap<String, String> executionInfo;
   private final CppConfiguration cppConfiguration;
+  private final boolean shouldProcessHeaders;
 
   private final List<Artifact> publicHeaders = new ArrayList<>();
   private final List<Artifact> nonModuleMapHeaders = new ArrayList<>();
@@ -279,7 +280,8 @@ public final class CcCompilationHelper {
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
       BuildConfiguration buildConfiguration,
-      ImmutableMap<String, String> executionInfo) {
+      ImmutableMap<String, String> executionInfo,
+      boolean shouldProcessHeaders) {
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
     this.sourceCategory = Preconditions.checkNotNull(sourceCategory);
@@ -299,6 +301,7 @@ public final class CcCompilationHelper {
     this.label = Preconditions.checkNotNull(label);
     this.grepIncludes = grepIncludes;
     this.executionInfo = Preconditions.checkNotNull(executionInfo);
+    this.shouldProcessHeaders = shouldProcessHeaders;
   }
 
   /** Creates a CcCompilationHelper for cpp source files. */
@@ -311,7 +314,8 @@ public final class CcCompilationHelper {
       FeatureConfiguration featureConfiguration,
       CcToolchainProvider ccToolchain,
       FdoContext fdoContext,
-      ImmutableMap<String, String> executionInfo) {
+      ImmutableMap<String, String> executionInfo,
+      boolean shouldProcessHeaders) {
     this(
         actionRegistry,
         actionConstructionContext,
@@ -323,7 +327,8 @@ public final class CcCompilationHelper {
         ccToolchain,
         fdoContext,
         actionConstructionContext.getConfiguration(),
-        executionInfo);
+        executionInfo,
+        shouldProcessHeaders);
   }
 
   /** Sets fields that overlap for cc_library and cc_binary rules. */
@@ -425,12 +430,12 @@ public final class CcCompilationHelper {
         CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(privateHeader.getExecPath());
     Preconditions.checkState(isHeader || isTextualInclude);
 
-    if (ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
+    if (shouldProcessHeaders
+        && ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)
         && !isTextualInclude) {
       compilationUnitSources.put(
           privateHeader, CppSource.create(privateHeader, label, CppSource.Type.HEADER));
     }
-    
     this.privateHeaders.add(privateHeader);
     return this;
   }
@@ -482,7 +487,8 @@ public final class CcCompilationHelper {
         CppFileTypes.CPP_HEADER.matches(header.getExecPath()) || header.isTreeArtifact();
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(header.getExecPath());
     publicHeaders.add(header);
-    if (isTextualInclude
+    if (!shouldProcessHeaders
+        || isTextualInclude
         || !isHeader
         || !ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration)) {
       return;

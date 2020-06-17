@@ -73,33 +73,28 @@ public class ActionExecutionException extends Exception {
   }
 
   public ActionExecutionException(
-      String message, ActionAnalysisMetadata action, boolean catastrophe) {
+      String message,
+      ActionAnalysisMetadata action,
+      boolean catastrophe,
+      DetailedExitCode detailedExitCode) {
     super(message);
     this.action = action;
     this.catastrophe = catastrophe;
-    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
-    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
-  }
-
-  public ActionExecutionException(
-      String message, ActionAnalysisMetadata action, boolean catastrophe, ExitCode exitCode) {
-    super(message);
-    this.action = action;
-    this.catastrophe = catastrophe;
-    this.detailedExitCode = DetailedExitCode.justExitCode(exitCode);
-    this.rootCauses = rootCausesFromAction(action, detailedExitCode);
+    this.detailedExitCode = detailedExitCode;
+    this.rootCauses = rootCausesFromAction(action, this.detailedExitCode);
   }
 
   public ActionExecutionException(
       String message,
       ActionAnalysisMetadata action,
       NestedSet<Cause> rootCauses,
-      boolean catastrophe) {
+      boolean catastrophe,
+      DetailedExitCode detailedExitCode) {
     super(message);
     this.action = action;
     this.rootCauses = rootCauses;
     this.catastrophe = catastrophe;
-    this.detailedExitCode = DetailedExitCode.justExitCode(ExitCode.BUILD_FAILURE);
+    this.detailedExitCode = detailedExitCode;
   }
 
   public ActionExecutionException(

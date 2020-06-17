@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
@@ -1143,7 +1143,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean allowSrcsLessAndroidLibraryDeps(RuleContext ruleContext) {
     return allowAndroidLibraryDepsWithoutSrcs
-        && Whitelist.isAvailable(ruleContext, "allow_deps_without_srcs");
+        && Allowlist.isAvailable(ruleContext, "allow_deps_without_srcs");
   }
 
   @Override

@@ -260,6 +260,13 @@ def _is_vs_2017_or_2019(vc_path):
     # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\
     return vc_path.find("2017") != -1 or vc_path.find("2019") != -1
 
+def _is_msbuildtools(vc_path):
+    """Check if the installed VC version is from MSBuildTools."""
+
+    # In MSBuildTools (usually container setup), the location of VC is like:
+    # C:\BuildTools\MSBuild\Microsoft\VC
+    return vc_path.find("BuildTools") != -1 and vc_path.find("MSBuild") != -1
+
 def _find_vcvars_bat_script(repository_ctx, vc_path):
     """Find batch script to set up environment variables for VC. Doesn't %-escape the result."""
     if _is_vs_2017_or_2019(vc_path):
@@ -394,7 +401,7 @@ def _get_winsdk_full_version(repository_ctx):
 def find_msvc_tool(repository_ctx, vc_path, tool):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
     tool_path = None
-    if _is_vs_2017_or_2019(vc_path):
+    if _is_vs_2017_or_2019(vc_path) or _is_msbuildtools(vc_path):
         full_version = _get_vc_full_version(repository_ctx, vc_path)
         if full_version:
             tool_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\x64\\%s" % (vc_path, full_version, tool)

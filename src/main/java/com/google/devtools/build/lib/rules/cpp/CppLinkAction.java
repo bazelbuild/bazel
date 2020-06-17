@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -54,14 +55,19 @@ import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
+import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.Linkstamp;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.server.FailureDetails.CppLink;
+import com.google.devtools.build.lib.server.FailureDetails.CppLink.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -121,7 +127,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   private final LibraryToLink interfaceOutputLibrary;
   private final ImmutableMap<String, String> toolchainEnv;
   private final ImmutableMap<String, String> executionRequirements;
-  private final ImmutableList<Artifact> linkstampObjects;
+  private final ImmutableMap<Linkstamp, Artifact> linkstamps;
 
   private final LinkCommandLine linkCommandLine;
 
@@ -168,7 +174,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
       boolean fake,
       Iterable<Artifact> fakeLinkerInputArtifacts,
       boolean isLtoIndexing,
-      ImmutableList<Artifact> linkstampObjects,
+      ImmutableMap<Linkstamp, Artifact> linkstamps,
       LinkCommandLine linkCommandLine,
       ActionEnvironment env,
       ImmutableMap<String, String> toolchainEnv,
@@ -184,7 +190,7 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     this.fake = fake;
     this.fakeLinkerInputArtifacts = CollectionUtils.makeImmutable(fakeLinkerInputArtifacts);
     this.isLtoIndexing = isLtoIndexing;
-    this.linkstampObjects = linkstampObjects;
+    this.linkstamps = linkstamps;
     this.linkCommandLine = linkCommandLine;
     this.toolchainEnv = toolchainEnv;
     this.executionRequirements = executionRequirements;
@@ -302,7 +308,13 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
    * provenance.
    */
   public ImmutableList<Artifact> getLinkstampObjects() {
-    return linkstampObjects;
+    return linkstamps.keySet().stream()
+        .map(CcLinkingContext.Linkstamp::getArtifact)
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  public ImmutableCollection<Artifact> getLinkstampObjectFileInputs() {
+    return linkstamps.values();
   }
 
   @Override
@@ -333,13 +345,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
           getOutputs(),
           estimateResourceConsumptionLocal());
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(
-          "failed to generate link command for rule '"
-              + getOwner().getLabel()
-              + ": "
-              + e.getMessage(),
-          this,
-          /* catastrophe= */ false);
+      String message =
+          String.format(
+              "failed to generate link command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
     }
   }
 
@@ -395,9 +406,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         FileSystemUtils.touchFile(actionExecutionContext.getInputPath(output));
       }
     } catch (IOException | CommandLineExpansionException e) {
-      throw new ActionExecutionException("failed to create fake link command for rule '"
-                                         + getOwner().getLabel() + ": " + e.getMessage(),
-                                         this, false);
+      String message =
+          String.format(
+              "failed to create fake link command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.FAKE_COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, false, code);
     }
   }
 
@@ -584,5 +598,13 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     } catch (CommandLineExpansionException exception) {
       throw new EvalException(Location.BUILTIN, exception);
     }
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setCppLink(CppLink.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

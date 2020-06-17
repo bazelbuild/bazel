@@ -623,6 +623,12 @@ message TestSummary {
   // Total number of runs
   int32 total_run_count = 1;
 
+  // Number of runs.
+  int32 run_count = 10;
+
+  // Number of shards.
+  int32 shard_count = 11;
+
   // Path to logs of passed runs.
   repeated File passed = 3;
 

@@ -56,7 +56,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkContext;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ExecGroup;
-import com.google.devtools.build.lib.packages.FunctionSplitTransitionWhitelist;
+import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.StarlarkImplicitOutputsFunctionWithMap;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -273,6 +273,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Sequence<?> hostFragments,
       Boolean starlarkTestable,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
@@ -353,6 +354,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         bzlModule.label(), bzlModule.bzlTransitiveDigest());
 
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
+    builder.useToolchainTransition(useToolchainTransition);
 
     if (execGroups != Starlark.NONE) {
       Map<String, ExecGroup> execGroupDict =
@@ -489,6 +491,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Boolean applyToGeneratingRules,
       StarlarkThread thread)
@@ -589,6 +592,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         HostTransition.INSTANCE,
         ImmutableSet.copyOf(Sequence.cast(hostFragments, String.class, "host_fragments")),
         parseToolchains(toolchains, thread),
+        useToolchainTransition,
         applyToGeneratingRules);
   }
 
@@ -701,7 +705,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       // Thus far, we only know if we have a rule transition. While iterating through attributes,
       // check if we have an attribute transition.
       boolean hasStarlarkDefinedTransition = builder.hasStarlarkRuleTransition();
-      boolean hasFunctionTransitionWhitelist = false;
+      boolean hasFunctionTransitionAllowlist = false;
       for (Pair<String, StarlarkAttrModule.Descriptor> attribute : attributes) {
         String name = attribute.getFirst();
         StarlarkAttrModule.Descriptor descriptor = attribute.getSecond();
@@ -718,56 +722,54 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           }
           builder.setHasAnalysisTestTransition();
         }
-        // Check for existence of the function transition whitelist attribute.
-        // TODO(b/121385274): remove when we stop whitelisting starlark transitions
-        if (name.equals(FunctionSplitTransitionWhitelist.WHITELIST_ATTRIBUTE_NAME)) {
+        // Check for existence of the function transition allowlist attribute.
+        // TODO(b/121385274): remove when we stop allowlisting starlark transitions
+        if (name.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)) {
           if (!BuildType.isLabelType(attr.getType())) {
             throw new EvalException(
-                getLocation(), "_whitelist_function_transition attribute must be a label type");
+                getLocation(), "_allowlist_function_transition attribute must be a label type");
           }
           if (attr.getDefaultValueUnchecked() == null) {
             throw new EvalException(
                 getLocation(),
-                "_whitelist_function_transition attribute must have a default value");
+                "_allowlist_function_transition attribute must have a default value");
           }
           Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
           // Check the label value for package and target name, to make sure this works properly
           // in Bazel where it is expected to be found under @bazel_tools.
           if (!defaultLabel
                   .getPackageName()
-                  .equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL.getPackageName())
-              || !defaultLabel
-                  .getName()
-                  .equals(FunctionSplitTransitionWhitelist.WHITELIST_LABEL.getName())) {
+                  .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
+              || !defaultLabel.getName().equals(FunctionSplitTransitionAllowlist.LABEL.getName())) {
             throw new EvalException(
                 getLocation(),
-                "_whitelist_function_transition attribute ("
+                "_allowlist_function_transition attribute ("
                     + defaultLabel
                     + ") does not have the expected value "
-                    + FunctionSplitTransitionWhitelist.WHITELIST_LABEL);
+                    + FunctionSplitTransitionAllowlist.LABEL);
           }
-          hasFunctionTransitionWhitelist = true;
-          builder.setHasFunctionTransitionWhitelist();
+          hasFunctionTransitionAllowlist = true;
+          builder.setHasFunctionTransitionAllowlist();
         }
         addAttribute(builder, attr);
       }
-      // TODO(b/121385274): remove when we stop whitelisting starlark transitions
+      // TODO(b/121385274): remove when we stop allowlisting starlark transitions
       if (hasStarlarkDefinedTransition) {
-        if (!hasFunctionTransitionWhitelist) {
+        if (!hasFunctionTransitionAllowlist) {
           throw new EvalException(
               getLocation(),
               String.format(
-                  "Use of Starlark transition without whitelist attribute"
-                      + " '_whitelist_function_transition'. See Starlark transitions documentation"
+                  "Use of Starlark transition without allowlist attribute"
+                      + " '_allowlist_function_transition'. See Starlark transitions documentation"
                       + " for details and usage: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
         }
       } else {
-        if (hasFunctionTransitionWhitelist) {
+        if (hasFunctionTransitionAllowlist) {
           throw new EvalException(
               getLocation(),
               String.format(
-                  "Unused function-based split transition whitelist: %s %s",
+                  "Unused function-based split transition allowlist: %s %s",
                   builder.getRuleDefinitionEnvironmentLabel(), builder.getType()));
         }
       }
@@ -892,6 +894,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
     ImmutableSet<Label> toolchainTypes = ImmutableSet.copyOf(parseToolchains(toolchains, thread));
     ImmutableSet<Label> constraints =
         ImmutableSet.copyOf(parseExecCompatibleWith(execCompatibleWith, thread));
-    return new ExecGroup(toolchainTypes, constraints);
+    return ExecGroup.create(toolchainTypes, constraints);
   }
 }

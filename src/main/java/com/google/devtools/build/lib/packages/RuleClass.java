@@ -659,7 +659,7 @@ public class RuleClass {
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
-    private boolean hasFunctionTransitionWhitelist = false;
+    private boolean hasFunctionTransitionAllowlist = false;
     private boolean hasStarlarkRuleTransition = false;
     private boolean ignoreLicenses = false;
     private ImplicitOutputsFunction implicitOutputsFunction = ImplicitOutputsFunction.NONE;
@@ -715,6 +715,7 @@ public class RuleClass {
     private final Map<String, Attribute> attributes = new LinkedHashMap<>();
     private final Set<Label> requiredToolchains = new HashSet<>();
     private boolean useToolchainResolution = true;
+    private boolean useToolchainTransition = false;
     private Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
@@ -750,13 +751,15 @@ public class RuleClass {
 
         addRequiredToolchains(parent.getRequiredToolchains());
         useToolchainResolution = parent.useToolchainResolution;
+        useToolchainTransition = parent.useToolchainTransition;
         addExecutionPlatformConstraints(parent.getExecutionPlatformConstraints());
         try {
           addExecGroups(parent.getExecGroups());
         } catch (DuplicateExecGroupError e) {
           throw new IllegalArgumentException(
               String.format(
-                  "An execution group named '%s' is inherited multiple times in %s ruleclass",
+                  "An execution group named '%s' is inherited multiple times with different"
+                      + " requirements in %s ruleclass",
                   e.getDuplicateGroup(), name));
         }
 
@@ -837,6 +840,7 @@ public class RuleClass {
         // Build setting rules should opt out of toolchain resolution, since they form part of the
         // configuration.
         this.useToolchainResolution(false);
+        this.useToolchainTransition(false);
       }
 
       return new RuleClass(
@@ -853,7 +857,7 @@ public class RuleClass {
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
-          hasFunctionTransitionWhitelist,
+          hasFunctionTransitionAllowlist,
           ignoreLicenses,
           implicitOutputsFunction,
           transitionFactory,
@@ -871,6 +875,7 @@ public class RuleClass {
           thirdPartyLicenseExistencePolicy,
           requiredToolchains,
           useToolchainResolution,
+          useToolchainTransition,
           executionPlatformConstraints,
           execGroups,
           outputFileKind,
@@ -1306,11 +1311,11 @@ public class RuleClass {
     }
 
     /**
-     * This rule class has the _whitelist_function_transition attribute. Intended only for Starlark
+     * This rule class has the _allowlist_function_transition attribute. Intended only for Starlark
      * rules.
      */
-    public <TYPE> Builder setHasFunctionTransitionWhitelist() {
-      this.hasFunctionTransitionWhitelist = true;
+    public <TypeT> Builder setHasFunctionTransitionAllowlist() {
+      this.hasFunctionTransitionAllowlist = true;
       return this;
     }
 
@@ -1415,14 +1420,22 @@ public class RuleClass {
     }
 
     /**
-     * Adds execution groups to this rule class. Errors out if multiple groups with the same name
-     * are added.
+     * Adds execution groups to this rule class. Errors out if multiple different groups with the
+     * same name are added.
      */
     public Builder addExecGroups(Map<String, ExecGroup> execGroups) throws DuplicateExecGroupError {
       for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
         String name = group.getKey();
-        if (this.execGroups.put(name, group.getValue()) != null) {
-          throw new DuplicateExecGroupError(name);
+        if (this.execGroups.containsKey(name)) {
+          // If trying to add a new execution group with the same name as a execution group that
+          // already exists, check if they are equivalent and error out if not.
+          ExecGroup existingGroup = this.execGroups.get(name);
+          ExecGroup newGroup = group.getValue();
+          if (!existingGroup.equals(newGroup)) {
+            throw new DuplicateExecGroupError(name);
+          }
+        } else {
+          this.execGroups.put(name, group.getValue());
         }
       }
       return this;
@@ -1450,6 +1463,11 @@ public class RuleClass {
      */
     public Builder useToolchainResolution(boolean flag) {
       this.useToolchainResolution = flag;
+      return this;
+    }
+
+    public Builder useToolchainTransition(boolean flag) {
+      this.useToolchainTransition = flag;
       return this;
     }
 
@@ -1508,7 +1526,7 @@ public class RuleClass {
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
-  private final boolean hasFunctionTransitionWhitelist;
+  private final boolean hasFunctionTransitionAllowlist;
   private final boolean ignoreLicenses;
   private final boolean hasAspects;
 
@@ -1604,6 +1622,7 @@ public class RuleClass {
 
   private final ImmutableSet<Label> requiredToolchains;
   private final boolean useToolchainResolution;
+  private final boolean useToolchainTransition;
   private final ImmutableSet<Label> executionPlatformConstraints;
   private final ImmutableMap<String, ExecGroup> execGroups;
 
@@ -1642,7 +1661,7 @@ public class RuleClass {
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
-      boolean hasFunctionTransitionWhitelist,
+      boolean hasFunctionTransitionAllowlist,
       boolean ignoreLicenses,
       ImplicitOutputsFunction implicitOutputsFunction,
       TransitionFactory<Rule> transitionFactory,
@@ -1660,6 +1679,7 @@ public class RuleClass {
       ThirdPartyLicenseExistencePolicy thirdPartyLicenseExistencePolicy,
       Set<Label> requiredToolchains,
       boolean useToolchainResolution,
+      boolean useToolchainTransition,
       Set<Label> executionPlatformConstraints,
       Map<String, ExecGroup> execGroups,
       OutputFile.Kind outputFileKind,
@@ -1693,13 +1713,14 @@ public class RuleClass {
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
-    this.hasFunctionTransitionWhitelist = hasFunctionTransitionWhitelist;
+    this.hasFunctionTransitionAllowlist = hasFunctionTransitionAllowlist;
     this.ignoreLicenses = ignoreLicenses;
     this.configurationFragmentPolicy = configurationFragmentPolicy;
     this.supportsConstraintChecking = supportsConstraintChecking;
     this.thirdPartyLicenseExistencePolicy = thirdPartyLicenseExistencePolicy;
     this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
     this.useToolchainResolution = useToolchainResolution;
+    this.useToolchainTransition = useToolchainTransition;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.execGroups = ImmutableMap.copyOf(execGroups);
     this.buildSetting = buildSetting;
@@ -2587,11 +2608,9 @@ public class RuleClass {
     return hasAnalysisTestTransition;
   }
 
-  /**
-   * Returns true if this rule class has the _whitelist_function_transition attribute.
-   */
-  public boolean hasFunctionTransitionWhitelist() {
-    return hasFunctionTransitionWhitelist;
+  /** Returns true if this rule class has the _allowlist_function_transition attribute. */
+  public boolean hasFunctionTransitionAllowlist() {
+    return hasFunctionTransitionAllowlist;
   }
 
   /**
@@ -2610,6 +2629,10 @@ public class RuleClass {
 
   public boolean useToolchainResolution() {
     return useToolchainResolution;
+  }
+
+  public boolean useToolchainTransition() {
+    return useToolchainTransition;
   }
 
   public ImmutableSet<Label> getExecutionPlatformConstraints() {

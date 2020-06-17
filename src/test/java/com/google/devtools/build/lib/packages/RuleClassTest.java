@@ -868,7 +868,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   private static RuleClass newRuleClass(
       String name,
-      boolean skylarkExecutable,
+      boolean starlarkExecutable,
       boolean documented,
       boolean publicByDefault,
       boolean binaryOutput,
@@ -892,8 +892,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         DUMMY_STACK,
         /*key=*/ name,
         RuleClassType.NORMAL,
-        /*isStarlark=*/ skylarkExecutable,
-        /*skylarkTestable=*/ false,
+        /*isStarlark=*/ starlarkExecutable,
+        /*starlarkTestable=*/ false,
         documented,
         publicByDefault,
         binaryOutput,
@@ -922,6 +922,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         ThirdPartyLicenseExistencePolicy.USER_CONTROLLABLE,
         /*requiredToolchains=*/ ImmutableSet.of(),
         /*useToolchainResolution=*/ true,
+        /*useToolchainTransition=*/ true,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
         /* execGroups= */ ImmutableMap.of(),
         OutputFile.Kind.FILE,
@@ -1144,14 +1145,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
-            "cherry", new ExecGroup(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+            "cherry", ExecGroup.create(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry").getRequiredToolchains())
+    assertThat(ruleClass.getExecGroups().get("cherry").requiredToolchains())
         .containsExactly(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry").getExecutionPlatformConstraints())
+    assertThat(ruleClass.getExecGroups().get("cherry").execCompatibleWith())
         .containsExactly(constraint);
   }
 
@@ -1188,7 +1189,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   @Test
   public void testBuildTooManyAttributesRejected() {
     RuleClass.Builder builder =
-        new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+        new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*starlark=*/ false)
             .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
             .add(attr("tags", STRING_LIST));
     for (int i = 0; i < 200; i++) {
@@ -1209,7 +1210,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         assertThrows(
             IllegalArgumentException.class,
             () ->
-                new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*skylark=*/ false)
+                new RuleClass.Builder("myclass", RuleClassType.NORMAL, /*starlark=*/ false)
                     .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
                     .add(attr("tags", STRING_LIST))
                     .add(attr(Strings.repeat("x", 150), STRING))

@@ -549,7 +549,7 @@ public final class Depset implements StarlarkValue {
     }
 
     // check depth limit
-    int depth = result.getSet().getDepth();
+    int depth = result.getSet().getApproxDepth();
     int limit = depthLimit.get();
     if (depth > limit) {
       throw Starlark.errorf("depset depth %d exceeds limit (%d)", depth, limit);
@@ -599,5 +599,7 @@ public final class Depset implements StarlarkValue {
     return oldValue != newLimit;
   }
 
+  // The effective default value comes from the --nested_set_depth_limit
+  // flag in NestedSetOptionsModule, which overrides this.
   private static final AtomicInteger depthLimit = new AtomicInteger(3500);
 }

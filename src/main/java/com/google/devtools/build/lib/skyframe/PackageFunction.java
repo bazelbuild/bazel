@@ -654,11 +654,11 @@ public class PackageFunction implements SkyFunction {
       throws InterruptedException, BzlLoadFailedException, InconsistentFilesystemException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
     Map<SkyKey, ValueOrException2<BzlLoadFailedException, InconsistentFilesystemException>>
-        skylarkLookupResults =
+        starlarkLookupResults =
             env.getValuesOrThrow(
                 keys, BzlLoadFailedException.class, InconsistentFilesystemException.class);
     for (BzlLoadValue.Key key : keys) {
-      bzlLoads.add((BzlLoadValue) skylarkLookupResults.get(key).get());
+      bzlLoads.add((BzlLoadValue) starlarkLookupResults.get(key).get());
     }
     return env.valuesMissing() ? null : bzlLoads;
   }

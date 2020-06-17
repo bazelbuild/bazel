@@ -1821,10 +1821,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         ")");
     RuleClass plum = ((StarlarkRuleFunction) ev.lookup("plum")).getRuleClass();
     assertThat(plum.getRequiredToolchains()).isEmpty();
-    assertThat(plum.getExecGroups().get("group").getRequiredToolchains())
+    assertThat(plum.getExecGroups().get("group").requiredToolchains())
         .containsExactly(makeLabel("//test:my_toolchain_type"));
     assertThat(plum.getExecutionPlatformConstraints()).isEmpty();
-    assertThat(plum.getExecGroups().get("group").getExecutionPlatformConstraints())
+    assertThat(plum.getExecGroups().get("group").execCompatibleWith())
         .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
   }
 
@@ -1874,9 +1874,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "  exec_compatible_with=['//constraint:cv1', '//constraint:cv2'],",
         ")");
     ExecGroup group = ((ExecGroup) ev.lookup("group"));
-    assertThat(group.getRequiredToolchains())
-        .containsExactly(makeLabel("//test:my_toolchain_type"));
-    assertThat(group.getExecutionPlatformConstraints())
+    assertThat(group.requiredToolchains()).containsExactly(makeLabel("//test:my_toolchain_type"));
+    assertThat(group.execCompatibleWith())
         .containsExactly(makeLabel("//constraint:cv1"), makeLabel("//constraint:cv2"));
   }
 }

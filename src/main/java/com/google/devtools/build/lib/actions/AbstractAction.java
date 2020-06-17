@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.skylarkbuildapi.ActionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
@@ -398,20 +399,25 @@ public abstract class AbstractAction extends ActionKeyCacher implements Action, 
    * checking, this method must be called.
    */
   protected void checkInputsForDirectories(
-      EventHandler eventHandler, MetadataProvider metadataProvider) throws IOException {
+      EventHandler eventHandler, MetadataProvider metadataProvider) throws ExecException {
     // Report "directory dependency checking" warning only for non-generated directories (generated
     // ones will be reported earlier).
     for (Artifact input : getMandatoryInputs().toList()) {
       // Assume that if the file did not exist, we would not have gotten here.
-      if (input.isSourceArtifact() && metadataProvider.getMetadata(input).getType().isDirectory()) {
-        // TODO(ulfjack): What about dependency checking of special files?
-        eventHandler.handle(
-            Event.warn(
-                getOwner().getLocation(),
-                String.format(
-                    "input '%s' to %s is a directory; "
-                        + "dependency checking of directories is unsound",
-                    input.prettyPrint(), getOwner().getLabel())));
+      try {
+        if (input.isSourceArtifact()
+            && metadataProvider.getMetadata(input).getType().isDirectory()) {
+          // TODO(ulfjack): What about dependency checking of special files?
+          eventHandler.handle(
+              Event.warn(
+                  getOwner().getLocation(),
+                  String.format(
+                      "input '%s' to %s is a directory; "
+                          + "dependency checking of directories is unsound",
+                      input.prettyPrint(), getOwner().getLabel())));
+        }
+      } catch (IOException e) {
+        throw new EnvironmentalExecException(e, Code.INPUT_DIRECTORY_CHECK_IO_EXCEPTION);
       }
     }
   }

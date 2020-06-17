@@ -160,7 +160,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "load('//test:macros.bzl', 'macro_native_rule', 'macro_starlark_rule', 'starlark_rule')",
         "macro_native_rule(name = 'm_native',",
         "  deps = [':jlib'])",
-        "macro_starlark_rule(name = 'm_skylark',",
+        "macro_starlark_rule(name = 'm_starlark',",
         "  deps = [':jlib'])",
         "java_library(name = 'jlib',",
         "  srcs = ['bla.java'])",
@@ -201,10 +201,10 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void hasCorrectLocationForRuleAttributeError_StarlarkRuleWithMacro() throws Exception {
     setUpAttributeErrorTest();
-    assertThrows(Exception.class, () -> createRuleContext("//test:m_skylark"));
+    assertThrows(Exception.class, () -> createRuleContext("//test:m_starlark"));
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:4:20: in deps attribute of starlark_rule rule "
-            + "//test:m_skylark: '//test:jlib' does not have mandatory providers:"
+            + "//test:m_starlark: '//test:jlib' does not have mandatory providers:"
             + " 'some_provider'. "
             + "Since this rule was created by the macro 'macro_starlark_rule', the error might "
             + "have been caused by the macro implementation");
@@ -352,7 +352,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         "load('//test:macros.bzl', 'macro_starlark_rule')",
-        "macro_starlark_rule(name = 'm_skylark',",
+        "macro_starlark_rule(name = 'm_starlark',",
         "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("test/sub/BUILD",
         "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
@@ -369,7 +369,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "def macro_starlark_rule(name, srcs=[]):",
         "  starlark_rule(name = name, srcs = srcs)");
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:m_skylark");
+    getConfiguredTarget("//test:m_starlark");
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:2:20: Label '//test:sub/my_sub_lib.h' is invalid because"
             + " 'test/sub' is a subpackage; perhaps you meant to put the colon here: "
@@ -431,7 +431,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         "load('//test:macros.bzl', 'macro_starlark_rule')",
-        "macro_starlark_rule(name = 'm_skylark')");
+        "macro_starlark_rule(name = 'm_starlark')");
     scratch.file("test/sub/BUILD",
         "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.file(
@@ -447,7 +447,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "def macro_starlark_rule(name, srcs=[]):",
         "  starlark_rule(name = name, srcs = srcs + ['sub/my_sub_lib.h'])");
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:m_skylark");
+    getConfiguredTarget("//test:m_starlark");
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:2:20: Label '//test:sub/my_sub_lib.h' "
             + "is invalid because 'test/sub' is a subpackage");
@@ -521,13 +521,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testGetRuleSelect() throws Exception {
-    scratch.file("test/skylark/BUILD");
+    scratch.file("test/starlark/BUILD");
     scratch.file(
-        "test/skylark/rulestr.bzl", "def rule_dict(name):", "  return native.existing_rule(name)");
+        "test/starlark/rulestr.bzl", "def rule_dict(name):", "  return native.existing_rule(name)");
 
     scratch.file(
         "test/getrule/BUILD",
-        "load('//test/skylark:rulestr.bzl', 'rule_dict')",
+        "load('//test/starlark:rulestr.bzl', 'rule_dict')",
         "cc_library(name ='x', ",
         "  srcs = select({'//conditions:default': []})",
         ")",
@@ -574,9 +574,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testGetRule() throws Exception {
-    scratch.file("test/skylark/BUILD");
+    scratch.file("test/starlark/BUILD");
     scratch.file(
-        "test/skylark/rulestr.bzl",
+        "test/starlark/rulestr.bzl",
         "def rule_dict(name):",
         "  return native.existing_rule(name)",
         "def rules_dict():",
@@ -588,7 +588,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     scratch.file(
         "test/getrule/BUILD",
-        "load('//test/skylark:rulestr.bzl', 'rules_dict', 'rule_dict', 'nop_rule', 'consume_rule')",
+        "load('//test/starlark:rulestr.bzl', 'rules_dict', 'rule_dict', 'nop_rule',"
+            + "'consume_rule')",
         "genrule(name = 'a', outs = ['a.txt'], ",
         "        licenses = ['notice'],",
         "        output_to_bindir = False,",

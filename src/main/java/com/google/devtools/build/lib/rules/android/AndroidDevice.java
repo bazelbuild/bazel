@@ -26,6 +26,7 @@ import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -37,7 +38,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
@@ -61,7 +61,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
 
   private static final String DEVICE_BROKER_TYPE = "WRAPPED_EMULATOR";
 
-  static final String WHITELIST_NAME = "android_device";
+  static final String ALLOWLIST_NAME = "android_device";
 
   // Min resolution
   private static final int MIN_HORIZONTAL = 240;
@@ -92,7 +92,7 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext)
       throws InterruptedException, RuleErrorException, ActionConflictException {
     androidSemantics.checkForMigrationTag(ruleContext);
-    checkWhitelist(ruleContext);
+    checkAllowlist(ruleContext);
     Artifact executable = ruleContext.createOutputArtifact();
     Artifact metadata =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_DEVICE_EMULATOR_METADATA);
@@ -156,8 +156,8 @@ public class AndroidDevice implements RuleConfiguredTargetFactory {
         .build();
   }
 
-  private static void checkWhitelist(RuleContext ruleContext) throws RuleErrorException {
-    if (!Whitelist.isAvailable(ruleContext, WHITELIST_NAME)) {
+  private static void checkAllowlist(RuleContext ruleContext) throws RuleErrorException {
+    if (!Allowlist.isAvailable(ruleContext, ALLOWLIST_NAME)) {
       ruleContext.throwWithRuleError("The android_device rule may not be used in this package");
     }
   }

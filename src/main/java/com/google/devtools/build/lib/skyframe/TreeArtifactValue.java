@@ -49,20 +49,22 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   @SerializationConstant @AutoCodec.VisibleForSerialization
   static final TreeArtifactValue EMPTY =
       new TreeArtifactValue(
-          DigestUtils.fromMetadata(ImmutableMap.of()), ImmutableSortedMap.of(), /*remote=*/ false);
+          DigestUtils.fromMetadata(ImmutableMap.of()),
+          ImmutableSortedMap.of(),
+          /*entirelyRemote=*/ false);
 
   private final byte[] digest;
   private final ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData;
-  private final boolean remote;
+  private final boolean entirelyRemote;
 
   @AutoCodec.VisibleForSerialization
   TreeArtifactValue(
       byte[] digest,
       ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> childData,
-      boolean remote) {
+      boolean entirelyRemote) {
     this.digest = digest;
     this.childData = childData;
-    this.remote = remote;
+    this.entirelyRemote = entirelyRemote;
   }
 
   /**
@@ -76,7 +78,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     }
     Map<String, FileArtifactValue> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
-    boolean remote = true;
+    boolean entirelyRemote = true;
     for (Map.Entry<TreeFileArtifact, ? extends FileArtifactValue> e : childFileValues.entrySet()) {
       TreeFileArtifact child = e.getKey();
       FileArtifactValue value = e.getValue();
@@ -84,15 +86,14 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           !FileArtifactValue.OMITTED_FILE_MARKER.equals(value),
           "Cannot construct TreeArtifactValue because child %s was omitted",
           child);
-      // TODO(buchgr): Enforce that all children in a tree artifact are either remote or local
-      // once b/70354083 is fixed.
-      remote = remote && value.isRemote();
+      // Tolerate a tree artifact having a mix of local and remote children (b/152496153#comment80).
+      entirelyRemote &= value.isRemote();
       digestBuilder.put(child.getParentRelativePath().getPathString(), value);
     }
     return new TreeArtifactValue(
         DigestUtils.fromMetadata(digestBuilder),
         ImmutableSortedMap.copyOf(childFileValues),
-        remote);
+        entirelyRemote);
   }
 
   FileArtifactValue getSelfData() {
@@ -124,8 +125,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   }
 
   /** Returns true if the {@link TreeFileArtifact}s are only stored remotely. */
-  public boolean isRemote() {
-    return remote;
+  public boolean isEntirelyRemote() {
+    return entirelyRemote;
   }
 
   @Override
@@ -173,7 +174,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
   static final TreeArtifactValue MISSING_TREE_ARTIFACT = createMarker("MISSING_TREE_ARTIFACT");
 
   private static TreeArtifactValue createMarker(String toStringRepresentation) {
-    return new TreeArtifactValue(null, ImmutableSortedMap.of(), /*remote=*/ false) {
+    return new TreeArtifactValue(null, ImmutableSortedMap.of(), /*entirelyRemote=*/ false) {
       @Override
       FileArtifactValue getSelfData() {
         throw new UnsupportedOperationException(toString());

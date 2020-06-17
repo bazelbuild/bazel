@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.android;
 
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
@@ -43,7 +43,7 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_LIBRARY_IMPLICIT_OUTPUTS)
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(env))
         .add(
-            Whitelist.getAttributeFromWhitelistName("allow_deps_without_srcs")
+            Allowlist.getAttributeFromAllowlistName("allow_deps_without_srcs")
                 .value(
                     env.getToolsLabel(
                         "//tools/android:allow_android_library_deps_without_srcs_whitelist")))

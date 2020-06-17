@@ -21,10 +21,12 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -486,9 +488,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   /** Return an empty BuildOptions for testing fragment dropping. * */
   public static class RemoveTestOptionsTransition implements PatchTransition {
     @Override
-    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(TestOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptions.Builder builder = BuildOptions.builder();
-      for (FragmentOptions option : options.getNativeOptions()) {
+      for (FragmentOptions option : options.underlying().getNativeOptions()) {
         if (!(option instanceof TestOptions)) {
           builder.addFragmentOptions(option);
         }

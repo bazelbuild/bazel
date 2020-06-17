@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
@@ -613,8 +614,19 @@ public final class TrimmableTestConfigurationFragments {
       }
 
       @Override
-      public BuildOptions patch(BuildOptions target, EventHandler eventHandler) {
-        BuildOptions output = target.clone();
+      public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+        return ImmutableSet.of(
+            AOptions.class,
+            BOptions.class,
+            COptions.class,
+            DOptions.class,
+            EOptions.class,
+            PlatformOptions.class);
+      }
+
+      @Override
+      public BuildOptions patch(BuildOptionsView target, EventHandler eventHandler) {
+        BuildOptionsView output = target.clone();
         if (alpha != null) {
           output.get(AOptions.class).alpha = alpha;
         }
@@ -639,7 +651,7 @@ public final class TrimmableTestConfigurationFragments {
         if (extraToolchains != null) {
           output.get(PlatformOptions.class).extraToolchains = extraToolchains;
         }
-        return output;
+        return output.underlying();
       }
     }
 

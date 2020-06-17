@@ -12,38 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.whitelisting;
+package com.google.devtools.build.lib.analysis.allowlisting;
 
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 
-/** Definition of a test rule that uses whitelists. */
-public final class WhitelistDummyRule {
+/** Definition of a test rule that uses allowlists. */
+public final class AllowlistDummyRule {
   public static final MockRule DEFINITION =
       () ->
           MockRule.factory(RuleFactory.class)
               .define(
-                  "rule_with_whitelist",
+                  "rule_with_allowlist",
                   (builder, env) ->
                       builder.add(
-                          Whitelist.getAttributeFromWhitelistName("dummy")
-                              .value(Label.parseAbsoluteUnchecked("//whitelist:whitelist"))));
+                          Allowlist.getAttributeFromAllowlistName("dummy")
+                              .value(Label.parseAbsoluteUnchecked("//allowlist:allowlist"))));
 
   /** Has to be public to make factory initialization logic happy. **/
   public static class RuleFactory implements RuleConfiguredTargetFactory {
     @Override
     public ConfiguredTarget create(RuleContext ruleContext)
         throws InterruptedException, RuleErrorException, ActionConflictException {
-      if (!Whitelist.isAvailable(ruleContext, "dummy")) {
+      if (!Allowlist.isAvailable(ruleContext, "dummy")) {
         ruleContext.ruleError("Dummy is not available.");
       }
       return new RuleConfiguredTargetBuilder(ruleContext)
@@ -52,4 +52,6 @@ public final class WhitelistDummyRule {
           .build();
     }
   }
+
+  private AllowlistDummyRule() {}
 }

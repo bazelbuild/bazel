@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -60,7 +61,8 @@ public final class FileWriteStrategy implements FileWriteActionContext {
           outputPath.setExecutable(true);
         }
       } catch (IOException e) {
-        return SpawnContinuation.failedWithExecException(new EnvironmentalExecException(e));
+        return SpawnContinuation.failedWithExecException(
+            new EnvironmentalExecException(e, Code.FILE_WRITE_IO_EXCEPTION));
       }
     }
     return SpawnContinuation.immediate();

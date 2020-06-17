@@ -39,7 +39,7 @@ public class AndroidStarlarkTest extends BuildViewTestCase {
 
   private void writeAndroidSplitTransitionTestFiles() throws Exception {
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def impl(ctx): ",
         "  return MyInfo(",
@@ -56,8 +56,8 @@ public class AndroidStarlarkTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])",
         "cc_binary(name = 'main2', srcs = ['main2.c'])");
@@ -84,7 +84,7 @@ public class AndroidStarlarkTest extends BuildViewTestCase {
     writeAndroidSplitTransitionTestFiles();
 
     useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
     StructImpl myInfo = getMyInfoFromTarget(target);
 
     // Check that ctx.split_attr.deps has this structure:
@@ -159,7 +159,7 @@ public class AndroidStarlarkTest extends BuildViewTestCase {
     // --android_cpu with --android_crosstool_top also triggers the split transition.
     useConfiguration(
         "--android_cpu=armeabi-v7a", "--android_crosstool_top=//android/crosstool:everything");
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
 
     @SuppressWarnings("unchecked")
     Map<Object, List<ConfiguredTarget>> splitDeps =
@@ -177,7 +177,7 @@ public class AndroidStarlarkTest extends BuildViewTestCase {
     writeAndroidSplitTransitionTestFiles();
 
     useConfiguration("--fat_apk_cpu=", "--android_crosstool_top=", "--cpu=k8");
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
 
     @SuppressWarnings("unchecked")
     Map<Object, List<ConfiguredTarget>> splitDeps =

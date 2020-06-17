@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 # test behavior with starlark transitions and
-# //src/main/java/com/google/devtools/build/lib/analysis/Whitelist.java
+# //src/main/java/com/google/devtools/build/lib/analysis/Allowlist.java
 #
 
 # Load the test setup defined in the parent directory
@@ -24,7 +24,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 
-# Test that the whitelist for starlark transitions in bazel will work
+# Test that the allowlist for starlark transitions in bazel will work
 # with external dependencies that use starlark transitions.
 #
 # repo structure:
@@ -41,8 +41,8 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 #     rules.bzl
 #       rule_with_transition
 #
-# The whitelist for starlark transitions is set to a package group of "//..."
-function test_whitelist_includes_external_deps() {
+# The allowlist for starlark transitions is set to a package group of "//..."
+function test_allowlist_includes_external_deps() {
   create_new_workspace
   repo2=${new_workspace_dir}
   mkdir -p hotsauce
@@ -103,7 +103,7 @@ EOF
 
 }
 
-# Test using a bad whitelist value
+# Test using a bad allowlist value
 #
 # repo structure:
 # ${WORKSPACE_DIR}/
@@ -112,8 +112,8 @@ EOF
 #       rule_with_transition
 #     BUILD
 #
-# The whitelist for starlark transitions is set to a package group of "//..."
-function test_whitelist_bad_value() {
+# The allowlist for starlark transitions is set to a package group of "//..."
+function test_allowlist_bad_value() {
   mkdir -p vinegar
   cat > vinegar/rules.bzl <<EOF
 def _my_transition_impl(settings, attr):
@@ -143,12 +143,12 @@ EOF
 
   bazel build //vinegar --experimental_starlark_config_transitions \
     >& $TEST_log && fail "Expected failure"
-  expect_log "_whitelist_function_transition attribute (@bazel_tools//tools/whitelists/bad:bad)"
+  expect_log "_allowlist_function_transition attribute (@bazel_tools//tools/whitelists/bad:bad)"
   expect_log "does not have the expected value //tools/whitelists/function_transition_whitelist:function_transition_whitelist"
 }
 
 
-# Test using their own repo's whitelist value
+# Test using their own repo's allowlist value
 #
 # repo structure:
 # ${WORKSPACE_DIR}/
@@ -157,8 +157,8 @@ EOF
 #       rule_with_transition
 #     BUILD
 #
-# The whitelist for starlark transitions is set to a package group of "//..."
-function test_whitelist_own_rep() {
+# The allowlist for starlark transitions is set to a package group of "//..."
+function test_allowlist_own_rep() {
   mkdir -p tools/whitelists/function_transition_whitelist
   cat > tools/whitelists/function_transition_whitelist/BUILD <<EOF
 package_group(
@@ -208,4 +208,4 @@ EOF
   expect_log "test_arg:\[hotlanta\] -> \[\[\"tapatio\"\]\]"
 }
 
-run_suite "whitelist tests"
+run_suite "allowlist tests"

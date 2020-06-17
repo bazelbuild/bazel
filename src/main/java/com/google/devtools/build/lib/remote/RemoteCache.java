@@ -60,6 +60,9 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -352,7 +355,13 @@ public class RemoteCache implements AutoCloseable {
         // any subsequent local execution failure would likely be incomprehensible.
         ExecException execEx =
             new EnvironmentalExecException(
-                "Failed to delete output files after incomplete download", ioEx);
+                ioEx,
+                FailureDetail.newBuilder()
+                    .setMessage("Failed to delete output files after incomplete download")
+                    .setRemoteExecution(
+                        RemoteExecution.newBuilder()
+                            .setCode(Code.INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE))
+                    .build());
         execEx.addSuppressed(e);
         throw execEx;
       }

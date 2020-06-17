@@ -18,10 +18,10 @@ import static com.google.devtools.build.lib.analysis.config.CompilationMode.OPT;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitionMode;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -93,10 +93,10 @@ public class AndroidDataContext implements AndroidDataContextApi {
   }
 
   private static boolean hasExemption(
-      RuleContext ruleContext, String exemptionName, boolean valueIfNoWhitelist) {
-    return Whitelist.hasWhitelist(ruleContext, exemptionName)
-        ? Whitelist.isAvailable(ruleContext, exemptionName)
-        : valueIfNoWhitelist;
+      RuleContext ruleContext, String exemptionName, boolean valueIfNoAllowlist) {
+    return Allowlist.hasAllowlist(ruleContext, exemptionName)
+        ? Allowlist.isAvailable(ruleContext, exemptionName)
+        : valueIfNoAllowlist;
   }
 
   protected AndroidDataContext(

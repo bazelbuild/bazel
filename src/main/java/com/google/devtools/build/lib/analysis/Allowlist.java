@@ -27,63 +27,65 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 
 /**
- * Class used for implementing whitelists using package groups.
+ * Class used for implementing allowlists using package groups.
  *
- * <p>To use add an attribute {@link getAttributeFromWhitelistName(String,Label) to the rule class
- * which needs the whitelisting mechanism and use {@link isAvailable(RuleContext,String)} to check
+ * <p>To use add an attribute {@link getAttributeFromAllowlistName(String) to the rule class
+ * which needs the allowlisting mechanism and use {@link isAvailable(RuleContext,String)} to check
  * during analysis if a rule is present
  */
-public final class Whitelist {
+public final class Allowlist {
 
-  private Whitelist() {}
+  private Allowlist() {}
 
   /**
    * Returns an Attribute.Builder that can be used to add an implicit attribute to a rule containing
-   * a package group whitelist.
+   * a package group allowlist.
    *
-   * @param whitelistName The name of the whitelist. This has to comply with attribute naming
+   * @param allowlistName The name of the allowlist. This has to comply with attribute naming
    *     standards and will be used as a suffix for the attribute name.
    */
-  public static Attribute.Builder<Label> getAttributeFromWhitelistName(String whitelistName) {
-    String attributeName = getAttributeNameFromWhitelistName(whitelistName);
+  public static Attribute.Builder<Label> getAttributeFromAllowlistName(String allowlistName) {
+    String attributeName = getAttributeNameFromAllowlistName(allowlistName);
     return attr(attributeName, LABEL)
         .cfg(HostTransition.createFactory())
         .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class));
   }
 
   /**
-   * Returns whether the rule in the given RuleContext *was defined* in a whitelist.
+   * Returns whether the rule in the given RuleContext *was defined* in a allowlist.
    *
    * @param ruleContext The context in which this check is being executed.
-   * @param whitelistName The name of the whitelist being used.
+   * @param allowlistName The name of the allowlist being used.
    */
   public static boolean isAvailableBasedOnRuleLocation(
-      RuleContext ruleContext, String whitelistName) {
+      RuleContext ruleContext, String allowlistName) {
     return isAvailableFor(
         ruleContext,
-        whitelistName,
+        allowlistName,
         ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironmentLabel());
   }
 
   /**
-   * Returns whether the rule in the given RuleContext *was instantiated* in a whitelist.
+   * Returns whether the rule in the given RuleContext *was instantiated* in a allowlist.
    *
    * @param ruleContext The context in which this check is being executed.
-   * @param whitelistName The name of the whitelist being used.
+   * @param allowlistName The name of the allowlist being used.
    */
-  public static boolean isAvailable(RuleContext ruleContext, String whitelistName) {
-    return isAvailableFor(ruleContext, whitelistName, ruleContext.getLabel());
+  public static boolean isAvailable(RuleContext ruleContext, String allowlistName) {
+    return isAvailableFor(ruleContext, allowlistName, ruleContext.getLabel());
   }
 
   /**
-   * @param relevantLabel the label to check for in the whitelist. This allows features that
-   *     whitelist on rule definition location and features that whitelist on rule instantiation
+   * @param ruleContext The context in which this check is being executed.
+   * @param allowlistName The name of the allowlist being used.
+   * @param relevantLabel The label to check for in the allowlist. This allows features that
+   *     allowlist on rule definition location and features that allowlist on rule instantiation
    *     location to share logic.
    */
   public static boolean isAvailableFor(
-      RuleContext ruleContext, String whitelistName, Label relevantLabel) {
+      RuleContext ruleContext, String allowlistName, Label relevantLabel) {
     PackageSpecificationProvider packageSpecificationProvider =
-        fetchPackageSpecificationProvider(ruleContext, whitelistName);
+        fetchPackageSpecificationProvider(ruleContext, allowlistName);
     return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
   }
 
@@ -94,8 +96,8 @@ public final class Whitelist {
   }
 
   public static PackageSpecificationProvider fetchPackageSpecificationProvider(
-      RuleContext ruleContext, String whitelistName) {
-    String attributeName = getAttributeNameFromWhitelistName(whitelistName);
+      RuleContext ruleContext, String allowlistName) {
+    String attributeName = getAttributeNameFromAllowlistName(allowlistName);
     Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL));
     TransitiveInfoCollection packageGroup =
         ruleContext.getPrerequisite(attributeName, TransitionMode.HOST);
@@ -105,31 +107,31 @@ public final class Whitelist {
   }
 
   /**
-   * Returns whether the given label is in the whitelist provided.
+   * Returns whether the given label is in the allowlist provided.
    *
-   * @param whitelist the whitelist provided
-   * @param relevantLabel the label to check for in the whitelist.
+   * @param allowlist the allowlist provided
+   * @param relevantLabel the label to check for in the allowlist.
    */
-  public static boolean isAvailableForWhitelist(
-      TransitiveInfoCollection whitelist, Label relevantLabel) {
+  public static boolean isAvailableForAllowlist(
+      TransitiveInfoCollection allowlist, Label relevantLabel) {
     PackageSpecificationProvider packageSpecificationProvider =
-        whitelist.getProvider(PackageSpecificationProvider.class);
+        allowlist.getProvider(PackageSpecificationProvider.class);
     return isAvailableFor(packageSpecificationProvider.getPackageSpecifications(), relevantLabel);
   }
 
   /**
-   * Returns whether the rule from the given rule context has a whitelist by the given name.
+   * Returns whether the rule from the given rule context has a allowlist by the given name.
    *
    * @param ruleContext The rule context to check
-   * @param whitelistName The name of the whitelist to check for.
-   * @return True if the given rule context has the given whitelist.
+   * @param allowlistName The name of the allowlist to check for.
+   * @return True if the given rule context has the given allowlist.
    */
-  public static boolean hasWhitelist(RuleContext ruleContext, String whitelistName) {
-    String attributeName = getAttributeNameFromWhitelistName(whitelistName);
+  public static boolean hasAllowlist(RuleContext ruleContext, String allowlistName) {
+    String attributeName = getAttributeNameFromAllowlistName(allowlistName);
     return ruleContext.isAttrDefined(attributeName, LABEL);
   }
 
-  private static String getAttributeNameFromWhitelistName(String whitelistName) {
-    return String.format("$whitelist_%s", whitelistName);
+  private static String getAttributeNameFromAllowlistName(String allowlistName) {
+    return String.format("$whitelist_%s", allowlistName);
   }
 }

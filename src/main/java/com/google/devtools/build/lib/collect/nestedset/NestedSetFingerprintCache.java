@@ -79,9 +79,8 @@ public class NestedSetFingerprintCache {
     if (children instanceof Object[]) {
       if (!digestMap.readDigest(children, fingerprint)) {
         Fingerprint childrenFingerprint = new Fingerprint();
-        Object[] succs = (Object[]) children;
-        for (int i = 1; i < succs.length; i++) { // skip depth
-          addToFingerprint(mapFn, childrenFingerprint, digestMap, succs[i]);
+        for (Object child : (Object[]) children) {
+          addToFingerprint(mapFn, childrenFingerprint, digestMap, child);
         }
         digestMap.insertAndReadDigest(children, childrenFingerprint, fingerprint);
       }

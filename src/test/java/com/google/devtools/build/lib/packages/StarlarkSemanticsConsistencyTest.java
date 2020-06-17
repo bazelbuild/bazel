@@ -154,6 +154,7 @@ public class StarlarkSemanticsConsistencyTest {
         "--incompatible_no_implicit_file_export=" + rand.nextBoolean(),
         "--incompatible_no_rule_outputs_param=" + rand.nextBoolean(),
         "--incompatible_no_support_tools_in_action_inputs=" + rand.nextBoolean(),
+        "--incompatible_objc_provider_remove_compile_info=" + rand.nextBoolean(),
         "--incompatible_run_shell_command_string=" + rand.nextBoolean(),
         "--incompatible_string_replace_count=" + rand.nextBoolean(),
         "--incompatible_visibility_private_attributes_at_definition=" + rand.nextBoolean(),
@@ -205,6 +206,7 @@ public class StarlarkSemanticsConsistencyTest {
         .incompatibleNoImplicitFileExport(rand.nextBoolean())
         .incompatibleNoRuleOutputsParam(rand.nextBoolean())
         .incompatibleNoSupportToolsInActionInputs(rand.nextBoolean())
+        .incompatibleObjcProviderRemoveCompileInfo(rand.nextBoolean())
         .incompatibleRunShellCommandString(rand.nextBoolean())
         .incompatibleStringReplaceCount(rand.nextBoolean())
         .incompatibleVisibilityPrivateAttributesAtDefinition(rand.nextBoolean())

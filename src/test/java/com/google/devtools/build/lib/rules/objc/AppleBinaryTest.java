@@ -828,11 +828,11 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
   /** Returns the bcsymbolmap artifact for given architecture and compilation mode. */
   protected Artifact bitcodeSymbol(String arch, CompilationMode mode) throws Exception {
-    SpawnAction lipoAction = (SpawnAction) lipoBinAction("//examples/apple_skylark:bin");
+    SpawnAction lipoAction = (SpawnAction) lipoBinAction("//examples/apple_starlark:bin");
 
     String bin =
         configurationBin(arch, ConfigurationDistinguisher.APPLEBIN_IOS, null, mode)
-            + "examples/apple_skylark/bin_bin";
+            + "examples/apple_starlark/bin_bin";
     Artifact binArtifact = getFirstArtifactEndingWith(lipoAction.getInputs(), bin);
     CommandAction linkAction = (CommandAction) getGeneratingAction(binArtifact);
     return getFirstArtifactEndingWith(linkAction.getOutputs(), "bcsymbolmap");
@@ -841,13 +841,13 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
   /** Returns the path to the dSYM binary artifact for given architecture and compilation mode. */
   protected String dsymBinaryPath(String arch, CompilationMode mode) throws Exception {
     return configurationBin(arch, ConfigurationDistinguisher.APPLEBIN_IOS, null, mode)
-        + "examples/apple_skylark/bin_bin.dwarf";
+        + "examples/apple_starlark/bin_bin.dwarf";
   }
 
   /** Returns the path to the linkmap artifact for a given architecture. */
   protected String linkmapPath(String arch) throws Exception {
     return configurationBin(arch, ConfigurationDistinguisher.APPLEBIN_IOS)
-        + "examples/apple_skylark/bin.linkmap";
+        + "examples/apple_starlark/bin.linkmap";
   }
 
   @Test
@@ -871,7 +871,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "})");
 
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'test_rule')",
         "apple_binary(",
@@ -890,7 +890,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--ios_multi_cpus=armv7,arm64");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
     assertThat(myInfo.getValue("binary")).isInstanceOf(Artifact.class);
@@ -922,7 +922,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "})");
 
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'test_rule')",
         "apple_binary(",
@@ -941,7 +941,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--ios_multi_cpus=armv7,arm64");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
     assertThat(myInfo.getValue("binary")).isInstanceOf(Artifact.class);
@@ -972,7 +972,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "})");
 
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'test_rule')",
         "apple_binary(",
@@ -991,7 +991,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         ")");
 
     useConfiguration("--ios_multi_cpus=armv7,arm64");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
     StructImpl myInfo = getMyInfoFromTarget(starlarkTarget);
 
     assertThat((Artifact) myInfo.getValue("binary")).isNotNull();
@@ -1413,7 +1413,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "})");
 
     scratch.file(
-        "examples/apple_skylark/BUILD",
+        "examples/apple_starlark/BUILD",
         "package(default_visibility = ['//visibility:public'])",
         "load('//examples/rule:apple_rules.bzl', 'test_rule')",
         "apple_binary(",
@@ -1429,7 +1429,7 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
         "    name = 'my_target',",
         "    deps = [':bin'],",
         ")");
-    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_skylark:my_target");
+    ConfiguredTarget starlarkTarget = getConfiguredTarget("//examples/apple_starlark:my_target");
 
     // This cast is safe: struct providers are represented as Dict.
     @SuppressWarnings("unchecked")
@@ -1842,6 +1842,24 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
 
     ObjcProvider objcProvider = providerForTarget("//x:x");
     assertThat(objcProvider.sdkFramework().toList()).contains("TestFramework");
+  }
+
+  @Test
+  public void testIncludesLinkstampFiles() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "apple_binary(",
+        "  name = 'bin',",
+        "  platform_type = 'macos',",
+        "  deps = [':lib'],",
+        ")",
+        "cc_library(",
+        "  name = 'lib',",
+        "  linkstamp = 'some_linkstamp.cc',",
+        ")");
+    CommandAction linkAction = linkAction("//test:bin");
+    assertThat(paramFileArgsForAction(linkAction))
+        .contains(execPathEndingWith(linkAction.getInputs().toList(), "some_linkstamp.o"));
   }
 
   protected RuleType getRuleType() {

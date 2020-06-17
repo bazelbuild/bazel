@@ -435,14 +435,14 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
+  @Nullable
   public ActionOwner getActionOwner(String execGroup) {
     if (actionOwners.containsKey(execGroup)) {
       return actionOwners.get(execGroup);
     }
-    Preconditions.checkState(
-        toolchainContexts == null || toolchainContexts.hasToolchainContext(execGroup),
-        "action owner requested for non-existent exec group '%s'.",
-        execGroup);
+    if (toolchainContexts != null && !toolchainContexts.hasToolchainContext(execGroup)) {
+      return null;
+    }
     ActionOwner actionOwner =
         createActionOwner(
             rule,
@@ -1082,8 +1082,8 @@ public final class RuleContext extends TargetContext
    * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, TransitionMode mode, final NativeProvider<T> skylarkKey) {
-    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
+      String attributeName, TransitionMode mode, final NativeProvider<T> starlarkKey) {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), starlarkKey);
   }
 
   /**
@@ -1091,8 +1091,8 @@ public final class RuleContext extends TargetContext
    * the specified attribute of this target in the BUILD file.
    */
   public <T extends Info> List<T> getPrerequisites(
-      String attributeName, TransitionMode mode, final BuiltinProvider<T> skylarkKey) {
-    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), skylarkKey);
+      String attributeName, TransitionMode mode, final BuiltinProvider<T> starlarkKey) {
+    return AnalysisUtils.getProviders(getPrerequisites(attributeName, mode), starlarkKey);
   }
 
   /**
@@ -1102,9 +1102,9 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public <T extends Info> T getPrerequisite(
-      String attributeName, TransitionMode mode, final NativeProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final NativeProvider<T> starlarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
-    return prerequisite == null ? null : prerequisite.get(skylarkKey);
+    return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
 
   /**
@@ -1114,9 +1114,9 @@ public final class RuleContext extends TargetContext
    */
   @Nullable
   public <T extends Info> T getPrerequisite(
-      String attributeName, TransitionMode mode, final BuiltinProvider<T> skylarkKey) {
+      String attributeName, TransitionMode mode, final BuiltinProvider<T> starlarkKey) {
     TransitiveInfoCollection prerequisite = getPrerequisite(attributeName, mode);
-    return prerequisite == null ? null : prerequisite.get(skylarkKey);
+    return prerequisite == null ? null : prerequisite.get(starlarkKey);
   }
 
   /**

@@ -872,7 +872,7 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes()
                   .nonconfigurable("defines an aspect of configuration")
                   .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
-          .add(AndroidFeatureFlagSetProvider.getWhitelistAttribute(env))
+          .add(AndroidFeatureFlagSetProvider.getAllowlistAttribute(env))
           // The resource extractor is used at the binary level to extract java resources from the
           // deploy jar so that they can be added to the APK.
           .add(

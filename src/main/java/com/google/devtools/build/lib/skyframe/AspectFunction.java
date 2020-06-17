@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.RuleContext.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -424,6 +426,7 @@ public final class AspectFunction implements SkyFunction {
                     : ToolchainCollection.builder()
                         .addDefaultContext(unloadedToolchainContext)
                         .build(),
+                shouldUseToolchainTransition(configuration, aspect.getDefinition()),
                 ruleClassProvider,
                 view.getHostConfiguration(originalTargetAndAspectConfiguration.getConfiguration()),
                 transitivePackagesForPackageRootResolution,
@@ -494,15 +497,33 @@ public final class AspectFunction implements SkyFunction {
   }
 
   /**
-   * Merges aspects defined by {@code aspectKeys} into the {@code target} using
-   * previously computed {@code values}.
+   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
+   * change flag and the aspect's toolchain transition readiness attribute.
+   */
+  // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
+  private static boolean shouldUseToolchainTransition(
+      @Nullable BuildConfiguration configuration, AspectDefinition definition) {
+    // Check whether the global incompatible change flag is set.
+    if (configuration != null) {
+      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
+      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
+        return true;
+      }
+    }
+
+    // Check the aspect definition to see if it is ready.
+    return definition.useToolchainTransition();
+  }
+
+  /**
+   * Merges aspects defined by {@code aspectKeys} into the {@code target} using previously computed
+   * {@code values}.
    *
    * @return A {@link ConfiguredTarget} that is a result of a merge.
    * @throws DuplicateException if there is a duplicate provider provided by aspects.
    */
-  private ConfiguredTarget getBaseTarget(ConfiguredTarget target,
-      ImmutableList<AspectKey> aspectKeys,
-      Map<SkyKey, SkyValue> values)
+  private static ConfiguredTarget getBaseTarget(
+      ConfiguredTarget target, ImmutableList<AspectKey> aspectKeys, Map<SkyKey, SkyValue> values)
       throws DuplicateException {
     ArrayList<ConfiguredAspect> aspectValues = new ArrayList<>();
     for (AspectKey aspectKey : aspectKeys) {

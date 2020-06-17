@@ -166,7 +166,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                 ccToolchain,
                 fdoContext,
                 TargetUtils.getExecutionInfo(
-                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()))
+                    ruleContext.getRule(), ruleContext.isAllowTagsPropagation()),
+                /* shouldProcessHeaders= */ true)
             .fromCommon(common, additionalCopts)
             .addSources(common.getSources())
             .addPrivateHeaders(common.getPrivateHeaders())
@@ -314,6 +315,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     if (ruleContext.getRule().getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE
         || !ccCompilationOutputs.isEmpty()) {
       if (featureConfiguration.isEnabled(CppRuleClasses.TARGETS_WINDOWS)) {
+        String dllNameSuffix = CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration);
+        linkingHelper.setLinkedDLLNameSuffix(dllNameSuffix);
         Artifact generatedDefFile = null;
 
         Artifact defParser = common.getDefParser();
@@ -327,7 +330,8 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
                     ccToolchain
                         .getFeatures()
                         .getArtifactNameForCategory(
-                            ArtifactCategory.DYNAMIC_LIBRARY, ruleContext.getLabel().getName()));
+                            ArtifactCategory.DYNAMIC_LIBRARY,
+                            ruleContext.getLabel().getName() + dllNameSuffix));
             targetBuilder.addOutputGroup(DEF_FILE_OUTPUT_GROUP_NAME, generatedDefFile);
           } catch (EvalException e) {
             throw ruleContext.throwWithRuleError(e);
@@ -631,7 +635,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
               ccToolchain,
               configuration,
               Link.LinkTargetType.NODEPS_DYNAMIC_LIBRARY,
-              /* linkedArtifactNameSuffix= */ ""));
+              CppHelper.getDLLHashSuffix(ruleContext, featureConfiguration)));
 
       if (CppHelper.useInterfaceSharedLibraries(
           cppConfiguration, ccToolchain, featureConfiguration)) {

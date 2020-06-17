@@ -128,6 +128,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Sequence<?> hostFragments,
       Boolean starlarkTestable,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
@@ -184,6 +185,7 @@ public class FakeStarlarkRuleFunctionsApi implements StarlarkRuleFunctionsApi<Fi
       Sequence<?> fragments,
       Sequence<?> hostFragments,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Boolean applyToFiles,
       StarlarkThread thread)

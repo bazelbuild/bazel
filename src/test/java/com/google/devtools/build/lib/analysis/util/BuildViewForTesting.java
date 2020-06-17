@@ -325,15 +325,16 @@ public class BuildViewForTesting {
     }
 
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
-    TargetAndConfiguration ctgNode =
-        new TargetAndConfiguration(
-            target, skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey()));
+    BuildConfiguration configuration =
+        skyframeExecutor.getConfiguration(eventHandler, ct.getConfigurationKey());
+    TargetAndConfiguration ctgNode = new TargetAndConfiguration(target, configuration);
     return dependencyResolver.dependentNodeMap(
         ctgNode,
         configurations.getHostConfiguration(),
         /*aspect=*/ null,
         getConfigurableAttributeKeysForTesting(eventHandler, ctgNode),
         toolchainContexts,
+        DependencyResolver.shouldUseToolchainTransition(configuration, target),
         ruleClassProvider.getTrimmingTransitionFactory());
   }
 
@@ -511,7 +512,7 @@ public class BuildViewForTesting {
           execGroup.getKey(),
           ToolchainContextKey.key()
               .configurationKey(BuildConfigurationValue.key(targetConfig))
-              .requiredToolchainTypeLabels(execGroup.getValue().getRequiredToolchains())
+              .requiredToolchainTypeLabels(execGroup.getValue().requiredToolchains())
               .build());
     }
     String targetUnloadedToolchainContextKey = "target-unloaded-toolchain-context";

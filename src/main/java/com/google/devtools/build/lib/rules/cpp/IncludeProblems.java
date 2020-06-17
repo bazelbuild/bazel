@@ -17,6 +17,10 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.server.FailureDetails.CppCompile;
+import com.google.devtools.build.lib.server.FailureDetails.CppCompile.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /**
  * Accumulator for problems encountered while reading or validating inclusion
@@ -45,7 +49,14 @@ class IncludeProblems {
 
   void assertProblemFree(Action action, Artifact sourceFile) throws ActionExecutionException {
     if (hasProblems()) {
-      throw new ActionExecutionException(getMessage(action, sourceFile), action, false);
+      String message = getMessage(action, sourceFile);
+      DetailedExitCode code =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setCppCompile(CppCompile.newBuilder().setCode(Code.UNDECLARED_INCLUSIONS))
+                  .build());
+      throw new ActionExecutionException(message, action, false, code);
     }
   }
 }
