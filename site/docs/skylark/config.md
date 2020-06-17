@@ -353,10 +353,10 @@ configured targets in the build graph.
 > ```
 >
 > By adding transitions you can pretty easily explode the size of
-> your build graph. This sets a whitelist on the packages in which you can
+> your build graph. This sets an allowlist on the packages in which you can
 > create targets of this rule. The default value in the codeblock above
-> whitelists everything. But if you'd like to restrict who is using your rule,
-> you can set that attribute to point to your own custom whitelist.
+> allowlists everything. But if you'd like to restrict who is using your rule,
+> you can set that attribute to point to your own custom allowlist.
 > Contact bazel-discuss@googlegroups.com if you'd like advice or assistance
 > understanding how transitions can affect on your build performance.
 
