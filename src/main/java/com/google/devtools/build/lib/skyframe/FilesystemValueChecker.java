@@ -429,7 +429,7 @@ public class FilesystemValueChecker {
     try {
       Set<PathFragment> currentDirectoryValue =
           TreeArtifactValue.explodeDirectory(artifact.getPath());
-      return !(currentDirectoryValue.isEmpty() && value.isRemote())
+      return !(currentDirectoryValue.isEmpty() && value.isEntirelyRemote())
           && !currentDirectoryValue.equals(value.getChildPaths());
     } catch (IOException e) {
       return true;
@@ -485,7 +485,7 @@ public class FilesystemValueChecker {
         actionValue.getAllTreeArtifactValues().entrySet()) {
       TreeArtifactValue tree = entry.getValue();
 
-      if (!tree.isRemote()) {
+      if (!tree.isEntirelyRemote()) {
         for (Map.Entry<TreeFileArtifact, FileArtifactValue> childEntry :
             tree.getChildValues().entrySet()) {
           if (artifactIsDirtyWithDirectSystemCalls(
