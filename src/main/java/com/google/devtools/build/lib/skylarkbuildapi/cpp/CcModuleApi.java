@@ -351,6 +351,30 @@ public interface CcModuleApi<
             noneable = true,
             allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Depset.class)}),
         @Param(
+            name = "thinlto_index",
+            doc = "LTO index file path.",
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            noneable = true,
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = String.class)}),
+        @Param(
+            name = "thinlto_input_bitcode_file",
+            doc = "Bitcode file that is input to LTO backend.",
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            noneable = true,
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = String.class)}),
+        @Param(
+            name = "thinlto_output_object_file",
+            doc = "Object file that is output by LTO backend.",
+            named = true,
+            positional = false,
+            defaultValue = "None",
+            noneable = true,
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = String.class)}),
+        @Param(
             name = "use_pic",
             doc = "When true the compilation will generate position independent code.",
             positional = false,
@@ -375,6 +399,9 @@ public interface CcModuleApi<
       Object systemIncludeDirs,
       Object frameworkIncludeDirs,
       Object defines,
+      Object thinLtoIndex,
+      Object thinLtoInputBitcodeFile,
+      Object thinLtoOutputObjectFile,
       boolean usePic,
       boolean addLegacyCxxOptions)
       throws EvalException;

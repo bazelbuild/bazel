@@ -123,6 +123,9 @@ public class FakeCcModule
       Object systemIncludeDirs,
       Object frameworkIncludeDirs,
       Object defines,
+      Object thinLtoIndex,
+      Object thinLtoInputBitcodeFile,
+      Object thinLtoOutputObjectFile,
       boolean usePic,
       boolean addLegacyCxxOptions)
       throws EvalException {

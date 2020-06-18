@@ -770,6 +770,31 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCompileBuildVariablesForDummyLtoBackendAction() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures(CppRuleClasses.THIN_LTO));
+    useConfiguration("--features=thin_lto");
+    Sequence<String> commandLine =
+        commandLineForVariables(
+            CppActionNames.LTO_BACKEND,
+            "cc_common.create_compile_variables(",
+            "feature_configuration = feature_configuration,",
+            "cc_toolchain = toolchain,",
+            "thinlto_input_bitcode_file = 'path/to/input',",
+            "thinlto_output_object_file = 'path/to/output',",
+            "thinlto_index = '/dev/null'",
+            ")");
+
+    assertThat(commandLine)
+        .containsAtLeast(
+            "thinlto_index=/dev/null",
+            "thinlto_output_object_file=path/to/output",
+            "thinlto_input_bitcode_file=path/to/input");
+  }
+
+  @Test
   public void testEmptyLinkVariables() throws Exception {
     assertThat(
             commandLineForVariables(
@@ -1024,6 +1049,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "  feature_configuration = cc_common.configure_features(",
         "    ctx = ctx,",
         "    cc_toolchain = toolchain,",
+        "    requested_features = ctx.features,",
         "  )",
         "  variables = " + Joiner.on("\n").join(variables),
         "  return [MyInfo(",
