@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.skylark.common;
+package com.google.devtools.starlark.common;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.skylark.common.LocationRange.Location;
+import com.google.devtools.starlark.common.LocationRange.Location;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;

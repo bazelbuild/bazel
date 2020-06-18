@@ -90,7 +90,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skydoc/rendering",
         "//src/main/java/com/google/devtools/build/skydoc/rendering/proto:stardoc_output_java_proto",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/tools/skylark/java/com/google/devtools/skylark/common",
+        "//src/tools/starlark/java/com/google/devtools/starlark/common",
         "//third_party:guava",
     ],
 )
