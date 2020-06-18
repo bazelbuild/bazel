@@ -17,7 +17,6 @@ package com.google.devtools.starlark.common;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.starlark.common.LocationRange.Location;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -83,22 +82,18 @@ public final class DocstringUtils {
     final String deprecated;
     /** Rest of the docstring that is not part of any of the special sections above. */
     final String longDescription;
-    /** The texual location of the 'Arguments:' (not 'Args:') section in the function. */
-    final LocationRange argumentsLocation;
 
     public DocstringInfo(
         String summary,
         List<ParameterDoc> parameters,
         String returns,
         String deprecated,
-        String longDescription,
-        LocationRange argumentsLocation) {
+        String longDescription) {
       this.summary = summary;
       this.parameters = ImmutableList.copyOf(parameters);
       this.returns = returns;
       this.deprecated = deprecated;
       this.longDescription = longDescription;
-      this.argumentsLocation = argumentsLocation;
     }
 
 
@@ -140,11 +135,6 @@ public final class DocstringUtils {
      */
     public String getReturns() {
       return returns;
-    }
-
-    /** Returns the texual location of the 'Arguments:' (not 'Args:') section in the function. */
-    public LocationRange getArgumentsLocation() {
-      return argumentsLocation;
     }
   }
 
@@ -339,8 +329,7 @@ public final class DocstringUtils {
       String summary = line;
       String nonStandardDeprecation = checkForNonStandardDeprecation(line);
       if (!nextLine()) {
-        return new DocstringInfo(
-            summary, Collections.emptyList(), "", nonStandardDeprecation, "", null);
+        return new DocstringInfo(summary, Collections.emptyList(), "", nonStandardDeprecation, "");
       }
       if (!line.isEmpty()) {
         error("the one-line summary should be followed by a blank line");
@@ -352,20 +341,12 @@ public final class DocstringUtils {
       String returns = "";
       String deprecated = "";
       boolean descriptionBodyAfterSpecialSectionsReported = false;
-      LocationRange argumentsLocation = null;
       while (!eof()) {
         switch (line) {
           case "Args:":
             parseArgumentSection(params, returns, deprecated);
             break;
           case "Arguments:":
-            // Setting the location indicates an issue will be reported.
-            argumentsLocation =
-                new LocationRange(
-                    new Location(lineNumber, baselineIndentation + 1),
-                    // 10 is the length of "Arguments:".
-                    // The 1 is for the character after the base indentation.
-                    new Location(lineNumber, baselineIndentation + 1 + 10));
             parseArgumentSection(params, returns, deprecated);
             break;
           case "Returns:":
@@ -404,12 +385,7 @@ public final class DocstringUtils {
         deprecated = nonStandardDeprecation;
       }
       return new DocstringInfo(
-          summary,
-          params,
-          returns,
-          deprecated,
-          String.join("\n", longDescriptionLines),
-          argumentsLocation);
+          summary, params, returns, deprecated, String.join("\n", longDescriptionLines));
     }
 
     private void checkSectionStart(boolean duplicateSection) {
