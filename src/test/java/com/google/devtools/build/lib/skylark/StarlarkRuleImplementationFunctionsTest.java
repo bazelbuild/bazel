@@ -384,6 +384,30 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCreateSpawnActionEnvAndExecInfo_withWorkerKeyMnemonic() throws Exception {
+    StarlarkRuleContext ruleContext = createRuleContext("//foo:foo");
+    setRuleContext(ruleContext);
+    ev.exec(
+        "ruleContext.actions.run_shell(",
+        "  inputs = ruleContext.files.srcs,",
+        "  outputs = ruleContext.files.srcs,",
+        "  env = {'a' : 'b'},",
+        "  execution_requirements = {",
+        "    'supports-workers': '1',",
+        "    'worker-key-mnemonic': 'MyMnemonic',",
+        "  },",
+        "  mnemonic = 'DummyMnemonic',",
+        "  command = 'dummy_command',",
+        "  progress_message = 'dummy_message')");
+    SpawnAction action =
+        (SpawnAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    assertThat(action.getExecutionInfo())
+        .containsExactly("supports-workers", "1", "worker-key-mnemonic", "MyMnemonic");
+  }
+
+  @Test
   public void testCreateSpawnActionUnknownParam() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     ev.checkEvalErrorContains(

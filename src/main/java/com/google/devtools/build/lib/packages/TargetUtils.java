@@ -22,6 +22,7 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -53,8 +54,9 @@ public final class TargetUtils {
         || tag.startsWith("no-")
         || tag.startsWith("supports-")
         || tag.startsWith("disable-")
-        || tag.equals("local")
-        || tag.startsWith("cpu:");
+        || tag.startsWith("cpu:")
+        || tag.equals(ExecutionRequirements.LOCAL)
+        || tag.equals(ExecutionRequirements.WORKER_KEY_MNEMONIC);
   }
 
   private TargetUtils() {} // Uninstantiable.

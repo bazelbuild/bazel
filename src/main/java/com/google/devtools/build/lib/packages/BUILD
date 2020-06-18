@@ -33,6 +33,7 @@ java_library(
     deps = [
         ":build_type",
         ":type",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",
@@ -65,7 +66,6 @@ java_library(
         "//src/main/java/net/starlark/java/spelling",
         "//src/main/protobuf:build_java_proto",
         "//third_party:auto_value",
-        "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
