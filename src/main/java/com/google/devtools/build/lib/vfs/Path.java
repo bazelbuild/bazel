@@ -766,7 +766,9 @@ public class Path implements Comparable<Path>, Serializable, FileType.HasFileTyp
   }
 
   /**
-   * Returns the digest of the file denoted by the current path, following symbolic links.
+   * Returns the digest of the file denoted by the current path, following symbolic links. This
+   * function should not be called directly. Use
+   * {@link com.google.devtools.build.lib.actions.cache.DigestUtils} instead.
    *
    * @return a new byte array containing the file's digest
    * @throws IOException if the digest could not be computed for any reason

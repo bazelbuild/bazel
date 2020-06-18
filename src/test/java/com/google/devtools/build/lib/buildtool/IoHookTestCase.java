@@ -63,7 +63,7 @@ public abstract class IoHookTestCase extends GoogleBuildIntegrationTestCase {
   @Override
   protected FileSystem createFileSystem() {
     setListener(DUMMY_LISTENER);
-    return new UnixFileSystem(DigestHashFunction.getDefaultUnchecked()) {
+    return new UnixFileSystem(DigestHashFunction.getDefaultUnchecked(), "") {
       @Override
       protected void chmod(Path path, int chmod) throws IOException {
         listener.get().handle(PathOp.CHMOD, path);

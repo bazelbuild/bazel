@@ -150,6 +150,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterUnaryStartupFlag("command_port");
   RegisterUnaryStartupFlag("connect_timeout_secs");
   RegisterUnaryStartupFlag("digest_function");
+  RegisterUnaryStartupFlag("unix_digest_hash_attribute_name");
   RegisterUnaryStartupFlag("server_javabase");
   RegisterUnaryStartupFlag("host_jvm_args");
   RegisterUnaryStartupFlag("host_jvm_profile");
@@ -359,6 +360,10 @@ blaze_exit_code::ExitCode StartupOptions::ProcessArg(
              NULL) {
     digest_function = value;
     option_sources["digest_function"] = rcfile;
+  } else if ((value = GetUnaryOption(arg, next_arg, "--unix_digest_hash_attribute_name")) !=
+             NULL) {
+    unix_digest_hash_attribute_name = value;
+    option_sources["unix_digest_hash_attribute_name"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg, "--command_port")) !=
              NULL) {
     if (!blaze_util::safe_strto32(value, &command_port) ||

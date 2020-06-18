@@ -90,6 +90,7 @@ public class BazelFileSystemModule extends BlazeModule {
       throws DefaultHashFunctionNotSetException {
     BlazeServerStartupOptions options = startupOptions.getOptions(BlazeServerStartupOptions.class);
     boolean enableSymLinks = options != null && options.enableWindowsSymlinks;
+    String unixDigestHashAttributeName = options != null ? options.unixDigestHashAttributeName : "";
     if ("0".equals(System.getProperty("io.bazel.EnableJni"))) {
       // Ignore UnixFileSystem, to be used for bootstrapping.
       return ModuleFileSystem.create(
@@ -101,6 +102,6 @@ public class BazelFileSystemModule extends BlazeModule {
     return ModuleFileSystem.create(
         OS.getCurrent() == OS.WINDOWS
             ? new WindowsFileSystem(enableSymLinks)
-            : new UnixFileSystem());
+            : new UnixFileSystem(unixDigestHashAttributeName));
   }
 }

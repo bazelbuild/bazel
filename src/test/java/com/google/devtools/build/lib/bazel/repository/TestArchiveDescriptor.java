@@ -69,7 +69,7 @@ public class TestArchiveDescriptor {
     FileSystem testFS =
         OS.getCurrent() == OS.WINDOWS
             ? new JavaIoFileSystem(DigestHashFunction.getDefaultUnchecked())
-            : new UnixFileSystem(DigestHashFunction.getDefaultUnchecked());
+            : new UnixFileSystem(DigestHashFunction.getDefaultUnchecked(), "");
 
     // do not rely on TestConstants.JAVATESTS_ROOT end with slash, but ensure separators
     // are not duplicated

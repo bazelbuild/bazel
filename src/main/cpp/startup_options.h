@@ -254,6 +254,8 @@ class StartupOptions {
   // The hash function to use when computing file digests.
   std::string digest_function;
 
+  std::string unix_digest_hash_attribute_name;
+
   bool idle_server_tasks;
 
   // The startup options as received from the user and rc files, tagged with

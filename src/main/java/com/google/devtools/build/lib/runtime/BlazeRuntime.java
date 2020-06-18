@@ -1130,7 +1130,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
     return OS.getCurrent() == OS.WINDOWS
         ? new WindowsFileSystem(startupOptions.enableWindowsSymlinks)
-        : new UnixFileSystem();
+        : new UnixFileSystem(startupOptions.unixDigestHashAttributeName);
   }
 
   private static SubprocessFactory subprocessFactoryImplementation() {
