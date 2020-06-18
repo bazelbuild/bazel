@@ -49,18 +49,23 @@ import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
+import com.google.devtools.build.lib.rules.python.PythonUtils;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Functionality specific to the Python rules in Bazel. */
 public class BazelPythonSemantics implements PythonSemantics {
 
+  public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES =
+      new PythonUtils.GetInitPyFiles((Predicate<PathFragment> & Serializable) source -> false);
   private static final Template STUB_TEMPLATE =
       Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
   public static final InstrumentationSpec PYTHON_COLLECTION_SPEC = new InstrumentationSpec(
@@ -68,6 +73,11 @@ public class BazelPythonSemantics implements PythonSemantics {
       "srcs", "deps", "data");
 
   public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = PathFragment.create("runfiles");
+
+  @Override
+  public Runfiles.EmptyFilesSupplier getEmptyRunfilesSupplier() {
+    return GET_INIT_PY_FILES;
+  }
 
   @Override
   public String getSrcsVersionDocURL() {
