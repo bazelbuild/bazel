@@ -1076,7 +1076,7 @@ public class ActionExecutionFunction implements SkyFunction {
             treeValue.getChildValues().entrySet()) {
           inputData.putWithNoDepOwner(child.getKey(), child.getValue());
         }
-        inputData.putWithNoDepOwner(input, treeValue.getSelfData());
+        inputData.putWithNoDepOwner(input, treeValue.getMetadata());
       } else if (retrievedMetadata instanceof ActionExecutionValue) {
         inputData.putWithNoDepOwner(
             input, ((ActionExecutionValue) retrievedMetadata).getExistingFileArtifactValue(input));

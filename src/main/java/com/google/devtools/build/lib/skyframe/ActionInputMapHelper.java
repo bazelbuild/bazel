@@ -72,9 +72,9 @@ final class ActionInputMapHelper {
             inputMap,
             /*depOwner=*/ key);
       }
-      // We have to cache the "digest" of the aggregating value itself,
-      // because the action cache checker may want it.
-      inputMap.put(key, aggregatingValue.getSelfData(), /*depOwner=*/ key);
+      // We have to cache the "digest" of the aggregating value itself, because the action cache
+      // checker may want it.
+      inputMap.put(key, aggregatingValue.getMetadata(), /*depOwner=*/ key);
       // While not obvious at all this code exists to ensure that we don't expand the
       // .runfiles/MANIFEST file into the inputs. The reason for that being that the MANIFEST
       // file contains absolute paths that don't work with remote execution.
@@ -171,6 +171,6 @@ final class ActionInputMapHelper {
     }
     expandedArtifacts.put(treeArtifact, children.build());
     // Again, we cache the "digest" of the value for cache checking.
-    inputMap.put(treeArtifact, value.getSelfData(), depOwner);
+    inputMap.put(treeArtifact, value.getMetadata(), depOwner);
   }
 }

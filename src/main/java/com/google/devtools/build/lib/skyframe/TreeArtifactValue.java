@@ -96,12 +96,8 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         entirelyRemote);
   }
 
-  FileArtifactValue getSelfData() {
-    return FileArtifactValue.createProxy(digest);
-  }
-
   FileArtifactValue getMetadata() {
-    return getSelfData();
+    return FileArtifactValue.createProxy(digest);
   }
 
   ImmutableSet<PathFragment> getChildPaths() {
@@ -175,11 +171,6 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
 
   private static TreeArtifactValue createMarker(String toStringRepresentation) {
     return new TreeArtifactValue(null, ImmutableSortedMap.of(), /*entirelyRemote=*/ false) {
-      @Override
-      FileArtifactValue getSelfData() {
-        throw new UnsupportedOperationException(toString());
-      }
-
       @Override
       public ImmutableSet<TreeFileArtifact> getChildren() {
         throw new UnsupportedOperationException(toString());
