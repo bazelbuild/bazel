@@ -16,6 +16,15 @@ LOCALHOST_CAPACITY_SRCS = [
     "ResourceSet.java",
 ]
 
+java_library(
+    name = "execution_requirements",
+    srcs = ["ExecutionRequirements.java"],
+    deps = [
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
 # Action graph and cache.
 java_library(
     name = "actions",
@@ -26,10 +35,12 @@ java_library(
         ],
         exclude = [
             "CommandLineItem.java",
+            "ExecutionRequirements.java",
         ] + LOCALHOST_CAPACITY_SRCS,
     ),
     deps = [
         ":commandline_item",
+        ":execution_requirements",
         ":localhost_capacity",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
