@@ -96,7 +96,9 @@ public class Main {
       if (profdataFile == null) {
         try {
           logger.log(Level.WARNING, "There was no coverage found.");
-          Files.createFile(outputFile.toPath()); // Generate empty declared output
+          if (!Files.exists(outputFile.toPath())) {
+            Files.createFile(outputFile.toPath()); // Generate empty declared output
+          }
           exitStatus = 0;
         } catch (IOException e) {
           logger.log(
@@ -156,7 +158,9 @@ public class Main {
     if (coverage.isEmpty()) {
       try {
         logger.log(Level.WARNING, "There was no coverage found.");
-        Files.createFile(outputFile.toPath()); // Generate empty declared output
+        if (!Files.exists(outputFile.toPath())) {
+          Files.createFile(outputFile.toPath()); // Generate empty declared output
+        }
         return 0;
       } catch (IOException e) {
         logger.log(
