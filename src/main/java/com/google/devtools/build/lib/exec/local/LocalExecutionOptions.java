@@ -84,7 +84,7 @@ public class LocalExecutionOptions extends OptionsBase {
 
   @Option(
       name = "experimental_process_wrapper_wait_fix",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
       help = "Helper to roll out the process-wrapper's --wait_fix bug fix in a controlled manner.")
