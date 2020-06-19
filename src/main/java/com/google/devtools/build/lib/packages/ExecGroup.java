@@ -24,6 +24,8 @@ import java.util.Set;
 @AutoValue
 public abstract class ExecGroup implements ExecGroupApi {
 
+  static final ExecGroup EMPTY_EXEC_GROUP = create(ImmutableSet.of(), ImmutableSet.of());
+
   public static ExecGroup create(Set<Label> requiredToolchains, Set<Label> execCompatibleWith) {
     return new AutoValue_ExecGroup(
         ImmutableSet.copyOf(requiredToolchains), ImmutableSet.copyOf(execCompatibleWith));

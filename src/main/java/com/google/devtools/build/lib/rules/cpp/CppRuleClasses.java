@@ -32,6 +32,7 @@ import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.PIC_OBJECT_FI
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.SHARED_LIBRARY;
 import static com.google.devtools.build.lib.rules.cpp.CppFileTypes.VERSIONED_SHARED_LIBRARY;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -448,6 +449,25 @@ public class CppRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$cc_include_scanning_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /** Name of the exec group that Cpp link actions run under */
+  @VisibleForTesting public static final String CPP_LINK_EXEC_GROUP = "cpp_link";
+
+  /** Common logic for all rules that create C++ linking actions. */
+  public static final class CcLinkingRule implements RuleDefinition {
+    @Override
+    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
+      return builder.addExecGroup(CPP_LINK_EXEC_GROUP).build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$cc_linking_rule")
           .type(RuleClassType.ABSTRACT)
           .build();
     }

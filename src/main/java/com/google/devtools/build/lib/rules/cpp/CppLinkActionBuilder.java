@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CPP_LINK_EXEC_GROUP;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -1205,7 +1206,8 @@ public class CppLinkActionBuilder {
   }
 
   protected ActionOwner getOwner() {
-    return actionConstructionContext.getActionOwner();
+    ActionOwner execGroupOwner = actionConstructionContext.getActionOwner(CPP_LINK_EXEC_GROUP);
+    return execGroupOwner == null ? actionConstructionContext.getActionOwner() : execGroupOwner;
   }
 
   /** Sets the mnemonic for the link action. */

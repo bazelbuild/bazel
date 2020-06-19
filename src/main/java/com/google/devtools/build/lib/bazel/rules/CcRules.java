@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcIncludeScanningRule;
+import com.google.devtools.build.lib.rules.cpp.CppRuleClasses.CcLinkingRule;
 import com.google.devtools.build.lib.rules.cpp.CpuTransformer;
 import com.google.devtools.build.lib.rules.cpp.FdoPrefetchHintsRule;
 import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
@@ -81,6 +82,7 @@ public class CcRules implements RuleSet {
     builder.addRuleDefinition(new CcIncludeScanningRule());
     builder.addRuleDefinition(new FdoProfileRule());
     builder.addRuleDefinition(new FdoPrefetchHintsRule());
+    builder.addRuleDefinition(new CcLinkingRule());
     builder.addStarlarkBootstrap(
         new CcBootstrap(
             new BazelCcModule(),

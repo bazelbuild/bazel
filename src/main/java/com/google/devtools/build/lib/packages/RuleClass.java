@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.ExecGroup.EMPTY_EXEC_GROUP;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -843,6 +844,23 @@ public class RuleClass {
         this.useToolchainTransition(false);
       }
 
+      // Any exec groups that have entirely empty toolchains and constraints inherit the rule's
+      // toolchains and constraints. Note that this isn't the same as a target's constraints which
+      // also read from attributes and configuration.
+      Map<String, ExecGroup> execGroupsWithInheritance = new HashMap<>();
+      ExecGroup inherited = null;
+      for (Map.Entry<String, ExecGroup> groupEntry : execGroups.entrySet()) {
+        ExecGroup group = groupEntry.getValue();
+        if (group.equals(EMPTY_EXEC_GROUP)) {
+          if (inherited == null) {
+            inherited = ExecGroup.create(requiredToolchains, executionPlatformConstraints);
+          }
+          execGroupsWithInheritance.put(groupEntry.getKey(), inherited);
+        } else {
+          execGroupsWithInheritance.put(groupEntry.getKey(), group);
+        }
+      }
+
       return new RuleClass(
           name,
           callstack,
@@ -877,7 +895,7 @@ public class RuleClass {
           useToolchainResolution,
           useToolchainTransition,
           executionPlatformConstraints,
-          execGroups,
+          execGroupsWithInheritance,
           outputFileKind,
           attributes.values(),
           buildSetting);
@@ -1423,7 +1441,7 @@ public class RuleClass {
      * Adds execution groups to this rule class. Errors out if multiple different groups with the
      * same name are added.
      */
-    public Builder addExecGroups(Map<String, ExecGroup> execGroups) throws DuplicateExecGroupError {
+    public Builder addExecGroups(Map<String, ExecGroup> execGroups) {
       for (Map.Entry<String, ExecGroup> group : execGroups.entrySet()) {
         String name = group.getKey();
         if (this.execGroups.containsKey(name)) {
@@ -1441,14 +1459,20 @@ public class RuleClass {
       return this;
     }
 
+    /**
+     * Adds an exec group that is empty. During {@code build()} this will be replaced by an exec
+     * group that inherits its toolchains and constraints from the rule.
+     */
+    public Builder addExecGroup(String name) {
+      return addExecGroups(ImmutableMap.of(name, EMPTY_EXEC_GROUP));
+    }
+
     /** An error to help report {@link ExecGroup}s with the same name */
-    static class DuplicateExecGroupError extends EvalException {
+    static class DuplicateExecGroupError extends RuntimeException {
       private final String duplicateGroup;
 
       DuplicateExecGroupError(String duplicateGroup) {
-        super(
-            null,
-            String.format("Multiple execution groups with the same name: '%s'.", duplicateGroup));
+        super(String.format("Multiple execution groups with the same name: '%s'.", duplicateGroup));
         this.duplicateGroup = duplicateGroup;
       }
 
