@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylark.util;
 
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkModules;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BazelStarlarkContext;

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.skylark;
+package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFil
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkCustomCommandLine.ScalarArg;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.ScalarArg;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
