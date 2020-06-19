@@ -149,7 +149,7 @@ public class AppleBinaryRule implements RuleDefinition {
             by the <a href="../user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
         </ul>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("stamp", TRISTATE).value(TriState.AUTO))
+        .add(attr("stamp", TRISTATE).value(TriState.NO))
         .add(
             attr("feature_flags", LABEL_KEYED_STRING_DICT)
                 .undocumented("the feature flag feature has not yet been launched")
