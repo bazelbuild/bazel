@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
+import com.google.devtools.build.lib.skylarkbuildapi.java.JavaNativeLibraryInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.javascript.JsModuleInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
@@ -693,6 +694,7 @@ public class SkydocMain {
     ProguardMappingProviderApi.NAME,
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
+    JavaNativeLibraryInfoApi.NAME,
     JsModuleInfoApi.NAME,
     "JsInfo",
     "PintoModuleProvider"
