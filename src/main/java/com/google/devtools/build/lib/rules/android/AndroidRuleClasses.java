@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -35,7 +36,9 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -231,7 +234,7 @@ public final class AndroidRuleClasses {
   /** Android Split configuration transition for properly handling native dependencies */
   public static final class AndroidSplitTransition
       implements SplitTransition, AndroidSplitTransititionApi {
-    private static void setCrosstoolToAndroid(BuildOptions options) {
+    private static void setCrosstoolToAndroid(BuildOptionsView options) {
       AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
 
       CppOptions cppOptions = options.get(CppOptions.class);
@@ -243,8 +246,17 @@ public final class AndroidRuleClasses {
     }
 
     @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(
+          AndroidConfiguration.Options.class,
+          CoreOptions.class,
+          CppOptions.class,
+          PlatformOptions.class);
+    }
+
+    @Override
     public ImmutableMap<String, BuildOptions> split(
-        BuildOptions buildOptions, EventHandler eventHandler) {
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
 
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
@@ -256,21 +268,22 @@ public final class AndroidRuleClasses {
         if (androidOptions.cpu.isEmpty()
             || androidCrosstoolTop == null
             || androidCrosstoolTop.equals(cppOptions.crosstoolTop)) {
-          return ImmutableMap.of(buildOptions.get(CoreOptions.class).cpu, buildOptions);
+          return ImmutableMap.of(
+              buildOptions.get(CoreOptions.class).cpu, buildOptions.underlying());
 
         } else {
 
-          BuildOptions splitOptions = buildOptions.clone();
+          BuildOptionsView splitOptions = buildOptions.clone();
           splitOptions.get(CoreOptions.class).cpu = androidOptions.cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
-          return ImmutableMap.of(androidOptions.cpu, splitOptions);
+          return ImmutableMap.of(androidOptions.cpu, splitOptions.underlying());
         }
 
       } else {
 
         ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
         for (String cpu : ImmutableSortedSet.copyOf(androidOptions.fatApkCpus)) {
-          BuildOptions splitOptions = buildOptions.clone();
+          BuildOptionsView splitOptions = buildOptions.clone();
           // Disable fat APKs for the child configurations.
           splitOptions.get(AndroidConfiguration.Options.class).fatApkCpus = ImmutableList.of();
 
@@ -279,14 +292,14 @@ public final class AndroidRuleClasses {
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
           splitOptions.get(CoreOptions.class).cpu = cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
-          result.put(cpu, splitOptions);
+          result.put(cpu, splitOptions.underlying());
         }
         return result.build();
       }
     }
 
     private void setCommonAndroidOptions(
-        AndroidConfiguration.Options androidOptions, BuildOptions newOptions) {
+        AndroidConfiguration.Options androidOptions, BuildOptionsView newOptions) {
       newOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
       newOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
       newOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;

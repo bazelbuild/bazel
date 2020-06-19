@@ -26,6 +26,6 @@ public class TransitionUtil {
    */
   public static BuildOptionsView restrict(
       ConfigurationTransition transition, BuildOptions options) {
-    return new BuildOptionsView(options, transition.requiresOptionFragments());
+    return new BuildOptionsView(options, transition.requiresOptionFragments(options));
   }
 }

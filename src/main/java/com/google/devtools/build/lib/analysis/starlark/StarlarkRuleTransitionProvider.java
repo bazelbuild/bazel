@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.analysis.starlark.FunctionTransition
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -106,8 +107,12 @@ public class StarlarkRuleTransitionProvider implements TransitionFactory<Rule> {
     // TODO(b/121134880): validate that the targets these transitions are applied on don't read any
     // attributes that are then configured by the outputs of these transitions.
     @Override
-    public BuildOptions patch(BuildOptions buildOptions, EventHandler eventHandler) {
+    public BuildOptions patch(BuildOptionsView buildOptionsView, EventHandler eventHandler) {
       Map<String, BuildOptions> result;
+      // Starlark transitions already have logic to enforce they only access declared inputs and
+      // outputs. Rather than complicate BuildOptionsView with more access points to BuildOptions,
+      // we just use the original BuildOptions and trust the transition's enforcement logic.
+      BuildOptions buildOptions = buildOptionsView.underlying();
       try {
         result =
             applyAndValidate(

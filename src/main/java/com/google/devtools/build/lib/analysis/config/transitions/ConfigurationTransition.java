@@ -42,6 +42,19 @@ public interface ConfigurationTransition {
   }
 
   /**
+   * {@link #requiresOptionFragments()} variation for Starlark transitions, which need a {@link
+   * BuildOptions} instance to map required options to their {@link FragmentOptions}.
+   *
+   * <p>Non-Starlark transitions should override {@link #requiresOptionFragments()} and ignore this.
+   *
+   * <p>Callers may also ignore this if they know they're not calling into a Starlark transition.
+   */
+  default ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments(
+      BuildOptions options) {
+    return requiresOptionFragments();
+  }
+
+  /**
    * Returns the map of {@code BuildOptions} after applying this transition. The returned map keys
    * are only used for dealing with split transitions. Patch transitions, including internal, native
    * Patch transitions, should return a single entry map with key {@code PATCH_TRANSITION_KEY}.

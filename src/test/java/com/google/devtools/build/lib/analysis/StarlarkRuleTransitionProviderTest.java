@@ -24,10 +24,13 @@ import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyT
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -1365,5 +1368,44 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     ConfiguredTarget ct = getConfiguredTarget("//test");
     assertNoEvents();
     assertThat(getConfiguration(ct).getOptions().get(CppOptions.class).fissionModes).isEmpty();
+  }
+
+  @Test
+  public void starlarkPatchTransitionRequiredFragments() throws Exception {
+    // All Starlark rule transitions are patch transitions, while all Starlark attribute transitions
+    // are split transitions.
+    writeAllowlistFile();
+    scratch.file(
+        "test/transitions.bzl",
+        "def _impl(settings, attr):",
+        "  return {'//command_line_option:copt': []}", // --copt is a C++ option.
+        "my_transition = transition(implementation = _impl, inputs = [],",
+        "  outputs = ['//command_line_option:copt'])");
+    scratch.file(
+        "test/rules.bzl",
+        "load('//test:transitions.bzl', 'my_transition')",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  cfg = my_transition,",
+        "  attrs = {",
+        "    '_whitelist_function_transition': attr.label(",
+        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule')",
+        "platform(name = 'my_platform')",
+        "my_rule(name = 'test')");
+
+    ConfiguredTargetAndData ct = getConfiguredTargetAndData("//test");
+    assertNoEvents();
+    Rule testTarget = (Rule) ct.getTarget();
+    ConfigurationTransition ruleTransition =
+        testTarget.getRuleClassObject().getTransitionFactory().create(testTarget);
+    assertThat(ruleTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
+        .containsExactly(CppOptions.class);
   }
 }

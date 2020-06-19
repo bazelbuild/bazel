@@ -58,22 +58,6 @@ public interface PatchTransition extends ConfigurationTransition {
   /**
    * Applies the transition.
    *
-   * <p>This method is being deprecated (https://github.com/bazelbuild/bazel/issues/11258). Please
-   * use {@link #patch(BuildOptionsView, EventHandler)} for new uses.
-   *
-   * @param options the options representing the input configuration to this transition. <b>DO NOT
-   *     MODIFY THIS VARIABLE WITHOUT CLONING IT FIRST!</b>
-   * @param eventHandler
-   * @return the options representing the desired post-transition configuration
-   */
-  default BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
-    throw new UnsupportedOperationException(
-        "Either this or patch(BuildOptionsView) must be overridden");
-  }
-
-  /**
-   * Applies the transition.
-   *
    * <p>Blaze throws an {@link IllegalArgumentException} if this method reads any options fragment
    * not declared in {@link ConfigurationTransition#requiresOptionFragments}.
    *
@@ -82,11 +66,7 @@ public interface PatchTransition extends ConfigurationTransition {
    * @param eventHandler
    * @return the options representing the desired post-transition configuration
    */
-  default BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-    // Escape hatch for implementers of the BuildOptions method: provide uninhibited access. When
-    // all implementers use this variation we'll remove this default implementation.
-    return patch(options.underlying(), eventHandler);
-  }
+  BuildOptions patch(BuildOptionsView options, EventHandler eventHandler);
 
   @Override
   default Map<String, BuildOptions> apply(

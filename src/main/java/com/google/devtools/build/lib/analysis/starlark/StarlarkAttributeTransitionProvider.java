@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -104,7 +105,11 @@ public class StarlarkAttributeTransitionProvider
      */
     @Override
     public final Map<String, BuildOptions> split(
-        BuildOptions buildOptions, EventHandler eventHandler) {
+        BuildOptionsView buildOptionsView, EventHandler eventHandler) {
+      // Starlark transitions already have logic to enforce they only access declared inputs and
+      // outputs. Rather than complicate BuildOptionsView with more access points to BuildOptions,
+      // we just use the original BuildOptions and trust the transition's enforcement logic.
+      BuildOptions buildOptions = buildOptionsView.underlying();
       try {
         return applyAndValidate(
             buildOptions, starlarkDefinedConfigTransition, attrObject, eventHandler);

@@ -135,7 +135,7 @@ public class FunctionTransitionUtil {
   }
 
   /** For all the options in the BuildOptions, build a map from option name to its information. */
-  private static Map<String, OptionInfo> buildOptionInfo(BuildOptions buildOptions) {
+  static ImmutableMap<String, OptionInfo> buildOptionInfo(BuildOptions buildOptions) {
     ImmutableMap.Builder<String, OptionInfo> builder = new ImmutableMap.Builder<>();
 
     ImmutableSet<Class<? extends FragmentOptions>> optionClasses =
