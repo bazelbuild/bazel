@@ -943,7 +943,7 @@ public class Desugar {
   public static void main(String[] args) throws Exception {
     verifyLambdaDumpDirectoryRegistered(DUMP_DIRECTORY);
 
-    if (args.length == 1 && "--persistent_worker".equals(args[0])) {
+    if (args.length > 0 && "--persistent_worker".equals(args[0])) {
       runPersistentWorker(DUMP_DIRECTORY);
     } else {
       DesugarOptions options = DesugarOptions.parseCommandLineOptions(args);
