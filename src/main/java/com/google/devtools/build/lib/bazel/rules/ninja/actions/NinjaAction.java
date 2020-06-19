@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.ninja.actions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
+import com.google.devtools.build.lib.actions.ActionCacheAwareAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -51,7 +52,7 @@ import java.util.List;
 import javax.annotation.Nullable;
 
 /** Generic class for Ninja actions. Corresponds to the {@link NinjaTarget} in the Ninja file. */
-public class NinjaAction extends SpawnAction {
+public class NinjaAction extends SpawnAction implements ActionCacheAwareAction {
   private static final String MNEMONIC = "NinjaGenericAction";
 
   private final Root sourceRoot;
@@ -235,5 +236,14 @@ public class NinjaAction extends SpawnAction {
         .setMessage(message)
         .setNinjaAction(FailureDetails.NinjaAction.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  /**
+   * NinjaAction relies on the action cache entry's file list to avoid re-running input discovery
+   * after a shutdown.
+   */
+  @Override
+  public boolean storeInputsExecPathsInActionCache() {
+    return discoversInputs();
   }
 }

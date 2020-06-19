@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.actions.ActionCacheAwareAction;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -53,7 +54,7 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A Starlark specific SpawnAction. */
-public final class StarlarkAction extends SpawnAction {
+public final class StarlarkAction extends SpawnAction implements ActionCacheAwareAction {
 
   private final Optional<Artifact> unusedInputsList;
   private final NestedSet<Artifact> allInputs;
@@ -223,6 +224,16 @@ public final class StarlarkAction extends SpawnAction {
         .setMessage(message)
         .setStarlarkAction(FailureDetails.StarlarkAction.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  /**
+   * StarlarkAction can contain `unused_input_list`, which rely on the action cache entry's file
+   * list to determine the list of inputs for a subsequent run, taking into account
+   * unused_input_list. Hence we need to store the inputs' execPaths in the action cache.
+   */
+  @Override
+  public boolean storeInputsExecPathsInActionCache() {
+    return unusedInputsList.isPresent();
   }
 
   /** Builder class to construct {@link StarlarkAction} instances. */
