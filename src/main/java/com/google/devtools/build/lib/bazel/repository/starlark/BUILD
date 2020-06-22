@@ -48,8 +48,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//third_party:diffutils",
         "//third_party:guava",
+        "//third_party:java-diff-utils",
         "//third_party:jsr305",
     ],
 )

@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.github.difflib.patch.PatchFailedException;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import difflib.PatchFailedException;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
