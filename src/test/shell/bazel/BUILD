@@ -880,6 +880,17 @@ sh_test(
 )
 
 sh_test(
+    name = "cc_import_starlark_test",
+    size = "medium",
+    srcs = ["cc_import_starlark_test.sh"],
+    data = [
+        ":test-deps",
+        "//tools/build_defs/cc:cc_import.bzl",
+        "//tools/build_defs/cc/tests:cc_import_tests_files",
+    ]
+)
+
+sh_test(
     name = "bazel_docker_sandboxing_test",
     srcs = ["bazel_docker_sandboxing_test.sh"],
     data = [

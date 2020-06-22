@@ -1,13 +1,16 @@
 licenses(["notice"])  # Apache 2.0
 
-exports_files(["action_names.bzl"])
+exports_files([
+    "action_names.bzl",
+    "cc_import.bzl",
+])
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
     visibility = [
-        "//devtools/blaze/integration:__pkg__",
         "//:__pkg__",
+        "//devtools/blaze/integration:__pkg__",
         "//tools/build_defs:__pkg__",
     ],
 )

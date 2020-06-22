@@ -82,7 +82,10 @@ def _get_no_pic_and_pic_static_library(static_library):
 
 def _cc_import_impl(ctx):
     cc_toolchain = find_cpp_toolchain(ctx)
-    cc_common.check_experimental_starlark_cc_import(ctx.actions)
+    cc_common.check_experimental_starlark_cc_import(
+        actions = ctx.actions
+    )
+
     feature_configuration = cc_common.configure_features(
         ctx = ctx,
         cc_toolchain = cc_toolchain,
@@ -113,7 +116,9 @@ def _cc_import_impl(ctx):
 
     linking_context = cc_common.create_linking_context(
         libraries_to_link = [library_to_link],
+        user_link_flags = ctx.attr.linkopts
     )
+
     (compilation_context, compilation_outputs) = cc_common.compile(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
@@ -121,6 +126,7 @@ def _cc_import_impl(ctx):
         public_hdrs = ctx.files.hdrs,
         name = ctx.label.name,
     )
+
     return [CcInfo(
         compilation_context = compilation_context,
         linking_context = linking_context,
@@ -137,6 +143,7 @@ cc_import = rule(
         ),
         "system_provided": attr.bool(default = False),
         "alwayslink": attr.bool(default = False),
+        "linkopts": attr.string_list(),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
     toolchains = ["@rules_cc//cc:toolchain_type"],  # copybara-use-repo-external-label
