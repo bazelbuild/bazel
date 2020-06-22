@@ -37,7 +37,7 @@ function test_all_starlark_written_tests() {
 
   cd "$workspace_dir"
 
-  create_workspace_with_default_repos "$workspace_dir"/WORKSPACE
+  setup_skylib_support "$workspace_dir"/WORKSPACE
 
   bazel test --experimental_starlark_cc_import tools/build_defs/cc/tests:cc_import_tests
 }

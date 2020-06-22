@@ -468,23 +468,7 @@ new_local_repository(
     build_file_content = '',
     path='$skylib_root',
 )
-EOF
-}
 
-function add_skylib_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "bazel_skylib",
-    # Commit 2d4c9528e0f453b5950eeaeac11d8d09f5a504d4 of 2020-02-06
-    sha256 = "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
-    strip_prefix = "bazel-skylib-2d4c9528e0f453b5950eeaeac11d8d09f5a504d4",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
-    ],
-)
 load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 bazel_skylib_workspace()
 EOF
@@ -569,7 +553,6 @@ EOF
   add_rules_java_to_workspace "WORKSPACE"
   add_rules_pkg_to_workspace "WORKSPACE"
   add_rules_proto_to_workspace "WORKSPACE"
-  add_skylib_to_workspace "WORKSPACE"
 
   maybe_setup_python_windows_workspace
 }
