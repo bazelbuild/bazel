@@ -194,13 +194,108 @@ ctx.actions.run(
 
 ## Performance profiling
 
-To profile your code and analyze the performance you have two options:
+Bazel writes a JSON profile to `command.profile.gz` in the output base by
+default. You can configure the location with the `--profile` flag, for example
+`--profile=/tmp/profile.gz`. Location ending with `.gz` are compressed with
+GZIP.
 
-- use the `--profile` flag and the `analyze-profile` command, or
-- use the new `--experimental_generate_json_trace_profile` flag and load the
-  resulting JSON profile in `chrome://tracing` (recommended).
+To see the results, open `chrome://tracing` in a Chrome browser tab, click
+"Load" and pick the (potentially compressed) profile file. For more detailed
+results, click the boxes in the lower left corner.
 
-### --profile and analyze-profile
+You can use these keyboard controls to navigate:
+
+*   Press `1` for "select" mode. In this mode, you can select
+    particular boxes to inspect the event details (see lower left corner).
+    Select multiple events to get a summary and aggregated statistics.
+*   Press `2` for "pan" mode. Then drag the mouse to move the view. You
+    can also use `a`/`d` to move left/right.
+*   Press `3` for "zoom" mode. Then drag the mouse to zoom. You can
+    also use `w`/`s` to zoom in/out.
+*   Press `4` for "timing" mode where you can measure the distance
+    between two events.
+*   Press `?` to learn about all controls.
+
+### Profile information
+
+Example profile:
+<img src="profile.png" alt="Example Profile" />
+
+There are some special rows:
+
+*   `action counters`: Displays how many concurrent actions are in flight. Click
+    on it to see the actual value. Should go up to the value of `--jobs` in
+    clean builds.
+*   `cpu counters`: For each second of the build, displays the amount of CPU
+    that is used by Bazel (a value of 1 equals one core being 100% busy).
+*   `Critical Path`: Displays one block for each action on the critical path.
+*   `grpc-command-1`: Bazel's main thread. Useful to get a high-level picture of
+    what Bazel is doing, for example "Launch Bazel", "evaluateTargetPatterns",
+    and "runAnalysisPhase".
+*   `Service Thread`: Displays minor and major Garbage Collection (GC) pauses.
+
+Other rows represent Bazel threads and show all events on that thread.
+
+### Common performance issues
+
+When analyzing performance profiles, look for:
+
+*   Slower than expected analysis phase (`runAnalysisPhase`), especially on
+    incremental builds. This can be a sign of a poor rule implementation, for
+    example one that flattens depsets. Package loading can be slow by an
+    excessive amount of targets, complex macros or recursive globs.
+*   Individual slow actions, especially those on the critical path. It might be
+    possible to split large actions into multiple smaller actions or reduce the
+    set of (transitive) dependencies to speed them up. Also check for an unusual
+    high non-`PROCESS_TIME` (e.g. `REMOTE_SETUP` or `FETCH`).
+*   Bottlenecks, that is a small number of threads is busy while all others are
+    idling / waiting for the result (see around 15s-30s in above screenshot).
+    Optimizing this will most likely require touching the rule implementations
+    or Bazel itself to introduce more parallelism. This can also happen when
+    there is an unusual amount of GC.
+
+### Profile file format
+
+The top-level object contains metadata (`otherData`) and the actual tracing data
+(`traceEvents`). The metadata contains extra info, for example the invocation ID
+and date of the Bazel invocation.
+
+Example:
+
+```json
+{
+  "otherData": {
+    "build_id": "101bff9a-7243-4c1a-8503-9dc6ae4c3b05",
+    "date": "Tue Jun 16 08:30:21 CEST 2020",
+    "output_base": "/usr/local/google/_bazel_johndoe/573d4be77eaa72b91a3dfaa497bf8cd0"
+  },
+  "traceEvents": [
+    {"name":"thread_name","ph":"M","pid":1,"tid":0,"args":{"name":"Critical Path"}},
+    {"cat":"build phase marker","name":"Launch Bazel","ph":"X","ts":-1824000,"dur":1824000,"pid":1,"tid":60},
+    ...
+    {"cat":"general information","name":"NoSpawnCacheModule.beforeCommand","ph":"X","ts":116461,"dur":419,"pid":1,"tid":60},
+    ...
+    {"cat":"package creation","name":"src","ph":"X","ts":279844,"dur":15479,"pid":1,"tid":838},
+    ...
+    {"name":"thread_name","ph":"M","pid":1,"tid":11,"args":{"name":"Service Thread"}},
+    {"cat":"gc notification","name":"minor GC","ph":"X","ts":334626,"dur":13000,"pid":1,"tid":11},
+
+    ...
+    {"cat":"action processing","name":"Compiling third_party/grpc/src/core/lib/transport/status_conversion.cc","ph":"X","ts":12630845,"dur":136644,"pid":1,"tid":1546}
+ ]
+}
+```
+
+Timestamps (`ts`) and durations (`dur`) in the trace events are given in
+microseconds. The category (`cat`) is one of enum values of `ProfilerTask`.
+Note that some events are merged together if they are very short and close to
+each other; pass `--noslim_json_profile` if you would like to
+prevent event merging.
+
+See also the
+[Chrome Trace Event Format Specification](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview).
+
+### analyze-profile
 
 This profiling method consists of two steps, first you have to execute your
 build/test with the `--profile` flag, for example
@@ -224,61 +319,28 @@ The first section of the default output is an overview of the time spent
 on the different build phases:
 
 ```
+INFO: Profile created on Tue Jun 16 08:59:40 CEST 2020, build ID: 0589419c-738b-4676-a374-18f7bbc7ac23, output base: /home/johndoe/.cache/bazel/_bazel_johndoe/d8eb7a85967b22409442664d380222c0
+
 === PHASE SUMMARY INFORMATION ===
 
-Total launch phase time          978 ms    2.67%
-Total init phase time            178 ms    0.49%
-Total loading phase time         381 ms    1.04%
-Total analysis phase time       2.618 s    7.15%
-Total preparation phase time    46.0 ms    0.13%
-Total execution phase time     32.366 s   88.46%
-Total finish phase time         19.3 ms    0.05%
-Total run time                 36.586 s  100.00%
-```
+Total launch phase time         1.070 s   12.95%
+Total init phase time           0.299 s    3.62%
+Total loading phase time        0.878 s   10.64%
+Total analysis phase time       1.319 s   15.98%
+Total preparation phase time    0.047 s    0.57%
+Total execution phase time      4.629 s   56.05%
+Total finish phase time         0.014 s    0.18%
+------------------------------------------------
+Total run time                  8.260 s  100.00%
 
-The following sections show the execution time of different tasks happening
-during that particular phase, for example:
-
-```
-=== EXECUTION PHASE INFORMATION ===
-
-Total preparation time                   46.0 ms
-Total execution phase time              32.366 s
-Total time finalizing build              19.3 ms
-
-Actual execution time                   32.366 s
-
-Total time (across all threads) spent on:
-              Type    Total    Count     Average
-            ACTION    0.01%      131     0.44 ms
-    ACTION_EXECUTE   31.72%      131     2.635 s
-              INFO    0.00%       10     1.32 ms
-          VFS_STAT    0.02%    32187     0.01 ms
-           VFS_DIR    0.01%     4401     0.02 ms
-      VFS_READLINK    0.00%        6     0.01 ms
-           VFS_MD5    0.50%     4652     1.16 ms
-        VFS_DELETE    0.02%     9336     0.03 ms
-          VFS_OPEN    0.01%     4706     0.01 ms
-          VFS_READ    0.06%   182413     0.00 ms
-         VFS_WRITE    0.01%    17691     0.00 ms
-              WAIT   16.12%      544      322 ms
-     SKYFRAME_EVAL    2.97%        1    32.343 s
-       SKYFUNCTION   48.59%    57301     9.23 ms
-```
-
-The last section shows the critical path:
-
-```
-Critical path (31.410 s):
-    Id        Time Percentage   Description
-132283     1.219 s    3.88%   action 'Executing genrule //src bazel-bin'
-132282    13.591 s   43.27%   action 'Executing genrule //src package-zip'
-132281     1.263 s    4.02%   action 'Executing genrule //src install_base_key-file'
-132280      381 ms    1.21%   action 'Building deploy jar src/main/java/com/google/devtools/build/lib/bazel/BazelServer_deploy.jar'
-132279     1.10 ms    0.00%   runfiles for //src/main/java/com/google/devtools/build/lib bazel/BazelServer
-132278      398 ms    1.27%   action 'Building Java resource jar'
-132277     8.292 s   26.40%   action 'Building src/main/java/com/google/devtools/build/lib/libbazel-rules-class.jar (133 source files) and running annotation processors (AutoCodecProcessor, OptionProcessor, AutoAnnotationProcessor, AutoValueProcessor)'
-...
+Critical path (4.245 s):
+       Time Percentage   Description
+    8.85 ms    0.21%   _Ccompiler_Udeps for @local_config_cc// compiler_deps
+    3.839 s   90.44%   action 'Compiling external/com_google_protobuf/src/google/protobuf/compiler/php/php_generator.cc [for host]'
+     270 ms    6.36%   action 'Linking external/com_google_protobuf/protoc [for host]'
+    0.25 ms    0.01%   runfiles for @com_google_protobuf// protoc
+     126 ms    2.97%   action 'ProtoCompile external/com_google_protobuf/python/google/protobuf/compiler/plugin_pb2.py'
+    0.96 ms    0.02%   runfiles for //tools/aquery_differ aquery_differ
 ```
 
 You can use the following options to display more detailed information:
@@ -306,7 +368,7 @@ We suggest to use the flag together with the following flags:
 Example usage:
 ```
 $ bazel build --experimental_generate_json_trace_profile --experimental_profile_cpu_usage //third_party/zlib/...
-INFO: Writing tracer profile to '/home/johndoe/.cache/bazel/_bazel_twerth/f01bc937da326f5bb0feb15c854c110c/command.profile'
+INFO: Writing tracer profile to '/home/johndoe/.cache/bazel/_bazel_johndoe/f01bc937da326f5bb0feb15c854c110c/command.profile'
 INFO: Invocation ID: 34995931-ef6f-4838-9ab1-9a0bc39a8712
 INFO: Analysed 3 targets (7 packages loaded, 316 targets configured).
 INFO: Found 3 targets...
@@ -316,7 +378,7 @@ INFO: Build completed successfully, 20 total actions
 ```
 
 The resulting profile file
-(`/home/johndoe/.cache/bazel/_bazel_twerth/f01bc937da326f5bb0feb15c854c110c/command.profile`
+(`/home/johndoe/.cache/bazel/_bazel_johndoe/f01bc937da326f5bb0feb15c854c110c/command.profile`
 in this case; can be configured by the `--profile=<path>` flag) can then be
 loaded and viewed in Chrome. For this, open `chrome://tracing` in a new tab,
 click `Load` and pick the profile file.
