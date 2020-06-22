@@ -887,7 +887,8 @@ sh_test(
         ":test-deps",
         "//tools/build_defs/cc:cc_import.bzl",
         "//tools/build_defs/cc/tests:cc_import_tests_files",
-    ]
+    ],
+    tags = ["no_windows"]
 )
 
 sh_test(
