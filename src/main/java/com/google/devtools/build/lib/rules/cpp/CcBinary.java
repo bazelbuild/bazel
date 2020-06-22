@@ -1048,10 +1048,12 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       RuleContext ruleContext, Iterable<Artifact> dynamicLibrariesForRuntime) {
     NestedSetBuilder<Artifact> result = NestedSetBuilder.stableOrder();
     for (Artifact target : dynamicLibrariesForRuntime) {
+      // If the binary and the DLL doesn't belong to the same package or the DLL is a source file,
+      // we should copy the DLL to the binary's directory.
       if (!ruleContext
           .getLabel()
           .getPackageIdentifier()
-          .equals(target.getOwner().getPackageIdentifier())) {
+          .equals(target.getOwner().getPackageIdentifier()) || target.isSourceArtifact()) {
         // SymlinkAction on file is actually copy on Windows.
         Artifact copy = ruleContext.getBinArtifact(target.getFilename());
         ruleContext.registerAction(SymlinkAction.toArtifact(
