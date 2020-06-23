@@ -666,6 +666,38 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     self.AssertExitCode(exit_code, 0, stderr)
 
+  def testCopyDLLAsSource(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_import(',
+        '  name = "a_import",',
+        '  shared_library = "A.dll",',
+        ')',
+        '',
+        'cc_binary(',
+        '  name = "bin",',
+        '  srcs = ["bin.cc"],',
+        '  deps = ["//:a_import"],',
+        ')',
+    ])
+    self.ScratchFile('A.dll')
+    self.ScratchFile('bin.cc', [
+        'int main() {',
+        '  return 0;',
+        '}',
+    ])
+    exit_code, _, stderr = self.RunBazel([
+        'build',
+        '//:bin',
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
+
+    bazel_bin = self.getBazelInfo('bazel-bin')
+    a_dll = os.path.join(bazel_bin, 'A.dll')
+    # Even though A.dll is in the same package as bin.exe, but it still should
+    # be copied to the output directory of bin.exe.
+    self.assertTrue(os.path.exists(a_dll))
+
   def testCppErrorShouldBeVisible(self):
     self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
