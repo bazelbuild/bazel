@@ -31,13 +31,16 @@ function test_all_starlark_written_tests() {
 
   TEST_FILES_DIR="$RUNFILES_DIR/io_bazel"
   cd $TEST_FILES_DIR
-  cp --parents "tools/build_defs/cc/BUILD" "$workspace_dir"
-  cp --parents "tools/build_defs/cc/cc_import.bzl" "$workspace_dir"
-  cp -r --parents "tools/build_defs/cc/tests" "$workspace_dir"
+  # Using --parents breaks on Mac.
+  mkdir "$workspace_dir/tools"
+  mkdir "$workspace_dir/tools/build_defs"
+  mkdir "$workspace_dir/tools/build_defs/cc"
+  mkdir "$workspace_dir/tools/build_defs/cc/tests"
+  cp "tools/build_defs/cc/BUILD" "$workspace_dir/tools/build_defs/cc/BUILD"
+  cp "tools/build_defs/cc/cc_import.bzl" "$workspace_dir/tools/build_defs/cc/cc_import.bzl"
+  cp -r "tools/build_defs/cc/tests" "$workspace_dir/tools/build_defs/cc/"
 
   cd "$workspace_dir"
-
-  setup_skylib_support "$workspace_dir"/WORKSPACE
 
   bazel test --experimental_starlark_cc_import tools/build_defs/cc/tests:cc_import_tests
 }
