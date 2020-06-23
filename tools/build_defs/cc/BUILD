@@ -7,7 +7,7 @@ exports_files([
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//tools/build_defs/cc/tests:cc_import_tests_files"],
+    srcs = glob(["**"]),
     visibility = [
         "//:__pkg__",
         "//devtools/blaze/integration:__pkg__",

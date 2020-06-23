@@ -11,6 +11,7 @@ filegroup(
     srcs = glob(["**"]),
     visibility = [
         "//src/test/shell/bazel:__pkg__",
-        "//tools/build_defs/cc:__pkg__"
+        "//tools/build_defs/cc:__pkg__",
+        "//tools/build_defs:__pkg__"
         ],
 )
