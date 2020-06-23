@@ -112,7 +112,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
     abstract ImmutableList<SpawnResult> spawnResults();
   }
 
-  private static final ImmutableSet<String> WORKER_BLACKLISTED_MNEMONICS =
+  private static final ImmutableSet<String> DISABLED_MNEMONICS_FOR_WORKERS =
       ImmutableSet.of("JavaDeployJar");
 
   private final ExecutorService executorService;
@@ -352,7 +352,7 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
   }
 
   private static boolean supportsWorkers(Spawn spawn) {
-    return (!WORKER_BLACKLISTED_MNEMONICS.contains(spawn.getMnemonic())
+    return (!DISABLED_MNEMONICS_FOR_WORKERS.contains(spawn.getMnemonic())
         && Spawns.supportsWorkers(spawn));
   }
 
