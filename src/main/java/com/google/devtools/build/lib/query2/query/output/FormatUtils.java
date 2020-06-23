@@ -15,12 +15,15 @@
 package com.google.devtools.build.lib.query2.query.output;
 
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CommonQueryOptions;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import java.util.Comparator;
+import javax.annotation.Nullable;
 
 /**
  * Given a set of query options, returns a BinaryPredicate suitable for passing to {@link
@@ -51,40 +54,30 @@ class FormatUtils {
   }
 
   /**
-   * Returns the target location, eventually stripping out the workspace path to obtain a relative
-   * target (stable across machines / workspaces).
-   *
-   * @param target The target to extract location from.
-   * @param relative Whether to return a relative path or not.
-   * @return the target location
+   * Returns the target location string, optionally relative to its package's source root directory.
    */
   static String getLocation(Target target, boolean relative) {
-    Location location = target.getLocation();
+    Location loc = target.getLocation();
     if (relative) {
+      loc = getRootRelativeLocation(loc, target.getPackage());
+    }
+    return loc.toString();
+  }
+
+  /**
+   * Returns the specified location relative to the optional package's source root directory, if
+   * available.
+   */
+  static Location getRootRelativeLocation(Location location, @Nullable Package base) {
+    if (base != null
+        && base.getSourceRoot().isPresent()) { // !isPresent => WORKSPACE pseudo-package
+      Root root = base.getSourceRoot().get();
       PathFragment file = PathFragment.create(location.file());
-
-      // If target's location starts with the absolute package directory,
-      // replace it with root-relative package directory.
-      PathFragment dir = target.getPackage().getPackageDirectory().asFragment();
-      PathFragment name = target.getPackage().getNameFragment();
-      if (file.startsWith(dir)) {
-        PathFragment suffix = file.relativeTo(dir);
-
-        StringBuilder buf = new StringBuilder();
-        buf.append(name.getRelative(suffix));
-        int line = location.line();
-        if (line != 0) {
-          buf.append(':').append(line);
-          int column = location.column();
-          if (column != 0) {
-            buf.append(':').append(column);
-          }
-        } else {
-          buf.append(":1"); // legacy "entire file" notation
-        }
-        return buf.toString();
+      if (root.contains(file)) {
+        PathFragment rel = root.relativize(file);
+        location = Location.fromFileLineColumn(rel.toString(), location.line(), location.column());
       }
     }
-    return location.toString();
+    return location;
   }
 }

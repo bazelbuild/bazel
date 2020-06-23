@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.query2.query.output.QueryOptions.OrderOutput;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -251,6 +252,14 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       for (String feature : rule.getPackage().getFeatures()) {
         rulePb.addDefaultSetting(feature);
       }
+
+      for (StarlarkThread.CallStackEntry fr : rule.getCallStack().toArray()) {
+        // Always report relative locations.
+        // (New fields needn't honor relativeLocations.)
+        rulePb.addInstantiationStack(
+            FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
+      }
+
       targetPb.setType(RULE);
       targetPb.setRule(rulePb);
     } else if (target instanceof OutputFile) {
