@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.util.FileType;
  * Bazel-specific rule definitions for Python rules.
  */
 public final class BazelPyRuleClasses {
-  public static final FileType PYTHON_SOURCE = FileType.of(".py");
+  public static final FileType PYTHON_SOURCE = FileType.of(".py", ".py3");
 
   public static final LabelLateBoundDefault<?> PY_INTERPRETER =
       LabelLateBoundDefault.fromTargetConfiguration(
