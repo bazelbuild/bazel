@@ -61,7 +61,10 @@ public class AndroidResourceOutputs {
     /**
      * Normalized timestamp for zip entries We use the system's default timezone and locale and
      * additionally avoid using the DOS epoch to ensure Java's zip implementation does not add the
-     * System's timezone into the extra field of the zip entry
+     * System's timezone into the extra field of the zip entry.
+     *
+     * <p>See https://bugs.java.com/bugdatabase/view_bug.do?bug_id=JDK-8246129 for details and a
+     * concrete standalone test case.
      */
     private static final long DEFAULT_TIMESTAMP =
         new GregorianCalendar(1980, Calendar.FEBRUARY, 01, 0, 0).getTimeInMillis();
