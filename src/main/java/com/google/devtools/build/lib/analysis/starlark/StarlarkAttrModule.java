@@ -157,19 +157,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       builder.setPropertyFlag("MANDATORY");
     }
 
-    if (containsNonNoneKey(arguments, NON_EMPTY_ARG)
-        && (Boolean) arguments.get(NON_EMPTY_ARG)) {
-      if (thread.getSemantics().incompatibleDisableDeprecatedAttrParams()) {
-        throw new EvalException(
-            null,
-            "'non_empty' is no longer supported. use allow_empty instead. You can use "
-                + "--incompatible_disable_deprecated_attr_params=false to temporarily disable this "
-                + "check.");
-      }
-
-      builder.setPropertyFlag("NON_EMPTY");
-    }
-
     if (containsNonNoneKey(arguments, ALLOW_EMPTY_ARG)
         && !(Boolean) arguments.get(ALLOW_EMPTY_ARG)) {
       builder.setPropertyFlag("NON_EMPTY");
@@ -184,23 +171,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                 + "https://www.bazel.build/versions/master/docs/skylark/rules.html#configurations "
                 + "for more details.");
       }
-    }
-
-    if (containsNonNoneKey(arguments, SINGLE_FILE_ARG)
-        && (Boolean) arguments.get(SINGLE_FILE_ARG)) {
-      if (thread.getSemantics().incompatibleDisableDeprecatedAttrParams()) {
-        throw new EvalException(
-            null,
-            "'single_file' is no longer supported. use allow_single_file instead. You can use "
-                + "--incompatible_disable_deprecated_attr_params=false to temporarily disable this "
-                + "check.");
-      }
-      if (containsNonNoneKey(arguments, ALLOW_SINGLE_FILE_ARG)) {
-        throw new EvalException(
-            null, "Cannot specify both single_file (deprecated) and allow_single_file");
-      }
-
-      builder.setPropertyFlag("SINGLE_ARTIFACT");
     }
 
     if (containsNonNoneKey(arguments, ALLOW_FILES_ARG)
@@ -472,7 +442,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Boolean mandatory,
       Sequence<?> providers,
       Object allowRules,
-      Boolean singleFile,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -498,8 +467,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                   providers,
                   ALLOW_RULES_ARG,
                   allowRules,
-                  SINGLE_FILE_ARG,
-                  singleFile,
                   CONFIGURATION_ARG,
                   cfg,
                   ASPECTS_ARG,
@@ -515,7 +482,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor stringListAttribute(
       Boolean mandatory,
-      Boolean nonEmpty,
       Boolean allowEmpty,
       Sequence<?> defaultValue,
       String doc,
@@ -529,8 +495,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             defaultValue,
             MANDATORY_ARG,
             mandatory,
-            NON_EMPTY_ARG,
-            nonEmpty,
             ALLOW_EMPTY_ARG,
             allowEmpty),
         Type.STRING_LIST,
@@ -540,7 +504,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor intListAttribute(
       Boolean mandatory,
-      Boolean nonEmpty,
       Boolean allowEmpty,
       Sequence<?> defaultValue,
       String doc,
@@ -554,8 +517,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             defaultValue,
             MANDATORY_ARG,
             mandatory,
-            NON_EMPTY_ARG,
-            nonEmpty,
             ALLOW_EMPTY_ARG,
             allowEmpty),
         Type.INTEGER_LIST,
@@ -572,7 +533,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Sequence<?> providers,
       Sequence<?> flags,
       Boolean mandatory,
-      Boolean nonEmpty,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -592,8 +552,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             flags,
             MANDATORY_ARG,
             mandatory,
-            NON_EMPTY_ARG,
-            nonEmpty,
             ALLOW_EMPTY_ARG,
             allowEmpty,
             CONFIGURATION_ARG,
@@ -619,7 +577,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Sequence<?> providers,
       Sequence<?> flags,
       Boolean mandatory,
-      Boolean nonEmpty,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -639,8 +596,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             flags,
             MANDATORY_ARG,
             mandatory,
-            NON_EMPTY_ARG,
-            nonEmpty,
             ALLOW_EMPTY_ARG,
             allowEmpty,
             CONFIGURATION_ARG,
@@ -690,7 +645,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Boolean allowEmpty,
       String doc,
       Boolean mandatory,
-      Boolean nonEmpty,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.output_list");
@@ -700,8 +654,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         optionMap(
             MANDATORY_ARG,
             mandatory,
-            NON_EMPTY_ARG,
-            nonEmpty,
             ALLOW_EMPTY_ARG,
             allowEmpty),
         BuildType.OUTPUT_LIST,
@@ -714,7 +666,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Dict<?, ?> defaultValue,
       String doc,
       Boolean mandatory,
-      Boolean nonEmpty,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_dict");
@@ -725,8 +676,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             defaultValue,
             MANDATORY_ARG,
             mandatory,
-            NON_EMPTY_ARG,
-            nonEmpty,
             ALLOW_EMPTY_ARG,
             allowEmpty),
         Type.STRING_DICT,
@@ -739,7 +688,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Dict<?, ?> defaultValue,
       String doc,
       Boolean mandatory,
-      Boolean nonEmpty,
       StarlarkThread thread)
       throws EvalException {
     BazelStarlarkContext.from(thread).checkLoadingOrWorkspacePhase("attr.string_list_dict");
@@ -750,8 +698,6 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             defaultValue,
             MANDATORY_ARG,
             mandatory,
-            NON_EMPTY_ARG,
-            nonEmpty,
             ALLOW_EMPTY_ARG,
             allowEmpty),
         Type.STRING_LIST_DICT,

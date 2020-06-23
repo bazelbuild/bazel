@@ -321,20 +321,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleDisableTargetProviderFields;
 
   @Option(
-      name = "incompatible_disable_deprecated_attr_params",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, disable the deprecated parameters 'single_file' and 'non_empty' on "
-              + "attribute definition methods, such as attr.label().")
-  public boolean incompatibleDisableDeprecatedAttrParams;
-
-  @Option(
       name = "incompatible_disable_depset_items",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -674,7 +660,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)
             .incompatibleDisableThirdPartyLicenseChecking(
                 incompatibleDisableThirdPartyLicenseChecking)
-            .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
             .incompatibleAlwaysCheckDepsetElements(incompatibleAlwaysCheckDepsetElements)
             .incompatibleDisableDepsetItems(incompatibleDisableDepsetItems)
             .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)

@@ -112,7 +112,7 @@ public final class SkydocTest extends BuildViewTestCase {
         "    doc = 'This is my rule. It does stuff.',",
         "    implementation = rule_impl,",
         "    attrs = {",
-        "        'a': attr.label(mandatory=True, allow_files=True, single_file=True),",
+        "        'a': attr.label(mandatory=True, allow_single_file=True),",
         "        'b': attr.string_dict(mandatory=True),",
         "        'c': attr.output(mandatory=True),",
         "        'd': attr.bool(default=False, mandatory=False),",

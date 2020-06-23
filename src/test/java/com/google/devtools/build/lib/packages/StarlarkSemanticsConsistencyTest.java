@@ -142,7 +142,6 @@ public class StarlarkSemanticsConsistencyTest {
         "--incompatible_applicable_licenses=" + rand.nextBoolean(),
         "--incompatible_depset_for_libraries_to_link_getter=" + rand.nextBoolean(),
         "--incompatible_disable_target_provider_fields=" + rand.nextBoolean(),
-        "--incompatible_disable_deprecated_attr_params=" + rand.nextBoolean(),
         "--incompatible_disable_depset_items=" + rand.nextBoolean(),
         "--incompatible_disable_third_party_license_checking=" + rand.nextBoolean(),
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
@@ -194,7 +193,6 @@ public class StarlarkSemanticsConsistencyTest {
         .incompatibleApplicableLicenses(rand.nextBoolean())
         .incompatibleDepsetForLibrariesToLinkGetter(rand.nextBoolean())
         .incompatibleDisableTargetProviderFields(rand.nextBoolean())
-        .incompatibleDisableDeprecatedAttrParams(rand.nextBoolean())
         .incompatibleDisableDepsetItems(rand.nextBoolean())
         .incompatibleDisableThirdPartyLicenseChecking(rand.nextBoolean())
         .incompatibleDisallowEmptyGlob(rand.nextBoolean())
