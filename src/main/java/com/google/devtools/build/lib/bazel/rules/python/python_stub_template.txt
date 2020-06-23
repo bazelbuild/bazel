@@ -24,6 +24,7 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+import signal
 
 # Return True if running on Windows
 def IsWindows():
@@ -362,10 +363,20 @@ def Main():
       # (So that the data files are accessible)
       if os.environ.get('RUN_UNDER_RUNFILES') == '1':
         os.chdir(os.path.join(module_space, '%workspace_name%'))
-      ret_code = subprocess.call(args)
-      shutil.rmtree(os.path.dirname(module_space), True)
-      MaybeEmitHostVersionWarning(ret_code)
-      sys.exit(ret_code)
+      try:
+        p = subprocess.Popen(args)
+        p.wait()
+      except KeyboardInterrupt:
+        p.send_signal(signal.SIGINT)
+        p.wait()
+      except:
+        p.kill()
+        p.wait()
+      finally:
+        ret_code = p.returncode
+        shutil.rmtree(os.path.dirname(module_space), True)
+        MaybeEmitHostVersionWarning(ret_code)
+        sys.exit(ret_code)
     else:
       # On Windows, os.execv doesn't handle arguments with spaces correctly,
       # and it actually starts a subprocess just like subprocess.call.
