@@ -192,8 +192,8 @@ public abstract class AbstractAndroidLocalTestTestBase extends AndroidBuildViewT
         ")");
     ConfiguredTarget binary = getConfiguredTarget("//java/com/foo");
     List<String> inputs =
-        actionsTestUtil()
-            .prettyArtifactNames(actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)));
+        ActionsTestUtil.prettyArtifactNames(
+            actionsTestUtil().artifactClosureOf(getFilesToBuild(binary)));
 
     assertThat(inputs).containsAtLeast("java/com/foo/Flag1On.java", "java/com/foo/Flag2Off.java");
     assertThat(inputs).containsNoneOf("java/com/foo/Flag1Off.java", "java/com/foo/Flag2On.java");
