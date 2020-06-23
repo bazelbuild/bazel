@@ -492,12 +492,39 @@ public class ExecutionTool {
     env.getEventBus().post(new ExecRootPreparedEvent(packageRootMap));
   }
 
+  private static void logDeleteTreeFailure(
+      Path directory, String description, IOException deleteTreeFailure) {
+    logger.atWarning().withCause(deleteTreeFailure).log(
+        "Failed to delete %s '%s'", description, directory);
+    if (directory.exists()) {
+      try {
+        Collection<Path> entries = directory.getDirectoryEntries();
+        StringBuilder directoryDetails =
+            new StringBuilder("'")
+                .append(directory)
+                .append("' contains ")
+                .append(entries.size())
+                .append(" entries:");
+        for (Path entry : entries) {
+          directoryDetails.append(" '").append(entry.getBaseName()).append("'");
+        }
+        logger.atWarning().log(directoryDetails.toString());
+      } catch (IOException e) {
+        logger.atWarning().withCause(e).log("'%s' exists but could not be read", directory);
+      }
+    } else {
+      logger.atWarning().log("'%s' does not exist", directory);
+    }
+  }
+
   private void createActionLogDirectory() throws AbruptExitException {
     Path directory = env.getActionTempsDirectory();
     if (directory.exists()) {
       try {
         directory.deleteTree();
       } catch (IOException e) {
+        // TODO(b/140567980): Remove when we determine the cause of occasional deleteTree() failure.
+        logDeleteTreeFailure(directory, "action output directory", e);
         throw createExitException(
             "Couldn't delete action output directory",
             Code.ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
