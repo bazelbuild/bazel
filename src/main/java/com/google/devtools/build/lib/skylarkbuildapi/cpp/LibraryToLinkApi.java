@@ -45,6 +45,20 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
   Sequence<FileT> getPicObjectFilesForStarlark();
 
   @StarlarkMethod(
+      name = "lto_bitcode_files",
+      allowReturnNones = true,
+      doc = "<code>List</code> of LTO bitcode files in the library.",
+      structField = true)
+  Sequence<FileT> getLtoBitcodeFilesForStarlark();
+
+  @StarlarkMethod(
+      name = "pic_lto_bitcode_files",
+      allowReturnNones = true,
+      doc = "<code>List</code> of pic LTO bitcode files in the library.",
+      structField = true)
+  Sequence<FileT> getPicLtoBitcodeFilesForStarlark();
+
+  @StarlarkMethod(
       name = "static_library",
       allowReturnNones = true,
       doc = "<code>Artifact</code> of static library to be linked.",

@@ -5899,6 +5899,70 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLtoBitcodeFilesApi() throws Exception {
+    useConfiguration("--compilation_mode=opt", "--features=thin_lto");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.THIN_LTO, CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
+
+    scratchObjectsProvidingRule();
+
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
+    LibraryToLink fooLibrary =
+        Iterables.getOnlyElement(
+            getConfiguredTarget("//foo:dep")
+                .get(CcInfo.PROVIDER)
+                .getCcLinkingContext()
+                .getLibraries()
+                .toList());
+    StarlarkInfo fooInfo =
+        (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
+
+    assertThat(ImmutableList.copyOf(fooLibrary.getLtoCompilationContext().getBitcodeFiles()))
+        .isEqualTo(fooInfo.getValue("lto_bitcode_files"));
+    assertThat(fooLibrary.getLtoCompilationContext().getBitcodeFiles()).isNotEmpty();
+
+    assertThat(ImmutableList.copyOf(fooLibrary.getPicLtoCompilationContext().getBitcodeFiles()))
+        .isEqualTo(fooInfo.getValue("pic_lto_bitcode_files"));
+    assertThat(fooLibrary.getPicLtoCompilationContext().getBitcodeFiles()).isNotEmpty();
+  }
+
+  @Test
+  public void testLtoBitcodeFilesApiNeverReturningNones() throws Exception {
+    // We do not add --features=thin_lto for this test.
+    useConfiguration("--compilation_mode=opt");
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                // We do not enable the THIN_LTO feature for this test.
+                .withFeatures(CppRuleClasses.SUPPORTS_PIC, CppRuleClasses.PIC));
+
+    scratchObjectsProvidingRule();
+
+    Provider.Key key =
+        new StarlarkProvider.Key(
+            Label.parseAbsolute("//foo:foo.bzl", ImmutableMap.of()), "FooInfo");
+    StarlarkInfo fooInfo =
+        (StarlarkInfo) getConfiguredTarget("//foo:foo").get(StarlarkProviderIdentifier.forKey(key));
+
+    Object picLtoBitcodeFiles = fooInfo.getValue("pic_lto_bitcode_files");
+    assertThat(picLtoBitcodeFiles).isNotEqualTo(Starlark.NONE);
+    assertThat((StarlarkList) picLtoBitcodeFiles).isEmpty();
+
+    Object ltoBitcodeFiles = fooInfo.getValue("lto_bitcode_files");
+    assertThat(ltoBitcodeFiles).isNotEqualTo(Starlark.NONE);
+    assertThat((StarlarkList) ltoBitcodeFiles).isEmpty();
+  }
+
+  @Test
   public void testIncompatibleRequireLinkerInputCcApi() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_require_linker_input_cc_api");
     setUpCcLinkingContextTest();
@@ -5919,11 +5983,14 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/foo.bzl",
-        "FooInfo = provider(fields=['objects', 'pic_objects'])",
+        "FooInfo = provider(fields=['objects',"
+            + " 'pic_objects','lto_bitcode_files','pic_lto_bitcode_files'])",
         "",
         "def _foo_impl(ctx):",
         "  lib = ctx.attr.dep[CcInfo].linking_context.libraries_to_link.to_list()[0]",
-        "  return [FooInfo(objects=lib.objects, pic_objects=lib.pic_objects)]",
+        "  return [FooInfo(objects=lib.objects, pic_objects=lib.pic_objects,"
+            + " lto_bitcode_files=lib.lto_bitcode_files,"
+            + " pic_lto_bitcode_files=lib.pic_lto_bitcode_files)]",
         "",
         "foo = rule(",
         "  implementation = _foo_impl,",
