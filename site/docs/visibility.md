@@ -23,8 +23,12 @@ Each label has one of the following forms:
     `__subpackages__` is special syntax.
 
 *   `"//foo/bar:my_package_group"`: Grants access to all of the packages named
-    by the given [package group](be/functions.html#package_group). This can be
-    used to allow access to an entire subtree, such as `//myproj/...`.
+    by the given [package group](be/functions.html#package_group).
+
+    *   Package groups do not support the special `__pkg__` and
+        `__subpackages__` syntax. Within a package group, `"//foo/bar"` is
+        equivalent to `"//foo/bar:__pkg__"` and `"//foo/bar/..."` is equivalent
+        to `"//foo/bar:__subpackages__"`.
 
 For example, if `//some/package:mytarget` has its `visibility` set to
 `[":__subpackages__", "//tests:__pkg__"]`, then it could be used by any target
