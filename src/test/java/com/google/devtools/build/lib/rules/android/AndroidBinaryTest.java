@@ -833,7 +833,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
 
   @Test
   public void testIncrementalDexingDisabledWithBlacklistedDexopts() throws Exception {
-    // Even if we mark a dx flag as supported, incremental dexing isn't used with blacklisted
+    // Even if we mark a dx flag as supported, incremental dexing isn't used with disallowlisted
     // dexopts (unless incremental_dexing attribute is set, which a different test covers)
     useConfiguration(
         "--incremental_dexing",
@@ -3460,7 +3460,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     reporter.removeHandler(failFastHandler); // expecting an error
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name = 'config_feature_flag',",
         "    packages = ['//flag'])");
@@ -3494,7 +3494,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   public void testFeatureFlagPolicyDoesNotBlockRuleIfInPolicy() throws Exception {
     useConfiguration("--enforce_transitive_configs_for_config_feature_flag");
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name = 'config_feature_flag',",
         "    packages = ['//flag', '//java/com/google/android/foo'])");
@@ -3524,7 +3524,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   @Test
   public void testFeatureFlagPolicyIsNotUsedIfFlagValuesNotUsed() throws Exception {
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name = 'config_feature_flag',",
         "    packages = ['*super* busted package group'])");
@@ -3540,7 +3540,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
     assertNoEvents();
     // sanity check time: does this test actually test what we're testing for?
     reporter.removeHandler(failFastHandler);
-    assertThat(getConfiguredTarget("//tools/whitelists/config_feature_flag:config_feature_flag"))
+    assertThat(getConfiguredTarget("//tools/allowlists/config_feature_flag:config_feature_flag"))
         .isNull();
     assertContainsEvent("*super* busted package group");
   }

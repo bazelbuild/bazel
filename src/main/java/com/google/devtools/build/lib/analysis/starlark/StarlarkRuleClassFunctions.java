@@ -724,7 +724,8 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         }
         // Check for existence of the function transition allowlist attribute.
         // TODO(b/121385274): remove when we stop allowlisting starlark transitions
-        if (name.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)) {
+        if (name.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
+            || name.equals(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME)) {
           if (!BuildType.isLabelType(attr.getType())) {
             throw new EvalException(
                 getLocation(), "_allowlist_function_transition attribute must be a label type");
@@ -737,10 +738,18 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
           Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
           // Check the label value for package and target name, to make sure this works properly
           // in Bazel where it is expected to be found under @bazel_tools.
-          if (!defaultLabel
-                  .getPackageName()
-                  .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
-              || !defaultLabel.getName().equals(FunctionSplitTransitionAllowlist.LABEL.getName())) {
+          if (!(defaultLabel
+                      .getPackageName()
+                      .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
+                  && defaultLabel
+                      .getName()
+                      .equals(FunctionSplitTransitionAllowlist.LABEL.getName()))
+              && !(defaultLabel
+                      .getPackageName()
+                      .equals(FunctionSplitTransitionAllowlist.LEGACY_LABEL.getPackageName())
+                  && defaultLabel
+                      .getName()
+                      .equals(FunctionSplitTransitionAllowlist.LEGACY_LABEL.getName()))) {
             throw new EvalException(
                 getLocation(),
                 "_allowlist_function_transition attribute ("

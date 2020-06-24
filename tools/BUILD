@@ -33,7 +33,7 @@ filegroup(
         "//tools/python:srcs",
         "//tools/runfiles:srcs",
         "//tools/sh:srcs",
-        "//tools/whitelists:srcs",
+        "//tools/allowlists:srcs",
         "//tools/zip:srcs",
     ],
 )
@@ -66,7 +66,7 @@ filegroup(
         "//tools/osx/crosstool:srcs",
         "//tools/osx:srcs",
         "//tools/sh:embedded_tools",
-        "//tools/whitelists:srcs",
+        "//tools/allowlists:srcs",
         "//tools/zip:srcs",
     ],
 )

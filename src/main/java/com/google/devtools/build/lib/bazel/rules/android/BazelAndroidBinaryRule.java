@@ -69,12 +69,12 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_BINARY_IMPLICIT_OUTPUTS)
         .add(
             Allowlist.getAttributeFromAllowlistName("export_deps")
-                .value(environment.getToolsLabel("//tools/android:export_deps_whitelist")))
+                .value(environment.getToolsLabel("//tools/android:export_deps_allowlist")))
         .add(
             Allowlist.getAttributeFromAllowlistName("allow_deps_without_srcs")
                 .value(
                     environment.getToolsLabel(
-                        "//tools/android:allow_android_library_deps_without_srcs_whitelist")))
+                        "//tools/android:allow_android_library_deps_without_srcs_allowlist")))
         .cfg(
             new ConfigFeatureFlagTransitionFactory(AndroidFeatureFlagSetProvider.FEATURE_FLAG_ATTR))
         .addRequiredToolchains(CppRuleClasses.ccToolchainTypeAttribute(environment))

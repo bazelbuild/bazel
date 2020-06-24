@@ -46,7 +46,7 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
             Allowlist.getAttributeFromAllowlistName("allow_deps_without_srcs")
                 .value(
                     env.getToolsLabel(
-                        "//tools/android:allow_android_library_deps_without_srcs_whitelist")))
+                        "//tools/android:allow_android_library_deps_without_srcs_allowlist")))
         .build();
   }
 

@@ -402,7 +402,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   public void policy_mustContainRulesPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name = 'config_feature_flag', packages = ['//some/other'])");
     scratch.file(
         "test/BUILD",
@@ -420,7 +420,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   @Test
   public void policy_doesNotBlockRuleIfInPackageGroup() throws Exception {
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name = 'config_feature_flag', packages = ['//test'])");
     scratch.file(
         "test/BUILD",

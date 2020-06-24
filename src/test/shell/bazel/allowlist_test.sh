@@ -144,7 +144,7 @@ EOF
   bazel build //vinegar --experimental_starlark_config_transitions \
     >& $TEST_log && fail "Expected failure"
   expect_log "_allowlist_function_transition attribute (@bazel_tools//tools/whitelists/bad:bad)"
-  expect_log "does not have the expected value //tools/whitelists/function_transition_whitelist:function_transition_whitelist"
+  expect_log "does not have the expected value //tools/allowlists/function_transition_allowlist:function_transition_allowlist"
 }
 
 

@@ -1615,21 +1615,21 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "            allow_single_file = True,",
         "            cfg = cpu_transition,",
         "        ),",
-        "        '_whitelist_function_transition': attr.label(",
-        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
         "    },",
         ")");
     scratch.overwriteFile(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = ['//...'],",
         ")",
         "filegroup(",
         "    name = 'srcs',",
         "    srcs = glob(['**']),",
-        "    visibility = ['//tools/whitelists:__pkg__'],",
+        "    visibility = ['//tools/allowlists:__pkg__'],",
         ")");
     checkError("//foo", "Trying to link twice");
   }

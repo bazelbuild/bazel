@@ -4,11 +4,11 @@
 
 package_group(
     name = "config_feature_flag",
-    includes = ["//tools/allowlists/config_feature_flag"],
+    packages = ["//..."],
 )
 
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//tools/whitelists:__pkg__"],
+    visibility = ["//tools/allowlists:__pkg__"],
 )

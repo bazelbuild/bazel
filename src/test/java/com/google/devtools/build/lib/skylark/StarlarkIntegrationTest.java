@@ -2594,9 +2594,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   @Test
   public void testBadAllowlistTransition_noAllowlist() throws Exception {
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -2613,8 +2613,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  implementation = _my_rule_impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "#   '_whitelist_function_transition': attr.label(",
-        "#       default = '//tools/whitelists/function_transition_whitelist',",
+        "#   '_allowlist_function_transition': attr.label(",
+        "#       default = '//tools/allowlists/function_transition_allowlist',",
         "#   ),",
         "  })",
         "def _simple_rule_impl(ctx):",
@@ -2637,9 +2637,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   public void testPrintFromTransitionImpl() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions");
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -2662,8 +2662,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  cfg = my_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  }",
         ")");
@@ -2689,9 +2689,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   public void testTransitionEquality() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions");
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -2712,8 +2712,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  cfg = my_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  }",
         ")");
@@ -2748,9 +2748,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   @Test
   public void testBadAllowlistTransition_allowlistNoCfg() throws Exception {
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -2763,8 +2763,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  implementation = _my_rule_impl,",
         "  attrs = {",
         "#   'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _simple_rule_impl(ctx):",

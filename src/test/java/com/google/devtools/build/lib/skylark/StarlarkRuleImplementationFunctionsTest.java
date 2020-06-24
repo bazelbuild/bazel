@@ -2538,9 +2538,9 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   @Test
   public void testConfigurationField_StarlarkSplitTransitionProhibited() throws Exception {
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//...',",
         "    ],",
@@ -2558,8 +2558,8 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
         "foo = rule(",
         "  implementation = _foo_impl,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist'),",
         "    '_attr': attr.label(",
         "        cfg = foo_transition,",
         "        default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})");

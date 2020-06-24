@@ -119,6 +119,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       // TODO(plf): Add the PackageSpecificationProvider to the 'visibility' attribute.
       if (!attrName.equals("visibility")
           && !attrName.equals(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)
+          && !attrName.equals(FunctionSplitTransitionAllowlist.LEGACY_ATTRIBUTE_NAME)
           && !containsPackageSpecificationProvider) {
         context.attributeError(
             attrName,

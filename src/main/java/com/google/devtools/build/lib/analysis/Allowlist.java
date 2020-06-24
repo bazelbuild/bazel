@@ -45,7 +45,7 @@ public final class Allowlist {
    *     standards and will be used as a suffix for the attribute name.
    */
   public static Attribute.Builder<Label> getAttributeFromAllowlistName(String allowlistName) {
-    String attributeName = getAttributeNameFromAllowlistName(allowlistName);
+    String attributeName = getAttributeNameFromAllowlistName(allowlistName).iterator().next();
     return attr(attributeName, LABEL)
         .cfg(HostTransition.createFactory())
         .mandatoryNativeProviders(ImmutableList.of(PackageSpecificationProvider.class));
@@ -97,13 +97,18 @@ public final class Allowlist {
 
   public static PackageSpecificationProvider fetchPackageSpecificationProvider(
       RuleContext ruleContext, String allowlistName) {
-    String attributeName = getAttributeNameFromAllowlistName(allowlistName);
-    Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL));
-    TransitiveInfoCollection packageGroup =
-        ruleContext.getPrerequisite(attributeName, TransitionMode.HOST);
-    PackageSpecificationProvider packageSpecificationProvider =
-        packageGroup.getProvider(PackageSpecificationProvider.class);
-    return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
+    for (String attributeName : getAttributeNameFromAllowlistName(allowlistName)) {
+      if (!ruleContext.isAttrDefined(attributeName, LABEL)) {
+        continue;
+      }
+      Preconditions.checkArgument(ruleContext.isAttrDefined(attributeName, LABEL), attributeName);
+      TransitiveInfoCollection packageGroup =
+          ruleContext.getPrerequisite(attributeName, TransitionMode.HOST);
+      PackageSpecificationProvider packageSpecificationProvider =
+          packageGroup.getProvider(PackageSpecificationProvider.class);
+      return requireNonNull(packageSpecificationProvider, packageGroup.getLabel().toString());
+    }
+    throw new AssertionError();
   }
 
   /**
@@ -127,11 +132,17 @@ public final class Allowlist {
    * @return True if the given rule context has the given allowlist.
    */
   public static boolean hasAllowlist(RuleContext ruleContext, String allowlistName) {
-    String attributeName = getAttributeNameFromAllowlistName(allowlistName);
-    return ruleContext.isAttrDefined(attributeName, LABEL);
+    for (String attributeName : getAttributeNameFromAllowlistName(allowlistName)) {
+      if (ruleContext.isAttrDefined(attributeName, LABEL)) {
+        return true;
+      }
+    }
+    return false;
   }
 
-  private static String getAttributeNameFromAllowlistName(String allowlistName) {
-    return String.format("$whitelist_%s", allowlistName);
+  private static ImmutableList<String> getAttributeNameFromAllowlistName(String allowlistName) {
+    return ImmutableList.of(
+        String.format("$whitelist_%s", allowlistName),
+        String.format("$allowlist_%s", allowlistName));
   }
 }

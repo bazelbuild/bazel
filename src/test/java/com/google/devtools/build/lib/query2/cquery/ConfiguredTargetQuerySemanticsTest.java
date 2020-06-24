@@ -268,9 +268,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
   private void createConfigTransitioningRuleClass() throws Exception {
     writeFile(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -294,8 +294,8 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "    implementation = _rule_impl,",
         "    attrs = {",
         "        'deps': attr.label_list(cfg = my_transition),",
-        "        '_whitelist_function_transition': attr.label(",
-        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
         "    }",
         ")",

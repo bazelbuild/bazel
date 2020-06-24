@@ -113,9 +113,9 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
 
   private void writeAllowlistFile() throws Exception {
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -140,8 +140,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
@@ -169,8 +169,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
@@ -205,8 +205,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -238,8 +238,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  cfg = my_transition,",
         "  build_setting = config.string(),",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
@@ -261,8 +261,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = 'my_transition',",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
@@ -294,8 +294,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
@@ -328,8 +328,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  cfg = my_transition,",
         "  attrs = {",
         "    'my_configurable_attr': attr.bool(default = False),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  },",
         ")");
@@ -378,8 +378,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  cfg = my_transition,",
         "  attrs = {",
         "    'dict_attr': attr.label_keyed_string_dict(),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  },",
         ")",
@@ -414,8 +414,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _rule_impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  },",
         ")");
@@ -588,8 +588,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _rule_impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  },",
         ")");
@@ -702,8 +702,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _rule_impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  },",
         ")");
@@ -975,8 +975,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  },",
         ")");
@@ -1005,8 +1005,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  },",
         ")");
@@ -1020,9 +1020,9 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testCannotTransitionWithoutAllowlist() throws Exception {
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [],",
         ")");
     scratch.file(
@@ -1074,8 +1074,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
@@ -1106,8 +1106,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file(
@@ -1140,8 +1140,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file(
@@ -1176,8 +1176,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
@@ -1213,16 +1213,16 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "rule_with_attr_transition = rule(",
         "  implementation = _impl,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist'),",
         "    'deps': attr.label_list(cfg = attr_transition),",
         "  })",
         "rule_with_self_transition = rule(",
         "  implementation = _impl,",
         "  cfg = self_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist'),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist'),",
         "  })");
     scratch.file(
         "test/BUILD",
@@ -1261,8 +1261,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file("test/BUILD", "load('//test:rules.bzl', 'my_rule')", "my_rule(name = 'test')");
@@ -1290,8 +1290,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file(
@@ -1322,8 +1322,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file(
@@ -1355,8 +1355,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file(
@@ -1390,8 +1390,8 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  cfg = my_transition,",
         "  attrs = {",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file(
