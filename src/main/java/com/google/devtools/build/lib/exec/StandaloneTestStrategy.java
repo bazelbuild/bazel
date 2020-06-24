@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -95,7 +96,9 @@ public class StandaloneTestStrategy extends TestStrategy {
   public TestRunnerSpawn createTestRunnerSpawn(
       TestRunnerAction action, ActionExecutionContext actionExecutionContext) throws ExecException {
     if (action.getExecutionSettings().getInputManifest() == null) {
-      throw new TestExecException("cannot run local tests with --nobuild_runfile_manifests");
+      throw new TestExecException(
+          "cannot run local tests with --nobuild_runfile_manifests",
+          TestAction.Code.LOCAL_TEST_PREREQ_UNMET);
     }
     Path execRoot = actionExecutionContext.getExecRoot();
     ArtifactPathResolver pathResolver = actionExecutionContext.getPathResolver();

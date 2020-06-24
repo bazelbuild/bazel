@@ -42,6 +42,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",

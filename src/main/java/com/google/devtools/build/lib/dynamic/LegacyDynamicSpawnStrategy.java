@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.dynamic;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -243,9 +244,13 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
                   }));
     } catch (ExecutionException e) {
       Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
-      // DynamicExecutionCallable.callImpl only declares InterruptedException, so this should never
+      // DynamicExecutionCallable.call only declares InterruptedException, so this should never
       // happen.
-      exceptionDuringExecution = new UserExecException(e.getCause());
+      exceptionDuringExecution =
+          new UserExecException(
+              e.getCause(),
+              createFailureDetail(
+                  Strings.nullToEmpty(e.getCause().getMessage()), Code.RUN_FAILURE));
     } finally {
       bothTasksFinished.arriveAndAwaitAdvance();
       if (dynamicExecutionResult.execException() != null) {
@@ -273,7 +278,10 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
       String strategyName = winningStrategy.name().toLowerCase();
       if (exceptionDuringExecution == null) {
         throw new UserExecException(
-            String.format("Could not move action logs from %s execution", strategyName), e);
+            e,
+            createFailureDetail(
+                String.format("Could not move action logs from %s execution", strategyName),
+                Code.ACTION_LOG_MOVE_FAILURE));
       } else {
         actionExecutionContext
             .getEventHandler()
@@ -442,7 +450,11 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
         Throwables.throwIfInstanceOf(e, InterruptedException.class);
         return DynamicExecutionResult.create(
             strategyIdentifier,
-            fileOutErr, e instanceof ExecException ? (ExecException) e : new UserExecException(e),
+            fileOutErr,
+            e instanceof ExecException
+                ? (ExecException) e
+                : new UserExecException(
+                    e, createFailureDetail(Strings.nullToEmpty(e.getMessage()), Code.RUN_FAILURE)),
             /*spawnResults=*/ ImmutableList.of());
       } finally {
         try {

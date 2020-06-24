@@ -49,6 +49,9 @@ import com.google.devtools.build.lib.exec.BlazeExecutor;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
+import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution;
+import com.google.devtools.build.lib.server.FailureDetails.DynamicExecution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -152,7 +155,7 @@ public class DynamicSpawnStrategyTest {
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
-      throw new UserExecException(name + " failed to execute the Spawn");
+      throw new UserExecException(createFailureDetail(name + " failed to execute the Spawn"));
     }
 
     @Override
@@ -989,7 +992,7 @@ public class DynamicSpawnStrategyTest {
 
     Spawn spawn = newDynamicSpawn();
     Exception e = assertThrows(expectedException.getClass(), () -> strategyAndContext.exec(spawn));
-    assertThat(e).hasMessageThat().matches(expectedException.getMessage());
+    assertThat(e).hasMessageThat().contains(expectedException.getMessage());
 
     Spawn executedSpawn = localStrategy.getExecutedSpawn();
     executedSpawn = executedSpawn == null ? remoteStrategy.getExecutedSpawn() : executedSpawn;
@@ -1013,7 +1016,9 @@ public class DynamicSpawnStrategyTest {
         };
 
     assertThatStrategyPropagatesException(
-        localExec, remoteExec, legacyBehavior ? new UserExecException(e) : e);
+        localExec,
+        remoteExec,
+        legacyBehavior ? new UserExecException(e, createFailureDetail("")) : e);
   }
 
   @Test
@@ -1031,7 +1036,16 @@ public class DynamicSpawnStrategyTest {
         };
 
     assertThatStrategyPropagatesException(
-        localExec, remoteExec, legacyBehavior ? new UserExecException(e) : e);
+        localExec,
+        remoteExec,
+        legacyBehavior ? new UserExecException(e, createFailureDetail("")) : e);
+  }
+
+  private static FailureDetail createFailureDetail(String message) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setDynamicExecution(DynamicExecution.newBuilder().setCode(Code.RUN_FAILURE))
+        .build();
   }
 
   @AutoValue

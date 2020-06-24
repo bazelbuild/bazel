@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -34,6 +35,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -138,7 +142,12 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
       ArtifactExpander artifactExpander = Preconditions.checkNotNull(ctx.getArtifactExpander());
       arguments = commandLine.arguments(artifactExpander);
     } catch (CommandLineExpansionException e) {
-      throw new UserExecException(e);
+      throw new UserExecException(
+          e,
+          FailureDetail.newBuilder()
+              .setMessage(Strings.nullToEmpty(e.getMessage()))
+              .setSpawn(Spawn.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
+              .build());
     }
     return new ParamFileWriter(arguments, type);
   }

@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -94,22 +97,17 @@ public final class Spawns {
     return customValue != null ? customValue : spawn.getMnemonic();
   }
 
-  /** Parse the timeout key in the spawn execution info, if it exists. Otherwise, return -1. */
+  /**
+   * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return {@link
+   * Duration#ZERO}.
+   */
   public static Duration getTimeout(Spawn spawn) throws ExecException {
-    String timeoutStr = spawn.getExecutionInfo().get(ExecutionRequirements.TIMEOUT);
-    if (timeoutStr == null) {
-      return Duration.ZERO;
-    }
-    try {
-      return Duration.ofSeconds(Integer.parseInt(timeoutStr));
-    } catch (NumberFormatException e) {
-      throw new UserExecException("could not parse timeout: ", e);
-    }
+    return getTimeout(spawn, Duration.ZERO);
   }
 
   /**
    * Parse the timeout key in the spawn execution info, if it exists. Otherwise, return
-   * defaultTimeout, or 0 if that is null.
+   * defaultTimeout, or {@code Duration.ZERO} if that is null.
    */
   public static Duration getTimeout(Spawn spawn, Duration defaultTimeout) throws ExecException {
     String timeoutStr = spawn.getExecutionInfo().get(ExecutionRequirements.TIMEOUT);
@@ -119,7 +117,12 @@ public final class Spawns {
     try {
       return Duration.ofSeconds(Integer.parseInt(timeoutStr));
     } catch (NumberFormatException e) {
-      throw new UserExecException("could not parse timeout: ", e);
+      throw new UserExecException(
+          e,
+          FailureDetail.newBuilder()
+              .setMessage("could not parse timeout")
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.INVALID_TIMEOUT))
+              .build());
     }
   }
 

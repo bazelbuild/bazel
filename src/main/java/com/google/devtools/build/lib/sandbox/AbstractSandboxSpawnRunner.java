@@ -36,6 +36,9 @@ import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
+import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
 import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
@@ -86,7 +89,10 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       SandboxedSpawn sandbox = prepareSpawn(spawn, context);
       return runSpawn(spawn, sandbox, context);
     } catch (IOException e) {
-      throw new UserExecException("I/O exception during sandboxed execution", e);
+      FailureDetail failureDetail =
+          createFailureDetail(
+              "I/O exception during sandboxed execution", Code.EXECUTION_IO_EXCEPTION);
+      throw new UserExecException(e, failureDetail);
     }
   }
 
@@ -346,5 +352,12 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
         treeDeleter.deleteTree(child);
       }
     }
+  }
+
+  static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setSandbox(Sandbox.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

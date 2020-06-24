@@ -356,12 +356,9 @@ public class RemoteCache implements AutoCloseable {
         ExecException execEx =
             new EnvironmentalExecException(
                 ioEx,
-                FailureDetail.newBuilder()
-                    .setMessage("Failed to delete output files after incomplete download")
-                    .setRemoteExecution(
-                        RemoteExecution.newBuilder()
-                            .setCode(Code.INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE))
-                    .build());
+                createFailureDetail(
+                    "Failed to delete output files after incomplete download",
+                    Code.INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE));
         execEx.addSuppressed(e);
         throw execEx;
       }
@@ -968,12 +965,13 @@ public class RemoteCache implements AutoCloseable {
 
     private void illegalOutput(Path what) throws ExecException {
       String kind = what.isSymbolicLink() ? "symbolic link" : "special file";
-      throw new UserExecException(
+      String message =
           String.format(
               "Output %s is a %s. Only regular files and directories may be "
                   + "uploaded to a remote cache. "
                   + "Change the file type or use --remote_allow_symlink_upload.",
-              what.relativeTo(execRoot), kind));
+              what.relativeTo(execRoot), kind);
+      throw new UserExecException(createFailureDetail(message, Code.ILLEGAL_OUTPUT));
     }
   }
 
@@ -981,6 +979,13 @@ public class RemoteCache implements AutoCloseable {
   @Override
   public void close() {
     cacheProtocol.close();
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
+        .build();
   }
 
   /**

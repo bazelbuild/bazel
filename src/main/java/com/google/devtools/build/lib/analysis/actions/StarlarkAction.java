@@ -170,10 +170,11 @@ public final class StarlarkAction extends SpawnAction implements ActionCacheAwar
           .toPath(unusedInputsListArtifact)
           .getInputStream();
     } catch (FileNotFoundException e) {
-      throw new UserExecException(
+      String message =
           "Action did not create expected output file listing unused inputs: "
-              + unusedInputsListArtifact.getExecPathString(),
-          e);
+              + unusedInputsListArtifact.getExecPathString();
+      throw new UserExecException(
+          e, createFailureDetail(message, Code.UNUSED_INPUT_LIST_FILE_NOT_FOUND));
     }
   }
 

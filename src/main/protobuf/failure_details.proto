@@ -139,6 +139,8 @@ message FailureDetail {
     SymlinkAction symlink_action = 167;
     CppLink cpp_link = 168;
     LtoAction lto_action = 169;
+    TestAction test_action = 172;
+    Worker worker = 173;
   }
 
   reserved 102; // For internal use
@@ -199,6 +201,9 @@ message Spawn {
     REMOTE_CACHE_FAILED = 6 [(metadata) = { exit_code: 34 }];
     COMMAND_LINE_EXPANSION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
     EXEC_IO_EXCEPTION = 8 [(metadata) = { exit_code: 36 }];
+    INVALID_TIMEOUT = 9 [(metadata) = { exit_code: 1 }];
+    INVALID_REMOTE_EXECUTION_PROPERTIES = 10 [(metadata) = { exit_code: 1 }];
+    NO_USABLE_STRATEGY_FOUND = 11 [(metadata) = { exit_code: 1 }];
   }
   Code code = 1;
 
@@ -345,6 +350,10 @@ message RemoteExecution {
         [(metadata) = { exit_code: 2 }];
     INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE = 13
         [(metadata) = { exit_code: 36 }];
+    REMOTE_DEFAULT_PLATFORM_PROPERTIES_PARSE_FAILURE = 14
+        [(metadata) = { exit_code: 1 }];
+    ILLEGAL_OUTPUT = 15 [(metadata) = { exit_code: 1 }];
+    INVALID_EXEC_AND_PLATFORM_PROPERTIES = 16 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -627,6 +636,14 @@ message Sandbox {
   enum Code {
     SANDBOX_FAILURE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+    EXECUTION_IO_EXCEPTION = 2 [(metadata) = { exit_code: 1 }];
+    DOCKER_COMMAND_FAILURE = 3 [(metadata) = { exit_code: 1 }];
+    NO_DOCKER_IMAGE = 4 [(metadata) = { exit_code: 1 }];
+    DOCKER_IMAGE_PREPARATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    BIND_MOUNT_ANALYSIS_FAILURE = 6 [(metadata) = { exit_code: 1 }];
+    MOUNT_SOURCE_DOES_NOT_EXIST = 7 [(metadata) = { exit_code: 1 }];
+    MOUNT_SOURCE_TARGET_TYPE_MISMATCH = 8 [(metadata) = { exit_code: 1 }];
+    MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -639,6 +656,7 @@ message IncludeScanning {
     SCANNING_IO_EXCEPTION = 2 [(metadata) = { exit_code: 36 }];
     INCLUDE_HINTS_FILE_NOT_IN_PACKAGE = 3 [(metadata) = { exit_code: 36 }];
     INCLUDE_HINTS_READ_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    ILLEGAL_ABSOLUTE_PATH = 5 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -882,6 +900,7 @@ message StarlarkAction {
   enum Code {
     STARLARK_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     UNUSED_INPUT_LIST_READ_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+    UNUSED_INPUT_LIST_FILE_NOT_FOUND = 2 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -901,6 +920,8 @@ message DynamicExecution {
   enum Code {
     DYNAMIC_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     XCODE_RELATED_PREREQ_UNMET = 1 [(metadata) = { exit_code: 36 }];
+    ACTION_LOG_MOVE_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+    RUN_FAILURE = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -944,6 +965,39 @@ message LtoAction {
     INVALID_ABSOLUTE_PATH_IN_IMPORTS = 1 [(metadata) = { exit_code: 1 }];
     MISSING_BITCODE_FILES = 2 [(metadata) = { exit_code: 1 }];
     IMPORTS_READ_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message TestAction {
+  enum Code {
+    TEST_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NO_KEEP_GOING_TEST_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    LOCAL_TEST_PREREQ_UNMET = 2 [(metadata) = { exit_code: 1 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 3 [(metadata) = { exit_code: 1 }];
+    DUPLICATE_CPU_TAGS = 4 [(metadata) = { exit_code: 1 }];
+    INVALID_CPU_TAG = 5 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message Worker {
+  enum Code {
+    WORKER_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MULTIPLEXER_INSTANCE_REMOVAL_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    MULTIPLEXER_DOES_NOT_EXIST = 2 [(metadata) = { exit_code: 1 }];
+    NO_TOOLS = 3 [(metadata) = { exit_code: 1 }];
+    NO_FLAGFILE = 4 [(metadata) = { exit_code: 1 }];
+    VIRTUAL_INPUT_MATERIALIZATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    BORROW_FAILURE = 6 [(metadata) = { exit_code: 1 }];
+    PREFETCH_FAILURE = 7 [(metadata) = { exit_code: 1 }];
+    PREPARE_FAILURE = 8 [(metadata) = { exit_code: 1 }];
+    REQUEST_FAILURE = 9 [(metadata) = { exit_code: 1 }];
+    PARSE_RESPONSE_FAILURE = 10 [(metadata) = { exit_code: 1 }];
+    NO_RESPONSE = 11 [(metadata) = { exit_code: 1 }];
+    FINISH_FAILURE = 12 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

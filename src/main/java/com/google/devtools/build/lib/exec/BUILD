@@ -287,6 +287,7 @@ java_library(
     deps = [
         ":spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
     ],
 )

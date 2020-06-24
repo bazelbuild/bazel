@@ -30,6 +30,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:apache_commons_pool2",
         "//third_party:auto_value",

@@ -19,6 +19,9 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
@@ -454,9 +457,11 @@ public final class RemoteOptions extends OptionsBase {
 
     if (hasExecProperties && hasPlatformProperties) {
       throw new UserExecException(
-          "Setting both --remote_default_platform_properties and "
-              + "--remote_default_exec_properties is not allowed. Prefer setting "
-              + "--remote_default_exec_properties.");
+          createFailureDetail(
+              "Setting both --remote_default_platform_properties and "
+                  + "--remote_default_exec_properties is not allowed. Prefer setting "
+                  + "--remote_default_exec_properties.",
+              Code.INVALID_EXEC_AND_PLATFORM_PROPERTIES));
     }
 
     if (hasExecProperties) {
@@ -470,10 +475,11 @@ public final class RemoteOptions extends OptionsBase {
         TextFormat.getParser().merge(remoteDefaultPlatformProperties, builder);
         platform = builder.build();
       } catch (ParseException e) {
-        throw new UserExecException(
+        String message =
             "Failed to parse --remote_default_platform_properties "
-                + remoteDefaultPlatformProperties,
-            e);
+                + remoteDefaultPlatformProperties;
+        throw new UserExecException(
+            e, createFailureDetail(message, Code.REMOTE_DEFAULT_PLATFORM_PROPERTIES_PARSE_FAILURE));
       }
 
       ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
@@ -484,5 +490,12 @@ public final class RemoteOptions extends OptionsBase {
     }
 
     return ImmutableSortedMap.of();
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -1165,7 +1166,8 @@ public class TestRunnerAction extends AbstractAction
       testRunnerSpawn.finalizeTest(result, failedAttempts);
 
       if (!keepGoing && testResult != TestAttemptResult.Result.PASSED) {
-        throw new TestExecException("Test failed: aborting");
+        throw new TestExecException(
+            "Test failed: aborting", TestAction.Code.NO_KEEP_GOING_TEST_FAILURE);
       }
       return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
     }
