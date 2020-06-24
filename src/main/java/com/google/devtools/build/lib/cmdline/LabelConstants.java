@@ -21,14 +21,14 @@ public class LabelConstants {
   public static final PathFragment EXTERNAL_REPOSITORY_LOCATION = PathFragment.create("external");
 
   /**
-   * The path name under which external repositories are accessible if {@code
-   * --experimental_sibling_repository_layout} is not in effect.
+   * The name of the package that contains the targets representing external repositories. Only
+   * works if {@code --experimental_disable_external_package} is not in effect.
    */
   public static final PathFragment EXTERNAL_PACKAGE_NAME = PathFragment.create("external");
 
   /**
-   * The name of the package containing information about external repositories if {@code
-   * --experimental_disable_external_package} is not in effect.
+   * The identifier of the package that contains the targets representing external repositories.
+   * Only works if {@code --experimental_disable_external_package} is not in effect.
    */
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInMainRepo(EXTERNAL_PACKAGE_NAME);
