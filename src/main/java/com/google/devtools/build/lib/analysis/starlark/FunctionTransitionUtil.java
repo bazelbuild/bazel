@@ -55,6 +55,11 @@ import java.util.TreeSet;
 public class FunctionTransitionUtil {
 
   public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
+
+  // The length of the hash of the config tacked onto the end of the output path.
+  // Limited for ergonomics and MAX_PATH reasons.
+  private static final int HASH_LENGTH = 12;
+
   /**
    * Figure out what build settings the given transition changes and apply those changes to the
    * incoming {@link BuildOptions}. For native options, this involves a preprocess step of
@@ -384,14 +389,25 @@ public class FunctionTransitionUtil {
 
     // hash all starlark options in map.
     toOptions.getStarlarkOptions().forEach((opt, value) -> toHash.put(opt.toString(), value));
-
-    Fingerprint fp = new Fingerprint();
+    ImmutableList.Builder<String> hashStrs = ImmutableList.builderWithExpectedSize(toHash.size());
     for (Map.Entry<String, Object> singleOptionAndValue : toHash.entrySet()) {
       String toAdd = singleOptionAndValue.getKey() + "=" + singleOptionAndValue.getValue();
-      fp.addString(toAdd);
+      hashStrs.add(toAdd);
     }
-    // Make this hash somewhat recognizable
-    buildConfigOptions.transitionDirectoryNameFragment = "ST-" + fp.hexDigestAndReset();
+    buildConfigOptions.transitionDirectoryNameFragment =
+        transitionDirectoryNameFragment(hashStrs.build());
+  }
+
+  public static String transitionDirectoryNameFragment(Iterable<String> opts) {
+    Fingerprint fp = new Fingerprint();
+    for (String opt : opts) {
+      fp.addString(opt);
+    }
+    // Shorten the hash to 48 bits. This should provide sufficient collision avoidance
+    // (that is, we don't expect anyone to experience a collision ever).
+    // Shortening the hash is important for Windows paths that tend to be short.
+    String suffix = fp.hexDigestAndReset().substring(0, HASH_LENGTH);
+    return "ST-" + suffix;
   }
 
   /** Stores option info useful to a FunctionSplitTransition. */
