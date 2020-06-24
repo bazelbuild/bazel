@@ -717,7 +717,7 @@ directory enclosing the root of your workspace directory. For example:
 This makes it easier to find out which server process belongs to a given
 workspace. (Beware that with certain other options to `ps`, Bazel server
 processes may be named just `java`.) Bazel servers can be stopped using the
-[shutdown](#shutdown) command.
+[shutdown](user-manual.html#shutdown) command.
 
 When running `bazel`, the client first checks that the server is the appropriate
 version; if not, the server is stopped and a new one started. This ensures that
