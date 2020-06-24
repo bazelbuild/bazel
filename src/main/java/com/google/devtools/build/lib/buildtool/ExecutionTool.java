@@ -527,7 +527,7 @@ public class ExecutionTool {
         logDeleteTreeFailure(directory, "action output directory", e);
         throw createExitException(
             "Couldn't delete action output directory",
-            Code.ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
+            Code.TEMP_ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE,
             e);
       }
     }
@@ -537,7 +537,7 @@ public class ExecutionTool {
     } catch (IOException e) {
       throw createExitException(
           "Couldn't create action output directory",
-          Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
+          Code.TEMP_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE,
           e);
     }
 

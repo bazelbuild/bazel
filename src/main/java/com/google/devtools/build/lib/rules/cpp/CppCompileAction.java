@@ -684,12 +684,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           }
         });
     ImmutableMap<String, ActionInput> lostInputs = lostInputsBuilder.build();
-    return new LostInputsActionExecutionException(
-        "Timed out expanding modules",
-        lostInputs,
-        new ActionInputDepOwnerMap(ImmutableList.copyOf(lostInputs.values())),
-        this,
-        e);
+    String message = "Timed out expanding modules";
+    DetailedExitCode code = createDetailedExitCode(message, Code.MODULE_EXPANSION_TIMEOUT);
+    ActionInputDepOwnerMap owners =
+        new ActionInputDepOwnerMap(ImmutableList.copyOf(lostInputs.values()));
+    return new LostInputsActionExecutionException(message, lostInputs, owners, this, e, code);
   }
 
   @Override
@@ -1588,8 +1587,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       return depSet.read(actionExecutionContext.getInputPath(getDotdFile()));
     } catch (IOException e) {
       // Some kind of IO or parse exception--wrap & rethrow it to stop the build.
+      String message = "error while parsing .d file: " + e.getMessage();
       throw new ActionExecutionException(
-          "error while parsing .d file: " + e.getMessage(), e, this, false);
+          message, e, this, false, createDetailedExitCode(message, Code.D_FILE_PARSE_FAILURE));
     }
   }
 
@@ -1619,8 +1619,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         try {
           FileSystemUtils.createEmptyFile(outputPath);
         } catch (IOException e) {
-          throw new ActionExecutionException(
-              "Error creating file '" + outputPath + "': " + e.getMessage(), e, this, false);
+          String message = "Error creating file '" + outputPath + "': " + e.getMessage();
+          DetailedExitCode code =
+              createDetailedExitCode(message, Code.COVERAGE_NOTES_CREATION_FAILURE);
+          throw new ActionExecutionException(message, e, this, false, code);
         }
       }
     }

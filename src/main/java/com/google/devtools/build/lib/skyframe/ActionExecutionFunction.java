@@ -826,11 +826,10 @@ public class ActionExecutionFunction implements SkyFunction {
             state.updateFileSystemContext(
                 skyframeActionExecutor, env, metadataHandler, ImmutableMap.of());
           } catch (IOException e) {
-            throw new ActionExecutionException(
-                "Failed to update filesystem context: " + e.getMessage(),
-                e,
-                action,
-                /*catastrophe=*/ false);
+            String message = "Failed to update filesystem context: " + e.getMessage();
+            DetailedExitCode code =
+                createDetailedExitCode(message, Code.FILESYSTEM_CONTEXT_UPDATE_FAILURE);
+            throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
           }
           try {
             state.discoveredInputs =
@@ -844,11 +843,10 @@ public class ActionExecutionFunction implements SkyFunction {
                     env,
                     state.actionFileSystem);
           } catch (IOException e) {
-            throw new ActionExecutionException(
-                "Failed during input discovery: " + e.getMessage(),
-                e,
-                action,
-                /*catastrophe=*/ false);
+            String message = "Failed during input discovery: " + e.getMessage();
+            DetailedExitCode code =
+                createDetailedExitCode(message, Code.INPUT_DISCOVERY_IO_EXCEPTION);
+            throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
           } finally {
             discoveredInputsDuration = Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime);
           }
@@ -902,11 +900,10 @@ public class ActionExecutionFunction implements SkyFunction {
     try {
       state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler, expandedFilesets);
     } catch (IOException e) {
-      throw new ActionExecutionException(
-          "Failed to update filesystem context: " + e.getMessage(),
-          e,
-          action,
-          /*catastrophe=*/ false);
+      String message = "Failed to update filesystem context: " + e.getMessage();
+      DetailedExitCode code =
+          createDetailedExitCode(message, Code.FILESYSTEM_CONTEXT_UPDATE_FAILURE);
+      throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
     }
 
     ActionExecutionContext actionExecutionContext =
@@ -947,8 +944,9 @@ public class ActionExecutionFunction implements SkyFunction {
       try {
         actionExecutionContext.close();
       } catch (IOException e) {
-        throw new ActionExecutionException(
-            "Failed to close action output: " + e.getMessage(), e, action, /*catastrophe=*/ false);
+        String message = "Failed to close action output: " + e.getMessage();
+        DetailedExitCode code = createDetailedExitCode(message, Code.ACTION_OUTPUT_CLOSE_FAILURE);
+        throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
       }
     }
     return result;

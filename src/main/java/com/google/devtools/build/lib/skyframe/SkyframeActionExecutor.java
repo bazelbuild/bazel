@@ -1181,9 +1181,10 @@ public final class SkyframeActionExecutor {
         }
       }
     } catch (IOException e) {
-      ActionExecutionException ex =
-          new ActionExecutionException(
-              "failed to create output directory: " + e.getMessage(), e, action, false);
+      String message = "failed to create output directory: " + e.getMessage();
+      DetailedExitCode code =
+          createDetailedExitCode(message, Code.ACTION_FS_OUTPUT_DIRECTORY_CREATION_FAILURE);
+      ActionExecutionException ex = new ActionExecutionException(message, e, action, false, code);
       printError(ex.getMessage(), action, null);
       throw ex;
     }
@@ -1296,11 +1297,12 @@ public final class SkyframeActionExecutor {
             }
             outputDir.createDirectoryAndParents();
           } catch (IOException e) {
-            throw new ActionExecutionException(
-                "failed to create output directory '" + outputDir + "': " + e.getMessage(),
-                e,
-                action,
-                false);
+            String message =
+                String.format(
+                    "failed to create output directory '%s': %s", outputDir, e.getMessage());
+            DetailedExitCode code =
+                createDetailedExitCode(message, Code.ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE);
+            throw new ActionExecutionException(message, e, action, false, code);
           }
         }
       }
@@ -1322,14 +1324,13 @@ public final class SkyframeActionExecutor {
       fileOutErr.getOutputPath().getParentDirectory().createDirectoryAndParents();
       fileOutErr.getErrorPath().getParentDirectory().createDirectoryAndParents();
     } catch (IOException e) {
-      throw new ActionExecutionException(
-          "failed to create output directory for output streams'"
-              + fileOutErr.getErrorPath()
-              + "': "
-              + e.getMessage(),
-          e,
-          action,
-          false);
+      String message =
+          String.format(
+              "failed to create output directory for output streams'%s': %s",
+              fileOutErr.getErrorPath(), e.getMessage());
+      DetailedExitCode code =
+          createDetailedExitCode(message, Code.ACTION_FS_OUT_ERR_DIRECTORY_CREATION_FAILURE);
+      throw new ActionExecutionException(message, e, action, false, code);
     }
   }
 

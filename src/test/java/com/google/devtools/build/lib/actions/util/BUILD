@@ -31,6 +31,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:crash_failure_details",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:resource_usage",
         "//src/main/java/com/google/devtools/build/lib/util/io",

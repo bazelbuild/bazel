@@ -189,10 +189,12 @@ public final class SymlinkAction extends AbstractAction {
     try {
       getOutputPath(actionExecutionContext).createSymbolicLink(srcPath);
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to create symbolic link '"
-          + Iterables.getOnlyElement(getOutputs()).prettyPrint()
-          + "' to '" + printInputs()
-          + "' due to I/O error: " + e.getMessage(), e, this, false);
+      String message =
+          String.format(
+              "failed to create symbolic link '%s' to '%s' due to I/O error: %s",
+              Iterables.getOnlyElement(getOutputs()).prettyPrint(), printInputs(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.LINK_CREATION_IO_EXCEPTION);
+      throw new ActionExecutionException(message, e, this, false, code);
     }
 
     updateInputMtimeIfNeeded(actionExecutionContext);
@@ -256,16 +258,14 @@ public final class SymlinkAction extends AbstractAction {
         actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
       }
     } catch (IOException e) {
-      throw new ActionExecutionException(
-          "failed to touch symbolic link '"
-              + Iterables.getOnlyElement(getOutputs()).prettyPrint()
-              + "' to the '"
-              + getInputs().getSingleton().prettyPrint()
-              + "' due to I/O error: "
-              + e.getMessage(),
-          e,
-          this,
-          false);
+      String message =
+          String.format(
+              "failed to touch symbolic link '%s' to the '%s' due to I/O error: %s",
+              Iterables.getOnlyElement(getOutputs()).prettyPrint(),
+              getInputs().getSingleton().prettyPrint(),
+              e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.LINK_TOUCH_IO_EXCEPTION);
+      throw new ActionExecutionException(message, e, this, false, code);
     }
   }
 

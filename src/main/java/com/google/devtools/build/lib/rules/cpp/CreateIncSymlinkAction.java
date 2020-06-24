@@ -28,7 +28,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction;
+import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
@@ -76,7 +80,14 @@ public final class CreateIncSymlinkAction extends AbstractAction {
       }
     } catch (IOException e) {
       String message = "IO Error while creating symlink: " + e.getMessage();
-      throw new ActionExecutionException(message, e, this, false);
+      DetailedExitCode code =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setSymlinkAction(
+                      SymlinkAction.newBuilder().setCode(Code.LINK_CREATION_IO_EXCEPTION))
+                  .build());
+      throw new ActionExecutionException(message, e, this, false, code);
     }
     return ActionResult.EMPTY;
   }

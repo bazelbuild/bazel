@@ -154,6 +154,7 @@ message FailureDetail {
   reserved 149; // For internal use
   reserved 155 to 157; // For internal use
   reserved 165; // For internal use
+  reserved 170 to 171; // For internal use
 }
 
 message Interrupted {
@@ -355,9 +356,9 @@ message Execution {
     EXECUTION_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     EXECUTION_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
     EXECROOT_CREATION_FAILURE = 3 [(metadata) = { exit_code: 36 }];
-    ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE = 4
+    TEMP_ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE = 4
         [(metadata) = { exit_code: 36 }];
-    ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 5
+    TEMP_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 5
         [(metadata) = { exit_code: 36 }];
     PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 6
         [(metadata) = { exit_code: 36 }];
@@ -383,6 +384,18 @@ message Execution {
     ACTION_OUTPUTS_DELETION_FAILURE = 23 [(metadata) = { exit_code: 1 }];
     ACTION_OUTPUTS_NOT_CREATED = 24 [(metadata) = { exit_code: 1 }];
     ACTION_FINALIZATION_FAILURE = 25 [(metadata) = { exit_code: 1 }];
+    ACTION_INPUT_LOST = 26 [(metadata) = { exit_code: 1 }];
+    FILESYSTEM_CONTEXT_UPDATE_FAILURE = 27 [(metadata) = { exit_code: 1 }];
+    ACTION_OUTPUT_CLOSE_FAILURE = 28 [(metadata) = { exit_code: 1 }];
+    INPUT_DISCOVERY_IO_EXCEPTION = 29 [(metadata) = { exit_code: 1 }];
+    TREE_ARTIFACT_DIRECTORY_CREATION_FAILURE = 30
+        [(metadata) = { exit_code: 1 }];
+    ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 31
+        [(metadata) = { exit_code: 1 }];
+    ACTION_FS_OUTPUT_DIRECTORY_CREATION_FAILURE = 32
+        [(metadata) = { exit_code: 1 }];
+    ACTION_FS_OUT_ERR_DIRECTORY_CREATION_FAILURE = 33
+        [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -817,6 +830,8 @@ message WorkspaceStatus {
     EXEC_FAILED = 3 [(metadata) = { exit_code: 1 }];
     PARSE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
     VALIDATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    CONTENT_UPDATE_IO_EXCEPTION = 6 [(metadata) = { exit_code: 1 }];
+    STDERR_IO_EXCEPTION = 7 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -856,6 +871,8 @@ message CppCompile {
     INCLUDE_PATH_OUTSIDE_EXEC_ROOT = 6 [(metadata) = { exit_code: 1 }];
     FAKE_COMMAND_GENERATION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
     UNDECLARED_INCLUSIONS = 8 [(metadata) = { exit_code: 1 }];
+    D_FILE_PARSE_FAILURE = 9 [(metadata) = { exit_code: 1 }];
+    COVERAGE_NOTES_CREATION_FAILURE = 10 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -904,6 +921,8 @@ message SymlinkAction {
     EXECUTABLE_INPUT_NOT_FILE = 1 [(metadata) = { exit_code: 1 }];
     EXECUTABLE_INPUT_IS_NOT = 2 [(metadata) = { exit_code: 1 }];
     EXECUTABLE_INPUT_CHECK_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
+    LINK_CREATION_IO_EXCEPTION = 4 [(metadata) = { exit_code: 1 }];
+    LINK_TOUCH_IO_EXCEPTION = 5 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -924,6 +943,7 @@ message LtoAction {
     LTO_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INVALID_ABSOLUTE_PATH_IN_IMPORTS = 1 [(metadata) = { exit_code: 1 }];
     MISSING_BITCODE_FILES = 2 [(metadata) = { exit_code: 1 }];
+    IMPORTS_READ_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

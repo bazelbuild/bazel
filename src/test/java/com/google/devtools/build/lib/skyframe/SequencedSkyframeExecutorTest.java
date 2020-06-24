@@ -1875,14 +1875,14 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
     Artifact failedOutput =
         new Artifact.DerivedArtifact(
             ArtifactRoot.asDerivedRoot(root, "out"), execPath.getRelative("failed"), failedKey);
-    final AtomicReference<Action> failedActionReference = new AtomicReference<>();
-    final Action failedAction =
+    AtomicReference<Action> failedActionReference = new AtomicReference<>();
+    Action failedAction =
         new TestAction(
             new Callable<Void>() {
               @Override
               public Void call() throws ActionExecutionException {
                 throw new ActionExecutionException(
-                    new Exception(),
+                    "typical non-catastrophic user failure",
                     failedActionReference.get(),
                     /*catastrophe=*/ false,
                     USER_DETAILED_EXIT_CODE);
@@ -1890,6 +1890,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
             },
             NestedSetBuilder.emptySet(Order.STABLE_ORDER),
             ImmutableSet.of(failedOutput));
+    failedActionReference.set(failedAction);
     ConfiguredTargetValue failedTarget = createConfiguredTargetValue(failedAction, failedKey);
 
     // And an action that throws a catastrophic exception when it is executed,

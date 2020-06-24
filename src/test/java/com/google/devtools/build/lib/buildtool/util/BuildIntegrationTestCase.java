@@ -76,6 +76,9 @@ import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -93,6 +96,7 @@ import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.CommandUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -142,7 +146,13 @@ public abstract class BuildIntegrationTestCase {
       if (getCause() != null && !getMessage().equals(getCause().getMessage())) {
         message += ": " + getCause().getMessage();
       }
-      return new ActionExecutionException(message, getCause(), action, true);
+      // The detailed code doesn't matter, but it should be well-formed.
+      DetailedExitCode code =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setSpawn(Spawn.newBuilder().setCode(Code.NON_ZERO_EXIT))
+                  .build());
+      return new ActionExecutionException(message, getCause(), action, true, code);
     }
   }
 

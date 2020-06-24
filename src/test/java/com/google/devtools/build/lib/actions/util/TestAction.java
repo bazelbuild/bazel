@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
@@ -119,11 +121,12 @@ public class TestAction extends AbstractAction {
 
     try {
       effect.call();
-    } catch (RuntimeException | Error e) {
+    } catch (RuntimeException | Error | ActionExecutionException e) {
       throw e;
     } catch (Exception e) {
+      DetailedExitCode code = CrashFailureDetails.detailedExitCodeForThrowable(e);
       throw new ActionExecutionException(
-          "TestAction failed due to exception: " + e.getMessage(), e, this, false);
+          "TestAction failed due to exception: " + e.getMessage(), e, this, false, code);
     }
 
     try {
