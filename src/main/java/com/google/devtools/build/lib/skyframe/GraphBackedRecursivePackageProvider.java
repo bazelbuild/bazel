@@ -161,11 +161,10 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   private List<Root> checkValidDirectoryAndGetRoots(
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    if (blacklistedSubdirectories.contains(directory)
-        || excludedSubdirectories.contains(directory)) {
+    if (ignoredSubdirectories.contains(directory) || excludedSubdirectories.contains(directory)) {
       return ImmutableList.of();
     }
 
@@ -206,12 +205,12 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
     List<Root> roots =
         checkValidDirectoryAndGetRoots(
-            repository, directory, blacklistedSubdirectories, excludedSubdirectories);
+            repository, directory, ignoredSubdirectories, excludedSubdirectories);
 
     rootPackageExtractor.streamPackagesFromRoots(
         results,
@@ -220,7 +219,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
         eventHandler,
         repository,
         directory,
-        blacklistedSubdirectories,
+        ignoredSubdirectories,
         excludedSubdirectories);
   }
 }

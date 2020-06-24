@@ -48,13 +48,13 @@ public class TargetPatternFunction implements SkyFunction {
         ((TargetPatternValue.TargetPatternKey) key.argument());
     TargetPattern parsedPattern = patternKey.getParsedPattern();
 
-    BlacklistedPackagePrefixesValue blacklist =
-        (BlacklistedPackagePrefixesValue)
-            env.getValue(BlacklistedPackagePrefixesValue.key(parsedPattern.getRepository()));
-    if (blacklist == null) {
+    IgnoredPackagePrefixesValue ignoredPackagePrefixes =
+        (IgnoredPackagePrefixesValue)
+            env.getValue(IgnoredPackagePrefixesValue.key(parsedPattern.getRepository()));
+    if (ignoredPackagePrefixes == null) {
       return null;
     }
-    ImmutableSet<PathFragment> blacklistedPatterns = blacklist.getPatterns();
+    ImmutableSet<PathFragment> ignoredPatterns = ignoredPackagePrefixes.getPatterns();
 
     ResolvedTargets<Target> resolvedTargets;
     try {
@@ -79,7 +79,7 @@ public class TargetPatternFunction implements SkyFunction {
           };
       parsedPattern.eval(
           resolver,
-          blacklistedPatterns,
+          ignoredPatterns,
           excludedSubdirectories,
           callback,
           // The exception type here has to match the one on the BatchCallback. Since the callback

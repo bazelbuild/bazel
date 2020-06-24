@@ -84,8 +84,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private Path emptyPackagePath;
-  private static final String BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING =
-      "config/blacklisted.txt";
+  private static final String IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING = "config/ignored.txt";
 
   protected abstract CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy();
 
@@ -134,9 +133,9 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         new DirectoryListingStateFunction(
             externalFilesHelper, new AtomicReference<>(UnixGlob.DEFAULT_SYSCALLS)));
     skyFunctions.put(
-        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction(
-            PathFragment.create(BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
+        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+        new IgnoredPackagePrefixesFunction(
+            PathFragment.create(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)));
     RuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     skyFunctions.put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider));
     skyFunctions.put(
@@ -238,13 +237,12 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
   }
 
   @Test
-  public void testBlacklistedPackage() throws Exception {
-    scratch.file("blacklisted/subdir/BUILD");
-    scratch.file("blacklisted/BUILD");
-    Path blacklist =
-        scratch.overwriteFile(BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "blacklisted");
+  public void testIgnoredPackage() throws Exception {
+    scratch.file("ignored/subdir/BUILD");
+    scratch.file("ignored/BUILD");
+    Path ignored = scratch.overwriteFile(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING, "ignored");
 
-    ImmutableSet<String> pkgs = ImmutableSet.of("blacklisted/subdir", "blacklisted");
+    ImmutableSet<String> pkgs = ImmutableSet.of("ignored/subdir", "ignored");
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
       assertThat(packageLookupValue.packageExists()).isFalse();
@@ -252,12 +250,12 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
       assertThat(packageLookupValue.getErrorMsg()).isNotNull();
     }
 
-    scratch.overwriteFile(BLACKLISTED_PACKAGE_PREFIXES_FILE_PATH_STRING, "not_blacklisted");
-    RootedPath rootedBlacklist =
+    scratch.overwriteFile(IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING, "not_ignored");
+    RootedPath rootedIgnoreFile =
         RootedPath.toRootedPath(
-            Root.fromPath(blacklist.getParentDirectory().getParentDirectory()),
-            PathFragment.create("config/blacklisted.txt"));
-    differencer.invalidate(ImmutableSet.of(FileStateValue.key(rootedBlacklist)));
+            Root.fromPath(ignored.getParentDirectory().getParentDirectory()),
+            PathFragment.create("config/ignored.txt"));
+    differencer.invalidate(ImmutableSet.of(FileStateValue.key(rootedIgnoreFile)));
     for (String pkg : pkgs) {
       PackageLookupValue packageLookupValue = lookupPackage(pkg);
       assertThat(packageLookupValue.packageExists()).isTrue();

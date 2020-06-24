@@ -34,27 +34,27 @@ import java.nio.charset.StandardCharsets;
 import javax.annotation.Nullable;
 
 /**
- * A {@link SkyFunction} for {@link BlacklistedPackagePrefixesValue}.
+ * A {@link SkyFunction} for {@link IgnoredPackagePrefixesValue}.
  *
  * <p>It is used to implement the `.bazelignore` feature.
  */
-public class BlacklistedPackagePrefixesFunction implements SkyFunction {
-  private final PathFragment blacklistedPackagePrefixesFile;
+public class IgnoredPackagePrefixesFunction implements SkyFunction {
+  private final PathFragment ignoredPackagePrefixesFile;
 
-  public BlacklistedPackagePrefixesFunction(PathFragment blacklistedPackagePrefixesFile) {
-    this.blacklistedPackagePrefixesFile = blacklistedPackagePrefixesFile;
+  public IgnoredPackagePrefixesFunction(PathFragment ignoredPackagePrefixesFile) {
+    this.ignoredPackagePrefixesFile = ignoredPackagePrefixesFile;
   }
 
-  public static void getBlacklistedPackagePrefixes(
-      RootedPath patternFile, ImmutableSet.Builder<PathFragment> blacklistedPackagePrefixesBuilder)
-      throws BlacklistedPatternsFunctionException {
+  public static void getIgnoredPackagePrefixes(
+      RootedPath patternFile, ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder)
+      throws IgnoredPatternsFunctionException {
     try (InputStreamReader reader =
         new InputStreamReader(patternFile.asPath().getInputStream(), StandardCharsets.UTF_8)) {
-      blacklistedPackagePrefixesBuilder.addAll(
+      ignoredPackagePrefixesBuilder.addAll(
           CharStreams.readLines(reader, new PathFragmentLineProcessor()));
     } catch (IOException e) {
       String errorMessage = e.getMessage() != null ? "error '" + e.getMessage() + "'" : "an error";
-      throw new BlacklistedPatternsFunctionException(
+      throw new IgnoredPatternsFunctionException(
           new InconsistentFilesystemException(
               patternFile.asPath()
                   + " is not readable because: "
@@ -69,8 +69,8 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
       throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
-    ImmutableSet.Builder<PathFragment> blacklistedPackagePrefixesBuilder = ImmutableSet.builder();
-    if (!blacklistedPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
+    ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
+    if (!ignoredPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
       PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
       if (env.valuesMissing()) {
         return null;
@@ -79,13 +79,13 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
       if (repositoryName.isMain()) {
         for (Root packagePathEntry : pkgLocator.getPathEntries()) {
           RootedPath rootedPatternFile =
-              RootedPath.toRootedPath(packagePathEntry, blacklistedPackagePrefixesFile);
+              RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
           if (patternFileValue == null) {
             return null;
           }
           if (patternFileValue.isFile()) {
-            getBlacklistedPackagePrefixes(rootedPatternFile, blacklistedPackagePrefixesBuilder);
+            getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
             break;
           }
         }
@@ -99,19 +99,19 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
         if (repositoryValue.repositoryExists()) {
           RootedPath rootedPatternFile =
               RootedPath.toRootedPath(
-                  Root.fromPath(repositoryValue.getPath()), blacklistedPackagePrefixesFile);
+                  Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
           if (patternFileValue == null) {
             return null;
           }
           if (patternFileValue.isFile()) {
-            getBlacklistedPackagePrefixes(rootedPatternFile, blacklistedPackagePrefixesBuilder);
+            getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
           }
         }
       }
     }
 
-    return BlacklistedPackagePrefixesValue.of(blacklistedPackagePrefixesBuilder.build());
+    return IgnoredPackagePrefixesValue.of(ignoredPackagePrefixesBuilder.build());
   }
 
   private static final class PathFragmentLineProcessor
@@ -138,8 +138,8 @@ public class BlacklistedPackagePrefixesFunction implements SkyFunction {
     return null;
   }
 
-  private static final class BlacklistedPatternsFunctionException extends SkyFunctionException {
-    public BlacklistedPatternsFunctionException(InconsistentFilesystemException e) {
+  private static final class IgnoredPatternsFunctionException extends SkyFunctionException {
+    public IgnoredPatternsFunctionException(InconsistentFilesystemException e) {
       super(e, Transience.TRANSIENT);
     }
   }

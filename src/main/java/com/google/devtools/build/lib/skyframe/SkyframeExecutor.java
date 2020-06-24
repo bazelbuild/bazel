@@ -322,7 +322,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected SkyframeIncrementalBuildMonitor incrementalBuildMonitor =
       new SkyframeIncrementalBuildMonitor();
 
-  private final SkyFunction blacklistedPackagePrefixesFunction;
+  private final SkyFunction ignoredPackagePrefixesFunction;
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
@@ -386,7 +386,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       Factory workspaceStatusActionFactory,
       ImmutableMap<SkyFunctionName, SkyFunction> extraSkyFunctions,
       ExternalFileAction externalFileAction,
-      SkyFunction blacklistedPackagePrefixesFunction,
+      SkyFunction ignoredPackagePrefixesFunction,
       CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy,
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
@@ -420,7 +420,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     this.fileSystem = fileSystem;
     this.directories = Preconditions.checkNotNull(directories);
     this.actionKeyContext = Preconditions.checkNotNull(actionKeyContext);
-    this.blacklistedPackagePrefixesFunction = blacklistedPackagePrefixesFunction;
+    this.ignoredPackagePrefixesFunction = ignoredPackagePrefixesFunction;
     this.extraSkyFunctions = extraSkyFunctions;
 
     this.ruleClassProvider = (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider();
@@ -504,7 +504,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(
         SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
         newCollectPackagesUnderDirectoryFunction(directories));
-    map.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, blacklistedPackagePrefixesFunction);
+    map.put(SkyFunctions.IGNORED_PACKAGE_PREFIXES, ignoredPackagePrefixesFunction);
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestExpansionFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestsForTargetPatternFunction());
     map.put(

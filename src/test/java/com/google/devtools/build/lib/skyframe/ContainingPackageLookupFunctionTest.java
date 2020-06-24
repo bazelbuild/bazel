@@ -114,9 +114,9 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null, null));
     skyFunctions.put(
-        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction(
-            /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+        new IgnoredPackagePrefixesFunction(
+            /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(

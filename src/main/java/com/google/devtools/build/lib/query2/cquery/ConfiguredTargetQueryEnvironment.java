@@ -285,7 +285,7 @@ public class ConfiguredTargetQueryEnvironment
           Futures.catchingAsync(
               patternToEval.evalAdaptedForAsync(
                   resolver,
-                  getBlacklistedPackagePrefixesPathFragments(),
+                  getIgnoredPackagePrefixesPathFragments(),
                   /* excludedSubdirectories= */ ImmutableSet.of(),
                   (Callback<Target>)
                       partialResult -> {

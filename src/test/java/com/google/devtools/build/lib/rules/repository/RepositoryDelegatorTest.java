@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAc
 import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.LocalRepositoryLookupFunction;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
@@ -208,9 +208,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                         CacheBuilder.newBuilder().build()))
                 .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
                 .put(
-                    SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-                    new BlacklistedPackagePrefixesFunction(
-                        /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+                    SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+                    new IgnoredPackagePrefixesFunction(
+                        /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
                 .put(SkyFunctions.RESOLVED_HASH_VALUES, new ResolvedHashesFunction())
                 .build(),
             differencer);

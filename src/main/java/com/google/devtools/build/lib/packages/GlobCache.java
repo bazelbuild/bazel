@@ -98,7 +98,7 @@ public class GlobCache {
   public GlobCache(
       final Path packageDirectory,
       final PackageIdentifier packageId,
-      final ImmutableSet<PathFragment> blacklistedGlobPrefixes,
+      final ImmutableSet<PathFragment> ignoredGlobPrefixes,
       final CachingPackageLocator locator,
       AtomicReference<? extends UnixGlob.FilesystemCalls> syscalls,
       Executor globExecutor,
@@ -119,8 +119,8 @@ public class GlobCache {
           PathFragment subPackagePath =
               packageId.getPackageFragment().getRelative(directory.relativeTo(packageDirectory));
 
-          for (PathFragment blacklistedPrefix : blacklistedGlobPrefixes) {
-            if (subPackagePath.startsWith(blacklistedPrefix)) {
+          for (PathFragment ignoredPrefix : ignoredGlobPrefixes) {
+            if (subPackagePath.startsWith(ignoredPrefix)) {
               return false;
             }
           }

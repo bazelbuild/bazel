@@ -25,22 +25,22 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-/** An immutable set of package name prefixes that should be blacklisted. */
+/** An immutable set of package name prefixes that should be ignored. */
 @AutoCodec
-public class BlacklistedPackagePrefixesValue implements SkyValue {
+public class IgnoredPackagePrefixesValue implements SkyValue {
   private final ImmutableSet<PathFragment> patterns;
 
   @AutoCodec @AutoCodec.VisibleForSerialization
-  public static final BlacklistedPackagePrefixesValue NO_BLACKLIST =
-      new BlacklistedPackagePrefixesValue(ImmutableSet.of());
+  public static final IgnoredPackagePrefixesValue EMPTY_LIST =
+      new IgnoredPackagePrefixesValue(ImmutableSet.of());
 
-  private BlacklistedPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
+  private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
     this.patterns = Preconditions.checkNotNull(patterns);
   }
 
   @AutoCodec.Instantiator
-  public static BlacklistedPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
-    return patterns.isEmpty() ? NO_BLACKLIST : new BlacklistedPackagePrefixesValue(patterns);
+  public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
+    return patterns.isEmpty() ? EMPTY_LIST : new IgnoredPackagePrefixesValue(patterns);
   }
 
   /** Creates a key from the main repository. */
@@ -64,8 +64,8 @@ public class BlacklistedPackagePrefixesValue implements SkyValue {
 
   @Override
   public boolean equals(Object obj) {
-    if (obj instanceof BlacklistedPackagePrefixesValue) {
-      BlacklistedPackagePrefixesValue other = (BlacklistedPackagePrefixesValue) obj;
+    if (obj instanceof IgnoredPackagePrefixesValue) {
+      IgnoredPackagePrefixesValue other = (IgnoredPackagePrefixesValue) obj;
       return this.patterns.equals(other.patterns);
     }
     return false;
@@ -88,7 +88,7 @@ public class BlacklistedPackagePrefixesValue implements SkyValue {
 
     @Override
     public SkyFunctionName functionName() {
-      return SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES;
+      return SkyFunctions.IGNORED_PACKAGE_PREFIXES;
     }
   }
 }

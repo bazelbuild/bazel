@@ -556,13 +556,13 @@ public final class PackageFactory {
   public LegacyGlobber createLegacyGlobber(
       Path packageDirectory,
       PackageIdentifier packageId,
-      ImmutableSet<PathFragment> blacklistedGlobPrefixes,
+      ImmutableSet<PathFragment> ignoredGlobPrefixes,
       CachingPackageLocator locator) {
     return createLegacyGlobber(
         new GlobCache(
             packageDirectory,
             packageId,
-            blacklistedGlobPrefixes,
+            ignoredGlobPrefixes,
             locator,
             syscalls,
             executor,

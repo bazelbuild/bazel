@@ -408,9 +408,9 @@ public class PackageFunction implements SkyFunction {
     FileValue buildFileValue = getBuildFileValue(env, buildFileRootedPath);
     RuleVisibility defaultVisibility = PrecomputedValue.DEFAULT_VISIBILITY.get(env);
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-    BlacklistedPackagePrefixesValue blacklistedPackagePrefixes =
-        (BlacklistedPackagePrefixesValue)
-            env.getValue(BlacklistedPackagePrefixesValue.key(packageId.getRepository()));
+    IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
+        (IgnoredPackagePrefixesValue)
+            env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
     if (env.valuesMissing()) {
       return null;
     }
@@ -460,7 +460,7 @@ public class PackageFunction implements SkyFunction {
           loadPackage(
               workspaceName,
               repositoryMapping,
-              blacklistedPackagePrefixes.getPatterns(),
+              repositoryIgnoredPackagePrefixes.getPatterns(),
               packageId,
               buildFileRootedPath,
               buildFileValue,
@@ -1107,12 +1107,15 @@ public class PackageFunction implements SkyFunction {
   private GlobberWithSkyframeGlobDeps makeGlobber(
       Path buildFilePath,
       PackageIdentifier packageId,
-      ImmutableSet<PathFragment> blacklistedGlobPrefixes,
+      ImmutableSet<PathFragment> repositoryIgnoredPatterns,
       Root packageRoot,
       SkyFunction.Environment env) {
     LegacyGlobber legacyGlobber =
         packageFactory.createLegacyGlobber(
-            buildFilePath.getParentDirectory(), packageId, blacklistedGlobPrefixes, packageLocator);
+            buildFilePath.getParentDirectory(),
+            packageId,
+            repositoryIgnoredPatterns,
+            packageLocator);
     switch (incrementalityIntent) {
       case INCREMENTAL:
         return new SkyframeHybridGlobber(packageId, packageRoot, env, legacyGlobber);
@@ -1140,7 +1143,7 @@ public class PackageFunction implements SkyFunction {
   private LoadedPackageCacheEntry loadPackage(
       String workspaceName,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping,
-      ImmutableSet<PathFragment> blacklistedGlobPrefixes,
+      ImmutableSet<PathFragment> repositoryIgnoredPatterns,
       PackageIdentifier packageId,
       RootedPath buildFilePath,
       @Nullable FileValue buildFileValue,
@@ -1225,7 +1228,7 @@ public class PackageFunction implements SkyFunction {
       // Therefore, it is safe to invalidate the astCache entry for this packageId here.
       fileSyntaxCache.invalidate(packageId);
       GlobberWithSkyframeGlobDeps globberWithSkyframeGlobDeps =
-          makeGlobber(inputFile, packageId, blacklistedGlobPrefixes, packageRoot, env);
+          makeGlobber(inputFile, packageId, repositoryIgnoredPatterns, packageRoot, env);
       long startTimeNanos = BlazeClock.nanoTime();
       Package.Builder pkgBuilder =
           packageFactory.createPackageFromAst(

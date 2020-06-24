@@ -146,7 +146,7 @@ public final class EnvironmentBackedRecursivePackageProvider
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws MissingDepException, InterruptedException {
     PathPackageLocator packageLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
@@ -171,13 +171,13 @@ public final class EnvironmentBackedRecursivePackageProvider
       roots.add(Root.fromPath(repositoryValue.getPath()));
     }
 
-    if (blacklistedSubdirectories.contains(directory)) {
+    if (ignoredSubdirectories.contains(directory)) {
       return;
     }
-    ImmutableSet<PathFragment> filteredBlacklistedSubdirectories =
+    ImmutableSet<PathFragment> filteredIgnoredSubdirectories =
         ImmutableSet.copyOf(
             Iterables.filter(
-                blacklistedSubdirectories,
+                ignoredSubdirectories,
                 path -> !path.equals(directory) && path.startsWith(directory)));
 
     for (Root root : roots) {
@@ -187,7 +187,7 @@ public final class EnvironmentBackedRecursivePackageProvider
                   RecursivePkgValue.key(
                       repository,
                       RootedPath.toRootedPath(root, directory),
-                      filteredBlacklistedSubdirectories));
+                      filteredIgnoredSubdirectories));
       if (lookup == null) {
         // Typically a null value from Environment.getValue(k) means that either the key k is
         // missing a dependency or an exception was thrown during evaluation of k. Here, if this

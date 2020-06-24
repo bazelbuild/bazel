@@ -39,13 +39,13 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    ImmutableSet<PathFragment> filteredBlacklistedSubdirectories =
+    ImmutableSet<PathFragment> filteredIgnoredSubdirectories =
         ImmutableSet.copyOf(
             Iterables.filter(
-                blacklistedSubdirectories,
+                ignoredSubdirectories,
                 path -> !path.equals(directory) && path.startsWith(directory)));
 
     for (Root root : roots) {
@@ -58,7 +58,7 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
                   RecursivePkgValue.key(
                       repository,
                       RootedPath.toRootedPath(root, directory),
-                      filteredBlacklistedSubdirectories));
+                      filteredIgnoredSubdirectories));
       Preconditions.checkState(
           lookup != null,
           "Root %s in repository %s could not be found in the graph.",

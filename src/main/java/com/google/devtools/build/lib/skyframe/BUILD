@@ -122,8 +122,6 @@ java_library(
         ":aspect_creation_exception",
         ":aspect_value_key",
         ":ast_file_lookup_value",
-        ":blacklisted_package_prefixes_function",
-        ":blacklisted_package_prefixes_value",
         ":build_configuration_value",
         ":build_info_collection_value",
         ":bzl_load_value",
@@ -159,6 +157,8 @@ java_library(
         ":glob_descriptor",
         ":glob_function",
         ":glob_value",
+        ":ignored_package_prefixes_function",
+        ":ignored_package_prefixes_value",
         ":loading_phase_started_event",
         ":local_repository_lookup_value",
         ":managed_directories_knowledge",
@@ -849,10 +849,10 @@ java_library(
 )
 
 java_library(
-    name = "blacklisted_package_prefixes_function",
-    srcs = ["BlacklistedPackagePrefixesFunction.java"],
+    name = "ignored_package_prefixes_function",
+    srcs = ["IgnoredPackagePrefixesFunction.java"],
     deps = [
-        ":blacklisted_package_prefixes_value",
+        ":ignored_package_prefixes_value",
         ":precomputed_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -868,8 +868,8 @@ java_library(
 )
 
 java_library(
-    name = "blacklisted_package_prefixes_value",
-    srcs = ["BlacklistedPackagePrefixesValue.java"],
+    name = "ignored_package_prefixes_value",
+    srcs = ["IgnoredPackagePrefixesValue.java"],
     deps = [
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1469,10 +1469,10 @@ java_library(
     name = "glob_function",
     srcs = ["GlobFunction.java"],
     deps = [
-        ":blacklisted_package_prefixes_value",
         ":directory_listing_value",
         ":glob_descriptor",
         ":glob_value",
+        ":ignored_package_prefixes_value",
         ":package_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -1693,8 +1693,8 @@ java_library(
     name = "package_lookup_function",
     srcs = ["PackageLookupFunction.java"],
     deps = [
-        ":blacklisted_package_prefixes_value",
         ":file_symlink_exception",
+        ":ignored_package_prefixes_value",
         ":local_repository_lookup_value",
         ":package_lookup_value",
         ":precomputed_value",

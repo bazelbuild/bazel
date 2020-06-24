@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -54,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
@@ -437,9 +437,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 getBuildFilesByPriority(),
                 getExternalPackageHelper()))
         .put(
-            SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-            new BlacklistedPackagePrefixesFunction(
-                /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+            SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+            new IgnoredPackagePrefixesFunction(
+                /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(
             SkyFunctions.AST_FILE_LOOKUP,

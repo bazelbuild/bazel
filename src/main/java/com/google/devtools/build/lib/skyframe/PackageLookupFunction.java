@@ -101,13 +101,13 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     // Check .bazelignore file under main repository.
-    BlacklistedPackagePrefixesValue blacklistedPatternsValue =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
-    if (blacklistedPatternsValue == null) {
+    IgnoredPackagePrefixesValue ignoredPatternsValue =
+        (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key());
+    if (ignoredPatternsValue == null) {
       return null;
     }
 
-    if (isPackageIgnored(packageKey, blacklistedPatternsValue)) {
+    if (isPackageIgnored(packageKey, ignoredPatternsValue)) {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
@@ -281,9 +281,9 @@ public class PackageLookupFunction implements SkyFunction {
   }
 
   private static boolean isPackageIgnored(
-      PackageIdentifier id, BlacklistedPackagePrefixesValue blacklistedPatternsValue) {
+      PackageIdentifier id, IgnoredPackagePrefixesValue ignoredPatternsValue) {
     PathFragment packageFragment = id.getPackageFragment();
-    for (PathFragment pattern : blacklistedPatternsValue.getPatterns()) {
+    for (PathFragment pattern : ignoredPatternsValue.getPatterns()) {
       if (packageFragment.startsWith(pattern)) {
         return true;
       }
@@ -347,14 +347,14 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     // Check .bazelignore file after fetching the external repository.
-    BlacklistedPackagePrefixesValue blacklistedPatternsValue =
-        (BlacklistedPackagePrefixesValue)
-            env.getValue(BlacklistedPackagePrefixesValue.key(id.getRepository()));
-    if (blacklistedPatternsValue == null) {
+    IgnoredPackagePrefixesValue ignoredPatternsValue =
+        (IgnoredPackagePrefixesValue)
+            env.getValue(IgnoredPackagePrefixesValue.key(id.getRepository()));
+    if (ignoredPatternsValue == null) {
       return null;
     }
 
-    if (isPackageIgnored(id, blacklistedPatternsValue)) {
+    if (isPackageIgnored(id, ignoredPatternsValue)) {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 

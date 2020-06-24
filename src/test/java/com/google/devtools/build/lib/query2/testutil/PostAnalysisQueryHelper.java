@@ -125,7 +125,7 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   }
 
   @Override
-  public PathFragment getBlacklistedPackagePrefixesFile() {
+  public PathFragment getIgnoredPackagePrefixesFile() {
     return PathFragment.EMPTY_FRAGMENT;
   }
 
