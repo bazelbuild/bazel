@@ -16,6 +16,7 @@
 #include <inttypes.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <sys/event.h>
 #include <sys/sysctl.h>
 #include <unistd.h>
