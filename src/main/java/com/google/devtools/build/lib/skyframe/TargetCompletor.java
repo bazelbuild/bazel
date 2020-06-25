@@ -25,6 +25,9 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
 import com.google.devtools.build.lib.skyframe.TargetCompletionValue.TargetCompletionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -62,10 +65,13 @@ class TargetCompletor
       return null;
     }
     return new MissingInputFileException(
-        configuredTargetAndData.getTarget().getLocation()
-            + " "
-            + missingCount
-            + " input file(s) do not exist",
+        FailureDetail.newBuilder()
+            .setMessage(
+                String.format(
+                    "%s %d input file(s) do not exist",
+                    configuredTargetAndData.getTarget().getLocation(), missingCount))
+            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
+            .build(),
         configuredTargetAndData.getTarget().getLocation());
   }
 

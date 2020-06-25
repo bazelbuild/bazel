@@ -1051,12 +1051,11 @@ public class ActionExecutionFunction implements SkyFunction {
               new IllegalStateException("Non-source artifact had IO Exception" + input, e));
         }
 
-        MissingFileArtifactValue missingValue =
-            ArtifactFunction.makeMissingInputFileValue(input, e);
-        MissingInputFileException missingException = missingValue.getException();
         skyframeActionExecutor.printError(
             String.format(
-                "%s: %s", actionForError.getOwner().getLabel(), missingException.getMessage()),
+                "%s: %s",
+                actionForError.getOwner().getLabel(),
+                ArtifactFunction.makeMissingInputFileMessage(input, e)),
             actionForError,
             null);
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
@@ -1286,7 +1285,7 @@ public class ActionExecutionFunction implements SkyFunction {
           missingArtifactCauses.add(
               handleMissingFile(
                   input,
-                  ArtifactFunction.makeMissingInputFileValue(input, e),
+                  ArtifactFunction.makeMissingInputFileMessage(input, e),
                   action.getOwner().getLabel()));
           continue;
         }
@@ -1447,17 +1446,21 @@ public class ActionExecutionFunction implements SkyFunction {
 
   static LabelCause handleMissingFile(
       Artifact input, MissingFileArtifactValue missingValue, Label labelInCaseOfBug) {
-    MissingInputFileException e = missingValue.getException();
+    return handleMissingFile(input, missingValue.getException().getMessage(), labelInCaseOfBug);
+  }
+
+  static LabelCause handleMissingFile(
+      Artifact input, String missingMessage, Label labelInCaseOfBug) {
     Label inputLabel = input.getOwner();
     if (inputLabel == null) {
       BugReport.sendBugReport(
           new IllegalStateException(
               String.format(
                   "Artifact %s with missing value %s should have owner (%s)",
-                  input, e.getMessage(), labelInCaseOfBug)));
+                  input, missingMessage, labelInCaseOfBug)));
       inputLabel = labelInCaseOfBug;
     }
-    return new LabelCause(inputLabel, e.getMessage());
+    return new LabelCause(inputLabel, missingMessage);
   }
 
   @Override
@@ -1749,7 +1752,7 @@ public class ActionExecutionFunction implements SkyFunction {
         missingArtifactCauses.add(
             handleMissingFile(
                 input,
-                ArtifactFunction.makeMissingInputFileValue(input, e),
+                ArtifactFunction.makeMissingInputFileMessage(input, e),
                 action.getOwner().getLabel()));
       }
     }

@@ -229,7 +229,7 @@ public final class CompletionFunction<
         missingCount++;
         handleMissingFile(
             input,
-            ArtifactFunction.makeMissingInputFileValue(input, e),
+            ArtifactFunction.makeMissingSourceInputFileValue(input, e),
             rootCausesBuilder,
             env,
             value,

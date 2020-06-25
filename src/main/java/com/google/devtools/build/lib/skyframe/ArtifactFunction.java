@@ -254,13 +254,13 @@ class ArtifactFunction implements SkyFunction {
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
     } catch (IOException e) {
-      return makeMissingInputFileValue(artifact, e);
+      return makeMissingSourceInputFileValue(artifact, e);
     }
     if (fileValue == null) {
       return null;
     }
     if (!fileValue.exists()) {
-      return makeMissingInputFileValue(artifact, null);
+      return makeMissingSourceInputFileValue(artifact, null);
     }
 
     // For directory artifacts that are not Filesets, we initiate a directory traversal here, and
@@ -305,15 +305,25 @@ class ArtifactFunction implements SkyFunction {
     try {
       return FileArtifactValue.createForSourceArtifact(artifact, fileValue);
     } catch (IOException e) {
-      return makeMissingInputFileValue(artifact, e);
+      return makeMissingSourceInputFileValue(artifact, e);
     }
   }
 
-  static MissingFileArtifactValue makeMissingInputFileValue(Artifact artifact, Exception failure) {
-    String extraMsg = (failure == null) ? "" : (": " + failure.getMessage());
+  static MissingFileArtifactValue makeMissingSourceInputFileValue(
+      Artifact artifact, Exception failure) {
     MissingInputFileException ex =
-        new MissingInputFileException(constructErrorMessage(artifact) + extraMsg, null);
+        new MissingInputFileException(
+            FailureDetail.newBuilder()
+                .setMessage(makeMissingInputFileMessage(artifact, failure))
+                .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
+                .build(),
+            null);
     return new MissingFileArtifactValue(ex);
+  }
+
+  static String makeMissingInputFileMessage(Artifact artifact, Exception failure) {
+    return constructErrorMessage(artifact)
+        + ((failure == null) ? "" : (": " + failure.getMessage()));
   }
 
   @Nullable

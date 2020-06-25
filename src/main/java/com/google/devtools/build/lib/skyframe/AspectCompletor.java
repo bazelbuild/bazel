@@ -27,6 +27,9 @@ import com.google.devtools.build.lib.causes.LabelCause;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue.AspectCompletionKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.CompletionFunction.Completor;
@@ -59,12 +62,15 @@ class AspectCompletor
   public MissingInputFileException getMissingFilesException(
       AspectValue value, AspectCompletionKey key, int missingCount, Environment env) {
     AspectKey aspectKey = key.actionLookupKey();
+    String message =
+        String.format(
+            "%s, aspect %s %d input file(s) do not exist",
+            aspectKey.getLabel(), aspectKey.getAspectClass().getName(), missingCount);
     return new MissingInputFileException(
-        aspectKey.getLabel()
-            + ", aspect "
-            + aspectKey.getAspectClass().getName()
-            + missingCount
-            + " input file(s) do not exist",
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_MISSING))
+            .build(),
         value.getLocation());
   }
 

@@ -407,6 +407,7 @@ message Execution {
         [(metadata) = { exit_code: 1 }];
     NON_ACTION_EXECUTION_FAILURE = 34 [(metadata) = { exit_code: 1 }];
     CYCLE = 35 [(metadata) = { exit_code: 1 }];
+    SOURCE_INPUT_MISSING = 36 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -541,6 +542,8 @@ message BuildConfiguration {
   enum Code {
     BUILD_CONFIGURATION_UNKNOWN = 0 [(metadata) = { exit_code: 2 }];
     PLATFORM_MAPPING_EVALUATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+    PLATFORM_MAPPINGS_FILE_IS_DIRECTORY = 2 [(metadata) = { exit_code: 1 }];
+    PLATFORM_MAPPINGS_FILE_NOT_FOUND = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
