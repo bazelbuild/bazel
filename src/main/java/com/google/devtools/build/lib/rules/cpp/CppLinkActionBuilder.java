@@ -548,7 +548,7 @@ public class CppLinkActionBuilder {
     }
   }
 
-  private List<LinkerInputs.LibraryToLink> convertLibraryToLinkListToLibraryToLinkList(
+  private ImmutableList<LinkerInputs.LibraryToLink> collectLinkerInputs(
       NestedSet<LibraryToLink> librariesToLink) {
     ImmutableList.Builder<LinkerInputs.LibraryToLink> librariesToLinkBuilder =
         ImmutableList.builder();
@@ -599,7 +599,7 @@ public class CppLinkActionBuilder {
       Preconditions.checkState(libraries.isEmpty());
       originalUniqueLibraries =
           NestedSetBuilder.<LinkerInputs.LibraryToLink>linkOrder()
-              .addAll(convertLibraryToLinkListToLibraryToLinkList(librariesToLink.build()))
+              .addAll(collectLinkerInputs(librariesToLink.build()))
               .build();
     }
 
