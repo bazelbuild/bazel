@@ -147,6 +147,17 @@ public class FakeJavaCommon
   }
 
   @Override
+  public FakeJavaInfo setAnnotationProcessing(
+      FakeJavaInfo javaInfo,
+      boolean enabled,
+      Sequence<?> processorClassnames,
+      Object processorClasspath,
+      Object classJar,
+      Object sourceJar) {
+    return new FakeJavaInfo();
+  }
+
+  @Override
   public Depset /*<FileApi>*/ getCompileTimeJavaDependencyArtifacts(FakeJavaInfo javaInfo) {
     return null;
   }

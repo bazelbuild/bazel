@@ -511,6 +511,66 @@ public interface JavaCommonApi<
   JavaInfoT removeAnnotationProcessors(JavaInfoT javaInfo);
 
   @StarlarkMethod(
+      name = "set_annotation_processing",
+      doc = "Returns a copy of the given JavaInfo with the given annotation_processing info.",
+      parameters = {
+        @Param(
+            name = "java_info",
+            positional = true,
+            named = false,
+            type = JavaInfoApi.class,
+            doc = "The JavaInfo to enhance."),
+        @Param(
+            name = "enabled",
+            type = Boolean.class,
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc = "Returns true if the rule uses annotation processing."),
+        @Param(
+            name = "processor_classnames",
+            type = Sequence.class,
+            generic1 = String.class,
+            named = true,
+            positional = false,
+            defaultValue = "[]",
+            doc = "Class names of annotation processors applied to this rule."),
+        @Param(
+            name = "processor_classpath",
+            type = Depset.class,
+            named = true,
+            noneable = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "Class names of annotation processors applied to this rule."),
+        @Param(
+            name = "class_jar",
+            type = FileApi.class,
+            named = true,
+            noneable = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "Jar file that is the result of annotation processing for this rule, or None."),
+        @Param(
+            name = "source_jar",
+            type = FileApi.class,
+            named = true,
+            noneable = true,
+            positional = false,
+            defaultValue = "None",
+            doc = "Source archive resulting from annotation processing of this rule, or None."),
+      },
+      enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API)
+  JavaInfoT setAnnotationProcessing(
+      JavaInfoT javaInfo,
+      boolean enabled,
+      Sequence<?> processorClassnames /* <String> expected. */,
+      Object processorClasspath,
+      Object classJar,
+      Object sourceJar)
+      throws EvalException;
+
+  @StarlarkMethod(
       name = "compile_time_jdeps",
       doc = "Returns a depset of the given JavaInfo's compile-time jdeps files.",
       parameters = {

@@ -221,6 +221,20 @@ public class JavaStarlarkCommon
   }
 
   @Override
+  public JavaInfo setAnnotationProcessing(
+      JavaInfo javaInfo,
+      boolean enabled,
+      Sequence<?> processorClassnames,
+      Object processorClasspath,
+      Object classJar,
+      Object sourceJar)
+      throws EvalException {
+    // No implementation in Bazel. This method not callable in Starlark except through
+    // (discouraged) use of --experimental_google_legacy_api.
+    return null;
+  }
+
+  @Override
   public Depset /*<Artifact>*/ getCompileTimeJavaDependencyArtifacts(JavaInfo javaInfo) {
     // No implementation in Bazel. This method not callable in Starlark except through
     // (discouraged) use of --experimental_google_legacy_api.

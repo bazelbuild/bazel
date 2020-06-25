@@ -130,6 +130,16 @@ final class JavaInfoBuildHelper {
         JavaSourceJarsProvider.class,
         createJavaSourceJarsProvider(sourceJars, concat(compileTimeDeps, runtimeDeps, exports)));
 
+    javaInfoBuilder.addProvider(
+        JavaGenJarsProvider.class,
+        JavaGenJarsProvider.create(
+            false,
+            null,
+            null,
+            JavaPluginInfoProvider.empty(),
+            JavaInfo.fetchProvidersFromList(
+                concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
+
     javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputJar));
 
     return javaInfoBuilder.build();
