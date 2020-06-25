@@ -405,78 +405,38 @@ final class StringModule implements StarlarkValue {
   @StarlarkMethod(
       name = "partition",
       doc =
-          "Splits the input string at the first occurrence of the separator "
-              + "<code>sep</code> and returns the resulting partition as a three-element "
-              + "tuple of the form (substring_before, separator, substring_after).",
+          "Splits the input string at the first occurrence of the separator <code>sep</code> and"
+              + " returns the resulting partition as a three-element tuple of the form (before,"
+              + " separator, after). If the input string does not contain the separator, partition"
+              + " returns (self, '', '').",
       parameters = {
         @Param(name = "self", type = String.class),
-        @Param(
-            name = "sep",
-            type = Object.class,
-            defaultValue = "unbound",
-            doc = "The string to split on.")
-      },
-      useStarlarkThread = true)
-  public Tuple<String> partition(String self, Object sep, StarlarkThread thread)
-      throws EvalException {
-    if (sep == Starlark.UNBOUND) {
-      throw Starlark.errorf(
-          "parameter 'sep' has no default value, for call to method 'partition(sep)' of 'string'");
-    } else if (!(sep instanceof String)) {
-      throw Starlark.errorf(
-          "expected value of type 'string' for parameter 'sep', for call to method 'partition()' of"
-              + " 'string'");
-    }
-
-    return partitionWrapper(self, (String) sep, true);
+        @Param(name = "sep", type = String.class, doc = "The string to split on.")
+      })
+  public Tuple<String> partition(String self, String sep) throws EvalException {
+    return partitionCommon(self, sep, /*first=*/ true);
   }
 
   @StarlarkMethod(
       name = "rpartition",
       doc =
-          "Splits the input string at the last occurrence of the separator "
-              + "<code>sep</code> and returns the resulting partition as a three-element "
-              + "tuple of the form (substring_before, separator, substring_after).",
+          "Splits the input string at the last occurrence of the separator <code>sep</code> and"
+              + " returns the resulting partition as a three-element tuple of the form (before,"
+              + " separator, after). If the input string does not contain the separator,"
+              + " rpartition returns ('', '', self).",
       parameters = {
-        @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(
-            name = "sep",
-            type = String.class,
-            defaultValue = "unbound",
-            doc = "The string to split on.")
-      },
-      useStarlarkThread = true)
-  public Tuple<String> rpartition(String self, Object sep, StarlarkThread thread)
-      throws EvalException {
-    if (sep == Starlark.UNBOUND) {
-      throw Starlark.errorf(
-          "parameter 'sep' has no default value, "
-              + "for call to method partition(sep) of 'string'");
-    } else if (!(sep instanceof String)) {
-      throw Starlark.errorf(
-          "expected value of type 'string' for parameter 'sep', for call to method partition(sep ="
-              + " unbound) of 'string'");
-    }
-    return partitionWrapper(self, (String) sep, false);
+        @Param(name = "self", type = String.class),
+        @Param(name = "sep", type = String.class, doc = "The string to split on.")
+      })
+  public Tuple<String> rpartition(String self, String sep) throws EvalException {
+    return partitionCommon(self, sep, /*first=*/ false);
   }
 
-  /**
-   * Splits the input string at the first/last occurrence of the given separator and returns the
-   * resulting partition as a three-tuple of Strings.
-   *
-   * <p>If the input string does not contain the separator, the tuple will consist of the original
-   * input string and two empty strings.
-   *
-   * <p>This method emulates the behavior of Python's str.partition() and str.rpartition(),
-   * depending on the value of the {@code forward} flag.
-   *
-   * @param input The input string
-   * @param separator The string to split on
-   * @param forward A flag that controls whether the input string is split around the first ({@code
-   *     true}) or last ({@code false}) occurrence of the separator.
-   * @return a 3-Tuple of the form (part_before_separator, separator, part_after_separator).
-   */
-  private static Tuple<String> partitionWrapper(String input, String separator, boolean forward)
+  // Splits input at the first or last occurrence of the given separator,
+  // and returns a triple of substrings (before, separator, after).
+  // If the input does not contain the separator,
+  // it returns (input, "", "") if first, or ("", "", input), if !first.
+  private static Tuple<String> partitionCommon(String input, String separator, boolean first)
       throws EvalException {
     if (separator.isEmpty()) {
       throw Starlark.errorf("empty separator");
@@ -486,12 +446,9 @@ final class StringModule implements StarlarkValue {
     String b = "";
     String c = "";
 
-    int pos = forward ? input.indexOf(separator) : input.lastIndexOf(separator);
+    int pos = first ? input.indexOf(separator) : input.lastIndexOf(separator);
     if (pos < 0) {
-      // Following Python's implementation of str.partition() and str.rpartition(),
-      // the input string is copied to either the first or the last position in the
-      // list, depending on the value of the forward flag.
-      if (forward) {
+      if (first) {
         a = input;
       } else {
         c = input;
@@ -499,10 +456,6 @@ final class StringModule implements StarlarkValue {
     } else {
       a = input.substring(0, pos);
       b = separator;
-      // pos + sep.length() is at most equal to input.length(). This worst-case
-      // happens when the separator is at the end of the input string. However,
-      // substring() will return an empty string in this scenario, thus making
-      // any additional safety checks obsolete.
       c = input.substring(pos + separator.length());
     }
 

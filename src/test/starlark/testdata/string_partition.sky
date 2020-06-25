@@ -29,10 +29,15 @@ assert_eq('google'.partition('google'), ('', 'google', ''))
 assert_eq('google'.rpartition('google'), ('', 'google', ''))
 
 ---
+'google'.partition(1) ### got value of type 'int', want 'string'
+---
+'google'.rpartition(1) ### got value of type 'int', want 'string'
+---
 'google'.partition('') ### empty separator
 ---
 'google'.rpartition('') ### empty separator
 ---
-'google'.partition() ### parameter 'sep' has no default value
+'google'.partition() ### missing 1 required positional argument
 ---
-'google'.rpartition() ### parameter 'sep' has no default value
+'google'.rpartition() ### missing 1 required positional argument
+---
