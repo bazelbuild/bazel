@@ -2598,6 +2598,19 @@ public class RuleClass {
    * Returns the digest for the RuleClass's rule definition environment, a hash of the .bzl file
    * defining the rule class and all the .bzl files it transitively loads. Null for native rules'
    * RuleClass objects.
+   *
+   * <p>This digest is sensitive to any changes in the declaration of the RuleClass itself,
+   * including changes in the .bzl files it transitively loads, but it is not unique: all
+   * RuleClasses defined within in the same .bzl file have the same digest.
+   *
+   * <p>To uniquely identify a rule class, we need the triple: ({@link
+   * #getRuleDefinitionEnvironmentLabel()}, {@link #getRuleDefinitionEnvironmentDigest()}, {@link
+   * #getName()}) The first two components are collectively known as the "rule definition
+   * environment". Dependency analysis may compare these triples to detect whether a change to a
+   * rule definition might have consequences for a rule instance that has not otherwise changed.
+   *
+   * <p>Note: this concept of rule definition environment is not related to the {@link
+   * com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment} interface.
    */
   @Nullable
   public byte[] getRuleDefinitionEnvironmentDigest() {
