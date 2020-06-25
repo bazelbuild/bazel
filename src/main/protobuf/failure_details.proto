@@ -405,6 +405,8 @@ message Execution {
         [(metadata) = { exit_code: 1 }];
     ACTION_FS_OUT_ERR_DIRECTORY_CREATION_FAILURE = 33
         [(metadata) = { exit_code: 1 }];
+    NON_ACTION_EXECUTION_FAILURE = 34 [(metadata) = { exit_code: 1 }];
+    CYCLE = 35 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -724,6 +726,7 @@ message CleanCommand {
     EXECROOT_DELETE_FAILURE = 7 [(metadata) = { exit_code: 36 }];
     EXECROOT_TEMP_MOVE_FAILURE = 8 [(metadata) = { exit_code: 36 }];
     ASYNC_EXECROOT_DELETE_FAILURE = 9 [(metadata) = { exit_code: 6 }];
+    ARGUMENTS_NOT_RECOGNIZED = 10 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
