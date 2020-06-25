@@ -468,6 +468,9 @@ new_local_repository(
     build_file_content = '',
     path='$skylib_root',
 )
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+bazel_skylib_workspace()
 EOF
 }
 
