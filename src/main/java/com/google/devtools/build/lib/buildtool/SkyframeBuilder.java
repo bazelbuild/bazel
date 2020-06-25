@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Range;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.Builder;
@@ -330,22 +332,38 @@ public class SkyframeBuilder implements Builder {
           actionExecutionCause.getRootCauses(),
           /*errorAlreadyShown=*/ !actionExecutionCause.showError(),
           actionExecutionCause.getDetailedExitCode());
-    } else if (cause instanceof MissingInputFileException) {
-      throw new BuildFailedException(cause.getMessage());
-    } else if (cause instanceof BuildFileNotFoundException) {
+    }
+    if (cause instanceof MissingInputFileException) {
+      throw (MissingInputFileException) cause;
+    }
+    if (cause instanceof BuildFileNotFoundException) {
       // Sadly, this can happen because we may load new packages during input discovery. Any
       // failures reading those packages shouldn't terminate the build, but in Skyframe they do.
       LoggingUtil.logToRemote(Level.WARNING, "undesirable loading exception", cause);
-      throw new BuildFailedException(cause.getMessage());
-    } else {
-      // We encountered an exception we don't think we should have encountered. This can indicate
-      // an exception-processing bug in our code, such as lower level exceptions not being properly
-      // handled, or in our expectations in this method.
-      BugReport.sendBugReport(
-          new IllegalStateException("action terminated with unexpected exception", cause));
       throw new BuildFailedException(
-          "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage());
+          cause.getMessage(),
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(Strings.nullToEmpty(cause.getMessage()))
+                  .setIncludeScanning(
+                      IncludeScanning.newBuilder()
+                          .setCode(IncludeScanning.Code.PACKAGE_LOAD_FAILURE))
+                  .build()));
     }
+    // We encountered an exception we don't think we should have encountered. This can indicate
+    // an exception-processing bug in our code, such as lower level exceptions not being properly
+    // handled, or in our expectations in this method.
+    BugReport.sendBugReport(
+        new IllegalStateException("action terminated with unexpected exception", cause));
+    String message =
+        "Unexpected exception, please file an issue with the Bazel team: " + cause.getMessage();
+    throw new BuildFailedException(
+        message,
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setExecution(Execution.newBuilder().setCode(Code.UNEXPECTED_EXCEPTION))
+                .build()));
   }
 
   private static int countTestActions(Iterable<ConfiguredTarget> testTargets) {

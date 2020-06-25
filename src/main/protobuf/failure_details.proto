@@ -141,6 +141,7 @@ message FailureDetail {
     LtoAction lto_action = 169;
     TestAction test_action = 172;
     Worker worker = 173;
+    Analysis analysis = 174;
   }
 
   reserved 102; // For internal use
@@ -408,6 +409,7 @@ message Execution {
     NON_ACTION_EXECUTION_FAILURE = 34 [(metadata) = { exit_code: 1 }];
     CYCLE = 35 [(metadata) = { exit_code: 1 }];
     SOURCE_INPUT_MISSING = 36 [(metadata) = { exit_code: 1 }];
+    UNEXPECTED_EXCEPTION = 37 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -544,6 +546,8 @@ message BuildConfiguration {
     PLATFORM_MAPPING_EVALUATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     PLATFORM_MAPPINGS_FILE_IS_DIRECTORY = 2 [(metadata) = { exit_code: 1 }];
     PLATFORM_MAPPINGS_FILE_NOT_FOUND = 3 [(metadata) = { exit_code: 1 }];
+    TOP_LEVEL_CONFIGURATION_CREATION_FAILURE = 4
+        [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -662,6 +666,9 @@ message IncludeScanning {
     INCLUDE_HINTS_FILE_NOT_IN_PACKAGE = 3 [(metadata) = { exit_code: 36 }];
     INCLUDE_HINTS_READ_FAILURE = 4 [(metadata) = { exit_code: 36 }];
     ILLEGAL_ABSOLUTE_PATH = 5 [(metadata) = { exit_code: 1 }];
+    // TODO(b/138456686): this code should be deprecated in favor of more finely
+    //   resolved loading-phase codes.
+    PACKAGE_LOAD_FAILURE = 6 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -712,6 +719,7 @@ message TargetPatterns {
     TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN = 1
         [(metadata) = { exit_code: 2 }];
     TARGET_PATTERN_FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    TARGET_PATTERN_PARSE_FAILURE = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1004,6 +1012,19 @@ message Worker {
     PARSE_RESPONSE_FAILURE = 10 [(metadata) = { exit_code: 1 }];
     NO_RESPONSE = 11 [(metadata) = { exit_code: 1 }];
     FINISH_FAILURE = 12 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message Analysis {
+  enum Code {
+    ANALYSIS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    LOAD_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    // TODO(b/138456686): this code should be deprecated in favor of more finely
+    //   resolved loading-phase codes.
+    GENERIC_LOADING_PHASE_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+    NOT_ALL_TARGETS_ANALYZED = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

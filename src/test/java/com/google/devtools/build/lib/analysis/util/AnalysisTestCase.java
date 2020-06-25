@@ -584,11 +584,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     assertThat(actual).containsExactlyEntriesIn(expected);
   }
 
-  protected String getAnalysisError() {
-    ensureUpdateWasCalled();
-    return analysisResult.getError();
-  }
-
   protected BuildViewForTesting getView() {
     return buildView;
   }

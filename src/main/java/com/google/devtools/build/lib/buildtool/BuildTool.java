@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -189,9 +190,10 @@ public class BuildTool {
         } else {
           env.getReporter().post(new NoExecutionEvent());
         }
-        String delayedErrorMsg = analysisResult.getError();
-        if (delayedErrorMsg != null) {
-          throw new BuildFailedException(delayedErrorMsg);
+        FailureDetail delayedFailureDetail = analysisResult.getFailureDetail();
+        if (delayedFailureDetail != null) {
+          throw new BuildFailedException(
+              delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
         }
       }
       Profiler.instance().markPhase(ProfilePhase.FINISH);

@@ -22,6 +22,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -34,7 +35,7 @@ public final class AnalysisResult {
   private final ImmutableSet<ConfiguredTarget> targetsToBuild;
   @Nullable private final ImmutableList<ConfiguredTarget> targetsToTest;
   private final ImmutableSet<ConfiguredTarget> targetsToSkip;
-  @Nullable private final String error;
+  @Nullable private final FailureDetail failureDetail;
   private final ActionGraph actionGraph;
   private final ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels;
   private final ImmutableSet<ConfiguredTarget> parallelTests;
@@ -52,7 +53,7 @@ public final class AnalysisResult {
       ImmutableMap<AspectKey, ConfiguredAspect> aspects,
       @Nullable ImmutableList<ConfiguredTarget> targetsToTest,
       ImmutableSet<ConfiguredTarget> targetsToSkip,
-      @Nullable String error,
+      @Nullable FailureDetail failureDetail,
       ActionGraph actionGraph,
       ArtifactsToOwnerLabels topLevelArtifactsToOwnerLabels,
       ImmutableSet<ConfiguredTarget> parallelTests,
@@ -67,7 +68,7 @@ public final class AnalysisResult {
     this.aspects = aspects;
     this.targetsToTest = targetsToTest;
     this.targetsToSkip = targetsToSkip;
-    this.error = error;
+    this.failureDetail = failureDetail;
     this.actionGraph = actionGraph;
     this.topLevelArtifactsToOwnerLabels = topLevelArtifactsToOwnerLabels;
     this.parallelTests = parallelTests;
@@ -131,15 +132,14 @@ public final class AnalysisResult {
     return parallelTests;
   }
 
-  /**
-   * Returns an error description (if any).
-   */
-  @Nullable public String getError() {
-    return error;
+  /** Returns a {@link FailureDetail}, if any failures occurred. */
+  @Nullable
+  public FailureDetail getFailureDetail() {
+    return failureDetail;
   }
 
   public boolean hasError() {
-    return error != null;
+    return failureDetail != null;
   }
 
   /**
@@ -176,7 +176,7 @@ public final class AnalysisResult {
         aspects,
         targetsToTest,
         targetsToSkip,
-        error,
+        failureDetail,
         actionGraph,
         topLevelArtifactsToOwnerLabels,
         Sets.union(parallelTests, exclusiveTests).immutableCopy(),
