@@ -27,11 +27,6 @@ public class AbruptExitException extends Exception {
 
   private final DetailedExitCode detailedExitCode;
 
-  public AbruptExitException(String message, ExitCode exitCode, Throwable cause) {
-    super(message, cause);
-    this.detailedExitCode = DetailedExitCode.justExitCode(exitCode);
-  }
-
   public AbruptExitException(DetailedExitCode detailedExitCode) {
     super(detailedExitCode.getFailureDetail().getMessage());
     this.detailedExitCode = detailedExitCode;
