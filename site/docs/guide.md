@@ -901,6 +901,10 @@ unintentional name sharing.
 the options specified for the config have the same precedence that the
 `--config=foo` option had.
 
+This syntax does not extend to the use of `startup` to set
+[startup options](#option-defaults), e.g. setting
+`startup:config-name --some_startup_option` in the .bazelrc will be ignored.
+
 #### Example
 
 Here's an example `~/.bazelrc` file:
