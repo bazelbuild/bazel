@@ -2398,7 +2398,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "actions.write(file, 'foo')",
           "check_placeholders('foo', [])",
           "action(command = 'foo', outputs = [file])",
-          "file_action(file, 'foo')",
           "runfiles()",
           "resolve_command(command = 'foo')",
           "resolve_tools()");
@@ -2500,8 +2499,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
       ImmutableList.of(
           "new_file('foo.txt')",
           "new_file(file, 'foo.txt')",
-          "action(command = 'foo', outputs = [file])",
-          "file_action(file, 'foo')");
+          "action(command = 'foo', outputs = [file])");
 
   @Test
   public void testIncompatibleNewActionsApi() throws Exception {

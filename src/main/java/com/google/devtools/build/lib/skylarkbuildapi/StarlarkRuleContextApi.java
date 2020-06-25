@@ -717,30 +717,6 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
       throws EvalException;
 
   @StarlarkMethod(
-      name = "file_action",
-      doc =
-          "DEPRECATED. Use <a href =\"actions.html#write\">ctx.actions.write</a> instead. <br>"
-              + "Creates a file write action.",
-      parameters = {
-        @Param(name = "output", type = FileApi.class, named = true, doc = "The output file."),
-        @Param(
-            name = "content",
-            type = String.class,
-            named = true,
-            doc = "The contents of the file."),
-        @Param(
-            name = "executable",
-            type = Boolean.class,
-            defaultValue = "False",
-            named = true,
-            doc = "Whether the output file should be executable (default is False).")
-      },
-      allowReturnNones = true,
-      useStarlarkThread = true)
-  NoneType fileAction(FileApi output, String content, Boolean executable, StarlarkThread thread)
-      throws EvalException;
-
-  @StarlarkMethod(
       name = "runfiles",
       doc = "Creates a runfiles object.",
       parameters = {

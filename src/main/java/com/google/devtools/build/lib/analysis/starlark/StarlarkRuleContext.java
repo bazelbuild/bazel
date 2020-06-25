@@ -76,7 +76,6 @@ import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -952,16 +951,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     } catch (IllegalStateException ise) {
       throw new EvalException(null, ise);
     }
-  }
-
-  @Override
-  public NoneType fileAction(
-      FileApi output, String content, Boolean executable, StarlarkThread thread)
-      throws EvalException {
-    checkDeprecated("ctx.actions.write", "ctx.file_action", thread.getSemantics());
-    checkMutable("file_action");
-    actions().write(output, content, executable);
-    return Starlark.NONE;
   }
 
   @Override
