@@ -117,7 +117,13 @@ static void ParseCommandLine(const std::vector<char *> &args) {
         opt.debug = true;
         break;
       case 'W':
+#if defined(__linux__) && !HAVE_PR_SET_CHILD_SUBREAPER
+        fprintf(stderr,
+                "warning: The \"wait for subprocesses\" feature requires "
+                "Linux kernel version 3.4 or later.\n");
+#else
         opt.wait_fix = true;
+#endif
         break;
       case '?':
         Usage(args.front(), "Unrecognized argument: -%c (%d)", optopt, optind);

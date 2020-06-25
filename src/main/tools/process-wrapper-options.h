@@ -18,6 +18,15 @@
 #include <string>
 #include <vector>
 
+#if defined(__linux__)
+#  include <linux/version.h>
+#  if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0)
+#    define HAVE_PR_SET_CHILD_SUBREAPER 1
+#  else
+#    define HAVE_PR_SET_CHILD_SUBREAPER 0
+#  endif
+#endif
+
 // Options parsing result.
 struct Options {
   // Whether to gracefully terminate subprocesses on SIGTERM (-g)

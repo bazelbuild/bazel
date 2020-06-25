@@ -44,7 +44,11 @@ void LegacyProcessWrapper::RunCommand() {
 
 void LegacyProcessWrapper::SpawnChild() {
   if (opt.wait_fix) {
-#if defined(__linux__)
+#if defined(__linux__) && HAVE_PR_SET_CHILD_SUBREAPER
+    // PR_SET_CHILD_SUBREAPER appeared in kernel version 3.4.
+    //
+    // wait_fix is implicitly false when Bazel is compiled for older
+    // kernels.  See process-wrapper-options.cc.
     if (prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0) == -1) {
       DIE("prctl");
     }
