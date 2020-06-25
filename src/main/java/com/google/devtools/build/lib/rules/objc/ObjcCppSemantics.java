@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -74,7 +75,8 @@ public class ObjcCppSemantics implements CppSemantics {
   public void finalizeCompileActionBuilder(
       BuildConfiguration configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder) {
+      CppCompileActionBuilder actionBuilder,
+      RuleErrorConsumer ruleErrorConsumer) {
     actionBuilder
         // Without include scanning, we need the entire crosstool filegroup, including header files,
         // as opposed to just the "compile" filegroup.  Even with include scanning, we need the

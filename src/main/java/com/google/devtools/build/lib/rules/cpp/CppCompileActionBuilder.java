@@ -634,4 +634,9 @@ public class CppCompileActionBuilder {
     Preconditions.checkNotNull(featureConfiguration);
     return ccToolchain.shouldProcessHeaders(featureConfiguration, cppConfiguration);
   }
+
+  @Nullable
+  public Artifact getGrepIncludes() {
+    return grepIncludes;
+  }
 }

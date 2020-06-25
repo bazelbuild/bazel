@@ -1444,7 +1444,8 @@ public final class CcCompilationHelper {
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             /* additionalBuildVariables= */ ImmutableMap.of()));
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfiguration, builder, ruleErrorConsumer);
     // Make sure this builder doesn't reference ruleContext outside of analysis phase.
     SpecialArtifact dotdTreeArtifact = null;
     // The MSVC compiler won't generate .d file, instead we parse the output of /showIncludes flag.
@@ -1686,7 +1687,8 @@ public final class CcCompilationHelper {
     builder.setGcnoFile(gcnoFile);
     builder.setDwoFile(dwoFile);
 
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfiguration, builder, ruleErrorConsumer);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionRegistry.registerAction(compileAction);
     Artifact objectFile = compileAction.getOutputFile();
@@ -1736,7 +1738,8 @@ public final class CcCompilationHelper {
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             /* additionalBuildVariables= */ ImmutableMap.of()));
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfiguration, builder, ruleErrorConsumer);
     CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionRegistry.registerAction(compileAction);
     Artifact tokenFile = compileAction.getOutputFile();
@@ -1845,7 +1848,8 @@ public final class CcCompilationHelper {
         picBuilder.setDwoFile(dwoFile);
         picBuilder.setLtoIndexingFile(ltoIndexingFile);
 
-        semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, picBuilder);
+        semantics.finalizeCompileActionBuilder(
+            configuration, featureConfiguration, picBuilder, ruleErrorConsumer);
         CppCompileAction picAction = picBuilder.buildOrThrowRuleError(ruleErrorConsumer);
         actionRegistry.registerAction(picAction);
         directOutputs.add(picAction.getOutputFile());
@@ -1920,7 +1924,8 @@ public final class CcCompilationHelper {
         builder.setDwoFile(noPicDwoFile);
         builder.setLtoIndexingFile(ltoIndexingFile);
 
-        semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+        semantics.finalizeCompileActionBuilder(
+            configuration, featureConfiguration, builder, ruleErrorConsumer);
         CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
         actionRegistry.registerAction(compileAction);
         Artifact objectFile = compileAction.getOutputFile();
@@ -2018,7 +2023,8 @@ public final class CcCompilationHelper {
             /* dwoFile= */ null,
             /* ltoIndexingFile= */ null,
             /* additionalBuildVariables= */ ImmutableMap.of()));
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfiguration, builder, ruleErrorConsumer);
     CppCompileAction action = builder.buildOrThrowRuleError(ruleErrorConsumer);
     actionRegistry.registerAction(action);
     if (addObject) {
@@ -2140,7 +2146,8 @@ public final class CcCompilationHelper {
             ImmutableMap.of(
                 CompileBuildVariables.OUTPUT_PREPROCESS_FILE.getVariableName(),
                 dBuilder.getRealOutputFilePath().getSafePathString())));
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, dBuilder);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfiguration, dBuilder, ruleErrorConsumer);
     CppCompileAction dAction = dBuilder.buildOrThrowRuleError(ruleErrorConsumer);
     actionRegistry.registerAction(dAction);
 
@@ -2166,7 +2173,8 @@ public final class CcCompilationHelper {
             ImmutableMap.of(
                 CompileBuildVariables.OUTPUT_ASSEMBLY_FILE.getVariableName(),
                 sdBuilder.getRealOutputFilePath().getSafePathString())));
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, sdBuilder);
+    semantics.finalizeCompileActionBuilder(
+        configuration, featureConfiguration, sdBuilder, ruleErrorConsumer);
     CppCompileAction sdAction = sdBuilder.buildOrThrowRuleError(ruleErrorConsumer);
     actionRegistry.registerAction(sdAction);
 
