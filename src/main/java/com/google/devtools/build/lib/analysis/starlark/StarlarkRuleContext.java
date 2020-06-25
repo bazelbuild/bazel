@@ -82,7 +82,6 @@ import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -871,72 +870,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     checkMutable("build_file_path");
     Package pkg = ruleContext.getRule().getPackage();
     return pkg.getSourceRoot().get().relativize(pkg.getBuildFile().getPath()).getPathString();
-  }
-
-  /**
-   * A Starlark built-in function to create and register a SpawnAction using a dictionary of
-   * parameters: action( inputs = [input1, input2, ...], outputs = [output1, output2, ...],
-   * executable = executable, arguments = [argument1, argument2, ...], mnemonic = 'Mnemonic',
-   * command = 'command', )
-   */
-  @Override
-  public NoneType action(
-      Sequence<?> outputs,
-      Object inputs,
-      Object executableUnchecked,
-      Object toolsUnchecked,
-      Object arguments,
-      Object mnemonicUnchecked,
-      Object commandUnchecked,
-      Object progressMessage,
-      Boolean useDefaultShellEnv,
-      Object envUnchecked,
-      Object executionRequirementsUnchecked,
-      Object inputManifestsUnchecked,
-      StarlarkThread thread)
-      throws EvalException {
-    checkDeprecated(
-        "ctx.actions.run or ctx.actions.run_shell", "ctx.action", thread.getSemantics());
-    checkMutable("action");
-    if ((commandUnchecked == Starlark.NONE) == (executableUnchecked == Starlark.NONE)) {
-      throw Starlark.errorf("You must specify either 'command' or 'executable' argument");
-    }
-    boolean hasCommand = commandUnchecked != Starlark.NONE;
-    if (!hasCommand) {
-      actions()
-          .run(
-              outputs,
-              inputs,
-              /*unusedInputsList=*/ Starlark.NONE,
-              executableUnchecked,
-              toolsUnchecked,
-              arguments,
-              mnemonicUnchecked,
-              progressMessage,
-              useDefaultShellEnv,
-              envUnchecked,
-              executionRequirementsUnchecked,
-              inputManifestsUnchecked,
-              /* execGroupUnchecked= */ Starlark.NONE);
-
-    } else {
-      actions()
-          .runShell(
-              outputs,
-              inputs,
-              toolsUnchecked,
-              arguments,
-              mnemonicUnchecked,
-              commandUnchecked,
-              progressMessage,
-              useDefaultShellEnv,
-              envUnchecked,
-              executionRequirementsUnchecked,
-              inputManifestsUnchecked,
-              /* execGroupUnchecked= */ Starlark.NONE,
-              thread);
-    }
-    return Starlark.NONE;
   }
 
   @Override

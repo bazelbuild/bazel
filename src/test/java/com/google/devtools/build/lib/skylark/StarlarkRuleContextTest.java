@@ -146,8 +146,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "cc_library(name = 'cc_with_features',",
         "           srcs = ['dummy.cc'],",
         "           features = ['f1', '-f3'],",
-        ")"
-    );
+        ")");
   }
 
   private void setRuleContext(StarlarkRuleContext ctx) throws Exception {
@@ -276,25 +275,27 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testMandatoryProvidersListWithNative() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file("test/BUILD",
-            "load('//test:rules.bzl', 'my_rule', 'my_other_rule')",
-            "my_rule(name = 'mylib',",
-            "  srcs = ['a.py'])",
-            "testing_rule_for_mandatory_providers(name = 'skyrule1',",
-            "  deps = [':mylib'])",
-            "my_other_rule(name = 'my_other_lib',",
-            "  srcs = ['a.py'])",
-            "testing_rule_for_mandatory_providers(name = 'skyrule2',",
-            "  deps = [':my_other_lib'])");
-    scratch.file("test/rules.bzl",
-            "def my_rule_impl(ctx):",
-            "  return struct(a = [])",
-            "my_rule = rule(implementation = my_rule_impl, ",
-            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})",
-            "def my_other_rule_impl(ctx):",
-            "  return struct(b = [])",
-            "my_other_rule = rule(implementation = my_other_rule_impl, ",
-            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'my_rule', 'my_other_rule')",
+        "my_rule(name = 'mylib',",
+        "  srcs = ['a.py'])",
+        "testing_rule_for_mandatory_providers(name = 'skyrule1',",
+        "  deps = [':mylib'])",
+        "my_other_rule(name = 'my_other_lib',",
+        "  srcs = ['a.py'])",
+        "testing_rule_for_mandatory_providers(name = 'skyrule2',",
+        "  deps = [':my_other_lib'])");
+    scratch.file(
+        "test/rules.bzl",
+        "def my_rule_impl(ctx):",
+        "  return struct(a = [])",
+        "my_rule = rule(implementation = my_rule_impl, ",
+        "  attrs = { 'srcs' : attr.label_list(allow_files=True)})",
+        "def my_other_rule_impl(ctx):",
+        "  return struct(b = [])",
+        "my_other_rule = rule(implementation = my_other_rule_impl, ",
+        "  attrs = { 'srcs' : attr.label_list(allow_files=True)})");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:skyrule1")).isNotNull();
 
@@ -327,8 +328,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "load('//test:macros.bzl', 'starlark_rule')",
         "starlark_rule(name = 'skyrule',",
         "  srcs = ['sub/my_sub_lib.h'])");
-    scratch.file("test/sub/BUILD",
-        "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.file(
         "test/macros.bzl",
         "def _impl(ctx):",
@@ -354,8 +354,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "load('//test:macros.bzl', 'macro_starlark_rule')",
         "macro_starlark_rule(name = 'm_starlark',",
         "  srcs = ['sub/my_sub_lib.h'])");
-    scratch.file("test/sub/BUILD",
-        "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.file(
         "test/macros.bzl",
         "def _impl(ctx):",
@@ -403,12 +402,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("/r/WORKSPACE");
     scratch.file("/r/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
-    scratch.overwriteFile("WORKSPACE",
+    scratch.overwriteFile(
+        "WORKSPACE",
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name='r', path='/r')")
             .build());
-    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
+    invalidatePackages(
+        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("@r//:cclib");
     assertContainsEvent(
@@ -432,8 +433,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/BUILD",
         "load('//test:macros.bzl', 'macro_starlark_rule')",
         "macro_starlark_rule(name = 'm_starlark')");
-    scratch.file("test/sub/BUILD",
-        "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
     scratch.file(
         "test/macros.bzl",
         "def _impl(ctx):",
@@ -455,13 +455,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testPackageBoundaryError_NativeMacro() throws Exception {
-    scratch.file("test/BUILD",
+    scratch.file(
+        "test/BUILD",
         "load('//test:macros.bzl', 'macro_native_rule')",
         "macro_native_rule(name = 'm_native',",
         "  srcs = ['sub/my_sub_lib.h'])");
-    scratch.file("test/sub/BUILD",
-        "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
-    scratch.file("test/macros.bzl",
+    scratch.file("test/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file(
+        "test/macros.bzl",
         "def macro_native_rule(name, deps=[], srcs=[]): ",
         "  native.cc_library(name = name, deps = deps, srcs = srcs)");
     reporter.removeHandler(failFastHandler);
@@ -949,7 +950,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(result).isEqualTo("File");
   }
 
-
   @Test
   public void testDeriveTreeArtifactNextToSibling() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
@@ -996,7 +996,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertThat(fragment.getPathString()).isEqualTo("foo/t.exe.params");
   }
-
 
   @Test
   public void testLabelKeyedStringDictConvertsToTargetToStringMap() throws Exception {
@@ -1185,8 +1184,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     invalidatePackages();
     getConfiguredTarget("//:r");
-    assertContainsEvent("in label_dict attribute of my_rule rule //:r: "
-        + "source file '//:myfile.cpp' is misplaced here (expected no files)");
+    assertContainsEvent(
+        "in label_dict attribute of my_rule rule //:r: "
+            + "source file '//:myfile.cpp' is misplaced here (expected no files)");
   }
 
   @Test
@@ -1282,8 +1282,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     invalidatePackages();
     getConfiguredTarget("//:r");
-    assertContainsEvent("in label_dict attribute of my_rule rule //:r: "
-        + "'//:dep' does not have mandatory providers: 'my_provider'");
+    assertContainsEvent(
+        "in label_dict attribute of my_rule rule //:r: "
+            + "'//:dep' does not have mandatory providers: 'my_provider'");
   }
 
   @Test
@@ -1308,8 +1309,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     invalidatePackages();
     getConfiguredTarget("//:r");
-    assertContainsEvent("in label_dict attribute of my_rule rule //:r: "
-        + "attribute must be non empty");
+    assertContainsEvent(
+        "in label_dict attribute of my_rule rule //:r: " + "attribute must be non empty");
   }
 
   @Test
@@ -1351,10 +1352,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  }",
         ")");
 
-    scratch.file(
-        "BUILD",
-        "load('//:my_rule.bzl', 'my_rule')",
-        "my_rule(name='r')");
+    scratch.file("BUILD", "load('//:my_rule.bzl', 'my_rule')", "my_rule(name='r')");
 
     invalidatePackages();
     getConfiguredTarget("//:r");
@@ -1375,10 +1373,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  }",
         ")");
 
-    scratch.file(
-        "BUILD",
-        "load('//:my_rule.bzl', 'my_rule')",
-        "my_rule(name='r')");
+    scratch.file("BUILD", "load('//:my_rule.bzl', 'my_rule')", "my_rule(name='r')");
 
     invalidatePackages();
     createRuleContext("//:r");
@@ -1418,7 +1413,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testRelativeLabelInExternalRepository() throws Exception {
-    scratch.file("external_rule.bzl",
+    scratch.file(
+        "external_rule.bzl",
         "def _impl(ctx):",
         "  return",
         "external_rule = rule(",
@@ -1428,21 +1424,21 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  }",
         ")");
 
-    scratch.file("BUILD",
-        "filegroup(name='dep')");
+    scratch.file("BUILD", "filegroup(name='dep')");
 
     scratch.file("/r/WORKSPACE");
-    scratch.file("/r/a/BUILD",
-        "load('@//:external_rule.bzl', 'external_rule')",
-        "external_rule(name='r')");
+    scratch.file(
+        "/r/a/BUILD", "load('@//:external_rule.bzl', 'external_rule')", "external_rule(name='r')");
 
-    scratch.overwriteFile("WORKSPACE",
+    scratch.overwriteFile(
+        "WORKSPACE",
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name='r', path='/r')")
             .build());
 
-    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
+    invalidatePackages(
+        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
     setRuleContext(createRuleContext("@r//a:r"));
     Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseAbsolute("//:dep", ImmutableMap.of()));
@@ -1451,7 +1447,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testCallerRelativeLabelInExternalRepository() throws Exception {
     scratch.file("BUILD");
-    scratch.file("external_rule.bzl",
+    scratch.file(
+        "external_rule.bzl",
         "def _impl(ctx):",
         "  return",
         "external_rule = rule(",
@@ -1464,20 +1461,20 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ")");
 
     scratch.file("/r/WORKSPACE");
-    scratch.file("/r/BUILD",
-        "filegroup(name='dep')");
+    scratch.file("/r/BUILD", "filegroup(name='dep')");
 
-    scratch.file("/r/a/BUILD",
-        "load('@//:external_rule.bzl', 'external_rule')",
-        "external_rule(name='r')");
+    scratch.file(
+        "/r/a/BUILD", "load('@//:external_rule.bzl', 'external_rule')", "external_rule(name='r')");
 
-    scratch.overwriteFile("WORKSPACE",
+    scratch.overwriteFile(
+        "WORKSPACE",
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name='r', path='/r')")
             .build());
 
-    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
+    invalidatePackages(
+        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
     setRuleContext(createRuleContext("@r//a:r"));
     Label depLabel = (Label) ev.eval("ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep", ImmutableMap.of()));
@@ -1496,17 +1493,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "/r2/test.bzl",
         "def macro(name, path):",
-        "  native.local_repository(name = name, path = path)"
-    );
+        "  native.local_repository(name = name, path = path)");
     scratch.file("/r2/WORKSPACE");
     scratch.file(
-        "/r2/other_test.bzl",
-        "def other_macro(name, path):",
-        "  print(name + ': ' + path)"
-    );
+        "/r2/other_test.bzl", "def other_macro(name, path):", "  print(name + ': ' + path)");
     scratch.file("BUILD");
 
-    scratch.overwriteFile("WORKSPACE",
+    scratch.overwriteFile(
+        "WORKSPACE",
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name='r2', path='/r2')")
@@ -1518,7 +1512,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .add("macro(NEXT_NAME, '/r2')") // and we can still use macro outside of its chunk.
             .build());
 
-    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
+    invalidatePackages(
+        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
     assertThat(getConfiguredTarget("@r1//:test")).isNotNull();
   }
 
@@ -1532,14 +1527,16 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("/baz/WORKSPACE");
     scratch.file("/baz/baz.txt");
     scratch.file("/baz/BUILD", "filegroup(name = 'baz', srcs = ['baz.txt'])");
-    scratch.overwriteFile("WORKSPACE",
+    scratch.overwriteFile(
+        "WORKSPACE",
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name = 'foo', path = '/bar')")
             .add("local_repository(name = 'foo', path = '/baz')")
             .build());
 
-    invalidatePackages(/*alsoConfigs=*/false); // Repository shuffling messes with toolchain labels.
+    invalidatePackages(
+        /*alsoConfigs=*/ false); // Repository shuffling messes with toolchain labels.
     assertThat(
             (List)
                 getConfiguredTargetAndData("@foo//:baz")
@@ -1552,7 +1549,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.overwriteFile("BUILD");
     scratch.overwriteFile("bar.bzl", "dummy = 1");
 
-    scratch.overwriteFile("WORKSPACE",
+    scratch.overwriteFile(
+        "WORKSPACE",
         new ImmutableList.Builder<String>()
             .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
             .add("local_repository(name = 'foo', path = '/bar')")
@@ -1560,8 +1558,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             .add("local_repository(name = 'foo', path = '/baz')")
             .build());
 
-          invalidatePackages(
-              /*alsoConfigs=*/ false); // Repository shuffling messes with toolchains.
+    invalidatePackages(/*alsoConfigs=*/ false); // Repository shuffling messes with toolchains.
     assertThrows(Exception.class, () -> createRuleContext("@foo//:baz"));
     assertContainsEvent(
         "Cannot redefine repository after any load statement in the WORKSPACE file "
@@ -1803,8 +1800,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file("/bar/bar.txt");
     scratch.file("/bar/BUILD", "exports_files(['bar.txt'])");
     FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"),
-        "local_repository(name = 'foo', path = '/bar')");
+        scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/bar')");
     scratch.file(
         "test/BUILD",
         "genrule(",
@@ -1860,33 +1856,33 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   private final String testingRuleDefinition =
-    linesAsString(
-      "def _testing_impl(ctx):",
-      "  pass",
-      "testing_rule = rule(",
-      "  implementation = _testing_impl,",
-      "  attrs = {'dep': attr.label()},",
-      ")");
+      linesAsString(
+          "def _testing_impl(ctx):",
+          "  pass",
+          "testing_rule = rule(",
+          "  implementation = _testing_impl,",
+          "  attrs = {'dep': attr.label()},",
+          ")");
 
   private final String simpleBuildDefinition =
-    linesAsString(
-      "load(':rules.bzl', 'undertest_rule', 'testing_rule')",
-      "undertest_rule(",
-      "    name = 'undertest',",
-      ")",
-      "testing_rule(",
-      "    name = 'testing',",
-      "    dep = ':undertest',",
-      ")");
+      linesAsString(
+          "load(':rules.bzl', 'undertest_rule', 'testing_rule')",
+          "undertest_rule(",
+          "    name = 'undertest',",
+          ")",
+          "testing_rule(",
+          "    name = 'testing',",
+          "    dep = ':undertest',",
+          ")");
 
   @Test
   public void testDependencyActionsProvider() throws Exception {
-    scratch.file("test/rules.bzl",
+    scratch.file(
+        "test/rules.bzl",
         getSimpleUnderTestDefinition(
             "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)"),
         testingRuleDefinition);
-    scratch.file("test/BUILD",
-        simpleBuildDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
@@ -1905,12 +1901,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testNoAccessToDependencyActionsWithoutStarlarkTest() throws Exception {
     reporter.removeHandler(failFastHandler);
-    scratch.file("test/rules.bzl",
+    scratch.file(
+        "test/rules.bzl",
         getSimpleNontestableUnderTestDefinition(
             "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)"),
         testingRuleDefinition);
-    scratch.file("test/BUILD",
-        simpleBuildDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
@@ -1943,8 +1939,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  _skylark_testable = True,",
         ")",
         testingRuleDefinition);
-    scratch.file("test/BUILD",
-        simpleBuildDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     ev.update("file1", ev.eval("ruleContext.attr.dep.out1"));
@@ -1994,8 +1989,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  _skylark_testable = True,",
         ")",
         testingRuleDefinition);
-    scratch.file("test/BUILD",
-        simpleBuildDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
 
@@ -2014,11 +2008,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testNoAccessToCreatedActionsWithoutStarlarkTest() throws Exception {
-    scratch.file("test/rules.bzl",
+    scratch.file(
+        "test/rules.bzl",
         getSimpleNontestableUnderTestDefinition(
-            "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)")
-        );
-    scratch.file("test/BUILD",
+            "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)"));
+    scratch.file(
+        "test/BUILD",
         "load(':rules.bzl', 'undertest_rule')",
         "undertest_rule(",
         "    name = 'undertest',",
@@ -2032,12 +2027,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testSpawnActionInterface() throws Exception {
-    scratch.file("test/rules.bzl",
+    scratch.file(
+        "test/rules.bzl",
         getSimpleUnderTestDefinition(
             "ctx.actions.run_shell(outputs=[out], command='echo foo123 > ' + out.path)"),
         testingRuleDefinition);
-    scratch.file("test/BUILD",
-        simpleBuildDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
@@ -2148,12 +2143,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testFileWriteActionInterface() throws Exception {
-    scratch.file("test/rules.bzl",
-        getSimpleUnderTestDefinition(
-            "ctx.actions.write(output=out, content='foo123')"),
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition("ctx.actions.write(output=out, content='foo123')"),
         testingRuleDefinition);
-    scratch.file("test/BUILD",
-        simpleBuildDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
     setRuleContext(ruleContext);
     ev.update("file", ev.eval("ruleContext.attr.dep.files.to_list()[0]"));
@@ -2262,10 +2256,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "  _skylark_testable = True,",
         ")",
         testingRuleDefinition);
-    scratch.file("test/template.txt",
-        "aaaaa",
-        "bcdef");
-    scratch.file("test/BUILD",
+    scratch.file("test/template.txt", "aaaaa", "bcdef");
+    scratch.file(
+        "test/BUILD",
         "load(':rules.bzl', 'undertest_rule', 'testing_rule')",
         "undertest_rule(",
         "    name = 'undertest',",
@@ -2292,7 +2285,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   private void setUpCoverageInstrumentedTest() throws Exception {
-    scratch.file("test/BUILD",
+    scratch.file(
+        "test/BUILD",
         "cc_library(",
         "  name = 'foo',",
         "  srcs = ['foo.cc'],",
@@ -2397,7 +2391,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "actions.run_shell(command = 'foo', outputs = [file])",
           "actions.write(file, 'foo')",
           "check_placeholders('foo', [])",
-          "action(command = 'foo', outputs = [file])",
           "runfiles()",
           "resolve_command(command = 'foo')",
           "resolve_tools()");
@@ -2405,7 +2398,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void testFrozenRuleContextHasInaccessibleAttributes() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
-    scratch.file("test/BUILD",
+    scratch.file(
+        "test/BUILD",
         "load('//test:rules.bzl', 'main_rule', 'dep_rule')",
         "dep_rule(name = 'dep')",
         "main_rule(name = 'main', deps = [':dep'])");
@@ -2450,20 +2444,18 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     List<String> attributes = new ArrayList<>();
     attributes.addAll(ctxAttributes);
-    attributes.addAll(ImmutableList.of(
-        "rule.attr",
-        "rule.executable",
-        "rule.file",
-        "rule.files",
-        "rule.kind"));
-    scratch.file("test/BUILD",
+    attributes.addAll(
+        ImmutableList.of("rule.attr", "rule.executable", "rule.file", "rule.files", "rule.kind"));
+    scratch.file(
+        "test/BUILD",
         "load('//test:rules.bzl', 'my_rule')",
         "my_rule(name = 'dep')",
         "my_rule(name = 'mid', deps = [':dep'])",
         "my_rule(name = 'main', deps = [':mid'])");
     scratch.file("test/rules.bzl");
     for (String attribute : attributes) {
-       scratch.overwriteFile("test/rules.bzl",
+      scratch.overwriteFile(
+          "test/rules.bzl",
           "def _rule_impl(ctx):",
           "  pass",
           "def _aspect_impl(target, ctx):",
@@ -2496,20 +2488,16 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   private static final List<String> deprecatedActionsApi =
-      ImmutableList.of(
-          "new_file('foo.txt')",
-          "new_file(file, 'foo.txt')",
-          "action(command = 'foo', outputs = [file])");
+      ImmutableList.of("new_file('foo.txt')", "new_file(file, 'foo.txt')");
 
   @Test
   public void testIncompatibleNewActionsApi() throws Exception {
-    scratch.file("test/BUILD",
-        "load('//test:rules.bzl', 'main_rule')",
-        "main_rule(name = 'main')");
+    scratch.file("test/BUILD", "load('//test:rules.bzl', 'main_rule')", "main_rule(name = 'main')");
     scratch.file("test/rules.bzl");
 
     for (String actionApi : deprecatedActionsApi) {
-      scratch.overwriteFile("test/rules.bzl",
+      scratch.overwriteFile(
+          "test/rules.bzl",
           "def _main_impl(ctx):",
           "  file = ctx.outputs.file",
           "  foo = ctx." + actionApi,
@@ -2519,8 +2507,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "    'deps': attr.label_list()",
           "  },",
           "  outputs = {'file': 'output.txt'},",
-          ")"
-      );
+          ")");
       setStarlarkSemanticsOptions("--incompatible_new_actions_api=true");
       invalidatePackages();
       AssertionError e =
@@ -2537,12 +2524,14 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testMapAttributeOrdering() throws Exception {
-    scratch.file("a/a.bzl",
+    scratch.file(
+        "a/a.bzl",
         "key_provider = provider(fields=['keys'])",
         "def _impl(ctx):",
         "  return [key_provider(keys=ctx.attr.value.keys())]",
         "a = rule(implementation=_impl, attrs={'value': attr.string_dict()})");
-    scratch.file("a/BUILD",
+    scratch.file(
+        "a/BUILD",
         "load(':a.bzl', 'a')",
         "a(name='a', value={'c': 'c', 'b': 'b', 'a': 'a', 'f': 'f', 'e': 'e', 'd': 'd'})");
 
@@ -2617,8 +2606,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_non_build_setting");
-    assertContainsEvent("attempting to access 'build_setting_value' of non-build setting "
-        + "//test:my_non_build_setting");
+    assertContainsEvent(
+        "attempting to access 'build_setting_value' of non-build setting "
+            + "//test:my_non_build_setting");
   }
 
   private void createToolchains() throws Exception {
