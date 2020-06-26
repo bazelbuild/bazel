@@ -152,6 +152,9 @@ static void WriteJarClasspath(const wstring& jar_path,
       if (x == L' ') {
         *manifest_classpath << L"%20";
       }
+      if (x == L'%') {
+        *manifest_classpath << L"%25";
+      }
       if (x == L'\\') {
         *manifest_classpath << L"/";
       } else {
