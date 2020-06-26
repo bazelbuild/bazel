@@ -42,8 +42,10 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
     for (TransitiveInfoCollection protos :
         ruleContext.getPrerequisites("blacklisted_protos", TARGET)) {
       ProtoInfo protoInfo = protos.get(ProtoInfo.PROVIDER);
-      if (ruleContext.getFragment(ProtoConfiguration.class).blacklistedProtosRequiresProtoInfo()
-          && protoInfo == null) {
+      if (protoInfo == null
+          && ruleContext
+              .getFragment(ProtoConfiguration.class)
+              .blacklistedProtosRequiresProtoInfo()) {
         ruleContext.ruleError(
             "'"
                 + ruleContext.getLabel().toString()
