@@ -340,9 +340,9 @@ public final class EvalUtils {
           if (yi < 0) {
             throw Starlark.errorf("negative shift count: %d", yi);
           }
-          int z = xi << yi;
-          if (z >> yi != xi) {
-            throw Starlark.errorf("integer overflow");
+          int z = xi << yi; // only uses low 5 bits of yi
+          if ((z >> yi) != xi || yi >= 32) {
+            throw Starlark.errorf("integer overflow in left shift");
           }
           return z;
         }
@@ -418,6 +418,9 @@ public final class EvalUtils {
           int rem = xi % yi;
           if ((xi < 0) != (yi < 0) && rem != 0) {
             quo--;
+          }
+          if (xi == Integer.MIN_VALUE && yi == -1) { // HD 2-13
+            throw Starlark.errorf("integer overflow in division");
           }
           return quo;
         }
