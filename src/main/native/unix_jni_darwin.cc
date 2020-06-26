@@ -153,7 +153,7 @@ static os_log_t JniOSLog() {
   // On macOS < 10.12, os_log_create is not available. Since we target 10.10,
   // this will be weakly linked and can be checked for availability at run
   // time.
-  if (os_log_create != NULL) {
+  if (&os_log_create != NULL) {
     dispatch_once(&once_token, ^{
         log = os_log_create("build.bazel", "jni");
         CHECK(log);
