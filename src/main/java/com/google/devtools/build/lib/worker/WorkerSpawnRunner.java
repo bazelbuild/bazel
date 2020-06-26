@@ -343,19 +343,19 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try {
+        context.prefetchInputs();
+      } catch (IOException e) {
+        String message = "IOException while prefetching for worker:";
+        throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
+      }
+
+      try {
         worker = workers.borrowObject(key);
         request =
             createWorkRequest(spawn, context, flagFiles, inputFileCache, worker.getWorkerId());
       } catch (IOException e) {
         String message = "IOException while borrowing a worker from the pool:";
         throw createUserExecException(e, message, Code.BORROW_FAILURE);
-      }
-
-      try {
-        context.prefetchInputs();
-      } catch (IOException e) {
-        String message = "IOException while prefetching for worker:";
-        throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
       }
 
       try (ResourceHandle handle =
