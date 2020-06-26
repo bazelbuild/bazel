@@ -943,9 +943,15 @@ public class Desugar {
   public static void main(String[] args) throws Exception {
     verifyLambdaDumpDirectoryRegistered(DUMP_DIRECTORY);
 
-    if (args.length == 1 && "--persistent_worker".equals(args[0])) {
+    // In persistent worker mode, Bazel sends the list of arguments
+    // both over argv to the Java process, and over stdin as a serialized
+    // proto. We check that it's running in the persistent worker mode
+    // by checking the first arg of the list, and parse it into DesugarOptions
+    // from the proto in runPersistentWorker later.
+    if (args.length > 0 && "--persistent_worker".equals(args[0])) {
       runPersistentWorker(DUMP_DIRECTORY);
     } else {
+      // If not, parse it regularly from argv.
       DesugarOptions options = DesugarOptions.parseCommandLineOptions(args);
       processRequest(options, DUMP_DIRECTORY);
     }
