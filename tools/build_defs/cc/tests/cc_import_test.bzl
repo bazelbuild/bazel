@@ -19,6 +19,33 @@ load("//tools/build_defs/cc:cc_import.bzl", "cc_import")
 
 TAGS = ["manual", "nobuilder"]
 
+def _generic_cc_import_test_setup(name, test, **kwargs):
+    test_target_name = "cc_import_" + name + "_test"
+    cc_import_target_name = test_target_name + "_import"
+    cc_binary_target_name = test_target_name + "_binary"
+
+    cc_import(
+        name = cc_import_target_name,
+        hdrs = ["mylib.h"],
+        static_library = "libmylib.a",
+        tags = TAGS,
+        **kwargs
+    )
+
+    native.cc_binary(
+        name = cc_binary_target_name,
+        deps = [":" + cc_import_target_name],
+        srcs = ["source.cc"],
+        tags = TAGS,
+    )
+
+    test(
+        name = test_target_name,
+        target_under_test = ":" + cc_binary_target_name,
+        tags = TAGS,
+        size = "small",
+    )
+
 def _cc_import_linkopts_test_impl(ctx):
     env = analysistest.begin(ctx)
 
@@ -32,41 +59,39 @@ def _cc_import_linkopts_test_impl(ctx):
                 if arg.find("-testlinkopt") != -1:
                     found = True
                     break
-    asserts.true(env, found, "'-testlinkopt' should be included in arguments passed to linked")
+    asserts.true(env, found, "'-testlinkopt' should be included in arguments passed to the linker")
 
     return analysistest.end(env)
 
 cc_import_linkopts_test = analysistest.make(_cc_import_linkopts_test_impl)
 
-def _test_cc_import_linkopts():
-    cc_import(
-        name = "cc_import_linkopts_test_import",
-        linkopts = ["-testlinkopt"],
-        hdrs = ["mylib.h"],
-        static_library = "libmylib.a",
-        tags = TAGS,
-    )
+def _cc_import_includes_test_impl(ctx):
+    env = analysistest.begin(ctx)
 
-    native.cc_binary(
-        name = "cc_import_linkopts_test_binary",
-        deps = [":cc_import_linkopts_test_import"],
-        srcs = ["source.cc"],
-        tags = TAGS,
-    )
+    target_under_test = analysistest.target_under_test(env)
+    includes = target_under_test[CcInfo].compilation_context.includes.to_list()
 
-    cc_import_linkopts_test(
-        name = "cc_import_linkopts_test",
-        target_under_test = ":cc_import_linkopts_test_binary",
-        tags = TAGS,
-    )
+    found = False
+    for include in includes:
+        if include == "testinclude":
+            found = True
+            break
+
+    asserts.true(env, found, "'testinclude' should be present in the includes of the compilation context")
+
+    return analysistest.end(env)
+
+cc_import_includes_test = analysistest.make(_cc_import_includes_test_impl)
 
 def cc_import_test_suite(name):
-    _test_cc_import_linkopts()
+    _generic_cc_import_test_setup(name = "linkopts", test = cc_import_linkopts_test, linkopts = ["-testlinkopt"])
+    _generic_cc_import_test_setup(name = "includes", test = cc_import_includes_test, includes = ["testinclude"])
 
     native.test_suite(
         name = name,
         tests = [
             ":cc_import_linkopts_test",
+            ":cc_import_includes_test",
         ],
         tags = TAGS,
     )

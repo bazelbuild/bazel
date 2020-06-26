@@ -124,6 +124,7 @@ def _cc_import_impl(ctx):
         feature_configuration = feature_configuration,
         cc_toolchain = cc_toolchain,
         public_hdrs = ctx.files.hdrs,
+        includes = ctx.attr.includes,
         name = ctx.label.name,
     )
 
@@ -144,6 +145,7 @@ cc_import = rule(
         "system_provided": attr.bool(default = False),
         "alwayslink": attr.bool(default = False),
         "linkopts": attr.string_list(),
+        "includes": attr.string_list(),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
     toolchains = ["@rules_cc//cc:toolchain_type"],  # copybara-use-repo-external-label
