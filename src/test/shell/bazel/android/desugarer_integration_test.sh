@@ -75,6 +75,9 @@ EOF
   cat > java/bazel/MainActivity.java <<EOF
 package bazel;
 import android.app.Activity;
+import java.util.stream.Stream;
+import java.util.Arrays;
+
 public class MainActivity extends Activity {
   interface A {
     int foo(int x, int y);
@@ -82,6 +85,21 @@ public class MainActivity extends Activity {
 
   A bar() {
     return (a, b) -> a * b;
+  }
+
+  int someHashcode() {
+    // JDK 8 language feature depending on primitives desugar
+    return java.lang.Long.hashCode(42L);
+  }
+
+  int getSumOfInts() {
+    // JDK 8 language feature depending on streams desugar
+    return Arrays
+      .asList("x1", "x2", "x3")
+      .stream()
+      .map(s -> s.substring(1))
+      .mapToInt(Integer::parseInt)
+      .sum();
   }
 }
 EOF
