@@ -205,6 +205,9 @@ message Spawn {
     INVALID_TIMEOUT = 9 [(metadata) = { exit_code: 1 }];
     INVALID_REMOTE_EXECUTION_PROPERTIES = 10 [(metadata) = { exit_code: 1 }];
     NO_USABLE_STRATEGY_FOUND = 11 [(metadata) = { exit_code: 1 }];
+    // TODO(b/138456686): this code should be deprecated when SpawnResult is
+    //   refactored to prohibit undetailed failures
+    UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
   }
   Code code = 1;
 
@@ -653,6 +656,7 @@ message Sandbox {
     MOUNT_SOURCE_DOES_NOT_EXIST = 7 [(metadata) = { exit_code: 1 }];
     MOUNT_SOURCE_TARGET_TYPE_MISMATCH = 8 [(metadata) = { exit_code: 1 }];
     MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
+    EXECUTION_FAILED = 10 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

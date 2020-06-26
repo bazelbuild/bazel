@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
@@ -193,11 +194,13 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
           .getErrorStream()
           .write(("Action failed to execute: java.io.IOException: " + msg + "\n").getBytes(UTF_8));
       outErr.getErrorStream().flush();
+      String message = makeFailureMessage(originalSpawn, sandbox);
       return new SpawnResult.Builder()
           .setRunnerName(getName())
           .setStatus(Status.EXECUTION_FAILED)
           .setExitCode(LOCAL_EXEC_ERROR)
-          .setFailureMessage(makeFailureMessage(originalSpawn, sandbox))
+          .setFailureMessage(message)
+          .setFailureDetail(createFailureDetail(message, Code.EXECUTION_FAILED))
           .build();
     }
 
@@ -206,12 +209,40 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     boolean wasTimeout =
         (useSubprocessTimeout && terminationStatus.timedOut())
             || (!useSubprocessTimeout && wasTimeout(timeout, wallTime));
-    int exitCode =
-        wasTimeout ? SpawnResult.POSIX_TIMEOUT_EXIT_CODE : terminationStatus.getRawExitCode();
-    Status status =
-        wasTimeout
-            ? Status.TIMEOUT
-            : (exitCode == 0) ? Status.SUCCESS : Status.NON_ZERO_EXIT;
+
+    int exitCode;
+    Status status;
+    String failureMessage;
+    FailureDetail failureDetail;
+    if (wasTimeout) {
+      exitCode = SpawnResult.POSIX_TIMEOUT_EXIT_CODE;
+      status = Status.TIMEOUT;
+      failureMessage = makeFailureMessage(originalSpawn, sandbox);
+      failureDetail =
+          FailureDetail.newBuilder()
+              .setMessage(failureMessage)
+              .setSpawn(
+                  FailureDetails.Spawn.newBuilder().setCode(FailureDetails.Spawn.Code.TIMEOUT))
+              .build();
+    } else {
+      exitCode = terminationStatus.getRawExitCode();
+      if (exitCode == 0) {
+        status = Status.SUCCESS;
+        failureMessage = "";
+        failureDetail = null;
+      } else {
+        status = Status.NON_ZERO_EXIT;
+        failureMessage = makeFailureMessage(originalSpawn, sandbox);
+        failureDetail =
+            FailureDetail.newBuilder()
+                .setMessage(failureMessage)
+                .setSpawn(
+                    FailureDetails.Spawn.newBuilder()
+                        .setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT)
+                        .setSpawnExitCode(exitCode))
+                .build();
+      }
+    }
 
     SpawnResult.Builder spawnResultBuilder =
         new SpawnResult.Builder()
@@ -219,10 +250,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
             .setStatus(status)
             .setExitCode(exitCode)
             .setWallTime(wallTime)
-            .setFailureMessage(
-                status != Status.SUCCESS || exitCode != 0
-                    ? makeFailureMessage(originalSpawn, sandbox)
-                    : "");
+            .setFailureMessage(failureMessage);
+
+    if (failureDetail != null) {
+      spawnResultBuilder.setFailureDetail(failureDetail);
+    }
 
     Path statisticsPath = sandbox.getStatisticsPath();
     if (statisticsPath != null) {

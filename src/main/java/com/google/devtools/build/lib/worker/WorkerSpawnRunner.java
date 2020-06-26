@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnExecutedEvent;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
+import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
@@ -209,19 +210,28 @@ final class WorkerSpawnRunner implements SpawnRunner {
     response.getOutputBytes().writeTo(outErr.getErrorStream());
 
     int exitCode = response.getExitCode();
-    SpawnResult result =
+    SpawnResult.Builder builder =
         new SpawnResult.Builder()
             .setRunnerName(getName())
             .setExitCode(exitCode)
-            .setStatus(
-                exitCode == 0 ? SpawnResult.Status.SUCCESS : SpawnResult.Status.NON_ZERO_EXIT)
+            .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setWallTime(wallTime)
             .setSpawnMetrics(
                 SpawnMetrics.Builder.forWorkerExec()
                     .setTotalTime(wallTime)
                     .setExecutionWallTime(wallTime)
-                    .build())
-            .build();
+                    .build());
+    if (exitCode != 0) {
+      builder.setFailureDetail(
+          FailureDetail.newBuilder()
+              .setMessage("worker spawn failed")
+              .setSpawn(
+                  FailureDetails.Spawn.newBuilder()
+                      .setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT)
+                      .setSpawnExitCode(exitCode))
+              .build());
+    }
+    SpawnResult result = builder.build();
     reporter.post(new SpawnExecutedEvent(spawn, result, startTime));
     return result;
   }

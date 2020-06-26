@@ -22,6 +22,9 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 
@@ -77,7 +80,12 @@ public class SpawnExecException extends ExecException {
     ExitCode exitCode =
         result.status().isConsideredUserError() ? ExitCode.BUILD_FAILURE : ExitCode.REMOTE_ERROR;
     if (result.failureDetail() == null) {
-      return DetailedExitCode.justExitCode(exitCode);
+      return DetailedExitCode.of(
+          exitCode,
+          FailureDetail.newBuilder()
+              .setMessage("spawn failed")
+              .setSpawn(Spawn.newBuilder().setCode(Code.UNSPECIFIED_EXECUTION_FAILURE))
+              .build());
     }
     return DetailedExitCode.of(exitCode, result.failureDetail());
   }

@@ -74,6 +74,8 @@ import com.google.devtools.build.lib.remote.util.NetworkTime;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
@@ -602,16 +604,31 @@ public class RemoteSpawnRunner implements SpawnRunner {
             .setRunnerName(getName())
             .setStatus(Status.TIMEOUT)
             .setExitCode(SpawnResult.POSIX_TIMEOUT_EXIT_CODE)
+            .setFailureDetail(
+                FailureDetail.newBuilder()
+                    .setMessage("remote spawn timed out")
+                    .setSpawn(
+                        FailureDetails.Spawn.newBuilder()
+                            .setCode(FailureDetails.Spawn.Code.TIMEOUT))
+                    .build())
             .build();
       }
     }
     final Status status;
+    FailureDetails.Spawn.Code detailedCode;
+    boolean catastrophe;
     if (RemoteRetrierUtils.causedByStatus(exception, Code.UNAVAILABLE)) {
       status = Status.EXECUTION_FAILED_CATASTROPHICALLY;
+      detailedCode = FailureDetails.Spawn.Code.EXECUTION_FAILED;
+      catastrophe = true;
     } else if (remoteCacheFailed) {
       status = Status.REMOTE_CACHE_FAILED;
+      detailedCode = FailureDetails.Spawn.Code.REMOTE_CACHE_FAILED;
+      catastrophe = false;
     } else {
       status = Status.EXECUTION_FAILED;
+      detailedCode = FailureDetails.Spawn.Code.EXECUTION_FAILED;
+      catastrophe = false;
     }
 
     final String errorMessage;
@@ -627,6 +644,14 @@ public class RemoteSpawnRunner implements SpawnRunner {
         .setStatus(status)
         .setExitCode(ExitCode.REMOTE_ERROR.getNumericExitCode())
         .setFailureMessage(errorMessage)
+        .setFailureDetail(
+            FailureDetail.newBuilder()
+                .setMessage("remote spawn failed: " + errorMessage)
+                .setSpawn(
+                    FailureDetails.Spawn.newBuilder()
+                        .setCode(detailedCode)
+                        .setCatastrophic(catastrophe))
+                .build())
         .build();
   }
 
