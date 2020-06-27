@@ -286,9 +286,10 @@ message Rule {
   required string rule_class = 2;
 
   // The BUILD file and line number of the location (formatted as
-  // <absolute_path>:<line_number>) in the rule's package's BUILD file where the
-  // rule instance was instantiated. The line number will be that of a rule
-  // invocation or macro call (that in turn invoked a rule). See
+  // <absolute_path>:<line_number>:<column_number>) in the rule's package's
+  // BUILD file where the rule instance was instantiated. The line number will
+  // be that of a rule invocation or macro call (that in turn invoked a
+  // rule). See
   // https://docs.bazel.build/versions/master/skylark/macros.html#macro-creation
   optional string location = 3;
 
@@ -373,8 +374,8 @@ message SourceFile {
   // The name of the source file (a label).
   required string name = 1;
 
-  // The location of the source file.  This is a path with line numbers, not
-  // a label in the build system.
+  // The location of the source file.  This is a path with a line number and a
+  // column number not a label in the build system.
   optional string location = 2;
 
   // Labels of .bzl (Starlark) files that are transitively loaded in this BUILD
@@ -411,7 +412,7 @@ message GeneratedFile {
   // The label of the target that generates the file.
   required string generating_rule = 2;
 
-  // The path of the output file (not a label).
+  // The path, line number, and column number of the output file (not a label).
   optional string location = 3;
 }
 
