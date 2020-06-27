@@ -1,3 +1,4 @@
+load("@bazel_custom_exec_properties//:constants.bzl", "LARGE_MACHINE")
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
 
 package(
@@ -80,7 +81,7 @@ java_test(
             exclude = ["MacOSXFsEventsDiffAwarenessTest.java"] + CROSS_PLATFORM_WINDOWS_TESTS,
         ),
     }),
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_properties = LARGE_MACHINE,
     shard_count = 20,
     tags = ["skyframe"],
     test_class = "com.google.devtools.build.lib.AllTests",

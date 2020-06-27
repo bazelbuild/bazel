@@ -166,7 +166,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         # bazelbuild/bazel-toolchains
-        "bazel-toolchains-3.1.0.tar.gz",
+        "bazel-toolchains-3.3.0.tar.gz",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz",
         # bazelbuild/rules_proto
@@ -203,7 +203,7 @@ distdir_tar(
         # bazelbuild/rules_cc
         "8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip": "1d4dbbd1e1e9b57d40bb0ade51c9e882da7658d5bfbf22bbd15b68e7879d761f",
         # bazelbuild/bazel-toolchains
-        "bazel-toolchains-3.1.0.tar.gz": "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
+        "bazel-toolchains-3.3.0.tar.gz": "a802b753e127a6f73f3f300db5dd83fb618cd798bc880b6a87db9a8777b7939f",
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz": "4ba8f4ab0ff85f2484287ab06c0d871dcb31cc54d439457d28fd4ae14b18450a",
         # bazelbuild/rules_proto
@@ -270,9 +270,9 @@ distdir_tar(
             "https://github.com/bazelbuild/rules_cc/archive/8bd6cd75d03c01bb82561a96d9c1f9f7157b13d0.zip",
         ],
         # bazelbuild/bazel-toolchains
-        "bazel-toolchains-3.1.0.tar.gz": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
-            "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
+        "bazel-toolchains-3.3.0.tar.gz": [
+            "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.3.0/bazel-toolchains-3.3.0.tar.gz",
+            "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.3.0/bazel-toolchains-3.3.0.tar.gz",
         ],
         # bazelbuild/rules_pkg
         "rules_pkg-0.2.4.tar.gz": [
@@ -403,52 +403,6 @@ http_file(
 )
 
 http_archive(
-    name = "bazel_toolchains",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "726b5423e1c7a3866a3a6d68e7123b4a955e9fcbe912a51e0f737e6dab1d0af2",
-    strip_prefix = "bazel-toolchains-3.1.0",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
-        "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.1.0/bazel-toolchains-3.1.0.tar.gz",
-    ],
-)
-
-load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
-
-rbe_autoconfig(
-    name = "rbe_ubuntu1804_java11",
-    detect_java_home = True,
-    registry = "gcr.io",
-    repository = "bazel-public/ubuntu1804-bazel-java11",
-    tag = "latest",
-)
-
-rbe_autoconfig(
-    name = "rbe_ubuntu1604_java8",
-    detect_java_home = True,
-    registry = "gcr.io",
-    repository = "bazel-public/ubuntu1604-bazel-java8",
-    tag = "latest",
-)
-
-# Creates toolchain configuration for remote execution with BuildKite CI
-# for rbe_ubuntu1604.
-# To run the tests with RBE on BuildKite CI uncomment the two lines below
-# load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
-# rbe_autoconfig(name = "buildkite_config")
-
-http_archive(
-    name = "com_google_googletest",
-    sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
-    strip_prefix = "googletest-release-1.10.0",
-    urls = [
-        "https://mirror.bazel.build/github.com/google/googletest/archive/release-1.10.0.tar.gz",
-        "https://github.com/google/googletest/archive/release-1.10.0.tar.gz",
-    ],
-)
-
-http_archive(
     name = "bazel_skylib",
     patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
     patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
@@ -458,6 +412,75 @@ http_archive(
     urls = [
         "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
         "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "bazel_toolchains",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    sha256 = "a802b753e127a6f73f3f300db5dd83fb618cd798bc880b6a87db9a8777b7939f",
+    strip_prefix = "bazel-toolchains-3.3.0",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-toolchains/releases/download/3.3.0/bazel-toolchains-3.3.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-toolchains/releases/download/3.3.0/bazel-toolchains-3.3.0.tar.gz",
+    ],
+)
+
+load("@bazel_toolchains//rules/exec_properties:exec_properties.bzl",
+        "create_rbe_exec_properties_dict",
+        "custom_exec_properties",
+        "rbe_exec_properties")
+
+rbe_exec_properties(
+    name = "exec_properties",
+
+)
+
+custom_exec_properties(
+    name = "bazel_custom_exec_properties",
+    constants = {
+        "SMALL_MACHINE": create_rbe_exec_properties_dict(
+            gce_machine_type = "e2-standard-2",
+        ),
+        "LARGE_MACHINE": create_rbe_exec_properties_dict(
+            gce_machine_type = "n1-highcpu-32",
+        ),
+    },
+)
+
+load("@exec_properties//:constants.bzl", "NETWORK_ON", "DOCKER_PRIVILEGED")
+load("@bazel_custom_exec_properties//:constants.bzl", "SMALL_MACHINE", "LARGE_MACHINE")
+load("@bazel_skylib//lib:dicts.bzl", "dicts")
+load("@bazel_toolchains//rules:rbe_repo.bzl", "rbe_autoconfig")
+
+rbe_autoconfig(
+    name = "rbe_ubuntu1804_java11",
+    detect_java_home = True,
+    registry = "gcr.io",
+    repository = "bazel-public/ubuntu1804-bazel-java11",
+    tag = "latest",
+    use_legacy_platform_definition = False,
+    exec_properties = dicts.add(SMALL_MACHINE, NETWORK_ON, DOCKER_PRIVILEGED),
+)
+
+rbe_autoconfig(
+    name = "rbe_ubuntu1604_java8",
+    detect_java_home = True,
+    registry = "gcr.io",
+    repository = "bazel-public/ubuntu1604-bazel-java8",
+    tag = "latest",
+    use_legacy_platform_definition = False,
+    exec_properties = dicts.add(SMALL_MACHINE, NETWORK_ON, DOCKER_PRIVILEGED),
+)
+
+http_archive(
+    name = "com_google_googletest",
+    sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
+    strip_prefix = "googletest-release-1.10.0",
+    urls = [
+        "https://mirror.bazel.build/github.com/google/googletest/archive/release-1.10.0.tar.gz",
+        "https://github.com/google/googletest/archive/release-1.10.0.tar.gz",
     ],
 )
 
@@ -974,8 +997,6 @@ node_repositories()
 load("@io_bazel_rules_sass//:defs.bzl", "sass_repositories")
 
 sass_repositories()
-
-register_execution_platforms("//:default_host_platform")  # buildozer: disable=positional-args
 
 # Tools for building deb, rpm and tar files.
 http_archive(

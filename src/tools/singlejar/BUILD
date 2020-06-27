@@ -1,3 +1,4 @@
+load("@bazel_custom_exec_properties//:constants.bzl", "LARGE_MACHINE")
 load("@rules_java//java:defs.bzl", "java_library")
 
 # Description:
@@ -116,7 +117,7 @@ cc_test(
         ":zlib_interface",
     ],
     # Requires at least 5 GiB of memory
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_properties = LARGE_MACHINE,
     deps = [
         ":combiners",
         ":input_jar",

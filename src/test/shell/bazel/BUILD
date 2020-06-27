@@ -1,3 +1,5 @@
+load("@bazel_custom_exec_properties//:constants.bzl", "LARGE_MACHINE")
+
 package(default_visibility = ["//visibility:private"])
 
 filegroup(
@@ -216,7 +218,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_properties = LARGE_MACHINE,
 )
 
 JAVA_VERSIONS = ("11", "12")
@@ -245,7 +247,7 @@ JAVA_VERSIONS = ("11", "12")
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "@bazel_tools//tools/bash/runfiles",
         ],
-        exec_compatible_with = ["//:highcpu_machine"],
+        exec_properties = LARGE_MACHINE,
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -274,7 +276,7 @@ JAVA_VERSIONS = ("11", "12")
             "//src/test/shell/bazel/testdata:jdk_http_archives_filegroup",
             "@bazel_tools//tools/bash/runfiles",
         ],
-        exec_compatible_with = ["//:highcpu_machine"],
+        exec_properties = LARGE_MACHINE,
     )
     for java_version in JAVA_VERSIONS
 ]
@@ -355,7 +357,7 @@ sh_test(
     size = "large",  # Downloads and compiles protobuf for *every* *test* *case*
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_properties = LARGE_MACHINE,
     tags = ["no_windows"],  # Doesn't work on Windows for unknown reason
 )
 
@@ -683,7 +685,7 @@ sh_test(
         "//src/test/shell/bazel/testdata:git-repos",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_properties = LARGE_MACHINE,
 )
 
 sh_test(
@@ -1013,7 +1015,7 @@ sh_test(
         "//src:embedded_jdk_allmodules_cached",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_properties = LARGE_MACHINE,
     tags = ["block-network"],
 )
 
@@ -1026,7 +1028,7 @@ sh_test(
         ":test-deps",
         "//:bazel-distfile",
     ],
-    exec_compatible_with = ["//:highcpu_machine"],
+    exec_properties = LARGE_MACHINE,
     tags = [
         "no_windows",
         "slow",
