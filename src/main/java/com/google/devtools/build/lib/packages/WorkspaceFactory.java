@@ -373,7 +373,9 @@ public class WorkspaceFactory {
 
   private String getDefaultSystemJavabase() {
     // --javabase is empty if there's no locally installed JDK
-    return defaultSystemJavabaseDir != null ? defaultSystemJavabaseDir.toString() : "";
+    return defaultSystemJavabaseDir != null
+        ? defaultSystemJavabaseDir.toString()
+        : installDir.getRelative("embedded_tools/tools/jdk/nosystemjdk").getPathString();
   }
 
   /** Returns the entries to populate the "native" module with, for WORKSPACE-loaded .bzl files. */
