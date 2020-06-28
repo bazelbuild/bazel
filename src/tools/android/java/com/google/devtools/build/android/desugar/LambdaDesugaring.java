@@ -22,6 +22,8 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.android.desugar.io.BitFlags;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
@@ -44,14 +46,20 @@ import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.analysis.Analyzer;
+import org.objectweb.asm.tree.analysis.BasicInterpreter;
+import org.objectweb.asm.tree.analysis.BasicValue;
+import org.objectweb.asm.util.Printer;
+import org.objectweb.asm.util.Textifier;
+import org.objectweb.asm.util.TraceMethodVisitor;
 
 /**
  * Visitor that desugars classes with uses of lambdas into Java 7-looking code. This includes
  * rewriting lambda-related invokedynamic instructions as well as fixing accessibility of methods
  * that javac emits for lambda bodies.
  *
- * <p>Implementation note: {@link InvokeDynamicLambdaMethodCollector} needs to detect any class that
- * this visitor may rewrite, as we conditionally apply this visitor based on it.
+ * <p>Implementation note: {@link InvokeDynamicLambdaMethodCollector} needs to detect any class
+ * that this visitor may rewrite, as we conditionally apply this visitor based on it.
  */
 class LambdaDesugaring extends ClassVisitor {
 
@@ -273,18 +281,17 @@ class LambdaDesugaring extends ClassVisitor {
                 invokedMethod.getDesc(), /*itf*/
                 false);
         break;
-      case Opcodes.H_NEWINVOKESPECIAL:
-        {
-          // Call invisible constructor through generated bridge "factory" method, so we need to
-          // compute the descriptor for the bridge method from the constructor's descriptor
-          String desc =
-              Type.getMethodDescriptor(
-                  Type.getObjectType(invokedMethod.getOwner()),
-                  Type.getArgumentTypes(invokedMethod.getDesc()));
-          bridgeMethod =
-              new Handle(Opcodes.H_INVOKESTATIC, internalName, name, desc, /*itf*/ false);
-          break;
-        }
+      case Opcodes.H_NEWINVOKESPECIAL: {
+        // Call invisible constructor through generated bridge "factory" method, so we need to
+        // compute the descriptor for the bridge method from the constructor's descriptor
+        String desc =
+            Type.getMethodDescriptor(
+                Type.getObjectType(invokedMethod.getOwner()),
+                Type.getArgumentTypes(invokedMethod.getDesc()));
+        bridgeMethod =
+            new Handle(Opcodes.H_INVOKESTATIC, internalName, name, desc, /*itf*/ false);
+        break;
+      }
       case Opcodes.H_INVOKEINTERFACE:
         // Shouldn't get here
       default:
@@ -367,10 +374,43 @@ class LambdaDesugaring extends ClassVisitor {
   }
 
   /**
+   * Record of how a lambda class can reach its referenced method through a possibly-different
+   * bridge method.
+   *
+   * <p>In a JVM, lambda classes are allowed to call the referenced methods directly, but we don't
+   * have that luxury when the generated lambda class is evaluated using normal visibility rules.
+   */
+  @AutoValue
+  abstract static class MethodReferenceBridgeInfo {
+    public static MethodReferenceBridgeInfo noBridge(Handle methodReference) {
+      return new AutoValue_LambdaDesugaring_MethodReferenceBridgeInfo(
+          methodReference, (Executable) null, methodReference);
+    }
+
+    public static MethodReferenceBridgeInfo bridge(
+        Handle methodReference, Executable referenced, Handle bridgeMethod) {
+      checkArgument(!bridgeMethod.equals(methodReference));
+      return new AutoValue_LambdaDesugaring_MethodReferenceBridgeInfo(
+          methodReference, checkNotNull(referenced), bridgeMethod);
+    }
+
+    public abstract Handle methodReference();
+
+    /** Returns {@code null} iff {@link #bridgeMethod} equals {@link #methodReference}. */
+    @Nullable
+    public abstract Executable referenced();
+
+    public abstract Handle bridgeMethod();
+  }
+
+  /**
    * Desugaring that replaces invokedynamics for {@link java.lang.invoke.LambdaMetafactory} with
    * static factory method invocations and triggers a class to be generated for each invokedynamic.
    */
   private class InvokedynamicRewriter extends MethodNode {
+
+    // used frame maps
+    private final Analyzer<BasicValue> analyzer = new Analyzer<>(new BasicInterpreter());
 
     private final MethodVisitor dest;
 
@@ -473,7 +513,28 @@ class LambdaDesugaring extends ClassVisitor {
                 + " with arguments "
                 + Arrays.toString(bsmArgs),
             e);
+      } catch (IllegalStateException e) {
+        // Provide the instructions to help understanding precondition checks.
+        // This is an unexpected failure state, so the extra overhead is justified.
+        Printer p = new Textifier();
+        TraceMethodVisitor visitor = new TraceMethodVisitor(p);
+        for (AbstractInsnNode n : instructions.toArray()) {
+          n.accept(visitor);
+        }
+        StringWriter b = new StringWriter();
+        p.print(new PrintWriter(b));
+        throw new IllegalStateException("Unexpected instructions in :\n" + b.toString(), e);
       }
+    }
+
+    /** If node is not an instruction, scans backwards until it finds one that is. */
+    private AbstractInsnNode findInstruction(AbstractInsnNode node) {
+      AbstractInsnNode insn = node;
+      // asm uses -1 to indicate label and line number
+      while (insn != null && insn.getOpcode() == -1) {
+        insn = insn.getPrevious();
+      }
+      return insn;
     }
 
     /**
@@ -494,62 +555,106 @@ class LambdaDesugaring extends ClassVisitor {
      */
     private boolean attemptAllocationBeforeArgumentLoads(String internalName, Type[] paramTypes) {
       checkArgument(paramTypes.length > 0, "Expected at least one param for %s", internalName);
-      // Walk backwards past loads corresponding to constructor arguments to find the instruction
-      // after which we need to insert our NEW/DUP pair
-      AbstractInsnNode insn = instructions.getLast();
-      for (int i = paramTypes.length - 1; 0 <= i; --i) {
-        if (insn.getOpcode() == Opcodes.GETFIELD) {
-          // Lambdas in anonymous inner classes have to load outer scope variables from fields,
-          // which manifest as an ALOAD followed by one or more GETFIELDs
-          FieldInsnNode getfield = (FieldInsnNode) insn;
-          checkState(
-              getfield.desc.length() == 1
-                  ? getfield.desc.equals(paramTypes[i].getDescriptor())
-                  : paramTypes[i].getDescriptor().length() > 1,
-              "Expected getfield for %s to set up parameter %s for %s but got %s : %s",
-              paramTypes[i],
-              i,
-              internalName,
-              getfield.name,
-              getfield.desc);
-          insn = insn.getPrevious();
 
-          while (insn.getOpcode() == Opcodes.GETFIELD) {
-            // Nested inner classes can cause a cascade of getfields from the outermost one inwards
+      // Walk backwards past push instructions corresponding to constructor arguments to find the
+      // instruction after which we need to insert our NEW/DUP pair
+
+      AbstractInsnNode insn = findInstruction(instructions.getLast());
+      int ignorePushes = 0;
+      int i = paramTypes.length - 1;
+      while (insn != null && 0 <= i) {
+        switch (insn.getOpcode()) {
+          case Opcodes.GETFIELD:
+            // Lambdas in anonymous inner classes have to load outer scope variables from fields,
+            // which manifest as an ALOAD followed by one or more GETFIELDs
+            FieldInsnNode getfield = (FieldInsnNode) insn;
             checkState(
-                ((FieldInsnNode) insn).desc.startsWith("L"),
-                "expect object type getfields to get to %s to set up parameter %s for %s, not: %s",
+                getfield.desc.length() == 1
+                    ? getfield.desc.equals(paramTypes[i].getDescriptor())
+                    : paramTypes[i].getDescriptor().length() > 1,
+                "Expected getfield for %s to set up parameter %s for %s but got %s : %s",
                 paramTypes[i],
                 i,
                 internalName,
-                ((FieldInsnNode) insn).desc);
-            insn = insn.getPrevious();
-          }
+                getfield.name,
+                getfield.desc);
+            insn = findInstruction(insn.getPrevious());
 
-          checkState(
-              insn.getOpcode() == Opcodes.ALOAD, // should be a this pointer to be precise
-              "Expected aload before getfield for %s to set up parameter %s for %s but got %s",
-              getfield.name,
-              i,
-              internalName,
-              insn.getOpcode());
-        } else if (!isPushForType(insn, paramTypes[i])) {
-          // Otherwise expect load of a (effectively) final local variable or a constant. Not seeing
-          // that means we're dealing with a method reference on some arbitrary expression,
-          // <expression>::m. In that case we give up and keep using the factory method for now,
-          // since inserting the NEW/DUP so the new object ends up in the right stack slot is hard
-          // in that case. Note this still covers simple cases such as this::m or x::m, where x is a
-          // local.
-          checkState(
-              paramTypes.length == 1,
-              "Expected a load for %s to set up parameter %s for %s but got %s",
-              paramTypes[i],
-              i,
-              internalName,
-              insn.getOpcode());
-          return false;
+            while (insn.getOpcode() == Opcodes.GETFIELD) {
+              // Nested inner classes can cause a cascade of getfields from the outermost one
+              // inwards
+              checkState(
+                  ((FieldInsnNode) insn).desc.startsWith("L"),
+                  "expect object type getfields to get to %s to set up parameter %s for %s, not: %s",
+                  paramTypes[i],
+                  i,
+                  internalName,
+                  ((FieldInsnNode) insn).desc);
+              insn = findInstruction(insn.getPrevious());
+            }
+
+            if (insn.getOpcode() != Opcodes.ALOAD) {
+              // in non-optimized code, GETFIELD should be followed by ALOAD to place the obj on
+              // the operand stack. optimization can and will elide ALOADS in favor of more
+              // stateful stack state. In that case, bail out and use the factory.
+              return false;
+            }
+            break;
+          case Opcodes.DUP:
+            if (ignorePushes > 0) {
+              ignorePushes--;
+            } else {
+              // duplicating elements on the operand stack makes this non-trivial to reason about.
+              // bail out and use the factory.
+              return false;
+            }
+          case Opcodes.POP2:
+            // removing a value from the operand stack, ignore next 2 push ops.
+            ignorePushes += 2;
+            break;
+          case Opcodes.POP:
+            // removing a value from the operand stack, ignore next push op.
+            ignorePushes++;
+            break;
+          // all the ways to push values on the stack.
+          case Opcodes.LLOAD:
+          case Opcodes.FLOAD:
+          case Opcodes.DLOAD:
+          case Opcodes.ALOAD:
+          case Opcodes.LALOAD:
+          case Opcodes.FALOAD:
+          case Opcodes.DALOAD:
+          case Opcodes.AALOAD:
+          case Opcodes.BALOAD:
+          case Opcodes.CALOAD:
+          case Opcodes.SALOAD:
+          case Opcodes.INVOKESTATIC:
+          case Opcodes.INVOKEDYNAMIC:
+          case Opcodes.INVOKEINTERFACE:
+          case Opcodes.INVOKEVIRTUAL:
+            if (ignorePushes > 0) {
+              // something has been at the bytecode, as java 8 doesn't optimize the operand stack.
+              ignorePushes--;
+            } else if (isPushForType(insn, paramTypes[i])) {
+              i--;
+            } else {
+              // heuristic has failed -- either load of a (effectively) final local variable or
+              // a constant or the ops have been reordered in a way that is not easily
+              // inferred.
+              // In that case we give up and keep using the factory method for now,
+              // since inserting the NEW/DUP so the new object ends up in the right stack slot
+              // is hard in that case. Note this still covers simple cases such as this::m or x::m,
+              // where x is a local.
+              return false;
+            }
+            break;
+          default:
+            // heuristic has failed -- we've found instructions that indicate a complex state.
+            // stick to the factory.
+            // This case covers conditionals, loops, throws, returns...
+            return false;
         }
-        insn = insn.getPrevious();
+        insn = findInstruction(insn.getPrevious());
       }
 
       TypeInsnNode newInsn = new TypeInsnNode(Opcodes.NEW, internalName);
@@ -671,35 +776,5 @@ class LambdaDesugaring extends ClassVisitor {
           throw new UnsupportedOperationException("Cannot resolve " + asmHandle);
       }
     }
-  }
-
-  /**
-   * Record of how a lambda class can reach its referenced method through a possibly-different
-   * bridge method.
-   *
-   * <p>In a JVM, lambda classes are allowed to call the referenced methods directly, but we don't
-   * have that luxury when the generated lambda class is evaluated using normal visibility rules.
-   */
-  @AutoValue
-  abstract static class MethodReferenceBridgeInfo {
-    public static MethodReferenceBridgeInfo noBridge(Handle methodReference) {
-      return new AutoValue_LambdaDesugaring_MethodReferenceBridgeInfo(
-          methodReference, (Executable) null, methodReference);
-    }
-
-    public static MethodReferenceBridgeInfo bridge(
-        Handle methodReference, Executable referenced, Handle bridgeMethod) {
-      checkArgument(!bridgeMethod.equals(methodReference));
-      return new AutoValue_LambdaDesugaring_MethodReferenceBridgeInfo(
-          methodReference, checkNotNull(referenced), bridgeMethod);
-    }
-
-    public abstract Handle methodReference();
-
-    /** Returns {@code null} iff {@link #bridgeMethod} equals {@link #methodReference}. */
-    @Nullable
-    public abstract Executable referenced();
-
-    public abstract Handle bridgeMethod();
   }
 }

@@ -2188,3 +2188,81 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+# Test desugaring proguard stack optimized code
+
+genrule(
+    name = "proguard_testdata",
+    srcs = [
+        ":testdata",
+        ":separate",
+        "//third_party:guava-jars",
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
+        "//third_party/java/jacoco:blaze-agent-0.8.3",
+        "@bazel_tools//tools/android:android_jar",
+    ],
+    outs = ["testdata_proguarded.jar"],
+    cmd = " ".join([
+        "$(location @bazel_tools//tools/jdk:proguard)",
+        "-injars $(location :testdata)",
+        "-outjars $(location testdata_proguarded.jar)",
+        "-libraryjars %s" % ":".join(["$(location %s)" % j for j in [
+            ":separate",
+            "//third_party:guava-jars",
+            "//third_party/java/jacoco:blaze-agent-0.8.3",
+            "@bazel_tools//tools/android:android_jar",
+        ]]),
+        "-dontshrink",
+        "-dontobfuscate",
+        "-ignorewarnings",
+        # turn off destructive optimizations as they change the expectations of the test.
+        "-optimizations !method/*,!class/*,!field/*,!code/removal/*,!code/simplification",
+        "-keep class 'com.google.devtools.build.android.desugar.**'",
+        # keep everything, as the testdata does not provide a cohesive application.
+        "-dontwarn 'java.lang.invoke.**'",
+    ]),
+    tags = ["no_windows"],
+    tools = ["@bazel_tools//tools/jdk:proguard"],
+)
+
+genrule(
+    name = "desugar_proguarded_testdata",
+    srcs = [
+        "//third_party:guava-jars",
+        ":testdata_proguarded.jar",
+        ":separate",
+        # Depend on Jacoco runtime in case testdata was built with coverage
+        # instrumentation
+        "//third_party/java/jacoco:blaze-agent-0.8.3",
+        "@bazel_tools//tools/android:android_jar",
+    ],
+    outs = ["testdata_optimized_desugared.jar"],
+    cmd = "$(location //src/tools/android/java/com/google/devtools/build/android/desugar:Desugar) " +
+          "--nodesugar_interface_method_bodies_if_needed -i $(location :testdata_proguarded.jar) -o $@ " +
+          "--classpath_entry $(location :separate) " +
+          "--classpath_entry $(location //third_party:guava-jars) " +
+          "--classpath_entry $(location //third_party/java/jacoco:blaze-agent-0.8.3) " +
+          "--bootclasspath_entry $(location @bazel_tools//tools/android:android_jar)",
+    tags = ["no_windows"],
+    tools = ["//src/tools/android/java/com/google/devtools/build/android/desugar:Desugar"],
+)
+
+java_test(
+    name = "ProguardedDesugarFunctionalTest",
+    size = "small",
+    srcs = [
+        "DesugarFunctionalTest.java",
+    ],
+    tags = ["no_windows"],
+    test_class = "com.google.devtools.build.android.desugar.DesugarFunctionalTest",
+    deps = [
+        ":desugar_proguarded_testdata",  # compile against, but don't link.
+        ":separate",
+        "//third_party:asm",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
