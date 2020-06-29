@@ -208,18 +208,21 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
               keepGoing,
               loadingPhaseThreads,
               maxDepth,
-              errorObserver,
               new TargetEdgeObserver() {
                 @Override
-                public void edge(Target from, Attribute attribute, Target to) {}
+                public void edge(Target from, Attribute attribute, Target to) {
+                  errorObserver.edge(from, attribute, to);
+                }
 
                 @Override
-                public void missingEdge(
-                    @Nullable Target target, Label to, NoSuchThingException e) {}
+                public void missingEdge(@Nullable Target target, Label to, NoSuchThingException e) {
+                  errorObserver.missingEdge(target, to, e);
+                }
 
                 @Override
                 public void node(Target node) {
                   result.add(node);
+                  errorObserver.node(node);
                 }
               });
     }
