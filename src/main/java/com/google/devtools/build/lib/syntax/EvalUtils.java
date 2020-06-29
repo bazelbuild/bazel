@@ -477,8 +477,8 @@ public final class EvalUtils {
         return compare(x, y) >= 0;
 
       case IN:
-        if (y instanceof StarlarkQueryable) {
-          return ((StarlarkQueryable) y).containsKey(semantics, x);
+        if (y instanceof StarlarkIndexable) {
+          return ((StarlarkIndexable) y).containsKey(semantics, x);
         } else if (y instanceof String) {
           if (!(x instanceof String)) {
             throw Starlark.errorf(

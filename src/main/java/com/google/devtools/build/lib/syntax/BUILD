@@ -115,7 +115,6 @@ java_library(
         "StarlarkIndexable.java",
         "StarlarkIterable.java",
         "StarlarkList.java",
-        "StarlarkQueryable.java",
         "StarlarkSemantics.java",
         "StarlarkThread.java",
         "StarlarkValue.java",
