@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
@@ -158,6 +159,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Code.NO_TOOLS);
     }
 
+    Instant startTime = Instant.now();
+
     runfilesTreeUpdater.updateRunfilesDirectory(
         execRoot,
         spawn.getRunfilesSupplier(),
@@ -201,13 +204,17 @@ final class WorkerSpawnRunner implements SpawnRunner {
             context.speculating(),
             Spawns.supportsMultiplexWorkers(spawn));
 
-    Instant startTime = Instant.now();
+    SpawnMetrics.Builder spawnMetrics =
+        SpawnMetrics.Builder.forWorkerExec()
+            .setInputFiles(inputFiles.getFiles().size() + inputFiles.getSymlinks().size());
     WorkResponse response =
-        execInWorker(spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache);
-    Duration wallTime = Duration.between(startTime, Instant.now());
+        execInWorker(
+            spawn, key, context, inputFiles, outputs, flagFiles, inputFileCache, spawnMetrics);
 
     FileOutErr outErr = context.getFileOutErr();
     response.getOutputBytes().writeTo(outErr.getErrorStream());
+
+    Duration wallTime = Duration.between(startTime, Instant.now());
 
     int exitCode = response.getExitCode();
     SpawnResult.Builder builder =
@@ -216,11 +223,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
             .setExitCode(exitCode)
             .setStatus(exitCode == 0 ? Status.SUCCESS : Status.NON_ZERO_EXIT)
             .setWallTime(wallTime)
-            .setSpawnMetrics(
-                SpawnMetrics.Builder.forWorkerExec()
-                    .setTotalTime(wallTime)
-                    .setExecutionWallTime(wallTime)
-                    .build());
+            .setSpawnMetrics(spawnMetrics.setTotalTime(wallTime).build());
     if (exitCode != 0) {
       builder.setFailureDetail(
           FailureDetail.newBuilder()
@@ -337,7 +340,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
       SandboxInputs inputFiles,
       SandboxOutputs outputs,
       List<String> flagFiles,
-      MetadataProvider inputFileCache)
+      MetadataProvider inputFileCache,
+      SpawnMetrics.Builder spawnMetrics)
       throws InterruptedException, ExecException {
     Worker worker = null;
     WorkResponse response;
@@ -345,6 +349,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     try {
+      Stopwatch setupInputsStopwatch = Stopwatch.createStarted();
       try {
         inputFiles.materializeVirtualInputs(execRoot);
       } catch (IOException e) {
@@ -358,7 +363,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
         String message = "IOException while prefetching for worker:";
         throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
       }
+      Duration setupInputsTime = setupInputsStopwatch.elapsed();
 
+      Stopwatch queueStopwatch = Stopwatch.createStarted();
       try {
         worker = workers.borrowObject(key);
         request =
@@ -370,9 +377,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       try (ResourceHandle handle =
           resourceManager.acquireResources(owner, spawn.getLocalResources())) {
+        // We acquired a worker and resources -- mark that as queuing time.
+        spawnMetrics.setQueueTime(queueStopwatch.elapsed());
+
         context.report(ProgressStatus.EXECUTING, WorkerKey.makeWorkerTypeName(key.getProxied()));
         try {
+          // We consider `prepareExecution` to be also part of setup.
+          Stopwatch prepareExecutionStopwatch = Stopwatch.createStarted();
           worker.prepareExecution(inputFiles, outputs, key.getWorkerFilesWithHashes().keySet());
+          spawnMetrics.setSetupTime(setupInputsTime.plus(prepareExecutionStopwatch.elapsed()));
         } catch (IOException e) {
           String message =
               ErrorMessage.builder()
@@ -384,6 +397,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
           throw createUserExecException(message, Code.PREPARE_FAILURE);
         }
 
+        Stopwatch executionStopwatch = Stopwatch.createStarted();
         try {
           worker.putRequest(request);
         } catch (IOException e) {
@@ -419,6 +433,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
                   .toString();
           throw createUserExecException(message, Code.PARSE_RESPONSE_FAILURE);
         }
+        spawnMetrics.setExecutionWallTime(executionStopwatch.elapsed());
       }
 
       if (response == null) {
@@ -433,8 +448,10 @@ final class WorkerSpawnRunner implements SpawnRunner {
       }
 
       try {
+        Stopwatch processOutputsStopwatch = Stopwatch.createStarted();
         context.lockOutputFiles();
         worker.finishExecution(execRoot);
+        spawnMetrics.setProcessOutputsTime(processOutputsStopwatch.elapsed());
       } catch (IOException e) {
         String message =
             ErrorMessage.builder()
