@@ -344,7 +344,7 @@ public final class RemoteOptions extends OptionsBase {
         "--nobuild_runfile_links",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
-        "--experimental_remote_download_outputs=minimal"
+        "--remote_download_outputs=minimal"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -353,7 +353,7 @@ public final class RemoteOptions extends OptionsBase {
           "Does not download any remote build outputs to the local machine. This flag is a "
               + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
               + "--experimental_inmemory_dotd_files and "
-              + "--experimental_remote_download_outputs=minimal.")
+              + "--remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
   @Option(
@@ -363,7 +363,7 @@ public final class RemoteOptions extends OptionsBase {
       expansion = {
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
-        "--experimental_remote_download_outputs=toplevel"
+        "--remote_download_outputs=toplevel"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -372,7 +372,7 @@ public final class RemoteOptions extends OptionsBase {
           "Only downloads remote outputs of top level targets to the local machine. This flag is a "
               + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
               + "--experimental_inmemory_dotd_files and "
-              + "--experimental_remote_download_outputs=toplevel.")
+              + "--remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 
   @Option(
