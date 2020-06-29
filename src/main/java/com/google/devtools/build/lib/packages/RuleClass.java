@@ -2235,6 +2235,17 @@ public class RuleClass {
       }
     }
 
+    // An instance of the built-in 'test_suite' rule with no explicit 'tests'
+    // attribute gets an '$implicit_tests' attribute, whose value is a
+    // shared per-package list of all test labels, populated later.
+    if (this.name.equals("test_suite")) {
+      Attribute implicitTests = this.getAttributeByName("$implicit_tests");
+      if (implicitTests != null && !definedAttrIndices.get(this.getAttributeIndex("tests"))) {
+        boolean explicit = true; // so that it appears in query output
+        rule.setAttributeValue(implicitTests, pkgBuilder.testSuiteImplicitTests, explicit);
+      }
+    }
+
     // Set computed default attribute values now that all other (i.e. non-computed) default values
     // have been set.
     for (Attribute attr : attrsWithComputedDefaults) {

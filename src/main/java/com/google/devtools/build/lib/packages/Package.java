@@ -892,6 +892,11 @@ public class Package {
       return generatorNameByLocation;
     }
 
+    // Value of '$implicit_tests' attribute shared by all test_suite rules in the
+    // package that don't specify an explicit 'tests' attribute value.
+    // It contains the label of each non-manual test in the package, in label order.
+    final List<Label> testSuiteImplicitTests = new ArrayList<>();
+
     @ThreadCompatible
     private static class ThreadCompatibleInterner<T> implements Interner<T> {
       private final Map<T, T> interns = new HashMap<>();
@@ -1497,7 +1502,7 @@ public class Package {
       // current instance here.
       buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
 
-      List<Label> labelsOfTestTargets = new ArrayList<>();
+      List<Label> tests = new ArrayList<>();
       List<Rule> implicitTestSuiteRuleInstances = new ArrayList<>();
       Map<Label, InputFile> newInputFiles = new HashMap<>();
       for (final Rule rule : getTargets(Rule.class)) {
@@ -1519,32 +1524,19 @@ public class Package {
         // since clearly this information isn't available at Rule construction
         // time, as forward references are permitted.
         if (TargetUtils.isTestRule(rule) && !TargetUtils.hasManualTag(rule)) {
-          labelsOfTestTargets.add(rule.getLabel());
-        }
-
-        AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
-        if (rule.getRuleClass().equals("test_suite")
-            && attributes.get("tests", BuildType.LABEL_LIST).isEmpty()) {
-          implicitTestSuiteRuleInstances.add(rule);
+          // Update the testSuiteImplicitTests list shared
+          // by all test_suite.$implicit_test attributes.
+          tests.add(rule.getLabel());
         }
       }
+
+      Collections.sort(tests); // (for determinism)
+      this.testSuiteImplicitTests.addAll(tests);
 
       for (InputFile inputFile : newInputFiles.values()) {
         addInputFile(inputFile);
       }
 
-      if (!implicitTestSuiteRuleInstances.isEmpty()) {
-        Collections.sort(labelsOfTestTargets);
-        for (Rule rule : implicitTestSuiteRuleInstances) {
-          // Pretend the test_suite.$implicit_tests attribute
-          // (which is synthesized during package loading)
-          // is explicitly set so that it appears in query output.
-          rule.setAttributeValue(
-              rule.getRuleClassObject().getAttributeByName("$implicit_tests"),
-              labelsOfTestTargets,
-              /*explicit=*/ true);
-        }
-      }
       return this;
     }
 
