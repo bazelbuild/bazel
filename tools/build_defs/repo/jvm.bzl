@@ -106,9 +106,19 @@ def _jvm_import_external(repository_ctx):
         lines.append(extra)
         if not extra.endswith("\n"):
             lines.append("")
-    repository_ctx.download(urls, path, sha)
+    repository_ctx.download(
+        urls,
+        path,
+        sha,
+        canonical_id = repository_ctx.attr.canonical_id,
+    )
     if srcurls and _should_fetch_sources_in_current_env(repository_ctx):
-        repository_ctx.download(srcurls, srcpath, srcsha)
+        repository_ctx.download(
+            srcurls,
+            srcpath,
+            srcsha,
+            canonical_id = repository_ctx.attr.canonical_id,
+        )
     repository_ctx.file("BUILD", "\n".join(lines))
     repository_ctx.file("%s/BUILD" % extension, "\n".join([
         _HEADER,
@@ -223,6 +233,7 @@ jvm_import_external = repository_rule(
         "additional_rule_attrs": attr.string_dict(),
         "srcjar_urls": attr.string_list(),
         "srcjar_sha256": attr.string(),
+        "canonical_id": attr.string(),
         "deps": attr.string_list(),
         "runtime_deps": attr.string_list(),
         "testonly_": attr.bool(),
@@ -274,6 +285,7 @@ def jvm_maven_import_external(
     jvm_import_external(
         artifact_urls = jar_urls,
         srcjar_urls = srcjar_urls,
+        canonical_id = artifact,
         rule_name = rule_name,
         rule_load = rule_load,
         tags = tags,
