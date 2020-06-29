@@ -567,7 +567,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-JAVA_VERSIONS = ("11", "12")
+JAVA_VERSIONS = ("11",)
 
 [
     genrule(
@@ -744,9 +744,6 @@ filegroup(
         "@openjdk11_darwin_archive//:WORKSPACE",
         "@openjdk11_linux_archive//:WORKSPACE",
         "@openjdk11_windows_archive//:WORKSPACE",
-        "@openjdk12_darwin_archive//:WORKSPACE",
-        "@openjdk12_linux_archive//:WORKSPACE",
-        "@openjdk12_windows_archive//:WORKSPACE",
         "@openjdk_linux_aarch64_minimal//file",
         "@openjdk_linux_minimal//file",
         "@openjdk_macos_minimal//file",
@@ -756,9 +753,6 @@ filegroup(
         "@remote_java_tools_javac11_test_darwin//:WORKSPACE",
         "@remote_java_tools_javac11_test_linux//:WORKSPACE",
         "@remote_java_tools_javac11_test_windows//:WORKSPACE",
-        "@remote_java_tools_javac12_test_darwin//:WORKSPACE",
-        "@remote_java_tools_javac12_test_linux//:WORKSPACE",
-        "@remote_java_tools_javac12_test_windows//:WORKSPACE",
         "@remote_java_tools_linux_for_testing//:WORKSPACE",
         "@remote_java_tools_windows_for_testing//:WORKSPACE",
         "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",
