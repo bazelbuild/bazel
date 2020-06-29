@@ -144,15 +144,33 @@ static dispatch_queue_t JniDispatchQueue() {
 // Log used for all of our anomaly logging.
 // Logging can be traced using:
 // `log stream -level debug --predicate '(subsystem == "build.bazel")'`
+//
+// This may return NULL if `os_log_create` is not supported on this version of
+// macOS. Use `log_if_possible` to log when supported.
 static os_log_t JniOSLog() {
   static dispatch_once_t once_token;
-  static os_log_t log;
-  dispatch_once(&once_token, ^{
-    log = os_log_create("build.bazel", "jni");
-    CHECK(log);
-  });
+  static os_log_t log = NULL;
+  // On macOS < 10.12, os_log_create is not available. Since we target 10.10,
+  // this will be weakly linked and can be checked for availability at run
+  // time.
+  if (&os_log_create != NULL) {
+    dispatch_once(&once_token, ^{
+      log = os_log_create("build.bazel", "jni");
+      CHECK(log);
+    });
+  }
   return log;
 }
+
+// The macOS implementation asserts that `msg` be a string literal (not just a
+// const char*), so we cannot use a function.
+#define log_if_possible(msg)   \
+  do {                         \
+    os_log_t log = JniOSLog(); \
+    if (log != NULL) {         \
+      os_log_debug(log, msg);  \
+    }                          \
+  } while (0);
 
 // Protects all of the g_sleep_state_* statics.
 // value is "leaked" intentionally because std::mutex is not trivially
@@ -177,7 +195,7 @@ int portable_push_disable_sleep() {
         kIOPMAssertionTypeNoIdleSleep, kIOPMAssertionLevelOn, reasonForActivity,
         &g_sleep_state_assertion);
     assert(success == kIOReturnSuccess);
-    os_log_debug(JniOSLog(), "sleep assertion created");
+    log_if_possible("sleep assertion created");
   }
   g_sleep_state_stack += 1;
   return 0;
@@ -192,7 +210,7 @@ int portable_pop_disable_sleep() {
     IOReturn success = IOPMAssertionRelease(g_sleep_state_assertion);
     assert(success == kIOReturnSuccess);
     g_sleep_state_assertion = kIOPMNullAssertionID;
-    os_log_debug(JniOSLog(), "sleep assertion released");
+    log_if_possible("sleep assertion released");
   }
   return 0;
 }
@@ -216,16 +234,14 @@ static void SleepCallBack(void *refcon, io_service_t service,
       break;
 
     case kIOMessageSystemWillSleep:
-      os_log_debug(JniOSLog(),
-                   "suspend anomaly due to kIOMessageSystemWillSleep");
+      log_if_possible("suspend anomaly due to kIOMessageSystemWillSleep");
       ++state->suspend_count;
       // This needs to be acknowledged to allow sleep.
       IOAllowPowerChange(state->connect_port, (intptr_t)message_argument);
       break;
 
     case kIOMessageSystemWillNotSleep:
-      os_log_debug(
-          JniOSLog(),
+      log_if_possible(
           "suspend anomaly cancelled due to kIOMessageSystemWillNotSleep");
       --state->suspend_count;
       break;
@@ -284,7 +300,7 @@ int portable_suspend_count() {
         dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGCONT, 0, queue);
     CHECK(signal_source != NULL);
     dispatch_source_set_event_handler(signal_source, ^{
-      os_log_debug(JniOSLog(), "suspend anomaly due to SIGCONT");
+      log_if_possible("suspend anomaly due to SIGCONT");
       ++suspend_state.suspend_count;
     });
     dispatch_resume(signal_source);
@@ -307,7 +323,7 @@ int portable_memory_pressure_warning_count() {
       dispatch_source_memorypressure_flags_t pressureLevel =
           dispatch_source_get_data(source);
       if (pressureLevel == DISPATCH_MEMORYPRESSURE_WARN) {
-        os_log_debug(JniOSLog(), "memory pressure warning anomaly");
+        log_if_possible("memory pressure warning anomaly");
         ++warning_count;
       }
     });
@@ -331,7 +347,7 @@ int portable_memory_pressure_critical_count() {
       dispatch_source_memorypressure_flags_t pressureLevel =
           dispatch_source_get_data(source);
       if (pressureLevel == DISPATCH_MEMORYPRESSURE_CRITICAL) {
-        os_log_debug(JniOSLog(), "memory pressure critical anomaly");
+        log_if_possible("memory pressure critical anomaly");
         ++critical_count;
       }
     });
