@@ -97,7 +97,7 @@ final class ActionInputMapHelper {
         topLevelFilesets.put(key, getFilesets(env, (SpecialArtifact) key));
       }
     } else {
-      Preconditions.checkState(value instanceof FileArtifactValue);
+      Preconditions.checkArgument(value instanceof FileArtifactValue, "Unexpected value %s", value);
       inputMap.put(key, (FileArtifactValue) value, /*depOwner=*/ key);
     }
   }
