@@ -196,7 +196,7 @@ sh_test(
     exec_compatible_with = ["//:highcpu_machine"],
 )
 
-JAVA_VERSIONS = ("11")
+JAVA_VERSIONS = ("11",)
 
 [
     sh_test(
