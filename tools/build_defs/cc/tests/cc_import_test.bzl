@@ -55,10 +55,7 @@ def _cc_import_linkopts_test_impl(ctx):
     found = False
     for action in actions:
         if action.mnemonic == "CppLink":
-            for arg in action.argv:
-                if arg.find("-testlinkopt") != -1:
-                    found = True
-                    break
+            found = "-testlinkopt" in action.argv
     asserts.true(env, found, "'-testlinkopt' should be included in arguments passed to the linker")
 
     return analysistest.end(env)
@@ -71,11 +68,7 @@ def _cc_import_includes_test_impl(ctx):
     target_under_test = analysistest.target_under_test(env)
     includes = target_under_test[CcInfo].compilation_context.includes.to_list()
 
-    found = False
-    for include in includes:
-        if include == "testinclude":
-            found = True
-            break
+    found = "testinclude" in includes
 
     asserts.true(env, found, "'testinclude' should be present in the includes of the compilation context")
 
