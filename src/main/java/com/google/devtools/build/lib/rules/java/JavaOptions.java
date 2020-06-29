@@ -704,6 +704,11 @@ public class JavaOptions extends FragmentOptions {
     host.javaRuntimeVersion = hostJavaRuntimeVersion;
     host.javaLanguageVersion = hostJavaLanguageVersion;
 
+    host.bytecodeOptimizers = bytecodeOptimizers;
+    host.enforceProguardFileExtension = enforceProguardFileExtension;
+    host.extraProguardSpecs = extraProguardSpecs;
+    host.proguard = proguard;
+
     // Save host options for further use.
     host.hostJavaBase = hostJavaBase;
     host.hostJavacOpts = hostJavacOpts;
