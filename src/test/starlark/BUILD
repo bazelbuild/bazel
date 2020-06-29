@@ -1,4 +1,3 @@
-load("//tools/python:private/py_test_alias.bzl", "py_test_alias")
 load(
     "//tools/build_rules:test_rules.bzl",
     "file_test",
@@ -14,7 +13,7 @@ filegroup(
 )
 
 [
-    py_test_alias(
+    py_test(
         name = "starlark_test_" + test_file.replace(".", "_"),
         srcs = [
             "starlark_test.py",
@@ -26,6 +25,7 @@ filegroup(
             test_file,
         ],
         main = "starlark_test.py",
+        python_version = "PY3",
     )
     for test_file in glob(["testdata/*"])
 ]
