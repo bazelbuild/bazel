@@ -567,7 +567,7 @@ JAVA_TOOLS_DEPLOY_JARS = [
     "//conditions:default": [],
 })
 
-JAVA_VERSIONS = ("11", "12")
+JAVA_VERSIONS = ("11")
 
 [
     genrule(
@@ -756,9 +756,6 @@ filegroup(
         "@remote_java_tools_javac11_test_darwin//:WORKSPACE",
         "@remote_java_tools_javac11_test_linux//:WORKSPACE",
         "@remote_java_tools_javac11_test_windows//:WORKSPACE",
-        "@remote_java_tools_javac12_test_darwin//:WORKSPACE",
-        "@remote_java_tools_javac12_test_linux//:WORKSPACE",
-        "@remote_java_tools_javac12_test_windows//:WORKSPACE",
         "@remote_java_tools_linux_for_testing//:WORKSPACE",
         "@remote_java_tools_windows_for_testing//:WORKSPACE",
         "@remotejdk11_linux_aarch64_for_testing//:WORKSPACE",

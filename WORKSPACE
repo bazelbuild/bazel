@@ -701,14 +701,6 @@ http_archive(
     ],
 )
 
-http_archive(
-    name = "java_tools_langtools_javac12",
-    sha256 = "99b107105165a91df82cd7cf82a8efb930d803fb7de1663cf7f780142104cd14",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/jdk_langtools/langtools_jdk12.zip",
-    ],
-)
-
 # This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/android/android_remote_tools.WORKSPACE
 http_archive(
     name = "android_tools_for_testing",
@@ -858,37 +850,6 @@ http_archive(
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
-    name = "remote_java_tools_javac12_test_linux",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "3997ee9a57b095748f1c0d084839fab2fbc72504aeb7b37b1f71c31738d330e3",
-    urls = ["https://mirror.bazel.build/bazel_java_tools/releases/javac12/v3.0/java_tools_javac12_linux-v3.0.zip"],
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
-    name = "remote_java_tools_javac12_test_windows",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "cfad1718dad1fed12816748eed27ab30b9ea1268c8ce9940acf3b5b7d82d483d",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac12/v3.0/java_tools_javac12_windows-v3.0.zip",
-    ],
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
-    name = "remote_java_tools_javac12_test_darwin",
-    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
-    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
-    sha256 = "54df966e7583bafe659e39b4103a4ce934201d969de638d071ada07d8e0c1a3a",
-    urls = [
-        "https://mirror.bazel.build/bazel_java_tools/releases/javac12/v3.0/java_tools_javac12_darwin-v3.0.zip",
-    ],
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
     name = "openjdk11_linux_archive",
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
@@ -921,42 +882,6 @@ exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
     sha256 = "a9695617b8374bfa171f166951214965b1d1d08f43218db9a2a780b71c665c18",
     strip_prefix = "zulu11.37.17-ca-jdk11.0.6-win_x64",
     urls = ["https://mirror.bazel.build/openjdk/azul-zulu11.37.17-ca-jdk11.0.6/zulu11.37.17-ca-jdk11.0.6-win_x64.zip"],
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
-    name = "openjdk12_linux_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-    sha256 = "529c99841d69e11a85aea967ccfb9d0fd40b98c5b68dbe1d059002655e0a9c13",
-    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-linux_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-linux_x64.tar.gz"],
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
-    name = "openjdk12_darwin_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-    sha256 = "67ca9d285056132ebb19fa237a14affda52132142e1171fe1c20e18974b3b8a5",
-    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-macosx_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-macosx_x64.tar.gz"],
-)
-
-# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
-http_archive(
-    name = "openjdk12_windows_archive",
-    build_file_content = """
-java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
-exports_files(["WORKSPACE"], visibility = ["//visibility:public"])
-""",
-    sha256 = "cf28404c23c3aa1115363ba6e796c30580a768e1d7d6681a7d053e516008e00d",
-    strip_prefix = "zulu12.2.3-ca-jdk12.0.1-win_x64",
-    urls = ["https://mirror.bazel.build/openjdk/azul-zulu12.2.3-ca-jdk12.0.1/zulu12.2.3-ca-jdk12.0.1-win_x64.zip"],
 )
 
 load("@io_bazel_skydoc//:setup.bzl", "stardoc_repositories")
