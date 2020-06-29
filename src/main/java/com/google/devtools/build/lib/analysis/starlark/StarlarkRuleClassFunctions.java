@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
@@ -679,12 +678,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
                   + "Rules may be instantiated only in a BUILD thread.");
         }
         RuleFactory.createAndAddRule(
-            pkgContext,
-            ruleClass,
-            attributeValues,
-            thread.getSemantics(),
-            thread.getCallStack(),
-            new AttributeContainer(ruleClass));
+            pkgContext, ruleClass, attributeValues, thread.getSemantics(), thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException e) {
         throw new EvalException(null, e.getMessage());
       }

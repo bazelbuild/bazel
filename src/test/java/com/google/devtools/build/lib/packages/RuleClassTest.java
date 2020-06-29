@@ -800,7 +800,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         reporter,
         location,
         callstack,
-        new AttributeContainer(ruleClass),
         /*checkThirdPartyRulesHaveLicenses=*/ true);
   }
 

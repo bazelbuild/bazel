@@ -47,28 +47,14 @@ public class WorkspaceFactoryHelper {
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule rule =
-        RuleFactory.createRule(
-            pkg,
-            ruleClass,
-            attributeValues,
-            eventHandler,
-            semantics,
-            callstack,
-            new AttributeContainer(ruleClass));
+        RuleFactory.createRule(pkg, ruleClass, attributeValues, eventHandler, semantics, callstack);
     pkg.addEvents(eventHandler.getEvents());
     pkg.addPosts(eventHandler.getPosts());
     overwriteRule(pkg, rule);
     for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
       Label nameLabel = Label.parseAbsolute("//external:" + entry.getKey(), ImmutableMap.of());
-      addBindRule(
-          pkg,
-          bindRuleClass,
-          nameLabel,
-          entry.getValue(),
-          semantics,
-          callstack,
-          new AttributeContainer(bindRuleClass));
+      addBindRule(pkg, bindRuleClass, nameLabel, entry.getValue(), semantics, callstack);
     }
     return rule;
   }
@@ -138,8 +124,7 @@ public class WorkspaceFactoryHelper {
       Label virtual,
       Label actual,
       StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack,
-      AttributeContainer attributeContainer)
+      ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
 
     Map<String, Object> attributes = Maps.newHashMap();
@@ -153,8 +138,7 @@ public class WorkspaceFactoryHelper {
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
     Rule rule =
-        RuleFactory.createRule(
-            pkg, bindRuleClass, attributeValues, handler, semantics, callstack, attributeContainer);
+        RuleFactory.createRule(pkg, bindRuleClass, attributeValues, handler, semantics, callstack);
     overwriteRule(pkg, rule);
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }

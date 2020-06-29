@@ -1232,15 +1232,15 @@ public class Package {
      * Creates a new {@link Rule} {@code r} where {@code r.getPackage()} is the {@link Package}
      * associated with this {@link Builder}.
      *
-     * <p>The created {@link Rule} will have no attribute values, no output files, and therefore
-     * will be in an invalid state.
+     * <p>The created {@link Rule} will have no output files and therefore will be in an invalid
+     * state.
      */
     Rule createRule(
         Label label,
         RuleClass ruleClass,
         Location location,
         List<StarlarkThread.CallStackEntry> callstack,
-        AttributeContainer attributeContainer) {
+        AttributeContainer attributeContainer) { // required by WorkspaceFactory.setParent hack
       return new Rule(
           pkg, label, ruleClass, location, callStackBuilder.of(callstack), attributeContainer);
     }
@@ -1255,7 +1255,6 @@ public class Package {
         RuleClass ruleClass,
         Location location,
         List<StarlarkThread.CallStackEntry> callstack,
-        AttributeContainer attributeContainer,
         ImplicitOutputsFunction implicitOutputsFunction) {
       return new Rule(
           pkg,
@@ -1263,7 +1262,7 @@ public class Package {
           ruleClass,
           location,
           callStackBuilder.of(callstack),
-          attributeContainer,
+          new AttributeContainer(ruleClass),
           implicitOutputsFunction);
     }
 
@@ -1514,7 +1513,8 @@ public class Package {
         }
 
         // "test_suite" rules have the idiosyncratic semantics of implicitly
-        // depending on all tests in the package, iff tests=[] and suites=[].
+        // depending on all tests in the package, iff tests=[] and suites=[],
+        // which is about 20% of >1M test_suite instances in Google's corpus.
         // Note, we implement this here when the Package is fully constructed,
         // since clearly this information isn't available at Rule construction
         // time, as forward references are permitted.
@@ -1536,7 +1536,13 @@ public class Package {
       if (!implicitTestSuiteRuleInstances.isEmpty()) {
         Collections.sort(labelsOfTestTargets);
         for (Rule rule : implicitTestSuiteRuleInstances) {
-          rule.setAttributeValueByName("$implicit_tests", labelsOfTestTargets);
+          // Pretend the test_suite.$implicit_tests attribute
+          // (which is synthesized during package loading)
+          // is explicitly set so that it appears in query output.
+          rule.setAttributeValue(
+              rule.getRuleClassObject().getAttributeByName("$implicit_tests"),
+              labelsOfTestTargets,
+              /*explicit=*/ true);
         }
       }
       return this;

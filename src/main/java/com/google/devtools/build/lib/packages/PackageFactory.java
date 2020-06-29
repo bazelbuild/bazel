@@ -386,8 +386,7 @@ public final class PackageFactory {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
             thread.getSemantics(),
-            thread.getCallStack(),
-            new AttributeContainer(ruleClass));
+            thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(null, e.getMessage());
       }
