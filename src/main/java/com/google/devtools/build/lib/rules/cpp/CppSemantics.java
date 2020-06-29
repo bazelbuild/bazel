@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -35,8 +34,7 @@ public interface CppSemantics {
   void finalizeCompileActionBuilder(
       BuildConfiguration configuration,
       FeatureConfiguration featureConfiguration,
-      CppCompileActionBuilder actionBuilder,
-      RuleErrorConsumer ruleErrorConsumer);
+      CppCompileActionBuilder actionBuilder);
 
   /** Determines the applicable mode of headers checking for the passed in ruleContext. */
   HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);

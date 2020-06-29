@@ -90,8 +90,7 @@ public class CppLinkstampCompileHelper {
             .setShareable(true)
             .setShouldScanIncludes(false)
             .setActionName(CppActionNames.LINKSTAMP_COMPILE);
-    semantics.finalizeCompileActionBuilder(
-        configuration, featureConfiguration, builder, ruleErrorConsumer);
+    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
     return builder.buildOrThrowIllegalStateException();
   }
 
