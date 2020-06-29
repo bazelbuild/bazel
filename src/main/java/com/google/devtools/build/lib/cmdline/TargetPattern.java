@@ -27,7 +27,6 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CheckReturnValue;
@@ -174,7 +173,7 @@ public abstract class TargetPattern implements Serializable {
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      ThreadSafeBatchCallback<T, E> callback,
+      BatchCallback<T, E> callback,
       Class<E> exceptionClass) {
     try {
       eval(resolver, ignoredSubdirectories, excludedSubdirectories, callback, exceptionClass);
@@ -203,7 +202,7 @@ public abstract class TargetPattern implements Serializable {
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      ThreadSafeBatchCallback<T, E> callback,
+      BatchCallback<T, E> callback,
       Class<E> exceptionClass,
       ListeningExecutorService executor) {
     return evalAdaptedForAsync(
@@ -615,7 +614,7 @@ public abstract class TargetPattern implements Serializable {
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> ignoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        ThreadSafeBatchCallback<T, E> callback,
+        BatchCallback<T, E> callback,
         Class<E> exceptionClass,
         ListeningExecutorService executor) {
       return resolver.findTargetsBeneathDirectoryAsync(

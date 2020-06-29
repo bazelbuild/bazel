@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.TargetPatternResolver;
 import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
-import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -117,7 +116,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       Target target = recursivePackageProvider.getTarget(eventHandler, label);
       return policy.shouldRetain(target, true)
           ? ResolvedTargets.of(target)
-          : ResolvedTargets.<Target>empty();
+          : ResolvedTargets.empty();
     } catch (NoSuchThingException e) {
       throw new TargetParsingException(e.getMessage(), e);
     }
@@ -173,24 +172,6 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     return target.getTargetKind();
   }
 
-  /**
-   * A {@link ThreadSafeBatchCallback} that trivially delegates to a {@link BatchCallback} in a
-   * synchronized manner.
-   */
-  private static class SynchronizedBatchCallback<T, E extends Exception>
-      implements ThreadSafeBatchCallback<T, E> {
-    private final BatchCallback<T, E> delegate;
-
-    SynchronizedBatchCallback(BatchCallback<T, E> delegate) {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public synchronized void process(Iterable<T> partialResult) throws E, InterruptedException {
-      delegate.process(partialResult);
-    }
-  }
-
   @Override
   public <E extends Exception> void findTargetsBeneathDirectory(
       final RepositoryName repository,
@@ -204,17 +185,17 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       throws TargetParsingException, E, InterruptedException {
     try {
       findTargetsBeneathDirectoryAsyncImpl(
-          repository,
-          originalPattern,
-          directory,
-          rulesOnly,
-          blacklistedSubdirectories,
-          excludedSubdirectories,
-          new SynchronizedBatchCallback<Target, E>(callback),
-          MoreExecutors.newDirectExecutorService()).get();
+              repository,
+              originalPattern,
+              directory,
+              rulesOnly,
+              blacklistedSubdirectories,
+              excludedSubdirectories,
+              callback,
+              MoreExecutors.newDirectExecutorService())
+          .get();
     } catch (ExecutionException e) {
-      Throwable cause = e.getCause();
-      Throwables.propagateIfPossible(cause, TargetParsingException.class, exceptionClass);
+      Throwables.propagateIfPossible(e.getCause(), TargetParsingException.class, exceptionClass);
       throw new IllegalStateException(e.getCause());
     }
   }
@@ -227,7 +208,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       boolean rulesOnly,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      ThreadSafeBatchCallback<Target, E> callback,
+      BatchCallback<Target, E> callback,
       Class<E> exceptionClass,
       ListeningExecutorService executor) {
     return findTargetsBeneathDirectoryAsyncImpl(
@@ -248,13 +229,13 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       boolean rulesOnly,
       ImmutableSet<PathFragment> blacklistedSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      ThreadSafeBatchCallback<Target, E> callback,
+      BatchCallback<Target, E> callback,
       ListeningExecutorService executor) {
     FilteringPolicy actualPolicy =
         rulesOnly ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy) : policy;
 
     ArrayList<ListenableFuture<Void>> futures = new ArrayList<>();
-    ThreadSafeBatchCallback<PackageIdentifier, UnusedException> getPackageTargetsCallback =
+    BatchCallback<PackageIdentifier, UnusedException> getPackageTargetsCallback =
         (pkgIdBatch) ->
             futures.add(
                 executor.submit(
@@ -294,13 +275,13 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     private final Iterable<PackageIdentifier> packageIdentifiers;
     private final String originalPattern;
     private final FilteringPolicy actualPolicy;
-    private final ThreadSafeBatchCallback<Target, E> callback;
+    private final BatchCallback<Target, E> callback;
 
     GetTargetsInPackagesTask(
         Iterable<PackageIdentifier> packageIdentifiers,
         String originalPattern,
         FilteringPolicy actualPolicy,
-        ThreadSafeBatchCallback<Target, E> callback) {
+        BatchCallback<Target, E> callback) {
       this.packageIdentifiers = packageIdentifiers;
       this.originalPattern = originalPattern;
       this.actualPolicy = actualPolicy;

@@ -14,16 +14,15 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.devtools.build.lib.concurrent.BatchCallback;
-import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
 /**
  * Query callback to be called by a {@link QueryExpression} when it has part of the computation
- * result. Assuming the {@code QueryEnvironment} supports it, it would allow the caller
- * to stream the results.
+ * result. Assuming the {@code QueryEnvironment} supports it, it would allow the caller to stream
+ * the results.
  */
 @ThreadSafe
-public interface Callback<T> extends ThreadSafeBatchCallback<T, QueryException> {
+public interface Callback<T> extends BatchCallback<T, QueryException> {
 
   /**
    * According to the {@link BatchCallback} interface, repeated elements may be passed in here.

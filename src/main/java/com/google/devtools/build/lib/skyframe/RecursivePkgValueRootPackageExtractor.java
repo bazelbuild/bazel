@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
-import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -33,7 +33,7 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
 
   @Override
   public void streamPackagesFromRoots(
-      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
+      BatchCallback<PackageIdentifier, UnusedException> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,

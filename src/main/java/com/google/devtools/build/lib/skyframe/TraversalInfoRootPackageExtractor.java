@@ -23,9 +23,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
-import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -53,7 +53,7 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
 
   @Override
   public void streamPackagesFromRoots(
-      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
+      BatchCallback<PackageIdentifier, UnusedException> results,
       WalkableGraph graph,
       List<Root> roots,
       ExtendedEventHandler eventHandler,
@@ -97,14 +97,14 @@ public class TraversalInfoRootPackageExtractor implements RootPackageExtractor {
           TraversalInfo,
           PackageIdentifier,
           UnusedException,
-          ThreadSafeBatchCallback<PackageIdentifier, UnusedException>> {
+          BatchCallback<PackageIdentifier, UnusedException>> {
 
     private final ExtendedEventHandler eventHandler;
     private final RepositoryName repository;
     private final WalkableGraph graph;
 
     PackageCollectingParallelVisitor(
-        ThreadSafeBatchCallback<PackageIdentifier, UnusedException> callback,
+        BatchCallback<PackageIdentifier, UnusedException> callback,
         int visitBatchSize,
         int processResultsBatchSize,
         int minPendingTasks,
