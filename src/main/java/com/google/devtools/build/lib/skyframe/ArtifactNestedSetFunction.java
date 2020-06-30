@@ -211,10 +211,14 @@ final class ArtifactNestedSetFunction implements SkyFunction {
 
     if (!transitiveExceptionsBuilder.isEmpty()) {
       NestedSet<Pair<SkyKey, Exception>> transitiveExceptions = transitiveExceptionsBuilder.build();
+      // The NestedSet of exceptions is usually small, hence flattening won't be too costly.
+      Pair<SkyKey, Exception> firstSkyKeyAndException = transitiveExceptions.toList().get(0);
       throw new ArtifactNestedSetFunctionException(
           new ArtifactNestedSetEvalException(
-              transitiveExceptions.memoizedFlattenAndGetSize()
-                  + " error(s) encountered while evaluating NestedSet.",
+              "Error evaluating artifact nested set. First exception: "
+                  + firstSkyKeyAndException.getSecond()
+                  + ", SkyKey: "
+                  + firstSkyKeyAndException.getFirst(),
               transitiveExceptions),
           skyKey);
     }
