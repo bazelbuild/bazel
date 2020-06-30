@@ -92,8 +92,8 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_EXEC_GROUPS = "experimental_exec_groups";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
         "incompatible_applicable_licenses";
-    public static final String INCOMPATIBLE_DISABLE_DEPSET_INPUTS =
-        "incompatible_disable_depset_inputs";
+    public static final String INCOMPATIBLE_DISABLE_DEPSET_ITEMS =
+        "incompatible_disable_depset_items";
     public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
         "incompatible_no_rule_outputs_param";
     public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "incompatible_no_attr_license";
@@ -141,7 +141,7 @@ public abstract class StarlarkSemantics {
         return experimentalExecGroups();
       case FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES:
         return incompatibleApplicableLicenses();
-      case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS:
+      case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_ITEMS:
         return incompatibleDisableDepsetItems();
       case FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM:
         return incompatibleNoRuleOutputsParam();

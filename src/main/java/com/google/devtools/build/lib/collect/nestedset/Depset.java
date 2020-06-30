@@ -529,7 +529,7 @@ public final class Depset implements StarlarkValue {
             null,
             "parameter 'direct' must contain a list of elements, and may no longer accept a"
                 + " depset. The deprecated behavior may be temporarily re-enabled by setting"
-                + " --incompatible_disable_depset_inputs=false");
+                + " --incompatible_disable_depset_items=false");
       }
       result =
           fromDirectAndTransitive(

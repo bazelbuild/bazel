@@ -511,7 +511,7 @@ public final class DepsetTest {
         .testIfErrorContains(
             "in call to depset(), parameter 'items' is deprecated and will be removed soon. "
                 + "It may be temporarily re-enabled by setting "
-                + "--incompatible_disable_depset_inputs=false",
+                + "--incompatible_disable_depset_items=false",
             "depset(items=[0,1])");
   }
 }
