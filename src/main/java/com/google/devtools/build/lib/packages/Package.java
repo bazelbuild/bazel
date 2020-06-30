@@ -1503,16 +1503,24 @@ public class Package {
       buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
 
       List<Label> tests = new ArrayList<>();
-      List<Rule> implicitTestSuiteRuleInstances = new ArrayList<>();
-      Map<Label, InputFile> newInputFiles = new HashMap<>();
+      Map<String, InputFile> newInputFiles = new HashMap<>();
       for (final Rule rule : getTargets(Rule.class)) {
         if (discoverAssumedInputFiles) {
-          // All labels mentioned in a rule that refer to an unknown target in the
-          // current package are assumed to be InputFiles, so let's create them:
-          for (AttributeMap.DepEdge depEdge : AggregatingAttributeMapper.of(rule).visitLabels()) {
-            InputFile inputFile = createInputFileMaybe(depEdge.getLabel(), rule.getLocation());
-            if (inputFile != null && !newInputFiles.containsKey(depEdge.getLabel())) {
-              newInputFiles.put(depEdge.getLabel(), inputFile);
+          // All labels mentioned by a rule that refer to an unknown target in the
+          // current package are assumed to be InputFiles, so let's create them.
+          // (We add them to a temporary map while we are iterating over this.targets.)
+          for (AttributeMap.DepEdge edge : AggregatingAttributeMapper.of(rule).visitLabels()) {
+            Label label = edge.getLabel();
+            if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
+                && !targets.containsKey(label.getName())
+                && !newInputFiles.containsKey(label.getName())) {
+              Location loc = rule.getLocation();
+              newInputFiles.put(
+                  label.getName(),
+                  noImplicitFileExport
+                      ? new InputFile(
+                          pkg, label, loc, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
+                      : new InputFile(pkg, label, loc));
             }
           }
         }
@@ -1533,8 +1541,8 @@ public class Package {
       Collections.sort(tests); // (for determinism)
       this.testSuiteImplicitTests.addAll(tests);
 
-      for (InputFile inputFile : newInputFiles.values()) {
-        addInputFile(inputFile);
+      for (InputFile file : newInputFiles.values()) {
+        addInputFile(file);
       }
 
       return this;
@@ -1588,22 +1596,6 @@ public class Package {
       }
       beforeBuild(discoverAssumedInputFiles);
       return finishBuild();
-    }
-
-    /**
-     * If "label" refers to a non-existent target in the current package, create an InputFile
-     * target.
-     */
-    private InputFile createInputFileMaybe(Label label, Location location) {
-      if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
-        if (!targets.containsKey(label.getName())) {
-          return noImplicitFileExport
-              ? new InputFile(
-                  pkg, label, location, ConstantRuleVisibility.PRIVATE, License.NO_LICENSE)
-              : new InputFile(pkg, label, location);
-        }
-      }
-      return null;
     }
 
     private InputFile addInputFile(Label label, Location location) {
