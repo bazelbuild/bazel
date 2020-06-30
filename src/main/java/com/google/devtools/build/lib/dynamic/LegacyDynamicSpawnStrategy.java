@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.SandboxedSpawnStrategy;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
-import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
@@ -359,11 +358,6 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
         outDir.getChild(outBaseName + suffix), errDir.getChild(errBaseName + suffix));
   }
 
-  private static boolean supportsWorkers(Spawn spawn) {
-    return (!DISABLED_MNEMONICS_FOR_WORKERS.contains(spawn.getMnemonic())
-        && Spawns.supportsWorkers(spawn));
-  }
-
   private static SandboxedSpawnStrategy.StopConcurrentSpawns lockOutputFiles(
       SandboxedSpawnStrategy token, @Nullable AtomicReference<SpawnStrategy> outputWriteBarrier) {
     if (outputWriteBarrier == null) {
@@ -389,7 +383,12 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.LOCAL)) {
-      if (!strategy.toString().contains("worker") || supportsWorkers(spawn)) {
+
+      if (strategy.toString().contains("worker")
+          && DISABLED_MNEMONICS_FOR_WORKERS.contains(spawn.getMnemonic())) {
+        continue;
+      }
+      if (strategy.canExec(spawn, actionExecutionContext)) {
         return strategy.exec(
             spawn, actionExecutionContext, lockOutputFiles(strategy, outputWriteBarrier));
       }
@@ -409,8 +408,10 @@ public class LegacyDynamicSpawnStrategy implements SpawnStrategy {
     for (SandboxedSpawnStrategy strategy :
         dynamicStrategyRegistry.getDynamicSpawnActionContexts(
             spawn, DynamicStrategyRegistry.DynamicMode.REMOTE)) {
-      return strategy.exec(
-          spawn, actionExecutionContext, lockOutputFiles(strategy, outputWriteBarrier));
+      if (strategy.canExec(spawn, actionExecutionContext)) {
+        return strategy.exec(
+            spawn, actionExecutionContext, lockOutputFiles(strategy, outputWriteBarrier));
+      }
     }
     throw new RuntimeException(
         "executorCreated not yet called or no default dynamic_remote_strategy set");

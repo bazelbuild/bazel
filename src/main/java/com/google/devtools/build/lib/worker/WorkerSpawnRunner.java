@@ -143,7 +143,13 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   @Override
   public boolean canExec(Spawn spawn) {
-    return Spawns.supportsWorkers(spawn) || Spawns.supportsMultiplexWorkers(spawn);
+    if (!Spawns.supportsWorkers(spawn) && !Spawns.supportsMultiplexWorkers(spawn)) {
+      return false;
+    }
+    if (spawn.getToolFiles().isEmpty()) {
+      return false;
+    }
+    return true;
   }
 
   @Override
