@@ -236,29 +236,29 @@ final class Eval {
 
   private static TokenKind execDispatch(StarlarkThread.Frame fr, Statement st)
       throws EvalException, InterruptedException {
-    switch (st.kind()) {
-      case ASSIGNMENT:
-        execAssignment(fr, (AssignmentStatement) st);
-        return TokenKind.PASS;
-      case EXPRESSION:
-        eval(fr, ((ExpressionStatement) st).getExpression());
-        return TokenKind.PASS;
-      case FLOW:
-        return ((FlowStatement) st).getKind();
-      case FOR:
-        return execFor(fr, (ForStatement) st);
-      case DEF:
-        execDef(fr, (DefStatement) st);
-        return TokenKind.PASS;
-      case IF:
-        return execIf(fr, (IfStatement) st);
-      case LOAD:
-        execLoad(fr, (LoadStatement) st);
-        return TokenKind.PASS;
-      case RETURN:
-        return execReturn(fr, (ReturnStatement) st);
+    if (st.getClass() == AssignmentStatement.class) {
+      execAssignment(fr, (AssignmentStatement) st);
+      return TokenKind.PASS;
+    } else if (st.getClass() == ExpressionStatement.class) {
+      eval(fr, ((ExpressionStatement) st).getExpression());
+      return TokenKind.PASS;
+    } else if (st.getClass() == FlowStatement.class) {
+      return ((FlowStatement) st).getKind();
+    } else if (st.getClass() == ForStatement.class) {
+      return execFor(fr, (ForStatement) st);
+    } else if (st.getClass() == DefStatement.class) {
+      execDef(fr, (DefStatement) st);
+      return TokenKind.PASS;
+    } else if (st.getClass() == IfStatement.class) {
+      return execIf(fr, (IfStatement) st);
+    } else if (st.getClass() == LoadStatement.class) {
+      execLoad(fr, (LoadStatement) st);
+      return TokenKind.PASS;
+    } else if (st.getClass() == ReturnStatement.class) {
+      return execReturn(fr, (ReturnStatement) st);
+    } else {
+      throw new IllegalArgumentException("unexpected statement: " + st.kind());
     }
-    throw new IllegalArgumentException("unexpected statement: " + st.kind());
   }
 
   /**
@@ -422,35 +422,35 @@ final class Eval {
     // especially important in practice for deeply nested a+...+z
     // expressions; see b/153764542.
     try {
-      switch (expr.kind()) {
-        case BINARY_OPERATOR:
-          return evalBinaryOperator(fr, (BinaryOperatorExpression) expr);
-        case COMPREHENSION:
-          return evalComprehension(fr, (Comprehension) expr);
-        case CONDITIONAL:
-          return evalConditional(fr, (ConditionalExpression) expr);
-        case DICT_EXPR:
-          return evalDict(fr, (DictExpression) expr);
-        case DOT:
-          return evalDot(fr, (DotExpression) expr);
-        case CALL:
-          return evalCall(fr, (CallExpression) expr);
-        case IDENTIFIER:
-          return evalIdentifier(fr, (Identifier) expr);
-        case INDEX:
-          return evalIndex(fr, (IndexExpression) expr);
-        case INTEGER_LITERAL:
-          return ((IntegerLiteral) expr).getValue();
-        case LIST_EXPR:
-          return evalList(fr, (ListExpression) expr);
-        case SLICE:
-          return evalSlice(fr, (SliceExpression) expr);
-        case STRING_LITERAL:
-          return ((StringLiteral) expr).getValue();
-        case UNARY_OPERATOR:
-          return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
+      if (expr.getClass() == BinaryOperatorExpression.class) {
+        return evalBinaryOperator(fr, (BinaryOperatorExpression) expr);
+      } else if (expr.getClass() == Comprehension.class) {
+        return evalComprehension(fr, (Comprehension) expr);
+      } else if (expr.getClass() == ConditionalExpression.class) {
+        return evalConditional(fr, (ConditionalExpression) expr);
+      } else if (expr.getClass() == DictExpression.class) {
+        return evalDict(fr, (DictExpression) expr);
+      } else if (expr.getClass() == DotExpression.class) {
+        return evalDot(fr, (DotExpression) expr);
+      } else if (expr.getClass() == CallExpression.class) {
+        return evalCall(fr, (CallExpression) expr);
+      } else if (expr.getClass() == Identifier.class) {
+        return evalIdentifier(fr, (Identifier) expr);
+      } else if (expr.getClass() == IndexExpression.class) {
+        return evalIndex(fr, (IndexExpression) expr);
+      } else if (expr.getClass() == IntegerLiteral.class) {
+        return ((IntegerLiteral) expr).getValue();
+      } else if (expr.getClass() == ListExpression.class) {
+        return evalList(fr, (ListExpression) expr);
+      } else if (expr.getClass() == SliceExpression.class) {
+        return evalSlice(fr, (SliceExpression) expr);
+      } else if (expr.getClass() == StringLiteral.class) {
+        return ((StringLiteral) expr).getValue();
+      } else if (expr.getClass() == UnaryOperatorExpression.class) {
+        return evalUnaryOperator(fr, (UnaryOperatorExpression) expr);
+      } else {
+        throw new IllegalArgumentException("unexpected expression: " + expr.kind());
       }
-      throw new IllegalArgumentException("unexpected expression: " + expr.kind());
     } catch (EvalException ex) {
       throw maybeTransformException(expr, ex);
     }
