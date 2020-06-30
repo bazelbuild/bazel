@@ -14,24 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_java//java:defs.bzl", "java_import")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import", "distrib_jar_filegroup")
 
 licenses(["notice"])  # Apache v2
 
 exports_files(["grpc_1.26.0.patch"])
 
-package(
-    default_visibility = ["//visibility:public"],
-    features = [
-        "-layering_check",
-        "-parse_headers",
-    ],
-)
-
-load(
-    ":build_defs.bzl",
-    "grpc_cc_library",
-)
+package(default_visibility = ["//visibility:public"])
 
 filegroup(
     name = "srcs",
@@ -40,12 +29,7 @@ filegroup(
     ],
 )
 
-config_setting(
-    name = "windows",
-    values = {"cpu": "x64_windows"},
-)
-
-filegroup(
+distrib_jar_filegroup(
     name = "bootstrap-grpc-jars",
     srcs = [
         "grpc-api-1.26.0.jar",
@@ -57,9 +41,10 @@ filegroup(
         "grpc-protobuf-lite-1.26.0.jar",
         "grpc-stub-1.26.0.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "grpc-jar",
     jars = [":bootstrap-grpc-jars"],
     runtime_deps = [
@@ -70,6 +55,7 @@ java_import(
     deps = [
         "//third_party:guava",
     ],
+    enable_distributions = ["debian"],
 )
 
 cc_binary(
@@ -85,17 +71,26 @@ cc_binary(
 
 alias(
     name = "cpp_plugin",
-    actual = "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
+    actual = select({
+        "//src/conditions:debian_build": "@debian_bin_deps//:grpc-cpp-plugin",
+        "//conditions:default": "@com_github_grpc_grpc//src/compiler:grpc_cpp_plugin",
+    }),
 )
 
 alias(
     name = "grpc++_codegen_proto",
-    actual = "@com_github_grpc_grpc//:grpc++_codegen_proto",
+    actual = select({
+        "//src/conditions:debian_build": "@debian_cc_deps//:grpc++_unsecure",
+        "//conditions:default": "@com_github_grpc_grpc//:grpc++_codegen_proto",
+    }),
 )
 
 alias(
     name = "grpc++_unsecure",
-    actual = "@com_github_grpc_grpc//:grpc++_unsecure",
+    actual = select({
+        "//src/conditions:debian_build": "@debian_cc_deps//:grpc++_unsecure",
+        "//conditions:default": "@com_github_grpc_grpc//:grpc++_unsecure",
+    }),
 )
 
 filegroup(

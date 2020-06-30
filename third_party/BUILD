@@ -164,7 +164,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "api_client",
     jars = [
         "api_client/google-api-client-1.22.0.jar",
@@ -175,6 +175,7 @@ java_import(
     runtime_deps = [
         ":jackson2",
     ],
+    enable_distributions = ["debian"],
 )
 
 distrib_java_import(
@@ -212,7 +213,7 @@ java_import(
     runtime_deps = [":asm-tree"],
 )
 
-java_import(
+distrib_java_import(
     name = "auth",
     jars = [
         "auth/google-auth-library-oauth2-http-0.17.1.jar",
@@ -223,6 +224,7 @@ java_import(
         ":guava",
         "//third_party/aws-sdk-auth-lite",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_plugin(
@@ -241,9 +243,10 @@ java_plugin(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "auto_common",
     jars = ["auto/auto-common-0.10.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_library(
@@ -266,9 +269,10 @@ java_plugin(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "auto_service_lib",
     jars = ["auto/auto-service-1.0-rc4.jar"],
+    enable_distributions = ["debian"],
 )
 
 java_plugin(
@@ -298,21 +302,23 @@ java_library(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "auto_value_value",
     jars = [
         "auto/auto-value-1.6.3rc1.jar",
         "auto/auto-value-annotations-1.6.3rc1.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
 # For bootstrapping JavaBuilder
-filegroup(
+distrib_jar_filegroup(
     name = "auto_value-jars",
     srcs = [
         "auto/auto-value-1.6.3rc1.jar",
         "auto/auto-value-annotations-1.6.3rc1.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -323,10 +329,11 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "checker_framework_annotations",
     jars = ["checker_framework_annotations/checker-qual-3.2.0.jar"],
     srcjar = "checker_framework_annotations/checker-qual-3.2.0-sources.jar",
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -358,12 +365,22 @@ java_import(
     ],
 )
 
-java_import(
+distrib_java_import(
     name = "error_prone_annotations",
     jars = [
         "error_prone/error_prone_annotations-2.4.0.jar",
         "error_prone/error_prone_type_annotations-2.4.0.jar",
     ],
+    enable_distributions = ["debian"],
+)
+
+distrib_jar_filegroup(
+    name = "error_prone_annotations-jar",
+    srcs = [
+        "error_prone/error_prone_annotations-2.4.0.jar",
+        "error_prone/threeten-extra-1.5.0.jar",
+    ],
+    enable_distributions = ["debian"],
 )
 
 java_import(
@@ -426,8 +443,7 @@ java_import(
 filegroup(
     name = "bootstrap_guava_and_error_prone-jars",
     srcs = [
-        "error_prone/error_prone_annotations-2.4.0.jar",
-        "error_prone/threeten-extra-1.5.0.jar",
+        ":error_prone_annotations-jar",
         ":guava-jars",
         ":jcip_annotations-jars",
         ":jsr305-jars",
@@ -445,37 +461,41 @@ distrib_java_import(
     enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "flogger",
     jars = [
         "flogger/flogger-0.5.1.jar",
         "flogger/flogger-system-backend-0.5.1.jar",
         "flogger/google-extensions-0.5.1.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
-filegroup(
+distrib_jar_filegroup(
     name = "flogger-jars",
     srcs = [
         "flogger/flogger-0.5.1.jar",
         "flogger/flogger-system-backend-0.5.1.jar",
         "flogger/google-extensions-0.5.1.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "opencensus-api",
     jars = [
         "opencensus/opencensus-api-0.24.0.jar",
         "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "perfmark-api",
     jars = [
         "perfmark/perfmark-api-0.19.0.jar",
     ],
+    enable_distributions = ["debian"],
 )
 
 # For bootstrapping JavaBuilder
@@ -580,9 +600,10 @@ distrib_jar_filegroup(
     enable_distributions = ["debian"],
 )
 
-java_import(
+distrib_java_import(
     name = "java-diff-utils",
     jars = ["java-diff-utils/java-diff-utils-4.0.jar"],
+    enable_distributions = ["debian"],
 )
 
 # Testing
