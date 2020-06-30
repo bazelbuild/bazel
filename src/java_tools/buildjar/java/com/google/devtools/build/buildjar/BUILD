@@ -62,10 +62,7 @@ java_library(
 alias(
     name = "jarhelper",
     actual = "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
-    visibility = [
-        "//src/java_tools/buildjar:buildjar_package_group",
-        "//src/tools/android:__subpackages__",
-    ],
+    visibility = ["//visibility:public"],
 )
 
 # Bazel's BuildJar
