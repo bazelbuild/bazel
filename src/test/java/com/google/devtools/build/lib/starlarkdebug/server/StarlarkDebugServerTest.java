@@ -762,7 +762,7 @@ public class StarlarkDebugServerTest {
   }
 
   private static ParserInput createInput(String filename, String... lines) {
-    return ParserInput.create(Joiner.on("\n").join(lines), filename);
+    return ParserInput.fromString(Joiner.on("\n").join(lines), filename);
   }
 
   /**

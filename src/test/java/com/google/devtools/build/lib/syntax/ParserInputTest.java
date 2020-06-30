@@ -36,7 +36,7 @@ public class ParserInputTest {
     String content = joinLines("Line 1", "Line 2", "Line 3", "");
     Path file = scratch.file("/tmp/my/file.txt", content.getBytes(StandardCharsets.UTF_8));
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(file, file.getFileSize());
-    ParserInput input = ParserInput.create(bytes, file.toString());
+    ParserInput input = ParserInput.fromLatin1(bytes, file.toString());
     assertThat(new String(input.getContent())).isEqualTo(content);
     assertThat(input.getFile()).isEqualTo("/tmp/my/file.txt");
   }
@@ -45,7 +45,7 @@ public class ParserInputTest {
   public void testCreateFromString() {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
-    ParserInput input = ParserInput.create(content, pathName);
+    ParserInput input = ParserInput.fromString(content, pathName);
     assertThat(new String(input.getContent())).isEqualTo(content);
     assertThat(input.getFile()).isEqualTo(pathName);
   }
@@ -55,19 +55,19 @@ public class ParserInputTest {
     String content = "Content provided as a string.";
     String pathName = "/the/name/of/the/content.txt";
     char[] contentChars = content.toCharArray();
-    ParserInput input = ParserInput.create(contentChars, pathName);
+    ParserInput input = ParserInput.fromCharArray(contentChars, pathName);
     assertThat(new String(input.getContent())).isEqualTo(content);
     assertThat(input.getFile()).isEqualTo(pathName);
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsString() {
-    ParserInput.create("Content provided as string.", "/will/not/try/to/read");
+    ParserInput.fromString("Content provided as string.", "/will/not/try/to/read");
   }
 
   @Test
   public void testWillNotTryToReadInputFileIfContentProvidedAsChars() {
     char[] content = "Content provided as char array.".toCharArray();
-    ParserInput.create(content, "/will/not/try/to/read");
+    ParserInput.fromCharArray(content, "/will/not/try/to/read");
   }
 }

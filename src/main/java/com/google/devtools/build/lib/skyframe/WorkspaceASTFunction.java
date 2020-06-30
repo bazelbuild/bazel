@@ -98,7 +98,7 @@ public class WorkspaceASTFunction implements SkyFunction {
     try {
       StarlarkFile file =
           StarlarkFile.parse(
-              ParserInput.create(
+              ParserInput.fromString(
                   ruleClassProvider.getDefaultWorkspacePrefix(), "/DEFAULT.WORKSPACE"),
               options);
       if (!file.ok()) {
@@ -108,7 +108,7 @@ public class WorkspaceASTFunction implements SkyFunction {
       if (newWorkspaceFileContents != null) {
         file =
             StarlarkFile.parseWithPrelude(
-                ParserInput.create(
+                ParserInput.fromString(
                     newWorkspaceFileContents, resolvedFile.get().asPath().toString()),
                 file.getStatements(),
                 // The WORKSPACE.resolved file breaks through the usual privacy mechanism.
@@ -118,7 +118,9 @@ public class WorkspaceASTFunction implements SkyFunction {
             FileSystemUtils.readWithKnownFileSize(repoWorkspace, repoWorkspace.getFileSize());
         file =
             StarlarkFile.parseWithPrelude(
-                ParserInput.create(bytes, repoWorkspace.toString()), file.getStatements(), options);
+                ParserInput.fromLatin1(bytes, repoWorkspace.toString()),
+                file.getStatements(),
+                options);
         if (!file.ok()) {
           Event.replayEventsOn(env.getListener(), file.errors());
           throw resolvedValueError("Failed to parse WORKSPACE file");
@@ -150,7 +152,7 @@ public class WorkspaceASTFunction implements SkyFunction {
 
       file =
           StarlarkFile.parseWithPrelude(
-              ParserInput.create(suffix, "/DEFAULT.WORKSPACE.SUFFIX"),
+              ParserInput.fromString(suffix, "/DEFAULT.WORKSPACE.SUFFIX"),
               file.getStatements(),
               // The DEFAULT.WORKSPACE.SUFFIX file breaks through the usual privacy mechanism.
               options.toBuilder().allowLoadPrivateSymbols(true).build());

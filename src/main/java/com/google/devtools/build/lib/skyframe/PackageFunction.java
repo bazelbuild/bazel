@@ -1248,7 +1248,7 @@ public class PackageFunction implements SkyFunction {
           // If control flow reaches here, we're in territory that is deliberately unsound.
           // See the javadoc for ActionOnIOExceptionReadingBuildFile.
         }
-        input = ParserInput.create(buildFileBytes, inputFile.toString());
+        input = ParserInput.fromLatin1(buildFileBytes, inputFile.toString());
 
         // Options for processing BUILD files.
         FileOptions options =

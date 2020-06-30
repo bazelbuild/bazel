@@ -31,7 +31,7 @@ public class StarlarkFileTest {
    */
   private static StarlarkFile parseFile(String... lines) {
     String src = Joiner.on("\n").join(lines);
-    ParserInput input = ParserInput.create(src, "foo.star");
+    ParserInput input = ParserInput.fromString(src, "foo.star");
     return StarlarkFile.parse(input);
   }
 

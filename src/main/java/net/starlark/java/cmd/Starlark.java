@@ -92,7 +92,7 @@ class Starlark {
     // lines only until the parse is complete.
 
     while ((line = prompt()) != null) {
-      ParserInput input = ParserInput.create(line, "<stdin>");
+      ParserInput input = ParserInput.fromString(line, "<stdin>");
       try {
         Object result = EvalUtils.exec(input, options, module, thread);
         if (result != com.google.devtools.build.lib.syntax.Starlark.NONE) {
@@ -125,7 +125,7 @@ class Starlark {
   /** Execute a Starlark file. */
   private int execute(String filename, String content) {
     try {
-      EvalUtils.exec(ParserInput.create(content, filename), options, module, thread);
+      EvalUtils.exec(ParserInput.fromString(content, filename), options, module, thread);
       return 0;
     } catch (SyntaxError.Exception ex) {
       for (SyntaxError error : ex.errors()) {

@@ -302,7 +302,7 @@ final class ThreadHandler {
 
       // TODO(adonovan): opt: don't parse and resolve the expression every time we hit a breakpoint
       // (!).
-      ParserInput input = ParserInput.create(content, "<debug eval>");
+      ParserInput input = ParserInput.fromString(content, "<debug eval>");
       // TODO(adonovan): the module or call frame should be a parameter.
       Module module = Module.ofInnermostEnclosingStarlarkFunction(thread);
       return EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);

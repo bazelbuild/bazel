@@ -38,7 +38,7 @@ public class LexerTest {
    * error handler beforehand.
    */
   private Lexer createLexer(String input) {
-    ParserInput inputSource = ParserInput.create(input, "/some/path.txt");
+    ParserInput inputSource = ParserInput.fromString(input, "/some/path.txt");
     errors.clear();
     lastError = null;
     return new Lexer(inputSource, FileOptions.DEFAULT, errors);

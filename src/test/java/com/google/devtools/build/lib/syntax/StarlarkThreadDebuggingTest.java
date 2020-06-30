@@ -85,7 +85,7 @@ public class StarlarkThreadDebuggingTest {
 
     // Execute a small file that calls f.
     ParserInput input =
-        ParserInput.create(
+        ParserInput.fromString(
             "def g(a, y, z):\n" // shadows global a
                 + "  f()\n"
                 + "g(4, 5, 6)",

@@ -84,7 +84,7 @@ class WorkspaceFactoryTestHelper {
       byte[] bytes =
           FileSystemUtils.readWithKnownFileSize(workspaceFilePath, workspaceFilePath.getFileSize());
       factory.parseForTesting(
-          ParserInput.create(bytes, workspaceFilePath.toString()), eventHandler);
+          ParserInput.fromLatin1(bytes, workspaceFilePath.toString()), eventHandler);
     } catch (BuildFileContainsErrorsException e) {
       exception = e;
     } catch (IOException | InterruptedException e) {

@@ -688,10 +688,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     ImmutableList.Builder<Substitution> substitutionsBuilder = ImmutableList.builder();
     for (Map.Entry<String, String> substitution :
         Dict.cast(substitutionsUnchecked, String.class, String.class, "substitutions").entrySet()) {
-      // ParserInput.create(Path) uses Latin1 when reading BUILD files, which might
+      // Blaze calls ParserInput.fromLatin1 when reading BUILD files, which might
       // contain UTF-8 encoded symbols as part of template substitution.
       // As a quick fix, the substitution values are corrected before being passed on.
-      // In the long term, fixing ParserInput.create(Path) would be a better approach.
+      // In the long term, avoiding ParserInput.fromLatin would be a better approach.
       substitutionsBuilder.add(
           Substitution.of(substitution.getKey(), convertLatin1ToUtf8(substitution.getValue())));
     }

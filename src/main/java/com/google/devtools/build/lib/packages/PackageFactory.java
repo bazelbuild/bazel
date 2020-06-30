@@ -524,9 +524,7 @@ public final class PackageFactory {
     Globber globber =
         createLegacyGlobber(
             buildFile.asPath().getParentDirectory(), packageId, ImmutableSet.of(), locator);
-    ParserInput input =
-        ParserInput.create(
-            FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().toString());
+    ParserInput input = ParserInput.fromLatin1(buildFileBytes, buildFile.asPath().toString());
     // Options for processing BUILD files. (No prelude, so recordScope(true) is safe.)
     FileOptions options =
         FileOptions.builder()

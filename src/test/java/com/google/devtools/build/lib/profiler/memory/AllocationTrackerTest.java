@@ -191,7 +191,7 @@ public final class AllocationTrackerTest {
 
   private void exec(String... lines)
       throws SyntaxError.Exception, EvalException, InterruptedException {
-    ParserInput input = ParserInput.create(Joiner.on("\n").join(lines), "a.star");
+    ParserInput input = ParserInput.fromString(Joiner.on("\n").join(lines), "a.star");
     Module module =
         Module.withPredeclared(
             StarlarkSemantics.DEFAULT,

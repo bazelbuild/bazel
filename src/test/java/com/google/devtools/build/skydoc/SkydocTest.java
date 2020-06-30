@@ -62,7 +62,7 @@ public final class SkydocTest extends BuildViewTestCase {
               public ParserInput inputSource(String pathString) throws IOException {
                 Path path = fileSystem.getPath("/" + pathString);
                 byte[] bytes = FileSystemUtils.asByteSource(path).read();
-                return ParserInput.create(bytes, path.toString());
+                return ParserInput.fromLatin1(bytes, path.toString());
               }
 
               @Override

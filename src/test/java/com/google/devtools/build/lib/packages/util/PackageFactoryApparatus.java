@@ -146,7 +146,7 @@ public class PackageFactoryApparatus {
   // TODO(adonovan): inline this into all callers. It has nothing to do with PackageFactory.
   public StarlarkFile parse(Path buildFile) throws IOException {
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
-    ParserInput input = ParserInput.create(bytes, buildFile.toString());
+    ParserInput input = ParserInput.fromLatin1(bytes, buildFile.toString());
     StarlarkFile file = StarlarkFile.parse(input);
     Event.replayEventsOn(eventHandler, file.errors());
     return file;
