@@ -1,3 +1,20 @@
+## Release 3.3.1 (2020-06-30)
+
+```
+Baseline: c063b5caf776dee665497b64c5c17d4ed7e6750a
+
+Cherry picks:
+
+   + cb798a475eb54087e1e83f8aa1dc1c54550877b5:
+     Restore missing Building with Platforms docs.
+   + 9be97678b02bbd45d164c8458c8fd4f7791cb7aa:
+     Release 3.3.0 (2020-06-17)
+   + 3b0439e37247a480e08337a6314d06231bdbafd3:
+     Fix incorrect assumption of desugar persistent worker conditional
+```
+
+This release contains contributions from many people at Google, as well as .
+
 ## Release 3.3.0 (2020-06-17)
 
 ```
