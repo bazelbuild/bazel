@@ -29,11 +29,9 @@ import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.LauncherFileWriteAction.LaunchInfo;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -97,7 +95,7 @@ public class ShBinary implements RuleConfiguredTargetFactory {
         .addNativeDeclaredProvider(
             InstrumentedFilesCollector.collectTransitive(
                 ruleContext,
-                new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
+                ShCoverage.INSTRUMENTATION_SPEC,
                 /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .build();
   }
