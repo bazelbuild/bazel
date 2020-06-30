@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.SyntaxError;
 import com.google.devtools.build.lib.syntax.TokenKind;
+import com.google.devtools.build.lib.syntax.UltraFastCallSig;
 import com.google.perftools.profiles.ProfileProto.Function;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.perftools.profiles.ProfileProto.Sample;
@@ -207,7 +208,7 @@ public final class AllocationTrackerTest {
   // A fake Bazel rule. The allocation tracker reports retained memory broken down by rule class.
   private class MyRuleFunction implements RuleFunction, StarlarkCallable {
     @Override
-    public Object fastcall(StarlarkThread thread, Object[] parameters, Object[] named) {
+    public Object fastcall(StarlarkThread thread, Object[] parameters, Object[] named, UltraFastCallSig sig) {
       Object obj = new Object();
       live.add(obj); // ensure that obj outlives the test assertions
       tracker.sampleAllocation(1, "", obj, 128);

@@ -612,7 +612,7 @@ final class Eval {
     Location loc = call.getLparenLocation(); // (Location is prematerialized)
     fr.setLocation(loc);
     try {
-      return Starlark.fastcall(fr.thread, fn, positional, named);
+      return Starlark.fastcall(fr.thread, fn, positional, named, call.getUltraFastCallSig());
     } catch (EvalException ex) {
       throw ex.ensureLocation(loc);
     }

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.UltraFastCallSig;
 import javax.annotation.Nullable;
 
 /** Fake implementation of {@link StarlarkNativeModuleApi}. */
@@ -85,7 +86,7 @@ public class FakeStarlarkNativeModuleApi implements StarlarkNativeModuleApi, Cla
     // "native".
     return new StarlarkCallable() {
       @Override
-      public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+      public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, @Nullable UltraFastCallSig sig) {
         return Starlark.NONE;
       }
 

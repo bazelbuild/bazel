@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import javax.annotation.Nullable;
 import com.google.common.collect.Maps;
 import java.util.LinkedHashMap;
 
@@ -65,12 +66,12 @@ public interface StarlarkCallable extends StarlarkValue {
    *
    * <p>The default implementation forwards the call to {@code call}, after rejecting any duplicate
    * named arguments. Other implementations of this method should similarly reject duplicates.
-   *
    * @param thread the StarlarkThread in which the function is called
    * @param positional a list of positional arguments
    * @param named a list of named arguments, as alternating Strings/Objects. May contain dups.
+   * @param ultraFastCallSig
    */
-  default Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+  default Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, @Nullable UltraFastCallSig ultraFastCallSig)
       throws EvalException, InterruptedException {
     LinkedHashMap<String, Object> kwargs = Maps.newLinkedHashMapWithExpectedSize(named.length >> 1);
     for (int i = 0; i < named.length; i += 2) {

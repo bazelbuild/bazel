@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.starlark.java.spelling.SpellChecker;
 
@@ -121,7 +122,7 @@ public final class StarlarkFunction implements StarlarkCallable {
   }
 
   @Override
-  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, UltraFastCallSig ultraFastCallSig)
       throws EvalException, InterruptedException {
     if (thread.mutability().isFrozen()) {
       throw Starlark.errorf("Trying to call in frozen environment");
@@ -132,7 +133,7 @@ public final class StarlarkFunction implements StarlarkCallable {
 
     // Compute the effective parameter values
     // and update the corresponding variables.
-    Object[] arguments = processArgs(thread.mutability(), positional, named);
+    Object[] arguments = processArgs(thread.mutability(), positional, named, ultraFastCallSig);
 
     StarlarkThread.Frame fr = thread.frame(0);
     ImmutableList<String> names = rfn.parameterNames;
@@ -155,13 +156,131 @@ public final class StarlarkFunction implements StarlarkCallable {
     printer.append(">");
   }
 
+  private static final int MAPPING_USE_DEFAULT = -1;
+
+  private final ConcurrentHashMap<UltraFastCallSig, int[]> ultraFastCallCache = new ConcurrentHashMap<>();
+
+  /**
+   * Create a mapping for a given ultra-fast call signature.
+   *
+   * <p>This function returns {@code null} when either signature is incompatible with this function
+   * or when this signature would result if binding error (e. g. when position and named arguments
+   * map to the same function parameter).
+   *
+   * <p>The mapping is an array which maps remaining (after positional)
+   * function parameters to named argument indexes (or to {@link #MAPPING_USE_DEFAULT}).
+   */
+  @Nullable
+  private int[] createMapping(UltraFastCallSig sig) {
+    // TODO: We do not yet support mapping ultrafast to args and kwargs, but there are no reason not to
+    if (rfn.hasVarargs || rfn.hasKwargs) {
+      return null;
+    }
+
+    ImmutableList<String> names = rfn.parameterNames;
+
+    if (sig.numPositional > rfn.params.size() - rfn.numKeywordOnlyParams) {
+      // positional params span over keyword-only params
+      return null;
+    }
+
+    if (sig.numPositional + sig.named.size() > names.size()) {
+      // too many parameters
+      return null;
+    }
+
+    int[] mapping = new int[names.size() - sig.numPositional];
+    Arrays.fill(mapping, MAPPING_USE_DEFAULT);
+
+    for (int i = 0; i != sig.named.size(); ++i) {
+      String name = sig.named.get(i);
+      int paramIndex = names.indexOf(name);
+      if (paramIndex < 0) {
+        // unknown parameter
+        return null;
+      }
+      if (paramIndex < sig.numPositional) {
+        // parameter is already defined as positional
+        return null;
+      }
+      if (mapping[paramIndex - sig.numPositional] != MAPPING_USE_DEFAULT) {
+        // non-unique named parameters
+        return null;
+      }
+      mapping[paramIndex - sig.numPositional] = i;
+    }
+
+    for (int i = 0; i < mapping.length; i++) {
+      if (mapping[i] == MAPPING_USE_DEFAULT) {
+        if (getDefaultValue(sig.numPositional + i) == null) {
+          // unspecified parameter without default value
+          return null;
+        }
+      }
+    }
+
+    return mapping;
+  }
+
+  /** Try create arguments for ultra-fast call. Return {@code null} on error or when not possible or not reasonable. */
+  @Nullable
+  private Object[] tryUltraFastArgs(Object[] positional, Object[] named, @Nullable UltraFastCallSig sig) {
+    if (sig == null) {
+      return null;
+    }
+
+    // There is no benefit in caching positional-only calls
+    // but other callable implementations may use it, so `sig` is not `null`.
+    if (!sig.hasNamed) {
+      return null;
+    }
+
+    int[] mapping = ultraFastCallCache.get(sig);
+    if (mapping == null) {
+      mapping = createMapping(sig);
+      if (mapping == null) {
+        return null;
+      }
+
+      ultraFastCallCache.put(sig, mapping);
+    }
+
+    if (mapping.length == 0) {
+      // Positional-only arguments.
+      // Note `mapping` only contains mapping for named arguments.
+      return positional;
+    }
+
+    ImmutableList<String> names = rfn.parameterNames;
+
+    Object[] arguments = Arrays.copyOf(positional, names.size());
+    for (int i = 0; i < mapping.length; i++) {
+      int paramIndex = i + sig.numPositional;
+
+      int paramMapping = mapping[i];
+
+      if (paramMapping == MAPPING_USE_DEFAULT) {
+        int prefix = names.size() - defaultValues.size();
+        arguments[paramIndex] = defaultValues.get(paramIndex - prefix);
+      } else {
+        arguments[paramIndex] = named[paramMapping * 2 + 1];
+      }
+    }
+    return arguments;
+  }
+
   // Checks the positional and named arguments to ensure they match the signature. It returns a new
   // array of effective parameter values corresponding to the parameters of the signature. Newly
   // allocated values (e.g. a **kwargs dict) use the Mutability mu.
   //
   // If the function has optional parameters, their default values are supplied by getDefaultValue.
-  private Object[] processArgs(Mutability mu, Object[] positional, Object[] named)
+  private Object[] processArgs(Mutability mu, Object[] positional, Object[] named, @Nullable UltraFastCallSig ultraFastCallSig)
       throws EvalException {
+
+    Object[] ultraFastArgs = tryUltraFastArgs(positional, named, ultraFastCallSig);
+    if (ultraFastArgs != null) {
+      return ultraFastArgs;
+    }
 
     // This is the general schema of a function:
     //

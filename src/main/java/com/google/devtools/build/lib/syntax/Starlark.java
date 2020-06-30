@@ -398,7 +398,7 @@ public final class Starlark {
       named[i++] = e.getKey();
       named[i++] = e.getValue();
     }
-    return fastcall(thread, fn, args.toArray(), named);
+    return fastcall(thread, fn, args.toArray(), named, null);
   }
 
   /**
@@ -408,7 +408,7 @@ public final class Starlark {
    * <p>The caller must not subsequently modify or even inspect the two arrays.
    */
   public static Object fastcall(
-      StarlarkThread thread, Object fn, Object[] positional, Object[] named)
+      StarlarkThread thread, Object fn, Object[] positional, Object[] named, @Nullable UltraFastCallSig ultraFastCallSig)
       throws EvalException, InterruptedException {
     StarlarkCallable callable;
     if (fn instanceof StarlarkCallable) {
@@ -425,7 +425,7 @@ public final class Starlark {
 
     thread.push(callable);
     try {
-      return callable.fastcall(thread, positional, named);
+      return callable.fastcall(thread, positional, named, ultraFastCallSig);
     } finally {
       thread.pop();
     }

@@ -1951,7 +1951,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
           }
 
           @Override
-          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, UltraFastCallSig sig) {
             return "fromValues";
           }
         };

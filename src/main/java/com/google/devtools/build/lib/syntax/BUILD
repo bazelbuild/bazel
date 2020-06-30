@@ -67,9 +67,11 @@ java_library(
         "StringLiteral.java",
         "SyntaxError.java",
         "TokenKind.java",
+        "UltraFastCallSig.java",
         "UnaryOperatorExpression.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",

@@ -650,7 +650,7 @@ public final class EvalUtils {
     Tuple<Object> defaultValues = Tuple.empty();
     StarlarkFunction toplevel = new StarlarkFunction(file.resolved, defaultValues, module);
 
-    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
+    return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS, null);
   }
 
   /**
@@ -668,7 +668,7 @@ public final class EvalUtils {
     Tuple<Object> defaultValues = Tuple.empty();
     StarlarkFunction exprFunc = new StarlarkFunction(rfn, defaultValues, module);
 
-    return Starlark.fastcall(thread, exprFunc, NOARGS, NOARGS);
+    return Starlark.fastcall(thread, exprFunc, NOARGS, NOARGS, null);
   }
 
   private static final Object[] NOARGS = {};

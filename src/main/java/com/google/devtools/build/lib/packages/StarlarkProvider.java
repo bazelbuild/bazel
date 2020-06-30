@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
+import com.google.devtools.build.lib.syntax.UltraFastCallSig;
 import java.util.Collection;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -132,7 +133,7 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
   }
 
   @Override
-  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, @Nullable UltraFastCallSig ultraFastCallSig)
       throws EvalException, InterruptedException {
     if (positional.length > 0) {
       throw Starlark.errorf("%s: unexpected positional arguments", getName());

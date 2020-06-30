@@ -62,7 +62,7 @@ public class StarlarkThreadDebuggingTest {
           }
 
           @Override
-          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, UltraFastCallSig ultraFastCallSig) {
             result[0] = Debug.getCallStack(thread);
             result[1] = thread.getCallStack();
             return Starlark.NONE;

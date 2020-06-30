@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import javax.annotation.Nullable;
 
 /** Syntax node for a function call expression. */
 public final class CallExpression extends Expression {
@@ -26,6 +27,9 @@ public final class CallExpression extends Expression {
   private final int rparenOffset;
 
   private final int numPositionalArgs;
+
+  @Nullable
+  private final UltraFastCallSig ultraFastCallSig;
 
   CallExpression(
       FileLocations locs,
@@ -39,13 +43,21 @@ public final class CallExpression extends Expression {
     this.arguments = arguments;
     this.rparenOffset = rparenOffset;
 
+    ImmutableList.Builder<String> namesForUltraFast = ImmutableList.builder();
+
     int n = 0;
     for (Argument arg : arguments) {
       if (arg instanceof Argument.Positional) {
         n++;
+      } else if (arg instanceof Argument.Keyword && namesForUltraFast != null) {
+        namesForUltraFast.add(arg.getName());
+      } else {
+        namesForUltraFast = null;
       }
     }
     this.numPositionalArgs = n;
+
+    this.ultraFastCallSig = namesForUltraFast != null ? UltraFastCallSig.create(numPositionalArgs, namesForUltraFast.build()) : null;
   }
 
   /** Returns the function that is called. */
@@ -56,6 +68,11 @@ public final class CallExpression extends Expression {
   /** Returns the number of arguments of type {@code Argument.Positional}. */
   public int getNumPositionalArguments() {
     return numPositionalArgs;
+  }
+
+  @Nullable
+  public UltraFastCallSig getUltraFastCallSig() {
+    return ultraFastCallSig;
   }
 
   /** Returns the function arguments. */

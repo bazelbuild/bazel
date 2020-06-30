@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.StringLiteral;
+import com.google.devtools.build.lib.syntax.UltraFastCallSig;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeActionsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeBuildApiGlobals;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeConfigApi;
@@ -625,7 +626,7 @@ public class SkydocMain {
         "depset",
         new StarlarkCallable() {
           @Override
-          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, UltraFastCallSig sig) {
             // Accept any arguments, return empty Depset.
             return Depset.of(
                 Depset.ElementType.EMPTY, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -644,7 +645,7 @@ public class SkydocMain {
         "select",
         new StarlarkCallable() {
           @Override
-          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, UltraFastCallSig sig)
               throws EvalException {
             for (Map.Entry<?, ?> e : ((Dict<?, ?>) positional[0]).entrySet()) {
               return e.getValue();

@@ -62,7 +62,7 @@ public final class BuiltinCallable implements StarlarkCallable {
   }
 
   @Override
-  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+  public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, UltraFastCallSig ultraFastCallSig)
       throws EvalException, InterruptedException {
     MethodDescriptor desc =
         this.desc != null ? this.desc : getMethodDescriptor(thread.getSemantics());

@@ -104,7 +104,7 @@ public final class EvaluationTest {
     }
 
     @Override
-    public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+    public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, UltraFastCallSig sig) {
       callCount++;
       if (positional.length > 0 && Starlark.truth(positional[0])) {
         Thread.currentThread().interrupt();
@@ -191,7 +191,7 @@ public final class EvaluationTest {
           }
 
           @Override
-          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named) {
+          public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named, UltraFastCallSig sig) {
             int sum = 0;
             for (Object arg : positional) {
               sum += (Integer) arg;
