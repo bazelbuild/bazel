@@ -45,9 +45,12 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -308,6 +311,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
     assertThat(errorMessage).contains(expectedMessage);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
   }
 
   @Test
@@ -344,6 +349,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
     assertThat(errorMessage).contains(expectedMessage);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
   }
 
   /** Regression test for unexpected exception type from PackageValue. */
@@ -372,6 +379,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
     assertThat(errorMessage).contains(expectedMessage);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
   }
 
   @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
@@ -617,6 +626,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "error loading package 'test/starlark': "
             + "cannot load '//test/starlark:bad_extension.bzl': no such file";
     assertThat(errorInfo.getException()).hasMessageThat().isEqualTo(expectedMsg);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -646,6 +657,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "error loading package 'test/starlark': "
                 + "in /workspace/test/starlark/extension.bzl: "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -673,6 +686,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/starlark': Encountered error while reading extension "
                 + "file 'test/starlark/extension.bzl': Symlink cycle");
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -855,6 +870,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains("nope");
     assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
     assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
+    assertDetailedExitCode(errorInfo.getException(), PackageLoading.Code.BUILD_FILE_MISSING);
   }
 
   @Test
@@ -874,6 +890,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains("nope");
     assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
     assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -1307,6 +1325,15 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .rootCauseOfExceptionIs(pkgKey);
     // Thus showing that clean and incremental package loading have the same semantics in the
     // presence of a symlink cycle encountered during glob evaluation.
+  }
+
+  private static void assertDetailedExitCode(
+      Exception exception, PackageLoading.Code expectedPackageLoadingCode) {
+    assertThat(exception).isInstanceOf(DetailedException.class);
+    DetailedExitCode detailedExitCode = ((DetailedException) exception).getDetailedExitCode();
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(expectedPackageLoadingCode);
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {

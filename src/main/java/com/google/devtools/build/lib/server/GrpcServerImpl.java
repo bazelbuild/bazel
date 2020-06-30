@@ -679,7 +679,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                   "Command dispatch interrupted", Interrupted.Code.COMMAND_DISPATCH));
       commandId = ""; // The default value, the client will ignore it
     }
-
     RunResponse.Builder response = RunResponse.newBuilder()
         .setCookie(responseCookie)
         .setCommandId(commandId)

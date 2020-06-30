@@ -260,6 +260,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       // performance.
       System.getenv("TEST_TMPDIR") == null ? 200 : 5;
 
+  // The limit of how many times we will traverse through an exception chain when catching a
+  // target parsing exception.
+  private static final int EXCEPTION_TRAVERSAL_LIMIT = 10;
+
   // Cache of partially constructed Package instances, stored between reruns of the PackageFunction
   // (because of missing dependencies, within the same evaluate() run) to avoid loading the same
   // package twice (first time loading to find load()ed bzl files and declare Skyframe
@@ -2877,6 +2881,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     eventHandler.post(new LoadingPhaseStartedEvent(packageProgress));
     EvaluationResult<TargetPatternPhaseValue> evalResult =
         evaluate(ImmutableList.of(key), keepGoing, threadCount, eventHandler);
+    tryThrowTargetParsingException(eventHandler, targetPatterns, key, evalResult);
+    eventHandler.post(new TargetParsingPhaseTimeEvent(timer.stop().elapsed().toMillis()));
+    return evalResult.get(key);
+  }
+
+  private void tryThrowTargetParsingException(
+      ExtendedEventHandler eventHandler,
+      List<String> targetPatterns,
+      SkyKey key,
+      EvaluationResult<TargetPatternPhaseValue> evalResult)
+      throws TargetParsingException {
     if (evalResult.hasError()) {
       ErrorInfo errorInfo = evalResult.getError(key);
       TargetParsingException exc;
@@ -2887,24 +2902,47 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         // set as being in error.
         eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
       } else {
-        Exception e = Preconditions.checkNotNull(errorInfo.getException());
-
-        // Following SkyframeTargetPatternEvaluator, we convert any exception into a
-        // TargetParsingException.
-        exc =
-            (e instanceof TargetParsingException)
-                ? (TargetParsingException) e
-                : new TargetParsingException(e.getMessage(), e);
-        if (!(e instanceof TargetParsingException)) {
-          // If it's a TargetParsingException, then the TargetPatternPhaseFunction has already
-          // reported the error, so we don't need to report it again.
-          eventHandler.post(PatternExpandingError.failed(targetPatterns, exc.getMessage()));
-        }
+        exc = constructNoCycleTargetParsingException(eventHandler, targetPatterns, errorInfo);
       }
       throw exc;
     }
-    eventHandler.post(new TargetParsingPhaseTimeEvent(timer.stop().elapsed().toMillis()));
-    return evalResult.get(key);
+  }
+
+  private static TargetParsingException constructNoCycleTargetParsingException(
+      ExtendedEventHandler eventHandler, List<String> targetPatterns, ErrorInfo errorInfo) {
+    Exception e = Preconditions.checkNotNull(errorInfo.getException());
+    DetailedExitCode detailedExitCode = traverseExceptionChain(e);
+    if (!(e instanceof TargetParsingException)) {
+      // If it's a TargetParsingException, then the TargetPatternPhaseFunction has already
+      // reported the error, so we don't need to report it again.
+      eventHandler.post(PatternExpandingError.failed(targetPatterns, e.getMessage()));
+    }
+
+    // Following SkyframeTargetPatternEvaluator, we convert any exception into a
+    // TargetParsingException or DetailedTargetParsingException if DetailedExitCode is
+    // available.
+    return detailedExitCode != null
+        ? new DetailedTargetParsingException(
+            (e instanceof TargetParsingException) ? e.getCause() : e, detailedExitCode)
+        : (e instanceof TargetParsingException)
+            ? (TargetParsingException) e
+            : new TargetParsingException(e.getMessage(), e);
+  }
+
+  @Nullable
+  private static DetailedExitCode traverseExceptionChain(Exception topLevelException) {
+    Exception traverseException = topLevelException;
+    DetailedExitCode detailedExitCode = null;
+    int traverseLevel = 0;
+    while (traverseLevel < EXCEPTION_TRAVERSAL_LIMIT) {
+      traverseLevel++;
+      detailedExitCode = DetailedException.getDetailedExitCode(traverseException);
+      if (detailedExitCode != null || traverseException.getCause() == null) {
+        break;
+      }
+      traverseException = (Exception) traverseException.getCause();
+    }
+    return detailedExitCode;
   }
 
   public PrepareAnalysisPhaseValue prepareAnalysisPhase(

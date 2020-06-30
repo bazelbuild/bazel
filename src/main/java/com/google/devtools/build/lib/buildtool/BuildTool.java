@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
+import com.google.devtools.build.lib.skyframe.DetailedTargetParsingException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -313,6 +314,9 @@ public class BuildTool {
         reportExceptionError(environmentPendingAbruptExitException);
         result.setCatastrophe();
       }
+    } catch (DetailedTargetParsingException e) {
+      detailedExitCode = e.getDetailedExitCode();
+      reportExceptionError(e);
     } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
       reportExceptionError(e);

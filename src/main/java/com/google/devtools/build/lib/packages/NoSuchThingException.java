@@ -14,10 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
-/**
- * Exception indicating an attempt to access something which is not found or
- * does not exist.
- */
+/** Exception indicating an attempt to access something which is not found or does not exist. */
 public class NoSuchThingException extends Exception {
 
   public NoSuchThingException(String message) {
@@ -27,5 +24,4 @@ public class NoSuchThingException extends Exception {
   public NoSuchThingException(String message, Throwable cause) {
     super(message, cause);
   }
-
 }

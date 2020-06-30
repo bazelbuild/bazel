@@ -142,6 +142,7 @@ java_library(
         ":containing_package_lookup_value",
         ":coverage_report_value",
         ":cycle_utils",
+        ":detailed_exceptions",
         ":diff_awareness",
         ":diff_awareness_manager",
         ":directory_listing_function",
@@ -327,6 +328,19 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "detailed_exceptions",
+    srcs = [
+        "DetailedException.java",
+        "DetailedTargetParsingException.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//third_party:jsr305",
     ],
 )
 

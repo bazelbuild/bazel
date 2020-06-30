@@ -142,6 +142,7 @@ message FailureDetail {
     TestAction test_action = 172;
     Worker worker = 173;
     Analysis analysis = 174;
+    PackageLoading package_loading = 175;
   }
 
   reserved 102; // For internal use
@@ -1029,6 +1030,25 @@ message Analysis {
     //   resolved loading-phase codes.
     GENERIC_LOADING_PHASE_FAILURE = 2 [(metadata) = { exit_code: 1 }];
     NOT_ALL_TARGETS_ANALYZED = 3 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message PackageLoading {
+  enum Code {
+    PACKAGE_LOADING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    WORKSPACE_FILE_ERROR = 1 [(metadata) = { exit_code: 1 }];
+    MAX_COMPUTATION_STEPS_EXCEEDED = 2 [(metadata) = { exit_code: 1 }];
+    BUILD_FILE_MISSING = 3 [(metadata) = { exit_code: 1 }];
+    REPOSITORY_MISSING = 4 [(metadata) = { exit_code: 1 }];
+    PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR = 5
+        [(metadata) = { exit_code: 1 }];
+    TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR = 6 [(metadata) = { exit_code: 1 }];
+    INVALID_NAME = 7 [(metadata) = { exit_code: 1 }];
+    PRELUDE_FILE_READ_ERROR = 8 [(metadata) = { exit_code: 1 }];
+    EVAL_GLOBS_SYMLINK_ERROR = 9 [(metadata) = { exit_code: 1 }];
+    IMPORT_STARLARK_FILE_ERROR = 10 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
