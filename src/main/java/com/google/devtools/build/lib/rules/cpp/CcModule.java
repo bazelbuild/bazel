@@ -1777,7 +1777,14 @@ public abstract class CcModule
             .addAdditionalCompilationInputs(
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
-            .setPurpose(common.getPurpose(getSemantics()));
+            .setPurpose(common.getPurpose(getSemantics()))
+            .setHeadersCheckingMode(
+                getSemantics()
+                    .determineStarlarkHeadersCheckingMode(
+                        actions
+                            .getActionConstructionContext()
+                            .getConfiguration()
+                            .getFragment(CppConfiguration.class)));
     if (disallowNopicOutputs) {
       helper.setGenerateNoPicAction(false);
     }

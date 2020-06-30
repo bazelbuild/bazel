@@ -733,4 +733,8 @@ public final class CppConfiguration extends Fragment
   public boolean experimentalStarlarkCcImport() {
     return cppOptions.experimentalStarlarkCcImport;
   }
+
+  public boolean strictHeaderCheckingFromStarlark() {
+    return cppOptions.forceStrictHeaderCheckFromStarlark;
+  }
 }

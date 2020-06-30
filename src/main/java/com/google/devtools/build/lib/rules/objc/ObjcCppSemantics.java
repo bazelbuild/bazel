@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.rules.cpp.HeaderDiscovery.DotdPruningMode;
@@ -87,6 +88,14 @@ public class ObjcCppSemantics implements CppSemantics {
   @Override
   public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
     return HeadersCheckingMode.STRICT;
+  }
+
+  @Override
+  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(CppConfiguration cppConfig) {
+    if (cppConfig.strictHeaderCheckingFromStarlark()) {
+      return HeadersCheckingMode.STRICT;
+    }
+    return HeadersCheckingMode.LOOSE;
   }
 
   @Override

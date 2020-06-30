@@ -989,6 +989,18 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, the Starlark version of cc_import can be used.")
   public boolean experimentalStarlarkCcImport;
 
+  @Option(
+      name = "incompatible_force_strict_header_check_from_starlark",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If enabled, set strict header checking in the Starlark API")
+  public boolean forceStrictHeaderCheckFromStarlark;
+
   /** See {@link #targetLibcTopLabel} documentation. * */
   @Override
   public FragmentOptions getNormalized() {
