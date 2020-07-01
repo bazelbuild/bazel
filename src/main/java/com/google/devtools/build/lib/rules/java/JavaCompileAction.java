@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -40,6 +41,7 @@ import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -53,6 +55,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -65,6 +68,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.JavaCompile;
 import com.google.devtools.build.lib.server.FailureDetails.JavaCompile.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -509,6 +513,17 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   @Override
   public List<String> getArguments() throws CommandLineExpansionException {
     return ImmutableList.copyOf(getCommandLines().allArguments());
+  }
+
+  @Override
+  public Sequence<CommandLineArgsApi> getStarlarkArgs() throws EvalException {
+    ImmutableList.Builder<CommandLineArgsApi> result = ImmutableList.builder();
+    ImmutableSet<Artifact> directoryInputs =
+        getInputs().toList().stream().filter(Artifact::isDirectory).collect(toImmutableSet());
+    for (CommandLineAndParamFileInfo commandLine : getCommandLines().getCommandLines()) {
+      result.add(Args.forRegisteredAction(commandLine, directoryInputs));
+    }
+    return StarlarkList.immutableCopyOf(result.build());
   }
 
   @Override

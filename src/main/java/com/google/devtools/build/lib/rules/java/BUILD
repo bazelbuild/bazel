@@ -194,6 +194,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
+        "//src/main/java/com/google/devtools/build/lib/analysis:starlark/args",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/starlark_api_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/instrumented_files_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
