@@ -234,7 +234,7 @@ public class ComposingTransitionTest {
         ComposingTransition.of(
             new TransitionWithCustomFragments(ImmutableSet.of(CppOptions.class)),
             new TransitionWithCustomFragments(ImmutableSet.of(JavaOptions.class)));
-    assertThat(composed.requiresOptionFragments())
-        .containsExactly(CppOptions.class, JavaOptions.class);
+    assertThat(composed.requiresOptionFragments(BuildOptions.builder().build()))
+        .containsExactly("CppOptions", "JavaOptions");
   }
 }

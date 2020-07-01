@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
-import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -1839,7 +1838,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             .getTransitionFactory()
             .create(AttributeTransitionData.builder().attributes(attributes).build());
     assertThat(attrTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
-        .containsExactly(CppOptions.class);
+        .containsExactly("CppOptions");
   }
 
   @Test

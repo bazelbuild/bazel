@@ -1406,6 +1406,6 @@ public class StarlarkRuleTransitionProviderTest extends BuildViewTestCase {
     ConfigurationTransition ruleTransition =
         testTarget.getRuleClassObject().getTransitionFactory().create(testTarget);
     assertThat(ruleTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
-        .containsExactly(CppOptions.class);
+        .containsExactly("CppOptions");
   }
 }

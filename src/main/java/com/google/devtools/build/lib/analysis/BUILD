@@ -233,6 +233,7 @@ java_library(
         "config/ConvenienceSymlinks.java",
         "config/DependencyEvaluationException.java",
         "config/FragmentCollection.java",
+        "config/RequiredFragmentsUtil.java",
         "config/TransitionResolver.java",
         "configuredtargets/AbstractConfiguredTarget.java",
         "configuredtargets/EnvironmentGroupConfiguredTarget.java",
@@ -1793,6 +1794,7 @@ java_library(
         ":config/build_options",
         ":config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/util",
         "//third_party:guava",
     ],
 )
