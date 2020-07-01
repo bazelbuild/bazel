@@ -35,3 +35,10 @@ cc_library(
     deps = [":protobuf"],
     visibility = ["//visibility:public"],
 )
+
+# libgrpc++-dev
+cc_library(
+    name = "grpc++_unsecure",
+    linkopts = ["-lgrpc++_unsecure", "-lgrpc_unsecure", "-lgpr"],
+    visibility = ["//visibility:public"],
+)
