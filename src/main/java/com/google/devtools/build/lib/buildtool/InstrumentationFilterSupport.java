@@ -144,9 +144,9 @@ public final class InstrumentationFilterSupport {
 
       // Optimize away nested filters.
       iterator = packageFilters.iterator();
-      String prev = iterator.next();
+      PathFragment prev = PathFragment.create(iterator.next());
       while (iterator.hasNext()) {
-        String current = iterator.next();
+        PathFragment current = PathFragment.create(iterator.next());
         if (current.startsWith(prev)) {
           iterator.remove();
         } else {
