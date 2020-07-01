@@ -75,7 +75,7 @@ public class CcToolchainProviderHelper {
     CcToolchainFeatures toolchainFeatures;
     PathFragment toolsDirectory =
         getToolsDirectory(
-            ruleContext.getLabel(),
+            attributes.getCcToolchainLabel(),
             ruleContext
                 .getAnalysisEnvironment()
                 .getStarlarkSemantics()
