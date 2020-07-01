@@ -56,7 +56,7 @@ my_rule = rule(
         ),
     },
     attrs = {
-        "_compiler": attr.label(cfg = config.exec(“link”))
+        "_compiler": attr.label(cfg = config.exec("link"))
     },
 )
 ```
@@ -83,7 +83,7 @@ param of action generating methods, specifically [`ctx.actions.run`]
 def _impl(ctx):
   ctx.actions.run(
      inputs = [ctx.attr._some_tool, ctx.srcs[0]]
-     exec_group = "compile”,
+     exec_group = "compile",
      # ...
   )
 ```
@@ -95,10 +95,10 @@ can access the resolved toolchain of a target:
 ```python
 # foo.bzl
 def _impl(ctx):
-  foo_info = ctx.exec_groups[‘link’].toolchains[‘//foo:toolchain_type”].fooinfo
+  foo_info = ctx.exec_groups["link"].toolchains["//foo:toolchain_type"].fooinfo
   ctx.actions.run(
      inputs = [foo_info, ctx.srcs[0]]
-     exec_group = "link”,
+     exec_group = "link",
      # ...
   )
 ```
@@ -123,14 +123,14 @@ entry with an execution-group-augmented key, e.g.:
 my_rule(
     name = 'my_target',
     exec_properties = {
-        'mem': '12G',
-        'link.mem': '16G'
+        'mem': '12g',
+        'link.mem': '16g'
     }
     …
 )
 ```
 
 All actions with `exec_group = "link"` would see the exec properties
-dictionary as `{"memory": "16G"}`. As you see here, execution-group-level
+dictionary as `{"memory": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
 
