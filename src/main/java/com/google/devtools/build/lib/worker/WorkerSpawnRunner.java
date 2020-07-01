@@ -399,17 +399,21 @@ final class WorkerSpawnRunner implements SpawnRunner {
           // to stdout - it's probably a stack trace or some kind of error message that will help
           // the user figure out why the compiler is failing.
           String recordingStreamMessage = worker.getRecordingStreamMessage();
-          throw new UserExecException(
-              ErrorMessage.builder()
+          ErrorMessage.Builder builder = ErrorMessage.builder()
                   .message(
-                      "Worker process returned an unparseable WorkResponse!\n\n"
-                          + "Did you try to print something to stdout? Workers aren't allowed to "
-                          + "do this, as it breaks the protocol between Bazel and the worker "
-                          + "process.")
-                  .logText(recordingStreamMessage)
-                  .exception(e)
-                  .build()
-                  .toString());
+                          "Worker process returned an unparseable WorkResponse!\n\n"
+                                  + "Did you try to print something to stdout? Workers aren't allowed to "
+                                  + "do this, as it breaks the protocol between Bazel and the worker "
+                                  + "process.")
+                  .exception(e);
+          if (worker.logFile != null) {
+            builder.logFile(worker.logFile);
+          } else {
+            builder.logText(recordingStreamMessage);
+          }
+          throw new UserExecException(
+              builder.build().toString()
+          );
         }
       }
 
