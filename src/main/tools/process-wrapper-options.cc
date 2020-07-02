@@ -127,7 +127,8 @@ static void ParseCommandLine(const std::vector<char *> &args) {
       case 'W':
 #if defined(__linux__)
         unsigned long result;  // NOLINT(runtime/int) - interface requires long
-        if (prctl(PR_GET_CHILD_SUBREAPER, &result, 0, 0, 0) == EINVAL) {
+        if (prctl(PR_GET_CHILD_SUBREAPER, &result, 0, 0, 0) == -1 &&
+            errno == EINVAL) {
           fprintf(stderr,
                   "warning: The \"wait for subprocesses\" feature requires "
                   "Linux kernel version 3.4 or later.\n");
