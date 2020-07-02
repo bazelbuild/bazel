@@ -318,6 +318,7 @@ public class CommandEnvironment {
     return directories;
   }
 
+  @Nullable
   public PathPackageLocator getPackageLocator() {
     return packageLocator;
   }
