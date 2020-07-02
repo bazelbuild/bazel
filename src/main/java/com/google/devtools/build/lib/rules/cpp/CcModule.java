@@ -394,6 +394,8 @@ public abstract class CcModule
    * @param alwayslink boolean
    * @param dynamicLibraryPath String
    * @param interfaceLibraryPath String
+   * @param picObjectFiles Sequence<Artifact>
+   * @param nopicObjectFiles Sequence<Artifact>
    * @return
    * @throws EvalException
    * @throws InterruptedException
@@ -407,6 +409,8 @@ public abstract class CcModule
       Object picStaticLibraryObject,
       Object dynamicLibraryObject,
       Object interfaceLibraryObject,
+      Object picObjectFiles, // Sequence<Artifact> expected
+      Object nopicObjectFiles, // Sequence<Artifact> expected
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
@@ -422,6 +426,10 @@ public abstract class CcModule
     Artifact picStaticLibrary = nullIfNone(picStaticLibraryObject, Artifact.class);
     Artifact dynamicLibrary = nullIfNone(dynamicLibraryObject, Artifact.class);
     Artifact interfaceLibrary = nullIfNone(interfaceLibraryObject, Artifact.class);
+    ImmutableList<Artifact> picObjects =
+        nullIfNoneOrEmptySequence(picObjectFiles, Artifact.class, "PIC object files");
+    ImmutableList<Artifact> nopicObjects =
+        nullIfNoneOrEmptySequence(nopicObjectFiles, Artifact.class, "No-PIC object files");
 
     StringBuilder extensionErrorsBuilder = new StringBuilder();
     String extensionErrorMessage = "does not have any of the allowed extensions";
@@ -580,6 +588,8 @@ public abstract class CcModule
         .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
         .setInterfaceLibrary(interfaceLibrary)
         .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
+        .setObjectFiles(nopicObjects)
+        .setPicObjectFiles(picObjects)
         .setAlwayslink(alwayslink)
         .build();
   }
@@ -1536,6 +1546,13 @@ public abstract class CcModule
   @Nullable
   private static <T> T nullIfNone(Object object, Class<T> type) {
     return object != Starlark.NONE ? type.cast(object) : null;
+  }
+
+  @Nullable
+  private static <T> ImmutableList<T> nullIfNoneOrEmptySequence(
+      Object object, Class<T> type, String what) throws EvalException {
+    Sequence<T> seq = Sequence.noneableCast(object, type, what);
+    return seq.isEmpty() ? null : seq.getImmutableList();
   }
 
   @Override
