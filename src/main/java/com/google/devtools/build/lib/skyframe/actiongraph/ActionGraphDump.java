@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -243,8 +242,7 @@ public class ActionGraphDump {
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
     }
-    for (int i = 0; i < aspectValue.getNumActions(); i++) {
-      Action action = aspectValue.getAction(i);
+    for (ActionAnalysisMetadata action : aspectValue.getActions()) {
       dumpSingleAction(configuredTarget, action);
     }
   }
@@ -255,8 +253,7 @@ public class ActionGraphDump {
     if (!includeInActionGraph(configuredTarget.getLabel().toString())) {
       return;
     }
-    List<ActionAnalysisMetadata> actions = configuredTargetValue.getActions();
-    for (ActionAnalysisMetadata action : actions) {
+    for (ActionAnalysisMetadata action : configuredTargetValue.getActions()) {
       dumpSingleAction(configuredTarget, action);
     }
   }
