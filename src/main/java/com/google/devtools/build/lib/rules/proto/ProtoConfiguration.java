@@ -183,6 +183,19 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
                 + "the Starlark rules instead at https://github.com/bazelbuild/rules_proto")
     public boolean loadProtoRulesFromBzl;
 
+    @Option(
+        name = "incompatible_blacklisted_protos_requires_proto_info",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "If enabled, 'proto_lang_toolchain.blacklisted_protos' requires provider 'ProtoInfo'")
+    public boolean blacklistedProtosRequiresProtoInfo;
+
     @Override
     public FragmentOptions getHost() {
       Options host = (Options) super.getHost();
@@ -203,6 +216,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       host.experimentalJavaProtoAddAllowedPublicImports =
           experimentalJavaProtoAddAllowedPublicImports;
       host.generatedProtosInVirtualImports = generatedProtosInVirtualImports;
+      host.blacklistedProtosRequiresProtoInfo = blacklistedProtosRequiresProtoInfo;
       return host;
     }
   }
@@ -299,5 +313,9 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   public boolean loadProtoRulesFromBzl() {
     return options.loadProtoRulesFromBzl;
+  }
+
+  public boolean blacklistedProtosRequiresProtoInfo() {
+    return options.blacklistedProtosRequiresProtoInfo;
   }
 }

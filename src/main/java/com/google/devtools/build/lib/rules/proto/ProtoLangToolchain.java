@@ -42,7 +42,13 @@ public class ProtoLangToolchain implements RuleConfiguredTargetFactory {
     for (TransitiveInfoCollection protos :
         ruleContext.getPrerequisites("blacklisted_protos", TARGET)) {
       ProtoInfo protoInfo = protos.get(ProtoInfo.PROVIDER);
-      // TODO(cushon): it would be nice to make this mandatory and stop adding files to build too
+      if (protoInfo == null
+          && ruleContext
+              .getFragment(ProtoConfiguration.class)
+              .blacklistedProtosRequiresProtoInfo()) {
+        ruleContext.ruleError(
+            "'" + ruleContext.getLabel() + "' does not have mandatory provider 'ProtoInfo'.");
+      }
       if (protoInfo != null) {
         blacklistedProtos.addTransitive(protoInfo.getOriginalTransitiveProtoSources());
       } else {
