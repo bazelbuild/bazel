@@ -34,10 +34,12 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /** Options for remote execution and distributed caching. */
 public final class RemoteOptions extends OptionsBase {
@@ -432,6 +434,33 @@ public final class RemoteOptions extends OptionsBase {
           "If set to true, Bazel will compute the hash sum of all remote downloads and "
               + " discard the remotely cached values if they don't match the expected value.")
   public boolean remoteVerifyDownloads;
+
+  @Option(
+      name = "remote_keepalive_time",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Sets the time without read activity before sending a keepalive ping. Clients must "
+              + "receive permission from the service owner before enabling this option. Keepalives "
+              + "can increase the load on services and are commonly \"invisible\" making it hard "
+              + "to notice when they are causing excessive load. It is therefore suggested that "
+              + "this option is set to at least one minute.")
+  @Nullable
+  public Duration remoteKeepaliveTime;
+
+  @Option(
+      name = "remote_keepalive_timeout",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Sets the time waiting for read activity after sending a keepalive ping. If the time "
+              + "expires without any read activity on the connection, the connection is considered "
+              + "dead. This value should be at least multiple times the round-trip time to allow "
+              + "for lost packets.")
+  @Nullable
+  public Duration remoteKeepaliveTimeout;
 
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.

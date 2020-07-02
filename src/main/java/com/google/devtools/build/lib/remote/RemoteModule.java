@@ -268,7 +268,9 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions.remoteExecutor,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
-                interceptors.build());
+                interceptors.build(),
+                remoteOptions.remoteKeepaliveTime,
+                remoteOptions.remoteKeepaliveTimeout);
       } catch (IOException e) {
         handleInitFailure(env, e, Code.EXEC_CHANNEL_INIT_FAILURE);
         return;
@@ -294,7 +296,9 @@ public final class RemoteModule extends BlazeModule {
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
-                interceptors.build());
+                interceptors.build(),
+                remoteOptions.remoteKeepaliveTime,
+                remoteOptions.remoteKeepaliveTimeout);
       } catch (IOException e) {
         handleInitFailure(env, e, Code.CACHE_CHANNEL_INIT_FAILURE);
         return;
@@ -317,7 +321,9 @@ public final class RemoteModule extends BlazeModule {
                   remoteOptions.remoteDownloader,
                   remoteOptions.remoteProxy,
                   authAndTlsOptions,
-                  interceptors.build());
+                  interceptors.build(),
+                  remoteOptions.remoteKeepaliveTime,
+                  remoteOptions.remoteKeepaliveTimeout);
         } catch (IOException e) {
           handleInitFailure(env, e, Code.DOWNLOADER_CHANNEL_INIT_FAILURE);
           return;

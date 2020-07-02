@@ -40,6 +40,8 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -55,7 +57,9 @@ public final class GoogleAuthUtils {
       String target,
       String proxy,
       AuthAndTLSOptions options,
-      @Nullable List<ClientInterceptor> interceptors)
+      @Nullable List<ClientInterceptor> interceptors,
+      @Nullable Duration keepaliveTime,
+      @Nullable Duration keepaliveTimeout)
       throws IOException {
     Preconditions.checkNotNull(target);
     Preconditions.checkNotNull(options);
@@ -80,6 +84,12 @@ public final class GoogleAuthUtils {
         if (options.tlsAuthorityOverride != null) {
           builder.overrideAuthority(options.tlsAuthorityOverride);
         }
+      }
+      if (keepaliveTime != null) {
+        builder.keepAliveTime(keepaliveTime.toMillis(), TimeUnit.MILLISECONDS);
+      }
+      if (keepaliveTimeout != null) {
+        builder.keepAliveTimeout(keepaliveTimeout.toMillis(), TimeUnit.MILLISECONDS);
       }
       return builder.build();
     } catch (RuntimeException e) {

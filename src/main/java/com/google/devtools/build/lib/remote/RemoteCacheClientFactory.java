@@ -32,6 +32,7 @@ import io.grpc.ClientInterceptor;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -60,10 +61,12 @@ public final class RemoteCacheClientFactory {
       String target,
       String proxyUri,
       AuthAndTLSOptions authOptions,
-      @Nullable List<ClientInterceptor> interceptors)
+      @Nullable List<ClientInterceptor> interceptors,
+      @Nullable Duration keepaliveTime,
+      @Nullable Duration keepaliveTimeout)
       throws IOException {
     return new ReferenceCountedChannel(
-        GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors));
+        GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors, keepaliveTime, keepaliveTimeout));
   }
 
   public static RemoteCacheClient create(

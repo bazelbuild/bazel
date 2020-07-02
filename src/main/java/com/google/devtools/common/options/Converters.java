@@ -176,6 +176,9 @@ public final class Converters {
 
     @Override
     public Duration convert(String input) throws OptionsParsingException {
+      if (input == null || input.equals("null")) {
+        return null;
+      }
       // To be compatible with the previous parser, '0' doesn't need a unit.
       if ("0".equals(input)) {
         return Duration.ZERO;
