@@ -180,9 +180,14 @@ def _cc_import_impl(ctx):
         alwayslink = ctx.attr.alwayslink,
     )
 
+    linker_input = cc_common.create_linker_input(
+        libraries = depset([library_to_link]),
+        user_link_flags = depset(ctx.attr.linkopts),
+        owner = ctx.label,
+    )
+
     linking_context = cc_common.create_linking_context(
-        libraries_to_link = [library_to_link],
-        user_link_flags = ctx.attr.linkopts,
+        linker_inputs = depset([linker_input]),
     )
 
     (compilation_context, compilation_outputs) = cc_common.compile(

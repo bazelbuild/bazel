@@ -125,6 +125,22 @@ def _cc_import_no_objects_no_archive_action_test_impl(ctx):
 
 cc_import_no_objects_no_archive_action_test = analysistest.make(_cc_import_no_objects_no_archive_action_test_impl)
 
+def _cc_import_objects_present_in_linking_context_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    target_under_test = analysistest.target_under_test(env)
+    linker_inputs = target_under_test[CcInfo].linking_context.linker_inputs.to_list()
+    asserts.true(env, len(linker_inputs) == 1, "There should be 1 linker input")
+    libraries = linker_inputs[0].libraries
+    asserts.true(env, len(libraries) == 1, "There should be 1 library to link")
+    objects = libraries[0].objects
+    asserts.true(env, len(objects) == 1, "There should be 1 object file")
+    asserts.true(env, objects[0].basename == "object.o", "Object's name should be 'object.o'")
+
+    return analysistest.end(env)
+
+cc_import_objects_present_in_linking_context_test = analysistest.make(_cc_import_objects_present_in_linking_context_test_impl)
+
 def cc_import_test_suite(name):
     _tests = []
 
@@ -154,6 +170,13 @@ def cc_import_test_suite(name):
         test = cc_import_no_objects_no_archive_action_test,
         tests_list = _tests,
         static_library = "libmylib.a",
+        objects = ["object.o"],
+        target_is_binary = False,
+    )
+    _generic_cc_import_test_setup(
+        name = "objects_present_in_linking_context",
+        test = cc_import_objects_present_in_linking_context_test,
+        tests_list = _tests,
         objects = ["object.o"],
         target_is_binary = False,
     )
