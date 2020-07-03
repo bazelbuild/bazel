@@ -56,10 +56,7 @@ def _is_shared_library_extension_valid(shared_library_name):
 def _perform_error_checks(
         system_provided,
         shared_library_artifact,
-        interface_library_artifact,
-        static_library,
-        pic_objects,
-        objects):
+        interface_library_artifact):
     # If the shared library will be provided by system during runtime, users are not supposed to
     # specify shared_library.
     if system_provided and shared_library_artifact != None:
@@ -74,9 +71,6 @@ def _perform_error_checks(
     if (shared_library_artifact != None and
         not _is_shared_library_extension_valid(shared_library_artifact.basename)):
         fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib or .dll)")
-
-    if static_library != None and (bool(pic_objects) or bool(objects)):
-        fail("'static_library' and object files should not be provided at the same time")
 
 def _create_archive(
         ctx,
@@ -153,9 +147,6 @@ def _cc_import_impl(ctx):
         ctx.attr.system_provided,
         ctx.file.shared_library,
         ctx.file.interface_library,
-        ctx.file.static_library,
-        ctx.files.pic_objects,
-        ctx.files.objects,
     )
 
     (no_pic_static_library, pic_static_library) = _get_no_pic_and_pic_static_library(
@@ -164,13 +155,13 @@ def _cc_import_impl(ctx):
 
     output_file = None
 
-    if bool(ctx.files.pic_objects):
+    if bool(ctx.files.pic_objects) and not pic_static_library:
         lib_name = "lib" + ctx.label.name + ".pic.a"
         pic_static_library = ctx.actions.declare_file(lib_name)
         output_file = pic_static_library
         object_files = ctx.files.pic_objects
 
-    if bool(ctx.files.objects):
+    if bool(ctx.files.objects) and not no_pic_static_library:
         lib_name = "lib" + ctx.label.name + ".a"
         no_pic_static_library = ctx.actions.declare_file(lib_name)
         output_file = no_pic_static_library

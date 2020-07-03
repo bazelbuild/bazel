@@ -20,7 +20,13 @@ load("//tools/build_defs/cc:cc_import.bzl", "cc_import")
 TAGS = ["manual", "nobuilder"]
 TESTS_PATH = "tools/build_defs/cc/tests/"
 
-def _generic_cc_import_test_setup(name, test, tests_list, binary_kwargs = dict(), **kwargs):
+def _generic_cc_import_test_setup(
+        name,
+        test,
+        tests_list,
+        binary_kwargs = dict(),
+        target_is_binary = True,
+        **kwargs):
     test_target_name = "cc_import_" + name + "_test"
     cc_import_target_name = test_target_name + "_import"
     cc_binary_target_name = test_target_name + "_binary"
@@ -40,27 +46,33 @@ def _generic_cc_import_test_setup(name, test, tests_list, binary_kwargs = dict()
         **binary_kwargs
     )
 
+    target_under_test = ":" + cc_import_target_name
+    if target_is_binary:
+        target_under_test = ":" + cc_binary_target_name
+
     test(
         name = test_target_name,
-        target_under_test = ":" + cc_import_target_name,
+        target_under_test = target_under_test,
         tags = TAGS,
         size = "small",
     )
 
     tests_list.append(":" + test_target_name)
 
-def _assert_linkopts_present(env, *args):
+def _assert_linkopt_present(env, linkopt):
     target_under_test = analysistest.target_under_test(env)
     actions = analysistest.target_actions(env)
 
+    found = False
     for action in actions:
         if action.mnemonic == "CppLink":
-            for linkopt in args:
-                asserts.true(env, linkopt in action.argv, "'" + linkopt + "' should be included in arguments passed to the linker")
+            found = linkopt in action.argv
+
+    asserts.true(env, found, "'" + linkopt + "' should be included in arguments passed to the linker")
 
 def _cc_import_linkopts_test_impl(ctx):
     env = analysistest.begin(ctx)
-    _assert_linkopts_present(env, "-testlinkopt")
+    _assert_linkopt_present(env, "-testlinkopt")
     return analysistest.end(env)
 
 cc_import_linkopts_test = analysistest.make(_cc_import_linkopts_test_impl)
@@ -135,12 +147,15 @@ def cc_import_test_suite(name):
         test = cc_import_objects_archive_action_test,
         tests_list = _tests,
         pic_objects = ["mylib.pic.o"],
+        target_is_binary = False,
     )
     _generic_cc_import_test_setup(
         name = "no_objects_no_archive_action",
         test = cc_import_no_objects_no_archive_action_test,
         tests_list = _tests,
         static_library = "libmylib.a",
+        objects = ["object.o"],
+        target_is_binary = False,
     )
 
     native.test_suite(
