@@ -584,7 +584,7 @@ public class TestRunnerAction extends AbstractAction
       env.put("RUNFILES_MANIFEST_ONLY", "1");
     }
 
-    if (testConfiguration.isPersistentTestRunner()) {
+    if (testProperties.isPersistentTestRunner()) {
       // Let the test runner know it runs persistently within a worker.
       env.put("PERSISTENT_TEST_RUNNER", "true");
     }
