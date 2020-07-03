@@ -153,6 +153,7 @@ def CreateModuleSpace():
 def GetRepositoriesImports(module_space, import_all):
   if import_all:
     repo_dirs = [os.path.join(module_space, d) for d in os.listdir(module_space)]
+    repo_dirs.sort()
     return [d for d in repo_dirs if os.path.isdir(d)]
   return [os.path.join(module_space, '%workspace_name%')]
 
