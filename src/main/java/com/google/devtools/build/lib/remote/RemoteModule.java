@@ -141,7 +141,7 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions.remoteInstanceName,
             channel,
             credentials,
-            remoteOptions.remoteTimeout,
+            remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     ServerCapabilities capabilities = null;
     try {
@@ -354,7 +354,7 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions.remoteInstanceName,
             cacheChannel.retain(),
             credentials,
-            remoteOptions.remoteTimeout,
+            remoteOptions.remoteTimeout.getSeconds(),
             retrier);
 
     cacheChannel.release();

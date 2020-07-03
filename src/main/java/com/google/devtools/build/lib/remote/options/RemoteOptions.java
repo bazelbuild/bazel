@@ -34,6 +34,8 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
+
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -156,13 +158,16 @@ public final class RemoteOptions extends OptionsBase {
 
   @Option(
       name = "remote_timeout",
-      defaultValue = "60",
+      defaultValue = "60s",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
+      converter = Converters.DurationConverter.class,
       help =
-          "The maximum number of seconds to wait for remote execution and cache calls. For the "
-              + "REST cache, this is both the connect and the read timeout.")
-  public int remoteTimeout;
+          "The maximum amount of time to wait for remote execution and cache calls. For the "
+                  + "REST cache, this is both the connect and the read timeout. A valid timeout " +
+                  "is a natural number followed by a unit: Days (d), hours (h), minutes (m), " +
+                  "seconds (s), and milliseconds (ms).")
+  public Duration remoteTimeout;
 
   @Option(
       name = "remote_accept_cached",

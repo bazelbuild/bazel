@@ -108,7 +108,7 @@ public final class RemoteCacheClientFactory {
           return HttpCacheClient.create(
               new DomainSocketAddress(options.remoteProxy.replaceFirst("^unix:", "")),
               uri,
-              options.remoteTimeout,
+              Math.toIntExact(options.remoteTimeout.getSeconds()),
               options.remoteMaxConnections,
               options.remoteVerifyDownloads,
               ImmutableList.copyOf(options.remoteHeaders),
@@ -120,7 +120,7 @@ public final class RemoteCacheClientFactory {
       } else {
         return HttpCacheClient.create(
             uri,
-            options.remoteTimeout,
+            Math.toIntExact(options.remoteTimeout.getSeconds()),
             options.remoteMaxConnections,
             options.remoteVerifyDownloads,
             ImmutableList.copyOf(options.remoteHeaders),
