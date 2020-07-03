@@ -42,7 +42,7 @@ def _generic_cc_import_test_setup(name, test, tests_list, binary_kwargs = dict()
 
     test(
         name = test_target_name,
-        target_under_test = ":" + cc_binary_target_name,
+        target_under_test = ":" + cc_import_target_name,
         tags = TAGS,
         size = "small",
     )
@@ -79,35 +79,39 @@ def _cc_import_includes_test_impl(ctx):
 
 cc_import_includes_test = analysistest.make(_cc_import_includes_test_impl)
 
-def _cc_import_pic_object_files_start_end_lib_test_impl(ctx):
+def _cc_import_objects_archive_action_test_impl(ctx):
     env = analysistest.begin(ctx)
-    _assert_linkopts_present(env, "-Wl,--start-lib", TESTS_PATH + "mylib.pic.o", "-Wl,--end-lib")
+
+    target_under_test = analysistest.target_under_test(env)
+    actions = analysistest.target_actions(env)
+
+    found = False
+    for action in actions:
+        if action.mnemonic == "CppArchive":
+            found = True
+
+    asserts.true(env, found, "Archive creation action should be present if object files were given")
+
     return analysistest.end(env)
 
-cc_import_pic_object_files_start_end_lib_test = analysistest.make(_cc_import_pic_object_files_start_end_lib_test_impl)
+cc_import_objects_archive_action_test = analysistest.make(_cc_import_objects_archive_action_test_impl)
 
-def _cc_import_nopic_object_files_start_end_lib_test_impl(ctx):
+def _cc_import_no_objects_no_archive_action_test_impl(ctx):
     env = analysistest.begin(ctx)
-    _assert_linkopts_present(env, "-Wl,--start-lib", TESTS_PATH + "mylib.o", "-Wl,--end-lib")
+
+    target_under_test = analysistest.target_under_test(env)
+    actions = analysistest.target_actions(env)
+
+    not_found = True
+    for action in actions:
+        if action.mnemonic == "CppArchive":
+            not_found = False
+
+    asserts.true(env, not_found, "Archive creation action should not be present if no object files were given")
+
     return analysistest.end(env)
 
-cc_import_nopic_object_files_start_end_lib_test = analysistest.make(_cc_import_nopic_object_files_start_end_lib_test_impl)
-
-def _cc_import_pic_object_files_no_start_end_lib_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    _assert_linkopts_present(env, "bazel-out/k8-fastbuild/bin/" + TESTS_PATH + "libcc_import_pic_object_files_no_start_end_lib_test_import.pic.a")
-    return analysistest.end(env)
-
-cc_import_pic_object_files_no_start_end_lib_test = analysistest.make(_cc_import_pic_object_files_no_start_end_lib_test_impl)
-
-def _cc_import_nopic_object_files_no_start_end_lib_test_impl(ctx):
-    env = analysistest.begin(ctx)
-    for a in analysistest.target_actions(env):
-        print(a.argv)
-    _assert_linkopts_present(env, "bazel-out/k8-fastbuild/bin/" + TESTS_PATH + "libcc_import_nopic_object_files_no_start_end_lib_test_import.a")
-    return analysistest.end(env)
-
-cc_import_nopic_object_files_no_start_end_lib_test = analysistest.make(_cc_import_nopic_object_files_no_start_end_lib_test_impl)
+cc_import_no_objects_no_archive_action_test = analysistest.make(_cc_import_no_objects_no_archive_action_test_impl)
 
 def cc_import_test_suite(name):
     _tests = []
@@ -127,32 +131,16 @@ def cc_import_test_suite(name):
         includes = ["testinclude"],
     )
     _generic_cc_import_test_setup(
-        name = "pic_object_files_start_end_lib",
-        test = cc_import_pic_object_files_start_end_lib_test,
+        name = "objects_archive_action",
+        test = cc_import_objects_archive_action_test,
         tests_list = _tests,
-        pic_object_files = ["mylib.pic.o"],
-        binary_kwargs = {"features": ["supports_start_end_lib"]},
+        pic_objects = ["mylib.pic.o"],
     )
     _generic_cc_import_test_setup(
-        name = "nopic_object_files_start_end_lib",
-        test = cc_import_nopic_object_files_start_end_lib_test,
+        name = "no_objects_no_archive_action",
+        test = cc_import_no_objects_no_archive_action_test,
         tests_list = _tests,
-        nopic_object_files = ["mylib.o"],
-        binary_kwargs = {"features": ["supports_start_end_lib"]},
-    )
-    _generic_cc_import_test_setup(
-        name = "pic_object_files_no_start_end_lib",
-        test = cc_import_pic_object_files_no_start_end_lib_test,
-        tests_list = _tests,
-        pic_object_files = ["mylib.pic.o"],
-        binary_kwargs = {"features": ["-supports_start_end_lib"]},
-    )
-    _generic_cc_import_test_setup(
-        name = "nopic_object_files_no_start_end_lib",
-        test = cc_import_nopic_object_files_no_start_end_lib_test,
-        tests_list = _tests,
-        nopic_object_files = ["mylib.o"],
-        binary_kwargs = {"features": ["-supports_start_end_lib"]},
+        static_library = "libmylib.a",
     )
 
     native.test_suite(

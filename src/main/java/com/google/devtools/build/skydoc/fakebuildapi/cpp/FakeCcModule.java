@@ -166,7 +166,7 @@ public class FakeCcModule
       Object dynamicLibrary,
       Object interfaceLibrary,
       Object picObjectFiles,
-      Object nopicObjectFiles,
+      Object objectFiles,
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,

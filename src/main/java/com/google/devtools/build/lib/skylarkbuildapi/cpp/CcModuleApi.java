@@ -588,7 +588,7 @@ public interface CcModuleApi<
             defaultValue = "None",
             type = FileApi.class),
         @Param(
-            name = "pic_object_files",
+            name = "pic_objects",
             doc = "PIC object <code>files</code> to be linked.",
             positional = false,
             named = true,
@@ -597,8 +597,8 @@ public interface CcModuleApi<
             type = Sequence.class,
             generic1 = FileApi.class),
         @Param(
-            name = "nopic_object_files",
-            doc = "No-PIC object <code>file</code> to be linked.",
+            name = "objects",
+            doc = "No-PIC object <code>files</code> to be linked.",
             positional = false,
             named = true,
             noneable = true,

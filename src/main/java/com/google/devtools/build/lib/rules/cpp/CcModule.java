@@ -395,7 +395,7 @@ public abstract class CcModule
    * @param dynamicLibraryPath String
    * @param interfaceLibraryPath String
    * @param picObjectFiles Sequence<Artifact>
-   * @param nopicObjectFiles Sequence<Artifact>
+   * @param objectFiles Sequence<Artifact>
    * @return
    * @throws EvalException
    * @throws InterruptedException
@@ -410,7 +410,7 @@ public abstract class CcModule
       Object dynamicLibraryObject,
       Object interfaceLibraryObject,
       Object picObjectFiles, // Sequence<Artifact> expected
-      Object nopicObjectFiles, // Sequence<Artifact> expected
+      Object objectFiles, // Sequence<Artifact> expected
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
@@ -429,7 +429,7 @@ public abstract class CcModule
     ImmutableList<Artifact> picObjects =
         nullIfNoneOrEmptySequence(picObjectFiles, Artifact.class, "PIC object files");
     ImmutableList<Artifact> nopicObjects =
-        nullIfNoneOrEmptySequence(nopicObjectFiles, Artifact.class, "No-PIC object files");
+        nullIfNoneOrEmptySequence(objectFiles, Artifact.class, "No-PIC object files");
 
     StringBuilder extensionErrorsBuilder = new StringBuilder();
     String extensionErrorMessage = "does not have any of the allowed extensions";

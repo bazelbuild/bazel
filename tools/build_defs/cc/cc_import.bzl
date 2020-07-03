@@ -58,8 +58,8 @@ def _perform_error_checks(
         shared_library_artifact,
         interface_library_artifact,
         static_library,
-        pic_object_files,
-        nopic_object_files):
+        pic_objects,
+        objects):
     # If the shared library will be provided by system during runtime, users are not supposed to
     # specify shared_library.
     if system_provided and shared_library_artifact != None:
@@ -75,11 +75,8 @@ def _perform_error_checks(
         not _is_shared_library_extension_valid(shared_library_artifact.basename)):
         fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib or .dll)")
 
-    if static_library != None and (bool(pic_object_files) or bool(nopic_object_files)):
+    if static_library != None and (bool(pic_objects) or bool(objects)):
         fail("'static_library' and object files should not be provided at the same time")
-
-    if bool(pic_object_files) and bool(nopic_object_files):
-        fail("Only one type of object files (PIC or no-PIC) should be provided")
 
 def _create_archive(
         ctx,
@@ -127,6 +124,7 @@ def _create_archive(
         ),
         use_default_shell_env = True,
         outputs = [output_file],
+        mnemonic = "CppArchive",
     )
 
 def _get_no_pic_and_pic_static_library(static_library):
@@ -156,8 +154,8 @@ def _cc_import_impl(ctx):
         ctx.file.shared_library,
         ctx.file.interface_library,
         ctx.file.static_library,
-        ctx.files.pic_object_files,
-        ctx.files.nopic_object_files,
+        ctx.files.pic_objects,
+        ctx.files.objects,
     )
 
     (no_pic_static_library, pic_static_library) = _get_no_pic_and_pic_static_library(
@@ -166,17 +164,17 @@ def _cc_import_impl(ctx):
 
     output_file = None
 
-    if bool(ctx.files.pic_object_files):
+    if bool(ctx.files.pic_objects):
         lib_name = "lib" + ctx.label.name + ".pic.a"
         pic_static_library = ctx.actions.declare_file(lib_name)
         output_file = pic_static_library
-        object_files = ctx.files.pic_object_files
+        object_files = ctx.files.pic_objects
 
-    if bool(ctx.files.nopic_object_files):
+    if bool(ctx.files.objects):
         lib_name = "lib" + ctx.label.name + ".a"
         no_pic_static_library = ctx.actions.declare_file(lib_name)
         output_file = no_pic_static_library
-        object_files = ctx.files.nopic_object_files
+        object_files = ctx.files.objects
 
     library_to_link = cc_common.create_library_to_link(
         actions = ctx.actions,
@@ -186,8 +184,8 @@ def _cc_import_impl(ctx):
         pic_static_library = pic_static_library,
         dynamic_library = ctx.file.shared_library,
         interface_library = ctx.file.interface_library,
-        pic_object_files = ctx.files.pic_object_files,
-        nopic_object_files = ctx.files.nopic_object_files,
+        pic_objects = ctx.files.pic_objects,
+        objects = ctx.files.objects,
         alwayslink = ctx.attr.alwayslink,
     )
 
@@ -219,13 +217,11 @@ cc_import = rule(
         "interface_library": attr.label(
             allow_single_file = [".ifso", ".tbd", ".lib", ".so", ".dylib"],
         ),
-        "pic_object_files": attr.label_list(
+        "pic_objects": attr.label_list(
             allow_files = [".o", ".pic.o"],
-            default = [],
         ),
-        "nopic_object_files": attr.label_list(
+        "objects": attr.label_list(
             allow_files = [".o", ".nopic.o"],
-            default = [],
         ),
         "system_provided": attr.bool(default = False),
         "alwayslink": attr.bool(default = False),
