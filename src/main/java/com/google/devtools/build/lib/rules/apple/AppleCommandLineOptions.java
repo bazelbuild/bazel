@@ -366,7 +366,18 @@ public class AppleCommandLineOptions extends FragmentOptions {
             + "Values: 'none', 'embedded_markers', 'embedded'."
   )
   public AppleBitcodeMode appleBitcodeMode;
-  
+
+  @Option(
+    name = "watchos_force_bitcode",
+    defaultValue = "false",
+    documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+    effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
+    help =
+        "If true, use 'embedded' bitcode mode for watchOS binaries' compilation steps."
+            + "Enable this option if you only need bitcode for watchOS binaries but not "
+            + "for the iOS companion app, e.g. for App Store submission.")
+  public boolean watchosForceBitcode;
+
   /** Returns whether the minimum OS version is explicitly set for the current platform. */
   public DottedVersion getMinimumOsVersion() {
     DottedVersion.Option option;

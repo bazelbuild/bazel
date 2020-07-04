@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -217,6 +218,10 @@ public class MultiArchSplitTransitionProvider
       List<String> cpus;
       DottedVersion actualMinimumOsVersion;
       ConfigurationDistinguisher configurationDistinguisher;
+      boolean watchosForceBitcode =
+          buildOptions.get(AppleCommandLineOptions.class).watchosForceBitcode;
+      AppleBitcodeMode appleBitcodeMode =
+          buildOptions.get(AppleCommandLineOptions.class).appleBitcodeMode;
       switch (platformType) {
         case IOS:
           configurationDistinguisher = ConfigurationDistinguisher.APPLEBIN_IOS;
@@ -310,6 +315,9 @@ public class MultiArchSplitTransitionProvider
             break;
           case WATCHOS:
             appleCommandLineOptions.watchosMinimumOs = DottedVersion.option(actualMinimumOsVersion);
+            if (watchosForceBitcode) {
+              appleCommandLineOptions.appleBitcodeMode = AppleBitcodeMode.EMBEDDED;
+            }
             break;
           case TVOS:
             appleCommandLineOptions.tvosMinimumOs = DottedVersion.option(actualMinimumOsVersion);
