@@ -116,19 +116,6 @@ def _cxx_inc_convert(path):
         path = path[:-_OSX_FRAMEWORK_SUFFIX_LEN].strip()
     return path
 
-def get_escaped_cxx_inc_directories(repository_ctx, cc, lang_flag, additional_flags = []):
-    """Deprecated. Compute the list of %-escaped C++ include directories.
-
-    This function is no longer needed by cc_configure and is left there only for backwards
-    compatibility reasons.
-    """
-    return [escape_string(s) for s in _get_cxx_include_directories(
-        repository_ctx,
-        cc,
-        lang_flag,
-        additional_flags,
-    )]
-
 def _get_cxx_include_directories(repository_ctx, cc, lang_flag, additional_flags = []):
     """Compute the list of C++ include directories."""
     result = repository_ctx.execute([cc, "-E", lang_flag, "-", "-v"] + additional_flags)
