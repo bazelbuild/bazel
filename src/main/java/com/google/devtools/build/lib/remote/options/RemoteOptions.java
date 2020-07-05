@@ -173,7 +173,7 @@ public final class RemoteOptions extends OptionsBase {
   public Duration remoteTimeout;
 
   public static class RemoteTimeoutConverter implements Converter<Duration> {
-    private final Pattern unitlessRegex = Pattern.compile("^([0-9]+)+$");
+    private final Pattern unitlessRegex = Pattern.compile("^[0-9]+$");
 
     @Override
     public Duration convert(String input) throws OptionsParsingException {
