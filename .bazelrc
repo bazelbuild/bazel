@@ -4,7 +4,7 @@ common --enable_platform_specific_config
 build:remote_shared --define=EXECUTOR=remote
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
 build:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.com
-build:remote_shared --remote_timeout=600s
+build:remote_shared --remote_timeout=600
 build:remote_shared --google_default_credentials
 build:remote_shared --jobs=100
 build:remote_shared --action_env=PATH=/bin:/usr/bin:/usr/local/bin

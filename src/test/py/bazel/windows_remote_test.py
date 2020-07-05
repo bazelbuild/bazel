@@ -33,7 +33,7 @@ class WindowsRemoteTest(test_base.TestBase):
             '--define=EXECUTOR=remote',
             '--remote_executor=grpc://localhost:' + str(self._worker_port),
             '--remote_cache=grpc://localhost:' + str(self._worker_port),
-            '--remote_timeout=3600s',
+            '--remote_timeout=3600',
             '--auth_enabled=false',
             '--remote_accept_cached=false',
         ],
