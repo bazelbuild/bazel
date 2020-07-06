@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,6 +34,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
 import javax.annotation.Nullable;
 
@@ -88,6 +91,38 @@ public final class Actions {
     return true;
   }
 
+  /**
+   * Checks whether provided actions are equivalent and issues a warning in case we may be overly
+   * permissive in the result. Returned result is the same as for {@link
+   * #canBeShared(ActionKeyContext, ActionAnalysisMetadata, ActionAnalysisMetadata)}.
+   *
+   * <p>TODO(b/160181927): Remove the warning once we move shared actions detection to execution
+   * phase.
+   */
+  static boolean canBeSharedWarnForPotentialFalsePositives(
+      EventHandler eventHandler,
+      ActionKeyContext actionKeyContext,
+      ActionAnalysisMetadata actionA,
+      ActionAnalysisMetadata actionB) {
+    boolean canBeShared = canBeShared(actionKeyContext, actionA, actionB);
+    if (canBeShared) {
+      Optional<Artifact> treeArtifactInput =
+          actionA.getMandatoryInputs().toList().stream()
+              .filter(Artifact::isTreeArtifact)
+              .findFirst();
+      treeArtifactInput.ifPresent(
+          treeArtifact ->
+              eventHandler.handle(
+                  Event.warn(
+                      String.format(
+                          "Shared action: %s has a tree artifact input: %s -- shared actions"
+                              + " detection is overly permissive in this case and may allow"
+                              + " sharing of different actions",
+                          actionA, treeArtifact))));
+    }
+    return canBeShared;
+  }
+
   private static boolean artifactsEqualWithoutOwner(
       Iterable<Artifact> iterable1, Iterable<Artifact> iterable2) {
     if (iterable1 instanceof Collection && iterable2 instanceof Collection) {
@@ -124,11 +159,13 @@ public final class Actions {
    * @throws ActionConflictException iff there are two actions generate the same output
    */
   public static GeneratingActions assignOwnersAndFindAndThrowActionConflict(
+      EventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
       ActionLookupValue.ActionLookupKey actionLookupKey)
       throws ActionConflictException {
     return Actions.assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
+        eventHandler,
         actionKeyContext,
         actions,
         actionLookupKey,
@@ -150,16 +187,23 @@ public final class Actions {
    *     output
    */
   public static GeneratingActions assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+      EventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
       ActionLookupKey actionLookupKey,
       @Nullable Collection<OutputFile> outputFiles)
       throws ActionConflictException {
     return Actions.assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
-        actionKeyContext, actions, actionLookupKey, /*allowSharedAction=*/ true, outputFiles);
+        eventHandler,
+        actionKeyContext,
+        actions,
+        actionLookupKey,
+        /*allowSharedAction=*/ true,
+        outputFiles);
   }
 
   private static void verifyGeneratingActionKeys(
+      EventHandler eventHandler,
       Artifact.DerivedArtifact output,
       ActionLookupData otherKey,
       boolean allowSharedAction,
@@ -177,8 +221,11 @@ public final class Actions {
     int otherIndex = otherKey.getActionIndex();
     if (actionIndex != otherIndex
         && (!allowSharedAction
-            || !Actions.canBeShared(
-                actionKeyContext, actions.get(actionIndex), actions.get(otherIndex)))) {
+            || !Actions.canBeSharedWarnForPotentialFalsePositives(
+                eventHandler,
+                actionKeyContext,
+                actions.get(actionIndex),
+                actions.get(otherIndex)))) {
       throw new ActionConflictException(
           actionKeyContext, output, actions.get(actionIndex), actions.get(otherIndex));
     }
@@ -196,6 +243,7 @@ public final class Actions {
    * associated rule configured target.
    */
   private static GeneratingActions assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
+      EventHandler eventHandler,
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
       ActionLookupKey actionLookupKey,
@@ -239,7 +287,12 @@ public final class Actions {
         if (equalOutput != null) {
           // Yes: assert that its generating action and this artifact's are compatible.
           verifyGeneratingActionKeys(
-              equalOutput, generatingActionKey, allowSharedAction, actionKeyContext, actions);
+              eventHandler,
+              equalOutput,
+              generatingActionKey,
+              allowSharedAction,
+              actionKeyContext,
+              actions);
         } else {
           // No: populate the output label map with this artifact if applicable: if this
           // artifact corresponds to a target that is an OutputFile with associated rule this label.
@@ -259,7 +312,12 @@ public final class Actions {
         } else {
           // Key is already set: verify that the generating action and this action are compatible.
           verifyGeneratingActionKeys(
-              output, generatingActionKey, allowSharedAction, actionKeyContext, actions);
+              eventHandler,
+              output,
+              generatingActionKey,
+              allowSharedAction,
+              actionKeyContext,
+              actions);
         }
       }
       actionIndex++;

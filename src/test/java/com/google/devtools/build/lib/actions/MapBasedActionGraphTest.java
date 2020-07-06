@@ -44,7 +44,8 @@ public class MapBasedActionGraphTest {
 
   @Test
   public void testSmoke() throws Exception {
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
+    MutableActionGraph actionGraph =
+        new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, actionKeyContext);
     Path execRoot = fileSystem.getPath("/");
     String outSegment = "root";
     Path root = execRoot.getChild(outSegment);
@@ -72,7 +73,8 @@ public class MapBasedActionGraphTest {
 
   @Test
   public void testNoActionConflictWhenUnregisteringSharedAction() throws Exception {
-    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
+    MutableActionGraph actionGraph =
+        new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, actionKeyContext);
     Path execRoot = fileSystem.getPath("/");
     Path root = fileSystem.getPath("/root");
     Path path = root.getRelative("foo");
@@ -95,7 +97,8 @@ public class MapBasedActionGraphTest {
   }
 
   private class ActionRegisterer extends AbstractQueueVisitor {
-    private final MutableActionGraph graph = new MapBasedActionGraph(new ActionKeyContext());
+    private final MutableActionGraph graph =
+        new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, new ActionKeyContext());
     private final Artifact output;
     // Just to occasionally add actions that were already present.
     private final Set<Action> allActions = Sets.newConcurrentHashSet();

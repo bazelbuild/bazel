@@ -448,6 +448,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
               ALL_OWNER,
               new BasicActionLookupValue(
                   Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+                      /*eventHandler=*/ ignored -> {},
                       actionKeyContext,
                       ImmutableList.copyOf(actions),
                       ALL_OWNER,

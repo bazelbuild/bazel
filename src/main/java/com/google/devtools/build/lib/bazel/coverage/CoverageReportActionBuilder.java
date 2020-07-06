@@ -214,7 +214,7 @@ public final class CoverageReportActionBuilder {
               reportGenerator, workspaceName, htmlReport),
           argsFunction, locationFunc);
       return new CoverageReportActionsWrapper(
-          lcovFileAction, coverageReportAction, actionKeyContext);
+          reporter, lcovFileAction, coverageReportAction, actionKeyContext);
     } else {
       reporter.handle(
           Event.error("Cannot generate coverage report - no coverage information was collected"));

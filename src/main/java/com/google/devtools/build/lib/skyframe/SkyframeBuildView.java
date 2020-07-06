@@ -443,6 +443,7 @@ public final class SkyframeBuildView {
         // targets together that haven't been built before.
         actionConflicts =
             ArtifactConflictFinder.findAndStoreArtifactConflicts(
+                eventHandler,
                 skyframeExecutor.getActionLookupValuesInBuild(ctKeys, aspectKeys),
                 strictConflictChecks,
                 actionKeyContext);

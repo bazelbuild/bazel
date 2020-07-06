@@ -56,6 +56,7 @@ public class CoverageReportFunction implements SkyFunction {
     try {
       generatingActions =
           Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
+              env.getListener(),
               actionKeyContext,
               actions,
               CoverageReportValue.COVERAGE_REPORT_KEY,

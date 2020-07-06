@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
+import com.google.devtools.build.lib.events.EventHandler;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -24,11 +25,13 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public final class MapBasedActionGraph implements MutableActionGraph {
+  private final EventHandler eventHandler;
   private final ActionKeyContext actionKeyContext;
   private final ConcurrentMultimapWithHeadElement<OwnerlessArtifactWrapper, ActionAnalysisMetadata>
       generatingActionMap = new ConcurrentMultimapWithHeadElement<>();
 
-  public MapBasedActionGraph(ActionKeyContext actionKeyContext) {
+  public MapBasedActionGraph(EventHandler eventHandler, ActionKeyContext actionKeyContext) {
+    this.eventHandler = eventHandler;
     this.actionKeyContext = actionKeyContext;
   }
 
@@ -45,7 +48,8 @@ public final class MapBasedActionGraph implements MutableActionGraph {
       ActionAnalysisMetadata previousAction = generatingActionMap.putAndGet(wrapper, action);
       if (previousAction != null
           && previousAction != action
-          && !Actions.canBeShared(actionKeyContext, action, previousAction)) {
+          && !Actions.canBeSharedWarnForPotentialFalsePositives(
+              eventHandler, actionKeyContext, action, previousAction)) {
         generatingActionMap.remove(wrapper, action);
         throw new ActionConflictException(actionKeyContext, artifact, previousAction, action);
       }

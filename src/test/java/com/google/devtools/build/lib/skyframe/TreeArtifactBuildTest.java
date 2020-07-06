@@ -1013,7 +1013,11 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         return new ActionTemplateExpansionValue(
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                actionKeyContext, actions, (ActionLookupKey) skyKey, /*outputFiles=*/ null));
+                /*eventHandler=*/ ignored -> {},
+                actionKeyContext,
+                actions,
+                (ActionLookupKey) skyKey,
+                /*outputFiles=*/ null));
       } catch (ActionConflictException e) {
         throw new IllegalStateException(e);
       }

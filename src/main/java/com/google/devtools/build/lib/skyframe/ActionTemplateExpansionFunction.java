@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -89,7 +90,7 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
       // of the ActionTemplate.
       ImmutableList<? extends Action> actions =
           generateAndValidateActionsFromTemplate(actionTemplate, inputTreeFileArtifacts, key);
-      generatingActions = checkActionAndArtifactConflicts(actions, key);
+      generatingActions = checkActionAndArtifactConflicts(env.getListener(), actions, key);
     } catch (ActionConflictException e) {
       e.reportTo(env.getListener());
       throw new ActionTemplateExpansionFunctionException(e);
@@ -157,11 +158,13 @@ public class ActionTemplateExpansionFunction implements SkyFunction {
   }
 
   private GeneratingActions checkActionAndArtifactConflicts(
-      ImmutableList<? extends Action> actions, ActionTemplateExpansionKey key)
+      EventHandler eventHandler,
+      ImmutableList<? extends Action> actions,
+      ActionTemplateExpansionKey key)
       throws ActionConflictException, ArtifactPrefixConflictException {
     GeneratingActions generatingActions =
         Actions.assignOwnersAndFindAndThrowActionConflict(
-            actionKeyContext, ImmutableList.copyOf(actions), key);
+            eventHandler, actionKeyContext, ImmutableList.copyOf(actions), key);
     Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> artifactPrefixConflictMap =
         findArtifactPrefixConflicts(getMapForConsistencyCheck(generatingActions.getActions()));
 
