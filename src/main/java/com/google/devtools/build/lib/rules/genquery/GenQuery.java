@@ -20,7 +20,6 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -100,7 +99,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.channels.ClosedByInterruptException;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -372,7 +370,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*useGraphlessQuery=*/ graphlessQuery);
       QueryExpression expr = QueryExpression.parse(query, queryEnvironment);
       formatter.verifyCompatible(queryEnvironment, expr);
-      targets = QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
+      targets =
+          graphlessQuery && queryOptions.forceSortForGraphlessGenquery
+              ? QueryUtil.newLexicographicallySortedTargetAggregator()
+              : QueryUtil.newOrderedAggregateAllOutputFormatterCallback(queryEnvironment);
       queryResult = queryEnvironment.evaluateQuery(expr, targets);
     } catch (SkyframeRestartQueryException e) {
       // Do not emit errors for skyframe restarts. They make output of the ConfiguredTargetFunction
@@ -389,12 +390,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         ruleContext.getConfiguration().getFragment(GenQueryConfiguration.class);
     GenQueryOutputStream outputStream =
         new GenQueryOutputStream(genQueryConfig.inMemoryCompressionEnabled());
+    Set<Target> result = targets.getResult();
     try {
-      Set<Target> result = targets.getResult();
-      if (graphlessQuery && queryOptions.forceSortForGraphlessGenquery) {
-        result =
-            ImmutableSortedSet.copyOf(Comparator.comparing(Target::getLabel), targets.getResult());
-      }
       QueryOutputUtils.output(
           queryOptions,
           queryResult,

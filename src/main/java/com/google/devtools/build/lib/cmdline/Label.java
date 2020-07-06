@@ -648,6 +648,9 @@ public final class Label
    */
   @Override
   public int compareTo(Label other) {
+    if (this == other) {
+      return 0;
+    }
     return ComparisonChain.start()
         .compare(packageIdentifier, other.packageIdentifier)
         .compare(name, other.name)
