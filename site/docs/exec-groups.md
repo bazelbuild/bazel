@@ -131,6 +131,6 @@ my_rule(
 ```
 
 All actions with `exec_group = "link"` would see the exec properties
-dictionary as `{"memory": "16g"}`. As you see here, execution-group-level
+dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
 
