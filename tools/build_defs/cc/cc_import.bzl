@@ -155,13 +155,13 @@ def _cc_import_impl(ctx):
 
     output_file = None
 
-    if bool(ctx.files.pic_objects) and not pic_static_library:
+    if ctx.files.pic_objects and not pic_static_library:
         lib_name = "lib" + ctx.label.name + ".pic.a"
         pic_static_library = ctx.actions.declare_file(lib_name)
         output_file = pic_static_library
         object_files = ctx.files.pic_objects
 
-    if bool(ctx.files.objects) and not no_pic_static_library:
+    if ctx.files.objects and not no_pic_static_library:
         lib_name = "lib" + ctx.label.name + ".a"
         no_pic_static_library = ctx.actions.declare_file(lib_name)
         output_file = no_pic_static_library
