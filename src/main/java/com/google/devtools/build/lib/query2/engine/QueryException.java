@@ -13,9 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
+import java.util.Optional;
+
 /**
  */
 public class QueryException extends Exception {
+  private final Optional<FailureDetail> failureDetail;
 
   /**
    * Returns a better error message for the query.
@@ -36,15 +41,32 @@ public class QueryException extends Exception {
   public QueryException(QueryException e, QueryExpression toplevel) {
     super(describeFailedQuery(e, toplevel), e);
     this.expression = null;
+    this.failureDetail = Optional.empty();
   }
 
   public QueryException(QueryExpression expression, String message) {
     super(message);
     this.expression = expression;
+    this.failureDetail = Optional.empty();
+  }
+
+  public QueryException(QueryExpression expression, String message, Query.Code queryCode) {
+    super(message);
+    this.expression = expression;
+    this.failureDetail =
+        Optional.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setQuery(Query.newBuilder().setCode(queryCode).build())
+                .build());
   }
 
   public QueryException(String message) {
     this(null, message);
+  }
+
+  public QueryException(String message, Query.Code queryCode) {
+    this(null, message, queryCode);
   }
 
   /**
@@ -55,4 +77,8 @@ public class QueryException extends Exception {
     return expression;
   }
 
+  /** Returns an optional {@link FailureDetail} containing fine grained detail code. */
+  public Optional<FailureDetail> getFailureDetail() {
+    return failureDetail;
+  }
 }

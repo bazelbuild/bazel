@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -158,7 +159,7 @@ public final class Lexer {
           }
       }
     }
-    throw new QueryException("unclosed quotation");
+    throw new QueryException("unclosed quotation", Query.Code.UNCLOSED_QUOTATION_EXPRESSION_ERROR);
   }
 
   private TokenKind getTokenKindForWord(String word) {

@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.server.FailureDetails.Query.Code;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Either;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
@@ -80,7 +81,11 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     } catch (QueryException e) {
       String message = "Error while parsing '" + query + "': " + e.getMessage();
       env.getReporter().handle(Event.error(null, message));
-      return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR));
+      return e.getFailureDetail().isPresent()
+          ? Either.ofLeft(
+              BlazeCommandResult.detailedExitCode(
+                  DetailedExitCode.of(ExitCode.COMMAND_LINE_ERROR, e.getFailureDetail().get())))
+          : Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR));
     }
 
     try {
@@ -117,64 +122,60 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
 
     QueryEvalResult result;
     boolean catastrophe = true;
-    try (SilentCloseable closeable = Profiler.instance().profile("queryEnv.evaluateQuery")) {
-      result = queryEnv.evaluateQuery(expr, callback);
-      catastrophe = false;
-    } catch (QueryException e) {
-      catastrophe = false;
-      // Keep consistent with reportBuildFileError()
-      env.getReporter()
-          // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
-          // sure no null error messages ever get in.
-          .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
-      return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE));
-    } catch (InterruptedException e) {
-      catastrophe = false;
-      IOException ioException = callback.getIoException();
-      if (ioException == null || ioException instanceof ClosedByInterruptException) {
-        return reportAndCreateInterruptedResult(env);
-      } else {
-        env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
-      }
-    } catch (IOException e) {
-      catastrophe = false;
-      env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-      return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
-    } finally {
-      if (!catastrophe) {
-        try {
-          out.flush();
-        } catch (IOException e) {
-          return reportAndCreateFlushFailureResult(env, e);
+    try {
+      try (SilentCloseable closeable = Profiler.instance().profile("queryEnv.evaluateQuery")) {
+        result = queryEnv.evaluateQuery(expr, callback);
+        catastrophe = false;
+      } catch (QueryException e) {
+        catastrophe = false;
+        // Keep consistent with reportBuildFileError()
+        env.getReporter()
+            // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
+            // sure no null error messages ever get in.
+            .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
+        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE));
+      } catch (InterruptedException e) {
+        catastrophe = false;
+        IOException ioException = callback.getIoException();
+        if (ioException == null || ioException instanceof ClosedByInterruptException) {
+          return reportAndCreateInterruptedResult(env);
+        } else {
+          env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
+          return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
         }
-      }
-    }
-    if (!streamResults) {
-      disableAnsiCharactersFiltering(env);
-      try (SilentCloseable closeable = Profiler.instance().profile("QueryOutputUtils.output")) {
-        Set<Target> targets =
-            ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
-        QueryOutputUtils.output(
-            queryOptions,
-            result,
-            targets,
-            formatter,
-            out,
-            queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
-            env.getReporter());
-      } catch (ClosedByInterruptException | InterruptedException e) {
-        return reportAndCreateInterruptedResult(env);
       } catch (IOException e) {
+        catastrophe = false;
         env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
         return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
       } finally {
-        try {
+        if (!catastrophe) {
           out.flush();
-        } catch (IOException e) {
-          return reportAndCreateFlushFailureResult(env, e);
         }
       }
+      if (!streamResults) {
+        disableAnsiCharactersFiltering(env);
+        try (SilentCloseable closeable = Profiler.instance().profile("QueryOutputUtils.output")) {
+          Set<Target> targets =
+              ((AggregateAllOutputFormatterCallback<Target, ?>) callback).getResult();
+          QueryOutputUtils.output(
+              queryOptions,
+              result,
+              targets,
+              formatter,
+              out,
+              queryOptions.aspectDeps.createResolver(env.getPackageManager(), env.getReporter()),
+              env.getReporter());
+        } catch (ClosedByInterruptException | InterruptedException e) {
+          return reportAndCreateInterruptedResult(env);
+        } catch (IOException e) {
+          env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
+          return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+        } finally {
+          out.flush();
+        }
+      }
+    } catch (IOException e) {
+      return reportAndCreateFlushFailureResult(env, e);
     }
 
     return Either.ofRight(result);

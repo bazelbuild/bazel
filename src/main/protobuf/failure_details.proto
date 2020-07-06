@@ -596,6 +596,8 @@ message Query {
     QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
     ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
     QUERY_RESULTS_FLUSH_FAILURE = 15 [(metadata) = { exit_code: 36 }];
+    UNCLOSED_QUOTATION_EXPRESSION_ERROR = 16 [(metadata) = { exit_code: 2 }];
+    VARIABLE_NAME_INVALID = 17 [(metadata) = { exit_code: 7 }];
 
     reserved 7 to 12; // For internal use
   }
