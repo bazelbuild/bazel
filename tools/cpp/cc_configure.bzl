@@ -165,6 +165,7 @@ cc_autoconf = repository_rule(
         "CC_CONFIGURE_DEBUG",
         "CC_TOOLCHAIN_NAME",
         "CPLUS_INCLUDE_PATH",
+        "DEVELOPER_DIR",
         "GCOV",
         "HOMEBREW_RUBY_PATH",
         "SYSTEMROOT",

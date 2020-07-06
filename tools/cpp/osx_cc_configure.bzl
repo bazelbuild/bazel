@@ -50,9 +50,11 @@ def _get_escaped_xcode_cxx_inc_directories(repository_ctx, cc, xcode_toolchains)
     return include_dirs
 
 def compile_cc_file(repository_ctx, src_name, out_name):
+    env = repository_ctx.os.environ
     xcrun_result = repository_ctx.execute([
         "env",
         "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
         "xcrun",
         "--sdk",
         "macosx",
