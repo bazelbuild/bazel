@@ -88,7 +88,7 @@ EOF
       || fail "Failed to build //a:foo with remote cache"
 }
 
-function test_remote_grpc_via_unix_socket() {
+function test_remote_grpc_via_unix_socket_proxy() {
   case "$PLATFORM" in
   darwin|freebsd|linux|openbsd)
     ;;
@@ -118,6 +118,43 @@ EOF
   bazel build \
       --remote_executor=grpc://noexist.invalid \
       --remote_proxy="unix:${socket_dir}/executor-socket" \
+      //a:foo \
+      || fail "Failed to build //a:foo with remote cache"
+
+  kill ${proxy_pid}
+  rm "${socket_dir}/executor-socket"
+  rmdir "${socket_dir}"
+}
+
+function test_remote_grpc_via_unix_socket_direct() {
+  case "$PLATFORM" in
+  darwin|freebsd|linux|openbsd)
+    ;;
+  *)
+    return 0
+    ;;
+  esac
+
+  # Test that remote execution can be routed via a UNIX domain socket if
+  # supported by the platform.
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "echo \"foo bar\" > \$@",
+)
+EOF
+
+  # Note: not using $TEST_TMPDIR because many OSes, notably macOS, have
+  # small maximum length limits for UNIX domain sockets.
+  socket_dir=$(mktemp -d -t "remote_executor.XXXXXXXX")
+  PROXY="$(rlocation io_bazel/src/test/shell/bazel/remote/uds_proxy.py)"
+  python "${PROXY}" "${socket_dir}/executor-socket" "localhost:${worker_port}" &
+  proxy_pid=$!
+
+  bazel build \
+      --remote_executor="unix:${socket_dir}/executor-socket" \
       //a:foo \
       || fail "Failed to build //a:foo with remote cache"
 
