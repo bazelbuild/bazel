@@ -401,16 +401,11 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
-  public void injectRemoteTreeFileArtifactMetadata() throws Exception {
-    scratch.file("/output/bin/foo/bar/child1", "child1");
-    scratch.file("/output/bin/foo/bar/child2", "child2");
+  public void cannotInjectTreeArtifactChildIndividually() {
     SpecialArtifact treeArtifact =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             outputRoot, PathFragment.create("bin/foo/bar"));
-    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
-    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "child2");
-    assertThat(child1.getPath().exists()).isTrue();
-    assertThat(child2.getPath().exists()).isTrue();
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(treeArtifact, "child");
 
     OutputStore store = new OutputStore();
     ActionMetadataHandler handler =
@@ -425,21 +420,40 @@ public class ActionMetadataHandlerTest {
             outputRoot.getRoot().asPath());
     handler.discardOutputMetadata();
 
-    RemoteFileArtifactValue child1Value = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
-    RemoteFileArtifactValue child2Value = new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1);
+    RemoteFileArtifactValue childValue = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
 
-    handler.injectFile(child1, child1Value);
-    handler.injectFile(child2, child2Value);
+    assertThrows(IllegalArgumentException.class, () -> handler.injectFile(child, childValue));
+    assertThat(store.getAllArtifactData()).isEmpty();
+    assertThat(store.getAllTreeArtifactData()).isEmpty();
+  }
 
-    FileArtifactValue treeMetadata = handler.getMetadata(treeArtifact);
-    FileArtifactValue child1Metadata = handler.getMetadata(child1);
-    FileArtifactValue child2Metadata = handler.getMetadata(child2);
-    TreeArtifactValue tree = store.getTreeArtifactData(treeArtifact);
+  @Test
+  public void canInjectTemplateExpansionOutput() {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("bin/foo/bar"));
+    TreeFileArtifact output =
+        TreeFileArtifact.createTemplateExpansionOutput(
+            treeArtifact, "output", ActionsTestUtil.NULL_TEMPLATE_EXPANSION_ARTIFACT_OWNER);
 
-    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
-    assertThat(tree.getChildValues())
-        .containsExactly(child1, child1Metadata, child2, child2Metadata);
-    assertThat(store.getAllArtifactData()).isEmpty(); // All data should be in treeArtifactData.
+    OutputStore store = new OutputStore();
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            /*inputArtifactData=*/ new ActionInputMap(1),
+            ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableList.of(treeArtifact),
+            /*tsgm=*/ null,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+    handler.discardOutputMetadata();
+
+    RemoteFileArtifactValue value = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
+    handler.injectFile(output, value);
+
+    assertThat(store.getAllArtifactData()).containsExactly(output, value);
+    assertThat(store.getAllTreeArtifactData()).isEmpty();
   }
 
   @Test

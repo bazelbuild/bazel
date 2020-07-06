@@ -391,7 +391,9 @@ public final class ActionMetadataHandler implements MetadataHandler {
     Preconditions.checkArgument(
         isKnownOutput(output), "%s is not a declared output of this action", output);
     Preconditions.checkArgument(
-        !output.isTreeArtifact(), "injectFile must not be called on TreeArtifacts: %s", output);
+        !output.isTreeArtifact() && !output.isChildOfDeclaredDirectory(),
+        "Tree artifacts and their children must be injected via injectDirectory: %s",
+        output);
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
     store.injectOutputData(output, metadata);
@@ -402,7 +404,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
       SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children) {
     Preconditions.checkArgument(
         isKnownOutput(output), "%s is not a declared output of this action", output);
-    Preconditions.checkArgument(output.isTreeArtifact(), "output must be a tree artifact");
+    Preconditions.checkArgument(
+        output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
     store.putTreeArtifactData(output, TreeArtifactValue.create(children));
