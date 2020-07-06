@@ -598,6 +598,9 @@ message Query {
     QUERY_RESULTS_FLUSH_FAILURE = 15 [(metadata) = { exit_code: 36 }];
     UNCLOSED_QUOTATION_EXPRESSION_ERROR = 16 [(metadata) = { exit_code: 2 }];
     VARIABLE_NAME_INVALID = 17 [(metadata) = { exit_code: 7 }];
+    VARIABLE_UNDEFINED = 18 [(metadata) = { exit_code: 7 }];
+    BUILDFILES_AND_LOADFILES_CANNOT_USE_OUTPUT_LOCATION_ERROR = 19
+        [(metadata) = { exit_code: 2 }];
 
     reserved 7 to 12; // For internal use
   }

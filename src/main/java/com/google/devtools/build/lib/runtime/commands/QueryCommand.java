@@ -81,18 +81,14 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     } catch (QueryException e) {
       String message = "Error while parsing '" + query + "': " + e.getMessage();
       env.getReporter().handle(Event.error(null, message));
-      return e.getFailureDetail().isPresent()
-          ? Either.ofLeft(
-              BlazeCommandResult.detailedExitCode(
-                  DetailedExitCode.of(ExitCode.COMMAND_LINE_ERROR, e.getFailureDetail().get())))
-          : Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR));
+      return Either.ofLeft(finalizeBlazeCommandResult(ExitCode.COMMAND_LINE_ERROR, e));
     }
 
     try {
       formatter.verifyCompatible(queryEnv, expr);
     } catch (QueryException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
-      return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.COMMAND_LINE_ERROR));
+      return Either.ofLeft(finalizeBlazeCommandResult(ExitCode.COMMAND_LINE_ERROR, e));
     }
 
     expr = queryEnv.transformParsedQuery(expr);
@@ -133,7 +129,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
             // sure no null error messages ever get in.
             .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
-        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.ANALYSIS_FAILURE));
+        return Either.ofLeft(finalizeBlazeCommandResult(ExitCode.ANALYSIS_FAILURE, e));
       } catch (InterruptedException e) {
         catastrophe = false;
         IOException ioException = callback.getIoException();
@@ -210,5 +206,14 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
     return Either.ofLeft(
         BlazeCommandResult.detailedExitCode(
             InterruptedFailureDetails.detailedExitCode(message, Interrupted.Code.QUERY)));
+  }
+
+  private static BlazeCommandResult finalizeBlazeCommandResult(
+      ExitCode exitCode, QueryException e) {
+    if (e.getFailureDetail().isPresent()) {
+      return BlazeCommandResult.detailedExitCode(
+          DetailedExitCode.of(exitCode, e.getFailureDetail().get()));
+    }
+    return BlazeCommandResult.exitCode(exitCode);
   }
 }

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.SynchronizedDelegatingOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.syntax.Location;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -54,7 +55,8 @@ class LocationOutputFormatter extends AbstractUnorderedFormatter {
     if (expr.accept(noteBuildFilesAndLoadLilesVisitor)) {
       throw new QueryException(
           "Query expressions involving 'buildfiles' or 'loadfiles' cannot be used with "
-          + "--output=location");
+              + "--output=location",
+          Query.Code.BUILDFILES_AND_LOADFILES_CANNOT_USE_OUTPUT_LOCATION_ERROR);
     }
   }
 

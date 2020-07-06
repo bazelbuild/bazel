@@ -41,7 +41,7 @@ public class QueryException extends Exception {
   public QueryException(QueryException e, QueryExpression toplevel) {
     super(describeFailedQuery(e, toplevel), e);
     this.expression = null;
-    this.failureDetail = Optional.empty();
+    this.failureDetail = e.getFailureDetail();
   }
 
   public QueryException(QueryExpression expression, String message) {
