@@ -1072,8 +1072,6 @@ public class CppOptions extends FragmentOptions {
     host.disableNoCopts = disableNoCopts;
     host.loadCcRulesFromBzl = loadCcRulesFromBzl;
     host.validateTopLevelHeaderInclusions = validateTopLevelHeaderInclusions;
-    host.appleGenerateDsym = appleGenerateDsym;
-    host.appleEnableAutoDsymDbg = appleEnableAutoDsymDbg;
 
     // Save host options for further use.
     host.hostCoptList = hostCoptList;
