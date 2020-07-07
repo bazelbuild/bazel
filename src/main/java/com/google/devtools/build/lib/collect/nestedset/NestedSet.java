@@ -146,7 +146,7 @@ public final class NestedSet<E> {
     Set<E> alreadyInserted = ImmutableSet.of();
     // The candidate array of children.
     Object[] children = new Object[direct.size() + transitive.size()];
-    int n = 0;  // current position in children
+    int n = 0; // current position in children
     boolean leaf = true;  // until we find otherwise
 
     for (int pass = 0; pass <= 1; ++pass) {

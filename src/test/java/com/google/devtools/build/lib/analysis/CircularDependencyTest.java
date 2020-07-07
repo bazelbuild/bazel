@@ -290,7 +290,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
                       }));
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(NORMAL_DEPENDER)

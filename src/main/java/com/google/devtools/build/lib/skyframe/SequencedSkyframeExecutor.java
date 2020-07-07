@@ -174,7 +174,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       BuildOptions defaultBuildOptions,
-      MutableArtifactFactorySupplier mutableArtifactFactorySupplier,
       @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
     super(
         skyframeExecutorConsumerOnInit,
@@ -195,7 +194,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         GraphInconsistencyReceiver.THROWING,
         defaultBuildOptions,
         new PackageProgressReceiver(),
-        mutableArtifactFactorySupplier,
         new ConfiguredTargetProgressReceiver(),
         /*nonexistentFileReceiver=*/ null,
         managedDirectoriesKnowledge);
@@ -1072,8 +1070,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     private Factory workspaceStatusActionFactory;
     private Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories = ImmutableList.of();
     private Iterable<SkyValueDirtinessChecker> customDirtinessCheckers = ImmutableList.of();
-    private MutableArtifactFactorySupplier mutableArtifactFactorySupplier =
-        new MutableArtifactFactorySupplier();
     private Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit = skyframeExecutor -> {};
     private SkyFunction blacklistedPackagePrefixesFunction;
 
@@ -1110,7 +1106,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
               externalPackageHelper,
               actionOnIOExceptionReadingBuildFile,
               defaultBuildOptions,
-              mutableArtifactFactorySupplier,
               managedDirectoriesKnowledge);
       skyframeExecutor.init();
       return skyframeExecutor;
@@ -1192,11 +1187,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       return this;
     }
 
-    public Builder setMutableArtifactFactorySupplier(
-        MutableArtifactFactorySupplier mutableArtifactFactorySupplier) {
-      this.mutableArtifactFactorySupplier = mutableArtifactFactorySupplier;
-      return this;
-    }
     public Builder setSkyframeExecutorConsumerOnInit(
         Consumer<SkyframeExecutor> skyframeExecutorConsumerOnInit) {
       this.skyframeExecutorConsumerOnInit = skyframeExecutorConsumerOnInit;

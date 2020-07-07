@@ -189,7 +189,7 @@ public class CcBinaryThinLtoTest extends BuildViewTestCase {
         (ConfiguredTargetValue)
             getSkyframeExecutor()
                 .getEvaluatorForTesting()
-                .getExistingEntryAtLatestVersion(
+                .getExistingEntryAtCurrentlyEvaluatingVersion(
                     ConfiguredTargetKey.builder()
                         .setLabel(pkg.getLabel())
                         .setConfiguration(getConfiguration(pkg))

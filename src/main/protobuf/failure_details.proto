@@ -128,6 +128,17 @@ message FailureDetail {
     RunCommand run_command = 152;
     VersionCommand version_command = 153;
     PrintActionCommand print_action_command = 154;
+    WorkspaceStatus workspace_status = 158;
+    JavaCompile java_compile = 159;
+    ActionRewinding action_rewinding = 160;
+    CppCompile cpp_compile = 161;
+    StarlarkAction starlark_action = 162;
+    NinjaAction ninja_action = 163;
+    DynamicExecution dynamic_execution = 164;
+    FailAction fail_action = 166;
+    SymlinkAction symlink_action = 167;
+    CppLink cpp_link = 168;
+    LtoAction lto_action = 169;
   }
 
   reserved 102; // For internal use
@@ -141,7 +152,8 @@ message FailureDetail {
   reserved 138; // For internal use
   reserved 143; // For internal use
   reserved 149; // For internal use
-  reserved 155 to 156; // For internal use
+  reserved 155 to 157; // For internal use
+  reserved 165; // For internal use
 }
 
 message Interrupted {
@@ -184,6 +196,8 @@ message Spawn {
     EXECUTION_FAILED = 4 [(metadata) = { exit_code: 1 }];
     EXECUTION_DENIED = 5 [(metadata) = { exit_code: 1 }];
     REMOTE_CACHE_FAILED = 6 [(metadata) = { exit_code: 34 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
+    EXEC_IO_EXCEPTION = 8 [(metadata) = { exit_code: 36 }];
   }
   Code code = 1;
 
@@ -298,9 +312,10 @@ message SymlinkForest {
 
 message PackageOptions {
   enum Code {
+    reserved 2, 3;  // For internal use
+
     PACKAGE_OPTIONS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     PACKAGE_PATH_INVALID = 1 [(metadata) = { exit_code: 2 }];
-    reserved 2; // For internal use
   }
 
   Code code = 1;
@@ -327,6 +342,8 @@ message RemoteExecution {
         [(metadata) = { exit_code: 2 }];
     REMOTE_DOWNLOAD_OUTPUTS_MINIMAL_WITHOUT_INMEMORY_JDEPS = 12
         [(metadata) = { exit_code: 2 }];
+    INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE = 13
+        [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -345,6 +362,27 @@ message Execution {
     PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 6
         [(metadata) = { exit_code: 36 }];
     LOCAL_OUTPUT_DIRECTORY_SYMLINK_FAILURE = 7 [(metadata) = { exit_code: 36 }];
+    ACTION_INPUT_FILES_MISSING = 8 [(metadata) = { exit_code: 1 }];
+    LOCAL_TEMPLATE_EXPANSION_FAILURE = 9 [(metadata) = { exit_code: 36 }];
+    INPUT_DIRECTORY_CHECK_IO_EXCEPTION = 10 [(metadata) = { exit_code: 36 }];
+    EXTRA_ACTION_OUTPUT_CREATION_FAILURE = 11 [(metadata) = { exit_code: 36 }];
+    TEST_RUNNER_IO_EXCEPTION = 12 [(metadata) = { exit_code: 36 }];
+    FILE_WRITE_IO_EXCEPTION = 13 [(metadata) = { exit_code: 36 }];
+    TEST_OUT_ERR_IO_EXCEPTION = 14 [(metadata) = { exit_code: 36 }];
+    SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION = 15
+        [(metadata) = { exit_code: 36 }];
+    SYMLINK_TREE_MANIFEST_LINK_IO_EXCEPTION = 16
+        [(metadata) = { exit_code: 36 }];
+    SYMLINK_TREE_CREATION_IO_EXCEPTION = 17 [(metadata) = { exit_code: 36 }];
+    SYMLINK_TREE_CREATION_COMMAND_EXCEPTION = 18
+        [(metadata) = { exit_code: 36 }];
+    ACTION_INPUT_READ_IO_EXCEPTION = 19 [(metadata) = { exit_code: 36 }];
+    ACTION_NOT_UP_TO_DATE = 20 [(metadata) = { exit_code: 1 }];
+    PSEUDO_ACTION_EXECUTION_PROHIBITED = 21 [(metadata) = { exit_code: 1 }];
+    DISCOVERED_INPUT_DOES_NOT_EXIST = 22 [(metadata) = { exit_code: 1 }];
+    ACTION_OUTPUTS_DELETION_FAILURE = 23 [(metadata) = { exit_code: 1 }];
+    ACTION_OUTPUTS_NOT_CREATED = 24 [(metadata) = { exit_code: 1 }];
+    ACTION_FINALIZATION_FAILURE = 25 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -585,6 +623,9 @@ message IncludeScanning {
   enum Code {
     INCLUDE_SCANNING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INITIALIZE_INCLUDE_HINTS_ERROR = 1 [(metadata) = { exit_code: 36 }];
+    SCANNING_IO_EXCEPTION = 2 [(metadata) = { exit_code: 36 }];
+    INCLUDE_HINTS_FILE_NOT_IN_PACKAGE = 3 [(metadata) = { exit_code: 36 }];
+    INCLUDE_HINTS_READ_FAILURE = 4 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
@@ -763,6 +804,126 @@ message PrintActionCommand {
     COMMAND_LINE_EXPANSION_FAILURE = 2 [(metadata) = { exit_code: 1 }];
     TARGET_KIND_UNSUPPORTED = 3 [(metadata) = { exit_code: 1 }];
     ACTIONS_NOT_FOUND = 4 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message WorkspaceStatus {
+  enum Code {
+    WORKSPACE_STATUS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NON_ZERO_EXIT = 1 [(metadata) = { exit_code: 1 }];
+    ABNORMAL_TERMINATION = 2 [(metadata) = { exit_code: 1 }];
+    EXEC_FAILED = 3 [(metadata) = { exit_code: 1 }];
+    PARSE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    VALIDATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message JavaCompile {
+  enum Code {
+    JAVA_COMPILE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    REDUCED_CLASSPATH_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+    JDEPS_READ_IO_EXCEPTION = 3 [(metadata) = { exit_code: 36 }];
+    REDUCED_CLASSPATH_FALLBACK_CLEANUP_FAILURE = 4
+        [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message ActionRewinding {
+  enum Code {
+    ACTION_REWINDING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    LOST_INPUT_TOO_MANY_TIMES = 1 [(metadata) = { exit_code: 1 }];
+    LOST_INPUT_IS_SOURCE = 2 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message CppCompile {
+  enum Code {
+    CPP_COMPILE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    FIND_USED_HEADERS_IO_EXCEPTION = 1 [(metadata) = { exit_code: 36 }];
+    COPY_OUT_ERR_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+    D_FILE_READ_FAILURE = 3 [(metadata) = { exit_code: 36 }];
+    COMMAND_GENERATION_FAILURE = 4 [(metadata) = { exit_code: 1 }];
+    MODULE_EXPANSION_TIMEOUT = 5 [(metadata) = { exit_code: 1 }];
+    INCLUDE_PATH_OUTSIDE_EXEC_ROOT = 6 [(metadata) = { exit_code: 1 }];
+    FAKE_COMMAND_GENERATION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
+    UNDECLARED_INCLUSIONS = 8 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message StarlarkAction {
+  enum Code {
+    STARLARK_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    UNUSED_INPUT_LIST_READ_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message NinjaAction {
+  enum Code {
+    NINJA_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INVALID_DEPFILE_DECLARED_DEPENDENCY = 1 [(metadata) = { exit_code: 36 }];
+    D_FILE_PARSE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message DynamicExecution {
+  enum Code {
+    DYNAMIC_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    XCODE_RELATED_PREREQ_UNMET = 1 [(metadata) = { exit_code: 36 }];
+  }
+
+  Code code = 1;
+}
+
+message FailAction {
+  enum Code {
+    FAIL_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INTENTIONAL_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message SymlinkAction {
+  enum Code {
+    SYMLINK_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    EXECUTABLE_INPUT_NOT_FILE = 1 [(metadata) = { exit_code: 1 }];
+    EXECUTABLE_INPUT_IS_NOT = 2 [(metadata) = { exit_code: 1 }];
+    EXECUTABLE_INPUT_CHECK_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message CppLink {
+  enum Code {
+    CPP_LINK_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    COMMAND_GENERATION_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    FAKE_COMMAND_GENERATION_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message LtoAction {
+  enum Code {
+    LTO_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    INVALID_ABSOLUTE_PATH_IN_IMPORTS = 1 [(metadata) = { exit_code: 1 }];
+    MISSING_BITCODE_FILES = 2 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

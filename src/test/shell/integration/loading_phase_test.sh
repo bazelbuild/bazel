@@ -472,4 +472,30 @@ function test_bazel_bin_is_not_a_package() {
   expect_not_log "//foo_prefix"
 }
 
+function test_starlark_cpu_profile() {
+  if $is_windows; then
+    echo "Starlark profiler is not supported on Microsoft Windows."
+    return
+  fi
+
+  mkdir -p test
+  echo 'load("inc.bzl", "main"); main()' > test/BUILD
+  cat >> test/inc.bzl <<'EOF'
+def main():
+   for i in range(2000):
+      foo()
+def foo():
+   list(range(10000))
+   sorted(range(10000))
+main() # uses ~3 seconds of CPU
+EOF
+  bazel query --starlark_cpu_profile="${TEST_TMPDIR}/pprof.gz" test/BUILD
+  # We don't depend on pprof, so just look for some strings in the raw file.
+  gunzip "${TEST_TMPDIR}/pprof.gz"
+  for str in sorted list range foo test/BUILD test/inc.bzl main; do
+    grep -q sorted "${TEST_TMPDIR}/pprof" ||
+      fail "string '$str' not found in profiler output"
+  done
+}
+
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

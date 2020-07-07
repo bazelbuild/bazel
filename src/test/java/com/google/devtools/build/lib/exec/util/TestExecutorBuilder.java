@@ -94,10 +94,6 @@ public class TestExecutorBuilder {
    */
   public <T extends ActionContext> TestExecutorBuilder addContext(
       Class<T> identifyingType, T context, String... commandlineIdentifiers) {
-    if (SpawnStrategy.class.isAssignableFrom(identifyingType)) {
-      SpawnStrategy spawnStrategy = (SpawnStrategy) context;
-      strategyRegistryBuilder.registerStrategy(spawnStrategy, commandlineIdentifiers);
-    }
     actionContextRegistryBuilder.register(identifyingType, context, commandlineIdentifiers);
     return this;
   }

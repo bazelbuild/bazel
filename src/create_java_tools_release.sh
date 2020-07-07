@@ -67,7 +67,7 @@ done
 
 # Create a tmp directory to download the artifacts from GCS and compute their
 # sha256sum.
-tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXX')
+tmp_dir=$(mktemp -d -t 'tmp_bazel_zip_files_XXXXXX')
 trap "rm -fr $tmp_dir" EXIT
 
 gcs_bucket="gs://bazel-mirror/bazel_java_tools"

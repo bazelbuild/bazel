@@ -102,7 +102,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                                           StarlarkProviderIdentifier.forLegacy("c"))))));
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(TESTING_RULE_FOR_MANDATORY_PROVIDERS);
@@ -157,21 +157,22 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   private void setUpAttributeErrorTest() throws Exception {
     scratch.file(
         "test/BUILD",
-        "load('//test:macros.bzl', 'macro_native_rule', 'macro_skylark_rule', 'skylark_rule')",
+        "load('//test:macros.bzl', 'macro_native_rule', 'macro_starlark_rule', 'starlark_rule')",
         "macro_native_rule(name = 'm_native',",
         "  deps = [':jlib'])",
-        "macro_skylark_rule(name = 'm_skylark',",
+        "macro_starlark_rule(name = 'm_starlark',",
         "  deps = [':jlib'])",
         "java_library(name = 'jlib',",
         "  srcs = ['bla.java'])",
         "cc_library(name = 'cclib',",
         "  deps = [':jlib'])",
-        "skylark_rule(name = 'skyrule',",
+        "starlark_rule(name = 'skyrule',",
         "  deps = [':jlib'])");
-    scratch.file("test/macros.bzl",
+    scratch.file(
+        "test/macros.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'deps': attr.label_list(providers = ['some_provider'], allow_files=True)",
@@ -179,8 +180,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ")",
         "def macro_native_rule(name, deps): ",
         "  native.cc_library(name = name, deps = deps)",
-        "def macro_skylark_rule(name, deps):",
-        "  skylark_rule(name = name, deps = deps)");
+        "def macro_starlark_rule(name, deps):",
+        "  starlark_rule(name = name, deps = deps)");
     reporter.removeHandler(failFastHandler);
   }
 
@@ -200,12 +201,12 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   @Test
   public void hasCorrectLocationForRuleAttributeError_StarlarkRuleWithMacro() throws Exception {
     setUpAttributeErrorTest();
-    assertThrows(Exception.class, () -> createRuleContext("//test:m_skylark"));
+    assertThrows(Exception.class, () -> createRuleContext("//test:m_starlark"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:4:19: in deps attribute of skylark_rule rule "
-            + "//test:m_skylark: '//test:jlib' does not have mandatory providers:"
+        "ERROR /workspace/test/BUILD:4:20: in deps attribute of starlark_rule rule "
+            + "//test:m_starlark: '//test:jlib' does not have mandatory providers:"
             + " 'some_provider'. "
-            + "Since this rule was created by the macro 'macro_skylark_rule', the error might "
+            + "Since this rule was created by the macro 'macro_starlark_rule', the error might "
             + "have been caused by the macro implementation");
   }
 
@@ -224,49 +225,51 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:10:13: in deps attribute of "
-            + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
+        "ERROR /workspace/test/BUILD:10:14: in deps attribute of "
+            + "starlark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
             + "'some_provider'");
   }
 
   @Test
   public void testMandatoryProvidersListWithStarlark() throws Exception {
     setStarlarkSemanticsOptions("--incompatible_disallow_struct_provider_syntax=false");
-    scratch.file("test/BUILD",
-            "load('//test:rules.bzl', 'skylark_rule', 'my_rule', 'my_other_rule')",
-            "my_rule(name = 'mylib',",
-            "  srcs = ['a.py'])",
-            "skylark_rule(name = 'skyrule1',",
-            "  deps = [':mylib'])",
-            "my_other_rule(name = 'my_other_lib',",
-            "  srcs = ['a.py'])",
-            "skylark_rule(name = 'skyrule2',",
-            "  deps = [':my_other_lib'])");
-    scratch.file("test/rules.bzl",
-            "def _impl(ctx):",
-            "  return",
-            "skylark_rule = rule(",
-            "  implementation = _impl,",
-            "  attrs = {",
-            "    'deps': attr.label_list(providers = [['a'], ['b', 'c']],",
-            "    allow_files=True)",
-            "  }",
-            ")",
-            "def my_rule_impl(ctx):",
-            "  return struct(a = [])",
-            "my_rule = rule(implementation = my_rule_impl, ",
-            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})",
-            "def my_other_rule_impl(ctx):",
-            "  return struct(b = [])",
-            "my_other_rule = rule(implementation = my_other_rule_impl, ",
-            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:rules.bzl', 'starlark_rule', 'my_rule', 'my_other_rule')",
+        "my_rule(name = 'mylib',",
+        "  srcs = ['a.py'])",
+        "starlark_rule(name = 'skyrule1',",
+        "  deps = [':mylib'])",
+        "my_other_rule(name = 'my_other_lib',",
+        "  srcs = ['a.py'])",
+        "starlark_rule(name = 'skyrule2',",
+        "  deps = [':my_other_lib'])");
+    scratch.file(
+        "test/rules.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "starlark_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(providers = [['a'], ['b', 'c']],",
+        "    allow_files=True)",
+        "  }",
+        ")",
+        "def my_rule_impl(ctx):",
+        "  return struct(a = [])",
+        "my_rule = rule(implementation = my_rule_impl, ",
+        "  attrs = { 'srcs' : attr.label_list(allow_files=True)})",
+        "def my_other_rule_impl(ctx):",
+        "  return struct(b = [])",
+        "my_other_rule = rule(implementation = my_other_rule_impl, ",
+        "  attrs = { 'srcs' : attr.label_list(allow_files=True)})");
     reporter.removeHandler(failFastHandler);
     assertThat(getConfiguredTarget("//test:skyrule1")).isNotNull();
 
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule2"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:8:13: in deps attribute of "
-            + "skylark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
+        "ERROR /workspace/test/BUILD:8:14: in deps attribute of "
+            + "starlark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
             + "mandatory providers: 'a' or 'c'");
   }
 
@@ -319,16 +322,18 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testPackageBoundaryError_StarlarkRule() throws Exception {
-    scratch.file("test/BUILD",
-        "load('//test:macros.bzl', 'skylark_rule')",
-        "skylark_rule(name = 'skyrule',",
+    scratch.file(
+        "test/BUILD",
+        "load('//test:macros.bzl', 'starlark_rule')",
+        "starlark_rule(name = 'skyrule',",
         "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("test/sub/BUILD",
         "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
-    scratch.file("test/macros.bzl",
+    scratch.file(
+        "test/macros.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files=True)",
@@ -337,34 +342,36 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:skyrule");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:13: Label '//test:sub/my_sub_lib.h' is invalid because "
+        "ERROR /workspace/test/BUILD:2:14: Label '//test:sub/my_sub_lib.h' is invalid because "
             + "'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
 
   @Test
   public void testPackageBoundaryError_StarlarkMacro() throws Exception {
-    scratch.file("test/BUILD",
-        "load('//test:macros.bzl', 'macro_skylark_rule')",
-        "macro_skylark_rule(name = 'm_skylark',",
+    scratch.file(
+        "test/BUILD",
+        "load('//test:macros.bzl', 'macro_starlark_rule')",
+        "macro_starlark_rule(name = 'm_starlark',",
         "  srcs = ['sub/my_sub_lib.h'])");
     scratch.file("test/sub/BUILD",
         "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
-    scratch.file("test/macros.bzl",
+    scratch.file(
+        "test/macros.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files=True)",
         "  }",
         ")",
-        "def macro_skylark_rule(name, srcs=[]):",
-        "  skylark_rule(name = name, srcs = srcs)");
+        "def macro_starlark_rule(name, srcs=[]):",
+        "  starlark_rule(name = name, srcs = srcs)");
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:m_skylark");
+    getConfiguredTarget("//test:m_starlark");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:19: Label '//test:sub/my_sub_lib.h' is invalid because"
+        "ERROR /workspace/test/BUILD:2:20: Label '//test:sub/my_sub_lib.h' is invalid because"
             + " 'test/sub' is a subpackage; perhaps you meant to put the colon here: "
             + "'//test/sub:my_sub_lib.h'?");
   }
@@ -421,26 +428,28 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
    */
   @Test
   public void testPackageBoundaryError_StarlarkMacroWithErrorInBzlFile() throws Exception {
-    scratch.file("test/BUILD",
-        "load('//test:macros.bzl', 'macro_skylark_rule')",
-        "macro_skylark_rule(name = 'm_skylark')");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:macros.bzl', 'macro_starlark_rule')",
+        "macro_starlark_rule(name = 'm_starlark')");
     scratch.file("test/sub/BUILD",
         "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
-    scratch.file("test/macros.bzl",
+    scratch.file(
+        "test/macros.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'srcs': attr.label_list(allow_files=True)",
         "  }",
         ")",
-        "def macro_skylark_rule(name, srcs=[]):",
-        "  skylark_rule(name = name, srcs = srcs + ['sub/my_sub_lib.h'])");
+        "def macro_starlark_rule(name, srcs=[]):",
+        "  starlark_rule(name = name, srcs = srcs + ['sub/my_sub_lib.h'])");
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:m_skylark");
+    getConfiguredTarget("//test:m_starlark");
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:2:19: Label '//test:sub/my_sub_lib.h' "
+        "ERROR /workspace/test/BUILD:2:20: Label '//test:sub/my_sub_lib.h' "
             + "is invalid because 'test/sub' is a subpackage");
   }
 
@@ -512,13 +521,13 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testGetRuleSelect() throws Exception {
-    scratch.file("test/skylark/BUILD");
+    scratch.file("test/starlark/BUILD");
     scratch.file(
-        "test/skylark/rulestr.bzl", "def rule_dict(name):", "  return native.existing_rule(name)");
+        "test/starlark/rulestr.bzl", "def rule_dict(name):", "  return native.existing_rule(name)");
 
     scratch.file(
         "test/getrule/BUILD",
-        "load('//test/skylark:rulestr.bzl', 'rule_dict')",
+        "load('//test/starlark:rulestr.bzl', 'rule_dict')",
         "cc_library(name ='x', ",
         "  srcs = select({'//conditions:default': []})",
         ")",
@@ -565,9 +574,9 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testGetRule() throws Exception {
-    scratch.file("test/skylark/BUILD");
+    scratch.file("test/starlark/BUILD");
     scratch.file(
-        "test/skylark/rulestr.bzl",
+        "test/starlark/rulestr.bzl",
         "def rule_dict(name):",
         "  return native.existing_rule(name)",
         "def rules_dict():",
@@ -579,7 +588,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     scratch.file(
         "test/getrule/BUILD",
-        "load('//test/skylark:rulestr.bzl', 'rules_dict', 'rule_dict', 'nop_rule', 'consume_rule')",
+        "load('//test/starlark:rulestr.bzl', 'rules_dict', 'rule_dict', 'nop_rule',"
+            + "'consume_rule')",
         "genrule(name = 'a', outs = ['a.txt'], ",
         "        licenses = ['notice'],",
         "        output_to_bindir = False,",
@@ -1567,7 +1577,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "test/rule.bzl",
         "def _impl(ctx):",
         "  return",
-        "skylark_rule = rule(",
+        "starlark_rule = rule(",
         "  implementation = _impl,",
         "  attrs = {",
         "    'dep': attr.label(),",
@@ -1575,11 +1585,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "test/BUILD",
-        "load('//test:rule.bzl', 'skylark_rule')",
+        "load('//test:rule.bzl', 'starlark_rule')",
         "py_binary(name = 'lib', srcs = ['lib.py', 'lib2.py'])",
-        "skylark_rule(name = 'foo', dep = ':lib')",
+        "starlark_rule(name = 'foo', dep = ':lib')",
         "py_binary(name = 'lib_with_init', srcs = ['lib_with_init.py', 'lib2.py', '__init__.py'])",
-        "skylark_rule(name = 'foo_with_init', dep = ':lib_with_init')");
+        "starlark_rule(name = 'foo_with_init', dep = ':lib_with_init')");
 
     setRuleContext(createRuleContext("//test:foo"));
     Object filenames =
@@ -1917,7 +1927,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setStarlarkSemanticsOptions(
         "--incompatible_disallow_struct_provider_syntax=false",
         "--incompatible_no_rule_outputs_param=false");
-    scratch.file("test/rules.bzl",
+    scratch.file(
+        "test/rules.bzl",
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
         "  out2 = ctx.outputs.out2",
@@ -1966,7 +1977,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     // But we need to inspect the result of calling created_actions() after the rule context has
     // been modified by creating actions. So we'll call created_actions() from within the analysis
     // function and pass it along as a provider.
-    scratch.file("test/rules.bzl",
+    scratch.file(
+        "test/rules.bzl",
         "def _undertest_impl(ctx):",
         "  out1 = ctx.outputs.out1",
         "  out2 = ctx.outputs.out2",
@@ -1981,8 +1993,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         "             'out2': '%{name}2.txt'},",
         "  _skylark_testable = True,",
         ")",
-        testingRuleDefinition
-        );
+        testingRuleDefinition);
     scratch.file("test/BUILD",
         simpleBuildDefinition);
     StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
@@ -2238,7 +2249,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testTemplateExpansionActionInterface() throws Exception {
-    scratch.file("test/rules.bzl",
+    scratch.file(
+        "test/rules.bzl",
         "def _undertest_impl(ctx):",
         "  out = ctx.outputs.out",
         "  ctx.actions.expand_template(output=out,",

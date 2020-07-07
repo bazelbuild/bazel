@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
@@ -83,6 +84,9 @@ public abstract class DependencyResolver {
 
     abstract ImmutableList<Aspect> getPropagatingAspects();
 
+    @Nullable
+    abstract ToolchainContextKey getToolchainContextKey();
+
     /** A Builder to create instances of PartiallyResolvedDependency. */
     @AutoValue.Builder
     abstract static class Builder {
@@ -92,12 +96,21 @@ public abstract class DependencyResolver {
 
       abstract Builder setPropagatingAspects(List<Aspect> propagatingAspects);
 
+      @Nullable
+      abstract Builder setToolchainContextKey(ToolchainContextKey toolchainContextKey);
+
       abstract PartiallyResolvedDependency build();
     }
 
     static Builder builder() {
       return new AutoValue_DependencyResolver_PartiallyResolvedDependency.Builder()
           .setPropagatingAspects(ImmutableList.of());
+    }
+
+    public DependencyKey.Builder getDependencyKeyBuilder() {
+      return DependencyKey.builder()
+          .setLabel(getLabel())
+          .setToolchainContextKey(getToolchainContextKey());
     }
   }
 
@@ -198,8 +211,7 @@ public abstract class DependencyResolver {
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
 
     // TODO(bazel-team): Figure out a way to implement the below (and partiallyResolveDependencies)
-    // using
-    // LabelVisitationUtils.
+    // using LabelVisitationUtils.
     Rule fromRule = null;
     ConfiguredAttributeMapper attributeMap = null;
     if (target instanceof OutputFile) {
@@ -227,15 +239,46 @@ public abstract class DependencyResolver {
       return OrderedSetMultimap.create();
     }
 
+    // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
+    boolean useToolchainTransition =
+        shouldUseToolchainTransition(node.getConfiguration(), fromRule);
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
-            outgoingLabels, fromRule, attributeMap, toolchainContexts, aspects);
+            outgoingLabels,
+            fromRule,
+            attributeMap,
+            toolchainContexts,
+            useToolchainTransition,
+            aspects);
 
     OrderedSetMultimap<DependencyKind, DependencyKey> outgoingEdges =
         fullyResolveDependencies(
             partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
 
     return outgoingEdges;
+  }
+
+  /**
+   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
+   * change flag and the rule's toolchain transition readiness attribute.
+   */
+  private static boolean shouldUseToolchainTransition(
+      @Nullable BuildConfiguration configuration, @Nullable Rule fromRule) {
+    // Check whether the global incompatible change flag is set.
+    if (configuration != null) {
+      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
+      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
+        return true;
+      }
+    }
+
+    // Check the rule definition to see if it is ready.
+    if (fromRule != null && fromRule.getRuleClassObject().useToolchainTransition()) {
+      return true;
+    }
+
+    // Default to false.
+    return false;
   }
 
   /**
@@ -252,6 +295,7 @@ public abstract class DependencyResolver {
           @Nullable Rule fromRule,
           ConfiguredAttributeMapper attributeMap,
           @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+          boolean useToolchainTransition,
           Iterable<Aspect> aspects)
           throws EvalException {
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
@@ -266,14 +310,29 @@ public abstract class DependencyResolver {
         // use sensible defaults. Not depending on their package makes the error message reporting
         // a missing toolchain a bit better.
         // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
-        partiallyResolvedDeps.put(
-            TOOLCHAIN_DEPENDENCY,
-            PartiallyResolvedDependency.builder()
-                .setLabel(toLabel)
-                // TODO(jcater): Replace this with a proper transition for the execution platform.
-                .setTransition(HostTransition.INSTANCE)
-                .setPropagatingAspects(ImmutableList.of())
-                .build());
+        // TODO(#10523): Remove check when this is fully released.
+        if (useToolchainTransition) {
+          // We need to create an individual PRD for each distinct toolchain context that contains
+          // this toolchain, because each has a different ToolchainContextKey.
+          for (ToolchainContext toolchainContext :
+              toolchainContexts.getContextsForResolvedToolchain(toLabel)) {
+            partiallyResolvedDeps.put(
+                TOOLCHAIN_DEPENDENCY,
+                PartiallyResolvedDependency.builder()
+                    .setLabel(toLabel)
+                    .setTransition(NoTransition.INSTANCE)
+                    .setToolchainContextKey(toolchainContext.key())
+                    .build());
+          }
+        } else {
+          // Legacy approach: use a HostTransition.
+          partiallyResolvedDeps.put(
+              TOOLCHAIN_DEPENDENCY,
+              PartiallyResolvedDependency.builder()
+                  .setLabel(toLabel)
+                  .setTransition(HostTransition.INSTANCE)
+                  .build());
+        }
         continue;
       }
 
@@ -366,9 +425,9 @@ public abstract class DependencyResolver {
 
     for (Map.Entry<DependencyKind, PartiallyResolvedDependency> entry :
         partiallyResolvedDeps.entries()) {
-      PartiallyResolvedDependency dep = entry.getValue();
+      PartiallyResolvedDependency partiallyResolvedDependency = entry.getValue();
 
-      Target toTarget = targetMap.get(dep.getLabel());
+      Target toTarget = targetMap.get(partiallyResolvedDependency.getLabel());
       if (toTarget == null) {
         // Dependency pointing to non-existent target. This error was reported in getTargets(), so
         // we can just ignore this dependency.
@@ -377,18 +436,19 @@ public abstract class DependencyResolver {
 
       ConfigurationTransition transition =
           TransitionResolver.evaluateTransition(
-              originalConfiguration, dep.getTransition(), toTarget, trimmingTransitionFactory);
+              originalConfiguration,
+              partiallyResolvedDependency.getTransition(),
+              toTarget,
+              trimmingTransitionFactory);
 
       AspectCollection requiredAspects =
-          filterPropagatingAspects(dep.getPropagatingAspects(), toTarget);
+          filterPropagatingAspects(partiallyResolvedDependency.getPropagatingAspects(), toTarget);
 
+      DependencyKey.Builder dependencyKeyBuilder =
+          partiallyResolvedDependency.getDependencyKeyBuilder();
       outgoingEdges.put(
           entry.getKey(),
-          DependencyKey.builder()
-              .setLabel(dep.getLabel())
-              .setTransition(transition)
-              .setAspects(requiredAspects)
-              .build());
+          dependencyKeyBuilder.setTransition(transition).setAspects(requiredAspects).build());
     }
     return outgoingEdges;
   }

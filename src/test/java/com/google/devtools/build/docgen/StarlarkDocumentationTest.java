@@ -244,7 +244,7 @@ public class StarlarkDocumentationTest {
       return null;
     }
 
-    @StarlarkMethod(name = "skylark", doc = "skylark")
+    @StarlarkMethod(name = "starlark", doc = "starlark")
     public Sequence<Integer> getStarlarkList() {
       return null;
     }
@@ -453,7 +453,7 @@ public class StarlarkDocumentationTest {
     assertThat(signatures)
         .contains(
             "<a class=\"anchor\" href=\"list.html\">sequence</a> "
-                + "MockClassWithContainerReturnValues.skylark()");
+                + "MockClassWithContainerReturnValues.starlark()");
   }
 
   @Test

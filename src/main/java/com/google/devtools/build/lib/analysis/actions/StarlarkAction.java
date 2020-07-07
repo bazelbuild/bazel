@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -37,6 +38,9 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.StarlarkAction.Code;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -175,7 +179,7 @@ public final class StarlarkAction extends SpawnAction {
   @Override
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws IOException, ExecException {
+      throws ExecException {
     if (!unusedInputsList.isPresent()) {
       return;
     }
@@ -195,6 +199,10 @@ public final class StarlarkAction extends SpawnAction {
         }
         usedInputs.remove(line);
       }
+    } catch (IOException e) {
+      throw new EnvironmentalExecException(
+          e,
+          createFailureDetail("Unused inputs read failure", Code.UNUSED_INPUT_LIST_READ_FAILURE));
     }
     updateInputs(NestedSetBuilder.wrap(Order.STABLE_ORDER, usedInputs.values()));
   }
@@ -208,6 +216,13 @@ public final class StarlarkAction extends SpawnAction {
   public NestedSet<Artifact> getInputFilesForExtraAction(
       ActionExecutionContext actionExecutionContext) {
     return allInputs;
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setStarlarkAction(FailureDetails.StarlarkAction.newBuilder().setCode(detailedCode))
+        .build();
   }
 
   /** Builder class to construct {@link StarlarkAction} instances. */

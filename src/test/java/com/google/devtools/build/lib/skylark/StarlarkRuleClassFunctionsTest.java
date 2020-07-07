@@ -695,9 +695,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   public void testNoAttrLicense() throws Exception {
     EvalException expected = assertThrows(EvalException.class, () -> ev.eval("attr.license()"));
-    assertThat(expected)
-        .hasMessageThat()
-        .contains("'attr (a language module)' value has no field or method 'license'");
+    assertThat(expected).hasMessageThat().contains("'attr' value has no field or method 'license'");
   }
 
   @Test

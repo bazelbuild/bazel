@@ -17,7 +17,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -122,8 +121,7 @@ public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
-      throws IOException, InterruptedException, ExecException {
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     Options options = ctx.getOptions().getOptions(Options.class);
     final List<String> args = new ArrayList<>(options.adbArgs);
     final String adb = options.adb;

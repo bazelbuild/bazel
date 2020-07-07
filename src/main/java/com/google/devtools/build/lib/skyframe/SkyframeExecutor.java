@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
@@ -297,10 +296,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected final AtomicReference<TimestampGranularityMonitor> tsgm = new AtomicReference<>();
   protected final AtomicReference<Map<String, String>> clientEnv = new AtomicReference<>();
 
-  // Under normal circumstances, the artifact factory persists for the life of a Blaze server, but
-  // since it is not yet created when we create the value builders, we have to use a supplier,
-  // initialized when the build view is created.
-  private final MutableArtifactFactorySupplier artifactFactory;
+  private final ArtifactFactory artifactFactory;
   private final ActionKeyContext actionKeyContext;
 
   protected boolean active = true;
@@ -354,21 +350,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private boolean siblingRepositoryLayout = false;
 
-  /** An {@link ArtifactResolverSupplier} that supports setting of an {@link ArtifactFactory}. */
-  public static class MutableArtifactFactorySupplier implements ArtifactResolverSupplier {
-
-    private ArtifactFactory artifactFactory;
-
-    void set(ArtifactFactory artifactFactory) {
-      this.artifactFactory = artifactFactory;
-    }
-
-    @Override
-    public ArtifactFactory get() {
-      return artifactFactory;
-    }
-  }
-
   class PathResolverFactoryImpl implements PathResolverFactory {
     @Override
     public boolean shouldCreatePathResolverForArtifactValues() {
@@ -413,7 +394,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       GraphInconsistencyReceiver graphInconsistencyReceiver,
       BuildOptions defaultBuildOptions,
       @Nullable PackageProgressReceiver packageProgress,
-      MutableArtifactFactorySupplier artifactResolverSupplier,
       @Nullable ConfiguredTargetProgressReceiver configuredTargetProgress,
       @Nullable NonexistentFileReceiver nonexistentFileReceiver,
       @Nullable ManagedDirectoriesKnowledge managedDirectoriesKnowledge) {
@@ -448,8 +428,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         new SkyframeActionExecutor(actionKeyContext, statusReporterRef, this::getPathEntries);
     this.skyframeBuildView =
         new SkyframeBuildView(directories, this, ruleClassProvider, actionKeyContext);
-    this.artifactFactory = artifactResolverSupplier;
-    this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
+    this.artifactFactory = skyframeBuildView.getArtifactFactory();
     this.externalFilesHelper =
         ExternalFilesHelper.create(
             pkgLocator,
@@ -602,7 +581,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem()));
     map.put(
         SkyFunctions.BUILD_INFO_COLLECTION,
-        new BuildInfoCollectionFunction(actionKeyContext, artifactFactory::get));
+        new BuildInfoCollectionFunction(actionKeyContext, artifactFactory));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     ActionExecutionFunction actionExecutionFunction =
@@ -1120,11 +1099,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   }
 
   @VisibleForTesting
-  public ArtifactResolverSupplier getArtifactResolverSupplierForTesting() {
-    return artifactFactory;
-  }
-
-  @VisibleForTesting
   @Nullable
   public WorkspaceStatusAction getLastWorkspaceStatusAction() throws InterruptedException {
     WorkspaceStatusValue workspaceStatusValue =
@@ -1430,7 +1404,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   private void setSiblingDirectoryLayout(boolean experimentalSiblingRepositoryLayout) {
     this.siblingRepositoryLayout = experimentalSiblingRepositoryLayout;
-    this.artifactFactory.get().setSiblingRepositoryLayout(experimentalSiblingRepositoryLayout);
+    this.artifactFactory.setSiblingRepositoryLayout(experimentalSiblingRepositoryLayout);
   }
 
   public StarlarkSemantics getEffectiveStarlarkSemantics(
@@ -1453,7 +1427,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       // (Some of the additional steps are carried out by ConfiguredTargetValueInvalidationListener,
       // and some by BuildView#buildHasIncompatiblePackageRoots and #updateSkyframe.)
       artifactFactory
-          .get()
           .setSourceArtifactRoots(
               createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator));
     }

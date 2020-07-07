@@ -57,7 +57,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   private static final PathFragment CROSSTOOL_CPPMAP = PathFragment.create("crosstool.cppmap");
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     return builder.addRuleDefinition(new TestRuleClassProvider.MakeVariableTesterRule()).build();

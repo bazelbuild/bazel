@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
@@ -815,7 +816,8 @@ public class TestRunnerAction extends AbstractAction
     } catch (ExecException e) {
       throw e.toActionExecutionException(this);
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e).toActionExecutionException(this);
+      throw new EnvironmentalExecException(e, Code.TEST_RUNNER_IO_EXCEPTION)
+          .toActionExecutionException(this);
     }
   }
 
@@ -1105,7 +1107,8 @@ public class TestRunnerAction extends AbstractAction
       } catch (ExecException e) {
         throw e.toActionExecutionException(TestRunnerAction.this);
       } catch (IOException e) {
-        throw new EnvironmentalExecException(e).toActionExecutionException(TestRunnerAction.this);
+        throw new EnvironmentalExecException(e, Code.TEST_RUNNER_IO_EXCEPTION)
+            .toActionExecutionException(TestRunnerAction.this);
       }
     }
 

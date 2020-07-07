@@ -15,9 +15,17 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 
-/** A context that allows execution of {@link Spawn} instances. */
-@ActionContextMarker(name = "spawn")
-public interface SpawnStrategy extends ActionContext {
+/**
+ * An implementation of how to {@linkplain #exec execute} a {@link Spawn} instance.
+ *
+ * <p>Strategies are used during the execution phase based on how they were {@linkplain
+ * com.google.devtools.build.lib.runtime.BlazeModule#registerSpawnStrategies registered by a module}
+ * and whether they {@linkplain #canExec match a given spawn based on their abilities}.
+ */
+// TODO(blaze-team): If possible, merge this with AbstractSpawnStrategy and SpawnRunner. The former
+//  because (almost?) all implementations of this interface extend it; the latter because it forms
+//  a shadow hierarchy graph that looks like that of the corresponding strategies.
+public interface SpawnStrategy {
 
   /**
    * Executes the given spawn and returns metadata about the execution. Implementations must
@@ -53,6 +61,5 @@ public interface SpawnStrategy extends ActionContext {
    */
   // TODO(katre): Remove once strategies are only instantiated if used, the callback can then be
   //  done upon construction.
-  @Override
   default void usedContext(ActionContext.ActionContextRegistry actionContextRegistry) {}
 }

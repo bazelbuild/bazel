@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.rules.cpp.CcCommon.CoptsFilter;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.server.FailureDetails.CppCompile.Code;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -250,13 +252,12 @@ public class FakeCppCompileAction extends CppCompileAction {
                   })
               .collect(joining(" "));
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(
-          "failed to generate compile command for rule '"
-              + getOwner().getLabel()
-              + ": "
-              + e.getMessage(),
-          this,
-          /* catastrophe= */ false);
+      String message =
+          String.format(
+              "failed to generate compile command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
     }
 
     // Write the command needed to build the real .o file to the fake .o file.
@@ -285,8 +286,12 @@ public class FakeCppCompileAction extends CppCompileAction {
               + argv
               + "\n");
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to create fake compile command for rule '"
-          + getOwner().getLabel() + ": " + e.getMessage(), this, false);
+      String message =
+          String.format(
+              "failed to create fake compile command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.FAKE_COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, false, code);
     }
     return ActionResult.create(spawnResults);
   }

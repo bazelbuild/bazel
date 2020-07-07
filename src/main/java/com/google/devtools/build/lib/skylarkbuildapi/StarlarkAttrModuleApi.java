@@ -36,7 +36,6 @@ import net.starlark.java.annot.StarlarkMethod;
  */
 @StarlarkBuiltin(
     name = "attr",
-    namespace = true,
     category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
     doc =
         "This is a top-level module for defining the attribute schemas of a rule or aspect. Each "

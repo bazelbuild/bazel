@@ -311,7 +311,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Override
   @Nullable
   public SkyValue getExistingValue(SkyKey key) {
-    NodeEntry entry = getExistingEntryAtLatestVersion(key);
+    NodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
     try {
       return isDone(entry) ? entry.getValue() : null;
     } catch (InterruptedException e) {
@@ -321,7 +321,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Override
   @Nullable public ErrorInfo getExistingErrorForTesting(SkyKey key) {
-    NodeEntry entry = getExistingEntryAtLatestVersion(key);
+    NodeEntry entry = getExistingEntryAtCurrentlyEvaluatingVersion(key);
     try {
       return isDone(entry) ? entry.getErrorInfo() : null;
     } catch (InterruptedException e) {
@@ -331,7 +331,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
   @Nullable
   @Override
-  public NodeEntry getExistingEntryAtLatestVersion(SkyKey key) {
+  public NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) {
     return graph.get(null, Reason.OTHER, key);
   }
 

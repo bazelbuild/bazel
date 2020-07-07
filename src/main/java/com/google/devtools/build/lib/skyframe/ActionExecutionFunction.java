@@ -67,11 +67,15 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionRewindStrategy.RewindPlan;
 import com.google.devtools.build.lib.skyframe.ArtifactFunction.MissingFileArtifactValue;
 import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.ArtifactNestedSetEvalException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -1060,8 +1064,10 @@ public class ActionExecutionFunction implements SkyFunction {
         // We don't create a specific cause for the artifact as we do in #handleMissingFile because
         // it likely has no label, so we'd have to use the Action's label anyway. Just use the
         // default ActionFailed event constructed by ActionExecutionException.
-        throw new ActionExecutionException(
-            "discovered input file does not exist", actionForError, false);
+        String message = "discovered input file does not exist";
+        DetailedExitCode code =
+            createDetailedExitCode(message, Code.DISCOVERED_INPUT_DOES_NOT_EXIST);
+        throw new ActionExecutionException(message, actionForError, false, code);
       }
       if (retrievedMetadata instanceof TreeArtifactValue) {
         TreeArtifactValue treeValue = (TreeArtifactValue) retrievedMetadata;
@@ -1111,7 +1117,8 @@ public class ActionExecutionFunction implements SkyFunction {
       try {
         return skyframeAwareAction.processSkyframeValues(keys, values, env.valuesMissing());
       } catch (SkyframeAwareAction.ExceptionBase e) {
-        throw new ActionExecutionException(e, action, false);
+        throw new ActionExecutionException(
+            e, action, false, DetailedExitCode.of(e.getFailureDetail()));
       }
     }
     return null;
@@ -1355,11 +1362,7 @@ public class ActionExecutionFunction implements SkyFunction {
     }
 
     if (!missingArtifactCauses.isEmpty()) {
-      throw new ActionExecutionException(
-          missingArtifactCauses.size() + " input file(s) do not exist",
-          action,
-          NestedSetBuilder.wrap(Order.STABLE_ORDER, missingArtifactCauses),
-          /*catastrophe=*/ false);
+      throw createMissingInputsException(action, missingArtifactCauses);
     }
     return accumulateInputResultsFactory.create(
         inputArtifactData, expandedArtifacts, filesetsInsideRunfiles, topLevelFilesets);
@@ -1716,11 +1719,7 @@ public class ActionExecutionFunction implements SkyFunction {
               action,
               null);
         }
-        throw new ActionExecutionException(
-            missingArtifactCauses.size() + " input file(s) do not exist",
-            action,
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, missingArtifactCauses),
-            /*catastrophe=*/ false);
+        throw createMissingInputsException(action, missingArtifactCauses);
       }
     }
 
@@ -1756,5 +1755,25 @@ public class ActionExecutionFunction implements SkyFunction {
                 action.getOwner().getLabel()));
       }
     }
+  }
+
+  private static ActionExecutionException createMissingInputsException(
+      Action action, List<LabelCause> missingArtifactCauses) {
+    String message = missingArtifactCauses.size() + " input file(s) do not exist";
+    Code detailedCode = Code.ACTION_INPUT_FILES_MISSING;
+    return new ActionExecutionException(
+        message,
+        action,
+        NestedSetBuilder.wrap(Order.STABLE_ORDER, missingArtifactCauses),
+        /*catastrophe=*/ false,
+        createDetailedExitCode(message, detailedCode));
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setExecution(Execution.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

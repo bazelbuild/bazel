@@ -68,7 +68,6 @@ import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ScanningActionEvent;
 import com.google.devtools.build.lib.actions.SpawnResult.MetadataLog;
 import com.google.devtools.build.lib.actions.StoppedScanningActionEvent;
-import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -85,9 +84,15 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.rules.cpp.IncludeScannable;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStep;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.ActionStepOrResult;
 import com.google.devtools.build.lib.skyframe.ActionExecutionState.SharedActionCallback;
+import com.google.devtools.build.lib.util.CrashFailureDetails;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -378,8 +383,6 @@ public final class SkyframeActionExecutor {
   /**
    * Executes the provided action on the current thread. Returns the ActionExecutionValue with the
    * result, either computed here or already computed on another thread.
-   *
-   * <p>For use from {@link ArtifactFunction} only.
    */
   @SuppressWarnings("SynchronizeOnNonFinalField")
   ActionExecutionValue executeAction(
@@ -396,7 +399,9 @@ public final class SkyframeActionExecutor {
       // We can't execute an action (e.g. because --check_???_up_to_date option was used). Fail
       // the build instead.
       synchronized (reporter) {
-        TargetOutOfDateException e = new TargetOutOfDateException(action);
+        String message = action.prettyPrint() + " is not up-to-date";
+        DetailedExitCode code = createDetailedExitCode(message, Code.ACTION_NOT_UP_TO_DATE);
+        ActionExecutionException e = new ActionExecutionException(message, action, false, code);
         reporter.handle(Event.error(e.getMessage()));
         recordExecutionError();
         throw e;
@@ -864,7 +869,11 @@ public final class SkyframeActionExecutor {
               logger.atWarning().withCause(e).log(
                   "failed to delete output files before executing action: '%s'", action);
               throw toActionExecutionException(
-                  "failed to delete output files before executing action", e, action, null);
+                  "failed to delete output files before executing action",
+                  e,
+                  action,
+                  null,
+                  Code.ACTION_OUTPUTS_DELETION_FAILURE);
             }
           } else {
             // There's nothing to delete when the action file system is used, but we must ensure
@@ -1031,7 +1040,8 @@ public final class SkyframeActionExecutor {
               "not all outputs were created or valid",
               null,
               action,
-              outputAlreadyDumped ? null : fileOutErr);
+              outputAlreadyDumped ? null : fileOutErr,
+              Code.ACTION_OUTPUTS_NOT_CREATED);
         }
 
         if (outputService != null && finalizeActions) {
@@ -1040,7 +1050,12 @@ public final class SkyframeActionExecutor {
             outputService.finalizeAction(action, metadataHandler);
           } catch (EnvironmentalExecException | IOException e) {
             logger.atWarning().withCause(e).log("unable to finalize action: '%s'", action);
-            throw toActionExecutionException("unable to finalize action", e, action, fileOutErr);
+            throw toActionExecutionException(
+                "unable to finalize action",
+                e,
+                action,
+                fileOutErr,
+                Code.ACTION_FINALIZATION_FAILURE);
           }
         }
 
@@ -1073,7 +1088,11 @@ public final class SkyframeActionExecutor {
             action,
             actionResult,
             actionFileSystemType().inMemoryFileSystem(),
-            new ActionExecutionException(exception, action, true),
+            new ActionExecutionException(
+                exception,
+                action,
+                true,
+                CrashFailureDetails.detailedExitCodeForThrowable(exception)),
             fileOutErr,
             ErrorTiming.AFTER_EXECUTION);
         throw exception;
@@ -1460,17 +1479,31 @@ public final class SkyframeActionExecutor {
    * @param action The action that failed
    * @param actionOutput The output of the failed Action. May be null, if there is no output to
    *     display
+   * @param detailedCode The fine-grained failure code describing the failure
    */
   private ActionExecutionException toActionExecutionException(
-      String message, Throwable cause, Action action, FileOutErr actionOutput) {
+      String message,
+      Throwable cause,
+      Action action,
+      FileOutErr actionOutput,
+      FailureDetails.Execution.Code detailedCode) {
+    DetailedExitCode code = createDetailedExitCode(message, detailedCode);
     ActionExecutionException ex;
     if (cause == null) {
-      ex = new ActionExecutionException(message, action, false);
+      ex = new ActionExecutionException(message, action, false, code);
     } else {
-      ex = new ActionExecutionException(message, cause, action, false);
+      ex = new ActionExecutionException(message, cause, action, false, code);
     }
     printError(ex.getMessage(), action, actionOutput);
     return ex;
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setExecution(Execution.newBuilder().setCode(detailedCode))
+            .build());
   }
 
   /**

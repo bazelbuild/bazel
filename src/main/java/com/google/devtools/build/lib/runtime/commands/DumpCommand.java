@@ -164,7 +164,7 @@ public class DumpCommand implements BlazeCommand {
         help =
             "Dumps a pprof-compatible memory profile to the specified path. To learn more please"
                 + " see https://github.com/google/pprof.")
-    public String skylarkMemory;
+    public String starlarkMemory;
 
     @Option(
       name = "skyframe",
@@ -206,7 +206,7 @@ public class DumpCommand implements BlazeCommand {
             || dumpOptions.dumpActionGraph != null
             || dumpOptions.dumpRuleClasses
             || dumpOptions.dumpRules
-            || dumpOptions.skylarkMemory != null
+            || dumpOptions.starlarkMemory != null
             || (dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF);
     if (!anyOutput) {
       Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
@@ -275,9 +275,9 @@ public class DumpCommand implements BlazeCommand {
         out.println();
       }
 
-      if (dumpOptions.skylarkMemory != null) {
+      if (dumpOptions.starlarkMemory != null) {
         try {
-          dumpStarlarkHeap(env.getBlazeWorkspace(), dumpOptions.skylarkMemory, out);
+          dumpStarlarkHeap(env.getBlazeWorkspace(), dumpOptions.starlarkMemory, out);
         } catch (IOException e) {
           String message = "Could not dump Starlark memory";
           env.getReporter().error(null, message, e);

@@ -24,7 +24,11 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.protobuf.Extension;
 import com.google.protobuf.MessageLite;
@@ -62,8 +66,15 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    throw new ActionExecutionException(
-        mnemonic + "ExtraAction should not be executed.", this, false);
+    String message = mnemonic + "ExtraAction should not be executed.";
+    DetailedExitCode detailedCode =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(message)
+                .setExecution(
+                    Execution.newBuilder().setCode(Code.PSEUDO_ACTION_EXECUTION_PROHIBITED))
+                .build());
+    throw new ActionExecutionException(message, this, false, detailedCode);
   }
 
   @Override
@@ -86,7 +97,7 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
     try {
       return super.getExtraActionInfo(actionKeyContext).setExtension(infoExtension, getInfo());
     } catch (CommandLineExpansionException e) {
-      throw new AssertionError("PsedoAction command line expansion cannot fail");
+      throw new AssertionError("PseudoAction command line expansion cannot fail");
     }
   }
 

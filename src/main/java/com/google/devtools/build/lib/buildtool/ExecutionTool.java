@@ -146,11 +146,9 @@ public class ExecutionTool {
 
     ExecutorBuilder executorBuilder = new ExecutorBuilder();
     ModuleActionContextRegistry.Builder actionContextRegistryBuilder =
-        executorBuilder.asModuleActionContextRegistryBuilder(ModuleActionContextRegistry.builder());
-    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder =
-        executorBuilder.asSpawnStrategyRegistryBuilder(SpawnStrategyRegistry.builder());
+        ModuleActionContextRegistry.builder();
+    SpawnStrategyRegistry.Builder spawnStrategyRegistryBuilder = SpawnStrategyRegistry.builder();
     actionContextRegistryBuilder.register(SpawnStrategyResolver.class, new SpawnStrategyResolver());
-    executorBuilder.addStrategyByContext(SpawnStrategyResolver.class, "");
 
     for (BlazeModule module : runtime.getBlazeModules()) {
       try (SilentCloseable ignored = Profiler.instance().profile(module + ".executorInit")) {
@@ -193,13 +191,7 @@ public class ExecutionTool {
     actionContextRegistryBuilder.register(DynamicStrategyRegistry.class, spawnStrategyRegistry);
     actionContextRegistryBuilder.register(RemoteLocalFallbackRegistry.class, spawnStrategyRegistry);
 
-    executorBuilder.addActionContext(SpawnStrategyRegistry.class, spawnStrategyRegistry);
-    executorBuilder.addStrategyByContext(SpawnStrategyRegistry.class, "");
-
     ModuleActionContextRegistry moduleActionContextRegistry = actionContextRegistryBuilder.build();
-    executorBuilder.addActionContext(
-        ModuleActionContextRegistry.class, moduleActionContextRegistry);
-    executorBuilder.addStrategyByContext(ModuleActionContextRegistry.class, "");
 
     this.actionContextRegistry = moduleActionContextRegistry;
     this.spawnStrategyRegistry = spawnStrategyRegistry;

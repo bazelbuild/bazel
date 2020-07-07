@@ -130,7 +130,7 @@ public interface MemoizingEvaluator {
   SkyValue getExistingValue(SkyKey key) throws InterruptedException;
 
   @Nullable
-  NodeEntry getExistingEntryAtLatestVersion(SkyKey key) throws InterruptedException;
+  NodeEntry getExistingEntryAtCurrentlyEvaluatingVersion(SkyKey key) throws InterruptedException;
 
   /**
    * Returns an error if and only if an earlier call to {@link #evaluate} created it; null

@@ -51,7 +51,10 @@ public class ExecutionTransitionFactoryTest {
             ImmutableList.of(CoreOptions.class, PlatformOptions.class),
             "--platforms=//platform:target");
 
-    BuildOptions result = transition.patch(options, new StoredEventHandler());
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
     assertThat(result).isNotNull();
     assertThat(result).isNotSameInstanceAs(options);
 
@@ -81,7 +84,10 @@ public class ExecutionTransitionFactoryTest {
             ImmutableList.of(CoreOptions.class, PlatformOptions.class),
             "--platforms=//platform:target");
 
-    BuildOptions result = transition.patch(options, new StoredEventHandler());
+    BuildOptions result =
+        transition.patch(
+            new BuildOptionsView(options, transition.requiresOptionFragments()),
+            new StoredEventHandler());
     assertThat(result).isNotNull();
     assertThat(result).isEqualTo(options);
   }

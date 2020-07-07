@@ -5271,15 +5271,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     setupCcOutputsTest();
     scratch.file(
         "foo/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-        "cc_skylark_library(",
-        "    name = 'skylark_lib',",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
         "    object1 = 'object1.o',",
         "    pic_object1 = 'pic_object1.o',",
         "    object2 = 'object2.o',",
         "    pic_object2 = 'pic_object2.o',",
         ")");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     CcCompilationOutputs compilationOutputs =
         (CcCompilationOutputs) getMyInfoFromTarget(target).getValue("compilation_outputs");
     assertThat(
@@ -5321,9 +5321,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", String.join("", "disallow_nopic_outputs=True"));
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(getFilenamesToBuild(target)).doesNotContain("skylark_lib.o");
-    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.pic.o");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
+    assertThat(getFilenamesToBuild(target)).doesNotContain("starlark_lib.o");
+    assertThat(getFilenamesToBuild(target)).contains("starlark_lib.pic.o");
   }
 
   @Test
@@ -5331,9 +5331,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", String.join("", "disallow_pic_outputs=True"));
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.o");
-    assertThat(getFilenamesToBuild(target)).doesNotContain("skylark_lib.pic.o");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
+    assertThat(getFilenamesToBuild(target)).contains("starlark_lib.o");
+    assertThat(getFilenamesToBuild(target)).doesNotContain("starlark_lib.pic.o");
   }
 
   @Test
@@ -5345,9 +5345,9 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createFilesForTestingCompilation(scratch, "tools/build_defs/foo", "");
     useConfiguration("--compilation_mode=opt");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
-    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.pic.o");
-    assertThat(getFilenamesToBuild(target)).contains("skylark_lib.o");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
+    assertThat(getFilenamesToBuild(target)).contains("starlark_lib.pic.o");
+    assertThat(getFilenamesToBuild(target)).contains("starlark_lib.o");
   }
 
   @Test
@@ -5370,25 +5370,25 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             CcToolchainConfig.builder()
                 .withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER, CppRuleClasses.SUPPORTS_PIC));
     createFilesForTestingLinking(scratch, "tools/build_defs/foo", /* linkProviderLines= */ "");
-    assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(getConfiguredTarget("//foo:starlark_lib")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(
             getFilesToBuild(target).toList().stream()
                 .map(x -> x.getFilename())
                 .collect(ImmutableList.toImmutableList()))
-        .contains("libskylark_lib.a");
+        .contains("libstarlark_lib.a");
   }
 
   @Test
   public void testDoNotCreateStaticLibraries() throws Exception {
     createFilesForTestingLinking(scratch, "tools/build_defs/foo", "disallow_static_libraries=True");
-    assertThat(getConfiguredTarget("//foo:skylark_lib")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    assertThat(getConfiguredTarget("//foo:starlark_lib")).isNotNull();
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(
             getFilesToBuild(target).toList().stream()
                 .map(x -> x.getFilename())
                 .collect(ImmutableList.toImmutableList()))
-        .doesNotContain("libskylark_lib.a");
+        .doesNotContain("libstarlark_lib.a");
   }
 
   private List<String> getFilenamesToBuild(ConfiguredTarget target) {
@@ -5408,7 +5408,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "user_compile_flags=['-COMPILATION_OPTION']");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
     assertThat(action.getArguments()).contains("-COMPILATION_OPTION");
@@ -5418,7 +5418,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testIncludeDirs() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "includes=['foo/bar', 'baz/qux']");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
@@ -5429,7 +5429,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testSystemIncludeDirs() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "system_includes=['foo/bar', 'baz/qux']");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
@@ -5442,7 +5442,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testQuoteIncludeDirs() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "quote_includes=['foo/bar', 'baz/qux']");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
@@ -5455,7 +5455,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testFrameworkIncludeDirs() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "framework_includes=['foo/bar', 'baz/qux']");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
@@ -5466,7 +5466,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testDefines() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "defines=['DEFINE1', 'DEFINE2']");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
@@ -5477,22 +5477,22 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testHeaders() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     CcInfo ccInfo = target.get(CcInfo.PROVIDER);
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDeclaredIncludeSrcs()))
         .containsAtLeast(
-            "src foo/dep2.h", "src foo/skylark_lib.h", "src foo/private_skylark_lib.h");
+            "src foo/dep2.h", "src foo/starlark_lib.h", "src foo/private_starlark_lib.h");
   }
 
   @Test
   public void testCompileOutputHasSuffix() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     assertThat(artifactsToStrings(getFilesToBuild(target)))
-        .contains("bin foo/_objs/skylark_lib_suffix/skylark_lib.o");
+        .contains("bin foo/_objs/starlark_lib_suffix/starlark_lib.o");
   }
 
   @Test
@@ -5500,7 +5500,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
     assertThat(getConfiguredTarget("//foo:bin")).isNotNull();
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
     assertThat(action.getArguments()).containsAtLeast("-DDEFINE_DEP1", "-DDEFINE_DEP2");
@@ -5509,7 +5509,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testLinkingOutputs() throws Exception {
     createFiles(scratch, "tools/build_defs/foo");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     @SuppressWarnings("unchecked")
     Sequence<LibraryToLink> libraries =
@@ -5518,14 +5518,14 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
             libraries.stream()
                 .map(x -> x.getResolvedSymlinkDynamicLibrary().getFilename())
                 .collect(ImmutableList.toImmutableList()))
-        .contains("libskylark_lib.so");
+        .contains("libstarlark_lib.so");
   }
 
   @Test
   public void testUserLinkFlags() throws Exception {
     createFilesForTestingLinking(
         scratch, "tools/build_defs/foo", "user_link_flags=['-LINKING_OPTION']");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getFlattenedUserLinkFlags())
         .contains("-LINKING_OPTION");
@@ -5544,7 +5544,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testAlwayslinkTrue() throws Exception {
     createFilesForTestingLinking(scratch, "tools/build_defs/foo", "alwayslink=True");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     assertThat(
             target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList().stream()
@@ -5556,7 +5556,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   @Test
   public void testAlwayslinkFalse() throws Exception {
     createFilesForTestingLinking(scratch, "tools/build_defs/foo", "alwayslink=False");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     assertThat(
             target.get(CcInfo.PROVIDER).getCcLinkingContext().getLibraries().toList().stream()
@@ -5569,7 +5569,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testAdditionalLinkingInputs() throws Exception {
     createFilesForTestingLinking(
         scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_inputs");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     assertThat(target.get(CcInfo.PROVIDER).getCcLinkingContext().getNonCodeInputs().toList())
         .hasSize(1);
@@ -5579,7 +5579,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   public void testAdditionalCompilationInputs() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", "additional_inputs=ctx.files._additional_compiler_inputs");
-    ConfiguredTarget target = getConfiguredTarget("//foo:skylark_lib");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
     assertThat(target).isNotNull();
     CppCompileAction action =
         (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
@@ -5625,13 +5625,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
 
     scratch.file(
         "bar/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-        "cc_skylark_library(",
-        "    name = 'skylark_lib',",
-        "    srcs = ['skylark_lib.qweqwe'],",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.qweqwe'],",
         ")");
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bar:skylark_lib");
+    getConfiguredTarget("//bar:starlark_lib");
     assertContainsEvent("The list of possible extensions for 'srcs'");
   }
 
@@ -5801,8 +5801,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     invalidatePackages();
     scratch.file(
         "b/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-        "cc_skylark_library(",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
         "    name = 'b',",
         "    srcs = ['b.cc'],",
         "    aspect_deps = ['@r//p:a']",
@@ -5952,7 +5952,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    },",
         fragments,
         ")",
-        "def _cc_skylark_library_impl(ctx):",
+        "def _cc_starlark_library_impl(ctx):",
         "    dep_compilation_contexts = []",
         "    dep_linking_contexts = []",
         "    for dep in ctx.attr._deps:",
@@ -5998,8 +5998,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "            DefaultInfo(files=depset(files_to_build)),",
         "            CcInfo(compilation_context=compilation_context,",
         "                   linking_context=linking_context)]",
-        "cc_skylark_library = rule(",
-        "    implementation = _cc_skylark_library_impl,",
+        "cc_starlark_library = rule(",
+        "    implementation = _cc_starlark_library_impl,",
         "    attrs = {",
         "      'srcs': attr.label_list(allow_files=True),",
         "      'public_hdrs': attr.label_list(allow_files=True),",
@@ -6017,7 +6017,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/BUILD",
-        "load('//" + bzlFilePath + ":extension.bzl', 'cc_skylark_library')",
+        "load('//" + bzlFilePath + ":extension.bzl', 'cc_starlark_library')",
         "cc_library(",
         "    name = 'dep1',",
         "    srcs = ['dep1.cc'],",
@@ -6032,15 +6032,15 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    defines = ['DEFINE_DEP2'],",
         "    linkopts = ['-DEP2_LINKOPT'],",
         ")",
-        "cc_skylark_library(",
-        "    name = 'skylark_lib',",
-        "    srcs = ['skylark_lib.cc'],",
-        "    public_hdrs = ['skylark_lib.h'],",
-        "    private_hdrs = ['private_skylark_lib.h'],",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.cc'],",
+        "    public_hdrs = ['starlark_lib.h'],",
+        "    private_hdrs = ['private_starlark_lib.h'],",
         ")",
         "cc_binary(",
         "    name = 'bin',",
-        "    deps = ['skylark_lib'],",
+        "    deps = ['starlark_lib'],",
         ")");
   }
 
@@ -6048,13 +6048,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     createFiles(scratch, "tools/build_defs/foo");
     scratch.file(
         "bar/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-        "cc_skylark_library(",
-        "    name = 'skylark_lib',",
-        "    " + attrName + " = ['skylark_lib.cannotpossiblybevalid'],",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    " + attrName + " = ['starlark_lib.cannotpossiblybevalid'],",
         ")");
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//bar:skylark_lib");
+    getConfiguredTarget("//bar:starlark_lib");
     assertContainsEvent(
         "has wrong extension. The list of possible extensions for '" + attrName + "'");
   }
@@ -6068,12 +6068,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       scratch.deleteFile("bar/BUILD");
       scratch.file(
           "bar/BUILD",
-          "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-          "cc_skylark_library(",
-          "    name = 'skylark_lib',",
+          "load('//tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+          "cc_starlark_library(",
+          "    name = 'starlark_lib',",
           "    " + attrName + " = ['file" + extension + "'],",
           ")");
-      getConfiguredTarget("//bar:skylark_lib");
+      getConfiguredTarget("//bar:starlark_lib");
       assertNoEvents();
     }
   }
@@ -6082,13 +6082,13 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     setupCcOutputsTest();
     scratch.file(
         "foo/BUILD",
-        "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-        "cc_skylark_library(",
-        "    name = 'skylark_lib',",
+        "load('//tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
         "    " + attrName + " = 'object.cannotpossiblybevalid',",
         ")");
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//foo:skylark_lib");
+    getConfiguredTarget("//foo:starlark_lib");
     assertContainsEvent(
         "has wrong extension. The list of possible extensions for '" + paramName + "'");
   }
@@ -6101,12 +6101,12 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
       scratch.deleteFile("foo/BUILD");
       scratch.file(
           "foo/BUILD",
-          "load('//tools/build_defs/foo:extension.bzl', 'cc_skylark_library')",
-          "cc_skylark_library(",
-          "    name = 'skylark_lib',",
+          "load('//tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+          "cc_starlark_library(",
+          "    name = 'starlark_lib',",
           "    " + paramName + " = 'object1" + extension + "',",
           ")");
-      getConfiguredTarget("//foo:skylark_lib");
+      getConfiguredTarget("//foo:starlark_lib");
       assertNoEvents();
     }
   }
@@ -6116,7 +6116,7 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     scratch.file(
         "tools/build_defs/foo/extension.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "def _cc_skylark_library_impl(ctx):",
+        "def _cc_starlark_library_impl(ctx):",
         "    objects = []",
         "    pic_objects = []",
         "    if ctx.file.object1 != None:",
@@ -6136,8 +6136,8 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
         "    compilation_outputs = cc_common.merge_compilation_outputs(",
         "        compilation_outputs=[c1, c2])",
         "    return [MyInfo(compilation_outputs=compilation_outputs)]",
-        "cc_skylark_library = rule(",
-        "    implementation = _cc_skylark_library_impl,",
+        "cc_starlark_library = rule(",
+        "    implementation = _cc_starlark_library_impl,",
         "    attrs = {",
         "      'object1': attr.label(allow_single_file=True),",
         "      'pic_object1': attr.label(allow_single_file=True),",

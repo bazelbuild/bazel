@@ -145,7 +145,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   /**
    * Creates a set of BUILD and .bzl files that gathers objects of many different types available in
    * Starlark and creates their string representations by calling `str` and `repr` on them. The
-   * strings are available in the configured target for //test/skylark:check
+   * strings are available in the configured target for //test/starlark:check
    */
   private void generateFilesToTestStrings() throws Exception {
     // Generate string representations of Starlark rule contexts, targets, and files.
@@ -153,7 +153,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
     // prepare_params(objects) converts a dict of objects to a dict of their string representations.
 
     scratch.file(
-        "test/skylark/rules.bzl",
+        "test/starlark/rules.bzl",
         "aspect_ctx_provider = provider()",
         "def prepare_params(objects):",
         "  params = {}",
@@ -207,7 +207,7 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
         ")");
 
     scratch.file(
-        "test/skylark/BUILD",
+        "test/starlark/BUILD",
         "load(':rules.bzl', 'check', 'dep', 'genfile')",
         "",
         "dep(name = 'foo')",
@@ -293,35 +293,35 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   @Test
   public void testStringRepresentations_RuleContext() throws Exception {
     generateFilesToTestStrings();
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
 
     for (String suffix : SUFFIXES) {
       assertThat(target.get("rule_ctx" + suffix))
-          .isEqualTo("<rule context for //test/skylark:check>");
+          .isEqualTo("<rule context for //test/starlark:check>");
       assertThat(target.get("aspect_ctx" + suffix))
-          .isEqualTo("<aspect context for //test/skylark:bar>");
+          .isEqualTo("<aspect context for //test/starlark:bar>");
       assertThat(target.get("aspect_ctx.rule" + suffix))
-          .isEqualTo("<rule collection for //test/skylark:bar>");
+          .isEqualTo("<rule collection for //test/starlark:bar>");
     }
   }
 
   @Test
   public void testStringRepresentations_Files() throws Exception {
     generateFilesToTestStrings();
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
 
     for (String suffix : SUFFIXES) {
       assertThat(target.get("source_file" + suffix))
-          .isEqualTo("<source file test/skylark/input.txt>");
+          .isEqualTo("<source file test/starlark/input.txt>");
       assertThat(target.get("generated_file" + suffix))
-          .isEqualTo("<generated file test/skylark/output.txt>");
+          .isEqualTo("<generated file test/starlark/output.txt>");
     }
   }
 
   @Test
   public void testStringRepresentations_Root() throws Exception {
     generateFilesToTestStrings();
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
 
     for (String suffix : SUFFIXES) {
       assertThat(target.get("source_root" + suffix)).isEqualTo("<source root>");
@@ -360,19 +360,18 @@ public class StarlarkStringRepresentationsTest extends BuildViewTestCase {
   @Test
   public void testStringRepresentations_Targets() throws Exception {
     generateFilesToTestStrings();
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:check");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:check");
 
     for (String suffix : SUFFIXES) {
-      assertThat(target.get("target" + suffix))
-          .isEqualTo("<target //test/skylark:foo>");
+      assertThat(target.get("target" + suffix)).isEqualTo("<target //test/starlark:foo>");
       assertThat(target.get("input_target" + suffix))
-          .isEqualTo("<input file target //test/skylark:input.txt>");
+          .isEqualTo("<input file target //test/starlark:input.txt>");
       assertThat(target.get("output_target" + suffix))
-          .isEqualTo("<output file target //test/skylark:output.txt>");
+          .isEqualTo("<output file target //test/starlark:output.txt>");
       assertThat(target.get("alias_target" + suffix))
-          .isEqualTo("<alias target //test/skylark:foobar of //test/skylark:foo>");
+          .isEqualTo("<alias target //test/starlark:foobar of //test/starlark:foo>");
       assertThat(target.get("aspect_target" + suffix))
-          .isEqualTo("<merged target //test/skylark:bar>");
+          .isEqualTo("<merged target //test/starlark:bar>");
     }
   }
 }

@@ -17,7 +17,11 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 /**
@@ -49,7 +53,16 @@ public final class FailAction extends AbstractAction {
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {
-    throw new ActionExecutionException(errorMessage, this, false);
+    throw new ActionExecutionException(
+        errorMessage,
+        this,
+        false,
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("FailAction intentional failure")
+                .setFailAction(
+                    FailureDetails.FailAction.newBuilder().setCode(Code.INTENTIONAL_FAILURE))
+                .build()));
   }
 
   @Override

@@ -67,11 +67,5 @@ public @interface StarlarkBuiltin {
   /** Whether the module should appear in the documentation. */
   boolean documented() default true;
 
-  /**
-   * If true, this type is a singleton top-level type whose main purpose is to act as a namespace
-   * for other values.
-   */
-  boolean namespace() default false;
-
   StarlarkDocumentationCategory category() default StarlarkDocumentationCategory.TOP_LEVEL_TYPE;
 }

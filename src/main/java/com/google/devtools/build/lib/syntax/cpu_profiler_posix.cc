@@ -157,9 +157,11 @@ Java_com_google_devtools_build_lib_syntax_CpuProfiler_startTimer(
   // Is a handler already in effect?
   // Check for 3-arg and 1-arg forms.
   typedef void (*sighandler_t)(int);  // don't rely on this GNU extension
-  if ((oldact.sa_flags & SA_SIGINFO) != 0
-          ? (reinterpret_cast<sighandler_t>(oldact.sa_sigaction) != SIG_IGN)
-          : (oldact.sa_handler != SIG_IGN)) {
+  sighandler_t prev = (oldact.sa_flags & SA_SIGINFO) != 0
+                          ? reinterpret_cast<sighandler_t>(oldact.sa_sigaction)
+                          : oldact.sa_handler;
+  // The initial handler (DFL or IGN) may vary by thread package.
+  if (prev != SIG_DFL && prev != SIG_IGN) {
     // Someone else is profiling this JVM.
     // Restore their handler and fail.
     (void)sigaction(SIGPROF, &oldact, nullptr);

@@ -35,6 +35,10 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.LtoAction;
+import com.google.devtools.build.lib.server.FailureDetails.LtoAction.Code;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -135,13 +139,13 @@ public final class LtoBackendAction extends SpawnAction {
         if (!line.isEmpty()) {
           PathFragment execPath = PathFragment.create(line);
           if (execPath.isAbsolute()) {
-            throw new ActionExecutionException(
-                "Absolute paths not allowed in imports file "
-                    + actionExecutionContext.getInputPath(imports)
-                    + ": "
-                    + execPath,
-                this,
-                false);
+            String message =
+                String.format(
+                    "Absolute paths not allowed in imports file %s: %s",
+                    actionExecutionContext.getInputPath(imports), execPath);
+            DetailedExitCode code =
+                createDetailedExitCode(message, Code.INVALID_ABSOLUTE_PATH_IN_IMPORTS);
+            throw new ActionExecutionException(message, this, false, code);
           }
           importSet.add(PathFragment.create(line));
         }
@@ -166,7 +170,7 @@ public final class LtoBackendAction extends SpawnAction {
               bitcodeInputSet.toList().stream()
                   .map(Artifact::getExecPath)
                   .collect(Collectors.toSet()));
-      throw new ActionExecutionException(
+      String message =
           String.format(
               "error computing inputs from imports file: %s, missing bitcode files (first 10): %s",
               actionExecutionContext.getInputPath(imports),
@@ -175,15 +179,23 @@ public final class LtoBackendAction extends SpawnAction {
                   .map(Object::toString)
                   .sorted()
                   .limit(10)
-                  .collect(Collectors.joining(", "))),
-          this,
-          false);
+                  .collect(Collectors.joining(", ")));
+      DetailedExitCode code = createDetailedExitCode(message, Code.MISSING_BITCODE_FILES);
+      throw new ActionExecutionException(message, this, false, code);
     }
     updateInputs(
         NestedSetBuilder.fromNestedSet(bitcodeInputSet)
             .addTransitive(getMandatoryInputs())
             .build());
     return bitcodeInputSet;
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setLtoAction(LtoAction.newBuilder().setCode(detailedCode))
+            .build());
   }
 
   @Override

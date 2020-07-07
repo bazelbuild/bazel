@@ -358,9 +358,9 @@ sh_test(
 )
 
 sh_test(
-    name = "skylark_flag_test",
+    name = "starlark_flag_test",
     size = "medium",
-    srcs = ["skylark_flag_test.sh"],
+    srcs = ["starlark_flag_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",

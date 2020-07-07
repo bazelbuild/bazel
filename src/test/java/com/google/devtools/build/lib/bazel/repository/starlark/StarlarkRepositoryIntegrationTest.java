@@ -100,7 +100,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     // We inject the repository module in our test rule class provider.
     if (ruleProvider == null) {
       ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();

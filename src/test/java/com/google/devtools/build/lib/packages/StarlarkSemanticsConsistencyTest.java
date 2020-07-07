@@ -161,7 +161,7 @@ public class StarlarkSemanticsConsistencyTest {
         "--incompatible_require_linker_input_cc_api=" + rand.nextBoolean(),
         "--incompatible_restrict_string_escapes=" + rand.nextBoolean(),
         "--incompatible_use_cc_configure_from_rules_cc=" + rand.nextBoolean(),
-        "--internal_skylark_flag_test_canary=" + rand.nextBoolean(),
+        "--internal_starlark_flag_test_canary=" + rand.nextBoolean(),
         "--max_computation_steps=" + rand.nextLong(),
         "--record_rule_instantiation_callstack=" + rand.nextBoolean());
   }

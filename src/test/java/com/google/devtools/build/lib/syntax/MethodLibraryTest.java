@@ -446,7 +446,7 @@ public final class MethodLibraryTest extends EvaluationTestCase {
   public void testHash() throws Exception {
     // We specify the same string hashing algorithm as String.hashCode().
     new Scenario()
-        .testExpression("hash('skylark')", "skylark".hashCode())
+        .testExpression("hash('starlark')", "starlark".hashCode())
         .testExpression("hash('google')", "google".hashCode())
         .testIfErrorContains(
             "in call to hash(), parameter 'value' got value of type 'NoneType', want 'string'",

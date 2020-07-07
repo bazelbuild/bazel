@@ -187,6 +187,32 @@ public class LocalSpawnRunner implements SpawnRunner {
     }
 
     public SpawnResult run() throws InterruptedException, IOException {
+      if (localExecutionOptions.localRetriesOnCrash == 0) {
+        return runOnce();
+      } else {
+        int attempts = 0;
+        while (true) {
+          // Assume that any exceptions from runOnce() come from the Java side of things, not the
+          // subprocess, so let them bubble up on first occurrence. In particular, we need this to
+          // be true for InterruptedException to ensure that the dynamic scheduler can stop us
+          // quickly.
+          SpawnResult result = runOnce();
+          if (attempts == localExecutionOptions.localRetriesOnCrash
+              || !TerminationStatus.crashed(result.exitCode())) {
+            return result;
+          }
+          stepLog(
+              SEVERE,
+              "Retrying crashed subprocess due to exit code %s (attempt %s)",
+              result.exitCode(),
+              attempts);
+          Thread.sleep(attempts * 1000);
+          attempts++;
+        }
+      }
+    }
+
+    private SpawnResult runOnce() throws InterruptedException, IOException {
       try {
         return start();
       } catch (InterruptedException | InterruptedIOException e) {

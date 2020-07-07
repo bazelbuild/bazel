@@ -24,12 +24,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import java.io.IOException;
 import javax.annotation.Nullable;
 
 /**
@@ -63,15 +61,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     try {
-      DeterministicWriter deterministicWriter;
-      try {
-        deterministicWriter = newDeterministicWriter(actionExecutionContext);
-      } catch (IOException e) {
-        // Message is a bit misleading but is good enough for the end user.
-        throw new EnvironmentalExecException(
-            "Failed to write '" + getPrimaryOutput().prettyPrint() + "'", e);
-      }
-
+      DeterministicWriter deterministicWriter = newDeterministicWriter(actionExecutionContext);
       FileWriteActionContext context = getStrategy(actionExecutionContext);
       SpawnContinuation first =
           context.beginWriteOutputToFile(
@@ -122,10 +112,10 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
   /**
    * Produce a DeterministicWriter that can write the file to an OutputStream deterministically.
    *
-   * @param ctx context for use with creating the writer.  
+   * @param ctx context for use with creating the writer.
    */
   public abstract DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
-      throws IOException, InterruptedException, ExecException;
+      throws InterruptedException, ExecException;
 
   /**
    * This hook is called after the File has been successfully written to disk.
