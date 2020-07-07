@@ -523,9 +523,8 @@ public final class ActionMetadataHandler implements MetadataHandler {
       return value;
     }
 
-    if (type.isFile() && !artifact.hasParent() && fileDigest != null) {
-      // We do not need to store the FileArtifactValue separately -- the digest is in the file value
-      // and that is all that is needed for this file's metadata.
+    if (type.isFile() && fileDigest != null) {
+      // The digest is in the file value and that is all that is needed for this file's metadata.
       return value;
     }
 
@@ -541,8 +540,10 @@ public final class ActionMetadataHandler implements MetadataHandler {
     }
 
     if (injectedDigest == null && type.isFile()) {
+      // We don't have an injected digest and there is no digest in the file value (which attempts a
+      // fast digest). Manually compute the digest instead.
       injectedDigest =
-          DigestUtils.getDigestOrFail(artifactPathResolver.toPath(artifact), value.getSize());
+          DigestUtils.manuallyComputeDigest(artifactPathResolver.toPath(artifact), value.getSize());
     }
     return FileArtifactValue.createFromInjectedDigest(
         value, injectedDigest, !artifact.isConstantMetadata());

@@ -246,7 +246,7 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
       return new DirectoryArtifactValue(path.getLastModifiedTime());
     }
     if (digest == null) {
-      digest = DigestUtils.getDigestOrFail(path, size);
+      digest = DigestUtils.getDigestWithManualFallback(path, size);
     }
     Preconditions.checkState(digest != null, path);
     return createForNormalFile(digest, proxy, size, isShareable);
