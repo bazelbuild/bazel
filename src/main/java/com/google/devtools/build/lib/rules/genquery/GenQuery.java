@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -426,7 +427,10 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fp) {
       result.fingerprint(fp);
     }
   }

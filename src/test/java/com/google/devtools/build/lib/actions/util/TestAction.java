@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
+import javax.annotation.Nullable;
 
 /**
  * A dummy action for testing.  Its execution runs the specified
@@ -141,7 +142,10 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addPaths(Artifact.asSortedPathFragments(getOutputs()));
     fp.addPaths(Artifact.asSortedPathFragments(getMandatoryInputs().toList()));
   }

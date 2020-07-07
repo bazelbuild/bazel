@@ -1308,7 +1308,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   /** For actions that discover inputs, the key must include input names. */
   @Override
-  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  public void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     computeKey(
         actionKeyContext,

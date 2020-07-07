@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import java.util.Map;
@@ -85,8 +86,16 @@ public interface ActionAnalysisMetadata {
    *
    * <p>Note the following exception: for actions that discover inputs, the key must change if any
    * input names change or else action validation may falsely validate.
+   *
+   * <p>In case the {@link ArtifactExpander} is not provided, the key is not guaranteed to be
+   * correct. In fact, getting the key of an action is generally impossible until we have all the
+   * information necessary to execute the action. An example of this is when arguments to an action
+   * are defined as a lazy evaluation of Starlark over outputs of another action, after expanding
+   * directories. In such case, if the dependent action outputs a tree artifact, creating a truly
+   * unique key will depend on knowing the tree artifact contents. At analysis time, we only know
+   * about the tree artifact directory and we find what is in it only after we execute that action.
    */
-  String getKey(ActionKeyContext actionKeyContext);
+  String getKey(ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander);
 
   /**
    * Returns a pretty string representation of this action, suitable for use in

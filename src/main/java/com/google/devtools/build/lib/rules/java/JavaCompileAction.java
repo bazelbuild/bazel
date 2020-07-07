@@ -183,7 +183,10 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     fp.addUUID(GUID);
     fp.addInt(classpathMode.ordinal());

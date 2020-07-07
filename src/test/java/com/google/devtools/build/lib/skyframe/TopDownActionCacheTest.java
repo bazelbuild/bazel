@@ -198,8 +198,11 @@ public class TopDownActionCacheTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
-      super.computeKey(actionKeyContext, fp);
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable Artifact.ArtifactExpander artifactExpander,
+        Fingerprint fp) {
+      super.computeKey(actionKeyContext, artifactExpander, fp);
       fp.addString(button.key);
     }
   }

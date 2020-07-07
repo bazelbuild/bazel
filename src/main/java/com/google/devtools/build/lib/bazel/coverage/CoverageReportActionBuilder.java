@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -159,7 +160,10 @@ public final class CoverageReportActionBuilder {
     }
 
     @Override
-    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fp) {
       fp.addStrings(command);
     }
 

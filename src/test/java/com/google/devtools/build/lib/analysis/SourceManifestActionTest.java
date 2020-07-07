@@ -315,7 +315,7 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
 
   private String computeKey(SourceManifestAction action) {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, fp);
+    action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
     return fp.hexDigestAndReset();
   }
 }

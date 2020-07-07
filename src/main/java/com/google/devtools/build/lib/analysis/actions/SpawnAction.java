@@ -437,7 +437,10 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     fp.addString(GUID);
     commandLines.addToFingerprint(actionKeyContext, fp);

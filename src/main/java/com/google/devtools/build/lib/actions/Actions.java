@@ -76,7 +76,9 @@ public final class Actions {
 
     Action actionA = (Action) a;
     Action actionB = (Action) b;
-    if (!actionA.getKey(actionKeyContext).equals(actionB.getKey(actionKeyContext))) {
+    if (!actionA
+        .getKey(actionKeyContext, /*artifactExpander=*/ null)
+        .equals(actionB.getKey(actionKeyContext, /*artifactExpander=*/ null))) {
       return false;
     }
     // Don't bother to check input and output counts first; the expected result for these tests is

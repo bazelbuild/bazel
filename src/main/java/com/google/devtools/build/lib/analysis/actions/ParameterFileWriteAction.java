@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /** Action to write a parameter file for a {@link CommandLine}. */
 @Immutable // if commandLine is immutable
@@ -173,7 +174,10 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));

@@ -362,7 +362,10 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     fp.addString(LINK_GUID);
     fp.addString(ldExecutable.getPathString());

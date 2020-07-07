@@ -337,7 +337,9 @@ public class ActionCacheChecker {
       reportChanged(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_FILES);
       return true;
-    } else if (!entry.getActionKey().equals(action.getKey(actionKeyContext))) {
+    } else if (!entry
+        .getActionKey()
+        .equals(action.getKey(actionKeyContext, /*artifactExpander=*/ null))) {
       reportCommand(handler, action);
       actionCache.accountMiss(MissReason.DIFFERENT_ACTION_KEY);
       return true;
@@ -396,7 +398,9 @@ public class ActionCacheChecker {
         computeUsedEnv(action, clientEnv, remoteDefaultPlatformProperties);
     ActionCache.Entry entry =
         new ActionCache.Entry(
-            action.getKey(actionKeyContext), usedEnvironment, action.discoversInputs());
+            action.getKey(actionKeyContext, /*artifactExpander=*/ null),
+            usedEnvironment,
+            action.discoversInputs());
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();

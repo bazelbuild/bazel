@@ -130,7 +130,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     String actionUniquifier =
         actionToShadow.getPrimaryOutput().getExecPath().getBaseName()
             + "."
-            + actionToShadow.getKey(owningRule.getActionKeyContext());
+            + actionToShadow.getKey(owningRule.getActionKeyContext(), /*artifactExpander=*/ null);
     BashCommandConstructor constructor =
         CommandHelper.buildBashCommandConstructor(
             executionInfo, shExecutable, "." + actionUniquifier + ".extra_action_script.sh");
@@ -244,7 +244,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     for (AspectDescriptor aspectDescriptor : aspectDescriptors) {
       f.addString(aspectDescriptor.getDescription());
     }
-    f.addString(action.getKey(actionKeyContext));
+    f.addString(action.getKey(actionKeyContext, /*artifactExpander=*/ null));
     return f.hexDigestAndReset();
   }
 }

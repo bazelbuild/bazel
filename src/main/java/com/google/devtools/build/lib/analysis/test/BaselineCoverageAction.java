@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
+import javax.annotation.Nullable;
 
 /** Generates baseline (empty) coverage for the given non-test target. */
 @VisibleForTesting
@@ -60,7 +61,10 @@ public final class BaselineCoverageAction extends AbstractFileWriteAction
   }
 
   @Override
-  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  public void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     // TODO(b/150305897): No UUID?
     // TODO(b/150308417): Sort?
     Artifacts.addToFingerprint(fp, instrumentedFiles.toList());

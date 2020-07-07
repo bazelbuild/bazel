@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
 import java.util.Map;
 import java.util.SortedMap;
+import javax.annotation.Nullable;
 
 /** This action creates a set of symbolic links. */
 @AutoCodec
@@ -98,7 +99,10 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  public void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     for (Map.Entry<Artifact, Artifact> entry : symlinks.entrySet()) {
       fp.addPath(entry.getKey().getExecPath());
       fp.addPath(entry.getValue().getExecPath());

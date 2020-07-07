@@ -419,7 +419,10 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fp) {
       fp.addString("action");
     }
 
@@ -471,7 +474,10 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable ArtifactExpander artifactExpander,
+        Fingerprint fp) {
       fp.addString("Mock Action " + getPrimaryOutput());
     }
 

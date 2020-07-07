@@ -66,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Utilities for analysis phase tests.
@@ -257,7 +258,10 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {}
+    public void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable Artifact.ArtifactExpander artifactExpander,
+        Fingerprint fp) {}
 
     @Override
     public Artifact getVolatileStatus() {

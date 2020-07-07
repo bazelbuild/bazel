@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** An {@link ActionTemplate} that expands into {@link SpawnAction}s at execution time. */
 public final class SpawnActionTemplate extends ActionKeyCacher
@@ -119,7 +121,10 @@ public final class SpawnActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     TreeFileArtifact inputTreeFileArtifact =
         TreeFileArtifact.createTreeOutput(inputTreeArtifact, "dummy_for_key");
@@ -130,7 +135,7 @@ public final class SpawnActionTemplate extends ActionKeyCacher
             ActionTemplateExpansionValue.key(
                 outputTreeArtifact.getArtifactOwner(), /*actionIndex=*/ 0));
     SpawnAction dummyAction = createAction(inputTreeFileArtifact, outputTreeFileArtifact);
-    dummyAction.computeKey(actionKeyContext, fp);
+    dummyAction.computeKey(actionKeyContext, artifactExpander, fp);
   }
 
   /**

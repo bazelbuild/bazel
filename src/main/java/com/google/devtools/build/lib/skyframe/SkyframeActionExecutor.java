@@ -459,7 +459,7 @@ public final class SkyframeActionExecutor {
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr;
     if (replayActionOutErr) {
-      String actionKey = action.getKey(actionKeyContext);
+      String actionKey = action.getKey(actionKeyContext, /*artifactExpander=*/ null);
       fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, artifactPathResolver);
       try {
         fileOutErr.getErrorPath().delete();
@@ -536,7 +536,7 @@ public final class SkyframeActionExecutor {
       if (replayActionOutErr) {
         // TODO(ulfjack): This assumes that the stdout/stderr files are unmodified. It would be
         //  better to integrate them with the action cache and rerun the action when they change.
-        String actionKey = action.getKey(actionKeyContext);
+        String actionKey = action.getKey(actionKeyContext, /*artifactExpander=*/ null);
         FileOutErr fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, pathResolver);
         // Set the mightHaveOutput bit in FileOutErr. Otherwise hasRecordedOutput() doesn't check if
         // the file exists and just returns false.

@@ -175,7 +175,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       ActionExecutionMetadata actionExecutionMetadata = (ActionExecutionMetadata) action;
       stringBuilder
           .append("  ActionKey: ")
-          .append(actionExecutionMetadata.getKey(actionKeyContext))
+          .append(actionExecutionMetadata.getKey(actionKeyContext, /*artifactExpander=*/ null))
           .append('\n');
     }
 

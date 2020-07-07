@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -25,13 +26,16 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
   @Nullable private volatile String cachedKey = null;
 
   @Override
-  public final String getKey(ActionKeyContext actionKeyContext) {
+  public final String getKey(
+      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
     if (cachedKey == null) {
       synchronized (this) {
         if (cachedKey == null) {
           try {
             Fingerprint fp = new Fingerprint();
-            computeKey(actionKeyContext, fp);
+            // TODO(b/153904017): Make use of the provided artifactExpander and only cache if
+            // present.
+            computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
 
             // Add a bool indicating whether the execution platform was set.
             fp.addBoolean(getExecutionPlatform() != null);
@@ -61,6 +65,9 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
    * the ActionAnalysisMetadata. Perhaps ActionKeyCacher should just mandate subclasses provide a
    * UUID and then add that UUID itself in getKey.
    */
-  protected abstract void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected abstract void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException;
 }

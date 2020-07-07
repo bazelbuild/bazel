@@ -160,7 +160,7 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
 
   private String computeKey(CreateIncSymlinkAction action) {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, fp);
+    action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
     return fp.hexDigestAndReset();
   }
 }

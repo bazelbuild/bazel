@@ -147,7 +147,10 @@ public final class CppCompileActionTemplate extends ActionKeyCacher
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     CompileCommandLine commandLine =
         CppCompileAction.buildCommandLine(

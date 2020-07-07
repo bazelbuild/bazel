@@ -35,6 +35,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Action to write a file whose contents are known at analysis time.
@@ -252,7 +253,10 @@ public final class FileWriteAction extends AbstractFileWriteAction {
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(getFileContents());

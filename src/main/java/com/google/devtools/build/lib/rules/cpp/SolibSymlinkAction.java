@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Creates mangled symlinks in the solib directory for all shared libraries. Libraries that have a
@@ -92,7 +93,10 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addPath(symlink.getExecPath());
     fp.addPath(getPrimaryInput().getExecPath());
   }
