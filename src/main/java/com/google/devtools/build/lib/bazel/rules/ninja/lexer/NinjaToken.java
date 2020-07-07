@@ -36,6 +36,7 @@ public enum NinjaToken {
   EQUALS("="),
   PIPE("|"),
   PIPE2("||"),
+  PIPE_AT("|@"),
 
   INDENT("indent"),
   NEWLINE("newline"),
