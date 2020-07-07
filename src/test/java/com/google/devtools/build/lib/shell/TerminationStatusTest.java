@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.shell;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth8.assertThat;
 import static org.junit.Assert.assertThrows;
 
@@ -25,6 +26,27 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link TerminationStatus}. */
 @RunWith(JUnit4.class)
 public final class TerminationStatusTest {
+
+  @Test
+  public void testCrashed_exitCodesReturnFalse() {
+    assertThat(TerminationStatus.crashed(0)).isFalse();
+    assertThat(TerminationStatus.crashed(1)).isFalse();
+    assertThat(TerminationStatus.crashed(127)).isFalse();
+  }
+
+  @Test
+  public void testCrashed_terminationSignalsReturnFalse() {
+    assertThat(TerminationStatus.crashed(TerminationStatus.SIGNAL_1)).isFalse();
+    assertThat(TerminationStatus.crashed(TerminationStatus.SIGNAL_63)).isFalse();
+    assertThat(TerminationStatus.crashed(TerminationStatus.SIGNAL_SIGKILL)).isFalse();
+    assertThat(TerminationStatus.crashed(TerminationStatus.SIGNAL_SIGTERM)).isFalse();
+  }
+
+  @Test
+  public void testCrashed_abruptSignalsReturnTrue() {
+    assertThat(TerminationStatus.crashed(TerminationStatus.SIGNAL_SIGABRT)).isTrue();
+    assertThat(TerminationStatus.crashed(TerminationStatus.SIGNAL_SIGBUS)).isTrue();
+  }
 
   @Test
   public void testBuilder_WithNoWaitResponse() {

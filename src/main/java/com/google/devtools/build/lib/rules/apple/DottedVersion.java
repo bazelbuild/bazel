@@ -252,7 +252,7 @@ public final class DottedVersion implements DottedVersionApi<DottedVersion> {
   }
 
   @Override
-  public int compareTo_skylark(DottedVersion other) {
+  public int compareTo_starlark(DottedVersion other) {
     return compareTo(other);
   }
 

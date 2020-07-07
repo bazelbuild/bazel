@@ -1940,7 +1940,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
     static final NativeProvider<StarlarkStructWithStarlarkMethods> CONSTRUCTOR =
         new NativeProvider<StarlarkStructWithStarlarkMethods>(
-            StarlarkStructWithStarlarkMethods.class, "struct_with_skylark_callables") {};
+            StarlarkStructWithStarlarkMethods.class, "struct_with_starlark_callables") {};
 
     // A function that returns "fromValues".
     Object returnFromValues =
@@ -2054,7 +2054,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         .update("val", new StarlarkStructWithStarlarkMethods())
         .testIfExactError(
             // TODO(bazel-team): This should probably list callable_only_method as well.
-            "'struct_with_skylark_callables' value has no field or method 'nonexistent_field'\n"
+            "'struct_with_starlark_callables' value has no field or method 'nonexistent_field'\n"
                 + "Available attributes: callable_only_field, collision_field, collision_method, "
                 + "values_only_field, values_only_method",
             "v = val.nonexistent_field");
@@ -2065,7 +2065,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     new Scenario()
         .update("val", new StarlarkStructWithStarlarkMethods())
         .testIfExactError(
-            "'struct_with_skylark_callables' value has no field or method 'nonexistent_method'\n"
+            "'struct_with_starlark_callables' value has no field or method 'nonexistent_method'\n"
                 + "Available attributes: callable_only_field, collision_field, collision_method, "
                 + "values_only_field, values_only_method",
             "v = val.nonexistent_method()");

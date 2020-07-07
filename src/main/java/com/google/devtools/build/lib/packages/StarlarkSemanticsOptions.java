@@ -545,7 +545,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
 
   /** Used in an integration test to confirm that flags are visible to the interpreter. */
   @Option(
-      name = "internal_skylark_flag_test_canary",
+      name = "internal_starlark_flag_test_canary",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN})

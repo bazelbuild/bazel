@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * A configuration transition.
@@ -38,7 +37,7 @@ public interface ConfigurationTransition {
    * <p>Blaze throws an {@link IllegalArgumentException} if {@link #apply} is called on an options
    * fragment that isn't declared here.
    */
-  default Set<Class<? extends FragmentOptions>> requiresOptionFragments() {
+  default ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
     return ImmutableSet.of();
   }
 

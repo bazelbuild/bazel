@@ -24,13 +24,13 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import java.io.IOException;
 import java.util.List;
 
 /**
@@ -73,7 +73,7 @@ public class GenRuleAction extends SpawnAction {
   }
 
   @Override
-  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws IOException {
+  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws ExecException {
     if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       checkInputsForDirectories(
           actionExecutionContext.getEventHandler(), actionExecutionContext.getMetadataProvider());

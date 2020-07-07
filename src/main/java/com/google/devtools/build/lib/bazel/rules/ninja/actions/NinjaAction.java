@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -37,6 +38,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.rules.cpp.CppIncludeExtractionContext;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.NinjaAction.Code;
 import com.google.devtools.build.lib.skyframe.TrackSourceDirectoriesFlag;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -108,7 +112,7 @@ public class NinjaAction extends SpawnAction {
   }
 
   @Override
-  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws IOException {
+  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws ExecException {
     if (!TrackSourceDirectoriesFlag.trackSourceDirectories()) {
       checkInputsForDirectories(
           actionExecutionContext.getEventHandler(), actionExecutionContext.getMetadataProvider());
@@ -186,10 +190,12 @@ public class NinjaAction extends SpawnAction {
 
         if (inputArtifact == null) {
           throw new EnvironmentalExecException(
-              String.format(
-                  "depfile-declared dependency '%s' is invalid: it must either be "
-                      + "a source input, or a pre-declared generated input",
-                  execRelativePath));
+              createFailureDetail(
+                  String.format(
+                      "depfile-declared dependency '%s' is invalid: it must either be "
+                          + "a source input, or a pre-declared generated input",
+                      execRelativePath),
+                  Code.INVALID_DEPFILE_DECLARED_DEPENDENCY));
         }
 
         inputsBuilder.add(inputArtifact);
@@ -197,7 +203,9 @@ public class NinjaAction extends SpawnAction {
       updateInputs(inputsBuilder.build());
     } catch (IOException e) {
       // Some kind of IO or parse exception--wrap & rethrow it to stop the build.
-      throw new EnvironmentalExecException("error while parsing .d file: " + e.getMessage(), e);
+      String message = "error while parsing .d file: " + e.getMessage();
+      throw new EnvironmentalExecException(
+          e, createFailureDetail(message, Code.D_FILE_PARSE_FAILURE));
     }
   }
 
@@ -220,5 +228,12 @@ public class NinjaAction extends SpawnAction {
             .build();
     updateInputs(inputs);
     return inputs;
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setNinjaAction(FailureDetails.NinjaAction.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

@@ -273,6 +273,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
       Sequence<?> hostFragments,
       Boolean starlarkTestable,
       Sequence<?> toolchains,
+      boolean useToolchainTransition,
       String doc,
       Sequence<?> providesArg,
       Sequence<?> execCompatibleWith,
@@ -353,6 +354,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi<Arti
         bzlModule.label(), bzlModule.bzlTransitiveDigest());
 
     builder.addRequiredToolchains(parseToolchains(toolchains, thread));
+    builder.useToolchainTransition(useToolchainTransition);
 
     if (execGroups != Starlark.NONE) {
       Map<String, ExecGroup> execGroupDict =

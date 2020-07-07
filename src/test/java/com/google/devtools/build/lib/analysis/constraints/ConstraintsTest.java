@@ -139,11 +139,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
               .exemptFromConstraintChecking(
                   "for testing removal of restricted_to / compatible_with"));
 
-  /**
-   * Injects the rule class default rules into the default test rule class provider.
-   */
+  /** Injects the rule class default rules into the default test rule class provider. */
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addRuleDefinition(new RuleClassDefaultRule());

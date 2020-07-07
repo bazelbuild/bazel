@@ -2562,10 +2562,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
   // apple_common.objc_proto_aspect is used as an example.
   public void testTopLevelStarlarkObjcProtoAspect() throws Exception {
     MockObjcSupport.setupObjcProtoLibrary(scratch);
-    scratch.file("test_skylark/BUILD");
+    scratch.file("test_starlark/BUILD");
     scratch.file("x/data_filter.pbascii");
     scratch.file(
-        "test_skylark/top_level_stub.bzl",
+        "test_starlark/top_level_stub.bzl",
         "top_level_aspect = apple_common.objc_proto_aspect",
         "",
         "def top_level_stub_impl(ctx):",
@@ -2594,7 +2594,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
     scratch.file(
         "bin/BUILD",
-        "load('//test_skylark:top_level_stub.bzl', 'top_level_stub')",
+        "load('//test_starlark:top_level_stub.bzl', 'top_level_stub')",
         "top_level_stub(",
         "  name = 'link_target',",
         "  deps = ['//x:x'],",
@@ -2603,7 +2603,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     useConfiguration(MockObjcSupport.requiredObjcCrosstoolFlags().toArray(new String[1]));
     AnalysisResult analysisResult =
         update(
-            ImmutableList.of("test_skylark/top_level_stub.bzl%top_level_aspect"),
+            ImmutableList.of("test_starlark/top_level_stub.bzl%top_level_aspect"),
             "//bin:link_target");
     ConfiguredAspect configuredAspect =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());

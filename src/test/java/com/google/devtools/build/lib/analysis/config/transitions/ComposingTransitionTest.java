@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaOptions;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.IntStream;
 import org.junit.Before;
 import org.junit.Test;
@@ -210,14 +209,14 @@ public class ComposingTransitionTest {
   }
 
   private static final class TransitionWithCustomFragments implements PatchTransition {
-    private final Set<Class<? extends FragmentOptions>> fragments;
+    private final ImmutableSet<Class<? extends FragmentOptions>> fragments;
 
-    TransitionWithCustomFragments(Set<Class<? extends FragmentOptions>> fragments) {
+    TransitionWithCustomFragments(ImmutableSet<Class<? extends FragmentOptions>> fragments) {
       this.fragments = fragments;
     }
 
     @Override
-    public Set<Class<? extends FragmentOptions>> requiresOptionFragments() {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
       return fragments;
     }
 

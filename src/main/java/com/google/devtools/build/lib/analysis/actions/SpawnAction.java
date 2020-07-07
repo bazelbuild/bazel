@@ -20,6 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -48,7 +49,6 @@ import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
@@ -69,11 +69,15 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
 import com.google.devtools.build.lib.util.Pair;
@@ -83,7 +87,6 @@ import com.google.errorprone.annotations.CompileTimeConstant;
 import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -299,7 +302,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   }
 
   /** Hook for subclasses to perform work before the spawn is executed. */
-  protected void beforeExecute(ActionExecutionContext actionExecutionContext) throws IOException {}
+  protected void beforeExecute(ActionExecutionContext actionExecutionContext)
+      throws ExecException {}
 
   /**
    * Hook for subclasses to perform work after the spawn is executed. This method is only executed
@@ -308,7 +312,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
    */
   protected void afterExecute(
       ActionExecutionContext actionExecutionContext, List<SpawnResult> spawnResults)
-      throws IOException, ExecException {}
+      throws ExecException {}
 
   @Override
   public final ActionContinuationOrResult beginExecution(
@@ -319,17 +323,26 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     try {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
-    } catch (IOException e) {
-      throw toActionExecutionException(
-          new EnvironmentalExecException(e), actionExecutionContext.showVerboseFailures(label));
+    } catch (ExecException e) {
+      throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(e, this, /*catastrophe=*/ false);
+      throw createDetailedException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
     SpawnContinuation spawnContinuation =
         actionExecutionContext
             .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
     return new SpawnActionContinuation(actionExecutionContext, spawnContinuation, label);
+  }
+
+  private ActionExecutionException createDetailedException(Exception e, Code detailedCode) {
+    DetailedExitCode detailedExitCode =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(Strings.nullToEmpty(e.getMessage()))
+                .setSpawn(FailureDetails.Spawn.newBuilder().setCode(detailedCode))
+                .build());
+    return new ActionExecutionException(e, this, /*catastrophe=*/ false, detailedExitCode);
   }
 
   private ActionExecutionException toActionExecutionException(
@@ -1389,9 +1402,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
         return new SpawnActionContinuation(actionExecutionContext, nextContinuation, label);
-      } catch (IOException e) {
-        throw toActionExecutionException(
-            new EnvironmentalExecException(e), actionExecutionContext.showVerboseFailures(label));
       } catch (ExecException e) {
         throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
       }

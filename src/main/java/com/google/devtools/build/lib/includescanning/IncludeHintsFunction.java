@@ -18,6 +18,9 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.includescanning.IncludeParser.Hints;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning;
+import com.google.devtools.build.lib.server.FailureDetails.IncludeScanning.Code;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -61,21 +64,24 @@ public class IncludeHintsFunction implements SkyFunction {
       }
       if (!hintsLookupValue.hasContainingPackage()) {
         String reasonForNoContainingPackage = hintsLookupValue.getReasonForNoContainingPackage();
+        String message =
+            String.format(
+                "INCLUDE_HINTS file %s was not in a package%s",
+                hintsFile,
+                reasonForNoContainingPackage != null ? ": " + reasonForNoContainingPackage : "");
         throw new IncludeHintsFunctionException(
             new EnvironmentalExecException(
-                "INCLUDE_HINTS file "
-                    + hintsFile
-                    + " was not in a package"
-                    + (reasonForNoContainingPackage != null
-                        ? ": " + reasonForNoContainingPackage
-                        : "")));
+                createFailureDetail(message, Code.INCLUDE_HINTS_FILE_NOT_IN_PACKAGE)));
       }
       hintsPackageRoot = hintsLookupValue.getContainingPackageRoot();
       env.getValueOrThrow(FileValue.key(RootedPath.toRootedPath(hintsPackageRoot, hintsFile)),
           IOException.class);
     } catch (IOException | BuildFileNotFoundException e) {
-      throw new IncludeHintsFunctionException(new EnvironmentalExecException(
-          "could not read INCLUDE_HINTS file", e));
+      throw new IncludeHintsFunctionException(
+          new EnvironmentalExecException(
+              e,
+              createFailureDetail(
+                  "could not read INCLUDE_HINTS file", Code.INCLUDE_HINTS_READ_FAILURE)));
     }
     if (env.valuesMissing()) {
       return null;
@@ -83,8 +89,11 @@ public class IncludeHintsFunction implements SkyFunction {
     try {
       return Hints.getRules(hintsPackageRoot.getRelative(hintsFile));
     } catch (IOException e) {
-      throw new IncludeHintsFunctionException(new EnvironmentalExecException(
-          "could not read INCLUDE_HINTS file", e));
+      throw new IncludeHintsFunctionException(
+          new EnvironmentalExecException(
+              e,
+              createFailureDetail(
+                  "could not read INCLUDE_HINTS file", Code.INCLUDE_HINTS_READ_FAILURE)));
     }
   }
 
@@ -92,6 +101,13 @@ public class IncludeHintsFunction implements SkyFunction {
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setIncludeScanning(IncludeScanning.newBuilder().setCode(detailedCode))
+        .build();
   }
 
   /**

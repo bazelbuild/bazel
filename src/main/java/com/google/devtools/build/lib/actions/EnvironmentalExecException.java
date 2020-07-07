@@ -15,11 +15,14 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Throwables;
-import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.io.IOException;
 
 /**
- * An ExecException which is reports an issue executing an action due to an external problem on the
+ * An ExecException which reports an issue executing an action due to an external problem on the
  * local system.
  *
  * <p>This exception will result in an exit code regarded as a system error; avoid using this for
@@ -32,34 +35,35 @@ import java.io.IOException;
  * directory or denied file system access.
  */
 public class EnvironmentalExecException extends ExecException {
-  public EnvironmentalExecException(IOException cause) {
+  private final FailureDetail failureDetail;
+
+  public EnvironmentalExecException(IOException cause, FailureDetails.Execution.Code code) {
     super("unexpected I/O exception", cause);
+    this.failureDetail =
+        FailureDetail.newBuilder().setExecution(Execution.newBuilder().setCode(code)).build();
   }
 
-  public EnvironmentalExecException(String message, Throwable cause) {
-    super(message, cause);
+  public EnvironmentalExecException(Exception cause, FailureDetail failureDetail) {
+    super(failureDetail.getMessage(), cause);
+    this.failureDetail = failureDetail;
   }
 
-  public EnvironmentalExecException(String message) {
-    super(message);
+  public EnvironmentalExecException(FailureDetail failureDetail) {
+    super(failureDetail.getMessage());
+    this.failureDetail = failureDetail;
   }
 
   @Override
   public ActionExecutionException toActionExecutionException(
       String messagePrefix, boolean verboseFailures, Action action) {
-    if (getCause() != null) {
-      String message =
-          messagePrefix
-              + " failed due to "
-              + getMessage()
-              + "\n"
-              + Throwables.getStackTraceAsString(getCause());
-      return new ActionExecutionException(
-          message, action, isCatastrophic(), ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-    } else {
-      String message = messagePrefix + " failed due to " + getMessage();
-      return new ActionExecutionException(
-          message, action, isCatastrophic(), ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
-    }
+    String message =
+        String.format(
+            "%s failed due to %s%s",
+            messagePrefix,
+            getMessage(),
+            getCause() == null ? "" : ("\n" + Throwables.getStackTraceAsString(getCause())));
+    FailureDetail failureDetailWithPrefix = failureDetail.toBuilder().setMessage(message).build();
+    return new ActionExecutionException(
+        message, action, isCatastrophic(), DetailedExitCode.of(failureDetailWithPrefix));
   }
 }

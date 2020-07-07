@@ -93,49 +93,14 @@ public final class ModuleActionContextRegistry
    * Returns a new {@link Builder} suitable for creating instances of ModuleActionContextRegistry.
    */
   public static Builder builder() {
-    return new BuilderImpl();
+    return new Builder();
   }
 
   /**
    * Builder collecting the contexts and restrictions thereon for a {@link
    * ModuleActionContextRegistry}.
    */
-  // TODO(katre): This exists only to allow incremental migration from SpawnActionContextMaps.
-  // Delete ASAP.
-  public interface Builder {
-
-    /**
-     * Restricts the registry to only return implementations for the given type if they were
-     * {@linkplain #register registered} with the provided restriction as a command-line identifier.
-     *
-     * <p>Note that if no registered action context matches the requested command-line identifiers
-     * when it is {@linkplain #build() built} then the registry will return {@code null} when
-     * queried for this identifying type.
-     *
-     * <p>This behavior can be reset by passing an empty restriction to this method which will cause
-     * the default behavior (last implementation registered for the identifying type) to be used.
-     *
-     * @param restriction command-line identifier used during registration of the desired
-     *     implementation or {@code ""} to allow any implementation of the identifying type
-     */
-    ModuleActionContextRegistry.Builder restrictTo(Class<?> identifyingType, String restriction);
-
-    /**
-     * Registers an action context implementation identified by the given type and which can be
-     * {@linkplain #restrictTo restricted} by its provided command-line identifiers.
-     */
-    <T extends ActionContext> ModuleActionContextRegistry.Builder register(
-        Class<T> identifyingType, T context, String... commandLineIdentifiers);
-
-    /** Constructs the registry configured by this builder. */
-    ModuleActionContextRegistry build() throws AbruptExitException;
-  }
-
-  /**
-   * Builder collecting the contexts and restrictions thereon for a {@link
-   * ModuleActionContextRegistry}.
-   */
-  private static final class BuilderImpl implements Builder {
+  public static final class Builder {
 
     private final List<ActionContextInformation<?>> actionContexts = new ArrayList<>();
     private final Map<Class<?>, String> typeToRestriction = new HashMap<>();
@@ -154,7 +119,6 @@ public final class ModuleActionContextRegistry
      * @param restriction command-line identifier used during registration of the desired
      *     implementation or {@code ""} to allow any implementation of the identifying type
      */
-    @Override
     public Builder restrictTo(Class<?> identifyingType, String restriction) {
       typeToRestriction.put(identifyingType, restriction);
       return this;
@@ -164,7 +128,6 @@ public final class ModuleActionContextRegistry
      * Registers an action context implementation identified by the given type and which can be
      * {@linkplain #restrictTo restricted} by its provided command-line identifiers.
      */
-    @Override
     public <T extends ActionContext> Builder register(
         Class<T> identifyingType, T context, String... commandLineIdentifiers) {
       actionContexts.add(
@@ -174,7 +137,6 @@ public final class ModuleActionContextRegistry
     }
 
     /** Constructs the registry configured by this builder. */
-    @Override
     public ModuleActionContextRegistry build() throws AbruptExitException {
       HashSet<Class<?>> usedTypes = new HashSet<>();
       MutableClassToInstanceMap<ActionContext> contextToInstance =

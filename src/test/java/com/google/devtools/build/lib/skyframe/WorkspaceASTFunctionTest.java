@@ -81,7 +81,7 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
                       @Override
                       public boolean matches(Object item) {
                         return super.matches(item)
-                            && item.toString().equals("PRECOMPUTED:skylark_semantics");
+                            && item.toString().equals("PRECOMPUTED:starlark_semantics");
                       }
                     })))
         .thenReturn(null);

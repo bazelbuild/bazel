@@ -289,7 +289,9 @@ Package path elements may be specified in three formats:
   Note also that Bazel's <code class='flag'>--strip</code> option corresponds with ld's <code>--strip-debug</code> option:
   it only strips debugging information.  If for some reason you want to strip <em>all</em> symbols,
   not just <em>debug</em> symbols, you would need to use ld's <code>--strip-all</code> option,
-  which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel.
+  which you can do by passing <code class='flag'>--linkopt=-Wl,--strip-all</code> to Bazel. Also be
+  aware that setting Bazel's <code class='flag'>--strip</code> flag will override
+  <code class='flag'>--linkopt=-Wl,--strip-all</code>, so you should only set one or the other.
 </p>
 
 <h4 id='flag--stripopt'><code class='flag'>--stripopt <var>strip-option</var></code></h4>

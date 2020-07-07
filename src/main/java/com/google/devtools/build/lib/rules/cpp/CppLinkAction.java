@@ -56,12 +56,16 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkingMode;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.server.FailureDetails.CppLink;
+import com.google.devtools.build.lib.server.FailureDetails.CppLink.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -333,13 +337,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
           getOutputs(),
           estimateResourceConsumptionLocal());
     } catch (CommandLineExpansionException e) {
-      throw new ActionExecutionException(
-          "failed to generate link command for rule '"
-              + getOwner().getLabel()
-              + ": "
-              + e.getMessage(),
-          this,
-          /* catastrophe= */ false);
+      String message =
+          String.format(
+              "failed to generate link command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, /*catastrophe=*/ false, code);
     }
   }
 
@@ -395,9 +398,12 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         FileSystemUtils.touchFile(actionExecutionContext.getInputPath(output));
       }
     } catch (IOException | CommandLineExpansionException e) {
-      throw new ActionExecutionException("failed to create fake link command for rule '"
-                                         + getOwner().getLabel() + ": " + e.getMessage(),
-                                         this, false);
+      String message =
+          String.format(
+              "failed to create fake link command for rule '%s: %s",
+              getOwner().getLabel(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.FAKE_COMMAND_GENERATION_FAILURE);
+      throw new ActionExecutionException(message, this, false, code);
     }
   }
 
@@ -584,5 +590,13 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
     } catch (CommandLineExpansionException exception) {
       throw new EvalException(Location.BUILTIN, exception);
     }
+  }
+
+  private static DetailedExitCode createDetailedExitCode(String message, Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setCppLink(CppLink.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

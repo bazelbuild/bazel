@@ -48,7 +48,7 @@ import org.junit.runners.JUnit4;
 public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationFragment(new DummyTestLoader());
@@ -85,7 +85,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
         "  return [",
@@ -109,8 +109,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', deps = [':main1', ':main2'], dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])",
         "cc_binary(name = 'main2', srcs = ['main2.c'])");
@@ -121,7 +121,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
-        "test/skylark/rules.bzl",
+        "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
         "  return {",
@@ -149,15 +149,15 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "simple_rule = rule(_s_impl_e)");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'simple_rule', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'simple_rule', 'my_rule')",
         "my_rule(name = 'test', dep = ':dep')",
         "simple_rule(name = 'dep')");
 
     @SuppressWarnings("unchecked")
     Map<Object, ConfiguredTarget> splitAttr =
         (Map<Object, ConfiguredTarget>)
-            getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test"))
+            getMyInfoFromTarget(getConfiguredTarget("//test/starlark:test"))
                 .getValue("split_attr_dep");
     assertThat(splitAttr.keySet()).containsExactly("amsterdam", "paris");
     assertThat(
@@ -179,7 +179,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
-        "test/skylark/rules.bzl",
+        "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
         "  return [",
@@ -207,15 +207,15 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "simple_rule = rule(_s_impl_e)");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'simple_rule', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'simple_rule', 'my_rule')",
         "my_rule(name = 'test', dep = ':dep')",
         "simple_rule(name = 'dep')");
 
     @SuppressWarnings("unchecked")
     Map<Object, ConfiguredTarget> splitAttr =
         (Map<Object, ConfiguredTarget>)
-            getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test"))
+            getMyInfoFromTarget(getConfiguredTarget("//test/starlark:test"))
                 .getValue("split_attr_dep");
     assertThat(splitAttr.keySet()).containsExactly("0", "1");
     assertThat(
@@ -231,7 +231,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
-        "test/skylark/rules.bzl",
+        "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
         "  return {'//command_line_option:test_arg': ['stroopwafel']}",
@@ -256,15 +256,15 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "simple_rule = rule(_s_impl_e)");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'simple_rule', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'simple_rule', 'my_rule')",
         "my_rule(name = 'test', dep = ':dep')",
         "simple_rule(name = 'dep')");
 
     @SuppressWarnings("unchecked")
     Map<Object, ConfiguredTarget> splitAttr =
         (Map<Object, ConfiguredTarget>)
-            getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test"))
+            getMyInfoFromTarget(getConfiguredTarget("//test/starlark:test"))
                 .getValue("split_attr_dep");
     assertThat(splitAttr.keySet()).containsExactly(Starlark.NONE);
     assertThat(
@@ -282,7 +282,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
     writeWhitelistFile();
     scratch.file(
-        "test/skylark/rules.bzl",
+        "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def _build_setting_impl(ctx):",
         "  return []",
@@ -294,7 +294,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  return {'amsterdam': {'//command_line_option:test_arg': ['stroopwafel']}}",
         "my_transition = transition(",
         "  implementation = transition_func,",
-        "  inputs = ['//test/skylark:custom_arg'],",
+        "  inputs = ['//test/starlark:custom_arg'],",
         "  outputs = ['//command_line_option:test_arg']",
         ")",
         "def _impl(ctx): ",
@@ -313,32 +313,32 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "simple_rule = rule(_s_impl_e)");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'simple_rule', 'my_rule', 'string_flag')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'simple_rule', 'my_rule', 'string_flag')",
         "string_flag(name='custom_arg', build_setting_default='ski')",
         "my_rule(name = 'test', dep = ':dep')",
         "simple_rule(name = 'dep')");
 
     // Run the analysis phase with the default options, i.e. no custom flags first.
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
 
     // b/152078818 was unique in that an error was hidden until the next run due to how event replay
     // was done. Test it by supplying a value to the starlark config, which should trigger the
     // analysis phase again.
-    useConfiguration(ImmutableMap.of("//test/skylark:custom_arg", "snowboard"));
-    getConfiguredTarget("//test/skylark:test");
+    useConfiguration(ImmutableMap.of("//test/starlark:custom_arg", "snowboard"));
+    getConfiguredTarget("//test/starlark:test");
   }
 
   @Test
   public void testFunctionSplitTransitionCheckAttrDeps() throws Exception {
     writeBasicTestFiles();
-    testSplitTransitionCheckAttrDeps(getConfiguredTarget("//test/skylark:test"));
+    testSplitTransitionCheckAttrDeps(getConfiguredTarget("//test/starlark:test"));
   }
 
   @Test
   public void testFunctionSplitTransitionCheckAttrDep() throws Exception {
     writeBasicTestFiles();
-    testSplitTransitionCheckAttrDep(getConfiguredTarget("//test/skylark:test"));
+    testSplitTransitionCheckAttrDep(getConfiguredTarget("//test/starlark:test"));
   }
 
   @Test
@@ -415,7 +415,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
         "  transitions = []",
@@ -437,8 +437,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main')",
         "cc_binary(name = 'main', srcs = ['main.c'])");
   }
@@ -449,7 +449,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeReadSettingsTestFiles();
 
     useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
 
     @SuppressWarnings("unchecked")
     List<ConfiguredTarget> splitDep =
@@ -465,7 +465,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
         "  return {",
@@ -489,8 +489,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main')",
         "cc_binary(name = 'main', srcs = ['main.c'])");
   }
@@ -500,7 +500,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeOptionConversionTestFiles();
     BazelMockAndroidSupport.setupNdk(mockToolsConfig);
 
-    ConfiguredTarget target = getConfiguredTarget("//test/skylark:test");
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
 
     @SuppressWarnings("unchecked")
     List<ConfiguredTarget> dep =
@@ -515,7 +515,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func, inputs = [], outputs = [])",
@@ -531,13 +531,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "transition function returned undeclared output '//command_line_option:cpu'");
   }
@@ -548,7 +548,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
@@ -567,13 +567,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "transition outputs [//command_line_option:host_cpu] were not "
             + "defined by transition function");
@@ -585,7 +585,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  if (len(settings) != 2",
         "      or (not settings['//command_line_option:host_cpu'])",
@@ -608,12 +608,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
-    assertThat(getConfiguredTarget("//test/skylark:test")).isNotNull();
+    assertThat(getConfiguredTarget("//test/starlark:test")).isNotNull();
   }
 
   @Test
@@ -622,7 +622,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
@@ -639,13 +639,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "invalid transition input 'cpu'. If this is intended as a native option, "
             + "it must begin with //command_line_option:");
@@ -657,7 +657,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
@@ -675,13 +675,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "transition inputs [//command_line_option:foop, //command_line_option:barp] "
             + "do not correspond to valid settings");
@@ -693,7 +693,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  return {'//command_line_option:foobarbaz': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
@@ -710,13 +710,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "transition output '//command_line_option:foobarbaz' "
             + "does not correspond to a valid setting");
@@ -728,7 +728,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  return {'cpu': 'k8'}",
         "my_transition = transition(implementation = transition_func,",
@@ -745,13 +745,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "invalid transition output 'cpu'. If this is intended as a native option, "
             + "it must begin with //command_line_option:");
@@ -763,7 +763,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 1}",
         "my_transition = transition(implementation = transition_func,",
@@ -780,13 +780,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent("Invalid value type for option 'cpu'");
   }
 
@@ -796,7 +796,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
 
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "def transition_func(settings, attr):",
         "  return {'//command_line_option:cpu': 1}",
         "my_transition = transition(implementation = transition_func,",
@@ -816,20 +816,20 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent("duplicate transition output '//command_line_option:cpu'");
   }
 
   @Test
   public void testInvalidNativeOptionOutput_analysisTest() throws Exception {
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "my_transition = analysis_test_transition(",
         "  settings = {'//command_line_option:foobarbaz': 'k8'})",
         "def impl(ctx): ",
@@ -842,13 +842,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule_test')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule_test')",
         "my_rule_test(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "transition output '//command_line_option:foobarbaz' "
             + "does not correspond to a valid setting");
@@ -857,7 +857,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidOutputKey_analysisTest() throws Exception {
     scratch.file(
-        "test/skylark/my_rule.bzl",
+        "test/starlark/my_rule.bzl",
         "my_transition = analysis_test_transition(",
         "  settings = {'cpu': 'k8'})",
         "def impl(ctx): ",
@@ -870,13 +870,13 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  })");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:my_rule.bzl', 'my_rule_test')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:my_rule.bzl', 'my_rule_test')",
         "my_rule_test(name = 'test', dep = ':main1')",
         "cc_binary(name = 'main1', srcs = ['main1.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "invalid transition output 'cpu'. If this is intended as a native option, "
             + "it must begin with //command_line_option:");
@@ -888,14 +888,14 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=false");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
         "Starlark-defined transitions on rule attributes is experimental and disabled by default");
   }
 
   private void writeBuildSettingsBzl() throws Exception {
     scratch.file(
-        "test/skylark/build_settings.bzl",
+        "test/starlark/build_settings.bzl",
         "BuildSettingInfo = provider(fields = ['value'])",
         "def _impl(ctx):",
         "  return [BuildSettingInfo(value = ctx.build_setting_value)]",
@@ -904,15 +904,15 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   private void writeRulesWithAttrTransitionBzl() throws Exception {
     scratch.file(
-        "test/skylark/rules.bzl",
+        "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test/skylark:build_settings.bzl', 'BuildSettingInfo')",
+        "load('//test/starlark:build_settings.bzl', 'BuildSettingInfo')",
         "def _transition_impl(settings, attr):",
-        "  return {'//test/skylark:the-answer': 42}",
+        "  return {'//test/starlark:the-answer': 42}",
         "my_transition = transition(",
         "  implementation = _transition_impl,",
         "  inputs = [],",
-        "  outputs = ['//test/skylark:the-answer']",
+        "  outputs = ['//test/starlark:the-answer']",
         ")",
         "def _rule_impl(ctx):",
         "  return MyInfo(dep = ctx.attr.dep)",
@@ -929,7 +929,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "dep_rule_impl = rule(",
         "  implementation = _dep_rule_impl,",
         "  attrs = {",
-        "    'fact': attr.label(default = '//test/skylark:the-answer'),",
+        "    'fact': attr.label(default = '//test/starlark:the-answer'),",
         "  }",
         ")");
   }
@@ -940,9 +940,9 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeBuildSettingsBzl();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'my_rule')",
-        "load('//test/skylark:build_settings.bzl', 'int_flag')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
         "my_rule(name = 'test', dep = ':dep')",
         "my_rule(name = 'dep')",
         "int_flag(name = 'the-answer', build_setting_default = 0)");
@@ -951,12 +951,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     ConfiguredTarget dep =
         Iterables.getOnlyElement(
             (List<ConfiguredTarget>)
-                getMyInfoFromTarget(getConfiguredTarget("//test/skylark:test")).getValue("dep"));
+                getMyInfoFromTarget(getConfiguredTarget("//test/starlark:test")).getValue("dep"));
     assertThat(
             getConfiguration(dep)
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test/skylark:the-answer")))
+                .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
         .isEqualTo(42);
   }
 
@@ -966,20 +966,20 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeBuildSettingsBzl();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'my_rule')",
-        "load('//test/skylark:build_settings.bzl', 'int_flag')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
         "my_rule(name = 'test', dep = ':dep')",
         "my_rule(name = 'dep')",
         "int_flag(name = 'the-answer', build_setting_default = 0)");
 
-    useConfiguration(ImmutableMap.of("//test/skylark:the-answer", 7));
-    ConfiguredTarget test = getConfiguredTarget("//test/skylark:test");
+    useConfiguration(ImmutableMap.of("//test/starlark:the-answer", 7));
+    ConfiguredTarget test = getConfiguredTarget("//test/starlark:test");
     assertThat(
             getConfiguration(test)
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test/skylark:the-answer")))
+                .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
         .isEqualTo(7);
 
     @SuppressWarnings("unchecked")
@@ -990,7 +990,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             getConfiguration(dep)
                 .getOptions()
                 .getStarlarkOptions()
-                .get(Label.parseAbsoluteUnchecked("//test/skylark:the-answer")))
+                .get(Label.parseAbsoluteUnchecked("//test/starlark:the-answer")))
         .isEqualTo(42);
   }
 
@@ -1628,15 +1628,15 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
     writeBuildSettingsBzl();
     scratch.file(
-        "test/skylark/rules.bzl",
+        "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
-        "load('//test/skylark:build_settings.bzl', 'BuildSettingInfo')",
+        "load('//test/starlark:build_settings.bzl', 'BuildSettingInfo')",
         "def _transition_impl(settings, attr):",
-        "  return {'//test/skylark:the-answer': 'What do you get if you multiply six by nine?'}",
+        "  return {'//test/starlark:the-answer': 'What do you get if you multiply six by nine?'}",
         "my_transition = transition(",
         "  implementation = _transition_impl,",
         "  inputs = [],",
-        "  outputs = ['//test/skylark:the-answer']",
+        "  outputs = ['//test/starlark:the-answer']",
         ")",
         "def _rule_impl(ctx):",
         "  return MyInfo(dep = ctx.attr.dep)",
@@ -1653,14 +1653,14 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "dep_rule_impl = rule(",
         "  implementation = _dep_rule_impl,",
         "  attrs = {",
-        "    'fact': attr.label(default = '//test/skylark:the-answer'),",
+        "    'fact': attr.label(default = '//test/starlark:the-answer'),",
         "  }",
         ")");
 
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'my_rule')",
-        "load('//test/skylark:build_settings.bzl', 'int_flag')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
         "my_rule(name = 'test', dep = ':dep')",
         "my_rule(name = 'dep')",
         "int_flag(",
@@ -1669,9 +1669,9 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         ")");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
-        "expected value of type 'int' for //test/skylark:the-answer, "
+        "expected value of type 'int' for //test/starlark:the-answer, "
             + "but got \"What do you get if you multiply six by nine?\" (string)");
   }
 
@@ -1683,15 +1683,15 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     // file)
     writeBuildSettingsBzl();
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'my_rule')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':dep')",
         "my_rule(name = 'dep')");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
-        "no such target '//test/skylark:the-answer': target "
+        "no such target '//test/starlark:the-answer': target "
             + "'the-answer' not declared in package");
   }
 
@@ -1700,23 +1700,23 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     writeWhitelistFile();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
-        "test/skylark/build_settings.bzl",
+        "test/starlark/build_settings.bzl",
         "BuildSettingInfo = provider(fields = ['value'])",
         "def _impl(ctx):",
         "  return [BuildSettingInfo(value = ctx.build_setting_value)]",
         "int_flag = rule(implementation = _impl)");
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'my_rule')",
-        "load('//test/skylark:build_settings.bzl', 'int_flag')",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'my_rule')",
+        "load('//test/starlark:build_settings.bzl', 'int_flag')",
         "my_rule(name = 'test', dep = ':dep')",
         "my_rule(name = 'dep')",
         "int_flag(name = 'the-answer')");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test/skylark:test");
+    getConfiguredTarget("//test/starlark:test");
     assertContainsEvent(
-        "attempting to transition on '//test/skylark:the-answer' which "
+        "attempting to transition on '//test/starlark:the-answer' which "
             + "is not a build setting");
   }
 
@@ -1736,24 +1736,24 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     // genrule. So building the genrule at both the top-level and under the
     // build_setting_changing_rule triggers the test scenario.
     scratch.file(
-        "test/skylark/rules.bzl",
+        "test/starlark/rules.bzl",
         "BuildSettingInfo = provider(fields = ['value'])",
         "def _impl(ctx):",
         "  return [BuildSettingInfo(value = ctx.build_setting_value)]",
         "int_flag = rule(implementation = _impl, build_setting = config.int())",
         "def _transition_impl(settings, attr):",
-        "  return {'//test/skylark:the-answer': 42}",
+        "  return {'//test/starlark:the-answer': 42}",
         "my_transition = transition(",
         "  implementation = _transition_impl,",
         "  inputs = [],",
-        "  outputs = ['//test/skylark:the-answer'])",
+        "  outputs = ['//test/starlark:the-answer'])",
         "def _int_impl(ctx):",
         "  value = ctx.attr._int_dep[BuildSettingInfo].value",
         "  ctx.actions.write(ctx.outputs.out, str(value))",
         "int_flag_reading_rule = rule(",
         "  implementation = _int_impl,",
         "  attrs = {",
-        "    '_int_dep': attr.label(default = '//test/skylark:the-answer'),",
+        "    '_int_dep': attr.label(default = '//test/starlark:the-answer'),",
         "    'out': attr.output()",
         "  })",
         "def _rule_impl(ctx):",
@@ -1766,8 +1766,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "      default = '//tools/whitelists/function_transition_whitelist'),",
         "  })");
     scratch.file(
-        "test/skylark/BUILD",
-        "load('//test/skylark:rules.bzl', 'build_setting_changing_rule', 'int_flag',",
+        "test/starlark/BUILD",
+        "load('//test/starlark:rules.bzl', 'build_setting_changing_rule', 'int_flag',",
         "  'int_flag_reading_rule')",
         "int_flag(",
         "    name = 'the-answer',",
@@ -1786,7 +1786,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "    dep = ':with_exec_tool')");
     // Note: calling getConfiguredTarget for each target doesn't activate conflict detection.
     update(
-        ImmutableList.of("//test/skylark:transitioner", "//test/skylark:with_exec_tool.out"),
+        ImmutableList.of("//test/starlark:transitioner", "//test/starlark:with_exec_tool.out"),
         /*keepGoing=*/ false,
         LOADING_PHASE_THREADS,
         /*doAnalysis=*/ true,

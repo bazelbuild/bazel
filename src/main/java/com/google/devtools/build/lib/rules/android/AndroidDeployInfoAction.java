@@ -106,7 +106,7 @@ public final class AndroidDeployInfoAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) throws IOException {
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     return new ByteStringDeterministicWriter(getByteString());
   }
 

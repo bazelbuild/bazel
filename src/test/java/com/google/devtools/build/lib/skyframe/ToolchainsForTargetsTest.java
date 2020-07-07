@@ -487,8 +487,7 @@ public class ToolchainsForTargetsTest extends AnalysisTestCase {
     assertThat(toolchainCollection)
         .defaultToolchainContext()
         .hasToolchainType("//extra:extra_toolchain");
-    assertThat(toolchainCollection)
-        .defaultToolchainContext()
-        .hasResolvedToolchain("//extra:toolchain_impl");
+    // These should be cleared out.
+    assertThat(toolchainCollection).defaultToolchainContext().resolvedToolchainLabels().isEmpty();
   }
 }

@@ -26,7 +26,6 @@ import net.starlark.java.annot.StarlarkMethod;
 /** Interface for a module associated with creating efficient command lines. */
 @StarlarkBuiltin(
     name = "cmd_helper",
-    namespace = true,
     category = StarlarkDocumentationCategory.TOP_LEVEL_TYPE,
     doc = "Deprecated. Module for creating memory efficient command lines.")
 @StarlarkDeprecated

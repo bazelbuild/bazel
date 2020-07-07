@@ -749,8 +749,8 @@ class MethodLibrary {
       }
       separator = sep;
     }
-    // As part of the integration test "skylark_flag_test.sh", if the
-    // "--internal_skylark_flag_test_canary" flag is enabled, append an extra marker string to
+    // As part of the integration test "starlark_flag_test.sh", if the
+    // "--internal_starlark_flag_test_canary" flag is enabled, append an extra marker string to
     // the output.
     if (thread.getSemantics().internalStarlarkFlagTestCanary()) {
       p.append("<== Starlark flag test ==>");

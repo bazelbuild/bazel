@@ -72,4 +72,11 @@ public abstract class UnloadedToolchainContextImpl implements SkyValue, Unloaded
   public ImmutableSet<Label> resolvedToolchainLabels() {
     return toolchainTypeToResolved().values();
   }
+
+  protected abstract Builder toBuilder();
+
+  @Override
+  public UnloadedToolchainContext withoutResolvedToolchains() {
+    return this.toBuilder().setToolchainTypeToResolved(ImmutableBiMap.of()).build();
+  }
 }

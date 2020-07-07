@@ -274,7 +274,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
   }
 
   @Override
-  protected ConfiguredRuleClassProvider getRuleClassProvider() {
+  protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder()
             .addRuleDefinition(new RuleWithComputedDefaults());

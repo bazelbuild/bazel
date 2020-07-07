@@ -23,7 +23,6 @@ import net.starlark.java.annot.StarlarkMethod;
 /** Additional layer of configurability for c++ rules through features and actions. */
 @StarlarkBuiltin(
     name = "CcToolchainConfigInfo",
-    namespace = true,
     category = StarlarkDocumentationCategory.PROVIDER,
     doc =
         "Additional layer of configurability for C++ rules. Encapsulates platform-dependent "

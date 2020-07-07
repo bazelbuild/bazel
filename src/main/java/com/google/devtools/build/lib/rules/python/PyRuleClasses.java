@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ConvenienceSymlinks.SymlinkDefinition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
@@ -145,7 +146,13 @@ public class PyRuleClasses {
             }
           };
       return targetConfigs.stream()
-          .map(config -> configGetter.apply(transition.patch(config.getOptions(), e)))
+          .map(
+              config ->
+                  configGetter.apply(
+                      transition.patch(
+                          new BuildOptionsView(
+                              config.getOptions(), transition.requiresOptionFragments()),
+                          e)))
           .map(config -> config.getOutputDirectory(repositoryName).getRoot().asPath())
           .distinct()
           .collect(toImmutableSet());

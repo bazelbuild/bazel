@@ -394,11 +394,11 @@ EOF
   expect_log "In repo rule: " "Did not find repository rule print output"
   expect_not_log "$MARKER" \
       "Marker string '$MARKER' was seen even though \
-      --internal_skylark_flag_test_canary wasn't passed"
+      --internal_starlark_flag_test_canary wasn't passed"
 
   # Build with the special testing flag that appends a marker string to all
   # print() calls.
-  bazel build @foo//:bar --internal_skylark_flag_test_canary >& $TEST_log \
+  bazel build @foo//:bar --internal_starlark_flag_test_canary >& $TEST_log \
     || fail "Expected build to succeed"
   expect_log "In repo rule: $MARKER" \
       "Starlark flags are not propagating to repository rule implementation \

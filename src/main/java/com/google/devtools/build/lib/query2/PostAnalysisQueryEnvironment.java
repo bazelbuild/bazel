@@ -391,8 +391,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                         .setConfiguration(getConfiguration(dependency))
                         .build());
         values.add(new ClassifiedDependency<>(dependency, implicit));
-      } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)
-          || key.functionName().equals(SkyFunctions.ASPECT)) {
+      } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
         // Also fetch these dependencies.
         values.addAll(targetifyValues(null, graph.getDirectDeps(key)));
       }

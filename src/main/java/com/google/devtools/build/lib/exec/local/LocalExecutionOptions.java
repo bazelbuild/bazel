@@ -90,6 +90,19 @@ public class LocalExecutionOptions extends OptionsBase {
       help = "Helper to roll out the process-wrapper's --wait_fix bug fix in a controlled manner.")
   public boolean processWrapperWaitFix;
 
+  @Option(
+      name = "experimental_local_retries_on_crash",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.EXECUTION},
+      help =
+          "Number of times to retry a local action when we detect that it crashed. This exists "
+              + "to workaround a bug in OSXFUSE which is tickled by the use of the dynamic "
+              + "scheduler and --experimental_local_lockfree_output due to constant process "
+              + "churn. The bug can be triggered by a cancelled process that ran *before* the "
+              + "process we are trying to run, introducing corruption in its file reads.")
+  public int localRetriesOnCrash;
+
   public Duration getLocalSigkillGraceSeconds() {
     // TODO(ulfjack): Change localSigkillGraceSeconds type to Duration.
     return Duration.ofSeconds(localSigkillGraceSeconds);

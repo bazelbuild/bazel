@@ -15,8 +15,11 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.errorprone.annotations.Immutable;
@@ -55,7 +58,7 @@ public abstract class PythonVersionTransition implements PatchTransition {
    * <p>Caution: This method must not modify {@code options}. See the class javadoc for {@link
    * PatchTransition}.
    */
-  protected abstract PythonVersion determineNewVersion(BuildOptions options);
+  protected abstract PythonVersion determineNewVersion(BuildOptionsView options);
 
   @Override
   public abstract boolean equals(Object other);
@@ -69,22 +72,27 @@ public abstract class PythonVersionTransition implements PatchTransition {
   private static final BuildOptionsCache<PythonVersion> cache = new BuildOptionsCache<>();
 
   @Override
-  public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+  public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+    return ImmutableSet.of(PythonOptions.class);
+  }
+
+  @Override
+  public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
     PythonVersion newVersion = determineNewVersion(options);
     Preconditions.checkArgument(newVersion.isTargetValue());
 
     PythonOptions opts = options.get(PythonOptions.class);
     if (!opts.canTransitionPythonVersion(newVersion)) {
-      return options;
+      return options.underlying();
     }
     return cache.applyTransition(
         options,
         newVersion,
         () -> {
-          BuildOptions newOptions = options.clone();
+          BuildOptionsView newOptions = options.clone();
           PythonOptions newOpts = newOptions.get(PythonOptions.class);
           newOpts.setPythonVersion(newVersion);
-          return newOptions;
+          return newOptions.underlying();
         });
   }
 
@@ -98,7 +106,7 @@ public abstract class PythonVersionTransition implements PatchTransition {
     }
 
     @Override
-    protected PythonVersion determineNewVersion(BuildOptions options) {
+    protected PythonVersion determineNewVersion(BuildOptionsView options) {
       return newVersion;
     }
 
@@ -128,7 +136,7 @@ public abstract class PythonVersionTransition implements PatchTransition {
     private ToDefault() {}
 
     @Override
-    protected PythonVersion determineNewVersion(BuildOptions options) {
+    protected PythonVersion determineNewVersion(BuildOptionsView options) {
       return options.get(PythonOptions.class).getDefaultPythonVersion();
     }
 

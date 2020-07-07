@@ -1151,12 +1151,18 @@ public class BuildEventStreamerTest extends FoundationTestCase {
   public void testSuccessfulActionsAreNotPublishedByDefault() {
     EventBusHandler handler = new EventBusHandler();
     eventBus.register(handler);
-
     ActionExecutedEvent failedActionExecutedEvent =
         new ActionExecutedEvent(
             ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
             new ActionsTestUtil.NullAction(),
-            new ActionExecutionException("Exception", /* action= */ null, /* catastrophe= */ false),
+            new ActionExecutionException(
+                "Exception",
+                /* action= */ null,
+                /* catastrophe= */ false,
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setSpawn(Spawn.newBuilder().setCode(Code.EXECUTION_DENIED))
+                        .build())),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             /* stdout= */ null,
             /* stderr= */ null,
@@ -1192,7 +1198,14 @@ public class BuildEventStreamerTest extends FoundationTestCase {
         new ActionExecutedEvent(
             ActionsTestUtil.DUMMY_ARTIFACT.getExecPath(),
             new ActionsTestUtil.NullAction(),
-            new ActionExecutionException("Exception", /* action= */ null, /* catastrophe= */ false),
+            new ActionExecutionException(
+                "Exception",
+                /* action= */ null,
+                /* catastrophe= */ false,
+                DetailedExitCode.of(
+                    FailureDetail.newBuilder()
+                        .setSpawn(Spawn.newBuilder().setCode(Code.EXECUTION_DENIED))
+                        .build())),
             ActionsTestUtil.DUMMY_ARTIFACT.getPath(),
             /* stdout= */ null,
             /* stderr= */ null,

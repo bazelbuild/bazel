@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
@@ -140,7 +143,7 @@ public final class SymlinkTreeHelper {
       symlinkTreeRoot.createDirectoryAndParents();
       FileSystemUtils.copyFile(inputManifest, getOutputManifest());
     } catch (IOException e) {
-      throw new EnvironmentalExecException(e);
+      throw new EnvironmentalExecException(e, Code.SYMLINK_TREE_MANIFEST_COPY_IO_EXCEPTION);
     }
   }
 
@@ -162,7 +165,13 @@ public final class SymlinkTreeHelper {
         command.execute();
       }
     } catch (CommandException e) {
-      throw new EnvironmentalExecException(CommandUtils.describeCommandFailure(true, e), e);
+      throw new EnvironmentalExecException(
+          e,
+          FailureDetail.newBuilder()
+              .setMessage(CommandUtils.describeCommandFailure(true, e))
+              .setExecution(
+                  Execution.newBuilder().setCode(Code.SYMLINK_TREE_CREATION_COMMAND_EXCEPTION))
+              .build());
     }
   }
 

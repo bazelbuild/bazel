@@ -24,9 +24,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -38,6 +41,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration.Configuratio
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PlatformRule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skylarkbuildapi.SplitTransitionProviderApi;
@@ -198,8 +202,18 @@ public class MultiArchSplitTransitionProvider
     }
 
     @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(
+          AppleCommandLineOptions.class,
+          CoreOptions.class,
+          CppOptions.class,
+          ObjcCommandLineOptions.class,
+          PlatformOptions.class);
+    }
+
+    @Override
     public final Map<String, BuildOptions> split(
-        BuildOptions buildOptions, EventHandler eventHandler) {
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
       List<String> cpus;
       DottedVersion actualMinimumOsVersion;
       ConfigurationDistinguisher configurationDistinguisher;
@@ -269,7 +283,7 @@ public class MultiArchSplitTransitionProvider
       cpus = ImmutableSortedSet.copyOf(cpus).asList();
       ImmutableMap.Builder<String, BuildOptions> splitBuildOptions = ImmutableMap.builder();
       for (String cpu : cpus) {
-        BuildOptions splitOptions = buildOptions.clone();
+        BuildOptionsView splitOptions = buildOptions.clone();
 
         AppleCommandLineOptions appleCommandLineOptions =
             splitOptions.get(AppleCommandLineOptions.class);
@@ -306,7 +320,7 @@ public class MultiArchSplitTransitionProvider
         }
 
         appleCommandLineOptions.configurationDistinguisher = configurationDistinguisher;
-        splitBuildOptions.put(IOS_CPU_PREFIX + cpu, splitOptions);
+        splitBuildOptions.put(IOS_CPU_PREFIX + cpu, splitOptions.underlying());
       }
       return splitBuildOptions.build();
     }

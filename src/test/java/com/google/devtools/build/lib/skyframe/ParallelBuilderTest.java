@@ -41,10 +41,14 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
+import com.google.devtools.build.lib.server.FailureDetails.Crash;
+import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -684,7 +688,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
                   throw new RuntimeException(e);
                 }
                 completedTasks.getAndIncrement();
-                throw new ActionExecutionException("This is a catastrophe", this, true);
+                DetailedExitCode code =
+                    DetailedExitCode.of(
+                        FailureDetail.newBuilder()
+                            .setCrash(Crash.newBuilder().setCode(Code.CRASH_UNKNOWN))
+                            .build());
+                throw new ActionExecutionException("This is a catastrophe", this, true, code);
               }
               return super.execute(actionExecutionContext);
             }

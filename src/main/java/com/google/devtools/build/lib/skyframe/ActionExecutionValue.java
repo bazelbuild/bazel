@@ -165,7 +165,8 @@ public class ActionExecutionValue implements SkyValue {
    * <p>Primarily needed by {@link FilesystemValueChecker}. Also called by {@link ArtifactFunction}
    * when aggregating a {@link TreeArtifactValue} out of action template expansion outputs.
    */
-  ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
+  // Visible only for testing: should be package-private.
+  public ImmutableMap<Artifact, FileArtifactValue> getAllFileValues() {
     return artifactData;
   }
 
@@ -174,7 +175,8 @@ public class ActionExecutionValue implements SkyValue {
    *
    * <p>Should only be needed by {@link FilesystemValueChecker}.
    */
-  ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
+  // Visible only for testing: should be package-private.
+  public ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
     return treeArtifactData;
   }
 
