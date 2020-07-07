@@ -374,7 +374,7 @@ public interface SpawnResult {
       TerminationStatus status = new TerminationStatus(
           exitCode(), status() == Status.TIMEOUT);
       String reason = " (" + status.toShortString() + ")"; // e.g " (Exit 1)"
-      // Include the command line as error message if verbose_failures are enabled for this spawn or
+      // Include the command line as error message if --verbose_failures is enabled or
       // the command line didn't exit normally.
       String explanation = verboseFailures || !status.exited() ? ": " + message : "";
 

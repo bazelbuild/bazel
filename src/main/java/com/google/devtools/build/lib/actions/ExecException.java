@@ -94,8 +94,7 @@ public abstract class ExecException extends Exception {
    * incorporating just the termination status if available.
    *
    * @param messagePrefix describes the action type as noun
-   * @param verboseFailures true if user requested verbose output with flag --verbose_failures or
-   *     --experimental_verbose_failures_filter
+   * @param verboseFailures true if user requested verbose output with flag --verbose_failures
    * @param action failed action
    * @return ActionExecutionException object describing the action failure
    */

@@ -90,10 +90,9 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
               return this;
             }
           } catch (ExecException e) {
-            Label label = getOwner().getLabel();
             throw e.toActionExecutionException(
-                "Writing file for rule '" + Label.print(label) + "'",
-                actionExecutionContext.showVerboseFailures(label),
+                "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
+                actionExecutionContext.getVerboseFailures(),
                 AbstractFileWriteAction.this);
           }
           afterWrite(actionExecutionContext);
@@ -101,10 +100,9 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
         }
       };
     } catch (ExecException e) {
-      Label label = getOwner().getLabel();
       throw e.toActionExecutionException(
-          "Writing file for rule '" + Label.print(label) + "'",
-          actionExecutionContext.showVerboseFailures(label),
+          "Writing file for rule '" + Label.print(getOwner().getLabel()) + "'",
+          actionExecutionContext.getVerboseFailures(),
           this);
     }
   }

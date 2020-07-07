@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.starlark.Args;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -473,10 +472,9 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
       } catch (ExecException e) {
-        Label label = getOwner().getLabel();
         throw e.toActionExecutionException(
-            "Linking of rule '" + label + "'",
-            actionExecutionContext.showVerboseFailures(label),
+            "Linking of rule '" + getOwner().getLabel() + "'",
+            actionExecutionContext.getVerboseFailures(),
             CppLinkAction.this);
       }
     }

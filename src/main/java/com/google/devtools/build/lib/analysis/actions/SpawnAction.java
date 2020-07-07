@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.starlark.Args;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -318,13 +317,12 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   public final ActionContinuationOrResult beginExecution(
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    Label label = getOwner().getLabel();
     Spawn spawn;
     try {
       beforeExecute(actionExecutionContext);
       spawn = getSpawn(actionExecutionContext);
     } catch (ExecException e) {
-      throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
+      throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
     } catch (CommandLineExpansionException e) {
       throw createDetailedException(e, Code.COMMAND_LINE_EXPANSION_FAILURE);
     }
@@ -332,7 +330,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         actionExecutionContext
             .getContext(SpawnStrategyResolver.class)
             .beginExecution(spawn, actionExecutionContext);
-    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation, label);
+    return new SpawnActionContinuation(actionExecutionContext, spawnContinuation);
   }
 
   private ActionExecutionException createDetailedException(Exception e, Code detailedCode) {
@@ -1380,15 +1378,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   private final class SpawnActionContinuation extends ActionContinuationOrResult {
     private final ActionExecutionContext actionExecutionContext;
     private final SpawnContinuation spawnContinuation;
-    private final Label label;
 
-    SpawnActionContinuation(
-        ActionExecutionContext actionExecutionContext,
-        SpawnContinuation spawnContinuation,
-        Label label) {
+    public SpawnActionContinuation(
+        ActionExecutionContext actionExecutionContext, SpawnContinuation spawnContinuation) {
       this.actionExecutionContext = actionExecutionContext;
       this.spawnContinuation = spawnContinuation;
-      this.label = label;
     }
 
     @Override
@@ -1409,9 +1403,9 @@ public class SpawnAction extends AbstractAction implements CommandAction {
           afterExecute(actionExecutionContext, spawnResults);
           return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
         }
-        return new SpawnActionContinuation(actionExecutionContext, nextContinuation, label);
+        return new SpawnActionContinuation(actionExecutionContext, nextContinuation);
       } catch (ExecException e) {
-        throw toActionExecutionException(e, actionExecutionContext.showVerboseFailures(label));
+        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
       }
     }
   }

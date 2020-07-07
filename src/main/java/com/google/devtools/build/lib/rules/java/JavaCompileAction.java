@@ -569,7 +569,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
       throw toActionExecutionException(
           new EnvironmentalExecException(
               e, createFailureDetail(".jdeps read IOException", Code.JDEPS_READ_IO_EXCEPTION)),
-          actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
+          actionExecutionContext.getVerboseFailures());
     }
   }
 
@@ -641,7 +641,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
                   createFailureDetail(
                       "Failed to delete reduced action outputs",
                       Code.REDUCED_CLASSPATH_FALLBACK_CLEANUP_FAILURE)),
-              actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
+              actionExecutionContext.getVerboseFailures());
         }
         actionExecutionContext.getMetadataHandler().resetOutputs(getOutputs());
         Spawn spawn;
@@ -660,8 +660,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         return new JavaFallbackActionContinuation(
             actionExecutionContext, results, fallbackContinuation);
       } catch (ExecException e) {
-        throw toActionExecutionException(
-            e, actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
+        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
       }
     }
   }
@@ -705,8 +704,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             ActionResult.create(
                 ImmutableList.copyOf(Iterables.concat(primaryResults, fallbackResults))));
       } catch (ExecException e) {
-        throw toActionExecutionException(
-            e, actionExecutionContext.showVerboseFailures(getOwner().getLabel()));
+        throw toActionExecutionException(e, actionExecutionContext.getVerboseFailures());
       }
     }
   }
