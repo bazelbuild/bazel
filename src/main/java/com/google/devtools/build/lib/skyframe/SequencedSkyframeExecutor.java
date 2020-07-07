@@ -283,9 +283,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
 
     return ArtifactNestedSetFunction.sizeThresholdUpdated(
-            buildRequestOptions.nestedSetAsSkyKeyThreshold)
-        || ArtifactNestedSetFunction.evalKeysAsOneGroupUpdated(
-            buildRequestOptions.nsosEvalKeysAsOneGroup);
+        buildRequestOptions.nestedSetAsSkyKeyThreshold);
   }
 
   /**

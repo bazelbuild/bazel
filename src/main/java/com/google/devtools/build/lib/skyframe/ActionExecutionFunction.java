@@ -364,41 +364,17 @@ public class ActionExecutionFunction implements SkyFunction {
       Iterable<SkyKey> directKeys = Artifact.keys(allInputs.getLeaves());
       if (state.requestedArtifactNestedSetKeys == null) {
         state.requestedArtifactNestedSetKeys = CompactHashSet.create();
-        for (NestedSet<Artifact> nonleaf : allInputs.getNonLeaves()) {
+        for (NestedSet<Artifact> nonLeaf : allInputs.getNonLeaves()) {
           state.requestedArtifactNestedSetKeys.add(
-              new ArtifactNestedSetKey(nonleaf, nonleaf.toNode()));
+              new ArtifactNestedSetKey(nonLeaf, nonLeaf.toNode()));
         }
       }
 
-      if (ArtifactNestedSetFunction.evalKeysAsOneGroup()) {
-        return env.getValuesOrThrow(
-            Iterables.concat(directKeys, state.requestedArtifactNestedSetKeys),
-            IOException.class,
-            ActionExecutionException.class,
-            ArtifactNestedSetEvalException.class);
-      }
-
-      Map<
-              SkyKey,
-              ValueOrException3<
-                  IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
-          directArtifactValuesOrExceptions =
-              env.getValuesOrThrow(
-                  directKeys,
-                  IOException.class,
-                  ActionExecutionException.class,
-                  ArtifactNestedSetEvalException.class);
-
-      env.getValues(state.requestedArtifactNestedSetKeys);
-
-      if (env.valuesMissing()) {
-        return null;
-      }
-
-      ArtifactNestedSetFunction.getInstance()
-          .getArtifactSkyKeyToValueOrException()
-          .putAll(directArtifactValuesOrExceptions);
-      return ArtifactNestedSetFunction.getInstance().getArtifactSkyKeyToValueOrException();
+      return env.getValuesOrThrow(
+          Iterables.concat(directKeys, state.requestedArtifactNestedSetKeys),
+          IOException.class,
+          ActionExecutionException.class,
+          ArtifactNestedSetEvalException.class);
     }
 
     return env.getValuesOrThrow(
@@ -1216,7 +1192,7 @@ public class ActionExecutionFunction implements SkyFunction {
       AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory)
       throws ActionExecutionException, InterruptedException {
 
-    if (evalInputsAsNestedSet(allInputs) && ArtifactNestedSetFunction.evalKeysAsOneGroup()) {
+    if (evalInputsAsNestedSet(allInputs)) {
       return accumulateInputsWithNestedSet(
           env,
           action,
