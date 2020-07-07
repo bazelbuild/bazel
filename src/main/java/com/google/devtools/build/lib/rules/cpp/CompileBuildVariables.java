@@ -140,7 +140,6 @@ public enum CompileBuildVariables {
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
-      PathFragment fakeOutputFile,
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
@@ -174,7 +173,6 @@ public enum CompileBuildVariables {
           userCompileFlags,
           cppModuleMap,
           usePic,
-          toPathString(fakeOutputFile),
           fdoStamp,
           dotdFileExecPath,
           variablesExtensions,
@@ -210,7 +208,6 @@ public enum CompileBuildVariables {
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
-      String fakeOutputFile,
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
@@ -244,7 +241,6 @@ public enum CompileBuildVariables {
         userCompileFlags,
         cppModuleMap,
         usePic,
-        fakeOutputFile,
         fdoStamp,
         dotdFileExecPath,
         variablesExtensions,
@@ -274,7 +270,6 @@ public enum CompileBuildVariables {
       Iterable<String> userCompileFlags,
       CppModuleMap cppModuleMap,
       boolean usePic,
-      String fakeOutputFile,
       String fdoStamp,
       String dotdFileExecPath,
       ImmutableList<VariablesExtension> variablesExtensions,
@@ -314,7 +309,6 @@ public enum CompileBuildVariables {
         thinLtoInputBitcodeFile,
         thinLtoOutputObjectFile,
         userCompileFlags,
-        fakeOutputFile,
         dotdFileExecPath,
         usePic,
         ImmutableMap.of());
@@ -333,7 +327,6 @@ public enum CompileBuildVariables {
       String thinLtoInputBitcodeFile,
       String thinLtoOutputObjectFile,
       Iterable<String> userCompileFlags,
-      String fakeOutputFile,
       String dotdFileExecPath,
       boolean usePic,
       Map<String, String> additionalBuildVariables) {
@@ -344,11 +337,8 @@ public enum CompileBuildVariables {
       buildVariables.addStringVariable(SOURCE_FILE.getVariableName(), sourceFile);
     }
 
-    String fakeOutputFileOrRealOutputFile = fakeOutputFile != null ? fakeOutputFile : outputFile;
-
     if (outputFile != null) {
-      buildVariables.addStringVariable(
-          OUTPUT_FILE.getVariableName(), fakeOutputFileOrRealOutputFile);
+      buildVariables.addStringVariable(OUTPUT_FILE.getVariableName(), outputFile);
     }
 
     // Set dependency_file to enable <object>.d file generation.
@@ -511,10 +501,6 @@ public enum CompileBuildVariables {
     return NestedSetBuilder.wrap(
         Order.STABLE_ORDER,
         Iterables.transform(ImmutableSet.copyOf(paths), PathFragment::getSafePathString));
-  }
-
-  private static String toPathString(PathFragment a) {
-    return a == null ? null : a.getSafePathString();
   }
 
   public String getVariableName() {

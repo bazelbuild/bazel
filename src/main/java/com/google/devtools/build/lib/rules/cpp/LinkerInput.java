@@ -42,11 +42,6 @@ public interface LinkerInput {
    */
   boolean containsObjectFiles();
 
-  /**
-   * Returns whether the input artifact is a fake object file or not.
-   */
-  boolean isFake();
-
   default boolean isLinkstamp() {
     return false;
   }

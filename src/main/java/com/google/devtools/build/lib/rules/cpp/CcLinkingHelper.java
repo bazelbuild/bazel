@@ -107,7 +107,6 @@ public final class CcLinkingHelper {
   private Artifact pdbFile;
   private Artifact defFile;
   private LinkingMode linkingMode = LinkingMode.DYNAMIC;
-  private boolean fake;
   private boolean nativeDeps;
   private boolean wholeArchive;
   private LinkArtifactFactory linkArtifactFactory = CppLinkAction.DEFAULT_ARTIFACT_FACTORY;
@@ -516,11 +515,6 @@ public final class CcLinkingHelper {
     return this;
   }
 
-  public CcLinkingHelper setFake(boolean fake) {
-    this.fake = fake;
-    return this;
-  }
-
   public CcLinkingHelper setPdbFile(Artifact pdbFile) {
     this.pdbFile = pdbFile;
     return this;
@@ -688,18 +682,13 @@ public final class CcLinkingHelper {
             .addNonCodeInputs(ccOutputs.getHeaderTokenFiles())
             .addLtoCompilationContext(ccOutputs.getLtoCompilationContext())
             .setLinkingMode(linkingMode)
-            .setFake(fake)
             .addActionInputs(linkActionInputs)
             .addLinkopts(linkopts)
             .addLinkopts(sonameLinkopts)
             .addNonCodeInputs(nonCodeLinkerInputs)
             .addVariablesExtensions(variablesExtensions);
 
-    if (fake) {
-      dynamicLinkActionBuilder.addFakeObjectFiles(ccOutputs.getObjectFiles(usePic));
-    } else {
-      dynamicLinkActionBuilder.addObjectFiles(ccOutputs.getObjectFiles(usePic));
-    }
+    dynamicLinkActionBuilder.addObjectFiles(ccOutputs.getObjectFiles(usePic));
 
     if (!dynamicLinkType.isExecutable()) {
       dynamicLinkActionBuilder.setLibraryIdentifier(mainLibraryIdentifier);
@@ -779,9 +768,6 @@ public final class CcLinkingHelper {
     CppLinkAction dynamicLinkAction = dynamicLinkActionBuilder.build();
     if (dynamicLinkType.isExecutable()) {
       ccLinkingOutputs.setExecutable(linkerOutput);
-    }
-    if (fake) {
-      ccLinkingOutputs.addLinkActionInputs(dynamicLinkAction.getInputs());
     }
     actionConstructionContext.registerAction(dynamicLinkAction);
 

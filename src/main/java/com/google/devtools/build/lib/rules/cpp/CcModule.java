@@ -266,7 +266,6 @@ public abstract class CcModule
         userFlagsToIterable(userCompileFlags),
         /* cppModuleMap= */ null,
         usePic,
-        /* fakeOutputFile= */ null,
         /* fdoStamp= */ null,
         /* dotdFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),

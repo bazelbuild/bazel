@@ -343,22 +343,6 @@ public class LibrariesToLinkCollector {
   }
 
   /**
-   * Get the effective path for the object artifact, being careful not to create new strings if
-   * possible.
-   *
-   * @param: objectFile - Artifact representing an object file.
-   * @param -inputIsFake - Is this object being used for a cc_fake_binary.
-   */
-  private static String effectiveObjectFilePath(Artifact objectFile, boolean inputIsFake) {
-    // Avoid making new strings as much as possible! This called for every object file used in the
-    // build.
-    if (inputIsFake) {
-      return Link.FAKE_OBJECT_PREFIX + objectFile.getExecPathString();
-    }
-    return objectFile.getExecPathString();
-  }
-
-  /**
    * Adds command-line options for a static library or non-library input into options.
    *
    * @param librariesToLink - a collection that will be exposed as a build variable.
@@ -437,8 +421,7 @@ public class LibrariesToLinkCollector {
                 // unreferenced code).
                 librariesToLink.addValue(
                     LibraryToLinkValue.forObjectFile(
-                        effectiveObjectFilePath(member, input.isFake()),
-                        /* isWholeArchive= */ true));
+                        member.getExecPathString(), /* isWholeArchive= */ true));
               }
             }
           } else {
@@ -476,7 +459,7 @@ public class LibrariesToLinkCollector {
         } else {
           librariesToLink.addValue(
               LibraryToLinkValue.forObjectFile(
-                  effectiveObjectFilePath(inputArtifact, input.isFake()), inputIsWholeArchive));
+                  inputArtifact.getExecPathString(), inputIsWholeArchive));
         }
         if (!input.isLinkstamp()) {
           expandedLinkerInputsBuilder.add(input);
@@ -484,7 +467,7 @@ public class LibrariesToLinkCollector {
       } else {
         librariesToLink.addValue(
             LibraryToLinkValue.forStaticLibrary(
-                effectiveObjectFilePath(inputArtifact, input.isFake()), inputIsWholeArchive));
+                inputArtifact.getExecPathString(), inputIsWholeArchive));
         expandedLinkerInputsBuilder.add(input);
       }
     }

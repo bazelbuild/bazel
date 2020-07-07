@@ -122,7 +122,6 @@ public class CppLinkActionBuilder {
   private LtoCompilationContext ltoCompilationContext;
   private Artifact defFile;
 
-  private boolean fake;
   private boolean isNativeDeps;
   private boolean useTestOnlyFlags;
   private boolean wholeArchive;
@@ -233,11 +232,6 @@ public class CppLinkActionBuilder {
   /** Returns the staticness of this link action. */
   public Link.LinkingMode getLinkingMode() {
     return this.linkingMode;
-  }
-
-  /** Returns true for a cc_fake_binary. */
-  public boolean isFake() {
-    return this.fake;
   }
 
   public CppLinkActionBuilder setLinkArtifactFactory(LinkArtifactFactory linkArtifactFactory) {
@@ -519,10 +513,6 @@ public class CppLinkActionBuilder {
 
   @VisibleForTesting
   boolean canSplitCommandLine() {
-    if (fake) {
-      return false;
-    }
-
     if (toolchain == null || !toolchain.supportsParamFiles()) {
       return false;
     }
@@ -618,9 +608,9 @@ public class CppLinkActionBuilder {
             output,
             linkArtifactFactory);
 
-    if (interfaceOutput != null && (fake || !linkType.isDynamicLibrary())) {
+    if (interfaceOutput != null && !linkType.isDynamicLibrary()) {
       throw new RuntimeException(
-          "Interface output can only be used " + "with non-fake DYNAMIC_LIBRARY targets");
+          "Interface output can only be used " + "with DYNAMIC_LIBRARY targets");
     }
 
     if (!featureConfiguration.actionIsConfigured(linkType.getActionName())) {
@@ -1063,12 +1053,6 @@ public class CppLinkActionBuilder {
 
     inputsBuilder.addTransitive(linkstampObjectArtifacts);
 
-    ImmutableSet<Artifact> fakeLinkerInputArtifacts =
-        collectedLibrariesToLink.getExpandedLinkerInputs().toList().stream()
-            .filter(LinkerInput::isFake)
-            .map(LinkerInput::getArtifact)
-            .collect(ImmutableSet.toImmutableSet());
-
     return new CppLinkAction(
         getOwner(),
         mnemonic,
@@ -1077,8 +1061,6 @@ public class CppLinkActionBuilder {
         outputLibrary,
         output,
         interfaceOutputLibrary,
-        fake,
-        fakeLinkerInputArtifacts,
         isLtoIndexing,
         linkstampMap,
         linkCommandLine,
@@ -1269,7 +1251,7 @@ public class CppLinkActionBuilder {
 
   /**
    * Sets the interface output of the link. A non-null argument can only be provided if the link
-   * type is {@code NODEPS_DYNAMIC_LIBRARY} and fake is false.
+   * type is {@code NODEPS_DYNAMIC_LIBRARY}.
    */
   public CppLinkActionBuilder setInterfaceOutput(Artifact interfaceOutput) {
     this.interfaceOutput = interfaceOutput;
@@ -1341,13 +1323,6 @@ public class CppLinkActionBuilder {
     Preconditions.checkArgument(!Link.OBJECT_FILETYPES.matches(basename), basename);
 
     this.nonCodeInputs.add(input);
-    return this;
-  }
-
-  public CppLinkActionBuilder addFakeObjectFiles(Iterable<Artifact> inputs) {
-    for (Artifact input : inputs) {
-      addObjectFile(LinkerInputs.fakeLinkerInput(input));
-    }
     return this;
   }
 
@@ -1480,12 +1455,6 @@ public class CppLinkActionBuilder {
     }
     CppHelper.checkLinkstampsUnique(errorListener, linkstamps);
     addLinkstamps(linkstamps);
-    return this;
-  }
-
-  /** Sets whether this link action will be used for a cc_fake_binary; false by default. */
-  public CppLinkActionBuilder setFake(boolean fake) {
-    this.fake = fake;
     return this;
   }
 

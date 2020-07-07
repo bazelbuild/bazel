@@ -240,7 +240,6 @@ public final class CcCompilationHelper {
   private final List<PathFragment> frameworkIncludeDirs = new ArrayList<>();
 
   private HeadersCheckingMode headersCheckingMode = HeadersCheckingMode.LOOSE;
-  private boolean fake;
 
   private final SourceCategory sourceCategory;
   private final List<VariablesExtension> variablesExtensions = new ArrayList<>();
@@ -678,17 +677,6 @@ public final class CcCompilationHelper {
   /** Sets the given headers checking mode. The default is {@link HeadersCheckingMode#LOOSE}. */
   public CcCompilationHelper setHeadersCheckingMode(HeadersCheckingMode headersCheckingMode) {
     this.headersCheckingMode = Preconditions.checkNotNull(headersCheckingMode);
-    return this;
-  }
-
-  /**
-   * Marks the resulting code as fake, i.e., the code will not actually be compiled or linked, but
-   * instead, the compile command is written to a file and added to the runfiles. This is currently
-   * used for non-compilation tests. Unfortunately, the design is problematic, so please don't add
-   * any further uses.
-   */
-  public CcCompilationHelper setFake(boolean fake) {
-    this.fake = fake;
     return this;
   }
 
@@ -1179,12 +1167,12 @@ public final class CcCompilationHelper {
 
   /** @return whether this target needs to generate a pic header module. */
   private boolean getGeneratesPicHeaderModule() {
-    return shouldProvideHeaderModules() && !fake && generatePicAction;
+    return shouldProvideHeaderModules() && generatePicAction;
   }
 
   /** @return whether this target needs to generate a no-PIC header module. */
   private boolean getGeneratesNoPicHeaderModule() {
-    return shouldProvideHeaderModules() && !fake && generateNoPicAction;
+    return shouldProvideHeaderModules() && generateNoPicAction;
   }
 
   /** @return whether we want to provide header modules for the current target. */
@@ -1293,8 +1281,8 @@ public final class CcCompilationHelper {
 
   /**
    * Constructs the C++ compiler actions. It generally creates one action for every specified source
-   * file. It takes into account fake-ness, coverage, and PIC, in addition to using the settings
-   * specified on the current object. This method should only be called once.
+   * file. It takes into account coverage, and PIC, in addition to using the settings specified on
+   * the current object. This method should only be called once.
    */
   private CcCompilationOutputs createCcCompileActions() throws RuleErrorException {
     CcCompilationOutputs.Builder result = CcCompilationOutputs.builder();
@@ -1595,7 +1583,6 @@ public final class CcCompilationHelper {
         /* thinLtoInputBitcodeFile= */ null,
         /* thinLtoOutputObjectFile= */ null,
         getCopts(builder.getSourceFile(), sourceLabel),
-        toPathString(builder.getTempOutputFile()),
         dotdFileExecPath,
         usePic,
         additionalBuildVariables);
@@ -1604,10 +1591,6 @@ public final class CcCompilationHelper {
 
   private static String toPathString(Artifact a) {
     return a == null ? null : a.getExecPathString();
-  }
-
-  private static String toPathString(PathFragment a) {
-    return a == null ? null : a.getSafePathString();
   }
 
   /**
@@ -1629,11 +1612,6 @@ public final class CcCompilationHelper {
   private void createModuleCodegenAction(
       CcCompilationOutputs.Builder result, Label sourceLabel, Artifact module)
       throws RuleErrorException {
-    if (fake) {
-      // We can't currently foresee a situation where we'd want nocompile tests for module codegen.
-      // If we find one, support needs to be added here.
-      return;
-    }
     String outputName = module.getRootRelativePath().getBaseName();
 
     // TODO(djasper): Make this less hacky after refactoring how the PIC/noPIC actions are created.
@@ -1784,158 +1762,144 @@ public final class CcCompilationHelper {
       throws RuleErrorException {
     ImmutableList.Builder<Artifact> directOutputs = new ImmutableList.Builder<>();
     PathFragment ccRelativeName = sourceArtifact.getRootRelativePath();
-    if (fake) {
-      boolean usePic = !generateNoPicAction;
-      createFakeSourceAction(
-          sourceLabel,
-          outputName,
-          result,
-          builder,
-          outputCategory,
-          addObject,
-          ccRelativeName,
-          usePic,
-          generateDotd);
-    } else {
-      // Create PIC compile actions (same as no-PIC, but use -fPIC and
-      // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
-      if (generatePicAction) {
-        String picOutputBase =
-            CppHelper.getArtifactNameForCategory(
-                ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, outputName);
-        CppCompileActionBuilder picBuilder =
-            copyAsPicBuilder(builder, picOutputBase, outputCategory, generateDotd);
-        String gcnoFileName =
-            CppHelper.getArtifactNameForCategory(
-                ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
-        Artifact gcnoFile =
-            enableCoverage
-                ? CppHelper.getCompileOutputArtifact(
-                    actionConstructionContext, label, gcnoFileName, configuration)
-                : null;
-        Artifact dwoFile =
-            generateDwo && !bitcodeOutput ? getDwoFile(picBuilder.getOutputFile()) : null;
-        Artifact ltoIndexingFile =
-            bitcodeOutput ? getLtoIndexingFile(picBuilder.getOutputFile()) : null;
 
-        picBuilder.setVariables(
-            setupCompileBuildVariables(
-                picBuilder,
-                sourceLabel,
-                /* usePic= */ true,
-                /* needsFdoBuildVariables= */ ccRelativeName != null,
-                ccCompilationContext.getCppModuleMap(),
-                gcnoFile,
-                generateDwo,
-                dwoFile,
-                ltoIndexingFile,
-                /* additionalBuildVariables= */ ImmutableMap.of()));
+    // Create PIC compile actions (same as no-PIC, but use -fPIC and
+    // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
+    if (generatePicAction) {
+      String picOutputBase =
+          CppHelper.getArtifactNameForCategory(
+              ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, outputName);
+      CppCompileActionBuilder picBuilder =
+          copyAsPicBuilder(builder, picOutputBase, outputCategory, generateDotd);
+      String gcnoFileName =
+          CppHelper.getArtifactNameForCategory(
+              ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
+      Artifact gcnoFile =
+          enableCoverage
+              ? CppHelper.getCompileOutputArtifact(
+                  actionConstructionContext, label, gcnoFileName, configuration)
+              : null;
+      Artifact dwoFile =
+          generateDwo && !bitcodeOutput ? getDwoFile(picBuilder.getOutputFile()) : null;
+      Artifact ltoIndexingFile =
+          bitcodeOutput ? getLtoIndexingFile(picBuilder.getOutputFile()) : null;
 
-        result.addTemps(
-            createTempsActions(
-                sourceArtifact,
-                sourceLabel,
-                outputName,
-                picBuilder,
-                /* usePic= */ true,
-                /* generateDotd= */ generateDotd,
-                ccRelativeName));
+      picBuilder.setVariables(
+          setupCompileBuildVariables(
+              picBuilder,
+              sourceLabel,
+              /* usePic= */ true,
+              /* needsFdoBuildVariables= */ ccRelativeName != null,
+              ccCompilationContext.getCppModuleMap(),
+              gcnoFile,
+              generateDwo,
+              dwoFile,
+              ltoIndexingFile,
+              /* additionalBuildVariables= */ ImmutableMap.of()));
 
-        picBuilder.setGcnoFile(gcnoFile);
-        picBuilder.setDwoFile(dwoFile);
-        picBuilder.setLtoIndexingFile(ltoIndexingFile);
+      result.addTemps(
+          createTempsActions(
+              sourceArtifact,
+              sourceLabel,
+              outputName,
+              picBuilder,
+              /* usePic= */ true,
+              /* generateDotd= */ generateDotd,
+              ccRelativeName));
 
-        semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, picBuilder);
-        CppCompileAction picAction = picBuilder.buildOrThrowRuleError(ruleErrorConsumer);
-        actionRegistry.registerAction(picAction);
-        directOutputs.add(picAction.getOutputFile());
-        if (addObject) {
-          result.addPicObjectFile(picAction.getOutputFile());
+      picBuilder.setGcnoFile(gcnoFile);
+      picBuilder.setDwoFile(dwoFile);
+      picBuilder.setLtoIndexingFile(ltoIndexingFile);
 
-          if (bitcodeOutput) {
-            result.addLtoBitcodeFile(
-                picAction.getOutputFile(), ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
-          }
-        }
-        if (dwoFile != null) {
-          // Host targets don't produce .dwo files.
-          result.addPicDwoFile(dwoFile);
+      semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, picBuilder);
+      CppCompileAction picAction = picBuilder.buildOrThrowRuleError(ruleErrorConsumer);
+      actionRegistry.registerAction(picAction);
+      directOutputs.add(picAction.getOutputFile());
+      if (addObject) {
+        result.addPicObjectFile(picAction.getOutputFile());
+
+        if (bitcodeOutput) {
+          result.addLtoBitcodeFile(
+              picAction.getOutputFile(), ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
         }
       }
+      if (dwoFile != null) {
+        // Host targets don't produce .dwo files.
+        result.addPicDwoFile(dwoFile);
+      }
+    }
 
-      if (generateNoPicAction) {
-        Artifact noPicOutputFile =
-            CppHelper.getCompileOutputArtifact(
-                actionConstructionContext,
-                label,
-                CppHelper.getArtifactNameForCategory(
-                    ruleErrorConsumer, ccToolchain, outputCategory, outputName),
-                configuration);
-        builder.setOutputs(
-            actionConstructionContext,
-            ruleErrorConsumer,
-            label,
-            outputCategory,
-            outputName,
-            generateDotd);
-        String gcnoFileName =
-            CppHelper.getArtifactNameForCategory(
-                ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
+    if (generateNoPicAction) {
+      Artifact noPicOutputFile =
+          CppHelper.getCompileOutputArtifact(
+              actionConstructionContext,
+              label,
+              CppHelper.getArtifactNameForCategory(
+                  ruleErrorConsumer, ccToolchain, outputCategory, outputName),
+              configuration);
+      builder.setOutputs(
+          actionConstructionContext,
+          ruleErrorConsumer,
+          label,
+          outputCategory,
+          outputName,
+          generateDotd);
+      String gcnoFileName =
+          CppHelper.getArtifactNameForCategory(
+              ruleErrorConsumer, ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
 
-        // Create no-PIC compile actions
-        Artifact gcnoFile =
-            enableCoverage
-                ? CppHelper.getCompileOutputArtifact(
-                    actionConstructionContext, label, gcnoFileName, configuration)
-                : null;
+      // Create no-PIC compile actions
+      Artifact gcnoFile =
+          enableCoverage
+              ? CppHelper.getCompileOutputArtifact(
+                  actionConstructionContext, label, gcnoFileName, configuration)
+              : null;
 
-        Artifact noPicDwoFile = generateDwo && !bitcodeOutput ? getDwoFile(noPicOutputFile) : null;
-        Artifact ltoIndexingFile =
-            bitcodeOutput ? getLtoIndexingFile(builder.getOutputFile()) : null;
+      Artifact noPicDwoFile = generateDwo && !bitcodeOutput ? getDwoFile(noPicOutputFile) : null;
+      Artifact ltoIndexingFile = bitcodeOutput ? getLtoIndexingFile(builder.getOutputFile()) : null;
 
-        builder.setVariables(
-            setupCompileBuildVariables(
-                builder,
-                sourceLabel,
-                /* usePic= */ false,
-                /* needsFdoBuildVariables= */ ccRelativeName != null,
-                cppModuleMap,
-                gcnoFile,
-                generateDwo,
-                noPicDwoFile,
-                ltoIndexingFile,
-                /* additionalBuildVariables= */ ImmutableMap.of()));
+      builder.setVariables(
+          setupCompileBuildVariables(
+              builder,
+              sourceLabel,
+              /* usePic= */ false,
+              /* needsFdoBuildVariables= */ ccRelativeName != null,
+              cppModuleMap,
+              gcnoFile,
+              generateDwo,
+              noPicDwoFile,
+              ltoIndexingFile,
+              /* additionalBuildVariables= */ ImmutableMap.of()));
 
-        result.addTemps(
-            createTempsActions(
-                sourceArtifact,
-                sourceLabel,
-                outputName,
-                builder,
-                /* usePic= */ false,
-                generateDotd,
-                ccRelativeName));
+      result.addTemps(
+          createTempsActions(
+              sourceArtifact,
+              sourceLabel,
+              outputName,
+              builder,
+              /* usePic= */ false,
+              generateDotd,
+              ccRelativeName));
 
-        builder.setGcnoFile(gcnoFile);
-        builder.setDwoFile(noPicDwoFile);
-        builder.setLtoIndexingFile(ltoIndexingFile);
+      builder.setGcnoFile(gcnoFile);
+      builder.setDwoFile(noPicDwoFile);
+      builder.setLtoIndexingFile(ltoIndexingFile);
 
-        semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-        CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
-        actionRegistry.registerAction(compileAction);
-        Artifact objectFile = compileAction.getOutputFile();
-        directOutputs.add(objectFile);
-        if (addObject) {
-          result.addObjectFile(objectFile);
-          if (bitcodeOutput) {
-            result.addLtoBitcodeFile(
-                objectFile, ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
-          }
+      semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
+      CppCompileAction compileAction = builder.buildOrThrowRuleError(ruleErrorConsumer);
+      actionRegistry.registerAction(compileAction);
+      Artifact objectFile = compileAction.getOutputFile();
+      directOutputs.add(objectFile);
+      if (addObject) {
+        result.addObjectFile(objectFile);
+        if (bitcodeOutput) {
+          result.addLtoBitcodeFile(
+              objectFile, ltoIndexingFile, getCopts(sourceArtifact, sourceLabel));
         }
-        if (noPicDwoFile != null) {
-          // Host targets don't produce .dwo files.
-          result.addDwoFile(noPicDwoFile);
-        }
+      }
+      if (noPicDwoFile != null) {
+        // Host targets don't produce .dwo files.
+        result.addDwoFile(noPicDwoFile);
       }
     }
     return directOutputs.build();
@@ -1970,64 +1934,6 @@ public final class CcCompilationHelper {
         ? CppHelper.getArtifactNameForCategory(
             ruleErrorConsumer, ccToolchain, ArtifactCategory.PIC_FILE, base)
         : base;
-  }
-
-  private void createFakeSourceAction(
-      Label sourceLabel,
-      String outputName,
-      CcCompilationOutputs.Builder result,
-      CppCompileActionBuilder builder,
-      ArtifactCategory outputCategory,
-      boolean addObject,
-      PathFragment ccRelativeName,
-      boolean usePic,
-      boolean generateDotd)
-      throws RuleErrorException {
-    String outputNameBase = getOutputNameBaseWith(outputName, usePic);
-    String tempOutputName =
-        configuration
-            .getBinFragment()
-            .getRelative(CppHelper.getObjDirectory(label))
-            .getRelative(
-                CppHelper.getArtifactNameForCategory(
-                    ruleErrorConsumer,
-                    ccToolchain,
-                    outputCategory,
-                    getOutputNameBaseWith(outputName + ".temp", usePic)))
-            .getPathString();
-    builder
-        .setPicMode(usePic)
-        .setOutputs(
-            actionConstructionContext,
-            ruleErrorConsumer,
-            label,
-            outputCategory,
-            outputNameBase,
-            generateDotd)
-        .setTempOutputFile(PathFragment.create(tempOutputName));
-
-    builder.setVariables(
-        setupCompileBuildVariables(
-            builder,
-            sourceLabel,
-            usePic,
-            /* needsFdoBuildVariables= */ ccRelativeName != null,
-            ccCompilationContext.getCppModuleMap(),
-            /* gcnoFile= */ null,
-            /* isUsingFission= */ false,
-            /* dwoFile= */ null,
-            /* ltoIndexingFile= */ null,
-            /* additionalBuildVariables= */ ImmutableMap.of()));
-    semantics.finalizeCompileActionBuilder(configuration, featureConfiguration, builder);
-    CppCompileAction action = builder.buildOrThrowRuleError(ruleErrorConsumer);
-    actionRegistry.registerAction(action);
-    if (addObject) {
-      if (usePic) {
-        result.addPicObjectFile(action.getOutputFile());
-      } else {
-        result.addObjectFile(action.getOutputFile());
-      }
-    }
   }
 
   /** Returns true iff code coverage is enabled for the given target. */

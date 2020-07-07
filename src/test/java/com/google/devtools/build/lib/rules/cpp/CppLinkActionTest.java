@@ -460,7 +460,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
     OUTPUT_FILE,
     NATIVE_DEPS,
     USE_TEST_ONLY_FLAGS,
-    FAKE,
     RUNTIME_SOLIB_DIR,
     ENVIRONMENT,
   }
@@ -512,7 +511,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
             builder.setNativeDeps(attributesToFlip.contains(NonStaticAttributes.NATIVE_DEPS));
             builder.setUseTestOnlyFlags(
                 attributesToFlip.contains(NonStaticAttributes.USE_TEST_ONLY_FLAGS));
-            builder.setFake(attributesToFlip.contains(NonStaticAttributes.FAKE));
             builder.setToolchainLibrariesSolibDir(
                 attributesToFlip.contains(NonStaticAttributes.RUNTIME_SOLIB_DIR)
                     ? null
@@ -650,7 +648,6 @@ public class CppLinkActionTest extends BuildViewTestCase {
                 objects.build(),
                 ImmutableList.<LibraryToLink>of(),
                 getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
-            .setFake(true)
             .build();
 
     // Ensure that minima are enforced.
@@ -752,7 +749,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         createLinkBuilder(ruleContext, LinkTargetType.EXECUTABLE)
             .setInterfaceOutput(scratchArtifact("FakeInterfaceOutput"));
 
-    assertError("Interface output can only be used with non-fake DYNAMIC_LIBRARY targets", builder);
+    assertError("Interface output can only be used with DYNAMIC_LIBRARY targets", builder);
   }
 
   @Test
@@ -972,24 +969,24 @@ public class CppLinkActionTest extends BuildViewTestCase {
     for (LinkTargetType linkType : targetTypesToTest) {
 
       scratch.deleteFile("dummyRuleContext/BUILD");
-      Artifact output = scratchArtifact("output." + linkType.getDefaultExtension());
+      Artifact output = ruleContext.getBinArtifact("output." + linkType.getDefaultExtension());
 
       CppLinkActionBuilder builder =
           createLinkBuilder(
                   ruleContext,
                   linkType,
-                  output.getExecPathString(),
+                  output.getRootRelativePathString(),
                   ImmutableList.<Artifact>of(),
                   ImmutableList.<LibraryToLink>of(),
                   getMockFeatureConfiguration(/* envVars= */ ImmutableMap.of()))
               .setLibraryIdentifier("foo")
               .addObjectFiles(ImmutableList.of(testTreeArtifact))
-              .addObjectFile(objectFile)
-              // Makes sure this doesn't use a params file.
-              .setFake(true);
+              .addObjectFile(objectFile);
 
       CppLinkAction linkAction = builder.build();
-      assertThat(linkAction.getCommandLine(expander))
+      assertThat(
+              ImmutableList.copyOf(
+                  linkAction.getLinkCommandLine().paramCmdLine().arguments(expander)))
           .containsAtLeast(
               library0.getExecPathString(),
               library1.getExecPathString(),

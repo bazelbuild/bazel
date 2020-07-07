@@ -214,8 +214,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    *     succeed, can be empty but not null, for example, extra sources for FDO.
    * @param inputsForInvalidation are there only to invalidate this action when they change, but are
    *     not needed during actual execution.
-   * @param outputFile the object file that is written as result of the compilation, or the fake
-   *     object for {@link FakeCppCompileAction}s
+   * @param outputFile the object file that is written as result of the compilation
    * @param dotdFile the .d file that is generated as a side-effect of compilation
    * @param gcnoFile the coverage notes that are written in coverage mode, can be null
    * @param dwoFile the .dwo output file where debug information is stored for Fission builds (null
