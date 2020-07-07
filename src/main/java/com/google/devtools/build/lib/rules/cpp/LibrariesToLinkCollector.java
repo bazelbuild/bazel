@@ -246,13 +246,7 @@ public class LibrariesToLinkCollector {
       if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
           || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY) {
         PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
-        Preconditions.checkState(
-            input instanceof LinkerInputs.LibraryToLink,
-            "Linker input %s of type %s does not implement the LinkerInputs.LibraryToLink interface",
-            input,
-            input.getArtifactCategory());
-        LinkerInputs.LibraryToLink libraryToLink = (LinkerInputs.LibraryToLink) input;
-        String libraryIdentifier = libraryToLink.getLibraryIdentifier();
+        String libraryIdentifier = input.getLibraryIdentifier();
         PathFragment previousLibDir = linkedLibrariesPaths.get(libraryIdentifier);
         if (previousLibDir == null) {
           linkedLibrariesPaths.put(libraryIdentifier, libDir);
@@ -408,7 +402,10 @@ public class LibrariesToLinkCollector {
               // still an input to this action.
               expandedLinkerInputsBuilder.add(
                   LinkerInputs.simpleLinkerInput(
-                      a, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive= */ false));
+                      a,
+                      ArtifactCategory.OBJECT_FILE,
+                      /* disableWholeArchive= */ false,
+                      a.getRootRelativePathString()));
               continue;
             }
             // No LTO indexing step, so use the LTO backend's generated artifact directly
@@ -418,7 +415,10 @@ public class LibrariesToLinkCollector {
           nonLtoArchiveMembersBuilder.add(member);
           expandedLinkerInputsBuilder.add(
               LinkerInputs.simpleLinkerInput(
-                  member, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive  = */ false));
+                  member,
+                  ArtifactCategory.OBJECT_FILE,
+                  /* disableWholeArchive  = */ false,
+                  member.getRootRelativePathString()));
         }
         ImmutableList<Artifact> nonLtoArchiveMembers = nonLtoArchiveMembersBuilder.build();
         if (!nonLtoArchiveMembers.isEmpty()) {
@@ -459,7 +459,10 @@ public class LibrariesToLinkCollector {
           // still an input to this action.
           expandedLinkerInputsBuilder.add(
               LinkerInputs.simpleLinkerInput(
-                  a, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive= */ false));
+                  a,
+                  ArtifactCategory.OBJECT_FILE,
+                  /* disableWholeArchive= */ false,
+                  a.getRootRelativePathString()));
           return;
         }
         // No LTO indexing step, so use the LTO backend's generated artifact directly
@@ -503,8 +506,8 @@ public class LibrariesToLinkCollector {
     // LTO indexing because we are linking a test, to improve scalability when linking many tests.
     return allowLtoIndexing
         && !a.getRootRelativePath()
-        .startsWith(
-            PathFragment.create(CppLinkActionBuilder.SHARED_NONLTO_BACKEND_ROOT_PREFIX));
+            .startsWith(
+                PathFragment.create(CppLinkActionBuilder.SHARED_NONLTO_BACKEND_ROOT_PREFIX));
   }
 
   private Map<Artifact, Artifact> generateLtoMap() {
