@@ -589,7 +589,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             named = true,
             doc =
                 "<b>Use of this parameter is not recommended. See "
-                    + "<a href=\"../rules.html#runfiles\">runfiles guide</a></b>. "
+                    + "<a href=\"../rules.$DOC_EXT#runfiles\">runfiles guide</a></b>. "
                     + "<p>Whether to collect the data "
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
@@ -599,7 +599,7 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             named = true,
             doc =
                 "<b>Use of this parameter is not recommended. See "
-                    + "<a href=\"../rules.html#runfiles\">runfiles guide</a></b>. "
+                    + "<a href=\"../rules.$DOC_EXT#runfiles\">runfiles guide</a></b>. "
                     + "<p>Whether to collect the default "
                     + "runfiles from the dependencies in srcs, data and deps attributes."),
         @Param(
@@ -607,13 +607,19 @@ public interface StarlarkRuleContextApi<ConstraintValueT extends ConstraintValue
             type = Dict.class,
             defaultValue = "{}",
             named = true,
-            doc = "The map of symlinks to be added to the runfiles, prefixed by workspace name."),
+            doc =
+                "The map of symlinks to be added to the runfiles, prefixed by workspace name. See "
+                    + "<a href=\"../rules.$DOC_EXT#runfiles-symlinks\">Runfiles symlinks</a> in "
+                    + "the rules guide."),
         @Param(
             name = "root_symlinks",
             type = Dict.class,
             defaultValue = "{}",
             named = true,
-            doc = "The map of symlinks to be added to the runfiles.")
+            doc =
+                "The map of symlinks to be added to the runfiles. See "
+                    + "<a href=\"../rules.$DOC_EXT#runfiles-symlinks\">Runfiles symlinks</a> in "
+                    + "the rules guide.")
       })
   RunfilesApi runfiles(
       Sequence<?> files,
