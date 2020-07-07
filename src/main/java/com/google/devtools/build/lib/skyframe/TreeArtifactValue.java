@@ -21,10 +21,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -36,15 +38,44 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.ThreadSafe;
 
 /**
  * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s of its child
  * {@link TreeFileArtifact}s.
  */
 public class TreeArtifactValue implements HasDigest, SkyValue {
+
+  /** Builder for constructing multiple instances of {@link TreeArtifactValue} at once. */
+  public interface MultiBuilder {
+    /**
+     * Puts a child tree file into this builder under its {@linkplain TreeFileArtifact#getParent
+     * parent}.
+     */
+    void putChild(TreeFileArtifact child, FileArtifactValue metadata);
+
+    /**
+     * For each unique parent seen by this builder, passes the aggregated metadata to {@link
+     * MetadataInjector#injectDirectory}.
+     */
+    void injectTo(MetadataInjector metadataInjector);
+  }
+
+  /** Returns a new {@link MultiBuilder}. */
+  public static MultiBuilder newMultiBuilder() {
+    return new BasicMultiBuilder();
+  }
+
+  /** Returns a new thread-safe {@link MultiBuilder}. */
+  public static MultiBuilder newConcurrentMultiBuilder() {
+    return new ConcurrentMultiBuilder();
+  }
 
   @SerializationConstant @AutoCodec.VisibleForSerialization
   static final TreeArtifactValue EMPTY =
@@ -71,8 +102,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * Returns a TreeArtifactValue out of the given Artifact-relative path fragments and their
    * corresponding FileArtifactValues.
    */
-  static TreeArtifactValue create(
-      Map<TreeFileArtifact, ? extends FileArtifactValue> childFileValues) {
+  static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
     if (childFileValues.isEmpty()) {
       return EMPTY;
     }
@@ -272,5 +302,39 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     ImmutableSet.Builder<PathFragment> explodedDirectory = ImmutableSet.builder();
     explodeDirectory(treeArtifactPath, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
     return explodedDirectory.build();
+  }
+
+  private static final class BasicMultiBuilder implements MultiBuilder {
+    private final Map<
+            SpecialArtifact, ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue>>
+        map = new HashMap<>();
+
+    @Override
+    public void putChild(TreeFileArtifact child, FileArtifactValue metadata) {
+      map.computeIfAbsent(child.getParent(), parent -> ImmutableSortedMap.naturalOrder())
+          .put(child, metadata);
+    }
+
+    @Override
+    public void injectTo(MetadataInjector metadataInjector) {
+      map.forEach((parent, builder) -> metadataInjector.injectDirectory(parent, builder.build()));
+    }
+  }
+
+  @ThreadSafe
+  private static final class ConcurrentMultiBuilder implements MultiBuilder {
+    private final ConcurrentMap<SpecialArtifact, ConcurrentMap<TreeFileArtifact, FileArtifactValue>>
+        map = new ConcurrentHashMap<>();
+
+    @Override
+    public void putChild(TreeFileArtifact child, FileArtifactValue metadata) {
+      map.computeIfAbsent(child.getParent(), parent -> new ConcurrentHashMap<>())
+          .put(child, metadata);
+    }
+
+    @Override
+    public void injectTo(MetadataInjector metadataInjector) {
+      map.forEach(metadataInjector::injectDirectory);
+    }
   }
 }

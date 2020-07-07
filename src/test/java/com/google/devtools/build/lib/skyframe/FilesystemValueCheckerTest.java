@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -888,17 +889,11 @@ public class FilesystemValueCheckerTest {
 
   private static ActionExecutionValue actionValueWithTreeArtifacts(
       List<TreeFileArtifact> contents) {
-    Map<Artifact, Map<TreeFileArtifact, FileArtifactValue>> directoryData = new HashMap<>();
+    TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
 
     for (TreeFileArtifact output : contents) {
+      Path path = output.getPath();
       try {
-        Map<TreeFileArtifact, FileArtifactValue> dirDatum =
-            directoryData.get(output.getParent());
-        if (dirDatum == null) {
-          dirDatum = new HashMap<>();
-          directoryData.put(output.getParent(), dirDatum);
-        }
-        Path path = output.getPath();
         FileArtifactValue noDigest =
             ActionMetadataHandler.fileArtifactValueFromArtifact(
                 output,
@@ -907,17 +902,27 @@ public class FilesystemValueCheckerTest {
         FileArtifactValue withDigest =
             FileArtifactValue.createFromInjectedDigest(
                 noDigest, path.getDigest(), !output.isConstantMetadata());
-        dirDatum.put(output, withDigest);
+        treeArtifacts.putChild(output, withDigest);
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
     }
 
     Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
-    for (Map.Entry<Artifact, Map<TreeFileArtifact, FileArtifactValue>> dirDatum :
-        directoryData.entrySet()) {
-      treeArtifactData.put(dirDatum.getKey(), TreeArtifactValue.create(dirDatum.getValue()));
-    }
+    treeArtifacts.injectTo(
+        new MetadataInjector() {
+          @Override
+          public void injectFile(Artifact output, FileArtifactValue metadata) {}
+
+          @Override
+          public void injectDirectory(
+              SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children) {
+            treeArtifactData.put(output, TreeArtifactValue.create(children));
+          }
+
+          @Override
+          public void markOmitted(Artifact output) {}
+        });
 
     return ActionExecutionValue.create(
         /*artifactData=*/ ImmutableMap.of(),

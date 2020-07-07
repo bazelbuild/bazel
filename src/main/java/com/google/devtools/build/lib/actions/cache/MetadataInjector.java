@@ -27,7 +27,7 @@ public interface MetadataInjector {
    *
    * <p>This can be used to save filesystem operations when the metadata is already known.
    *
-   * <p>{@linkplain Artifact#isTreeArtifacts Tree artifacts} and their {@linkplain
+   * <p>{@linkplain Artifact#isTreeArtifact Tree artifacts} and their {@linkplain
    * Artifact#isChildOfDeclaredDirectory children} must not be passed here. Instead, they should be
    * passed to {@link #injectDirectory}.
    *
