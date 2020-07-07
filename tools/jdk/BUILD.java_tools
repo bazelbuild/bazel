@@ -338,6 +338,12 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
+config_setting(
+    name = "openbsd",
+    values = {"cpu": "openbsd"},
+    visibility = ["//visibility:public"],
+)
+
 alias(
     name = "singlejar",
     actual = select({
@@ -633,6 +639,7 @@ cc_binary(
     copts = SUPRESSED_WARNINGS,
     linkopts = select({
         ":freebsd": ["-lm"],
+        ":openbsd": ["-lm"],
         "//conditions:default": [],
     }),
     linkstatic = 1,
@@ -655,6 +662,7 @@ cc_binary(
     copts = SUPRESSED_WARNINGS,
     linkopts = select({
         ":freebsd": ["-lm"],
+        ":openbsd": ["-lm"],
         "//conditions:default": [],
     }),
     linkstatic = 1,
