@@ -14,6 +14,7 @@
 # limitations under the License.
 
 load("@rules_java//java:defs.bzl", "java_binary", "java_import")
+load("@local_config_platform//:constraints.bzl", "HOST_CONSTRAINTS")
 
 def create_config_setting_rule():
     """Create config_setting rule for windows.
@@ -157,6 +158,16 @@ def create_android_sdk_rules(
             }),
             # See https://github.com/bazelbuild/bazel/issues/8757
             tags = ["__ANDROID_RULES_MIGRATION__"],
+        )
+
+        native.toolchain(
+            name = "sdk-%d-toolchain" % api_level,
+            toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
+            exec_compatible_with = HOST_CONSTRAINTS,
+            target_compatible_with = [
+                "@bazel_tools//platforms:android",
+            ],
+            toolchain = ":sdk-%d" % api_level,
         )
 
     native.alias(
