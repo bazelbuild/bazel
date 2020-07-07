@@ -21,6 +21,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.LibraryToLinkValue;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuilder;
@@ -50,6 +51,7 @@ public class LibrariesToLinkCollector {
   private final String rpathRoot;
   private final boolean needToolchainLibrariesRpath;
   private final Map<Artifact, Artifact> ltoMap;
+  private final RuleErrorConsumer ruleErrorConsumer;
 
   public LibrariesToLinkCollector(
       boolean isNativeDeps,
@@ -66,7 +68,8 @@ public class LibrariesToLinkCollector {
       Artifact thinltoParamFile,
       boolean allowLtoIndexing,
       Iterable<LinkerInput> linkerInputs,
-      boolean needWholeArchive) {
+      boolean needWholeArchive,
+      RuleErrorConsumer ruleErrorConsumer) {
     this.isNativeDeps = isNativeDeps;
     this.cppConfiguration = cppConfiguration;
     this.ccToolchainProvider = toolchain;
@@ -80,6 +83,7 @@ public class LibrariesToLinkCollector {
     this.allowLtoIndexing = allowLtoIndexing;
     this.linkerInputs = linkerInputs;
     this.needWholeArchive = needWholeArchive;
+    this.ruleErrorConsumer = ruleErrorConsumer;
 
     needToolchainLibrariesRpath =
         toolchainLibrariesSolibDir != null
@@ -236,20 +240,32 @@ public class LibrariesToLinkCollector {
       NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder) {
     boolean includeSolibDir = false;
     boolean includeToolchainLibrariesSolibDir = false;
+    HashMap<String, PathFragment> linkedLibrariesPaths = new HashMap<>();
+
     for (LinkerInput input : linkerInputs) {
       if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
           || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY) {
         PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
+        Preconditions.checkState(
+            input instanceof LinkerInputs.LibraryToLink,
+            "Linker input %s of type %s does not implement the LinkerInputs.LibraryToLink interface",
+            input,
+            input.getArtifactCategory());
+        LinkerInputs.LibraryToLink libraryToLink = (LinkerInputs.LibraryToLink) input;
+        String libraryIdentifier = libraryToLink.getLibraryIdentifier();
+        PathFragment previousLibDir = linkedLibrariesPaths.get(libraryIdentifier);
+        if (previousLibDir == null) {
+          linkedLibrariesPaths.put(libraryIdentifier, libDir);
+        } else if (!previousLibDir.equals(libDir)) {
+          ruleErrorConsumer.ruleError(
+              String.format(
+                  "You are trying to link the same dynamic library %s built in a different configuration",
+                  libraryIdentifier));
+        }
+
         // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, dynamic libraries are not symlinked
         // under solibDir, so don't check it and don't include solibDir.
         if (!featureConfiguration.isEnabled(CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY)) {
-          Preconditions.checkState(
-              libDir.startsWith(solibDir) || libDir.startsWith(toolchainLibrariesSolibDir),
-              "Artifact '%s' is not under directory expected '%s',"
-                  + " neither it is in directory for toolchain libraries '%'.",
-              input.getArtifact(),
-              solibDir,
-              toolchainLibrariesSolibDir);
           if (libDir.equals(solibDir)) {
             includeSolibDir = true;
           }
