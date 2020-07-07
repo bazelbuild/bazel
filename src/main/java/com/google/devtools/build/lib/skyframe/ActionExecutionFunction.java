@@ -1359,8 +1359,6 @@ public class ActionExecutionFunction implements SkyFunction {
       IntFunction<S> actionInputMapSinkFactory,
       AccumulateInputResultsFactory<S, R> accumulateInputResultsFactory)
       throws ActionExecutionException, InterruptedException {
-    Map<SkyKey, SkyValue> artifactSkyKeyToSkyValue =
-        ArtifactNestedSetFunction.getInstance().getArtifactSkyKeyToSkyValue();
     ImmutableList<Artifact> allInputsList = allInputs.toList();
 
     // Some keys have more than 1 corresponding Artifact (e.g. actions with 2 outputs).
@@ -1372,7 +1370,6 @@ public class ActionExecutionFunction implements SkyFunction {
         new ActionExecutionFunctionExceptionHandler(
             skyKeyToArtifactOrSet,
             inputDeps,
-            artifactSkyKeyToSkyValue,
             action,
             mandatoryInputs,
             skyframeActionExecutor);
@@ -1393,7 +1390,7 @@ public class ActionExecutionFunction implements SkyFunction {
     Map<Artifact, Collection<Artifact>> expandedArtifacts = Maps.newHashMapWithExpectedSize(128);
 
     for (Artifact input : allInputsList) {
-      SkyValue value = artifactSkyKeyToSkyValue.get(Artifact.key(input));
+      SkyValue value = ArtifactNestedSetFunction.getInstance().getValueForKey(Artifact.key(input));
       if (value instanceof MissingFileArtifactValue) {
         if (actionExecutionFunctionExceptionHandler.isMandatory(input)) {
           actionExecutionFunctionExceptionHandler.accumulateMissingFileArtifactValue(
@@ -1587,7 +1584,6 @@ public class ActionExecutionFunction implements SkyFunction {
             ValueOrException3<
                 IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
         inputDeps;
-    private final Map<SkyKey, SkyValue> artifactSkyKeyToSkyValue;
     private final Action action;
     private final Set<Artifact> mandatoryInputs;
     private final SkyframeActionExecutor skyframeActionExecutor;
@@ -1602,13 +1598,11 @@ public class ActionExecutionFunction implements SkyFunction {
                 ValueOrException3<
                     IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
             inputDeps,
-        Map<SkyKey, SkyValue> artifactSkyKeyToSkyValue,
         Action action,
         Set<Artifact> mandatoryInputs,
         SkyframeActionExecutor skyframeActionExecutor) {
       this.skyKeyToArtifactSet = skyKeyToArtifactSet;
       this.inputDeps = inputDeps;
-      this.artifactSkyKeyToSkyValue = artifactSkyKeyToSkyValue;
       this.action = action;
       this.mandatoryInputs = mandatoryInputs;
       this.skyframeActionExecutor = skyframeActionExecutor;
@@ -1630,7 +1624,7 @@ public class ActionExecutionFunction implements SkyFunction {
           if (key instanceof ArtifactNestedSetKey || value == null) {
             continue;
           }
-          artifactSkyKeyToSkyValue.put(key, value);
+          ArtifactNestedSetFunction.getInstance().updateValueForKey(key, value);
         } catch (IOException e) {
           for (Artifact input : skyKeyToArtifactSet.get(key)) {
             handleIOException(input, e);

@@ -189,8 +189,12 @@ final class ArtifactNestedSetFunction implements SkyFunction {
     artifactSkyKeyToSkyValue = Maps.newConcurrentMap();
   }
 
-  Map<SkyKey, SkyValue> getArtifactSkyKeyToSkyValue() {
-    return artifactSkyKeyToSkyValue;
+  SkyValue getValueForKey(SkyKey skyKey) {
+    return artifactSkyKeyToSkyValue.get(skyKey);
+  }
+
+  void updateValueForKey(SkyKey skyKey, SkyValue skyValue) {
+    artifactSkyKeyToSkyValue.put(skyKey, skyValue);
   }
 
   @Override
