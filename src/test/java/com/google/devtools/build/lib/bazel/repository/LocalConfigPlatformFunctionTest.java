@@ -26,7 +26,9 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.OS;
+import java.io.IOException;
 import java.util.Collection;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
@@ -117,11 +119,14 @@ public class LocalConfigPlatformFunctionTest {
     private static final ConstraintSettingInfo OS_CONSTRAINT =
         ConstraintSettingInfo.create(Label.parseAbsoluteUnchecked("@platforms//os:os"));
 
-    @Test
-    public void generateConfigRepository() throws Exception {
+    @Before
+    public void addLocalConfigPlatform() throws InterruptedException, IOException {
       scratch.appendFile("WORKSPACE", "local_config_platform(name='local_config_platform_test')");
       invalidatePackages();
+    }
 
+    @Test
+    public void generateConfigRepository() throws Exception {
       // Verify the package was created as expected.
       ConfiguredTarget hostPlatform = getConfiguredTarget("@local_config_platform_test//:host");
       assertThat(hostPlatform).isNotNull();
@@ -147,6 +152,38 @@ public class LocalConfigPlatformFunctionTest {
       assertThat(hostPlatformProvider.constraints().has(OS_CONSTRAINT)).isTrue();
       assertThat(hostPlatformProvider.constraints().get(OS_CONSTRAINT))
           .isEqualTo(expectedOsConstraint);
+    }
+
+    @Test
+    public void testHostConstraints() throws Exception {
+      scratch.file(
+          "test/platform/my_platform.bzl",
+          "def _impl(ctx):",
+          "  constraints = [val[platform_common.ConstraintValueInfo] "
+              + "for val in ctx.attr.constraints]",
+          "  platform = platform_common.PlatformInfo(",
+          "      label = ctx.label, constraint_values = constraints)",
+          "  return [platform]",
+          "my_platform = rule(",
+          "  implementation = _impl,",
+          "  attrs = {",
+          "    'constraints': attr.label_list(providers = [platform_common.ConstraintValueInfo])",
+          "  }",
+          ")");
+      scratch.file(
+          "test/platform/BUILD",
+          "load('//test/platform:my_platform.bzl', 'my_platform')",
+          "load('@local_config_platform_test//:constraints.bzl', 'HOST_CONSTRAINTS')",
+          "my_platform(name = 'custom',",
+          "    constraints = HOST_CONSTRAINTS,",
+          ")");
+
+      setStarlarkSemanticsOptions("--experimental_platforms_api");
+      ConfiguredTarget platform = getConfiguredTarget("//test/platform:custom");
+      assertThat(platform).isNotNull();
+
+      PlatformInfo provider = PlatformProviderUtils.platform(platform);
+      assertThat(provider.constraints()).isNotNull();
     }
   }
 }
