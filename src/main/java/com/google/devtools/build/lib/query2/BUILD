@@ -97,6 +97,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:analysis_java_proto",
         "//src/main/protobuf:build_java_proto",
+        "//src/main/protobuf:failure_details_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",

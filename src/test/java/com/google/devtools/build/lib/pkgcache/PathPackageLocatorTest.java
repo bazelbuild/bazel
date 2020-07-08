@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -29,7 +30,6 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Pattern;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -188,9 +188,9 @@ public class PathPackageLocatorTest extends FoundationTestCase {
         assertThrows(
             NoSuchPackageException.class,
             () -> locator.getPackageBuildFile(PackageIdentifier.createInMainRepo(packageName)));
-    String message = e.getMessage();
-    assertThat(message)
-        .containsMatch(Pattern.compile(Pattern.quote(expectedError), Pattern.CASE_INSENSITIVE));
+    assertThat(e).hasMessageThat().ignoringCase().contains(expectedError);
+    assertThat(e.getDetailedExitCode().getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(PackageLoading.Code.BUILD_FILE_MISSING);
   }
 
   @Test

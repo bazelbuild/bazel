@@ -601,6 +601,14 @@ message Query {
     VARIABLE_UNDEFINED = 18 [(metadata) = { exit_code: 7 }];
     BUILDFILES_AND_LOADFILES_CANNOT_USE_OUTPUT_LOCATION_ERROR = 19
         [(metadata) = { exit_code: 2 }];
+    BUILD_FILE_ERROR = 20 [(metadata) = { exit_code: 2 }];
+    CYCLE = 21 [(metadata) = { exit_code: 2 }];
+    UNIQUE_SKYKEY_THRESHOLD_EXCEEDED = 22 [(metadata) = { exit_code: 7 }];
+    TARGET_NOT_IN_UNIVERSE_SCOPE = 23 [(metadata) = { exit_code: 2 }];
+    INVALID_FULL_UNIVERSE_EXPRESSION = 24 [(metadata) = { exit_code: 2 }];
+    UNIVERSE_SCOPE_LIMIT_EXCEEDED = 25 [(metadata) = { exit_code: 7 }];
+    INVALIDATION_LIMIT_EXCEEDED = 26 [(metadata) = { exit_code: 7 }];
+    OUTPUT_FORMAT_PREREQ_UNMET = 27 [(metadata) = { exit_code: 2 }];
 
     reserved 7 to 12; // For internal use
   }
@@ -768,6 +776,9 @@ message ConfigurableQuery {
     CONFIGURABLE_QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     COMMAND_LINE_EXPRESSION_MISSING = 1 [(metadata) = { exit_code: 2 }];
     EXPRESSION_PARSE_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    FILTERS_NOT_SUPPORTED = 3 [(metadata) = { exit_code: 2 }];
+    BUILDFILES_FUNCTION_NOT_SUPPORTED = 4 [(metadata) = { exit_code: 2 }];
+    SIBLINGS_FUNCTION_NOT_SUPPORTED = 5 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -1054,6 +1065,8 @@ message PackageLoading {
     PRELUDE_FILE_READ_ERROR = 8 [(metadata) = { exit_code: 1 }];
     EVAL_GLOBS_SYMLINK_ERROR = 9 [(metadata) = { exit_code: 1 }];
     IMPORT_STARLARK_FILE_ERROR = 10 [(metadata) = { exit_code: 1 }];
+    PACKAGE_MISSING = 11 [(metadata) = { exit_code: 1 }];
+    TARGET_MISSING = 12 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

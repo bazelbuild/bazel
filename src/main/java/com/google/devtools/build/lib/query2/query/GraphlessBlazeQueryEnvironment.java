@@ -240,7 +240,8 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       callback.process(
           new PathLabelVisitor(targetProvider, dependencyFilter).somePath(eventHandler, from, to));
     } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage());
+      throw new QueryException(
+          caller, e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
     }
   }
 
@@ -252,7 +253,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       callback.process(
           new PathLabelVisitor(targetProvider, dependencyFilter).allPaths(eventHandler, from, to));
     } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage());
+      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
     }
   }
 
@@ -265,7 +266,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
           new PathLabelVisitor(targetProvider, dependencyFilter)
               .samePkgDirectRdeps(eventHandler, from));
     } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage());
+      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
     }
   }
 
@@ -282,7 +283,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
           new PathLabelVisitor(targetProvider, dependencyFilter)
               .rdeps(eventHandler, from, universe, maxDepth));
     } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage());
+      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
     }
   }
 

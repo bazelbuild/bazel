@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.Optional;
@@ -20,8 +21,6 @@ import java.util.Optional;
 /**
  */
 public class QueryException extends Exception {
-  private final Optional<FailureDetail> failureDetail;
-
   /**
    * Returns a better error message for the query.
    */
@@ -37,6 +36,7 @@ public class QueryException extends Exception {
   }
 
   private final QueryExpression expression;
+  private final Optional<FailureDetail> failureDetail;
 
   public QueryException(QueryException e, QueryExpression toplevel) {
     super(describeFailedQuery(e, toplevel), e);
@@ -50,15 +50,33 @@ public class QueryException extends Exception {
     this.failureDetail = Optional.empty();
   }
 
-  public QueryException(QueryExpression expression, String message, Query.Code queryCode) {
+  public QueryException(
+      QueryExpression expression, String message, Throwable cause, FailureDetail failureDetail) {
+    super(message, cause);
+    this.expression = expression;
+    this.failureDetail = Optional.of(failureDetail);
+  }
+
+  public QueryException(QueryExpression expression, String message, FailureDetail failureDetail) {
     super(message);
     this.expression = expression;
-    this.failureDetail =
-        Optional.of(
-            FailureDetail.newBuilder()
-                .setMessage(message)
-                .setQuery(Query.newBuilder().setCode(queryCode).build())
-                .build());
+    this.failureDetail = Optional.of(failureDetail);
+  }
+
+  public QueryException(QueryExpression expression, String message, Query.Code queryCode) {
+    this(
+        expression,
+        message,
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setQuery(Query.newBuilder().setCode(queryCode).build())
+            .build());
+  }
+
+  public QueryException(String message, Throwable cause, FailureDetail failureDetail) {
+    super(message, cause);
+    this.expression = null;
+    this.failureDetail = Optional.of(failureDetail);
   }
 
   public QueryException(String message) {
@@ -67,6 +85,17 @@ public class QueryException extends Exception {
 
   public QueryException(String message, Query.Code queryCode) {
     this(null, message, queryCode);
+  }
+
+  public QueryException(String message, ConfigurableQuery.Code configurableQueryCode) {
+    this(
+        null,
+        message,
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setConfigurableQuery(
+                ConfigurableQuery.newBuilder().setCode(configurableQueryCode).build())
+            .build());
   }
 
   /**

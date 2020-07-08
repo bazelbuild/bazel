@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import javax.annotation.Nullable;
 
 /**
  * Exception indicating an attempt to access a package which is not found, does not exist, or can't
@@ -25,30 +25,24 @@ import javax.annotation.Nullable;
  *
  * <p>Prefer using more-specific subclasses, when appropriate.
  */
-public class NoSuchPackageException extends NoSuchThingException implements DetailedException {
+public class NoSuchPackageException extends NoSuchThingException {
 
-  // TODO(b/138456686): Remove Nullable and add Precondition#checkNotNull in constructor when all
-  //  subclasses are instantiated with DetailedExitCode.
-  @Nullable private final DetailedExitCode detailedExitCode;
   private final PackageIdentifier packageId;
 
   public NoSuchPackageException(PackageIdentifier packageId, String message) {
     super(message);
     this.packageId = packageId;
-    this.detailedExitCode = null;
   }
 
   public NoSuchPackageException(PackageIdentifier packageId, String message, Exception cause) {
     super(message, cause);
     this.packageId = packageId;
-    this.detailedExitCode = null;
   }
 
   public NoSuchPackageException(
       PackageIdentifier packageId, String message, DetailedExitCode detailedExitCode) {
-    super(message);
+    super(message, detailedExitCode);
     this.packageId = packageId;
-    this.detailedExitCode = detailedExitCode;
   }
 
   public NoSuchPackageException(
@@ -56,9 +50,8 @@ public class NoSuchPackageException extends NoSuchThingException implements Deta
       String message,
       Exception cause,
       DetailedExitCode detailedExitCode) {
-    super(message, cause);
+    super(message, cause, detailedExitCode);
     this.packageId = packageId;
-    this.detailedExitCode = detailedExitCode;
   }
 
   public PackageIdentifier getPackageId() {
@@ -76,6 +69,17 @@ public class NoSuchPackageException extends NoSuchThingException implements Deta
 
   @Override
   public DetailedExitCode getDetailedExitCode() {
-    return detailedExitCode;
+    return super.getDetailedExitCode() != null
+        ? super.getDetailedExitCode()
+        : defaultDetailedExitCode();
+  }
+
+  private DetailedExitCode defaultDetailedExitCode() {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setMessage(getMessage())
+            .setPackageLoading(
+                PackageLoading.newBuilder().setCode(PackageLoading.Code.PACKAGE_MISSING).build())
+            .build());
   }
 }

@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
@@ -894,7 +895,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try {
       buildFileForLoad = pkgPath.getPackageBuildFile(packageIdentifier);
     } catch (NoSuchPackageException e) {
-      throw new QueryException(packageIdentifier + " does not exist in graph");
+      throw new QueryException(
+          packageIdentifier + " does not exist in graph",
+          e,
+          e.getDetailedExitCode().getFailureDetail());
     }
     return Label.createUnvalidated(packageIdentifier, buildFileForLoad.getBaseName());
   }
@@ -946,7 +950,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       if (graph.isCycle(packageKey)) {
         throw new NoSuchPackageException(packageIdentifier, "Package depends on a cycle");
       } else {
-        throw new QueryException(packageKey + " does not exist in graph");
+        throw new QueryException(packageKey + " does not exist in graph", Query.Code.CYCLE);
       }
     }
   }
