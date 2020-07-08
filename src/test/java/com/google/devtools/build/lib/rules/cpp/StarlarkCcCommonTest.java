@@ -6513,4 +6513,39 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(baseArtifactNames(ccCompilationContext.getTextualHdrs()))
         .containsExactly("public1.inc", "public2.inc");
   }
+
+  @Test
+  public void testObjectFilesInCreateLibraryToLinkApiGuardedByFlag() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig, CcToolchainConfig.builder().withFeatures("foo_feature"));
+    useConfiguration("--noexperimental_starlark_cc_import");
+    scratch.file(
+        "a/BUILD",
+        "load(':rule.bzl', 'crule')",
+        "cc_toolchain_alias(name='alias')",
+        "crule(name='r')");
+
+    scratch.file(
+        "a/rule.bzl",
+        "def _impl(ctx):",
+        "  toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
+        "  feature_configuration = cc_common.configure_features(",
+        "      ctx = ctx,",
+        "      cc_toolchain = toolchain,",
+        "      requested_features = ['foo_feature'])",
+        "  cc_common.create_library_to_link(",
+        "    actions=ctx.actions, feature_configuration=feature_configuration, ",
+        "    cc_toolchain = toolchain, objects = [])",
+        "  return CcInfo()",
+        "crule = rule(",
+        "  _impl,",
+        "  attrs = { ",
+        "    '_cc_toolchain': attr.label(default=Label('//a:alias'))",
+        "  },",
+        "  fragments = ['cpp']",
+        ")");
+    checkError("//a:r", "Cannot use objects/pic_objects without --experimental_starlark_cc_import");
+  }
 }

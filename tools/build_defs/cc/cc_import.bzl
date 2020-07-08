@@ -19,6 +19,7 @@ rely on this. Pass the flag --experimental_starlark_cc_import
 """
 
 load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "CPP_LINK_STATIC_LIBRARY_ACTION_NAME")
 
 def _to_list(element):
     if element == None:
@@ -71,6 +72,55 @@ def _perform_error_checks(
         not _is_shared_library_extension_valid(shared_library_artifact.basename)):
         fail("'shared_library' does not produce any cc_import shared_library files (expected .so, .dylib or .dll)")
 
+def _create_archive_action(
+        ctx,
+        feature_configuration,
+        cc_toolchain,
+        output_file,
+        object_files):
+    archiver_path = cc_common.get_tool_for_action(
+        feature_configuration = feature_configuration,
+        action_name = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
+    )
+    archiver_variables = cc_common.create_link_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+        output_file = output_file.path,
+        is_using_linker = False,
+    )
+    command_line = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
+        variables = archiver_variables,
+    )
+    args = ctx.actions.args()
+    args.add_all(command_line)
+    args.add_all(object_files)
+    args.use_param_file("@%s", use_always = True)
+
+    env = cc_common.get_environment_variables(
+        feature_configuration = feature_configuration,
+        action_name = CPP_LINK_STATIC_LIBRARY_ACTION_NAME,
+        variables = archiver_variables,
+    )
+
+    # TODO(bazel-team): PWD=/proc/self/cwd env var is missing, but it is present when an analogous archiving
+    # action is created by cc_library
+    ctx.actions.run(
+        executable = archiver_path,
+        arguments = [args],
+        env = env,
+        inputs = depset(
+            direct = object_files,
+            transitive = [
+                cc_toolchain.all_files,
+            ],
+        ),
+        use_default_shell_env = True,
+        outputs = [output_file],
+        mnemonic = "CppArchive",
+    )
+
 def _get_no_pic_and_pic_static_library(static_library):
     if static_library == None:
         return (None, None)
@@ -103,6 +153,21 @@ def _cc_import_impl(ctx):
         ctx.file.static_library,
     )
 
+    output_file = None
+    object_files = None
+
+    if ctx.files.pic_objects and not pic_static_library:
+        lib_name = "lib" + ctx.label.name + ".pic.a"
+        pic_static_library = ctx.actions.declare_file(lib_name)
+        output_file = pic_static_library
+        object_files = ctx.files.pic_objects
+
+    if ctx.files.objects and not no_pic_static_library:
+        lib_name = "lib" + ctx.label.name + ".a"
+        no_pic_static_library = ctx.actions.declare_file(lib_name)
+        output_file = no_pic_static_library
+        object_files = ctx.files.objects
+
     library_to_link = cc_common.create_library_to_link(
         actions = ctx.actions,
         feature_configuration = feature_configuration,
@@ -111,12 +176,19 @@ def _cc_import_impl(ctx):
         pic_static_library = pic_static_library,
         dynamic_library = ctx.file.shared_library,
         interface_library = ctx.file.interface_library,
+        pic_objects = ctx.files.pic_objects,
+        objects = ctx.files.objects,
         alwayslink = ctx.attr.alwayslink,
     )
 
+    linker_input = cc_common.create_linker_input(
+        libraries = depset([library_to_link]),
+        user_link_flags = depset(ctx.attr.linkopts),
+        owner = ctx.label,
+    )
+
     linking_context = cc_common.create_linking_context(
-        libraries_to_link = [library_to_link],
-        user_link_flags = ctx.attr.linkopts,
+        linker_inputs = depset([linker_input]),
     )
 
     (compilation_context, compilation_outputs) = cc_common.compile(
@@ -128,10 +200,10 @@ def _cc_import_impl(ctx):
         name = ctx.label.name,
     )
 
-    return [CcInfo(
-        compilation_context = compilation_context,
-        linking_context = linking_context,
-    )]
+    if output_file:
+        _create_archive_action(ctx, feature_configuration, cc_toolchain, output_file, object_files)
+
+    return [CcInfo(compilation_context = compilation_context, linking_context = linking_context)]
 
 cc_import = rule(
     implementation = _cc_import_impl,
@@ -141,6 +213,12 @@ cc_import = rule(
         "shared_library": attr.label(allow_single_file = True),
         "interface_library": attr.label(
             allow_single_file = [".ifso", ".tbd", ".lib", ".so", ".dylib"],
+        ),
+        "pic_objects": attr.label_list(
+            allow_files = [".o", ".pic.o"],
+        ),
+        "objects": attr.label_list(
+            allow_files = [".o", ".nopic.o"],
         ),
         "system_provided": attr.bool(default = False),
         "alwayslink": attr.bool(default = False),

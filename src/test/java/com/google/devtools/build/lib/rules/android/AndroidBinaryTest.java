@@ -332,6 +332,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         ")");
 
     ConfiguredTarget app = getConfiguredTarget("//java/a:a");
+    assertNoEvents();
 
     Artifact copiedLib = getOnlyElement(getNativeLibrariesInApk(app));
     Artifact linkedLib = getGeneratingAction(copiedLib).getInputs().getSingleton();
