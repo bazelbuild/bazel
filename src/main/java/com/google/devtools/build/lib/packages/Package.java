@@ -592,49 +592,8 @@ public class Package {
       return target;
     }
 
-    if (!suggestNoSuchTargetCorrections) {
-      throw makeNoSuchTargetException(targetName, /*suffix=*/ "");
-    }
-
-    // If there's a file on the disk that's not mentioned in the BUILD file,
-    // produce a more informative error.  NOTE! this code path is only executed
-    // on failure, which is (relatively) very rare.  In the common case no
-    // stat(2) is executed.
-    Path filename = getPackageDirectory().getRelative(targetName);
-    String suffix;
-    if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
-      // Don't check for file existence if the target name is not normalized
-      // because the error message would be confusing and wrong. If the
-      // targetName is "foo/bar/.", and there is a directory "foo/bar", it
-      // doesn't mean that "//pkg:foo/bar/." is a valid label.
-      // Also don't check if the target name is a single * character since
-      // it's invalid on Windows.
-      suffix = "";
-    } else if (filename.isDirectory()) {
-      suffix =
-          "; however, a source directory of this name exists.  (Perhaps add "
-              + "'exports_files([\""
-              + targetName
-              + "\"])' to "
-              + getName()
-              + "/BUILD, or define a "
-              + "filegroup?)";
-    } else if (filename.exists()) {
-      suffix =
-          "; however, a source file of this name exists.  (Perhaps add "
-              + "'exports_files([\""
-              + targetName
-              + "\"])' to "
-              + getName()
-              + "/BUILD?)";
-    } else {
-      suffix = SpellChecker.didYouMean(targetName, targets.keySet());
-    }
-
-    throw makeNoSuchTargetException(targetName, suffix);
-  }
-
-  protected NoSuchTargetException makeNoSuchTargetException(String targetName, String suffix) {
+    String alternateTargetSuggestion =
+        suggestNoSuchTargetCorrections ? getAlternateTargetSuggestion(targetName) : "";
     Label label;
     try {
       label = Label.create(packageIdentifier, targetName);
@@ -644,8 +603,42 @@ public class Package {
     String msg =
         String.format(
             "target '%s' not declared in package '%s'%s defined by %s",
-            targetName, getName(), suffix, filename.asPath().getPathString());
-    return new NoSuchTargetException(label, msg);
+            targetName, getName(), alternateTargetSuggestion, filename.asPath().getPathString());
+    throw new NoSuchTargetException(label, msg);
+  }
+
+  private String getAlternateTargetSuggestion(String targetName) {
+    // If there's a file on the disk that's not mentioned in the BUILD file,
+    // produce a more informative error.  NOTE! this code path is only executed
+    // on failure, which is (relatively) very rare.  In the common case no
+    // stat(2) is executed.
+    Path filename = getPackageDirectory().getRelative(targetName);
+    if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
+      // Don't check for file existence if the target name is not normalized
+      // because the error message would be confusing and wrong. If the
+      // targetName is "foo/bar/.", and there is a directory "foo/bar", it
+      // doesn't mean that "//pkg:foo/bar/." is a valid label.
+      // Also don't check if the target name is a single * character since
+      // it's invalid on Windows.
+      return "";
+    } else if (filename.isDirectory()) {
+      return "; however, a source directory of this name exists.  (Perhaps add "
+          + "'exports_files([\""
+          + targetName
+          + "\"])' to "
+          + getName()
+          + "/BUILD, or define a "
+          + "filegroup?)";
+    } else if (filename.exists()) {
+      return "; however, a source file of this name exists.  (Perhaps add "
+          + "'exports_files([\""
+          + targetName
+          + "\"])' to "
+          + getName()
+          + "/BUILD?)";
+    } else {
+      return SpellChecker.didYouMean(targetName, targets.keySet());
+    }
   }
 
   /**
