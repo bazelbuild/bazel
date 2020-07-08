@@ -347,8 +347,8 @@ configured targets in the build graph.
 > special attribute to the rule to which the transition is attached:
 >
 > ```python
-> "_whitelist_function_transition": attr.label(
->      default = "@bazel_tools//tools/whitelists/function_transition_whitelist"
+> "_allowlist_function_transition": attr.label(
+>      default = "@bazel_tools//tools/allowlists/function_transition_allowlist"
 >  )
 > ```
 >
