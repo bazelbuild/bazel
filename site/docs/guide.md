@@ -420,13 +420,13 @@ cross-compile, in which you build a `//foo:bin` executable for a 64-bit
 architecture, but your workstation is a 32-bit machine. Clearly, the build will
 require building `//foo:bin` using a toolchain capable of creating 64-bit
 executables, but the build system must also build various tools used during the
-build itself&mdash;for example tools that are built from source, then
-subsequently used in, say, a genrule&mdash;and these must be built to run on
-your workstation. Thus we can identify two configurations: the **host
-configuration**, which is used for building tools that run during the build, and
-the **target configuration** (or _request configuration_, but we say "target
-configuration" more often even though that word already has many meanings),
-which is used for building the binary you ultimately requested.
+build itself—for example tools that are built from source, then subsequently
+used in, say, a genrule—and these must be built to run on your workstation. Thus
+we can identify two configurations: the **host configuration**, which is used
+for building tools that run during the build, and the **target configuration**
+(or _request configuration_, but we say "target configuration" more often even
+though that word already has many meanings), which is used for building the
+binary you ultimately requested.
 
 Typically, there are many libraries that are prerequisites of both the requested
 build target (`//foo:bin`) and one or more of the host tools, for example some
