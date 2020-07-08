@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skylark.util;
 
-
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkModules;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -43,6 +42,8 @@ public final class BazelEvaluationTestCase extends EvaluationTestCase {
     // Return the module's client data. (This one uses dummy values for tests.)
     return BazelModuleContext.create(
         Label.parseAbsoluteUnchecked("//test:label", /*defaultToMain=*/ false),
+        "test/label.bzl",
+        /*loads=*/ ImmutableMap.of(),
         /*bzlTransitiveDigest=*/ new byte[0]);
   }
 

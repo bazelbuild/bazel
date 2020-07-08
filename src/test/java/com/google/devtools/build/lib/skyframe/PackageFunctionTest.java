@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -1229,6 +1231,41 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getEvents()).isEmpty();
+  }
+
+  @Test
+  public void testPackageRecordsLoadedModules() throws Exception {
+    scratch.file("p/BUILD", "load('a.bzl', 'a'); load(':b.bzl', 'b')");
+    scratch.file("p/a.bzl", "load('c.bzl', 'c'); a = c");
+    scratch.file("p/b.bzl", "load(':c.bzl', 'c'); b = c");
+    scratch.file("p/c.bzl", "c = 0");
+
+    // load p
+    preparePackageLoading(rootDirectory);
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//p"));
+    Package p = validPackageWithoutErrors(skyKey);
+
+    // Keys are load strings as they appear in the source (notice ":" in one of them).
+    Map<String, Module> pLoads = p.getLoads();
+    assertThat(pLoads.keySet().toString()).isEqualTo("[a.bzl, :b.bzl]");
+
+    // subgraph a
+    Module a = pLoads.get("a.bzl");
+    assertThat(a.toString()).isEqualTo("<module //p:a.bzl>");
+    Map<String, Module> aLoads = BazelModuleContext.of(a).loads();
+    assertThat(aLoads.keySet().toString()).isEqualTo("[c.bzl]");
+    Module cViaA = aLoads.get("c.bzl");
+    assertThat(cViaA.toString()).isEqualTo("<module //p:c.bzl>");
+
+    // subgraph b
+    Module b = pLoads.get(":b.bzl");
+    assertThat(b.toString()).isEqualTo("<module //p:b.bzl>");
+    Map<String, Module> bLoads = BazelModuleContext.of(b).loads();
+    assertThat(bLoads.keySet().toString()).isEqualTo("[:c.bzl]");
+    Module cViaB = bLoads.get(":c.bzl");
+    assertThat(cViaB).isSameInstanceAs(cViaA);
+
+    assertThat(cViaA.getGlobal("c")).isEqualTo(0);
   }
 
   @Test

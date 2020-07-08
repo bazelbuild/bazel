@@ -138,9 +138,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
         builder.defaultValue(
             defaultValue,
             new BuildType.LabelConversionContext(
-                ((BazelModuleContext)
-                        Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData())
-                    .label(),
+                BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread)).label(),
                 BazelStarlarkContext.from(thread).getRepoMapping()),
             DEFAULT_ARG);
       }

@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Objects;
 
 /** A value class representing a node in a DAG that mirrors the load graph of a Starlark file. */
+// TODO(adonovan): opt: eliminate this class; it is redundant w.r.t. the Module DAG.
+// See comment at setStarlarkFileDependencies call in PackageFactory.
 @AutoCodec
 public class StarlarkFileDependency {
 

@@ -100,7 +100,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
     builder.setConfiguredTargetFunction(implementation);
     BazelModuleContext bzlModule =
-        (BazelModuleContext) Module.ofInnermostEnclosingStarlarkFunction(thread).getClientData();
+        BazelModuleContext.of(Module.ofInnermostEnclosingStarlarkFunction(thread));
     builder.setRuleDefinitionEnvironmentLabelAndDigest(
         bzlModule.label(), bzlModule.bzlTransitiveDigest());
     builder.setWorkspaceOnly();

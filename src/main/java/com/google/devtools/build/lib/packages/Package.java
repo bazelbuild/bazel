@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.vfs.Path;
@@ -213,9 +214,21 @@ public class Package {
 
   private long computationSteps;
 
+  private ImmutableMap<String, Module> loads;
+
   /** Returns the number of Starlark computation steps executed by this BUILD file. */
   public long getComputationSteps() {
     return computationSteps;
+  }
+
+  /**
+   * Returns the mapping, for each load statement in this BUILD file in source order, from the load
+   * string to the module it loads. It thus indirectly records the package's complete load DAG. In
+   * some configurations the information may be unavailable (null).
+   */
+  @Nullable
+  public ImmutableMap<String, Module> getLoads() {
+    return loads;
   }
 
   /**
@@ -796,6 +809,12 @@ public class Package {
        * the drawback is extra I/O and CPU work, which might not be desired in all environments.
        */
       boolean suggestNoSuchTargetCorrections();
+
+      /**
+       * Reports whether to record the set of Modules loaded by this package, which enables richer
+       * modes of blaze query.
+       */
+      boolean recordLoadedModules();
     }
 
     /** Default {@link PackageSettings}. */
@@ -806,6 +825,11 @@ public class Package {
 
       @Override
       public boolean suggestNoSuchTargetCorrections() {
+        return true;
+      }
+
+      @Override
+      public boolean recordLoadedModules() {
         return true;
       }
     }
@@ -1093,6 +1117,11 @@ public class Package {
     /** Sets the number of Starlark computation steps executed by this BUILD file. */
     void setComputationSteps(long n) {
       pkg.computationSteps = n;
+    }
+
+    /** Sets the load mapping for this package. */
+    void setLoads(ImmutableMap<String, Module> loads) {
+      pkg.loads = Preconditions.checkNotNull(loads);
     }
 
     /**
