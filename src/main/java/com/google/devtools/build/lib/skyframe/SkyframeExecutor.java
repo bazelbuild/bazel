@@ -828,6 +828,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
+    Actions.clearSharedActionsWarningFlag();
   }
 
   /**

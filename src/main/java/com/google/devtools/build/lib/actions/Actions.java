@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,19 +37,33 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
 
 /**
  * Helper class for actions.
+ *
+ * <p>We expect the class to be created exactly once per build doing shared actions check.
  */
 @ThreadSafe
 public final class Actions {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   private static final Escaper PATH_ESCAPER = Escapers.builder()
       .addEscape('_', "_U")
       .addEscape('/', "_S")
       .addEscape('\\', "_B")
       .addEscape(':', "_C")
       .build();
+
+  /** Flag used to limit the number of warnings about shared actions to one per build. */
+  private static final AtomicBoolean issuedWarningForSharedActionsWithTreeArtifactInput =
+      new AtomicBoolean();
+
+  // TODO(b/160181927): Remove the warning once we move shared actions detection to execution phase.
+  public static void clearSharedActionsWarningFlag() {
+    issuedWarningForSharedActionsWithTreeArtifactInput.set(false);
+  }
 
   /**
    * Checks if the two actions are equivalent. This method exists to support sharing actions between
@@ -113,14 +128,21 @@ public final class Actions {
               .filter(Artifact::isTreeArtifact)
               .findFirst();
       treeArtifactInput.ifPresent(
-          treeArtifact ->
+          treeArtifact -> {
+            if (issuedWarningForSharedActionsWithTreeArtifactInput.compareAndSet(false, true)) {
               eventHandler.handle(
                   Event.warn(
-                      String.format(
-                          "Shared action: %s has a tree artifact input: %s -- shared actions"
-                              + " detection is overly permissive in this case and may allow"
-                              + " sharing of different actions",
-                          actionA, treeArtifact))));
+                      "Detected shared actions with tree artifact input -- detection is overly"
+                          + " permissive in this case and may allow sharing of different"
+                          + " actions."));
+            }
+
+            logger.atInfo().log(
+                "Shared action: %s has a tree artifact input: %s -- shared actions"
+                    + " detection is overly permissive in this case and may allow"
+                    + " sharing of different actions",
+                actionA, treeArtifact);
+          });
     }
     return canBeShared;
   }
