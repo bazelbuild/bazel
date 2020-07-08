@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
@@ -73,6 +74,17 @@ public class QueryException extends Exception {
             .build());
   }
 
+  public QueryException(
+      QueryExpression expression, String message, ActionQuery.Code actionQueryCode) {
+    this(
+        expression,
+        message,
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setActionQuery(ActionQuery.newBuilder().setCode(actionQueryCode).build())
+            .build());
+  }
+
   public QueryException(String message, Throwable cause, FailureDetail failureDetail) {
     super(message, cause);
     this.expression = null;
@@ -85,6 +97,10 @@ public class QueryException extends Exception {
 
   public QueryException(String message, Query.Code queryCode) {
     this(null, message, queryCode);
+  }
+
+  public QueryException(String message, ActionQuery.Code actionQueryCode) {
+    this(null, message, actionQueryCode);
   }
 
   public QueryException(String message, ConfigurableQuery.Code configurableQueryCode) {

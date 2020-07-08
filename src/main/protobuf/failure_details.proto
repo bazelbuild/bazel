@@ -726,6 +726,10 @@ message ActionQuery {
     INVALID_AQUERY_EXPRESSION = 6 [(metadata) = { exit_code: 1 }];
     SKYFRAME_STATE_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
     AQUERY_OUTPUT_TOO_BIG = 8 [(metadata) = { exit_code: 7 }];
+    ILLEGAL_PATTERN_SYNTAX = 9 [(metadata) = { exit_code: 2 }];
+    INCORRECT_ARGUMENTS = 10 [(metadata) = { exit_code: 2 }];
+    TOP_LEVEL_TARGETS_WITH_SKYFRAME_STATE_NOT_SUPPORTED = 11
+        [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

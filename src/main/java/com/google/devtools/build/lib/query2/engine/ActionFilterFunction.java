@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -45,8 +46,8 @@ public abstract class ActionFilterFunction implements QueryFunction {
           new QueryException(
               expression,
               String.format(
-                  "Illegal '%s' pattern regexp '%s': %s",
-                  getName(), filterPattern, e.getMessage())));
+                  "Illegal '%s' pattern regexp '%s': %s", getName(), filterPattern, e.getMessage()),
+              ActionQuery.Code.ILLEGAL_PATTERN_SYNTAX));
     }
 
     // The 2nd argument can only be empty in the case of --skyframe_state.
@@ -55,7 +56,8 @@ public abstract class ActionFilterFunction implements QueryFunction {
           new QueryException(
               expression,
               "aquery filter functions (inputs, outputs, mnemonics) must have exactly 2 arguments,"
-                  + "except when --skyframe_state is used."));
+                  + "except when --skyframe_state is used.",
+              ActionQuery.Code.INCORRECT_ARGUMENTS));
     }
 
     // Do nothing, pass the expression along
