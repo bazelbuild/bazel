@@ -226,9 +226,9 @@ public class Package {
    * Package#getNameFragment()} is accessible. That's why these settings are applied here at the
    * start.
    *
-   * @precondition {@code name} must be a suffix of {@code filename.getParentDirectory())}.
+   * <p>{@code name} <b>MUST</b> be a suffix of {@code filename.getParentDirectory())}.
    */
-  protected Package(
+  private Package(
       PackageIdentifier packageId, String runfilesPrefix, boolean suggestNoSuchTargetCorrections) {
     this.packageIdentifier = packageId;
     this.workspaceName = runfilesPrefix;
@@ -275,7 +275,7 @@ public class Package {
    * @throws UnsupportedOperationException if called from a package other than the //external
    *     package
    */
-  public ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
+  ImmutableMap<RepositoryName, ImmutableMap<RepositoryName, RepositoryName>>
       getExternalPackageRepositoryMappings() {
     if (!packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)) {
       throw new UnsupportedOperationException(
@@ -378,7 +378,7 @@ public class Package {
     // but stopping a build only for some errors but not others creates user
     // confusion.
     if (builder.containsErrors) {
-      for (Rule rule : builder.getTargets(Rule.class)) {
+      for (Rule rule : builder.getRules()) {
         rule.setContainsErrors();
       }
     }
@@ -692,19 +692,13 @@ public class Package {
     return defaultApplicableLicenses;
   }
 
-  /**
-   * Gets the parsed license object for the default license
-   * declared by this package.
-   */
-  public License getDefaultLicense() {
+  /** Gets the parsed license object for the default license declared by this package. */
+  License getDefaultLicense() {
     return defaultLicense;
   }
 
-  /**
-   * Returns the parsed set of distributions declared as the default for this
-   * package.
-   */
-  public Set<License.DistributionType> getDefaultDistribs() {
+  /** Returns the parsed set of distributions declared as the default for this package. */
+  Set<License.DistributionType> getDefaultDistribs() {
     return defaultDistributionSet;
   }
 
@@ -791,7 +785,7 @@ public class Package {
    */
   public static class Builder {
 
-    public static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
+    static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
         ImmutableMap.of();
 
     /** Defines configuration to control the runtime behavior of {@link Package}s. */
@@ -829,7 +823,7 @@ public class Package {
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
-    public final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
+    private final HashMap<RepositoryName, HashMap<RepositoryName, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
     /**
      * The map of repository reassignments for BUILD packages loaded within external repositories.
@@ -1012,9 +1006,9 @@ public class Package {
     ImmutableMap<RepositoryName, RepositoryName> getRepositoryMappingFor(RepositoryName name) {
       Map<RepositoryName, RepositoryName> mapping = externalPackageRepositoryMappings.get(name);
       if (mapping == null) {
-        return ImmutableMap.<RepositoryName, RepositoryName>of();
+        return ImmutableMap.of();
       } else {
-        return ImmutableMap.<RepositoryName, RepositoryName>copyOf(mapping);
+        return ImmutableMap.copyOf(mapping);
       }
     }
 
@@ -1076,12 +1070,12 @@ public class Package {
       return this;
     }
 
-    public Builder setThirdPartyLicenceExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
+    Builder setThirdPartyLicenceExistencePolicy(ThirdPartyLicenseExistencePolicy policy) {
       this.thirdPartyLicenceExistencePolicy = policy;
       return this;
     }
 
-    public ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
+    ThirdPartyLicenseExistencePolicy getThirdPartyLicenseExistencePolicy() {
       return thirdPartyLicenceExistencePolicy;
     }
 
@@ -1252,9 +1246,10 @@ public class Package {
     }
 
     /**
-     * Same as {@link #createRule(Label, RuleClass, Location, List<StarlarkThread.CallStackEntry>,
-     * AttributeContainer)}, except allows specifying an {@link ImplicitOutputsFunction} override.
-     * Only use if you know what you're doing.
+     * Same as {@link #createRule(Label, RuleClass, Location, List, AttributeContainer)}, except
+     * allows specifying an {@link ImplicitOutputsFunction} override.
+     *
+     * <p>Only use if you know what you're doing.
      */
     Rule createRule(
         Label label,
@@ -1279,10 +1274,10 @@ public class Package {
 
     /**
      * Removes a target from the {@link Package} under construction. Intended to be used only by
-     * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to remove targets whose
-     * labels cross subpackage boundaries.
+     * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to remove targets whose labels
+     * cross subpackage boundaries.
      */
-    public void removeTarget(Target target) {
+    void removeTarget(Target target) {
       if (target.getPackage() == pkg) {
         this.targets.remove(target.getName());
       }
@@ -1293,11 +1288,11 @@ public class Package {
     }
 
     /**
-     * Returns an (immutable, unordered) view of all the targets belonging to
-     * this package which are instances of the specified class.
+     * Returns an (immutable, unordered) view of all the targets belonging to this package which are
+     * instances of the specified class.
      */
-    private <T extends Target> Iterable<T> getTargets(Class<T> targetClass) {
-      return Package.getTargets(targets, targetClass);
+    private Iterable<Rule> getRules() {
+      return Package.getTargets(targets, Rule.class);
     }
 
     /**
@@ -1505,7 +1500,7 @@ public class Package {
 
       List<Label> tests = new ArrayList<>();
       Map<String, InputFile> newInputFiles = new HashMap<>();
-      for (final Rule rule : getTargets(Rule.class)) {
+      for (final Rule rule : getRules()) {
         if (discoverAssumedInputFiles) {
           // All labels mentioned by a rule that refer to an unknown target in the
           // current package are assumed to be InputFiles, so let's create them.
