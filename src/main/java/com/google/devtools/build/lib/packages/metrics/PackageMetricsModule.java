@@ -18,7 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.metrics.ExtremaPackageLoadingListener.PackageIdentifierAndLong;
 import com.google.devtools.build.lib.packages.metrics.ExtremaPackageLoadingListener.TopPackages;
@@ -61,7 +61,7 @@ public class PackageMetricsModule extends BlazeModule {
   @Nullable
   @Override
   public PackageLoadingListener getPackageLoadingListener(
-      Package.Builder.Helper packageBuilderHelper,
+      PackageSettings packageSettings,
       ConfiguredRuleClassProvider ruleClassProvider,
       FileSystem fs) {
     return packageLoadingListener;

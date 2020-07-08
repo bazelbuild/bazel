@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.ExecutorBuilder;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
-import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -394,14 +394,13 @@ public abstract class BlazeModule {
   }
 
   /**
-   * Returns a helper that the {@link com.google.devtools.build.lib.packages.PackageFactory} will
-   * use during package loading, or null if the module does not provide any helper.
+   * Returns {@link PackageSettings} for creating packages.
    *
    * <p>Called once during server startup some time after {@link #serverInit}.
    *
    * <p>Note that only one helper per Bazel/Blaze runtime is allowed.
    */
-  public Package.Builder.Helper getPackageBuilderHelper() {
+  public PackageSettings getPackageSettings() {
     return null;
   }
 
@@ -426,7 +425,7 @@ public abstract class BlazeModule {
    */
   @Nullable
   public PackageLoadingListener getPackageLoadingListener(
-      Package.Builder.Helper packageBuilderHelper,
+      PackageSettings packageSettings,
       ConfiguredRuleClassProvider ruleClassProvider,
       FileSystem fs) {
     return null;

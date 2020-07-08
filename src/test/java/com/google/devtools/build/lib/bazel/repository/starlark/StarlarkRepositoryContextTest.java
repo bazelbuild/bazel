@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -131,7 +132,7 @@ public final class StarlarkRepositoryContextTest {
       throws Exception {
     Package.Builder packageBuilder =
         Package.newExternalPackageBuilder(
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFile),
             "runfiles",
             starlarkSemantics);

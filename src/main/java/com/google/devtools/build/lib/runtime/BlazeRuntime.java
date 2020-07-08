@@ -49,7 +49,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.exec.BinTools;
-import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
@@ -1514,29 +1515,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       ConfiguredRuleClassProvider ruleClassProvider = ruleClassBuilder.build();
 
-      Package.Builder.Helper packageBuilderHelper = null;
-      for (BlazeModule module : blazeModules) {
-        Package.Builder.Helper candidateHelper = module.getPackageBuilderHelper();
-        if (candidateHelper != null) {
-          Preconditions.checkState(
-              packageBuilderHelper == null,
-              "more than one module defines a package builder helper");
-          packageBuilderHelper = candidateHelper;
-        }
-      }
-      if (packageBuilderHelper == null) {
-        packageBuilderHelper = Package.Builder.DefaultHelper.INSTANCE;
-      }
-
+      PackageSettings packageSettings = getPackageSettings(blazeModules);
       PackageFactory packageFactory =
           new PackageFactory(
               ruleClassProvider,
               serverBuilder.getEnvironmentExtensions(),
               BlazeVersionInfo.instance().getVersion(),
-              packageBuilderHelper,
+              packageSettings,
               getPackageValidator(blazeModules),
               getPackageLoadingListener(
-                  blazeModules, packageBuilderHelper, ruleClassProvider, fileSystem));
+                  blazeModules, packageSettings, ruleClassProvider, fileSystem));
 
       ProjectFile.Provider projectFileProvider = null;
       for (BlazeModule module : blazeModules) {
@@ -1650,6 +1638,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return this;
     }
 
+    private static PackageSettings getPackageSettings(List<BlazeModule> blazeModules) {
+      List<PackageSettings> packageSettingss =
+          blazeModules.stream()
+              .map(module -> module.getPackageSettings())
+              .filter(settings -> settings != null)
+              .collect(toImmutableList());
+      Preconditions.checkState(
+          packageSettingss.size() <= 1, "more than one module defines a PackageSettings");
+      return Iterables.getFirst(packageSettingss, DefaultPackageSettings.INSTANCE);
+    }
+
     private static PackageValidator getPackageValidator(List<BlazeModule> blazeModules) {
       List<PackageValidator> packageValidators =
           blazeModules.stream()
@@ -1664,7 +1663,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   private static PackageLoadingListener getPackageLoadingListener(
       List<BlazeModule> blazeModules,
-      Package.Builder.Helper packageBuilderHelper,
+      PackageSettings packageBuilderHelper,
       ConfiguredRuleClassProvider ruleClassProvider,
       FileSystem fs) {
     ImmutableList<PackageLoadingListener> listeners =

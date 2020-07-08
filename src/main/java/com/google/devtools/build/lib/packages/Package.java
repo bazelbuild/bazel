@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.packages.License.DistributionType;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.ThirdPartyLicenseExistencePolicy;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
@@ -76,6 +77,8 @@ import net.starlark.java.spelling.SpellChecker;
  * strictly immutable, so until their types are guaranteed immutable we're not applying the
  * {@code @Immutable} annotation here.
  *
+ * <p>This class should not be extended - it's only non-final for mocking!
+ *
  * <p>When changing this class, make sure to make corresponding changes to serialization!
  */
 @SuppressWarnings("JavaLangClash")
@@ -93,6 +96,8 @@ public class Package {
    * The repository identifier for this package.
    */
   private final PackageIdentifier packageIdentifier;
+
+  private final boolean suggestNoSuchTargetCorrections;
 
   /** The filename of this package's BUILD file. */
   private RootedPath filename;
@@ -214,20 +219,20 @@ public class Package {
   }
 
   /**
-   * Package initialization, part 1 of 3: instantiates a new package with the
-   * given name.
+   * Package initialization, part 1 of 3: instantiates a new package with the given name.
    *
-   * <p>As part of initialization, {@link Builder} constructs {@link InputFile}
-   * and {@link PackageGroup} instances that require a valid Package instance where
-   * {@link Package#getNameFragment()} is accessible. That's why these settings are
-   * applied here at the start.
+   * <p>As part of initialization, {@link Builder} constructs {@link InputFile} and {@link
+   * PackageGroup} instances that require a valid Package instance where {@link
+   * Package#getNameFragment()} is accessible. That's why these settings are applied here at the
+   * start.
    *
-   * @precondition {@code name} must be a suffix of
-   * {@code filename.getParentDirectory())}.
+   * @precondition {@code name} must be a suffix of {@code filename.getParentDirectory())}.
    */
-  protected Package(PackageIdentifier packageId, String runfilesPrefix) {
+  protected Package(
+      PackageIdentifier packageId, String runfilesPrefix, boolean suggestNoSuchTargetCorrections) {
     this.packageIdentifier = packageId;
     this.workspaceName = runfilesPrefix;
+    this.suggestNoSuchTargetCorrections = suggestNoSuchTargetCorrections;
   }
 
   /** Returns this packages' identifier. */
@@ -587,7 +592,9 @@ public class Package {
       return target;
     }
 
-    // No such target.
+    if (!suggestNoSuchTargetCorrections) {
+      throw makeNoSuchTargetException(targetName, /*suffix=*/ "");
+    }
 
     // If there's a file on the disk that's not mentioned in the BUILD file,
     // produce a more informative error.  NOTE! this code path is only executed
@@ -772,7 +779,7 @@ public class Package {
   }
 
   public static Builder newExternalPackageBuilder(
-      Builder.Helper helper,
+      PackageSettings helper,
       RootedPath workspacePath,
       String runfilesPrefix,
       StarlarkSemantics starlarkSemantics) {
@@ -794,24 +801,25 @@ public class Package {
     public static final ImmutableMap<RepositoryName, RepositoryName> EMPTY_REPOSITORY_MAPPING =
         ImmutableMap.of();
 
-    public interface Helper {
+    /** Defines configuration to control the runtime behavior of {@link Package}s. */
+    public interface PackageSettings {
       /**
-       * Returns a fresh {@link Package} instance that a {@link Builder} will internally mutate
-       * during package loading. Called by {@link PackageFactory}.
+       * Returns if {@link NoSuchTargetException}s thrown from {@link #getTarget} should attempt to
+       * suggest existing alternatives. The benefit is potentially improved error messaging, while
+       * the drawback is extra I/O and CPU work, which might not be desired in all environments.
        */
-      Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix);
+      boolean suggestNoSuchTargetCorrections();
     }
 
-    /** {@link Helper} that simply calls the {@link Package} constructor. */
-    public static class DefaultHelper implements Helper {
-      public static final DefaultHelper INSTANCE = new DefaultHelper();
+    /** Default {@link PackageSettings}. */
+    public static class DefaultPackageSettings implements PackageSettings {
+      public static final DefaultPackageSettings INSTANCE = new DefaultPackageSettings();
 
-      private DefaultHelper() {
-      }
+      private DefaultPackageSettings() {}
 
       @Override
-      public Package createFreshPackage(PackageIdentifier packageId, String runfilesPrefix) {
-        return new Package(packageId, runfilesPrefix);
+      public boolean suggestNoSuchTargetCorrections() {
+        return true;
       }
     }
 
@@ -915,12 +923,12 @@ public class Package {
     private boolean alreadyBuilt = false;
 
     Builder(
-        Helper helper,
+        PackageSettings packageSettings,
         PackageIdentifier id,
         String runfilesPrefix,
         boolean noImplicitFileExport,
         ImmutableMap<RepositoryName, RepositoryName> repositoryMapping) {
-      this.pkg = helper.createFreshPackage(id, runfilesPrefix);
+      this.pkg = new Package(id, runfilesPrefix, packageSettings.suggestNoSuchTargetCorrections());
       this.noImplicitFileExport = noImplicitFileExport;
       this.repositoryMapping = repositoryMapping;
       if (pkg.getName().startsWith("javatests/")) {

@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
@@ -277,7 +278,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             ruleClassProvider,
             getEnvironmentExtensions(),
             "PackageLoader",
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             PackageValidator.NOOP_VALIDATOR,
             PackageLoadingListener.NOOP_LISTENER);
   }

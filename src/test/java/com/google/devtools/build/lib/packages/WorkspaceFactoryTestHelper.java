@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -64,7 +65,7 @@ class WorkspaceFactoryTestHelper {
     StoredEventHandler eventHandler = new StoredEventHandler();
     builder =
         Package.newExternalPackageBuilder(
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             RootedPath.toRootedPath(root, workspaceFilePath),
             "",
             StarlarkSemantics.DEFAULT);

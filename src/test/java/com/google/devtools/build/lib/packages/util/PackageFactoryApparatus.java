@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
@@ -66,7 +67,7 @@ public class PackageFactoryApparatus {
             ruleClassProvider,
             /*environmentExtensions=*/ ImmutableList.of(),
             "test",
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             packageValidator,
             PackageLoadingListener.NOOP_LISTENER);
   }

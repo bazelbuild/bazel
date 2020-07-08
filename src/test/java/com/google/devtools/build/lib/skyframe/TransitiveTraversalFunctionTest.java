@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.skyframe.TransitiveBaseTraversalFunction.TargetAndErrorIfAnyImpl;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.util.GroupedList;
@@ -199,7 +200,7 @@ public class TransitiveTraversalFunctionTest extends BuildViewTestCase {
     Path buildFile = scratch.file("" + packageId.getSourceRoot() + "/BUILD", lines);
     Package.Builder externalPkg =
         Package.newExternalPackageBuilder(
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             RootedPath.toRootedPath(root, buildFile.getRelative("WORKSPACE")),
             "TESTING",
             StarlarkSemantics.DEFAULT);
