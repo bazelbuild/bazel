@@ -2235,12 +2235,13 @@ public class RuleClass {
       }
     }
 
-    // An instance of the built-in 'test_suite' rule with no explicit 'tests'
-    // attribute gets an '$implicit_tests' attribute, whose value is a
-    // shared per-package list of all test labels, populated later.
+    // An instance of the built-in 'test_suite' rule with an undefined or empty 'tests' attribute
+    // attribute gets an '$implicit_tests' attribute, whose value is a shared per-package list of
+    // all test labels, populated later.
     if (this.name.equals("test_suite")) {
       Attribute implicitTests = this.getAttributeByName("$implicit_tests");
-      if (implicitTests != null && !definedAttrIndices.get(this.getAttributeIndex("tests"))) {
+      if (implicitTests != null
+          && NonconfigurableAttributeMapper.of(rule).get("tests", BuildType.LABEL_LIST).isEmpty()) {
         boolean explicit = true; // so that it appears in query output
         rule.setAttributeValue(implicitTests, pkgBuilder.testSuiteImplicitTests, explicit);
       }
