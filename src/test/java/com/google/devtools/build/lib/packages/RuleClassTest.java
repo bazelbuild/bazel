@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.NO_EXTERNAL_BINDINGS;
+import static com.google.devtools.build.lib.packages.RuleClass.NO_TOOLCHAINS_TO_REGISTER;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
@@ -122,7 +123,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -159,7 +159,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -289,7 +288,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -336,7 +334,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -435,7 +432,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -476,7 +472,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true);
@@ -512,7 +507,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -681,7 +675,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -724,7 +717,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -881,7 +873,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
-      Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       Set<Class<?>> allowedConfigurationFragments,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
@@ -909,7 +900,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         preferredDependencyPredicate,
         advertisedProviders,
         configuredTargetFunction,
-        externalBindingsFunction,
+        NO_EXTERNAL_BINDINGS,
+        NO_TOOLCHAINS_TO_REGISTER,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
         /*ruleDefinitionEnvironmentLabel=*/ null,
         /*ruleDefinitionEnvironmentDigest=*/ null,
@@ -946,7 +938,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(DummyFragment.class),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
