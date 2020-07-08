@@ -219,6 +219,7 @@ public abstract class Printer {
      * @param o the object
      * @return the buffer, in fluent style
      */
+    @Override
     public BasePrinter debugPrint(Object o) {
       if (o instanceof StarlarkValue) {
         ((StarlarkValue) o).debugPrint(this);
@@ -235,6 +236,7 @@ public abstract class Printer {
      *
      * <p>Implementations of StarlarkValue may define their own behavior of {@code str}.
      */
+    @Override
     public BasePrinter str(Object o) {
       if (o instanceof StarlarkValue) {
         ((StarlarkValue) o).str(this);

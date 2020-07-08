@@ -646,6 +646,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainFeatures;
   }
 
+  @Override
   public Label getCcToolchainLabel() {
     return ccToolchainLabel;
   }

@@ -212,7 +212,7 @@ public final class TargetUtils {
       return null;
     }
     Rule rule = (Rule) target;
-    return (rule.isAttrDefined("deprecation", Type.STRING))
+    return rule.isAttrDefined("deprecation", Type.STRING)
         ? NonconfigurableAttributeMapper.of(rule).get("deprecation", Type.STRING)
         : null;
   }

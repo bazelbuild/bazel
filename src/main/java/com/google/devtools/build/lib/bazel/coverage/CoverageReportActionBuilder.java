@@ -105,7 +105,7 @@ public final class CoverageReportActionBuilder {
     private final String locationMessage;
     private final RunfilesSupplier runfilesSupplier;
 
-    protected CoverageReportAction(
+    CoverageReportAction(
         ActionOwner owner,
         NestedSet<Artifact> inputs,
         ImmutableSet<Artifact> outputs,

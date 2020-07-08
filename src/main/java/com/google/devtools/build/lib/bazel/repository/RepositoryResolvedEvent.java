@@ -188,12 +188,14 @@ public class RepositoryResolvedEvent implements ResolvedEvent {
   }
 
   /** Return the entry for the given rule invocation in a format suitable for WORKSPACE.resolved. */
+  @Override
   public Object getResolvedInformation() {
     finalizeResolvedInformation();
     return resolvedInformation;
   }
 
   /** Return the name of the rule that produced the resolvedInformation */
+  @Override
   public String getName() {
     return name;
   }

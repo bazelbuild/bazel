@@ -635,9 +635,9 @@ public final class UnixGlob {
       return null;
     }
 
-    /** Should only be called by link {@GlobTaskContext}. */
-    private void queueGlob(final Path base, final boolean baseIsDir, final int idx,
-        final GlobTaskContext context) {
+    /** Should only be called by link {@link GlobTaskContext}. */
+    private void queueGlob(
+        final Path base, final boolean baseIsDir, final int idx, final GlobTaskContext context) {
       enqueue(
           new Runnable() {
             @Override
@@ -665,12 +665,12 @@ public final class UnixGlob {
           });
     }
 
-    /** Should only be called by link {@GlobTaskContext}. */
+    /** Should only be called by link {@link GlobTaskContext}. */
     private void queueTask(Runnable runnable) {
       enqueue(runnable);
     }
 
-    protected void enqueue(final Runnable r) {
+    void enqueue(final Runnable r) {
       totalOps.incrementAndGet();
       pendingOps.incrementAndGet();
 
@@ -696,7 +696,7 @@ public final class UnixGlob {
       return totalOps.get();
     }
 
-    protected void cancel() {
+    void cancel() {
       this.canceled = true;
     }
 

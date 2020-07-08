@@ -215,7 +215,7 @@ class OptionsParserImpl {
     }
     // Continue to support the old behavior for @Deprecated options.
     String warning = optionDefinition.getDeprecationWarning();
-    if (!warning.isEmpty() || (optionDefinition.getField().isAnnotationPresent(Deprecated.class))) {
+    if (!warning.isEmpty() || optionDefinition.getField().isAnnotationPresent(Deprecated.class)) {
       addDeprecationWarning(optionDefinition.getOptionName(), warning);
     }
   }

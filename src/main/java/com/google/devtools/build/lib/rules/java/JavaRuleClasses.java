@@ -35,7 +35,7 @@ public class JavaRuleClasses {
 
   /** Common attributes for rules that depend on ijar. */
   public static final class IjarBaseRule implements RuleDefinition {
-
+    @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder.setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE).build();
     }

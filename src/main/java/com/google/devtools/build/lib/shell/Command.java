@@ -37,18 +37,20 @@ import javax.annotation.Nullable;
  *
  * <p>This class is immutable and thread-safe.
  *
- * <p>The use of "shell" in the package name of this class is a misnomer.  In terms of the way its
+ * <p>The use of "shell" in the package name of this class is a misnomer. In terms of the way its
  * arguments are interpreted, this class is closer to {@code execve(2)} than to {@code system(3)}.
  * No shell is executed.
  *
  * <h4>Examples</h4>
  *
  * <p>The most basic use-case for this class is as follows:
+ *
  * <pre>
  *   String[] args = { "/bin/du", "-s", directory };
  *   BlazeCommandResult result = new Command(args).execute();
  *   String output = new String(result.getStdout());
  * </pre>
+ *
  * which writes the output of the {@code du(1)} command into {@code output}. More complex cases
  * might inspect the stderr stream, kill the subprocess asynchronously, feed input to its standard
  * input, handle the exceptions thrown if the command fails, or print the termination status (exit
@@ -59,14 +61,14 @@ import javax.annotation.Nullable;
  * <p>A caller can optionally specify bytes to be written to the process's "stdin". The returned
  * {@link CommandResult} object gives the caller access to the exit status, as well as output from
  * "stdout" and "stderr". To use this class with processes that generate very large amounts of
- * input/output, consider {@link #execute(OutputStream, OutputStream)},
- * {@link #executeAsync(OutputStream, OutputStream)}, or
- * {@link #executeAsync(InputStream, OutputStream, OutputStream, boolean)}.
+ * input/output, consider {@link #execute(OutputStream, OutputStream)}, {@link
+ * #executeAsync(OutputStream, OutputStream)}, or {@link #executeAsync(InputStream, OutputStream,
+ * OutputStream, boolean)}.
  *
  * <p>This class ensures that stdout and stderr streams are read promptly, avoiding potential
- * deadlock if the output is large. See
- * <a href="http://www.javaworld.com/javaworld/jw-12-2000/jw-1229-traps.html"> when
- * <code>Runtime.exec()</code> won't</a>.
+ * deadlock if the output is large. See <a
+ * href="http://www.javaworld.com/javaworld/jw-12-2000/jw-1229-traps.html">when <code>Runtime.exec()
+ * </code> won't</a>.
  *
  * <h4>Caution: Invoking Shell Commands</h4>
  *
@@ -76,31 +78,40 @@ import javax.annotation.Nullable;
  * metacharacters, as this poses a correctness and/or security risk.
  *
  * <p>To execute a shell command directly, use the following pattern:
+ *
  * <pre>
  *   String[] args = { "/bin/sh", "-c", shellCommand };
  *   BlazeCommandResult result = new Command(args).execute();
  * </pre>
+ *
  * {@code shellCommand} is a complete Bourne shell program, possibly containing all kinds of
- * unescaped metacharacters.  For example, here's a shell command that enumerates the working
+ * unescaped metacharacters. For example, here's a shell command that enumerates the working
  * directories of all processes named "foo":
+ *
  * <pre>ps auxx | grep foo | awk '{print $1}' |
  *      while read pid; do readlink /proc/$pid/cwd; done</pre>
+ *
  * It is the responsibility of the caller to ensure that this string means what they intend.
  *
  * <p>Consider the risk posed by allowing the "foo" part of the previous command to be some
  * arbitrary (untrusted) string called {@code processName}:
+ *
  * <pre>
  *  // WARNING: unsafe!
  *  String shellCommand = "ps auxx | grep " + processName + " | awk '{print $1}' | "
  *  + "while read pid; do readlink /proc/$pid/cwd; done";</pre>
+ *
  * </pre>
- * Passing this string to {@link Command} is unsafe because if the string {@processName} contains
- * shell metacharacters, the meaning of the command can be arbitrarily changed; consider:
+ *
+ * Passing this string to {@link Command} is unsafe because if the string {@code processName}
+ * contains shell metacharacters, the meaning of the command can be arbitrarily changed; consider:
+ *
  * <pre>String processName = ". ; rm -fr $HOME & ";</pre>
  *
  * <p>To defend against this possibility, it is essential to properly quote the variable portions of
- * the shell command so that shell metacharacters are escaped.  Use {@link ShellUtils#shellEscape}
+ * the shell command so that shell metacharacters are escaped. Use {@link ShellUtils#shellEscape}
  * for this purpose:
+ *
  * <pre>
  *  // Safe.
  *  String shellCommand = "ps auxx | grep " + ShellUtils.shellEscape(processName)

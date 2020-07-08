@@ -53,7 +53,7 @@ public class RepositoryMappingFunction implements SkyFunction {
     return null;
   }
 
-  private class RepositoryMappingFunctionException extends SkyFunctionException {
+  private static class RepositoryMappingFunctionException extends SkyFunctionException {
     RepositoryMappingFunctionException() {
       super(
           new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),

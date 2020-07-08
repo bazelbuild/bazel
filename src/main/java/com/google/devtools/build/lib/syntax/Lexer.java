@@ -242,8 +242,6 @@ final class Lexer {
    *
    * <p>ON ENTRY: 'pos' is 1 + the index of the first delimiter
    * ON EXIT: 'pos' is 1 + the index of the last delimiter.
-   *
-   * @return the string-literal token.
    */
   private void escapedStringLiteral(char quot, boolean isRaw) {
     int literalStartPos = isRaw ? pos - 2 : pos - 1;
@@ -405,7 +403,6 @@ final class Lexer {
    * </ul>
    *
    * @param isRaw if true, do not escape the string.
-   * @return the string-literal token.
    */
   private void stringLiteral(char quot, boolean isRaw) {
     int literalStartPos = isRaw ? pos - 2 : pos - 1;
@@ -509,8 +506,6 @@ final class Lexer {
    *
    * <p>ON ENTRY: 'pos' is 1 + the index of the first char in the identifier.
    * ON EXIT: 'pos' is 1 + the index of the last char in the identifier.
-   *
-   * @return the identifier or keyword token.
    */
   private void identifierOrKeyword() {
     int oldPos = pos - 1;

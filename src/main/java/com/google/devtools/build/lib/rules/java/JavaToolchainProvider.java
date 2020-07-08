@@ -289,6 +289,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   /** Returns the {@link Artifact} of the SingleJar deploy jar */
+  @Override
   public Artifact getSingleJar() {
     return singleJar;
   }

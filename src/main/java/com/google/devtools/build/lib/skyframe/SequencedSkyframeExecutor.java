@@ -1052,11 +1052,11 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * constructed (if the default value can be provided for the new argument in Builder).
    */
   public static final class Builder {
-    protected PackageFactory pkgFactory;
-    protected FileSystem fileSystem;
-    protected BlazeDirectories directories;
-    protected ActionKeyContext actionKeyContext;
-    protected BuildOptions defaultBuildOptions;
+    PackageFactory pkgFactory;
+    FileSystem fileSystem;
+    BlazeDirectories directories;
+    ActionKeyContext actionKeyContext;
+    BuildOptions defaultBuildOptions;
     private CrossRepositoryLabelViolationStrategy crossRepositoryLabelViolationStrategy;
     private ImmutableList<BuildFileName> buildFilesByPriority;
     private ExternalPackageHelper externalPackageHelper;

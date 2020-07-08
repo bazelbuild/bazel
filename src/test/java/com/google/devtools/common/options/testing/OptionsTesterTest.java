@@ -166,7 +166,7 @@ public final class OptionsTesterTest {
     private static String privateDeclaredUnAnnotatedStaticFinalField;
 
     public static final String PUBLIC_DECLARED_UN_ANNOTATED_STATIC_FIELD = "";
-    protected String protectedDeclaredField;
+    String protectedDeclaredField;
   }
 
   /** Test converter class for testing testAllDefaultValuesTestedBy. */

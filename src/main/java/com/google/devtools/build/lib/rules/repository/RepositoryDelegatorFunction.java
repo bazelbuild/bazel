@@ -564,7 +564,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
   }
 
-  private class RepositoryFetching implements FetchProgress {
+  private static class RepositoryFetching implements FetchProgress {
     final String id;
     final boolean finished;
     final String message;

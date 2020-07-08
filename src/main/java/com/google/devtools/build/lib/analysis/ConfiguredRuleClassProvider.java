@@ -660,9 +660,8 @@ public /*final*/ class ConfiguredRuleClassProvider implements FragmentProvider {
     return factoryMapBuilder.build();
   }
 
-  /**
-   * Returns the set of configuration fragments provided by this module.
-   */
+  /** Returns the set of configuration fragments provided by this module. */
+  @Override
   public ImmutableList<ConfigurationFragmentFactory> getConfigurationFragments() {
     return configurationFragmentFactories;
   }
