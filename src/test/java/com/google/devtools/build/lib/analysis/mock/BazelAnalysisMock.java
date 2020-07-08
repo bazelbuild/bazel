@@ -337,6 +337,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     ImmutableList.Builder<String> androidBuildContents = ImmutableList.builder();
 
     androidBuildContents.add(
+        "toolchain_type(name = 'sdk_toolchain_type')",
         "android_sdk(",
         "    name = 'sdk',",
         "    aapt = ':static_aapt_tool',",
