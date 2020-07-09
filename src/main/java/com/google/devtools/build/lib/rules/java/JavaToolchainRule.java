@@ -280,7 +280,7 @@ the --java_toolchain argument. Normally you should not write those kind of rules
 tune your Java compiler.
 </p>
 
-<h4 id="java_binary_examples">Examples</h4>
+<h4>Examples</h4>
 
 <p>A simple example would be:
 </p>
