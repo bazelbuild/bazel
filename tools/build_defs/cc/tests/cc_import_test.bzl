@@ -104,9 +104,35 @@ def _cc_import_objects_archive_action_test_impl(ctx):
 
     asserts.true(env, found, "Archive creation action should be present if object files were given")
 
+    linker_inputs = target_under_test[CcInfo].linking_context.linker_inputs.to_list()
+    asserts.equals(env, 1, len(linker_inputs))
+    libraries = linker_inputs[0].libraries
+    asserts.equals(env, 1, len(libraries))
+    pic_static_library = libraries[0].pic_static_library
+    asserts.true(env, pic_static_library, "Pic static library should be defined")
+    expected_name = "libcc_import_objects_archive_action_test_import.pic.a"
+    asserts.equals(env, expected_name, pic_static_library.basename)
+
     return analysistest.end(env)
 
 cc_import_objects_archive_action_test = analysistest.make(_cc_import_objects_archive_action_test_impl)
+
+def _cc_import_objects_two_archive_actions_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    target_under_test = analysistest.target_under_test(env)
+    actions = analysistest.target_actions(env)
+
+    found = 0
+    for action in actions:
+        if action.mnemonic == "CppArchive":
+            found += 1
+
+    asserts.equals(env, 2, found)
+
+    return analysistest.end(env)
+
+cc_import_objects_two_archive_actions_test = analysistest.make(_cc_import_objects_two_archive_actions_test_impl)
 
 def _cc_import_no_objects_no_archive_action_test_impl(ctx):
     env = analysistest.begin(ctx)
@@ -130,12 +156,21 @@ def _cc_import_objects_present_in_linking_context_test_impl(ctx):
 
     target_under_test = analysistest.target_under_test(env)
     linker_inputs = target_under_test[CcInfo].linking_context.linker_inputs.to_list()
-    asserts.true(env, len(linker_inputs) == 1, "There should be 1 linker input")
+    asserts.equals(env, 1, len(linker_inputs))
     libraries = linker_inputs[0].libraries
-    asserts.true(env, len(libraries) == 1, "There should be 1 library to link")
+    asserts.equals(env, 1, len(libraries))
     objects = libraries[0].objects
-    asserts.true(env, len(objects) == 1, "There should be 1 object file")
-    asserts.true(env, objects[0].basename == "object.o", "Object's name should be 'object.o'")
+    asserts.equals(env, 1, len(objects))
+    asserts.equals(env, "object.o", objects[0].basename)
+    pic_objects = libraries[0].pic_objects
+    asserts.equals(env, 1, len(pic_objects))
+    asserts.equals(env, "object.pic.o", pic_objects[0].basename)
+    static_library = libraries[0].static_library
+    asserts.true(env, static_library)
+    asserts.equals(env, "lib.a", static_library.basename)
+    pic_static_library = libraries[0].pic_static_library
+    asserts.true(env, pic_static_library)
+    asserts.equals(env, "lib.pic.a", pic_static_library.basename)
 
     return analysistest.end(env)
 
@@ -166,6 +201,14 @@ def cc_import_test_suite(name):
         target_is_binary = False,
     )
     _generic_cc_import_test_setup(
+        name = "objects_two_archive_actions",
+        test = cc_import_objects_two_archive_actions_test,
+        tests_list = _tests,
+        pic_objects = ["mylib.pic.o"],
+        objects = ["mylib.o"],
+        target_is_binary = False,
+    )
+    _generic_cc_import_test_setup(
         name = "no_objects_no_archive_action",
         test = cc_import_no_objects_no_archive_action_test,
         tests_list = _tests,
@@ -178,6 +221,9 @@ def cc_import_test_suite(name):
         test = cc_import_objects_present_in_linking_context_test,
         tests_list = _tests,
         objects = ["object.o"],
+        pic_objects = ["object.pic.o"],
+        static_library = "lib.a",
+        pic_static_library = "lib.pic.a",
         target_is_binary = False,
     )
 
