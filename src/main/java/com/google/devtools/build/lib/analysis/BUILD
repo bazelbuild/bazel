@@ -399,6 +399,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/profiler:google-auto-profiler-utils",
         "//src/main/java/com/google/devtools/build/lib/profiler/memory:current_rule_tracker",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp:denied_implicit_outputs_marker_provider",
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_creation_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_value_key",

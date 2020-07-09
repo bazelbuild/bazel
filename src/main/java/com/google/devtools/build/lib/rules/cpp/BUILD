@@ -28,10 +28,13 @@ java_library(
             "*.java",
             "transitions/*.java",
         ],
-        exclude = INTERFACE_SOURCES,
+        exclude = INTERFACE_SOURCES + [
+            "DeniedImplicitOutputMarkerProvider.java",
+        ],
     ),
     deps = [
         ":cpp_interface",
+        ":denied_implicit_outputs_marker_provider",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
@@ -137,6 +140,16 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "denied_implicit_outputs_marker_provider",
+    srcs = ["DeniedImplicitOutputMarkerProvider.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:jsr305",
     ],
 )
