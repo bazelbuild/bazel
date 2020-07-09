@@ -420,7 +420,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     // TODO(dmarting): Add --stamp option only to test that requires it.
     allArgs.add("--stamp");  // Stamp is now defaulted to false.
     allArgs.add("--experimental_extended_sanity_checks");
-    allArgs.add("--features=cc_include_scanning");
     // Always default to k8, even on mac and windows. Tests that need different cpu should set it
     // using {@link useConfiguration()} explicitly.
     allArgs.add("--cpu=k8");
