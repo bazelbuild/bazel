@@ -468,12 +468,12 @@ public class ActionCacheChecker {
       }
     }
 
-    List<Artifact> inputArtifacts = new ArrayList<>();
+    ImmutableList.Builder<Artifact> inputArtifactsBuilder = ImmutableList.builder();
     List<PathFragment> unresolvedPaths = new ArrayList<>();
     for (PathFragment execPath : inputExecPaths) {
       Artifact artifact = allowedDerivedInputsMap.get(execPath);
       if (artifact != null) {
-        inputArtifacts.add(artifact);
+        inputArtifactsBuilder.add(artifact);
       } else {
         // Remember this execPath, we will try to resolve it as a source artifact.
         unresolvedPaths.add(execPath);
@@ -495,10 +495,10 @@ public class ActionCacheChecker {
       // ignore such paths because dependency checker would identify changes in inputs (ignored path
       // was used before) and will force action execution.
       if (artifact != null) {
-        inputArtifacts.add(artifact);
+        inputArtifactsBuilder.add(artifact);
       }
     }
-    return inputArtifacts;
+    return inputArtifactsBuilder.build();
   }
 
   /**
