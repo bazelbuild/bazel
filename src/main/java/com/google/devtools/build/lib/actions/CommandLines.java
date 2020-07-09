@@ -274,7 +274,6 @@ public class CommandLines {
   }
 
   // Helper function to unpack the optimized storage format into a list
-  @SuppressWarnings("unchecked")
   public List<CommandLineAndParamFileInfo> getCommandLines() {
     if (commandLines instanceof CommandLine) {
       return ImmutableList.of(new CommandLineAndParamFileInfo((CommandLine) commandLines, null));
