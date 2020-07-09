@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFut
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryExpressionContext;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -66,7 +67,9 @@ public class RBuildFilesFunction implements QueryFunction {
       Callback<T> callback) {
     if (!(env instanceof SkyQueryEnvironment)) {
       return env.immediateFailedFuture(
-          new QueryException("rbuildfiles can only be used with SkyQueryEnvironment"));
+          new QueryException(
+              "rbuildfiles can only be used with SkyQueryEnvironment",
+              Query.Code.RBUILDFILES_FUNCTION_REQUIRES_SKYQUERY));
     }
     SkyQueryEnvironment skyEnv = ((SkyQueryEnvironment) env);
     return skyEnv.getRBuildFiles(
