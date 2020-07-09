@@ -81,6 +81,78 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testFilterByTagWithAndLogic() throws Exception {
+    scratch.file(
+            "tests/BUILD",
+            "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['tag1'])",
+            "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['tag2'])",
+            "sh_binary(name = 'tag3', srcs=['sh.sh'], tags=['tag3'])",
+            "sh_binary(name = 'tag1_and_tag2', srcs=['sh.sh'], tags=['tag1', 'tag2'])",
+            "sh_binary(name = 'tag1_and_tag3', srcs=['sh.sh'], tags=['tag1', 'tag3'])",
+            "sh_binary(name = 'tag2_and_tag3', srcs=['sh.sh'], tags=['tag2', 'tag3'])",
+            "sh_binary(name = 'all_tags', srcs=['sh.sh'], tags=['tag1', 'tag2', 'tag3'])");
+
+    com.google.devtools.build.lib.packages.Target tag1 = getTarget("//tests:tag1");
+    com.google.devtools.build.lib.packages.Target tag2 = getTarget("//tests:tag2");
+    com.google.devtools.build.lib.packages.Target tag3 = getTarget("//tests:tag3");
+    com.google.devtools.build.lib.packages.Target tag1AndTag2 = getTarget("//tests:tag1_and_tag2");
+    com.google.devtools.build.lib.packages.Target tag1AndTag3 = getTarget("//tests:tag1_and_tag3");
+    com.google.devtools.build.lib.packages.Target tag2AndTag3 = getTarget("//tests:tag2_and_tag3");
+    com.google.devtools.build.lib.packages.Target allTags = getTarget("//tests:all_tags");
+
+    Predicate<com.google.devtools.build.lib.packages.Target> tagFilter = com.google.devtools.build.lib.packages.TargetUtils.tagFilter(Lists.newArrayList("&&"));
+    assertThat(tagFilter.apply(tag1)).isTrue();
+    assertThat(tagFilter.apply(tag2)).isTrue();
+    assertThat(tagFilter.apply(tag3)).isTrue();
+    assertThat(tagFilter.apply(tag1AndTag2)).isTrue();
+    assertThat(tagFilter.apply(tag1AndTag3)).isTrue();
+    assertThat(tagFilter.apply(tag2AndTag3)).isTrue();
+    assertThat(tagFilter.apply(allTags)).isTrue();
+    tagFilter = com.google.devtools.build.lib.packages.TargetUtils.tagFilter(Lists.newArrayList("&&", "tag1"));
+    assertThat(tagFilter.apply(tag1)).isTrue();
+    assertThat(tagFilter.apply(tag2)).isFalse();
+    assertThat(tagFilter.apply(tag3)).isFalse();
+    assertThat(tagFilter.apply(tag1AndTag2)).isTrue();
+    assertThat(tagFilter.apply(tag1AndTag3)).isTrue();
+    assertThat(tagFilter.apply(tag2AndTag3)).isFalse();
+    assertThat(tagFilter.apply(allTags)).isTrue();
+    tagFilter = com.google.devtools.build.lib.packages.TargetUtils.tagFilter(Lists.newArrayList("&&", "tag1", "tag2"));
+    assertThat(tagFilter.apply(tag1)).isFalse();
+    assertThat(tagFilter.apply(tag2)).isFalse();
+    assertThat(tagFilter.apply(tag3)).isFalse();
+    assertThat(tagFilter.apply(tag1AndTag2)).isTrue();
+    assertThat(tagFilter.apply(tag1AndTag3)).isFalse();
+    assertThat(tagFilter.apply(tag2AndTag3)).isFalse();
+    assertThat(tagFilter.apply(allTags)).isTrue();
+    tagFilter = com.google.devtools.build.lib.packages.TargetUtils.tagFilter(Lists.newArrayList("&&", "tag1", "tag2", "tag3"));
+    assertThat(tagFilter.apply(tag1)).isFalse();
+    assertThat(tagFilter.apply(tag2)).isFalse();
+    assertThat(tagFilter.apply(tag3)).isFalse();
+    assertThat(tagFilter.apply(tag1AndTag2)).isFalse();
+    assertThat(tagFilter.apply(tag1AndTag3)).isFalse();
+    assertThat(tagFilter.apply(tag2AndTag3)).isFalse();
+    assertThat(tagFilter.apply(allTags)).isTrue();
+
+    // With negative filter.
+    tagFilter = com.google.devtools.build.lib.packages.TargetUtils.tagFilter(Lists.newArrayList("&&", "tag1", "tag2", "-tag3"));
+    assertThat(tagFilter.apply(tag1)).isFalse();
+    assertThat(tagFilter.apply(tag2)).isFalse();
+    assertThat(tagFilter.apply(tag3)).isFalse();
+    assertThat(tagFilter.apply(tag1AndTag2)).isTrue();
+    assertThat(tagFilter.apply(tag1AndTag3)).isFalse();
+    assertThat(tagFilter.apply(tag2AndTag3)).isFalse();
+    assertThat(tagFilter.apply(allTags)).isFalse();
+    tagFilter = com.google.devtools.build.lib.packages.TargetUtils.tagFilter(Lists.newArrayList("&&", "tag1", "-tag2"));
+    assertThat(tagFilter.apply(tag1)).isTrue();
+    assertThat(tagFilter.apply(tag2)).isFalse();
+    assertThat(tagFilter.apply(tag3)).isFalse();
+    assertThat(tagFilter.apply(tag1AndTag2)).isFalse();
+    assertThat(tagFilter.apply(tag1AndTag3)).isTrue();
+    assertThat(tagFilter.apply(tag2AndTag3)).isFalse();
+    assertThat(tagFilter.apply(allTags)).isFalse();
+  }
+
+  @Test
   public void testExecutionInfo() throws Exception {
     scratch.file(
         "tests/BUILD",

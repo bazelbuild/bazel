@@ -355,6 +355,11 @@ public final class TargetUtils {
         TestTargetUtils.sortTagsBySense(tagFilterList);
     final Collection<String> requiredTags = tagLists.first;
     final Collection<String> excludedTags = tagLists.second;
+
+    // If "&&" is provided as a tag we use AND logic.
+    // We have to remove "&&" from requiredTags since it should not be regarded as a regular tag.
+    final boolean andLogic = requiredTags.remove("&&");
+
     return input -> {
       if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
         return true;
@@ -368,7 +373,7 @@ public final class TargetUtils {
       // TODO(ulfjack): getRuleTags is inconsistent with TestFunction and other places that use
       // tags + size, but consistent with TestSuite.
       return TestTargetUtils.testMatchesFilters(
-          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
+          ((Rule) input).getRuleTags(), requiredTags, excludedTags, /* mustMatchAll */ andLogic);
     };
   }
 
