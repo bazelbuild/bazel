@@ -68,9 +68,11 @@ public class BazelPythonSemantics implements PythonSemantics {
       new PythonUtils.GetInitPyFiles((Predicate<PathFragment> & Serializable) source -> false);
   private static final Template STUB_TEMPLATE =
       Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
-  public static final InstrumentationSpec PYTHON_COLLECTION_SPEC = new InstrumentationSpec(
-      FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE),
-      "srcs", "deps", "data");
+  public static final InstrumentationSpec PYTHON_COLLECTION_SPEC =
+      new InstrumentationSpec(FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE))
+          .withDeprecatedSourceOrDependencyAttributes("srcs", "deps", "data")
+          .withSourceAttributes("srcs")
+          .withDependencyAttributes("deps", "data");
 
   public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = PathFragment.create("runfiles");
 
