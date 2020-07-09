@@ -791,6 +791,9 @@ message ConfigurableQuery {
     FILTERS_NOT_SUPPORTED = 3 [(metadata) = { exit_code: 2 }];
     BUILDFILES_FUNCTION_NOT_SUPPORTED = 4 [(metadata) = { exit_code: 2 }];
     SIBLINGS_FUNCTION_NOT_SUPPORTED = 5 [(metadata) = { exit_code: 2 }];
+    VISIBLE_FUNCTION_NOT_SUPPORTED = 6 [(metadata) = { exit_code: 2 }];
+    ATTRIBUTE_MISSING = 7 [(metadata) = { exit_code: 2 }];
+    INCORRECT_CONFIG_ARGUMENT_ERROR = 8 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

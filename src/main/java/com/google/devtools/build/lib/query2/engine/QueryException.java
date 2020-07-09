@@ -85,6 +85,18 @@ public class QueryException extends Exception {
             .build());
   }
 
+  public QueryException(
+      QueryExpression expression, String message, ConfigurableQuery.Code configurableQueryCode) {
+    this(
+        expression,
+        message,
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setConfigurableQuery(
+                ConfigurableQuery.newBuilder().setCode(configurableQueryCode).build())
+            .build());
+  }
+
   public QueryException(String message, Throwable cause, FailureDetail failureDetail) {
     super(message, cause);
     this.expression = null;
@@ -104,14 +116,7 @@ public class QueryException extends Exception {
   }
 
   public QueryException(String message, ConfigurableQuery.Code configurableQueryCode) {
-    this(
-        null,
-        message,
-        FailureDetail.newBuilder()
-            .setMessage(message)
-            .setConfigurableQuery(
-                ConfigurableQuery.newBuilder().setCode(configurableQueryCode).build())
-            .build());
+    this(null, message, configurableQueryCode);
   }
 
   /**
