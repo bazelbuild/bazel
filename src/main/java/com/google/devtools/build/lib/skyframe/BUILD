@@ -198,7 +198,6 @@ java_library(
         ":skyframe_aware_action",
         ":skyframe_incremental_build_monitor",
         ":skylark_module_cycle_reporter",
-        ":starlark_file_dependency",
         ":state_informing_sky_function_environment",
         ":target_pattern_error_function",
         ":target_pattern_phase_value",
@@ -2308,21 +2307,10 @@ java_library(
 )
 
 java_library(
-    name = "starlark_file_dependency",
-    srcs = ["StarlarkFileDependency.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "bzl_load_value",
     srcs = ["BzlLoadValue.java"],
     deps = [
         ":sky_functions",
-        ":starlark_file_dependency",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

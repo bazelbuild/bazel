@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -186,8 +185,7 @@ public class PackageFactoryApparatus {
             globber,
             ConstantRuleVisibility.PUBLIC,
             StarlarkSemantics.DEFAULT,
-            ImmutableMap.<String, Module>of(),
-            ImmutableList.<Label>of(),
+            /*loadedModules=*/ ImmutableMap.<String, Module>of(),
             /*repositoryMapping=*/ ImmutableMap.of());
     Package result;
     try {

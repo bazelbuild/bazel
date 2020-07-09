@@ -76,8 +76,8 @@ import javax.annotation.Nullable;
  * <p>Given a {@link Label} referencing a .bzl file, attempts to locate the file and load it. The
  * Label must be absolute, and must not reference the special {@code external} package. If loading
  * is successful, returns a {@link BzlLoadValue} that encapsulates the loaded {@link Module} and its
- * transitive digest and {@link StarlarkFileDependency} information. If loading is unsuccessful,
- * throws a {@link BzlLoadFunctionException} that encapsulates the cause of the failure.
+ * transitive digest information. If loading is unsuccessful, throws a {@link
+ * BzlLoadFunctionException} that encapsulates the cause of the failure.
  *
  * <p>This Skyframe function supports a special "inlining" mode in which all (indirectly) recursive
  * calls to {@code BzlLoadFunction} are made in the same thread rather than through Skyframe. The
@@ -606,13 +606,10 @@ public class BzlLoadFunction implements SkyFunction {
     Fingerprint fp = new Fingerprint();
     fp.addBytes(astLookupValue.getDigest());
     Map<String, Module> loadedModules = Maps.newLinkedHashMapWithExpectedSize(loads.size());
-    ImmutableList.Builder<StarlarkFileDependency> fileDependencies =
-        ImmutableList.builderWithExpectedSize(loads.size());
     for (int i = 0; i < loads.size(); i++) {
       String loadString = loads.get(i).first;
       BzlLoadValue v = bzlLoads.get(i);
       loadedModules.put(loadString, v.getModule()); // dups ok
-      fileDependencies.add(v.getDependency());
       fp.addBytes(v.getTransitiveDigest());
     }
     byte[] transitiveDigest = fp.digestAndReset();
@@ -640,8 +637,7 @@ public class BzlLoadFunction implements SkyFunction {
         starlarkSemantics,
         env.getListener(),
         repoMapping);
-    return new BzlLoadValue(
-        module, transitiveDigest, new StarlarkFileDependency(label, fileDependencies.build()));
+    return new BzlLoadValue(module, transitiveDigest);
   }
 
   private static ImmutableMap<RepositoryName, RepositoryName> getRepositoryMapping(

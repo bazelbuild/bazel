@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
-import com.google.devtools.build.lib.skyframe.PackageFunction.BzlLoadResult;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
@@ -123,7 +122,7 @@ public class WorkspaceFileFunction implements SkyFunction {
             prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
       }
       StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
-      BzlLoadResult loadResult =
+      ImmutableMap<String, Module> loadedModules =
           PackageFunction.fetchLoadsFromBuildFile(
               workspaceFile,
               rootPackage,
@@ -132,10 +131,10 @@ public class WorkspaceFileFunction implements SkyFunction {
               key.getIndex(),
               env,
               bzlLoadFunctionForInlining);
-      if (loadResult == null) {
+      if (loadedModules == null) {
         return null;
       }
-      parser.execute(ast, loadResult.loadedModules, key);
+      parser.execute(ast, loadedModules, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {
