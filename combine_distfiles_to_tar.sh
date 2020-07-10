@@ -40,5 +40,10 @@ do
     (cd "${PACKAGE_DIR}" && ${UNPACK} "${ARCHIVE}")
 done
 
-(cd "${PACKAGE_DIR}" && tar -c -f "${OUTPUT}" --group=0 --owner=0 \
-   $(find . -type f | sort))
+(
+  cd "${PACKAGE_DIR}"
+  FILE_LIST="$(mktemp ${TMP_DIR%%/}/bazel-distfile-files.XXXXXXXX)"
+  trap "rm -fr \"${FILE_LIST}\"" EXIT
+  find . -type f | sort > "${FILE_LIST}"
+  tar -c -f "${OUTPUT}" --group=0 --owner=0 -T "${FILE_LIST}"
+)
