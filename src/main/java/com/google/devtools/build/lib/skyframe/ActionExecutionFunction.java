@@ -740,7 +740,7 @@ public class ActionExecutionFunction implements SkyFunction {
 
     ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets;
     if (state.topLevelFilesets == null || state.topLevelFilesets.isEmpty()) {
-      expandedFilesets = ImmutableMap.copyOf(state.filesetsInsideRunfiles);
+      expandedFilesets = state.filesetsInsideRunfiles;
     } else {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsMap =
           new HashMap<>(state.filesetsInsideRunfiles);
@@ -891,7 +891,7 @@ public class ActionExecutionFunction implements SkyFunction {
                 : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
             Collections.unmodifiableMap(state.expandedArtifacts),
             expandedFilesets,
-            ImmutableMap.copyOf(state.topLevelFilesets),
+            state.topLevelFilesets,
             state.actionFileSystem,
             skyframeDepsResult,
             env.getListener(),
@@ -1104,19 +1104,20 @@ public class ActionExecutionFunction implements SkyFunction {
     /** Artifact expansion mapping for Runfiles tree and tree artifacts. */
     private final Map<Artifact, Collection<Artifact>> expandedArtifacts;
     /** Artifact expansion mapping for Filesets embedded in Runfiles. */
-    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles;
+    private final ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>>
+        filesetsInsideRunfiles;
     /** Artifact expansion mapping for top level filesets. */
-    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets;
+    private final ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets;
 
-    public CheckInputResults(
+    CheckInputResults(
         ActionInputMap actionInputMap,
         Map<Artifact, Collection<Artifact>> expandedArtifacts,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
         Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets) {
       this.actionInputMap = actionInputMap;
       this.expandedArtifacts = expandedArtifacts;
-      this.filesetsInsideRunfiles = filesetsInsideRunfiles;
-      this.topLevelFilesets = topLevelFilesets;
+      this.filesetsInsideRunfiles = ImmutableMap.copyOf(filesetsInsideRunfiles);
+      this.topLevelFilesets = ImmutableMap.copyOf(topLevelFilesets);
     }
   }
 
@@ -1423,7 +1424,7 @@ public class ActionExecutionFunction implements SkyFunction {
     return handleMissingFile(input, missingValue.getException().getMessage(), labelInCaseOfBug);
   }
 
-  static LabelCause handleMissingFile(
+  private static LabelCause handleMissingFile(
       Artifact input, String missingMessage, Label labelInCaseOfBug) {
     Label inputLabel = input.getOwner();
     if (inputLabel == null) {
@@ -1496,8 +1497,8 @@ public class ActionExecutionFunction implements SkyFunction {
     ActionInputMap inputArtifactData = null;
 
     Map<Artifact, Collection<Artifact>> expandedArtifacts = null;
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = null;
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = null;
+    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles = null;
+    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = null;
     Token token = null;
     NestedSet<Artifact> discoveredInputs = null;
     FileSystem actionFileSystem = null;
