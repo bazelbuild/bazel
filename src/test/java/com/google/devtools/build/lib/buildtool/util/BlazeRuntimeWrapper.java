@@ -47,9 +47,7 @@ import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.ClientOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.CommandStartEvent;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
-import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.runtime.UiOptions;
@@ -62,7 +60,6 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.common.options.InvocationPolicyEnforcer;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -219,15 +216,6 @@ public class BlazeRuntimeWrapper {
    * method.
    */
   public CommandEnvironment getCommandEnvironment() {
-    // In these tests, calls to the CommandEnvironment are not always in correct order; this is OK
-    // for unit tests. So return an environment here, that has a forced command id to allow tests to
-    // stay simple.
-    try {
-      env.getCommandId();
-    } catch (IllegalArgumentException e) {
-      // Ignored, as we know that tests deviate from normal calling order.
-    }
-
     return env;
   }
 
@@ -307,43 +295,8 @@ public class BlazeRuntimeWrapper {
       for (Object subscriber : eventBusSubscribers) {
         eventBus.register(subscriber);
       }
-      env.getEventBus()
-          .post(
-              new GotOptionsEvent(
-                  getRuntime().getStartupOptionsProvider(),
-                  optionsParser,
-                  InvocationPolicy.getDefaultInstance()));
-      // This roughly mimics what BlazeRuntime#beforeCommand does in practice.
-      env.throwPendingException();
 
-      // In this test we are allowed to omit the beforeCommand; so force setting of a command
-      // id in the CommandEnvironment, as we will need it in a moment even though we deviate from
-      // normal calling order.
-      try {
-        env.getCommandId();
-      } catch (IllegalArgumentException e) {
-        // Ignored, as we know the test deviates from normal calling order.
-      }
-
-      OutputService outputService = null;
-      BlazeModule outputModule = null;
-      for (BlazeModule module : runtime.getBlazeModules()) {
-        OutputService moduleService = module.getOutputService();
-        if (moduleService != null) {
-          if (outputService != null) {
-            throw new IllegalStateException(
-                String.format(
-                    "More than one module (%s and %s) returns an output service",
-                    module.getClass(), outputModule.getClass()));
-          }
-          outputService = moduleService;
-          outputModule = module;
-        }
-      }
-      getSkyframeExecutor().setOutputService(outputService);
-      env.setOutputServiceForTesting(outputService);
-
-      env.getEventBus().post(new CommandStartEvent());
+      env.beforeCommand(InvocationPolicy.getDefaultInstance());
 
       lastRequest = createRequest("build", targets);
       lastResult = new BuildResult(lastRequest.getStartTime());
@@ -387,7 +340,7 @@ public class BlazeRuntimeWrapper {
         .build();
   }
 
-  public BuildRequest createRequest(String commandName, List<String> targets) {
+  BuildRequest createRequest(String commandName, List<String> targets) {
     return BuildRequest.create(
         commandName,
         optionsParser,
