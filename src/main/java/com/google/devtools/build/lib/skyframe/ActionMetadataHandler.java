@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -38,7 +37,6 @@ import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
@@ -74,30 +72,17 @@ import javax.annotation.Nullable;
  * TreeArtifactValue}s. Third, the {@link FilesystemValueChecker} uses it to determine the set of
  * output files to check for inter-build modifications.
  */
-@VisibleForTesting
-public final class ActionMetadataHandler implements MetadataHandler {
+final class ActionMetadataHandler implements MetadataHandler {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  /**
-   * Data for input artifacts. Immutable.
-   *
-   * <p>This should never be read directly. Use {@link #getInputFileArtifactValue} instead.
-   */
   private final ActionInputMap inputArtifactData;
   private final boolean missingArtifactsAllowed;
   private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
 
-  /** Outputs that are to be omitted. */
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
-
   private final ImmutableSet<Artifact> outputs;
 
-  /**
-   * The timestamp granularity monitor for this build.
-   * Use {@link #getTimestampGranularityMonitor(Artifact)} to fetch this member.
-   */
-  @Nullable
   private final TimestampGranularityMonitor tsgm;
   private final ArtifactPathResolver artifactPathResolver;
   private final Path execRoot;
@@ -110,38 +95,23 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   private final OutputStore store;
 
-  @VisibleForTesting
-  public ActionMetadataHandler(
+  ActionMetadataHandler(
       ActionInputMap inputArtifactData,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       boolean missingArtifactsAllowed,
-      Iterable<Artifact> outputs,
-      @Nullable TimestampGranularityMonitor tsgm,
+      ImmutableSet<Artifact> outputs,
+      TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
       OutputStore store,
       Path execRoot) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
     this.missingArtifactsAllowed = missingArtifactsAllowed;
-    this.outputs = ImmutableSet.copyOf(outputs);
-    this.tsgm = tsgm;
-    this.artifactPathResolver = artifactPathResolver;
-    this.execRoot = execRoot;
+    this.outputs = Preconditions.checkNotNull(outputs);
+    this.tsgm = Preconditions.checkNotNull(tsgm);
+    this.artifactPathResolver = Preconditions.checkNotNull(artifactPathResolver);
+    this.execRoot = Preconditions.checkNotNull(execRoot);
     this.filesetMapping = expandFilesetMapping(Preconditions.checkNotNull(expandedFilesets));
-    this.store = store;
-  }
-
-  /**
-   * Gets the {@link TimestampGranularityMonitor} to use for a given artifact.
-   *
-   * <p>If the artifact is of type "constant metadata", this returns null so that changes to such
-   * artifacts do not tickle the timestamp granularity monitor, delaying the build for no reason.
-   *
-   * @param artifact the artifact for which to fetch the timestamp granularity monitor
-   * @return the timestamp granularity monitor to use, which may be null
-   */
-  @Nullable
-  private TimestampGranularityMonitor getTimestampGranularityMonitor(Artifact artifact) {
-    return artifact.isConstantMetadata() ? null : tsgm;
+    this.store = Preconditions.checkNotNull(store);
   }
 
   /**
@@ -150,8 +120,21 @@ public final class ActionMetadataHandler implements MetadataHandler {
    */
   private static FileArtifactValue checkExists(FileArtifactValue value, Artifact artifact)
       throws FileNotFoundException {
-    if (value == FileArtifactValue.MISSING_FILE_MARKER
-        || value == FileArtifactValue.OMITTED_FILE_MARKER) {
+    if (FileArtifactValue.MISSING_FILE_MARKER.equals(value)
+        || FileArtifactValue.OMITTED_FILE_MARKER.equals(value)) {
+      throw new FileNotFoundException(artifact + " does not exist");
+    }
+    return Preconditions.checkNotNull(value, artifact);
+  }
+
+  /**
+   * If {@code value} represents an existing tree artifact, returns it as is, otherwise throws
+   * {@link FileNotFoundException}.
+   */
+  private static TreeArtifactValue checkExists(TreeArtifactValue value, Artifact artifact)
+      throws FileNotFoundException {
+    if (TreeArtifactValue.MISSING_TREE_ARTIFACT.equals(value)
+        || TreeArtifactValue.OMITTED_TREE_MARKER.equals(value)) {
       throw new FileNotFoundException(artifact + " does not exist");
     }
     return Preconditions.checkNotNull(value, artifact);
@@ -159,10 +142,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
   private ImmutableMap<PathFragment, FileArtifactValue> expandFilesetMapping(
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
-    if (execRoot == null) {
-      return ImmutableMap.of();
-    }
-
     Map<PathFragment, FileArtifactValue> filesetMap = new HashMap<>();
     for (Map.Entry<Artifact, ImmutableList<FilesetOutputSymlink>> entry : filesets.entrySet()) {
       try {
@@ -178,24 +157,15 @@ public final class ActionMetadataHandler implements MetadataHandler {
       } catch (IOException e) {
         // If we cannot get the FileArtifactValue, then we will make a FileSystem call to get the
         // digest, so it is okay to skip and continue here.
-        logger.atWarning().log(
+        logger.atWarning().withCause(e).log(
             "Could not properly get digest for %s", entry.getKey().getExecPath());
-        continue;
       }
     }
     return ImmutableMap.copyOf(filesetMap);
   }
 
-  public ArtifactPathResolver getArtifactPathResolver() {
+  ArtifactPathResolver getArtifactPathResolver() {
     return artifactPathResolver;
-  }
-
-  @Nullable
-  private FileArtifactValue getInputFileArtifactValue(Artifact input) {
-    if (isKnownOutput(input)) {
-      return null;
-    }
-    return inputArtifactData.getMetadata(input);
   }
 
   private boolean isKnownOutput(Artifact artifact) {
@@ -215,46 +185,32 @@ public final class ActionMetadataHandler implements MetadataHandler {
     }
 
     Artifact artifact = (Artifact) actionInput;
-    FileArtifactValue value = getInputFileArtifactValue(artifact);
-    if (value != null) {
-      return checkExists(value, artifact);
+    FileArtifactValue value;
+
+    if (!isKnownOutput(artifact)) {
+      value = inputArtifactData.getMetadata(artifact);
+      if (value != null) {
+        return checkExists(value, artifact);
+      }
+      Preconditions.checkState(
+          missingArtifactsAllowed, "%s is not present in declared outputs: %s", artifact, outputs);
+      return null;
     }
 
-    if (artifact.isSourceArtifact()) {
-      // A discovered input we didn't have data for.
-      // TODO(bazel-team): Change this to an assertion once Skyframe has native input discovery, so
-      // all inputs will already have metadata known.
-      if (!missingArtifactsAllowed) {
-        throw new IllegalStateException(String.format("null for %s", artifact));
-      }
-      return null;
-    } else if (artifact.isMiddlemanArtifact()) {
+    if (artifact.isMiddlemanArtifact()) {
       // A middleman artifact's data was either already injected from the action cache checker using
       // #setDigestForVirtualArtifact, or it has the default middleman value.
       value = store.getArtifactData(artifact);
       if (value != null) {
         return checkExists(value, artifact);
       }
-      value = FileArtifactValue.DEFAULT_MIDDLEMAN;
-      store.putArtifactData(artifact, value);
-      return checkExists(value, artifact);
-    } else if (artifact.isTreeArtifact()) {
-      TreeArtifactValue setValue = getTreeArtifactValue((SpecialArtifact) artifact);
-      if (setValue != null && !setValue.equals(TreeArtifactValue.MISSING_TREE_ARTIFACT)) {
-        return setValue.getMetadata();
-      }
-      // We use FileNotFoundExceptions to determine if an Artifact was or wasn't found.
-      // Calling code depends on this particular exception.
-      throw new FileNotFoundException(artifact + " not found");
+      store.putArtifactData(artifact, FileArtifactValue.DEFAULT_MIDDLEMAN);
+      return FileArtifactValue.DEFAULT_MIDDLEMAN;
     }
 
-    // Don't store metadata for output artifacts that are not declared outputs of the action.
-    if (!isKnownOutput(artifact)) {
-      // Throw in strict mode.
-      if (!missingArtifactsAllowed) {
-        throw new IllegalStateException(String.format("null for %s", artifact));
-      }
-      return null;
+    if (artifact.isTreeArtifact()) {
+      TreeArtifactValue tree = getTreeArtifactValue((SpecialArtifact) artifact);
+      return tree.getMetadata();
     }
 
     // Check for existing metadata. It may have been injected. In either case, this method is called
@@ -308,7 +264,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
   private TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
     TreeArtifactValue value = store.getTreeArtifactData(artifact);
     if (value != null) {
-      return value;
+      return checkExists(value, artifact);
     }
 
     if (executionMode.get()) {
@@ -325,7 +281,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
 
     value = constructTreeArtifactValueFromFilesystem(artifact);
     store.putTreeArtifactData(artifact, value);
-    return value;
+    return checkExists(value, artifact);
   }
 
   private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact parent)
@@ -495,7 +451,9 @@ public final class ActionMetadataHandler implements MetadataHandler {
             artifactPathResolver,
             statNoFollow,
             injectedDigest != null,
-            getTimestampGranularityMonitor(artifact));
+            // Prevent constant metadata artifacts from notifying the timestamp granularity monitor
+            // and potentially delaying the build for no reason.
+            artifact.isConstantMetadata() ? null : tsgm);
 
     // Ensure that we don't have both an injected digest and a digest from the filesystem.
     byte[] fileDigest = value.getDigest();
@@ -554,7 +512,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
       FileStatusWithDigest stat,
       boolean digestWillBeInjected,
       boolean isConstantMetadata,
-      TimestampGranularityMonitor tsgm)
+      @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     if (stat == null) {
       return FileArtifactValue.MISSING_FILE_MARKER;
@@ -572,11 +530,6 @@ public final class ActionMetadataHandler implements MetadataHandler {
           stat.getSize(),
           !isConstantMetadata);
     }
-  }
-
-  @VisibleForTesting
-  ImmutableMap<PathFragment, FileArtifactValue> getFilesetMapping() {
-    return filesetMapping;
   }
 
   static FileArtifactValue fileArtifactValueFromArtifact(
@@ -669,7 +622,7 @@ public final class ActionMetadataHandler implements MetadataHandler {
     path.chmod(0555);
     Collection<Dirent> dirents = path.readdir(Symlinks.FOLLOW);
     for (Dirent dirent : dirents) {
-      if (dirent.getType() == Type.DIRECTORY) {
+      if (dirent.getType() == Dirent.Type.DIRECTORY) {
         setTreeReadOnlyAndExecutable(parent, subpath.getChild(dirent.getName()));
       } else {
         setPathReadOnlyAndExecutable(

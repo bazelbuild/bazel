@@ -33,12 +33,12 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.HasDigest.ByteStringDigest;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -47,17 +47,21 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link ActionMetadataHandler}. */
 @RunWith(JUnit4.class)
-public class ActionMetadataHandlerTest {
-  private Scratch scratch;
-  private ArtifactRoot sourceRoot;
-  private ArtifactRoot outputRoot;
+public final class ActionMetadataHandlerTest {
+
+  private final Scratch scratch = new Scratch();
+  private final TimestampGranularityMonitor tsgm =
+      new TimestampGranularityMonitor(new ManualClock());
+
+  private final ArtifactRoot sourceRoot =
+      ArtifactRoot.asSourceRoot(Root.fromPath(scratch.resolve("/workspace")));
+  private final ArtifactRoot outputRoot =
+      ArtifactRoot.asDerivedRoot(scratch.resolve("/output"), "bin");
 
   @Before
-  public final void setRootDir() throws Exception  {
-    scratch = new Scratch();
-    sourceRoot = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/workspace")));
-    scratch.dir("/output/bin");
-    outputRoot = ArtifactRoot.asDerivedRoot(scratch.dir("/output"), "bin");
+  public void createRootDirs() throws Exception {
+    sourceRoot.getRoot().asPath().createDirectoryAndParents();
+    outputRoot.getRoot().asPath().createDirectoryAndParents();
   }
 
   @Test
@@ -73,9 +77,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -95,9 +99,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -105,7 +109,7 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
-  public void withUnknownSourceArtifactAndNoMissingArtifactsAllowed() throws Exception {
+  public void withUnknownSourceArtifactAndNoMissingArtifactsAllowed() {
     PathFragment path = PathFragment.create("src/a");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(sourceRoot, path);
     ActionInputMap map = new ActionInputMap(1);
@@ -113,15 +117,14 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
-    IllegalStateException expected =
-        assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
-    assertThat(expected).hasMessageThat().contains("null for ");
+    Exception e = assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
+    assertThat(e).hasMessageThat().contains(artifact + " is not present in declared outputs");
   }
 
   @Test
@@ -133,9 +136,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ true,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ true,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -151,9 +154,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ true,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ true,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -170,9 +173,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(artifact),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(artifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -180,7 +183,7 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
-  public void withUnknownOutputArtifactStatsFileFailsWithException() throws Exception {
+  public void withUnknownOutputArtifactStatsFileFailsWithException() {
     Artifact artifact = ActionsTestUtil.createArtifact(outputRoot, "foo/bar");
     assertThat(artifact.getPath().exists()).isFalse();
     ActionInputMap map = new ActionInputMap(1);
@@ -188,9 +191,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(artifact),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(artifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -198,7 +201,7 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
-  public void withUnknownOutputArtifactMissingDisallowed() throws Exception {
+  public void withUnknownOutputArtifactMissingDisallowed() {
     PathFragment path = PathFragment.create("foo/bar");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
     ActionInputMap map = new ActionInputMap(1);
@@ -206,9 +209,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -226,9 +229,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ true,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ true,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -248,9 +251,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(treeArtifact),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(treeArtifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -268,9 +271,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -295,8 +298,8 @@ public class ActionMetadataHandlerTest {
             new ActionInputMap(1),
             /*expandedFilesets=*/ ImmutableMap.of(),
             /*missingArtifactsAllowed=*/ false,
-            /*outputs=*/ ImmutableList.of(treeArtifact),
-            /*tsgm=*/ null,
+            /*outputs=*/ ImmutableSet.of(treeArtifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             store,
             outputRoot.getRoot().asPath());
@@ -313,36 +316,6 @@ public class ActionMetadataHandlerTest {
   }
 
   @Test
-  public void withFilesetInput() throws Exception {
-    // This value should be mapped
-    FileArtifactValue directoryFav = FileArtifactValue.createForDirectoryWithMtime(10L);
-    // This value should not be mapped
-    FileArtifactValue regularFav =
-        FileArtifactValue.createForVirtualActionInput(new byte[] {1, 2, 3, 4}, 10L);
-    // This value should not be mapped
-    HasDigest.ByteStringDigest byteStringDigest = new ByteStringDigest(new byte[] {2, 3, 4});
-
-    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMap =
-        createFilesetOutputSymlinkMap(directoryFav, regularFav, byteStringDigest);
-    ActionMetadataHandler handler =
-        new ActionMetadataHandler(
-            new ActionInputMap(0),
-            filesetMap,
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
-            ArtifactPathResolver.forExecRoot(outputRoot.getRoot().asPath()),
-            new MinimalOutputStore(),
-            outputRoot.getRoot().asPath());
-
-    ImmutableMap<PathFragment, FileArtifactValue> filesetMapping = handler.getFilesetMapping();
-    assertThat(filesetMapping).hasSize(1);
-    PathFragment filesetPathFragment = filesetMapping.keySet().iterator().next();
-    assertThat(filesetPathFragment.getPathString()).isEqualTo("target/bytestring2");
-    assertThat(filesetMapping.get(filesetPathFragment)).isEqualTo(regularFav);
-  }
-
-  @Test
   public void resettingOutputs() throws Exception {
     scratch.file("/output/bin/foo/bar", "not empty");
     PathFragment path = PathFragment.create("foo/bar");
@@ -352,9 +325,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             map,
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ true,
-            /* outputs= */ ImmutableList.of(artifact),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ true,
+            /*outputs=*/ ImmutableSet.of(artifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
@@ -381,9 +354,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             /* inputArtifactData= */ new ActionInputMap(0),
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(artifact),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(artifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             new OutputStore(),
             outputRoot.getRoot().asPath());
@@ -413,8 +386,8 @@ public class ActionMetadataHandlerTest {
             /*inputArtifactData=*/ new ActionInputMap(1),
             ImmutableMap.of(),
             /*missingArtifactsAllowed=*/ false,
-            /*outputs=*/ ImmutableList.of(treeArtifact),
-            /*tsgm=*/ null,
+            /*outputs=*/ ImmutableSet.of(treeArtifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             store,
             outputRoot.getRoot().asPath());
@@ -442,8 +415,8 @@ public class ActionMetadataHandlerTest {
             /*inputArtifactData=*/ new ActionInputMap(1),
             ImmutableMap.of(),
             /*missingArtifactsAllowed=*/ false,
-            /*outputs=*/ ImmutableList.of(treeArtifact),
-            /*tsgm=*/ null,
+            /*outputs=*/ ImmutableSet.of(treeArtifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             store,
             outputRoot.getRoot().asPath());
@@ -466,9 +439,9 @@ public class ActionMetadataHandlerTest {
         new ActionMetadataHandler(
             /* inputArtifactData= */ new ActionInputMap(0),
             ImmutableMap.of(),
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(treeArtifact),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(treeArtifact),
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             store,
             outputRoot.getRoot().asPath());
@@ -509,27 +482,47 @@ public class ActionMetadataHandlerTest {
         FileArtifactValue.createForVirtualActionInput(new byte[] {1, 2, 3, 4}, 10L);
     HasDigest.ByteStringDigest byteStringDigest = new ByteStringDigest(new byte[] {2, 3, 4});
 
+    ImmutableList<FilesetOutputSymlink> symlinks =
+        ImmutableList.of(
+            createFilesetOutputSymlink(directoryFav, "dir"),
+            createFilesetOutputSymlink(regularFav, "file"),
+            createFilesetOutputSymlink(byteStringDigest, "bytes"));
+
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("foo/bar"));
     ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMap =
-        createFilesetOutputSymlinkMap(directoryFav, regularFav, byteStringDigest);
+        ImmutableMap.of(artifact, symlinks);
 
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
             new ActionInputMap(0),
             filesetMap,
-            /* missingArtifactsAllowed= */ false,
-            /* outputs= */ ImmutableList.of(),
-            /* tsgm= */ null,
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(),
+            tsgm,
             ArtifactPathResolver.forExecRoot(outputRoot.getRoot().asPath()),
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
 
-    assertThat(handler.getMetadata(ActionInputHelper.fromPath("/output/bin/target/bytestring1")))
-        .isNull();
-    assertThat(handler.getMetadata(ActionInputHelper.fromPath("/output/bin/target/bytestring2")))
-        .isEqualTo(regularFav);
-    assertThat(handler.getMetadata(ActionInputHelper.fromPath("/output/bin/target/bytestring3")))
-        .isNull();
-    assertThat(handler.getMetadata(ActionInputHelper.fromPath("/does/not/exist"))).isNull();
+    // Only the regular FileArtifactValue should have its metadata stored.
+    assertThat(handler.getMetadata(createInput("dir"))).isNull();
+    assertThat(handler.getMetadata(createInput("file"))).isEqualTo(regularFav);
+    assertThat(handler.getMetadata(createInput("bytes"))).isNull();
+    assertThat(handler.getMetadata(createInput("does_not_exist"))).isNull();
+  }
+
+  private FilesetOutputSymlink createFilesetOutputSymlink(HasDigest digest, String identifier) {
+    return FilesetOutputSymlink.create(
+        PathFragment.create(identifier + "_symlink"),
+        PathFragment.create(identifier),
+        digest,
+        /*isGeneratedTarget=*/ true,
+        outputRoot.getExecPath());
+  }
+
+  private ActionInput createInput(String identifier) {
+    return ActionInputHelper.fromPath(outputRoot.getRoot().getRelative(identifier).getPathString());
   }
 
   @Test
@@ -547,7 +540,7 @@ public class ActionMetadataHandlerTest {
             /*expandedFilesets=*/ ImmutableMap.of(),
             /*missingArtifactsAllowed=*/ false,
             ImmutableSet.of(omitted, consumed),
-            /*tsgm=*/ null,
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             store,
             outputRoot.getRoot().asPath());
@@ -577,7 +570,7 @@ public class ActionMetadataHandlerTest {
             /*expandedFilesets=*/ ImmutableMap.of(),
             /*missingArtifactsAllowed=*/ false,
             ImmutableSet.of(omittedTree, consumedTree),
-            /*tsgm=*/ null,
+            tsgm,
             ArtifactPathResolver.IDENTITY,
             store,
             outputRoot.getRoot().asPath());
@@ -591,25 +584,5 @@ public class ActionMetadataHandlerTest {
     assertThat(store.getAllTreeArtifactData())
         .containsExactly(omittedTree, TreeArtifactValue.OMITTED_TREE_MARKER);
     assertThat(store.getAllArtifactData()).isEmpty();
-  }
-
-  private ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> createFilesetOutputSymlinkMap(
-      HasDigest... digests) {
-    int index = 1;
-    PathFragment execRoot = outputRoot.getExecPath();
-    List<FilesetOutputSymlink> symlinks = new ArrayList<>();
-    for (HasDigest digest : digests) {
-      symlinks.add(
-          FilesetOutputSymlink.create(
-              PathFragment.create("test/bytestring" + index),
-              PathFragment.create("target/bytestring" + index++),
-              digest,
-              true,
-              execRoot));
-    }
-
-    PathFragment path = PathFragment.create("foo/bar");
-    Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
-    return ImmutableMap.of(artifact, ImmutableList.copyOf(symlinks));
   }
 }
