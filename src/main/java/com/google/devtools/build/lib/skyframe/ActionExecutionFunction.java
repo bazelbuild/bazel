@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent;
 import com.google.devtools.build.lib.actions.ActionExecutedEvent.ErrorTiming;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputDepOwnerMap;
@@ -202,7 +201,9 @@ public class ActionExecutionFunction implements SkyFunction {
     // If this action was previously completed this build, then this evaluation must be happening
     // because of rewinding. Prevent any ProgressLike events from being published a second time for
     // this action; downstream consumers of action events reasonably don't expect them.
-    env = getProgressEventSuppressingEnvironmentIfPreviouslyCompleted(action, env);
+    if (!skyframeActionExecutor.shouldEmitProgressEvents(action)) {
+      env = new ProgressEventSuppressingEnvironment(env);
+    }
 
     if (action.discoversInputs()) {
       // If this action previously failed due to a lost input found during input discovery, ensure
@@ -397,14 +398,6 @@ public class ActionExecutionFunction implements SkyFunction {
     }
     return nestedSetSizeThreshold > 0
         && (inputs.memoizedFlattenAndGetSize() >= nestedSetSizeThreshold);
-  }
-
-  private Environment getProgressEventSuppressingEnvironmentIfPreviouslyCompleted(
-      Action action, Environment env) {
-    if (skyframeActionExecutor.probeCompletedAndReset(action)) {
-      return new ProgressEventSuppressingEnvironment(env);
-    }
-    return env;
   }
 
   private boolean declareDepsOnLostDiscoveredInputsIfAny(Environment env, Action action)
@@ -798,44 +791,25 @@ public class ActionExecutionFunction implements SkyFunction {
       Duration discoveredInputsDuration = Duration.ZERO;
       if (state.discoveredInputs == null) {
         try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.INFO, "discoverInputs")) {
-          try {
-            state.updateFileSystemContext(
-                skyframeActionExecutor, env, metadataHandler, ImmutableMap.of());
-          } catch (IOException e) {
-            String message = "Failed to update filesystem context: " + e.getMessage();
-            DetailedExitCode code =
-                createDetailedExitCode(message, Code.FILESYSTEM_CONTEXT_UPDATE_FAILURE);
-            throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
-          }
-          try {
-            state.discoveredInputs =
-                skyframeActionExecutor.discoverInputs(
-                    action,
-                    actionLookupData,
-                    metadataHandler,
-                    skyframeActionExecutor.probeCompletedAndReset(action)
-                        ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
-                        : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
-                    env,
-                    state.actionFileSystem);
-          } catch (IOException e) {
-            String message = "Failed during input discovery: " + e.getMessage();
-            DetailedExitCode code =
-                createDetailedExitCode(message, Code.INPUT_DISCOVERY_IO_EXCEPTION);
-            throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
-          } finally {
-            discoveredInputsDuration = Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime);
-          }
-          Preconditions.checkState(
-              env.valuesMissing() == (state.discoveredInputs == null),
-              "discoverInputs() must return null iff requesting more dependencies.");
-          if (state.discoveredInputs == null) {
-            return null;
-          }
+          state.discoveredInputs =
+              skyframeActionExecutor.discoverInputs(
+                  action, actionLookupData, metadataHandler, env, state.actionFileSystem);
         } catch (MissingDepException e) {
           Preconditions.checkState(env.valuesMissing(), action);
           return null;
         }
+        discoveredInputsDuration = Duration.ofNanos(BlazeClock.nanoTime() - actionStartTime);
+        if (env.valuesMissing()) {
+          Preconditions.checkState(
+              state.discoveredInputs == null,
+              "Inputs were discovered but more deps were requested by %s",
+              action);
+          return null;
+        }
+        Preconditions.checkNotNull(
+            state.discoveredInputs,
+            "Input discovery returned null but no more deps were requested by %s",
+            action);
       }
       switch (addDiscoveredInputs(
           state.inputArtifactData,
@@ -873,59 +847,19 @@ public class ActionExecutionFunction implements SkyFunction {
                   actionStartTime));
     }
 
-    try {
-      state.updateFileSystemContext(skyframeActionExecutor, env, metadataHandler, expandedFilesets);
-    } catch (IOException e) {
-      String message = "Failed to update filesystem context: " + e.getMessage();
-      DetailedExitCode code =
-          createDetailedExitCode(message, Code.FILESYSTEM_CONTEXT_UPDATE_FAILURE);
-      throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
-    }
-
-    ActionExecutionContext actionExecutionContext =
-        skyframeActionExecutor.getContext(
-            action,
-            metadataHandler,
-            skyframeActionExecutor.probeCompletedAndReset(action)
-                ? SkyframeActionExecutor.ProgressEventBehavior.SUPPRESS
-                : SkyframeActionExecutor.ProgressEventBehavior.EMIT,
-            Collections.unmodifiableMap(state.expandedArtifacts),
-            expandedFilesets,
-            state.topLevelFilesets,
-            state.actionFileSystem,
-            skyframeDepsResult,
-            env.getListener(),
-            env.restartPermitted());
-    ActionExecutionValue result;
-    try {
-      result =
-          skyframeActionExecutor.executeAction(
-              env,
-              action,
-              metadataHandler,
-              actionStartTime,
-              actionExecutionContext,
-              actionLookupData,
-              new ActionPostprocessingImpl(state),
-              state.discoveredInputs != null);
-    } catch (ActionExecutionException e) {
-      try {
-        actionExecutionContext.close();
-      } catch (IOException | RuntimeException e2) {
-        e.addSuppressed(e2);
-      }
-      throw e;
-    }
-    if (result != null) {
-      try {
-        actionExecutionContext.close();
-      } catch (IOException e) {
-        String message = "Failed to close action output: " + e.getMessage();
-        DetailedExitCode code = createDetailedExitCode(message, Code.ACTION_OUTPUT_CLOSE_FAILURE);
-        throw new ActionExecutionException(message, e, action, /*catastrophe=*/ false, code);
-      }
-    }
-    return result;
+    return skyframeActionExecutor.executeAction(
+        env,
+        action,
+        metadataHandler,
+        actionStartTime,
+        actionLookupData,
+        Collections.unmodifiableMap(state.expandedArtifacts),
+        expandedFilesets,
+        state.topLevelFilesets,
+        state.actionFileSystem,
+        skyframeDepsResult,
+        new ActionPostprocessingImpl(state),
+        state.discoveredInputs != null);
   }
 
   private OutputStore newOutputStore(ContinuationState state) {
@@ -1524,19 +1458,6 @@ public class ActionExecutionFunction implements SkyFunction {
       // If token is null because there was an action cache hit, this method is never called again
       // because we return immediately.
       return token != null;
-    }
-
-    /** Must be called to assign values to the given variables as they change. */
-    void updateFileSystemContext(
-        SkyframeActionExecutor executor,
-        Environment env,
-        ActionMetadataHandler metadataHandler,
-        ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets)
-        throws IOException {
-      if (actionFileSystem != null) {
-        executor.updateActionFileSystemContext(
-            actionFileSystem, env, metadataHandler.getOutputStore()::injectOutputData, filesets);
-      }
     }
 
     Iterable<Artifact> filterKnownDiscoveredInputs() {
