@@ -353,9 +353,13 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   @Override
   public void close() throws IOException {
-    fileOutErr.close();
-    if (actionFileSystem instanceof Closeable) {
-      ((Closeable) actionFileSystem).close();
+    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
+    try {
+      fileOutErr.close();
+    } finally {
+      if (actionFileSystem instanceof Closeable) {
+        ((Closeable) actionFileSystem).close();
+      }
     }
   }
 
