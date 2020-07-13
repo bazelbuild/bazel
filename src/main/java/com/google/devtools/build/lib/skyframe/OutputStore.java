@@ -15,12 +15,10 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
@@ -41,8 +39,6 @@ class OutputStore {
 
   private final ConcurrentMap<SpecialArtifact, TreeArtifactValue> treeArtifactData =
       new ConcurrentHashMap<>();
-
-  private final Set<Artifact> injectedFiles = Sets.newConcurrentHashSet();
 
   @Nullable
   final FileArtifactValue getArtifactData(Artifact artifact) {
@@ -79,21 +75,15 @@ class OutputStore {
     return ImmutableMap.copyOf(treeArtifactData);
   }
 
+  // TODO(b/160603797): This is the same as putArtifactData. Merge and remove MinimalOutputStore.
   final void injectOutputData(Artifact output, FileArtifactValue artifactValue) {
-    injectedFiles.add(output);
     artifactData.put(output, artifactValue);
-  }
-
-  /** Returns a set that tracks which Artifacts have had metadata injected. */
-  final Set<Artifact> injectedFiles() {
-    return injectedFiles;
   }
 
   /** Clears all data in this store. */
   final void clear() {
     artifactData.clear();
     treeArtifactData.clear();
-    injectedFiles.clear();
   }
 
   /**
@@ -108,6 +98,5 @@ class OutputStore {
     } else {
       artifactData.remove(artifact);
     }
-    injectedFiles.remove(artifact);
   }
 }

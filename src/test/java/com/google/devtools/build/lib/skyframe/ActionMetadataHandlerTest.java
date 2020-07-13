@@ -15,10 +15,12 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputMap;
@@ -36,10 +38,14 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -49,7 +55,21 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ActionMetadataHandlerTest {
 
-  private final Scratch scratch = new Scratch();
+  private final Set<Path> chmodCalls = Sets.newConcurrentHashSet();
+
+  private final Scratch scratch =
+      new Scratch(
+          new InMemoryFileSystem() {
+            @Override
+            public void chmod(Path path, int mode) throws IOException {
+              assertThat(mode).isEqualTo(0555); // Read only and executable.
+              if (!chmodCalls.add(path)) {
+                fail("chmod called on " + path + " twice");
+              }
+              super.chmod(path, mode);
+            }
+          });
+
   private final TimestampGranularityMonitor tsgm =
       new TimestampGranularityMonitor(new ManualClock());
 
@@ -84,6 +104,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(input)).isNull();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -106,6 +127,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isEqualTo(metadata);
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -125,6 +147,7 @@ public final class ActionMetadataHandlerTest {
             outputRoot.getRoot().asPath());
     Exception e = assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
     assertThat(e).hasMessageThat().contains(artifact + " is not present in declared outputs");
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -143,6 +166,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNull();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -161,6 +185,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNull();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -180,6 +205,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNotNull();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -198,6 +224,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThrows(FileNotFoundException.class, () -> handler.getMetadata(artifact));
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -216,6 +243,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -236,6 +264,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNull();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -258,6 +287,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNotNull();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -278,6 +308,7 @@ public final class ActionMetadataHandlerTest {
             new MinimalOutputStore(),
             outputRoot.getRoot().asPath());
     assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -313,13 +344,14 @@ public final class ActionMetadataHandlerTest {
     assertThat(tree.getChildValues())
         .containsExactly(child1, child1Metadata, child2, child2Metadata);
     assertThat(store.getAllArtifactData()).isEmpty(); // All data should be in treeArtifactData.
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
   public void resettingOutputs() throws Exception {
-    scratch.file("/output/bin/foo/bar", "not empty");
     PathFragment path = PathFragment.create("foo/bar");
     Artifact artifact = ActionsTestUtil.createArtifactWithRootRelativePath(outputRoot, path);
+    Path outputPath = scratch.file(artifact.getPath().getPathString(), "not empty");
     ActionInputMap map = new ActionInputMap(1);
     ActionMetadataHandler handler =
         new ActionMetadataHandler(
@@ -335,6 +367,7 @@ public final class ActionMetadataHandlerTest {
 
     // The handler doesn't have any info. It'll stat the file and discover that it's 10 bytes long.
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
+    assertThat(chmodCalls).containsExactly(outputPath);
 
     // Inject a remote file of size 42.
     handler.injectFile(
@@ -343,7 +376,9 @@ public final class ActionMetadataHandlerTest {
 
     // Reset this output, which will make the handler stat the file again.
     handler.resetOutputs(ImmutableList.of(artifact));
+    chmodCalls.clear(); // Permit a second chmod call for the artifact.
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
+    assertThat(chmodCalls).containsExactly(outputPath);
   }
 
   @Test
@@ -371,6 +406,7 @@ public final class ActionMetadataHandlerTest {
     assertThat(v).isNotNull();
     assertThat(v.getDigest()).isEqualTo(digest);
     assertThat(v.getSize()).isEqualTo(size);
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -398,6 +434,7 @@ public final class ActionMetadataHandlerTest {
     assertThrows(IllegalArgumentException.class, () -> handler.injectFile(child, childValue));
     assertThat(store.getAllArtifactData()).isEmpty();
     assertThat(store.getAllTreeArtifactData()).isEmpty();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -427,6 +464,7 @@ public final class ActionMetadataHandlerTest {
 
     assertThat(store.getAllArtifactData()).containsExactly(output, value);
     assertThat(store.getAllTreeArtifactData()).isEmpty();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -463,6 +501,7 @@ public final class ActionMetadataHandlerTest {
     TreeArtifactValue treeValue = store.getTreeArtifactData(treeArtifact);
     assertThat(treeValue).isNotNull();
     assertThat(treeValue.getDigest()).isEqualTo(value.getDigest());
+    assertThat(chmodCalls).isEmpty();
 
     assertThat(treeValue.getChildPaths())
         .containsExactly(PathFragment.create("foo"), PathFragment.create("bar"));
@@ -510,6 +549,7 @@ public final class ActionMetadataHandlerTest {
     assertThat(handler.getMetadata(createInput("file"))).isEqualTo(regularFav);
     assertThat(handler.getMetadata(createInput("bytes"))).isNull();
     assertThat(handler.getMetadata(createInput("does_not_exist"))).isNull();
+    assertThat(chmodCalls).isEmpty();
   }
 
   private FilesetOutputSymlink createFilesetOutputSymlink(HasDigest digest, String identifier) {
@@ -553,6 +593,7 @@ public final class ActionMetadataHandlerTest {
     assertThat(store.getAllArtifactData())
         .containsExactly(omitted, FileArtifactValue.OMITTED_FILE_MARKER);
     assertThat(store.getAllTreeArtifactData()).isEmpty();
+    assertThat(chmodCalls).isEmpty();
   }
 
   @Test
@@ -584,5 +625,69 @@ public final class ActionMetadataHandlerTest {
     assertThat(store.getAllTreeArtifactData())
         .containsExactly(omittedTree, TreeArtifactValue.OMITTED_TREE_MARKER);
     assertThat(store.getAllArtifactData()).isEmpty();
+    assertThat(chmodCalls).isEmpty();
+  }
+
+  @Test
+  public void outputArtifactNotPreviouslyInjectedInExecutionMode() throws Exception {
+    Artifact output =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("dir/file.out"));
+    Path outputPath = scratch.file(output.getPath().getPathString(), "contents");
+    OutputStore store = new OutputStore();
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            new ActionInputMap(1),
+            /*expandedFilesets=*/ ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            ImmutableSet.of(output),
+            tsgm,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+    handler.discardOutputMetadata();
+
+    FileArtifactValue metadata = handler.getMetadata(output);
+
+    assertThat(metadata.getDigest()).isEqualTo(outputPath.getDigest());
+    assertThat(store.getAllArtifactData()).containsExactly(output, metadata);
+    assertThat(store.getAllTreeArtifactData()).isEmpty();
+    assertThat(chmodCalls).containsExactly(outputPath);
+  }
+
+  @Test
+  public void outputTreeArtifactNotPreviouslyInjectedInExecutionMode() throws Exception {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("bin/foo/bar"));
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(treeArtifact, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/child2");
+    Path child1Path = scratch.file(child1.getPath().getPathString(), "contents1");
+    Path child2Path = scratch.file(child2.getPath().getPathString(), "contents2");
+    OutputStore store = new OutputStore();
+    ActionMetadataHandler handler =
+        new ActionMetadataHandler(
+            new ActionInputMap(1),
+            /*expandedFilesets=*/ ImmutableMap.of(),
+            /*missingArtifactsAllowed=*/ false,
+            /*outputs=*/ ImmutableSet.of(treeArtifact),
+            tsgm,
+            ArtifactPathResolver.IDENTITY,
+            store,
+            outputRoot.getRoot().asPath());
+    handler.discardOutputMetadata();
+
+    FileArtifactValue treeMetadata = handler.getMetadata(treeArtifact);
+    FileArtifactValue child1Metadata = handler.getMetadata(child1);
+    FileArtifactValue child2Metadata = handler.getMetadata(child2);
+    TreeArtifactValue tree = store.getTreeArtifactData(treeArtifact);
+
+    assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
+    assertThat(tree.getChildValues())
+        .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(store.getAllArtifactData()).isEmpty(); // All data should be in treeArtifactData.
+    assertThat(chmodCalls)
+        .containsExactly(
+            treeArtifact.getPath(), child1Path, child2Path, child2Path.getParentDirectory());
   }
 }

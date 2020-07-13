@@ -237,7 +237,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     //
     // We only cache nonexistence here, not file system errors. It is unlikely that the file will be
     // requested from this cache too many times.
-    value = constructFileArtifactValueFromFilesystem(artifact);
+    value = constructFileArtifactValueFromFilesystem(artifact, /*chmod=*/ executionMode.get());
     store.putArtifactData(artifact, value);
     return checkExists(value, artifact);
   }
@@ -255,21 +255,11 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   private TreeArtifactValue getTreeArtifactValue(SpecialArtifact artifact) throws IOException {
+    Preconditions.checkState(artifact.isTreeArtifact(), "%s is not a tree artifact", artifact);
+
     TreeArtifactValue value = store.getTreeArtifactData(artifact);
     if (value != null) {
       return checkExists(value, artifact);
-    }
-
-    if (executionMode.get()) {
-      // Preserve existing behavior: we don't set non-TreeArtifact directories
-      // read only and executable. However, it's unusual for non-TreeArtifact outputs
-      // to be directories.
-      if (artifactPathResolver.toPath(artifact).isDirectory()) {
-        setTreeReadOnlyAndExecutable(artifact, PathFragment.EMPTY_FRAGMENT);
-      } else {
-        setPathReadOnlyAndExecutable(
-            TreeFileArtifact.createTreeOutput(artifact, PathFragment.EMPTY_FRAGMENT));
-      }
     }
 
     value = constructTreeArtifactValueFromFilesystem(artifact);
@@ -279,7 +269,14 @@ final class ActionMetadataHandler implements MetadataHandler {
 
   private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact parent)
       throws IOException {
-    Preconditions.checkState(parent.isTreeArtifact(), parent);
+    if (executionMode.get()) {
+      if (artifactPathResolver.toPath(parent).isDirectory()) {
+        setTreeReadOnlyAndExecutable(parent, PathFragment.EMPTY_FRAGMENT);
+      } else {
+        setPathReadOnlyAndExecutable(
+            TreeFileArtifact.createTreeOutput(parent, PathFragment.EMPTY_FRAGMENT));
+      }
+    }
 
     // Make sure the tree artifact root is a regular directory. Note that this is how the Action
     // is initialized, so this should hold unless the Action itself has deleted the root.
@@ -295,7 +292,8 @@ final class ActionMetadataHandler implements MetadataHandler {
       TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(parent, path);
       FileArtifactValue fileMetadata;
       try {
-        fileMetadata = constructFileArtifactValueFromFilesystem(treeFileArtifact);
+        // We have already called chmod if necessary in the setTreeReadOnlyAndExecutable call above.
+        fileMetadata = constructFileArtifactValueFromFilesystem(treeFileArtifact, /*chmod=*/ false);
       } catch (FileNotFoundException e) {
         String errorMessage =
             String.format(
@@ -321,16 +319,15 @@ final class ActionMetadataHandler implements MetadataHandler {
   @Override
   public FileArtifactValue constructMetadataForDigest(
       Artifact output, FileStatus statNoFollow, byte[] digest) throws IOException {
-    Preconditions.checkState(executionMode.get());
-    Preconditions.checkState(!output.isSymlink());
-    Preconditions.checkNotNull(digest);
+    Preconditions.checkArgument(!output.isSymlink(), "%s is a symlink", output);
+    Preconditions.checkNotNull(digest, "Missing digest for %s", output);
+    Preconditions.checkNotNull(statNoFollow, "Missing stat for %s", output);
+    Preconditions.checkState(
+        executionMode.get(), "Tried to construct metadata for %s outside of execution", output);
 
-    // We have to add the artifact to injectedFiles before calling constructFileArtifactValue to
-    // avoid duplicate chmod calls.
-    store.injectedFiles().add(output);
-
+    // We already have a stat, so no need to call chmod.
     return constructFileArtifactValue(
-        output, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
+        output, /*chmod=*/ false, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
   }
 
   @Override
@@ -343,6 +340,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         output);
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
+
     store.injectOutputData(output, metadata);
   }
 
@@ -355,6 +353,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
+
     store.putTreeArtifactData(output, TreeArtifactValue.create(children));
   }
 
@@ -385,14 +384,6 @@ final class ActionMetadataHandler implements MetadataHandler {
   public void discardOutputMetadata() {
     boolean wasExecutionMode = executionMode.getAndSet(true);
     Preconditions.checkState(!wasExecutionMode);
-    Preconditions.checkState(
-        store.injectedFiles().isEmpty(),
-        "Files cannot be injected before action execution: %s",
-        store.injectedFiles());
-    Preconditions.checkState(
-        omittedOutputs.isEmpty(),
-        "Artifacts cannot be marked omitted before action execution: %s",
-        omittedOutputs);
     store.clear();
   }
 
@@ -411,28 +402,27 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   /**
-   * Constructs a new {@link FileArtifactValue} by reading from the file system and checks
-   * inconsistent data. This calls chmod on the file if we're in execution mode, unless it is in
-   * {@link OutputStore#injectedFiles()}.
+   * Constructs a new {@link FileArtifactValue} by reading from the file system, optionally calling
+   * chmod on the file.
    */
-  private FileArtifactValue constructFileArtifactValueFromFilesystem(Artifact artifact)
-      throws IOException {
-    return constructFileArtifactValue(artifact, /*statNoFollow=*/ null, /*injectedDigest=*/ null);
+  private FileArtifactValue constructFileArtifactValueFromFilesystem(
+      Artifact artifact, boolean chmod) throws IOException {
+    return constructFileArtifactValue(
+        artifact, chmod, /*statNoFollow=*/ null, /*injectedDigest=*/ null);
   }
 
-  /**
-   * Constructs a new {@link FileArtifactValue} and checks inconsistent data. This calls chmod on
-   * the file if we're in execution mode, unless it is in {@link OutputStore#injectedFiles()}.
-   */
+  /** Constructs a new {@link FileArtifactValue}, optionally calling chmod on the file. */
   private FileArtifactValue constructFileArtifactValue(
       Artifact artifact,
+      boolean chmod,
       @Nullable FileStatusWithDigest statNoFollow,
       @Nullable byte[] injectedDigest)
       throws IOException {
-    // We first chmod the output files before we construct the FileContentsProxy. The proxy may use
-    // ctime, which is affected by chmod.
-    if (executionMode.get()) {
-      Preconditions.checkState(!artifact.isTreeArtifact());
+    Preconditions.checkState(!artifact.isTreeArtifact(), "%s is a tree artifact", artifact);
+
+    // If necessary, we first chmod the output file before we construct the FileContentsProxy. The
+    // proxy may use ctime, which is affected by chmod.
+    if (chmod) {
       setPathReadOnlyAndExecutable(artifact);
     }
 
@@ -594,11 +584,6 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   private void setPathReadOnlyAndExecutable(Artifact artifact) throws IOException {
-    // If the metadata was injected, we assume the mode is set correct and bail out early to avoid
-    // the additional overhead of resetting it.
-    if (store.injectedFiles().contains(artifact)) {
-      return;
-    }
     Path path = artifactPathResolver.toPath(artifact);
     if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
       // We trust the files created by the execution engine to be non symlinks with expected
