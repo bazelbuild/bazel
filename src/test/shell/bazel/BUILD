@@ -1007,6 +1007,27 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_bootstrap_distfile_tar_test",
+    timeout = "eternal",
+    srcs = ["bazel_bootstrap_distfile_test.sh"],
+    args = [
+        "$(location //:bazel-distfile-tar)",
+        "$(location //src:embedded_jdk_allmodules_cached)",
+    ],
+    data = [
+        ":test-deps",
+        "//:bazel-distfile-tar",
+        "//src:embedded_jdk_allmodules_cached",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    exec_compatible_with = ["//:highcpu_machine"],
+    tags = [
+        "block-network",
+        "no_windows",
+    ],
+)
+
+sh_test(
     name = "bazel_determinism_test",
     timeout = "eternal",
     srcs = ["bazel_determinism_test.sh"],
