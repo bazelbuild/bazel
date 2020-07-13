@@ -1,3 +1,67 @@
+## Release 3.4.0 (2020-07-13)
+
+```
+Baseline: 7404d17ac76da876ae0b432d1fccf222a9e991fe
+
+Cherry picks:
+
+   + a4334be50a206bf8d676a0196af11056c48ac35b:
+     fixup! Gracefully handle the lack of subreaper support in Linux.
+```
+
+Incompatible changes:
+
+  - This removes the short-lived --process_wrapper_extra_flags
+    flag, which was introduced primarily to roll out a bug fix.
+    Unfortunately,
+    this made us inadvertently expose all of the process-wrapper's
+    command line
+    interface to the public, which should not have happened.  Given
+    the corner
+    case of the utility of this flag, the lack of documentation for
+    it, and the
+    fact that it only appeared in a single release, we are treating
+    this as a
+    bug instead of a backwards compatibility breakage.
+
+New features:
+
+  - bazel info: Allow to specify multiple keys.
+  - Support code coverage with GCC 9.
+
+Important changes:
+
+  - Allow InstrumentedFilesInfo fields to be read from Starlark.
+  - The --starlark_cpu_profile=<file> flag writes a profile in
+    pprof format containing a statistical summary of CPU usage
+    by all Starlark execution during the bazel command. Use it
+    to identify slow Starlark functions in loading and analysis.
+  - The --debug_depset_flag has been removed as it is in effect
+    always on at no cost.
+  - Rule authors should use the
+    incompatible_use_toolchain_transition rule attribute to migrate
+    to using
+    the toolchain transition. jcater to udpate notes further.
+  - `apple_binary` rules now accept the `stamp` attribute with the
+    same
+    semantics that it has in `cc_binary` rules.
+  - --incompatible_objc_provider_remove_compile_info turns off
+    the compile info/mege_zip Starlark APIs in ObjcProvider.  See
+    #11359.
+  - The --debug_depset_flag has been removed as it is in effect
+    always on at no cost.
+  - Fix behavior of ctx.actions.write so content is written without
+    an incorrect encoding to UTF-8.
+    See https://github.com/bazelbuild/bazel/issues/10174 for details.
+  - Collect more performance metrics for worker execution.
+  - Add flag --incompatible_force_strict_header_check_from_starlark
+  - Configure coverage and runfiles for sh_library.
+  - Adds --incompatible_blacklisted_protos_requires_proto_info to
+    indicate whether proto_lang_toolchain.blacklisted_protos requires
+    ProtoInfo.
+
+This release contains contributions from many people at Google, as well as Andrzej Guszak, Benjamin Peterson, Benjamin Romano, Carlos Eduardo Seo, Claudio Bley, dannysullivan, David Ostrovsky, George Gensure, Graham Jenson, Grzegorz Lukasik, Gunnar Wagenknecht, Henk van der Laan, Jin, John Millikin, Marin Baron, Nikhil Marathe, Robin Nabel, Ryan Beasley, Samuel Giddins, Sergey Balabanov, utsav-dbx, Vo Van Nghia, Yannic Bonenberger.
+
 ## Release 3.3.1 (2020-06-30)
 
 ```
