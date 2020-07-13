@@ -74,8 +74,7 @@ public final class BuiltinFunction implements StarlarkCallable {
       throws EvalException, InterruptedException {
     MethodDescriptor desc = getMethodDescriptor(thread.getSemantics());
     Object[] vector = getArgumentVector(thread, desc, positional, named);
-    return desc.call(
-        obj instanceof String ? StringModule.INSTANCE : obj, vector, thread.mutability());
+    return desc.call(obj, thread, vector);
   }
 
   private MethodDescriptor getMethodDescriptor(StarlarkSemantics semantics) {
@@ -163,19 +162,11 @@ public final class BuiltinFunction implements StarlarkCallable {
     if (desc.acceptsExtraKwargs()) {
       n++;
     }
-    if (desc.isUseStarlarkThread()) {
-      n++;
-    }
     Object[] vector = new Object[n];
 
     // positional arguments
     int paramIndex = 0;
     int argIndex = 0;
-    if (obj instanceof String) {
-      // String methods get the string as an extra argument
-      // because their true receiver is StringModule.INSTANCE.
-      vector[paramIndex++] = obj;
-    }
     for (; argIndex < positional.length && paramIndex < parameters.length; paramIndex++) {
       ParamDescriptor param = parameters[paramIndex];
       if (!param.isPositional()) {
@@ -329,9 +320,6 @@ public final class BuiltinFunction implements StarlarkCallable {
     }
     if (desc.acceptsExtraKwargs()) {
       vector[i++] = Dict.wrap(thread.mutability(), kwargs);
-    }
-    if (desc.isUseStarlarkThread()) {
-      vector[i++] = thread;
     }
 
     return vector;
