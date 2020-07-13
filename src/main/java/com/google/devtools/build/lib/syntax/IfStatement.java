@@ -25,19 +25,23 @@ public final class IfStatement extends Statement {
   private final Expression condition;
   // These blocks may be non-null but empty after a misparse:
   private final ImmutableList<Statement> thenBlock; // non-empty
-  @Nullable ImmutableList<Statement> elseBlock; // non-empty if non-null; set after construction
+
+  @Nullable
+  final ImmutableList<Statement> elseBlock; // non-empty if non-null; set after construction
 
   IfStatement(
       FileLocations locs,
       TokenKind token,
       int ifOffset,
       Expression condition,
-      List<Statement> thenBlock) {
+      List<Statement> thenBlock,
+      @Nullable List<Statement> elseBlock) {
     super(locs);
     this.token = token;
     this.ifOffset = ifOffset;
     this.condition = condition;
     this.thenBlock = ImmutableList.copyOf(thenBlock);
+    this.elseBlock = elseBlock != null ? ImmutableList.copyOf(elseBlock) : null;
   }
 
   /**
@@ -61,10 +65,6 @@ public final class IfStatement extends Statement {
   @Nullable
   public ImmutableList<Statement> getElseBlock() {
     return elseBlock;
-  }
-
-  void setElseBlock(List<Statement> elseBlock) {
-    this.elseBlock = ImmutableList.copyOf(elseBlock);
   }
 
   @Override
