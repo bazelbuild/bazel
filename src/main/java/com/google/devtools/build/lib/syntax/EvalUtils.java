@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
-import java.util.IllegalFormatException;
 import net.starlark.java.spelling.SpellChecker;
+
+import javax.annotation.Nullable;
+import java.util.IllegalFormatException;
 
 /** Utilities used by the evaluator. */
 // TODO(adonovan): move all fundamental values and operators of the language to Starlark
@@ -209,15 +211,54 @@ public final class EvalUtils {
     return x == null || x == Starlark.NONE;
   }
 
+  private static class DotExpressionDescriptionCache {
+    private final Class<?> objClass;
+    private final StarlarkSemantics semantics;
+    private final String name;
+    /** Null means negative result: object does not have a named description field. */
+    @Nullable private final MethodDescriptor method;
+
+    DotExpressionDescriptionCache(
+        Class<?> objClass,
+        StarlarkSemantics semantics,
+        String name,
+        @Nullable MethodDescriptor method) {
+      this.semantics = semantics;
+      this.objClass = objClass;
+      this.name = name;
+      this.method = method;
+    }
+  }
+
   /** Returns the named field or method of value {@code x}, or null if not found. */
   // TODO(adonovan): publish this method as Starlark.getattr(Semantics, Mutability, Object, String).
-  static Object getAttr(StarlarkThread thread, Object x, String name)
+  static Object getAttr(
+      StarlarkThread thread, Object x, String name, @Nullable DotExpression cacheHolder)
       throws EvalException, InterruptedException {
     StarlarkSemantics semantics = thread.getSemantics();
     Mutability mu = thread.mutability();
 
+    DotExpressionDescriptionCache cache =
+        cacheHolder != null ? (DotExpressionDescriptionCache) cacheHolder.descriptorCache : null;
+
     // @StarlarkMethod-annotated field or method?
-    MethodDescriptor method = CallUtils.getMethod(semantics, x.getClass(), name);
+    MethodDescriptor method;
+    if (cache != null && cache.objClass == x.getClass() && cache.semantics == semantics) {
+      // sanity check
+      Preconditions.checkState(cache.name == name);
+      method = cache.method;
+    } else {
+      method = CallUtils.getMethod(semantics, x.getClass(), name);
+      if (cacheHolder != null)
+        // Do not update cache if cache exists, but caches the wrong descriptor or semantics
+        // to avoid continuously allocating new cache entries when descriptor is called
+        // with different receiver classes
+        if (cache == null) {
+          cacheHolder.descriptorCache =
+              new DotExpressionDescriptionCache(x.getClass(), semantics, name, method);
+        }
+    }
+
     if (method != null) {
       if (method.isStructField()) {
         return method.callField(x, semantics, mu);
@@ -291,7 +332,6 @@ public final class EvalUtils {
             // list + list
             return StarlarkList.concat((StarlarkList<?>) x, (StarlarkList<?>) y, mu);
           }
-
         }
         break;
 

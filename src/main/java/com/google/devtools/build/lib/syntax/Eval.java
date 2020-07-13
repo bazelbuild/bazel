@@ -509,7 +509,7 @@ final class Eval {
     Object object = eval(fr, dot.getObject());
     String name = dot.getField().getName();
     try {
-      Object result = EvalUtils.getAttr(fr.thread, object, name);
+      Object result = EvalUtils.getAttr(fr.thread, object, name, dot);
       if (result == null) {
         throw EvalUtils.getMissingAttrException(object, name, fr.thread.getSemantics());
       }

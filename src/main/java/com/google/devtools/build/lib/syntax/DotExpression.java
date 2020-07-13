@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 
+import javax.annotation.Nullable;
+
 /** Syntax node for a dot expression. e.g. obj.field, but not obj.method() */
 public final class DotExpression extends Expression {
 
@@ -59,4 +61,8 @@ public final class DotExpression extends Expression {
   public Kind kind() {
     return Kind.DOT;
   }
+
+  /** Descriptor resolution cache; used by the interpreter. */
+  @Nullable
+  volatile Object descriptorCache;
 }
