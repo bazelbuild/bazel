@@ -106,10 +106,13 @@ def _cc_import_objects_archive_action_test_impl(ctx):
 
     linker_inputs = target_under_test[CcInfo].linking_context.linker_inputs.to_list()
     asserts.equals(env, 1, len(linker_inputs))
+
     libraries = linker_inputs[0].libraries
     asserts.equals(env, 1, len(libraries))
+
     pic_static_library = libraries[0].pic_static_library
     asserts.true(env, pic_static_library, "Pic static library should be defined")
+
     expected_name = "libcc_import_objects_archive_action_test_import.pic.a"
     asserts.equals(env, expected_name, pic_static_library.basename)
 
@@ -157,17 +160,22 @@ def _cc_import_objects_present_in_linking_context_test_impl(ctx):
     target_under_test = analysistest.target_under_test(env)
     linker_inputs = target_under_test[CcInfo].linking_context.linker_inputs.to_list()
     asserts.equals(env, 1, len(linker_inputs))
+
     libraries = linker_inputs[0].libraries
     asserts.equals(env, 1, len(libraries))
+
     objects = libraries[0].objects
     asserts.equals(env, 1, len(objects))
     asserts.equals(env, "object.o", objects[0].basename)
+
     pic_objects = libraries[0].pic_objects
     asserts.equals(env, 1, len(pic_objects))
     asserts.equals(env, "object.pic.o", pic_objects[0].basename)
+
     static_library = libraries[0].static_library
     asserts.true(env, static_library)
     asserts.equals(env, "lib.a", static_library.basename)
+    
     pic_static_library = libraries[0].pic_static_library
     asserts.true(env, pic_static_library)
     asserts.equals(env, "lib.pic.a", pic_static_library.basename)

@@ -191,7 +191,7 @@ cc_import = rule(
     attrs = {
         "hdrs": attr.label_list(allow_files = [".h"]),
         "static_library": attr.label(allow_single_file = [".a", ".lib"]),
-        "pic_static_library": attr.label(allow_single_file = [".a", ".lib", ".pic.a"]),
+        "pic_static_library": attr.label(allow_single_file = [".pic.a", ".pic.lib"]),
         "shared_library": attr.label(allow_single_file = True),
         "interface_library": attr.label(
             allow_single_file = [".ifso", ".tbd", ".lib", ".so", ".dylib"],
