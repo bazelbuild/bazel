@@ -174,6 +174,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
+  @Nullable
   public FileArtifactValue getMetadata(ActionInput actionInput) throws IOException {
     if (!(actionInput instanceof Artifact)) {
       PathFragment inputPath = actionInput.getExecPath();
@@ -213,23 +214,15 @@ final class ActionMetadataHandler implements MetadataHandler {
       return tree.getMetadata();
     }
 
-    // Check for existing metadata. It may have been injected. In either case, this method is called
-    // from SkyframeActionExecutor to make sure that we have metadata for all action outputs, as the
-    // results are then stored in Skyframe (and the action cache).
+    if (artifact.isChildOfDeclaredDirectory()) {
+      TreeArtifactValue tree = getTreeArtifactValue(artifact.getParent());
+      value = tree.getChildValues().getOrDefault(artifact, FileArtifactValue.MISSING_FILE_MARKER);
+      return checkExists(value, artifact);
+    }
+
     value = store.getArtifactData(artifact);
     if (value != null) {
       return checkExists(value, artifact);
-    }
-    // This artifact was not injected directly to the store, but it may have been injected as part
-    // of a tree artifact.
-    if (artifact.isChildOfDeclaredDirectory()) {
-      TreeArtifactValue tree = store.getTreeArtifactData(artifact.getParent());
-      if (tree != null) {
-        value = tree.getChildValues().get(artifact);
-        if (value != null) {
-          return checkExists(value, artifact);
-        }
-      }
     }
 
     // No existing metadata; this can happen if the output metadata is not injected after a spawn
@@ -300,19 +293,17 @@ final class ActionMetadataHandler implements MetadataHandler {
     Map<TreeFileArtifact, FileArtifactValue> values = Maps.newHashMapWithExpectedSize(paths.size());
     for (PathFragment path : paths) {
       TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(parent, path);
-      FileArtifactValue fileMetadata = store.getArtifactData(treeFileArtifact);
-      if (fileMetadata == null) {
-        try {
-          fileMetadata = constructFileArtifactValueFromFilesystem(treeFileArtifact);
-        } catch (FileNotFoundException e) {
-          String errorMessage =
-              String.format(
-                  "Failed to resolve relative path %s inside TreeArtifact %s. "
-                      + "The associated file is either missing or is an invalid symlink.",
-                  treeFileArtifact.getParentRelativePath(),
-                  treeFileArtifact.getParent().getExecPathString());
-          throw new IOException(errorMessage, e);
-        }
+      FileArtifactValue fileMetadata;
+      try {
+        fileMetadata = constructFileArtifactValueFromFilesystem(treeFileArtifact);
+      } catch (FileNotFoundException e) {
+        String errorMessage =
+            String.format(
+                "Failed to resolve relative path %s inside TreeArtifact %s. "
+                    + "The associated file is either missing or is an invalid symlink.",
+                treeFileArtifact.getParentRelativePath(),
+                treeFileArtifact.getParent().getExecPathString());
+        throw new IOException(errorMessage, e);
       }
 
       values.put(treeFileArtifact, fileMetadata);

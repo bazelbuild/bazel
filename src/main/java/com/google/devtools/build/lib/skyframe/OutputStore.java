@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -31,11 +30,6 @@ import javax.annotation.Nullable;
  *
  * <p>Data stored in {@link #artifactData} and {@link #treeArtifactData} will be passed along to the
  * final {@link ActionExecutionValue}.
- *
- * <p>Tree file artifacts which should be stored in a {@link TreeArtifactValue} (according to {@link
- * Artifact#isChildOfDeclaredDirectory}) are temporarily cached in {@link #treeFileCache}, but it is
- * expected that the final {@link TreeArtifactValue} will eventually be added via {@link
- * #putTreeArtifactData}.
  *
  * <p>This implementation aggressively stores all data. Subclasses may override mutating methods to
  * avoid storing unnecessary data.
@@ -48,20 +42,19 @@ class OutputStore {
   private final ConcurrentMap<SpecialArtifact, TreeArtifactValue> treeArtifactData =
       new ConcurrentHashMap<>();
 
-  // The keys in this map are all TreeFileArtifact, but the declared type is Artifact to make it
-  // interchangeable with artifactData syntactically.
-  private final ConcurrentMap<Artifact, FileArtifactValue> treeFileCache =
-      new ConcurrentHashMap<>();
-
   private final Set<Artifact> injectedFiles = Sets.newConcurrentHashSet();
 
   @Nullable
   final FileArtifactValue getArtifactData(Artifact artifact) {
-    return mapFor(artifact).get(artifact);
+    return artifactData.get(artifact);
   }
 
   void putArtifactData(Artifact artifact, FileArtifactValue value) {
-    mapFor(artifact).put(artifact, value);
+    Preconditions.checkArgument(
+        !artifact.isTreeArtifact() && !artifact.isChildOfDeclaredDirectory(),
+        "%s should be stored in a TreeArtifactValue",
+        artifact);
+    artifactData.put(artifact, value);
   }
 
   final ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
@@ -88,7 +81,7 @@ class OutputStore {
 
   final void injectOutputData(Artifact output, FileArtifactValue artifactValue) {
     injectedFiles.add(output);
-    mapFor(output).put(output, artifactValue);
+    artifactData.put(output, artifactValue);
   }
 
   /** Returns a set that tracks which Artifacts have had metadata injected. */
@@ -100,26 +93,21 @@ class OutputStore {
   final void clear() {
     artifactData.clear();
     treeArtifactData.clear();
-    treeFileCache.clear();
     injectedFiles.clear();
   }
 
   /**
    * Clears data about a specific artifact from this store.
    *
-   * <p>If a tree artifact parent is given, it will be cleared from {@link #treeArtifactData} but
-   * its children will remain in {@link #treeFileCache} if present. If a tree artifact child is
-   * given, it will only be removed from {@link #treeFileCache}.
+   * <p>If a tree artifact parent is given, it will be cleared from {@link #treeArtifactData}. If a
+   * tree artifact child is given, its enclosing tree artifact will not be removed.
    */
   final void remove(Artifact artifact) {
-    mapFor(artifact).remove(artifact);
     if (artifact.isTreeArtifact()) {
       treeArtifactData.remove(artifact);
+    } else {
+      artifactData.remove(artifact);
     }
     injectedFiles.remove(artifact);
-  }
-
-  private Map<Artifact, FileArtifactValue> mapFor(Artifact artifact) {
-    return artifact.isChildOfDeclaredDirectory() ? treeFileCache : artifactData;
   }
 }
