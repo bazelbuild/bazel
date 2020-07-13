@@ -50,7 +50,7 @@ public class ResourceManagerTest {
   @Before
   public final void configureResourceManager() throws Exception  {
     rm.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
+        ResourceSet.create(/*memoryMb=*/ 1000, /*cpuUsage=*/ 1, /*extraResourceUsage*/ null, /* localTestCount= */ 2));
     counter = new AtomicInteger(0);
     sync = new CyclicBarrier(2);
     sync2 = new CyclicBarrier(2);
@@ -59,15 +59,15 @@ public class ResourceManagerTest {
 
   private ResourceHandle acquire(double ram, double cpu, int tests)
       throws InterruptedException {
-    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
+    return rm.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, null, tests));
   }
 
   private ResourceHandle acquireNonblocking(double ram, double cpu, int tests) {
-    return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, tests));
+    return rm.tryAcquire(resourceOwner, ResourceSet.create(ram, cpu, null, tests));
   }
 
   private void release(double ram, double cpu, int tests) {
-    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, tests));
+    rm.releaseResources(resourceOwner, ResourceSet.create(ram, cpu, null, tests));
   }
 
   private void validate(int count) {
@@ -283,7 +283,7 @@ public class ResourceManagerTest {
     // This should process the queue. If the request from above is still present, it will take all
     // the available memory. But it shouldn't.
     rm.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/ 2000, /*cpuUsage=*/ 1, /* localTestCount= */ 2));
+        ResourceSet.create(/*memoryMb=*/ 2000, /*cpuUsage=*/ 1, /*extraResourceUsage*/ null, /* localTestCount= */ 2));
     TestThread thread2 =
         new TestThread(
             () -> {

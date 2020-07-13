@@ -101,13 +101,16 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /**
@@ -822,10 +825,13 @@ public class ExecutionTool {
     }
     resourceMgr.setUseLocalMemoryEstimate(options.localMemoryEstimate);
 
+    Map<String, Float> extraResources = options.localExtraResources.stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1,v2) -> v1, HashMap::new));
+
     resourceMgr.setAvailableResources(
         ResourceSet.create(
             resources.getMemoryMb(),
             resources.getCpuUsage(),
+            extraResources,
             request.getExecutionOptions().usingLocalTestJobs()
                 ? request.getExecutionOptions().localTestJobs
                 : Integer.MAX_VALUE));

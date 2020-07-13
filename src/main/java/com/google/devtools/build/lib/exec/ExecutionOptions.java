@@ -352,6 +352,22 @@ public class ExecutionOptions extends OptionsBase {
   public boolean localMemoryEstimate;
 
   @Option(
+      name = "local_extra_resources",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      allowMultiple = true,
+      help =
+          "Explicitly set the number of extra recourses available to Bazel. "
+            + "Takes in a string-float pair. Can be used multiple times to specify multiple "
+            + "types of extra resources. Bazel will limit concurrently running test actions "
+            + "based on the available extra resources and the extra resources required "
+            + "by the test actions. "
+            + "Note: This is a no-op if --local_resources is set.",
+      converter = Converters.StringToFloatAssignmentConverter.class)
+  public List<Map.Entry<String, Float>> localExtraResources;
+
+  @Option(
       name = "local_test_jobs",
       defaultValue = "auto",
       documentationCategory = OptionDocumentationCategory.TESTING,

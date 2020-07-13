@@ -419,7 +419,7 @@ public class DynamicSpawnStrategyTest {
         executionInfo,
         EmptyRunfilesSupplier.INSTANCE,
         action,
-        ResourceSet.create(1, 0, 0));
+        ResourceSet.create(1, 0, null, 0));
   }
 
   /** Constructs a new spawn that can be run locally and remotely with arbitrary settings. */

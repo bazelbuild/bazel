@@ -138,7 +138,7 @@ public class StandaloneSpawnStrategyTest {
 
     ResourceManager resourceManager = ResourceManager.instanceForTestingOnly();
     resourceManager.setAvailableResources(
-        ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*localTestCount=*/1));
+        ResourceSet.create(/*memoryMb=*/1, /*cpuUsage=*/1, /*extraResourceUsage*/null, /*localTestCount=*/1));
     Path execRoot = directories.getExecRoot(TestConstants.WORKSPACE_NAME);
     BinTools binTools = BinTools.forIntegrationTesting(directories, ImmutableList.of());
     StandaloneSpawnStrategy strategy =
