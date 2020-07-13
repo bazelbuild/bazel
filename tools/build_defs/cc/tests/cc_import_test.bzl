@@ -175,7 +175,7 @@ def _cc_import_objects_present_in_linking_context_test_impl(ctx):
     static_library = libraries[0].static_library
     asserts.true(env, static_library)
     asserts.equals(env, "lib.a", static_library.basename)
-    
+
     pic_static_library = libraries[0].pic_static_library
     asserts.true(env, pic_static_library)
     asserts.equals(env, "lib.pic.a", pic_static_library.basename)
