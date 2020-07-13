@@ -44,6 +44,7 @@ public abstract class LinkerInputs {
         ArtifactCategory category,
         boolean disableWholeArchive,
         String libraryIdentifier) {
+      Preconditions.checkNotNull(libraryIdentifier);
       String basename = artifact.getFilename();
       switch (category) {
         case STATIC_LIBRARY:

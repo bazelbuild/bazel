@@ -240,7 +240,7 @@ public class LibrariesToLinkCollector {
       NestedSetBuilder<LinkerInput> expandedLinkerInputsBuilder) {
     boolean includeSolibDir = false;
     boolean includeToolchainLibrariesSolibDir = false;
-    HashMap<String, PathFragment> linkedLibrariesPaths = new HashMap<>();
+    Map<String, PathFragment> linkedLibrariesPaths = new HashMap<>();
 
     for (LinkerInput input : linkerInputs) {
       if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
