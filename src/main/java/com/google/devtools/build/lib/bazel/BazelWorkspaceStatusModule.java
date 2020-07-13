@@ -164,7 +164,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       return s.getBytes(StandardCharsets.UTF_8);
     }
 
-    @Override
     public void prepare(Path execRoot) throws IOException {
       // The default implementation of this method deletes all output files; override it to keep
       // the old stableStatus around. This way we can reuse the existing file (preserving its mtime)

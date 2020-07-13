@@ -930,7 +930,9 @@ public final class SkyframeActionExecutor {
               // This call generally deletes any files at locations that are declared outputs of the
               // action, although some actions perform additional work, while others intentionally
               // keep previous outputs in place.
-              action.prepare(actionExecutionContext.getExecRoot());
+              action.prepare(
+                  actionExecutionContext.getExecRoot(),
+                  outputService != null ? outputService.bulkDeleter() : null);
             } catch (IOException e) {
               logger.atWarning().withCause(e).log(
                   "failed to delete output files before executing action: '%s'", action);
