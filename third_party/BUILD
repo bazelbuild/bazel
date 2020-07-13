@@ -47,6 +47,7 @@ filegroup(
         "//third_party/py/six:srcs",
         "//third_party/rules_python:srcs",
         "//third_party/zlib:srcs",
+        "//third_party/nanopb:srcs",
         "@googleapis//:srcs",
         "@remoteapis//:srcs",
     ],
@@ -487,16 +488,8 @@ distrib_java_import(
     name = "opencensus-api",
     enable_distributions = ["debian"],
     jars = [
-        "opencensus/opencensus-api-0.24.0.jar",
-        "opencensus/opencensus-contrib-grpc-metrics-0.24.0.jar",
-    ],
-)
-
-distrib_java_import(
-    name = "perfmark-api",
-    enable_distributions = ["debian"],
-    jars = [
-        "perfmark/perfmark-api-0.19.0.jar",
+        "opencensus/opencensus-api-0.19.2.jar",
+        "opencensus/opencensus-contrib-grpc-metrics-0.19.2.jar",
     ],
 )
 
