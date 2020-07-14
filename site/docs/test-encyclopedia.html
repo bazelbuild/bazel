@@ -242,10 +242,10 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>TEST_TARGET</code></td><td>The name of the target being tested</td><td>optional</td></tr>
     <tr><td><code>TEST_SIZE</code></td><td>The test <a href="#size"><code>size</code></a></td><td>optional</td></tr>
     <tr><td><code>TEST_TIMEOUT</code></td><td>The test <a href="#timeout"><code>timeout</code></a> in seconds</td><td>optional</td></tr>
-    <tr><td><code>TEST_SHARD_INDEX</code></td><td>shard index, if sharding is used</td><td>optional</td></tr>
-    <tr><td><code>TEST_SHARD_STATUS_FILE</code></td><td>path to file to touch to indicate support for sharding</td><td>optional</td></tr>
+    <tr><td><code>TEST_SHARD_INDEX</code></td><td>shard index, if <a href="#test-sharding">sharding</a> is used</td><td>optional</td></tr>
+    <tr><td><code>TEST_SHARD_STATUS_FILE</code></td><td>path to file to touch to indicate support for <a href="#test-sharding">sharding</a></td><td>optional</td></tr>
     <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
-    <tr><td><code>TEST_TOTAL_SHARDS</code></td><td>total shard count, if sharding is used</td><td>optional</td></tr>
+    <tr><td><code>TEST_TOTAL_SHARDS</code></td><td>total shard count, if <a href="#test-sharding">sharding</a> is used</td><td>optional</td></tr>
     <tr><td><code>TEST_TMPDIR</code></td><td>absolute path to a private writable directory</td><td>required</td></tr>
 
     <tr><td><code>TEST_WORKSPACE</code></td><td>the local repository's workspace name</td><td>optional</td></tr>
@@ -378,8 +378,8 @@ is not guaranteed. Other performance aspects of this core are not specified.
 You can increase the reservation to a higher number of CPU cores by adding the
 tag "cpu:n" (where n is a positive number) to a test rule. If a machine has
 less total CPU cores than requested, Bazel will still run the test. If a test
-uses sharding, each individual shard will reserve the number of CPU cores
-specified here.</p>
+uses <a href="#test-sharding">sharding</a>, each individual shard will reserve
+the number of CPU cores specified here.</p>
 
 <p>Tests may create subprocesses, but not process groups or sessions.</p>
 
