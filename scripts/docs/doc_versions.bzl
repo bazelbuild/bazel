@@ -23,6 +23,10 @@
 
 DOC_VERSIONS = [
     {
+        "version": "3.4.1",
+        "sha256": "407281cbe8ae7fadd4475a63e65f0dc3edee1d5d597f19a25ff825871bad22c5",
+    },
+    {
         "version": "3.4.0",
         "sha256": "af82e775d911135bcff76e500bb003c4a9fccb949f8ddf4d93c58eca195bf5e8",
     },
