@@ -42,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * Encapsulates necessary functionality to dump the current skyframe state of the action graph to
@@ -58,7 +59,7 @@ public class ActionGraphDump {
   private final KnownNestedSets knownNestedSets;
   private final KnownAspectDescriptors knownAspectDescriptors;
   private final KnownTargets knownTargets;
-  private final AqueryActionFilter actionFilters;
+  @Nullable private final AqueryActionFilter actionFilters;
   private final boolean includeActionCmdLine;
   private final boolean includeArtifacts;
   private final boolean includeParamFiles;
@@ -127,7 +128,7 @@ public class ActionGraphDump {
       getParamFileNameToContentMap().put(paramFileExecPath, fileContent);
     }
 
-    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+    if (actionFilters != null && !AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
       return;
     }
 

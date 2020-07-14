@@ -738,6 +738,7 @@ message ActionQuery {
     INCORRECT_ARGUMENTS = 10 [(metadata) = { exit_code: 2 }];
     TOP_LEVEL_TARGETS_WITH_SKYFRAME_STATE_NOT_SUPPORTED = 11
         [(metadata) = { exit_code: 2 }];
+    SKYFRAME_STATE_AFTER_EXECUTION = 12 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

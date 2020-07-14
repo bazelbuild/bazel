@@ -474,6 +474,17 @@ public class BuildRequestOptions extends OptionsBase {
               + "--symlink_prefix is used.")
   public boolean experimentalNoProductNameOutSymlink;
 
+  @Option(
+      name = "experimental_aquery_dump_after_build_format",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Writes the state of Skyframe (which includes previous invocations on this blaze"
+              + " instance as well) to stdout after a build, in the same format as aquery's."
+              + " Possible formats: proto|textproto|jsonproto.")
+  @Nullable
+  public String aqueryDumpAfterBuildFormat;
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
