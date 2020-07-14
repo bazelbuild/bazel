@@ -1848,4 +1848,89 @@ EOF
 # TODO(alpha): Add a test that fails remote execution when remote worker
 # supports sandbox.
 
+function test_remote_download_toplevel_with_non_toplevel_unused_inputs_list() {
+  # Test that --remote_download_toplevel should download non-toplevel
+  # unused_inputs_list for starlark action. See #11732.
+
+  touch WORKSPACE
+
+  cat > test.bzl <<'EOF'
+def _test_rule_impl(ctx):
+    inputs = ctx.files.inputs
+    output = ctx.outputs.out
+    unused_inputs_list = ctx.actions.declare_file(ctx.label.name + ".unused")
+    arguments = []
+    arguments += [output.path]
+    arguments += [unused_inputs_list.path]
+    for input in inputs:
+        arguments += [input.path]
+    ctx.actions.run(
+        inputs = inputs,
+        outputs = [output, unused_inputs_list],
+        arguments = arguments,
+        executable = ctx.executable._executable,
+        unused_inputs_list = unused_inputs_list,
+    )
+
+test_rule = rule(
+    implementation = _test_rule_impl,
+    attrs = {
+        "inputs": attr.label_list(allow_files = True),
+        "out": attr.output(),
+        "_executable": attr.label(executable = True, cfg = "host", default = "//:exe"),
+    },
+)
+EOF
+
+  cat > BUILD <<'EOF'
+load(":test.bzl", "test_rule")
+
+test_rule(
+    name = "test_non_toplevel",
+    inputs = ["1.txt", "2.txt"],
+    out = "3.txt",
+)
+
+sh_binary(
+    name = "exe",
+    srcs = ["a.sh"],
+)
+
+genrule(
+    name = "test",
+    srcs = [":test_non_toplevel"],
+    outs = ["4.txt"],
+    cmd = "cat $< > $@",
+)
+EOF
+
+  cat > a.sh <<'EOF'
+#!/bin/sh
+
+output="$1"
+shift
+unused="$1"
+shift
+inp0="$1"
+shift
+
+cat "$inp0" > "$output"
+echo "$1" > "$unused"
+EOF
+
+  chmod a+x a.sh
+
+  touch 1.txt 2.txt
+
+  CACHEDIR=$(mktemp -d)
+
+  bazel build --disk_cache="$CACHEDIR" --remote_download_toplevel :test
+
+  bazel clean
+
+  bazel build --disk_cache="$CACHEDIR" --remote_download_toplevel :test
+
+  expect_log "INFO: Build completed successfully"
+}
+
 run_suite "Remote execution and remote cache tests"
