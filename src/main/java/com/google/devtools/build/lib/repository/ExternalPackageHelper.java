@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
@@ -74,7 +73,7 @@ public class ExternalPackageHelper {
   public Rule getRuleByName(String ruleName, Environment env)
       throws ExternalPackageException, InterruptedException {
 
-    ExternalPackageRuleExtractor extractor = new ExternalPackageRuleExtractor(env, ruleName);
+    ExternalPackageRuleExtractor extractor = new ExternalPackageRuleExtractor(ruleName);
     if (!iterateWorkspaceFragments(env, extractor)) {
       // Values missing
       return null;
@@ -145,13 +144,11 @@ public class ExternalPackageHelper {
   }
 
   private static class ExternalPackageRuleExtractor implements WorkspaceFileValueProcessor {
-    private final Environment env;
     private final String ruleName;
     private ExternalPackageException exception;
     private Rule rule;
 
-    private ExternalPackageRuleExtractor(Environment env, String ruleName) {
-      this.env = env;
+    private ExternalPackageRuleExtractor(String ruleName) {
       this.ruleName = ruleName;
     }
 
@@ -159,7 +156,6 @@ public class ExternalPackageHelper {
     public boolean processAndShouldContinue(WorkspaceFileValue workspaceFileValue) {
       Package externalPackage = workspaceFileValue.getPackage();
       if (externalPackage.containsErrors()) {
-        Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
         exception =
             new ExternalPackageException(
                 new BuildFileContainsErrorsException(

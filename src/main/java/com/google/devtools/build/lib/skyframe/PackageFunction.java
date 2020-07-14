@@ -341,11 +341,6 @@ public class PackageFunction implements SkyFunction {
     }
 
     Package pkg = workspace.getPackage();
-    Event.replayEventsOn(env.getListener(), pkg.getEvents());
-    for (Postable post : pkg.getPosts()) {
-      env.getListener().post(post);
-    }
-
     if (packageFactory != null) {
       try {
         packageFactory.afterDoneLoadingPackage(
