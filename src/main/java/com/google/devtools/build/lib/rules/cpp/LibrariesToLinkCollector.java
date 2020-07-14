@@ -246,8 +246,10 @@ public class LibrariesToLinkCollector {
       if (input.getArtifactCategory() == ArtifactCategory.DYNAMIC_LIBRARY
           || input.getArtifactCategory() == ArtifactCategory.INTERFACE_LIBRARY) {
         PathFragment libDir = input.getArtifact().getExecPath().getParentDirectory();
+        Preconditions.checkNotNull(libDir);
         String libraryIdentifier = input.getLibraryIdentifier();
         PathFragment previousLibDir = linkedLibrariesPaths.get(libraryIdentifier);
+
         if (previousLibDir == null) {
           linkedLibrariesPaths.put(libraryIdentifier, libDir);
         } else if (!previousLibDir.equals(libDir)) {
