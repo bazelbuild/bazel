@@ -143,6 +143,11 @@ penalized for an overgenerous timeout, although a warning may be issued: you
 should generally set your timeout as tight as you can without incurring any
 flakiness.</p>
 
+<p>The test timeout can be overridden with the <code>--test_timeout</code>
+bazel flag, e.g. for manually running under conditions which are known to be
+slow. The <code>--test_timeout</code> values are in seconds. For example,
+<code>--test_timeout=120</code> will set the test timeout to two minutes.</p>
+
 <p>There is also a recommended lower bound for test timeouts as follows: </p>
 
 <table class="table table-bordered table-striped table-condensed">
