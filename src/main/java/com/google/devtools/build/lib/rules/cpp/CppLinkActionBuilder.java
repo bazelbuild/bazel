@@ -1291,7 +1291,7 @@ public class CppLinkActionBuilder {
             input,
             ArtifactCategory.OBJECT_FILE,
             /* disableWholeArchive= */ false,
-            this.libraryIdentifier));
+            input.getRootRelativePathString()));
     return this;
   }
 
