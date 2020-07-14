@@ -255,8 +255,9 @@ public class LibrariesToLinkCollector {
         } else if (!previousLibDir.equals(libDir)) {
           ruleErrorConsumer.ruleError(
               String.format(
-                  "You are trying to link the same dynamic library %s built in a different configuration",
-                  libraryIdentifier));
+                  "You are trying to link the same dynamic library %s built in a different configuration. " +
+                      "Previously registered instance had path %s, current one has path %s",
+                  libraryIdentifier, previousLibDir, libDir));
         }
 
         // When COPY_DYNAMIC_LIBRARIES_TO_BINARY is enabled, dynamic libraries are not symlinked

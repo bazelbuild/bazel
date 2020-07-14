@@ -1686,6 +1686,50 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertNoEvents();
   }
 
+  private void prepareCustomTransition() throws Exception {
+    scratch.file(
+            "transition/custom_transition.bzl",
+            "def _custom_transition_impl(settings, attr):",
+            "    _ignore = settings, attr",
+            "    print(\"transition\")",
+            "",
+            "    return {\"//command_line_option:copt\": [\"-DFLAG\"]}",
+            "",
+            "custom_transition = transition(",
+            "    implementation = _custom_transition_impl,",
+            "    inputs = [],",
+            "    outputs = [\"//command_line_option:copt\"],",
+            ")",
+            "",
+            "def _apply_custom_transition_impl(ctx):",
+            "    cc_infos = []",
+            "    for dep in ctx.attr.deps:",
+            "        cc_infos.append(dep[CcInfo])",
+            "    merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)",
+            "    return merged_cc_info",
+            "",
+            "apply_custom_transition = rule(",
+            "    implementation = _apply_custom_transition_impl,",
+            "    attrs = {",
+            "        \"_whitelist_function_transition\": attr.label(",
+            "            default = '//tools/allowlists/function_transition_allowlist',",
+            "        ),",
+            "        \"deps\": attr.label_list(cfg = custom_transition),",
+            "    },",
+            ")");
+    scratch.overwriteFile(
+            "tools/allowlists/function_transition_allowlist/BUILD",
+            "package_group(",
+            "    name = 'function_transition_allowlist',",
+            "    packages = ['//...'],",
+            ")",
+            "filegroup(",
+            "    name = 'srcs',",
+            "    srcs = glob(['**']),",
+            "    visibility = ['//tools/allowlists:__pkg__'],",
+            ")");
+  }
+
   @Test
   public void testDynamicLinkTwiceAfterTransition() throws Exception {
     AnalysisMock.get()
@@ -1696,6 +1740,9 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .withFeatures(
                     CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+
     scratch.file(
         "transition/BUILD",
         "load(':custom_transition.bzl', 'apply_custom_transition')",
@@ -1721,48 +1768,56 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = [\"test.cc\"],",
         "    hdrs = [\"test.h\"],",
         ")");
-    scratch.file(
-        "transition/custom_transition.bzl",
-        "def _custom_transition_impl(settings, attr):",
-        "    _ignore = settings, attr",
-        "    print(\"transition\")",
-        "",
-        "    return {\"//command_line_option:copt\": [\"-DFLAG\"]}",
-        "",
-        "custom_transition = transition(",
-        "    implementation = _custom_transition_impl,",
-        "    inputs = [],",
-        "    outputs = [\"//command_line_option:copt\"],",
-        ")",
-        "",
-        "def _apply_custom_transition_impl(ctx):",
-        "    cc_infos = []",
-        "    for dep in ctx.attr.deps:",
-        "        cc_infos.append(dep[CcInfo])",
-        "    merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)",
-        "    return merged_cc_info",
-        "",
-        "apply_custom_transition = rule(",
-        "    implementation = _apply_custom_transition_impl,",
-        "    attrs = {",
-        "        \"_whitelist_function_transition\": attr.label(",
-        "            default = '//tools/allowlists/function_transition_allowlist',",
-        "        ),",
-        "        \"deps\": attr.label_list(cfg = custom_transition),",
-        "    },",
-        ")");
-    scratch.overwriteFile(
-        "tools/allowlists/function_transition_allowlist/BUILD",
-        "package_group(",
-        "    name = 'function_transition_allowlist',",
-        "    packages = ['//...'],",
-        ")",
-        "filegroup(",
-        "    name = 'srcs',",
-        "    srcs = glob(['**']),",
-        "    visibility = ['//tools/allowlists:__pkg__'],",
-        ")");
 
     checkError("//transition:main", "built in a different configuration");
+  }
+
+  @Test
+  public void testDynamicLinkUniqueAfterTransition() throws Exception {
+    AnalysisMock.get()
+            .ccSupport()
+            .setupCcToolchainConfig(
+                    mockToolsConfig,
+                    CcToolchainConfig.builder()
+                            .withFeatures(
+                                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+
+    scratch.file(
+            "transition/BUILD",
+            "load(':custom_transition.bzl', 'apply_custom_transition')",
+            "cc_binary(",
+            "    name = \"main\",",
+            "    srcs = [\"main.cc\"],",
+            "    linkstatic = 0,",
+            "    deps = [",
+            "        \"dep2\",",
+            "        \"dep3\",",
+            "    ],",
+            ")",
+            "",
+            "apply_custom_transition(",
+            "    name = \"dep1\",",
+            "    deps = [",
+            "        \":dep2\",",
+            "    ],",
+            ")",
+            "",
+            "cc_library(",
+            "    name = \"dep2\",",
+            "    srcs = [\"test.cc\"],",
+            "    hdrs = [\"test.h\"],",
+            ")",
+            "",
+            "cc_library(",
+            "    name = \"dep3\",",
+            "    srcs = [\"other_test.cc\"],",
+            "    hdrs = [\"other_test.h\"],",
+            ")");
+
+
+    assertNoEvents();
   }
 }
