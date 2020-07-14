@@ -589,7 +589,7 @@ public interface CcModuleApi<
             type = FileApi.class),
         @Param(
             name = "pic_objects",
-            doc = "PIC object <code>files</code> to be linked.",
+            doc = "Experimental, do not use",
             positional = false,
             named = true,
             defaultValue = "unbound",
@@ -597,7 +597,7 @@ public interface CcModuleApi<
             generic1 = FileApi.class),
         @Param(
             name = "objects",
-            doc = "No-PIC object <code>files</code> to be linked.",
+            doc = "Experimental, do not use",
             positional = false,
             named = true,
             defaultValue = "unbound",
