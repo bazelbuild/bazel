@@ -2925,7 +2925,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // available.
     return detailedExitCode != null
         ? new DetailedTargetParsingException(
-            (e instanceof TargetParsingException) ? e.getCause() : e, detailedExitCode)
+            (e instanceof TargetParsingException) ? e.getCause() : e,
+            e.getMessage(),
+            detailedExitCode)
         : (e instanceof TargetParsingException)
             ? (TargetParsingException) e
             : new TargetParsingException(e.getMessage(), e);
