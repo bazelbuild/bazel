@@ -169,8 +169,7 @@ tests whose specified size is too big.</p>
 
 <p>Test sizes and timeouts are specified in the BUILD file according to the specification
 <a href="be/common-definitions.html#common-attributes-tests">here</a>.
-Any test that does not specify a recognized size will default to being a medium
-test.</p>
+If unspecified, a test's size will default to "medium".</p>
 
 <p>If the main process of a test exits, but some of its children are still
 running, the test runner should consider the run complete and count it as a
