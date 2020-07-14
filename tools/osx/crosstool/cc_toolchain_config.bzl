@@ -5451,6 +5451,17 @@ def _impl(ctx):
         requires = [feature_set(features = ["opt"])],
     )
 
+    oso_prefix_feature = feature(
+        name = "oso_prefix_is_pwd",
+        flag_sets = [
+            flag_set(
+                actions = all_link_actions +
+                          ["objc-executable", "objc++-executable"],
+                flag_groups = [flag_group(flags = ["OSO_PREFIX_MAP_PWD"])],
+            ),
+        ],
+    )
+
     generate_dsym_file_feature = feature(
         name = "generate_dsym_file",
         flag_sets = [
@@ -5782,6 +5793,7 @@ def _impl(ctx):
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
             generate_dsym_file_feature,
+            oso_prefix_feature,
             contains_objc_source_feature,
             objc_actions_feature,
             strip_debug_symbols_feature,
@@ -5853,6 +5865,7 @@ def _impl(ctx):
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
             generate_dsym_file_feature,
+            oso_prefix_feature,
             contains_objc_source_feature,
             objc_actions_feature,
             strip_debug_symbols_feature,
@@ -5926,6 +5939,7 @@ def _impl(ctx):
             default_compile_flags_feature,
             debug_prefix_map_pwd_is_dot_feature,
             generate_dsym_file_feature,
+            oso_prefix_feature,
             contains_objc_source_feature,
             objc_actions_feature,
             strip_debug_symbols_feature,
