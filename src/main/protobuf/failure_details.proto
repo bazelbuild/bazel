@@ -864,7 +864,6 @@ message RunCommand {
     SCRIPT_WRITE_FAILURE = 12 [(metadata) = { exit_code: 6 }];
     RUNFILES_DIRECTORIES_CREATION_FAILURE = 13 [(metadata) = { exit_code: 36 }];
     RUNFILES_SYMLINKS_CREATION_FAILURE = 14 [(metadata) = { exit_code: 36 }];
-    TEST_ENVIRONMENT_SETUP_INTERRUPTED = 15 [(metadata) = { exit_code: 8 }];
   }
 
   Code code = 1;
