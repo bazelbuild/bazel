@@ -167,6 +167,14 @@ tests whose specified size is too big.</p>
 Any test that does not specify a recognized size will default to being a medium
 test.</p>
 
+<p>If the main process of a test exits, but some of its children are still
+running, the test runner should consider the run complete and count it as a
+success or failure based on the exit code observed from the main process.  The
+test runner may kill any stray processes.  Tests should not leak processes in
+this fashion.</p>
+
+<h2 id="test-sharding">Test sharding</h2>
+
 <p>Tests can be parallelized via test sharding. See
 <a href="user-manual.html#sharding-strategy"><code>--test_sharding_strategy</code></a>
 and
@@ -183,12 +191,6 @@ of the file specified by
 <a href="#initial-conditions"><code>TEST_SHARD_STATUS_FILE</code></a>.
 Otherwise, Bazel assumes it does not support sharding and will not launch
 additional runners.</p>
-
-<p>If the main process of a test exits, but some of its children are still
-running, the test runner should consider the run complete and count it as a
-success or failure based on the exit code observed from the main process.  The
-test runner may kill any stray processes.  Tests should not leak processes in
-this fashion.</p>
 
 <h2 id="initial-conditions">Initial conditions</h2>
 
