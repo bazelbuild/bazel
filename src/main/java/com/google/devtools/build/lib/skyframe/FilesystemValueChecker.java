@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -419,21 +420,27 @@ public class FilesystemValueChecker {
   }
 
   private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value) {
-    if (artifact.getPath().isSymbolicLink()) {
-      // TreeArtifacts may not be symbolic links.
-      return true;
+    Path path = artifact.getPath();
+    if (path.isSymbolicLink()) {
+      return true; // TreeArtifacts may not be symbolic links.
     }
 
-    // There doesn't appear to be any facility to batch list directories... we must
-    // do things the 'slow' way.
+    // This could be improved by short-circuiting as soon as we see a child that is not present in
+    // the TreeArtifactValue, but it doesn't seem to be a major source of overhead.
+    Set<PathFragment> currentChildren = new HashSet<>();
     try {
-      Set<PathFragment> currentDirectoryValue =
-          TreeArtifactValue.explodeDirectory(artifact.getPath());
-      return !(currentDirectoryValue.isEmpty() && value.isEntirelyRemote())
-          && !currentDirectoryValue.equals(value.getChildPaths());
+      TreeArtifactValue.visitTree(
+          path,
+          (child, type) -> {
+            if (type != Dirent.Type.DIRECTORY) {
+              currentChildren.add(child);
+            }
+          });
     } catch (IOException e) {
       return true;
     }
+    return !(currentChildren.isEmpty() && value.isEntirelyRemote())
+        && !currentChildren.equals(value.getChildPaths());
   }
 
   private boolean artifactIsDirtyWithDirectSystemCalls(

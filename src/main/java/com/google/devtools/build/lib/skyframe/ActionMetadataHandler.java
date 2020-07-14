@@ -17,7 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -229,15 +228,14 @@ final class ActionMetadataHandler implements MetadataHandler {
     // is executed. SkyframeActionExecutor.checkOutputs calls this method for every output file of
     // the action, which hits this code path. Another possibility is that an action runs multiple
     // spawns, and a subsequent spawn requests the metadata of an output of a previous spawn.
-    //
-    // Stat the file. All output artifacts of an action are deleted before execution, so if a file
-    // exists, it was most likely created by the current action. There is a race condition here if
-    // an external process creates (or modifies) the file between the deletion and this stat, which
-    // we cannot solve.
-    //
-    // We only cache nonexistence here, not file system errors. It is unlikely that the file will be
-    // requested from this cache too many times.
-    value = constructFileArtifactValueFromFilesystem(artifact, /*chmod=*/ executionMode.get());
+
+    // If necessary, we first call chmod the output file. The FileArtifactValue may use a
+    // FileContentsProxy, which is based on ctime (affected by chmod).
+    if (executionMode.get()) {
+      setPathReadOnlyAndExecutableIfFile(artifactPathResolver.toPath(artifact));
+    }
+
+    value = constructFileArtifactValueFromFilesystem(artifact);
     store.putArtifactData(artifact, value);
     return checkExists(value, artifact);
   }
@@ -269,45 +267,51 @@ final class ActionMetadataHandler implements MetadataHandler {
 
   private TreeArtifactValue constructTreeArtifactValueFromFilesystem(SpecialArtifact parent)
       throws IOException {
-    if (executionMode.get()) {
-      if (artifactPathResolver.toPath(parent).isDirectory()) {
-        setTreeReadOnlyAndExecutable(parent, PathFragment.EMPTY_FRAGMENT);
-      } else {
-        setPathReadOnlyAndExecutable(
-            TreeFileArtifact.createTreeOutput(parent, PathFragment.EMPTY_FRAGMENT));
-      }
-    }
+    Path treeDir = artifactPathResolver.toPath(parent);
+    boolean chmod = executionMode.get();
 
-    // Make sure the tree artifact root is a regular directory. Note that this is how the Action
-    // is initialized, so this should hold unless the Action itself has deleted the root.
-    if (!artifactPathResolver.toPath(parent).isDirectory(Symlinks.NOFOLLOW)) {
+    // Make sure the tree artifact root is a regular directory. Note that this is how the action is
+    // initialized, so this should hold unless the action itself has deleted the root.
+    if (!treeDir.isDirectory(Symlinks.NOFOLLOW)) {
+      if (chmod) {
+        setPathReadOnlyAndExecutableIfFile(treeDir);
+      }
       return TreeArtifactValue.MISSING_TREE_ARTIFACT;
     }
 
-    Set<PathFragment> paths =
-        TreeArtifactValue.explodeDirectory(artifactPathResolver.toPath(parent));
-
-    Map<TreeFileArtifact, FileArtifactValue> values = Maps.newHashMapWithExpectedSize(paths.size());
-    for (PathFragment path : paths) {
-      TreeFileArtifact treeFileArtifact = TreeFileArtifact.createTreeOutput(parent, path);
-      FileArtifactValue fileMetadata;
-      try {
-        // We have already called chmod if necessary in the setTreeReadOnlyAndExecutable call above.
-        fileMetadata = constructFileArtifactValueFromFilesystem(treeFileArtifact, /*chmod=*/ false);
-      } catch (FileNotFoundException e) {
-        String errorMessage =
-            String.format(
-                "Failed to resolve relative path %s inside TreeArtifact %s. "
-                    + "The associated file is either missing or is an invalid symlink.",
-                treeFileArtifact.getParentRelativePath(),
-                treeFileArtifact.getParent().getExecPathString());
-        throw new IOException(errorMessage, e);
-      }
-
-      values.put(treeFileArtifact, fileMetadata);
+    if (chmod) {
+      setPathReadOnlyAndExecutable(treeDir);
     }
 
-    return TreeArtifactValue.create(values);
+    ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue> values =
+        ImmutableSortedMap.naturalOrder();
+
+    TreeArtifactValue.visitTree(
+        treeDir,
+        (parentRelativePath, type) -> {
+          if (chmod && type != Dirent.Type.SYMLINK) {
+            setPathReadOnlyAndExecutable(treeDir.getRelative(parentRelativePath));
+          }
+          if (type == Dirent.Type.DIRECTORY) {
+            return; // The final TreeArtifactValue does not contain child directories.
+          }
+          TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, parentRelativePath);
+          FileArtifactValue metadata;
+          try {
+            metadata = constructFileArtifactValueFromFilesystem(child);
+          } catch (FileNotFoundException e) {
+            String errorMessage =
+                String.format(
+                    "Failed to resolve relative path %s inside TreeArtifact %s. "
+                        + "The associated file is either missing or is an invalid symlink.",
+                    parentRelativePath, treeDir);
+            throw new IOException(errorMessage, e);
+          }
+
+          values.put(child, metadata);
+        });
+
+    return TreeArtifactValue.create(values.build());
   }
 
   @Override
@@ -327,7 +331,7 @@ final class ActionMetadataHandler implements MetadataHandler {
 
     // We already have a stat, so no need to call chmod.
     return constructFileArtifactValue(
-        output, /*chmod=*/ false, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
+        output, FileStatusWithDigestAdapter.adapt(statNoFollow), digest);
   }
 
   @Override
@@ -401,30 +405,19 @@ final class ActionMetadataHandler implements MetadataHandler {
     return store;
   }
 
-  /**
-   * Constructs a new {@link FileArtifactValue} by reading from the file system, optionally calling
-   * chmod on the file.
-   */
-  private FileArtifactValue constructFileArtifactValueFromFilesystem(
-      Artifact artifact, boolean chmod) throws IOException {
-    return constructFileArtifactValue(
-        artifact, chmod, /*statNoFollow=*/ null, /*injectedDigest=*/ null);
+  /** Constructs a new {@link FileArtifactValue} by reading from the file system. */
+  private FileArtifactValue constructFileArtifactValueFromFilesystem(Artifact artifact)
+      throws IOException {
+    return constructFileArtifactValue(artifact, /*statNoFollow=*/ null, /*injectedDigest=*/ null);
   }
 
-  /** Constructs a new {@link FileArtifactValue}, optionally calling chmod on the file. */
+  /** Constructs a new {@link FileArtifactValue}, optionally taking a known stat and digest. */
   private FileArtifactValue constructFileArtifactValue(
       Artifact artifact,
-      boolean chmod,
       @Nullable FileStatusWithDigest statNoFollow,
       @Nullable byte[] injectedDigest)
       throws IOException {
     Preconditions.checkState(!artifact.isTreeArtifact(), "%s is a tree artifact", artifact);
-
-    // If necessary, we first chmod the output file before we construct the FileContentsProxy. The
-    // proxy may use ctime, which is affected by chmod.
-    if (chmod) {
-      setPathReadOnlyAndExecutable(artifact);
-    }
 
     FileArtifactValue value =
         fileArtifactValueFromArtifact(
@@ -542,6 +535,10 @@ final class ActionMetadataHandler implements MetadataHandler {
             artifactPathResolver.transformRoot(artifact.getRoot().getRoot()),
             artifact.getRootRelativePath());
     if (statNoFollow == null) {
+      // Stat the file. All output artifacts of an action are deleted before execution, so if a file
+      // exists, it was most likely created by the current action. There is a race condition here if
+      // an external process creates (or modifies) the file between the deletion and this stat,
+      // which we cannot solve.
       statNoFollow = FileStatusWithDigestAdapter.adapt(pathNoFollow.statIfFound(Symlinks.NOFOLLOW));
     }
 
@@ -583,27 +580,13 @@ final class ActionMetadataHandler implements MetadataHandler {
         tsgm);
   }
 
-  private void setPathReadOnlyAndExecutable(Artifact artifact) throws IOException {
-    Path path = artifactPathResolver.toPath(artifact);
-    if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
-      // We trust the files created by the execution engine to be non symlinks with expected
-      // chmod() settings already applied.
-      path.chmod(0555); // Sets the file read-only and executable.
+  private static void setPathReadOnlyAndExecutableIfFile(Path path) throws IOException {
+    if (path.isFile(Symlinks.NOFOLLOW)) {
+      setPathReadOnlyAndExecutable(path);
     }
   }
 
-  private void setTreeReadOnlyAndExecutable(SpecialArtifact parent, PathFragment subpath)
-      throws IOException {
-    Path path = artifactPathResolver.toPath(parent).getRelative(subpath);
+  private static void setPathReadOnlyAndExecutable(Path path) throws IOException {
     path.chmod(0555);
-    Collection<Dirent> dirents = path.readdir(Symlinks.FOLLOW);
-    for (Dirent dirent : dirents) {
-      if (dirent.getType() == Dirent.Type.DIRECTORY) {
-        setTreeReadOnlyAndExecutable(parent, subpath.getChild(dirent.getName()));
-      } else {
-        setPathReadOnlyAndExecutable(
-            TreeFileArtifact.createTreeOutput(parent, subpath.getChild(dirent.getName())));
-      }
-    }
   }
 }
