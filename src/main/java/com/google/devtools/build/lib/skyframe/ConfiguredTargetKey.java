@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.Objects;
 import javax.annotation.Nullable;
@@ -128,10 +129,12 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     return String.format("%s %s", label, configurationKey);
   }
 
+  @AutoCodec
   static class ConfiguredTargetKeyWithToolchainContext extends ConfiguredTargetKey {
     private final ToolchainContextKey toolchainContextKey;
 
-    private ConfiguredTargetKeyWithToolchainContext(
+    @VisibleForSerialization
+    ConfiguredTargetKeyWithToolchainContext(
         Label label,
         @Nullable BuildConfigurationValue.Key configurationKey,
         ToolchainContextKey toolchainContextKey) {
