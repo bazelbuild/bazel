@@ -1,3 +1,21 @@
+## Release 3.4.1 (2020-07-14)
+
+```
+Baseline: 7404d17ac76da876ae0b432d1fccf222a9e991fe
+
+Cherry picks:
+
+   + f31f2d787116120b2b16e9aa9a64fab171c0d954:
+     fixup! Gracefully handle the lack of subreaper support in Linux.
+   + 3a4f221e3c57495c1ed0d1ec8128f92323b13079:
+     Revert "Replace the remaining dependencies for Bazel Debian
+     build (third_party)"
+   + c55ec0f2cb3f5b44e5025bf9d3c5dc91d94db287:
+     Revert "Upgrade gRPC to 1.26.0"
+```
+
+This release contains contributions from many people at Google, as well as Ryan Beasley.
+
 ## Release 3.4.0 (2020-07-13)
 
 ```
