@@ -453,7 +453,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     InetSocketAddress address = new InetSocketAddress("[::1]", port);
     try {
       // TODO(bazel-team): Remove the following check after upgrading netty to a version with a fix
-      //  for https://github.com/netty/netty/issues/10402
+      //   for https://github.com/netty/netty/issues/10402
       if (NetUtil.isIpV4StackPreferred()) {
         throw new IOException("ipv4 is preferred on the system.");
       }
