@@ -107,6 +107,8 @@ public abstract class StarlarkSemantics {
         "incompatible_linkopts_to_linklibs";
     public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
         "record_rule_instantiation_callstack";
+    public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
+        "incompatible_java_common_parameters";
   }
 
   // TODO(adonovan): replace the fields of StarlarkSemantics
@@ -157,6 +159,8 @@ public abstract class StarlarkSemantics {
         return incompatibleLinkoptsToLinkLibs();
       case FlagIdentifier.RECORD_RULE_INSTANTIATION_CALLSTACK:
         return recordRuleInstantiationCallstack();
+      case FlagIdentifier.INCOMPATIBLE_JAVA_COMMON_PARAMETERS:
+        return incompatibleJavaCommonParameters();
       default:
         throw new IllegalArgumentException(flag);
     }
@@ -241,6 +245,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDisallowEmptyGlob();
 
   public abstract boolean incompatibleDisallowStructProviderSyntax();
+
+  public abstract boolean incompatibleJavaCommonParameters();
 
   public abstract boolean incompatibleNewActionsApi();
 
@@ -336,6 +342,7 @@ public abstract class StarlarkSemantics {
           .incompatibleDisableDepsetItems(false)
           .incompatibleDisallowEmptyGlob(false)
           .incompatibleDisallowStructProviderSyntax(false)
+          .incompatibleJavaCommonParameters(false)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
           .incompatibleNoImplicitFileExport(false)
@@ -406,6 +413,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
+
+    public abstract Builder incompatibleJavaCommonParameters(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
