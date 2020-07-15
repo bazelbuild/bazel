@@ -455,7 +455,10 @@ filegroup(
 distrib_java_import(
     name = "guava",
     enable_distributions = ["debian"],
-    jars = ["guava/guava-25.1-jre.jar"],
+    jars = [
+        "guava/failureaccess-1.0.1.jar",
+        "guava/guava-29.0-jre.jar",
+    ],
     exports = [
         ":error_prone_annotations",
         ":jcip_annotations",
@@ -503,7 +506,7 @@ distrib_java_import(
 # For bootstrapping JavaBuilder
 distrib_jar_filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-25.1-jre.jar"],
+    srcs = ["guava/guava-29.0-jre.jar"],
     enable_distributions = ["debian"],
 )
 
@@ -620,7 +623,7 @@ java_import(
 
 java_import(
     name = "guava-testlib",
-    jars = ["guava/guava-testlib-25.1-jre.jar"],
+    jars = ["guava/guava-testlib-29.0-jre.jar"],
 )
 
 java_import(
