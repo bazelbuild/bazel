@@ -473,14 +473,12 @@ public class CompilationSupport {
             .addPicObjectFiles(precompiledFiles.getObjectFiles(/* usePic= */ true))
             .build();
 
-    CcCompilationOutputs.Builder compilationOutputsBuilder =
+    CcCompilationOutputs compilationOutputs =
         CcCompilationOutputs.builder()
             .merge(objcArcCompilationInfo.getCcCompilationOutputs())
             .merge(nonObjcArcCompilationInfo.getCcCompilationOutputs())
-            .merge(precompiledFilesObjects);
-    compilationOutputsBuilder.merge(objcArcCompilationInfo.getCcCompilationOutputs());
-    compilationOutputsBuilder.merge(nonObjcArcCompilationInfo.getCcCompilationOutputs());
-    CcCompilationOutputs compilationOutputs = compilationOutputsBuilder.build();
+            .merge(precompiledFilesObjects)
+            .build();
 
     if (!compilationOutputs.isEmpty()) {
       resultLink.link(compilationOutputs);
@@ -510,7 +508,7 @@ public class CompilationSupport {
 
     return new CompilationResult(
         ccCompilationContextBuilder.build(),
-        compilationOutputsBuilder.build(),
+        compilationOutputs,
         ImmutableMap.copyOf(mergedOutputGroups));
   }
 
