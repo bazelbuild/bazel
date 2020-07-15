@@ -41,7 +41,7 @@ public class EvalException extends Exception {
    * @param location the location where evaluation/execution failed.
    * @param message the error message.
    */
-  public EvalException(Location location, String message) {
+  public EvalException(@Nullable Location location, String message) {
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
   }
@@ -51,7 +51,7 @@ public class EvalException extends Exception {
    * @param message the error message.
    * @param cause a Throwable that caused this exception.
    */
-  public EvalException(Location location, String message, Throwable cause) {
+  public EvalException(@Nullable Location location, String message, Throwable cause) {
     super(cause);
     this.location = location;
     // This is only used from Starlark, it's useful for debugging.
@@ -67,7 +67,7 @@ public class EvalException extends Exception {
     }
   }
 
-  public EvalException(Location location, Throwable cause) {
+  public EvalException(@Nullable Location location, Throwable cause) {
     this(location, null, cause);
   }
 
