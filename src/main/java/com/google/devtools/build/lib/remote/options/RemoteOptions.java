@@ -84,7 +84,7 @@ public final class RemoteOptions extends OptionsBase {
       help =
           "A URI of a caching endpoint. The supported schemas are http, https, grpc and grpcs"
               + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
-              + " Specify grpc:// or http:// schema to disable TLS.See"
+              + " Specify grpc:// or http:// schema to disable TLS. See"
               + " https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
 
@@ -94,9 +94,10 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a remote downloader endpoint. The supported schemas are grpc and grpcs"
-              + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
-              + " Specify grpc:// schema to disable TLS.")
+          "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
+              + " schemas are grpc and grpcs (grpc with TLS enabled). If no schema is provided"
+              + " bazel will default to grpcs. See:"
+              + " https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public String remoteDownloader;
 
   @Option(
