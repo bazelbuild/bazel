@@ -69,7 +69,7 @@ distrib_java_import(
     enable_distributions = ["debian"],
     jars = [
         "android_common/com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0-stripped.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0-patched-stripped.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
     ],
     deps = [
@@ -103,7 +103,7 @@ java_import(
         "android_common/com.android.tools_common_25.0.0.jar",
         "android_common/com.android.tools_dvlib_25.0.0.jar",
         "android_common/com.android.tools_repository_25.0.0.jar",
-        "android_common/com.android.tools_sdk-common_25.0.0.jar",
+        "android_common/com.android.tools_sdk-common_25.0.0-patched.jar",
         "android_common/com.android.tools_sdklib_25.0.0.jar",
     ],
     runtime_deps = [

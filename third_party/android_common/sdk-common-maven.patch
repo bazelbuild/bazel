@@ -1,0 +1,172 @@
+From 698f4d08fea51ada0ac3ed60d4b0b53fb2ead54e Mon Sep 17 00:00:00 2001
+From: Alexandre Rostovtsev <arostovtsev@google.com>
+Date: Wed, 15 Jul 2020 12:44:44 -0400
+Subject: [PATCH 2/2] Build environment for com.android.tools:sdk-common:25.0.0
+
+This patch does two things.
+
+1. Adds a pom.xml to allow building com.android.tools:sdk-common:25.0.0
+   using Maven instead of Gradle (the Gradle-based build appears to require
+   a right version of the `sdk-java-lib` Gradle plugin, which is not easy to
+   obtain short of doing an entire AOSP build). This pom file is based on
+   https://repo1.maven.org/maven2/com/android/tools/sdk-common/25.0.0/sdk-common-25.0.0.pom
+   but has numerous missing build dependencies added.
+
+   Note that the Guava version is set to 29.0 for compatibility with Bazel.
+
+2. Fixes incorrect @Override-s in RenderSecurityManager, which
+   otherwise, with a modern Java toolchain, would cause the build to
+   fail with the following error:
+
+   base/sdk-common/src/main/java/com/android/ide/common/rendering/RenderSecurityManager.java:[265,5] method does not override or implement a method from a supertype
+   base/sdk-common/src/main/java/com/android/ide/common/rendering/RenderSecurityManager.java:[521,5] method does not override or implement a method from a supertype
+   base/sdk-common/src/main/java/com/android/ide/common/rendering/RenderSecurityManager.java:[557,5] method does not override or implement a method from a supertype
+   base/sdk-common/src/main/java/com/android/ide/common/rendering/RenderSecurityManager.java:[564,5] method does not override or implement a method from a supertype
+---
+ sdk-common/pom.xml                            | 98 +++++++++++++++++++
+ .../rendering/RenderSecurityManager.java      |  4 -
+ 2 files changed, 98 insertions(+), 4 deletions(-)
+ create mode 100644 sdk-common/pom.xml
+
+diff --git a/sdk-common/pom.xml b/sdk-common/pom.xml
+new file mode 100644
+index 0000000000..de7429d617
+--- /dev/null
++++ b/sdk-common/pom.xml
+@@ -0,0 +1,98 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
++  <modelVersion>4.0.0</modelVersion>
++
++  <groupId>com.android.tools</groupId>
++  <artifactId>sdk-common</artifactId>
++  <version>25.0.0</version>
++
++  <name>com.android.tools.sdk-common</name>
++  <description>sdk-common library used by other Android tools libraries.</description>
++  <url>http://tools.android.com/</url>
++  <licenses>
++    <license>
++      <name>The Apache Software License, Version 2.0</name>
++      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
++      <distribution>repo</distribution>
++    </license>
++  </licenses>
++
++  <developers>
++    <developer>
++      <name>The Android Open Source Project</name>
++    </developer>
++  </developers>
++
++  <scm>
++    <connection>git://android.googlesource.com/platform/tools/base.git</connection>
++    <url>https://android.googlesource.com/platform/tools/base</url>
++  </scm>
++
++  <properties>
++    <maven.compiler.source>1.6</maven.compiler.source>
++    <maven.compiler.target>1.6</maven.compiler.target>
++  </properties>
++
++  <dependencies>
++    <dependency>
++      <groupId>com.android.tools</groupId>
++      <artifactId>sdklib</artifactId>
++      <version>25.0.0</version>
++    </dependency>
++    <dependency>
++      <groupId>com.google.guava</groupId>
++      <artifactId>guava</artifactId>
++      <version>29.0-jre</version>
++    </dependency>
++    <dependency>
++      <groupId>com.google.code.gson</groupId>
++      <artifactId>gson</artifactId>
++      <version>2.3</version>
++    </dependency>
++    <dependency>
++      <groupId>kxml2</groupId>
++      <artifactId>kxml2</artifactId>
++      <version>2.3.0</version>
++    </dependency>
++    <dependency>
++      <groupId>com.android.tools</groupId>
++      <artifactId>common</artifactId>
++      <version>25.0.0</version>
++    </dependency>
++    <dependency>
++      <groupId>com.android.tools</groupId>
++      <artifactId>annotations</artifactId>
++      <version>25.0.0</version>
++    </dependency>
++    <dependency>
++      <groupId>com.android.tools</groupId>
++      <artifactId>repository</artifactId>
++      <version>25.0.0</version>
++    </dependency>
++    <dependency>
++      <groupId>com.android.tools.layoutlib</groupId>
++      <artifactId>layoutlib-api</artifactId>
++      <version>25.0.0</version>
++    </dependency>
++    <dependency>
++      <groupId>com.android.tools.build</groupId>
++      <artifactId>builder-test-api</artifactId>
++      <version>2.0.0</version>
++    </dependency>
++    <dependency>
++      <groupId>com.android.tools.build</groupId>
++      <artifactId>builder-model</artifactId>
++      <version>2.0.0</version>
++    </dependency>
++    <dependency>
++      <groupId>org.bouncycastle</groupId>
++      <artifactId>bcpkix-jdk15on</artifactId>
++      <version>1.48</version>
++    </dependency>
++    <dependency>
++      <groupId>org.bouncycastle</groupId>
++      <artifactId>bcprov-jdk15on</artifactId>
++      <version>1.48</version>
++    </dependency>
++  </dependencies>
++</project>
+diff --git a/sdk-common/src/main/java/com/android/ide/common/rendering/RenderSecurityManager.java b/sdk-common/src/main/java/com/android/ide/common/rendering/RenderSecurityManager.java
+index d537bd3447..8b71083689 100644
+--- a/sdk-common/src/main/java/com/android/ide/common/rendering/RenderSecurityManager.java
++++ b/sdk-common/src/main/java/com/android/ide/common/rendering/RenderSecurityManager.java
+@@ -262,7 +262,6 @@ public class RenderSecurityManager extends SecurityManager {
+     public void checkPackageAccess(String pkg) {
+     }
+ 
+-    @Override
+     public void checkMemberAccess(Class<?> clazz, int which) {
+         if (which == Member.DECLARED && isRelevant() &&
+                 "com.android.ide.common.rendering.RenderSecurityManager".equals(clazz.getName())) {
+@@ -518,7 +517,6 @@ public class RenderSecurityManager extends SecurityManager {
+         }
+     }
+ 
+-    @Override
+     public void checkAwtEventQueueAccess() {
+         if (isRelevant()) {
+             throw RenderSecurityException.create("Event", null);
+@@ -554,14 +552,12 @@ public class RenderSecurityManager extends SecurityManager {
+         }
+     }
+ 
+-    @Override
+     public void checkSystemClipboardAccess() {
+         if (isRelevant()) {
+             throw RenderSecurityException.create("Clipboard", null);
+         }
+     }
+ 
+-    @Override
+     public boolean checkTopLevelWindow(Object context) {
+         if (isRelevant()) {
+             throw RenderSecurityException.create("Window", null);
+-- 
+2.28.0.rc0.105.gf9edc3c819-goog
+

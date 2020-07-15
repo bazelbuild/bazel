@@ -30,10 +30,51 @@ For more information, see <https://github.com/bazelbuild/bazel/issues/6645>.
 
 --
 
+To avoid using symbols which were removed in modern Guava versions,
+`com.android.tools_sdk-common_25.0.0-patched.jar` contains several patched
+classes. Steps to create the patched jar:
+
+1. `git clone https://android.googlesource.com/platform/tools/base`
+2. `git checkout 3882fb8c9281a33c56377f20e865c8a858ee50d9`
+
+   This commit corresponds to the `studio-2.0` tag, which corresponds to the
+   `sdk-common:25.0.0` artifact (apparently undocumented, but determined by
+   diffing against the sources.jar).
+
+3. `git am $BAZEL/third_party/android_common/sdk-common-guava.patch`
+
+   This fixes the use of symbols removed in modern Guava versions
+   (`CharMatcher.JAVA_LETTER`, `Objects.firstNonNull`, and
+   `Objects.toStringHelper`).
+
+4. `git am $BAZEL/third_party/android_common/sdk-common-maven.patch`
+
+   This adds a usable pom.xml to allow rebuilding `sdk-common` using Maven
+   (instead of Gradle with a specific version of the `sdk-java-lib` plugin,
+   which is not easy to use/obtain) and fixes a build failure with modern JDKs.
+
+5. `mvn compile`
+6. ```shell
+   curl -L -o sdk-common-25.0.0-patched.jar \
+   https://repo1.maven.org/maven2/com/android/tools/sdk-common/25.0.0/sdk-common-25.0.0.jar
+   ```
+7. ```shell
+   cd target/classes && \
+   jar ufv ../../sdk-common-25.0.0-patched.jar \
+   com/android/ide/common/res2/DataSet*.class \
+   com/android/ide/common/res2/MergeConsumer*.class \
+   com/android/ide/common/res2/MergingException*.class \
+   com/android/ide/common/res2/ResourceFile*.class \
+   com/android/ide/common/res2/ResourceSet*.class \
+   com/android/ide/common/resources/configuration/LocaleQualifier.class
+   ```
+
+--
+
 The following jars contain the same contents as their versions without
 -stripped, except that we removed some classes from them.
 * com.android.tools.layoutlib_layoutlib_26.1.2-stripped.jar
-* com.android.tools_sdk-common_25.0.0-stripped.jar
+* com.android.tools_sdk-common_25.0.0-patched-stripped.jar
 
 Classes removed:
 com/android/ide/common/util/AssetUtil.class
