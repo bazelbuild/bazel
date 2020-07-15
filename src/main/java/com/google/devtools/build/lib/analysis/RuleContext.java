@@ -258,7 +258,7 @@ public final class RuleContext extends TargetContext
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
     this.toolchainContexts = toolchainContexts;
-    this.execProperties = parseExecProperties();
+    this.execProperties = parseExecProperties(builder.rawExecProperties);
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
   }
@@ -1288,13 +1288,13 @@ public final class RuleContext extends TargetContext
     return ans.build();
   }
 
-  private ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties()
-      throws InvalidExecGroupException {
-    if (!isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+  private ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
+      Map<String, String> execProperties) throws InvalidExecGroupException {
+    if (execProperties.isEmpty()) {
       return ImmutableMap.of(DEFAULT_EXEC_GROUP_NAME, ImmutableMap.of());
     } else {
       return parseExecProperties(
-          attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT),
+          execProperties,
           toolchainContexts == null ? ImmutableSet.of() : toolchainContexts.getExecGroups());
     }
   }
@@ -1747,6 +1747,7 @@ public final class RuleContext extends TargetContext
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
+    private ImmutableMap<String, String> rawExecProperties;
     private ConstraintSemantics<RuleContext> constraintSemantics;
     private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
 
@@ -1789,6 +1790,14 @@ public final class RuleContext extends TargetContext
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(target.getAssociatedRule(), configConditions);
+      if (rawExecProperties == null) {
+        if (!attributes.has(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+          rawExecProperties = ImmutableMap.of();
+        } else {
+          rawExecProperties =
+              ImmutableMap.copyOf(attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT));
+        }
+      }
       return new RuleContext(
           this,
           attributes,
@@ -1874,6 +1883,15 @@ public final class RuleContext extends TargetContext
           this.toolchainContexts == null,
           "toolchainContexts has already been set for this Builder");
       this.toolchainContexts = toolchainContexts;
+      return this;
+    }
+
+    /**
+     * Warning: if you set the exec properties using this method any exec_properties attribute value
+     * will be ignored in favor of this value.
+     */
+    public Builder setExecProperties(ImmutableMap<String, String> execProperties) {
+      this.rawExecProperties = execProperties;
       return this;
     }
 

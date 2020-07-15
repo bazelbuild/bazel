@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -3057,6 +3058,50 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
             Label.parseAbsolute("//test:alpha", ImmutableMap.of()),
             Label.parseAbsolute("//test:beta", ImmutableMap.of()),
             Label.parseAbsolute("//test:charlie", ImmutableMap.of()));
+  }
+
+  @Test
+  public void testAspectActionsDontInheritExecProperties() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "load('//test:defs.bzl', 'my_rule')",
+        "my_rule(",
+        "  name = 'my_target',",
+        "  deps = [':my_dep'],",
+        ")",
+        "cc_binary(",
+        "  name = 'my_dep',",
+        "  srcs = ['dep.cc'],",
+        "  exec_properties = {'mem': '16g'},",
+        ")");
+    scratch.file(
+        "test/defs.bzl",
+        "def _aspect_impl(target, ctx):",
+        "  f = ctx.actions.declare_file('f.txt')",
+        "  ctx.actions.write(f, 'f')",
+        "  return []",
+        "my_aspect = aspect(",
+        "  implementation = _aspect_impl,",
+        "  attr_aspects = ['deps'],",
+        ")",
+        "def _rule_impl(ctx):",
+        "  pass",
+        "my_rule = rule(",
+        "  implementation = _rule_impl,",
+        "  attrs = {",
+        "    'deps': attr.label_list(aspects = [my_aspect])",
+        "  },",
+        ")");
+    scratch.file("test/dep.cc", "int main() {return 0;}");
+
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/defs.bzl%my_aspect"), "//test:my_target");
+    assertThat(analysisResult).isNotNull();
+    ActionOwner owner =
+        Iterables.getOnlyElement(
+                Iterables.getOnlyElement(analysisResult.getAspectsMap().values()).getActions())
+            .getOwner();
+    assertThat(owner.getExecProperties()).isEmpty();
   }
 
   /** StarlarkAspectTest with "keep going" flag */
