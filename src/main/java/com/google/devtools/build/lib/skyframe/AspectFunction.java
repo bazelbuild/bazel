@@ -456,7 +456,8 @@ public final class AspectFunction implements SkyFunction {
                 targetPkg.getRepositoryMapping(),
                 unloadedToolchainContext,
                 targetDescription,
-                depValueMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY));
+                // TODO(161222568): Support exec groups on aspects.
+                depValueMap.get(DependencyKind.defaultExecGroupToolchain()));
       }
 
       return createAspect(

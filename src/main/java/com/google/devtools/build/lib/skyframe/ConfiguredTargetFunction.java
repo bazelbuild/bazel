@@ -339,13 +339,15 @@ public final class ConfiguredTargetFunction implements SkyFunction {
             ToolchainCollection.builder();
         for (Map.Entry<String, UnloadedToolchainContext> unloadedContext :
             unloadedToolchainContexts.getContextMap().entrySet()) {
+          Set<ConfiguredTargetAndData> toolchainDependencies =
+              depValueMap.get(DependencyKind.forExecGroup(unloadedContext.getKey()));
           contextsBuilder.addContext(
               unloadedContext.getKey(),
               ResolvedToolchainContext.load(
                   target.getPackage().getRepositoryMapping(),
                   unloadedContext.getValue(),
                   targetDescription,
-                  depValueMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY)));
+                  toolchainDependencies));
         }
         toolchainContexts = contextsBuilder.build();
       }

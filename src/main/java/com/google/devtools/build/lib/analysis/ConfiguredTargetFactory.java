@@ -456,7 +456,7 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> map, Target target) {
     OrderedSetMultimap<Attribute, ConfiguredTargetAndData> result = OrderedSetMultimap.create();
     for (Map.Entry<DependencyKind, ConfiguredTargetAndData> entry : map.entries()) {
-      if (entry.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
+      if (DependencyKind.isToolchain(entry.getKey())) {
         continue;
       }
       Attribute attribute = entry.getKey().getAttribute();

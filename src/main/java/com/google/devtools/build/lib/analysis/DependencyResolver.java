@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
-import static com.google.devtools.build.lib.analysis.DependencyKind.TOOLCHAIN_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 
 import com.google.auto.value.AutoValue;
@@ -25,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -305,7 +305,7 @@ public abstract class DependencyResolver {
     for (Map.Entry<DependencyKind, Label> entry : outgoingLabels.entries()) {
       Label toLabel = entry.getValue();
 
-      if (entry.getKey() == TOOLCHAIN_DEPENDENCY) {
+      if (DependencyKind.isToolchain(entry.getKey())) {
         // This dependency is a toolchain. Its package has not been loaded and therefore we can't
         // determine which aspects and which rule configuration transition we should use, so just
         // use sensible defaults. Not depending on their package makes the error message reporting
@@ -313,22 +313,20 @@ public abstract class DependencyResolver {
         // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
         // TODO(#10523): Remove check when this is fully released.
         if (useToolchainTransition) {
-          // We need to create an individual PRD for each distinct toolchain context that contains
-          // this toolchain, because each has a different ToolchainContextKey.
-          for (ToolchainContext toolchainContext :
-              toolchainContexts.getContextsForResolvedToolchain(toLabel)) {
-            partiallyResolvedDeps.put(
-                TOOLCHAIN_DEPENDENCY,
-                PartiallyResolvedDependency.builder()
-                    .setLabel(toLabel)
-                    .setTransition(NoTransition.INSTANCE)
-                    .setToolchainContextKey(toolchainContext.key())
-                    .build());
-          }
+          ToolchainDependencyKind tdk = (ToolchainDependencyKind) entry.getKey();
+          ToolchainContext toolchainContext =
+              toolchainContexts.getToolchainContext(tdk.getExecGroupName());
+          partiallyResolvedDeps.put(
+              entry.getKey(),
+              PartiallyResolvedDependency.builder()
+                  .setLabel(toLabel)
+                  .setTransition(NoTransition.INSTANCE)
+                  .setToolchainContextKey(toolchainContext.key())
+                  .build());
         } else {
           // Legacy approach: use a HostTransition.
           partiallyResolvedDeps.put(
-              TOOLCHAIN_DEPENDENCY,
+              entry.getKey(),
               PartiallyResolvedDependency.builder()
                   .setLabel(toLabel)
                   .setTransition(HostTransition.INSTANCE)
@@ -513,7 +511,12 @@ public abstract class DependencyResolver {
     }
 
     if (toolchainContexts != null) {
-      outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContexts.getResolvedToolchains());
+      for (Map.Entry<String, ToolchainContext> entry :
+          toolchainContexts.getContextMap().entrySet()) {
+        outgoingLabels.putAll(
+            DependencyKind.forExecGroup(entry.getKey()),
+            entry.getValue().resolvedToolchainLabels());
+      }
     }
 
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.APPLICABLE_LICENSES_ATTR)) {

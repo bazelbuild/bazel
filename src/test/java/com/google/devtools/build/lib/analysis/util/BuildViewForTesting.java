@@ -555,7 +555,7 @@ public class BuildViewForTesting {
               target.getPackage().getRepositoryMapping(),
               unloadedToolchainContext.getValue(),
               targetDescription,
-              prerequisiteMap.get(DependencyKind.TOOLCHAIN_DEPENDENCY));
+              prerequisiteMap.get(DependencyKind.forExecGroup(unloadedToolchainContext.getKey())));
       resolvedToolchainContext.addContext(unloadedToolchainContext.getKey(), toolchainContext);
     }
 

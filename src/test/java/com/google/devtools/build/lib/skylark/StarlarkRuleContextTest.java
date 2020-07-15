@@ -2805,7 +2805,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testExecGroupToolchain() throws Exception {
+  public void testExecGroup_toolchain() throws Exception {
     writeExecGroups();
 
     ConfiguredTarget target = getConfiguredTarget("//something:nectarine");
@@ -2822,6 +2822,65 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
     assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
     assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
+        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+  }
+
+  // Tests for an error that occurs when two exec groups have different requirements (toolchain
+  // types and exec constraints), but have the same toolchain type. This also requires the toolchain
+  // transition to be enabled.
+  @Test
+  public void testExecGroup_duplicateToolchainType() throws Exception {
+    createToolchains();
+    createPlatforms();
+    scratch.file(
+        "something/defs.bzl",
+        "result = provider()",
+        "def _impl(ctx):",
+        "  exec_groups = ctx.exec_groups",
+        "  toolchain = ctx.exec_groups['dragonfruit'].toolchains['//rule:toolchain_type']",
+        "  return [result(",
+        "    toolchain_value = toolchain.value,",
+        "    exec_groups = exec_groups,",
+        "  )]",
+        "use_exec_groups = rule(",
+        "  implementation = _impl,",
+        "  exec_groups = {",
+        "    'dragonfruit': exec_group(toolchains = ['//rule:toolchain_type']),",
+        "    'passionfruit': exec_group(",
+        "      toolchains = ['//rule:toolchain_type'],",
+        "      exec_compatible_with = ['//something:extra'],",
+        "    ),",
+        "  },",
+        "  incompatible_use_toolchain_transition = True,",
+        ")");
+    scratch.file(
+        "something/BUILD",
+        "constraint_setting(name = 'setting', default_constraint_value = ':extra')",
+        "constraint_value(name = 'extra', constraint_setting = ':setting')",
+        "load('//something:defs.bzl', 'use_exec_groups')",
+        "use_exec_groups(name = 'nectarine')");
+    setStarlarkSemanticsOptions("--experimental_exec_groups=true");
+    useConfiguration(
+        "--extra_toolchains=//toolchain:foo_toolchain,//toolchain:bar_toolchain",
+        "--platforms=//platform:platform_1");
+
+    ConfiguredTarget target = getConfiguredTarget("//something:nectarine");
+    StructImpl info =
+        (StructImpl)
+            target.get(
+                new StarlarkProvider.Key(
+                    Label.parseAbsoluteUnchecked("//something:defs.bzl"), "result"));
+    assertThat(info).isNotNull();
+    assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
+    assertThat(info.getValue("exec_groups")).isInstanceOf(ExecGroupCollection.class);
+    ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
+        ((ExecGroupCollection) info.getValue("exec_groups")).getToolchainCollectionForTesting();
+    assertThat(toolchainContexts.keySet())
+        .containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit", "passionfruit");
+    assertThat(toolchainContexts.get(DEFAULT_EXEC_GROUP_NAME).requiredToolchainTypes()).isEmpty();
+    assertThat(toolchainContexts.get("dragonfruit").resolvedToolchainLabels())
+        .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
+    assertThat(toolchainContexts.get("passionfruit").resolvedToolchainLabels())
         .containsExactly(Label.parseAbsoluteUnchecked("//toolchain:foo"));
   }
 

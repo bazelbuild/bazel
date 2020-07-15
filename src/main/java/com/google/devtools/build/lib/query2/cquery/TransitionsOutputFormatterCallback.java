@@ -18,6 +18,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyKey;
 import com.google.devtools.build.lib.analysis.DependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -153,8 +154,13 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                 .values();
         String hostConfigurationChecksum = hostConfiguration.checksum();
         String dependencyName;
-        if (attributeAndDep.getKey() == DependencyKind.TOOLCHAIN_DEPENDENCY) {
-          dependencyName = "[toolchain dependency]";
+        if (DependencyKind.isToolchain(attributeAndDep.getKey())) {
+          ToolchainDependencyKind tdk = (ToolchainDependencyKind) attributeAndDep.getKey();
+          if (tdk.isDefaultExecGroup()) {
+            dependencyName = "[toolchain dependency]";
+          } else {
+            dependencyName = String.format("[toolchain dependency: %s]", tdk.getExecGroupName());
+          }
         } else {
           dependencyName = attributeAndDep.getKey().getAttribute().getName();
         }
