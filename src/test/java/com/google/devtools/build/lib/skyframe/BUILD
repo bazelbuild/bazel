@@ -199,7 +199,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:glob_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:local_repository_lookup_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:managed_directories_knowledge",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:minimal_output_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe:output_store",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_error_message_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:package_lookup_function",

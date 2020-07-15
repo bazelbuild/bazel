@@ -345,7 +345,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     Preconditions.checkState(
         executionMode.get(), "Tried to inject %s outside of execution", output);
 
-    store.injectOutputData(output, metadata);
+    store.putArtifactData(output, metadata);
   }
 
   @Override

@@ -120,11 +120,6 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
     return "";
   }
 
-  /** Returns {@code true} if this is a special marker as opposed to a representing a real file. */
-  public boolean isMarkerValue() {
-    return this instanceof Singleton;
-  }
-
   /** Returns {@code true} if the file only exists remotely. */
   public boolean isRemote() {
     return false;

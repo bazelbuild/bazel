@@ -101,7 +101,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(input)).isNull();
     assertThat(chmodCalls).isEmpty();
@@ -124,7 +124,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isEqualTo(metadata);
     assertThat(chmodCalls).isEmpty();
@@ -143,7 +143,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     Exception e = assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
     assertThat(e).hasMessageThat().contains(artifact + " is not present in declared outputs");
@@ -163,7 +163,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
@@ -182,7 +182,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
@@ -202,7 +202,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(artifact),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNotNull();
     assertThat(chmodCalls).isEmpty();
@@ -221,7 +221,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(artifact),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThrows(FileNotFoundException.class, () -> handler.getMetadata(artifact));
     assertThat(chmodCalls).isEmpty();
@@ -240,7 +240,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
     assertThat(chmodCalls).isEmpty();
@@ -261,7 +261,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNull();
     assertThat(chmodCalls).isEmpty();
@@ -284,7 +284,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(treeArtifact),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThat(handler.getMetadata(artifact)).isNotNull();
     assertThat(chmodCalls).isEmpty();
@@ -305,7 +305,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     assertThrows(IllegalStateException.class, () -> handler.getMetadata(artifact));
     assertThat(chmodCalls).isEmpty();
@@ -361,7 +361,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(artifact),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
     handler.discardOutputMetadata();
 
@@ -541,7 +541,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.forExecRoot(outputRoot.getRoot().asPath()),
-            new MinimalOutputStore(),
+            new OutputStore(),
             outputRoot.getRoot().asPath());
 
     // Only the regular FileArtifactValue should have its metadata stored.
@@ -567,7 +567,7 @@ public final class ActionMetadataHandlerTest {
 
   @Test
   public void omitRegularArtifact() {
-    OutputStore store = new MinimalOutputStore();
+    OutputStore store = new OutputStore();
     Artifact omitted =
         ActionsTestUtil.createArtifactWithRootRelativePath(
             outputRoot, PathFragment.create("omitted"));
@@ -598,7 +598,7 @@ public final class ActionMetadataHandlerTest {
 
   @Test
   public void omitTreeArtifact() {
-    OutputStore store = new MinimalOutputStore();
+    OutputStore store = new OutputStore();
     SpecialArtifact omittedTree =
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             outputRoot, PathFragment.create("omitted"));

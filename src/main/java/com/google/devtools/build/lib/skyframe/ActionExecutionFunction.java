@@ -753,7 +753,7 @@ public class ActionExecutionFunction implements SkyFunction {
             action.getOutputs(),
             tsgm.get(),
             pathResolver,
-            newOutputStore(state),
+            new OutputStore(),
             skyframeActionExecutor.getExecRoot());
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
@@ -830,7 +830,7 @@ public class ActionExecutionFunction implements SkyFunction {
                   action.getOutputs(),
                   tsgm.get(),
                   pathResolver,
-                  newOutputStore(state),
+                  new OutputStore(),
                   skyframeActionExecutor.getExecRoot());
           // Set the MetadataHandler to accept output information.
           metadataHandler.discardOutputMetadata();
@@ -860,18 +860,6 @@ public class ActionExecutionFunction implements SkyFunction {
         skyframeDepsResult,
         new ActionPostprocessingImpl(state),
         state.discoveredInputs != null);
-  }
-
-  private OutputStore newOutputStore(ContinuationState state) {
-    Preconditions.checkState(
-        !skyframeActionExecutor.actionFileSystemType().isEnabled()
-            || state.actionFileSystem != null,
-        "actionFileSystem must not be null");
-
-    if (skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem()) {
-      return new MinimalOutputStore();
-    }
-    return new OutputStore();
   }
 
   /** Implementation of {@link ActionPostprocessing}. */
