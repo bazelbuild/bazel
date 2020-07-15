@@ -104,6 +104,10 @@ public final class Dict<K, V>
     this(mutability, new LinkedHashMap<>());
   }
 
+  private Dict(@Nullable Mutability mutability, int initialCapacity) {
+    this(mutability, new LinkedHashMap<>(initialCapacity));
+  }
+
   /**
    * Takes ownership of the supplied LinkedHashMap and returns a new Dict that wraps it. The caller
    * must not subsequently modify the map, but the Dict may do so.
@@ -535,9 +539,10 @@ public final class Dict<K, V>
       Dict<? extends K, ? extends V> left,
       Dict<? extends K, ? extends V> right,
       @Nullable Mutability mu) {
-    Dict<K, V> result = Dict.of(mu);
-    result.putAllUnsafe(left);
-    result.putAllUnsafe(right);
+    Dict<K, V> result = new Dict<>(mu, Math.max(left.size(), right.size()));
+    // Update underlying map contents directly, input dicts already contain valid objects
+    result.contents.putAll(left.contents);
+    result.contents.putAll(right.contents);
     return result;
   }
 
