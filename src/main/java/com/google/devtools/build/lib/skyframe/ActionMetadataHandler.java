@@ -75,8 +75,35 @@ final class ActionMetadataHandler implements MetadataHandler {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
+  /**
+   * Creates a new metadata handler.
+   *
+   * <p>If the handler is for use during input discovery, calling {@link #getMetadata} with an
+   * artifact which is neither in {@code inputArtifactData} nor {@code outputs} is tolerated and
+   * will return {@code null}. To subsequently transform the handler for regular action execution
+   * (where such a call is not permitted), use {@link #transformAfterInputDiscovery}.
+   */
+  static ActionMetadataHandler create(
+      ActionInputMap inputArtifactData,
+      boolean forInputDiscovery,
+      ImmutableSet<Artifact> outputs,
+      TimestampGranularityMonitor tsgm,
+      ArtifactPathResolver artifactPathResolver,
+      Path execRoot,
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
+    return new ActionMetadataHandler(
+        inputArtifactData,
+        forInputDiscovery,
+        outputs,
+        tsgm,
+        artifactPathResolver,
+        execRoot,
+        createFilesetMapping(expandedFilesets, execRoot.asFragment()),
+        new OutputStore());
+  }
+
   private final ActionInputMap inputArtifactData;
-  private final boolean missingArtifactsAllowed;
+  private final boolean forInputDiscovery;
   private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
 
   private final Set<Artifact> omittedOutputs = Sets.newConcurrentHashSet();
@@ -94,23 +121,46 @@ final class ActionMetadataHandler implements MetadataHandler {
 
   private final OutputStore store;
 
-  ActionMetadataHandler(
+  private ActionMetadataHandler(
       ActionInputMap inputArtifactData,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
-      boolean missingArtifactsAllowed,
+      boolean forInputDiscovery,
       ImmutableSet<Artifact> outputs,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
-      OutputStore store,
-      Path execRoot) {
+      Path execRoot,
+      ImmutableMap<PathFragment, FileArtifactValue> filesetMapping,
+      OutputStore store) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
-    this.missingArtifactsAllowed = missingArtifactsAllowed;
+    this.forInputDiscovery = forInputDiscovery;
     this.outputs = Preconditions.checkNotNull(outputs);
     this.tsgm = Preconditions.checkNotNull(tsgm);
     this.artifactPathResolver = Preconditions.checkNotNull(artifactPathResolver);
     this.execRoot = Preconditions.checkNotNull(execRoot);
-    this.filesetMapping = expandFilesetMapping(Preconditions.checkNotNull(expandedFilesets));
+    this.filesetMapping = Preconditions.checkNotNull(filesetMapping);
     this.store = Preconditions.checkNotNull(store);
+  }
+
+  /**
+   * Returns a new handler mostly identical to this one, except uses the given {@code store} and
+   * does not permit {@link #getMetadata} to be called with an artifact which is neither in inputs
+   * nor outputs.
+   *
+   * <p>The returned handler will be in the mode for action cache checking. To prepare it for action
+   * execution, call {@link #discardOutputMetadata}.
+   *
+   * <p>This method is designed to be called after input discovery when a fresh handler is needed
+   * but all of the parameters in {@link #create} would be the same as the original handler.
+   */
+  ActionMetadataHandler transformAfterInputDiscovery(OutputStore store) {
+    return new ActionMetadataHandler(
+        inputArtifactData,
+        /*forInputDiscovery=*/ false,
+        outputs,
+        tsgm,
+        artifactPathResolver,
+        execRoot,
+        filesetMapping,
+        store);
   }
 
   /**
@@ -139,14 +189,14 @@ final class ActionMetadataHandler implements MetadataHandler {
     return Preconditions.checkNotNull(value, artifact);
   }
 
-  private ImmutableMap<PathFragment, FileArtifactValue> expandFilesetMapping(
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+  private static ImmutableMap<PathFragment, FileArtifactValue> createFilesetMapping(
+      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets, PathFragment execRoot) {
     Map<PathFragment, FileArtifactValue> filesetMap = new HashMap<>();
     for (Map.Entry<Artifact, ImmutableList<FilesetOutputSymlink>> entry : filesets.entrySet()) {
       try {
         FilesetManifest fileset =
             FilesetManifest.constructFilesetManifest(
-                entry.getValue(), execRoot.asFragment(), RelativeSymlinkBehavior.RESOLVE);
+                entry.getValue(), execRoot, RelativeSymlinkBehavior.RESOLVE);
         for (Map.Entry<String, FileArtifactValue> favEntry :
             fileset.getArtifactValues().entrySet()) {
           if (favEntry.getValue().getDigest() != null) {
@@ -161,10 +211,6 @@ final class ActionMetadataHandler implements MetadataHandler {
       }
     }
     return ImmutableMap.copyOf(filesetMap);
-  }
-
-  ArtifactPathResolver getArtifactPathResolver() {
-    return artifactPathResolver;
   }
 
   private boolean isKnownOutput(Artifact artifact) {
@@ -193,7 +239,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         return checkExists(value, artifact);
       }
       Preconditions.checkState(
-          missingArtifactsAllowed, "%s is not present in declared outputs: %s", artifact, outputs);
+          forInputDiscovery, "%s is not present in declared outputs: %s", artifact, outputs);
       return null;
     }
 

@@ -741,20 +741,19 @@ public class ActionExecutionFunction implements SkyFunction {
       expandedFilesets = ImmutableMap.copyOf(filesetsMap);
     }
 
-    // The metadataHandler may be recreated if we discover inputs.
     ArtifactPathResolver pathResolver =
         ArtifactPathResolver.createPathResolver(
             state.actionFileSystem, skyframeActionExecutor.getExecRoot());
     ActionMetadataHandler metadataHandler =
-        new ActionMetadataHandler(
+        ActionMetadataHandler.create(
             state.inputArtifactData,
-            expandedFilesets,
-            /* missingArtifactsAllowed= */ action.discoversInputs(),
+            action.discoversInputs(),
             action.getOutputs(),
             tsgm.get(),
             pathResolver,
-            new OutputStore(),
-            skyframeActionExecutor.getExecRoot());
+            skyframeActionExecutor.getExecRoot(),
+            expandedFilesets);
+
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
       state.token =
@@ -822,16 +821,7 @@ public class ActionExecutionFunction implements SkyFunction {
         case NO_DISCOVERED_DATA:
           break;
         case DISCOVERED_DATA:
-          metadataHandler =
-              new ActionMetadataHandler(
-                  state.inputArtifactData,
-                  expandedFilesets,
-                  /*missingArtifactsAllowed=*/ false,
-                  action.getOutputs(),
-                  tsgm.get(),
-                  pathResolver,
-                  new OutputStore(),
-                  skyframeActionExecutor.getExecRoot());
+          metadataHandler = metadataHandler.transformAfterInputDiscovery(new OutputStore());
           // Set the MetadataHandler to accept output information.
           metadataHandler.discardOutputMetadata();
       }
@@ -893,19 +883,8 @@ public class ActionExecutionFunction implements SkyFunction {
             // We are in the interesting case of an action that discovered its inputs during
             // execution, and found some new ones, but the new ones were already present in the
             // graph. We must therefore cache the metadata for those new ones.
-            Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets =
-                new HashMap<>(state.filesetsInsideRunfiles);
-            expandedFilesets.putAll(state.topLevelFilesets);
             metadataHandler =
-                new ActionMetadataHandler(
-                    state.inputArtifactData,
-                    expandedFilesets,
-                    /*missingArtifactsAllowed=*/ false,
-                    action.getOutputs(),
-                    tsgm.get(),
-                    metadataHandler.getArtifactPathResolver(),
-                    metadataHandler.getOutputStore(),
-                    skyframeActionExecutor.getExecRoot());
+                metadataHandler.transformAfterInputDiscovery(metadataHandler.getOutputStore());
         }
       }
       Preconditions.checkState(!env.valuesMissing(), action);
