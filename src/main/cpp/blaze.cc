@@ -368,8 +368,6 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
     result.push_back("--add-opens=java.base/java.lang=ALL-UNNAMED");
   }
 
-  result.push_back("-Xverify:none");
-
   vector<string> user_options = startup_options.host_jvm_args;
 
   // Add JVM arguments particular to building blaze64 and particular JVM

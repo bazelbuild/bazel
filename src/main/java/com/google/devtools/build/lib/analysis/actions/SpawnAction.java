@@ -1049,7 +1049,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       this.executableArgs =
           CustomCommandLine.builder()
               .addPath(javaExecutable)
-              .add("-Xverify:none")
               .addAll(ImmutableList.copyOf(jvmArgs))
               .addAll(ImmutableList.copyOf(launchArgs));
       toolsBuilder.add(deployJar);

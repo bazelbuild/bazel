@@ -436,7 +436,7 @@ function run_bazel_jar() {
   done
 
   "${JAVA_HOME}/bin/java" \
-      -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
+      -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
       ${JNI_FLAGS} \
