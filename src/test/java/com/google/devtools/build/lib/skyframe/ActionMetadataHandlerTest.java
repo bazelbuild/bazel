@@ -93,7 +93,7 @@ public final class ActionMetadataHandlerTest {
         outputs,
         tsgm,
         ArtifactPathResolver.IDENTITY,
-        execRoot,
+        execRoot.asFragment(),
         /*expandedFilesets=*/ ImmutableMap.of());
   }
 
@@ -436,7 +436,7 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(),
             tsgm,
             ArtifactPathResolver.IDENTITY,
-            execRoot,
+            execRoot.asFragment(),
             expandedFilesets);
 
     // Only the regular FileArtifactValue should have its metadata stored.
@@ -494,14 +494,10 @@ public final class ActionMetadataHandlerTest {
         ActionsTestUtil.createTreeArtifactWithGeneratingAction(
             outputRoot, PathFragment.create("consumed"));
     ActionMetadataHandler handler =
-        ActionMetadataHandler.create(
+        createHandler(
             new ActionInputMap(0),
             /*forInputDiscovery=*/ false,
-            /*outputs=*/ ImmutableSet.of(omittedTree, consumedTree),
-            tsgm,
-            ArtifactPathResolver.IDENTITY,
-            execRoot,
-            /*expandedFilesets=*/ ImmutableMap.of());
+            /*outputs=*/ ImmutableSet.of(omittedTree, consumedTree));
 
     handler.discardOutputMetadata();
     handler.markOmitted(omittedTree);

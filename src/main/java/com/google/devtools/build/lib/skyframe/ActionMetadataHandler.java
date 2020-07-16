@@ -89,7 +89,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ImmutableSet<Artifact> outputs,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
-      Path execRoot,
+      PathFragment execRoot,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets) {
     return new ActionMetadataHandler(
         inputArtifactData,
@@ -98,7 +98,7 @@ final class ActionMetadataHandler implements MetadataHandler {
         tsgm,
         artifactPathResolver,
         execRoot,
-        createFilesetMapping(expandedFilesets, execRoot.asFragment()),
+        createFilesetMapping(expandedFilesets, execRoot),
         new OutputStore());
   }
 
@@ -111,7 +111,7 @@ final class ActionMetadataHandler implements MetadataHandler {
 
   private final TimestampGranularityMonitor tsgm;
   private final ArtifactPathResolver artifactPathResolver;
-  private final Path execRoot;
+  private final PathFragment execRoot;
 
   /**
    * Whether the action is being executed or not; this flag is set to true in {@link
@@ -127,7 +127,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       ImmutableSet<Artifact> outputs,
       TimestampGranularityMonitor tsgm,
       ArtifactPathResolver artifactPathResolver,
-      Path execRoot,
+      PathFragment execRoot,
       ImmutableMap<PathFragment, FileArtifactValue> filesetMapping,
       OutputStore store) {
     this.inputArtifactData = Preconditions.checkNotNull(inputArtifactData);
@@ -224,9 +224,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     if (!(actionInput instanceof Artifact)) {
       PathFragment inputPath = actionInput.getExecPath();
       PathFragment filesetKeyPath =
-          inputPath.startsWith(execRoot.asFragment())
-              ? inputPath.relativeTo(execRoot.asFragment())
-              : inputPath;
+          inputPath.startsWith(execRoot) ? inputPath.relativeTo(execRoot) : inputPath;
       return filesetMapping.get(filesetKeyPath);
     }
 
