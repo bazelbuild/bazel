@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("//tools/distributions:distribution_rules.bzl", "distrib_java_import", "distrib_jar_filegroup")
+load("//tools/distributions:distribution_rules.bzl", "distrib_java_import", "distrib_jar_filegroup", "distrib_cc_binary")
 
 licenses(["notice"])  # Apache v2
 
@@ -58,8 +58,9 @@ distrib_java_import(
     enable_distributions = ["debian"],
 )
 
-cc_binary(
+distrib_cc_binary(
     name = "grpc-java-plugin",
+    enable_distributions = ["debian"],
     srcs = [
         "compiler/src/java_plugin/cpp/java_generator.cpp",
         "compiler/src/java_plugin/cpp/java_generator.h",
