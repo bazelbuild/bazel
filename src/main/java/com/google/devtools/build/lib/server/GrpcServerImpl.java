@@ -60,7 +60,8 @@ import io.grpc.StatusRuntimeException;
 import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.ServerCallStreamObserver;
 import io.grpc.stub.StreamObserver;
-import io.netty.util.NetUtil;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.unix.Socket;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintWriter;
@@ -454,8 +455,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     try {
       // TODO(bazel-team): Remove the following check after upgrading netty to a version with a fix
       //   for https://github.com/netty/netty/issues/10402
-      if (NetUtil.isIpV4StackPreferred()) {
-        throw new IOException("ipv4 is preferred on the system.");
+      if (Epoll.isAvailable() && !Socket.isIPv6Preferred()) {
+        throw new IOException("ipv6 is not preferred on the system.");
       }
       server =
           NettyServerBuilder.forAddress(address).addService(this).directExecutor().build().start();
