@@ -575,7 +575,7 @@ genrule(
 distrib_java_import(
     name = "netty",
     enable_distributions = ["debian"],
-    jars = ["netty/netty-all-4.1.34.Final.jar"],
+    jars = ["netty/netty-all-4.1.48.Final.jar"],
 )
 
 distrib_java_import(
