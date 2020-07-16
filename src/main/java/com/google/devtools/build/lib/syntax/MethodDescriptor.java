@@ -85,6 +85,59 @@ final class MethodDescriptor {
     // This happens when the interface is public but the implementation classes
     // have reduced visibility.
     method.setAccessible(true);
+
+    boolean structField = annotation.structField();
+
+    int p = method.getParameterCount();
+    if (p != 0 && method.getParameterTypes()[p - 1] == StarlarkSemantics.class) {
+      Preconditions.checkArgument(structField,
+              "%s: StarlarkSemantics parameter can only be used in methods structField=true", method);
+      Preconditions.checkArgument(annotation.useStarlarkSemantics(),
+              "%s: useStarlarkSemantics must be true to use StarlarkSemantics parameter");
+      --p;
+    } else {
+      Preconditions.checkArgument(!annotation.useStarlarkSemantics(),
+              "%s: useStarlarkSemantics=true but StarlarkSemantics parameter is not found", method);
+    }
+
+    if (p != 0 && method.getParameterTypes()[p - 1] == StarlarkThread.class) {
+      Preconditions.checkArgument(!structField,
+              "%s: StarlarkThread parameter can only be used in methods structField=false", method);
+      Preconditions.checkArgument(annotation.useStarlarkThread(),
+              "%s: useStarlarkThread must be true to use StarlarkThread parameter", method);
+      --p;
+    } else {
+      Preconditions.checkArgument(!annotation.useStarlarkThread(),
+              "%s: useStarlarkThread=true but StarlarkThread parameter is not found");
+    }
+
+    if (!annotation.extraKeywords().name().isEmpty()) {
+      Preconditions.checkArgument(!structField, "%s: extraKeywords is not compatible with structField", method);
+      Preconditions.checkArgument(p != 0, "%s: extraKeywords annotation present, but no kwargs parameter", method);
+      Preconditions.checkArgument(method.getParameterTypes()[p - 1].isAssignableFrom(Dict.class),
+              "%s: extraKeywords paramter must be assignable from Dict<String, Object>", method);
+      --p;
+    }
+
+    if (!annotation.extraPositionals().name().isEmpty()) {
+      Preconditions.checkArgument(!structField, "%s: extraPositionals is not compatible with structField", method);
+      Preconditions.checkArgument(p != 0, "%s: extraPositionals annotation present, but no args parameter", method);
+      Preconditions.checkArgument(method.getParameterTypes()[p - 1].isAssignableFrom(Tuple.class),
+              "%s: extraKeywords paramter must be assignable from Tuple<Object>", method);
+      --p;
+    }
+
+    Preconditions.checkArgument(p == annotation.parameters().length,
+            "%s: mismatched parameter count", method);
+
+    while (p != 0) {
+      Preconditions.checkArgument(method.getParameterTypes()[p - 1] != StarlarkSemantics.class,
+              "%s: misplaced StarlarkSemantics parameter", method);
+      Preconditions.checkArgument(method.getParameterTypes()[p - 1] != StarlarkThread.class,
+              "%s: misplaced StarlarkThread parameter", method);
+      --p;
+    }
+
     return new MethodDescriptor(
         method,
         annotation,
