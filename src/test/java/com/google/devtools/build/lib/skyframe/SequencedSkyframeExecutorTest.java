@@ -1770,7 +1770,6 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         new NonRuleConfiguredTargetValue(
             new SerializableConfiguredTarget(),
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                /*eventHandler=*/ ignored -> {},
                 new ActionKeyContext(),
                 ImmutableList.<ActionAnalysisMetadata>builder()
                     .add(catastrophicAction)

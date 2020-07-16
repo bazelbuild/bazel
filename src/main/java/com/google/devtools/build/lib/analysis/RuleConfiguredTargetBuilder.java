@@ -248,7 +248,6 @@ public final class RuleConfiguredTargetBuilder {
     AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
     GeneratingActions generatingActions =
         Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-            analysisEnvironment.getEventHandler(),
             analysisEnvironment.getActionKeyContext(),
             analysisEnvironment.getRegisteredActions(),
             ruleContext.getOwner(),

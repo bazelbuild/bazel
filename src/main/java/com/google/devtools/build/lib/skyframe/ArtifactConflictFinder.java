@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -64,7 +63,6 @@ class ArtifactConflictFinder {
    * build as of 2014), so it should only be called when necessary.
    */
   static ImmutableMap<ActionAnalysisMetadata, ConflictException> findAndStoreArtifactConflicts(
-      EventHandler eventHandler,
       Iterable<ActionLookupValue> actionLookupValues,
       boolean strictConflictChecks,
       ActionKeyContext actionKeyContext)
@@ -73,8 +71,7 @@ class ArtifactConflictFinder {
         new ConcurrentHashMap<>();
     Pair<ActionGraph, SortedMap<PathFragment, Artifact>> result;
     result =
-        constructActionGraphAndPathMap(
-            eventHandler, actionKeyContext, actionLookupValues, temporaryBadActionMap);
+        constructActionGraphAndPathMap(actionKeyContext, actionLookupValues, temporaryBadActionMap);
     ActionGraph actionGraph = result.first;
     SortedMap<PathFragment, Artifact> artifactPathMap = result.second;
 
@@ -95,12 +92,11 @@ class ArtifactConflictFinder {
    */
   private static Pair<ActionGraph, SortedMap<PathFragment, Artifact>>
       constructActionGraphAndPathMap(
-          EventHandler eventHandler,
           ActionKeyContext actionKeyContext,
           Iterable<ActionLookupValue> values,
           ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
           throws InterruptedException {
-    MutableActionGraph actionGraph = new MapBasedActionGraph(eventHandler, actionKeyContext);
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap =
         new ConcurrentSkipListMap<>(Actions.comparatorForPrefixConflicts());
     // Action graph construction is CPU-bound.

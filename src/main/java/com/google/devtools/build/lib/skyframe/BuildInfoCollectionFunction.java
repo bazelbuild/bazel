@@ -91,7 +91,6 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     try {
       generatingActions =
           Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              env.getListener(),
               actionKeyContext,
               collection.getActions(),
               keyAndConfig,

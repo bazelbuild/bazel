@@ -1031,7 +1031,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       try {
         generatingActions =
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                analysisEnvironment.getEventHandler(),
                 analysisEnvironment.getActionKeyContext(),
                 analysisEnvironment.getRegisteredActions(),
                 configuredTargetKey,

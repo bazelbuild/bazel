@@ -298,7 +298,6 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                   ACTION_LOOKUP_KEY,
                   new BasicActionLookupValue(
                       Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                          /*eventHandler=*/ ignored -> {},
                           actionKeyContext,
                           ImmutableList.copyOf(actions),
                           ACTION_LOOKUP_KEY,

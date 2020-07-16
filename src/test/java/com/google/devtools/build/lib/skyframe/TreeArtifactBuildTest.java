@@ -1013,7 +1013,6 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         return new ActionTemplateExpansionValue(
             Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-                /*eventHandler=*/ ignored -> {},
                 actionKeyContext,
                 actions,
                 (ActionLookupKey) skyKey,

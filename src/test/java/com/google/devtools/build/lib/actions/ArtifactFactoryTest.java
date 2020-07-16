@@ -228,8 +228,7 @@ public class ArtifactFactoryTest {
         artifactFactory.getDerivedArtifact(barRelative, outRoot, NULL_ARTIFACT_OWNER);
     a.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
     b.setGeneratingActionKey(ActionsTestUtil.NULL_ACTION_LOOKUP_DATA);
-    MutableActionGraph actionGraph =
-        new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, actionKeyContext);
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Action originalAction = new ActionsTestUtil.NullAction(NULL_ACTION_OWNER, a);
     actionGraph.registerAction(originalAction);
 
