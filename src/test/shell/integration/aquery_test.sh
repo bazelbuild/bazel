@@ -1099,7 +1099,7 @@ EOF
   bazel aquery --output=proto "//$pkg:bar" > output_v1 || fail "Expected success"
   bazel clean
 
-  bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" > output_v2 \
+  bazel aquery --incompatible_proto_output_v2 --output=proto "//$pkg:bar" > output_v2 2> "$TEST_log" \
     || fail "Expected success"
   [[ output_v1 != output_v2 ]] || fail "proto content should be different."
 }
@@ -1166,7 +1166,7 @@ EOF
 }
 
 function test_aquery_textproto_v2_skyframe_state() {
-    local pkg="${FUNCNAME[0]}"
+  local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
 genrule(
@@ -1197,7 +1197,7 @@ EOF
 }
 
 function test_aquery_json_v2_skyframe_state() {
-    local pkg="${FUNCNAME[0]}"
+  local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
 genrule(
@@ -1247,6 +1247,30 @@ EOF
   assert_contains "input_dep_set_ids: 1" output
   assert_contains "output_ids: 3" output
   assert_contains "mnemonic: \"Genrule\"" output
+}
+
+function test_dump_skyframe_state_after_build_to_file() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  touch $pkg/foo_matching_in.java
+
+  bazel clean
+
+  bazel build --experimental_aquery_dump_after_build_format=textproto --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
+    &> "$TEST_log" || fail "Expected success"
+
+  assert_contains "actions {" "$TEST_TMPDIR/foo.out"
+  assert_contains "input_dep_set_ids: 1" "$TEST_TMPDIR/foo.out"
+  assert_contains "output_ids: 3" "$TEST_TMPDIR/foo.out"
+  assert_contains "mnemonic: \"Genrule\"" "$TEST_TMPDIR/foo.out"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

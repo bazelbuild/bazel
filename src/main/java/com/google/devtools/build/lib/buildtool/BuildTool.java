@@ -61,8 +61,12 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
+import java.io.BufferedOutputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -212,7 +216,9 @@ public class BuildTool {
         if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor
             && request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
           try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
-            dumpSkyframeStateAfterBuild(request.getBuildOptions().aqueryDumpAfterBuildFormat);
+            dumpSkyframeStateAfterBuild(
+                request.getBuildOptions().aqueryDumpAfterBuildFormat,
+                request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
           } catch (CommandLineExpansionException | IOException e) {
             throw new PostExecutionActionGraphDumpException(e);
           }
@@ -274,10 +280,10 @@ public class BuildTool {
   protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException, ExitException {}
 
-  private void dumpSkyframeStateAfterBuild(String format)
+  private void dumpSkyframeStateAfterBuild(String format, PathFragment outputFilePath)
       throws CommandLineExpansionException, IOException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
-    try (OutputStream outputStream = env.getReporter().getOutErr().getOutputStream();
+    try (OutputStream outputStream = createOutputStreamForAqueryDump(outputFilePath);
         PrintStream printStream = new PrintStream(outputStream)) {
       AqueryOutputHandler aqueryOutputHandler =
           ActionGraphProtoV2OutputFormatterCallback.constructAqueryOutputHandler(
@@ -293,6 +299,16 @@ public class BuildTool {
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
       aqueryOutputHandler.close();
     }
+  }
+
+  private OutputStream createOutputStreamForAqueryDump(PathFragment outputFilePathFragment)
+      throws FileNotFoundException {
+    if (outputFilePathFragment == null) {
+      return env.getReporter().getOutErr().getOutputStream();
+    }
+    Path outputPath = env.getOutputBase().getRelative(outputFilePathFragment);
+    getReporter().handle(Event.info("Writing aquery dump after this build to " + outputPath));
+    return new BufferedOutputStream(new FileOutputStream(outputPath.getPathString()));
   }
 
   private void reportExceptionError(Exception e) {
