@@ -381,23 +381,20 @@ public final class Dict<K, V>
   }
 
   /** Returns a new dict with the specified mutability containing the entries of {@code m}. */
+  @SuppressWarnings("unchecked")
   public static <K, V> Dict<K, V> copyOf(@Nullable Mutability mu, Map<? extends K, ? extends V> m) {
-    return new Dict<K, V>(mu).putAllUnsafe(m);
+    // TODO(laurentlb): Move this method out of this file and rename it. It should go with
+    // Starlark.fromJava; its main purpose is to convert a Java value to Starlark.
+    Dict<K, V> dict = new Dict<>(mu);
+    for (Map.Entry<?, ?> e : m.entrySet()) {
+      dict.contents.put((K) e.getKey(), (V) Starlark.fromJava(e.getValue(), mu));
+    }
+    return dict;
   }
 
   /** Puts the given entry into the dict, without calling {@link #checkMutable}. */
   private Dict<K, V> putUnsafe(K k, V v) {
     contents.put(k, v);
-    return this;
-  }
-
-  /** Puts all entries of the given map into the dict, without calling {@link #checkMutable}. */
-  @SuppressWarnings("unchecked")
-  private <KK extends K, VV extends V> Dict<K, V> putAllUnsafe(Map<KK, VV> m) {
-    for (Map.Entry<KK, VV> e : m.entrySet()) {
-      // TODO(adonovan): the fromJava call here is suspicious and inconsistent.
-      contents.put(e.getKey(), (VV) Starlark.fromJava(e.getValue(), mutability));
-    }
     return this;
   }
 
