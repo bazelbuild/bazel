@@ -484,9 +484,9 @@ public class StarlarkRepositoryContext
               Location.BUILTIN, "Argument " + i + " of execute is neither a label nor a string.");
         }
       } else {
-        if (!(arg instanceof String || arg instanceof StarlarkPath)) {
+        if (!(arg instanceof String || arg instanceof Label || arg instanceof StarlarkPath)) {
           throw new EvalException(
-              Location.BUILTIN, "Argument " + i + " of execute is neither a path nor a string.");
+              Location.BUILTIN, "Argument " + i + " of execute is neither a path, label, nor string.");
         }
       }
     }
