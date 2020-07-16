@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static java.lang.Math.max;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import java.util.Collection;
@@ -102,6 +104,10 @@ public final class Dict<K, V>
 
   private Dict(@Nullable Mutability mutability) {
     this(mutability, new LinkedHashMap<>());
+  }
+
+  private Dict(@Nullable Mutability mutability, int initialCapacity) {
+    this(mutability, new LinkedHashMap<>(initialCapacity));
   }
 
   /**
@@ -535,9 +541,10 @@ public final class Dict<K, V>
       Dict<? extends K, ? extends V> left,
       Dict<? extends K, ? extends V> right,
       @Nullable Mutability mu) {
-    Dict<K, V> result = Dict.of(mu);
-    result.putAllUnsafe(left);
-    result.putAllUnsafe(right);
+    Dict<K, V> result = new Dict<>(mu, max(left.size(), right.size()));
+    // Update underlying map contents directly, input dicts already contain valid objects
+    result.contents.putAll(left.contents);
+    result.contents.putAll(right.contents);
     return result;
   }
 
