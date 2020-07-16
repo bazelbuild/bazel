@@ -524,32 +524,7 @@ final class ActionMetadataHandler implements MetadataHandler {
           DigestUtils.manuallyComputeDigest(artifactPathResolver.toPath(artifact), value.getSize());
     }
     return FileArtifactValue.createFromInjectedDigest(
-        value, injectedDigest, !artifact.isConstantMetadata());
-  }
-
-  private static FileArtifactValue fileArtifactValueFromStat(
-      RootedPath rootedPath,
-      FileStatusWithDigest stat,
-      boolean digestWillBeInjected,
-      boolean isConstantMetadata,
-      @Nullable TimestampGranularityMonitor tsgm)
-      throws IOException {
-    if (stat == null) {
-      return FileArtifactValue.MISSING_FILE_MARKER;
-    }
-
-    FileStateValue fileStateValue =
-        FileStateValue.createWithStatNoFollow(rootedPath, stat, digestWillBeInjected, tsgm);
-
-    if (stat.isDirectory()) {
-      return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
-    } else {
-      return FileArtifactValue.createForNormalFile(
-          fileStateValue.getDigest(),
-          fileStateValue.getContentsProxy(),
-          stat.getSize(),
-          !isConstantMetadata);
-    }
+        value, injectedDigest, /*isShareable=*/ !artifact.isConstantMetadata());
   }
 
   static FileArtifactValue fileArtifactValueFromArtifact(
@@ -624,6 +599,29 @@ final class ActionMetadataHandler implements MetadataHandler {
         digestWillBeInjected,
         artifact.isConstantMetadata(),
         tsgm);
+  }
+
+  private static FileArtifactValue fileArtifactValueFromStat(
+      RootedPath rootedPath,
+      FileStatusWithDigest stat,
+      boolean digestWillBeInjected,
+      boolean isConstantMetadata,
+      @Nullable TimestampGranularityMonitor tsgm)
+      throws IOException {
+    if (stat == null) {
+      return FileArtifactValue.MISSING_FILE_MARKER;
+    }
+
+    FileStateValue fileStateValue =
+        FileStateValue.createWithStatNoFollow(rootedPath, stat, digestWillBeInjected, tsgm);
+
+    return stat.isDirectory()
+        ? FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime())
+        : FileArtifactValue.createForNormalFile(
+            fileStateValue.getDigest(),
+            fileStateValue.getContentsProxy(),
+            stat.getSize(),
+            /*isShareable=*/ !isConstantMetadata);
   }
 
   private static void setPathReadOnlyAndExecutableIfFile(Path path) throws IOException {
