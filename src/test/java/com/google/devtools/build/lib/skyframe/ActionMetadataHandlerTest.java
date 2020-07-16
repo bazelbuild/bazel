@@ -268,6 +268,7 @@ public final class ActionMetadataHandlerTest {
     assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
     assertThat(tree.getChildValues())
         .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
     assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
     assertThat(chmodCalls).isEmpty();
   }
@@ -282,7 +283,7 @@ public final class ActionMetadataHandlerTest {
             new ActionInputMap(0),
             /*forInputDiscovery=*/ true,
             /*outputs=*/ ImmutableSet.of(artifact));
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
 
     // The handler doesn't have any info. It'll stat the file and discover that it's 10 bytes long.
     assertThat(handler.getMetadata(artifact).getSize()).isEqualTo(10);
@@ -309,7 +310,7 @@ public final class ActionMetadataHandlerTest {
             new ActionInputMap(0),
             /*forInputDiscovery=*/ true,
             /*outputs=*/ ImmutableSet.of(artifact));
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
 
     byte[] digest = new byte[] {1, 2, 3};
     int size = 10;
@@ -335,7 +336,7 @@ public final class ActionMetadataHandlerTest {
             new ActionInputMap(0),
             /*forInputDiscovery=*/ false,
             /*outputs=*/ ImmutableSet.of(treeArtifact));
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
 
     RemoteFileArtifactValue childValue = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
 
@@ -359,7 +360,7 @@ public final class ActionMetadataHandlerTest {
             new ActionInputMap(0),
             /*forInputDiscovery=*/ false,
             /*outputs=*/ ImmutableSet.of(treeArtifact));
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
 
     RemoteFileArtifactValue value = new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1);
     handler.injectFile(output, value);
@@ -379,7 +380,7 @@ public final class ActionMetadataHandlerTest {
             new ActionInputMap(0),
             /*forInputDiscovery=*/ false,
             /*outputs=*/ ImmutableSet.of(treeArtifact));
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
 
     RemoteFileArtifactValue fooValue =
         new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1, "foo");
@@ -402,6 +403,7 @@ public final class ActionMetadataHandlerTest {
     assertThat(treeValue.getChildPaths())
         .containsExactly(PathFragment.create("foo"), PathFragment.create("bar"));
     assertThat(treeValue.getChildValues().values()).containsExactly(fooValue, barValue);
+    assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEqualTo(treeValue.getChildren());
 
     // Make sure that all children are transferred properly into the ActionExecutionValue. If any
     // child is missing, getExistingFileArtifactValue will throw.
@@ -474,7 +476,7 @@ public final class ActionMetadataHandlerTest {
             /*forInputDiscovery=*/ false,
             /*outputs=*/ ImmutableSet.of(omitted, consumed));
 
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
     handler.markOmitted(omitted);
 
     assertThat(handler.artifactOmitted(omitted)).isTrue();
@@ -499,7 +501,7 @@ public final class ActionMetadataHandlerTest {
             /*forInputDiscovery=*/ false,
             /*outputs=*/ ImmutableSet.of(omittedTree, consumedTree));
 
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
     handler.markOmitted(omittedTree);
     handler.markOmitted(omittedTree); // Marking a tree artifact as omitted twice is tolerated.
 
@@ -522,7 +524,7 @@ public final class ActionMetadataHandlerTest {
             new ActionInputMap(0),
             /*forInputDiscovery=*/ false,
             /*outputs=*/ ImmutableSet.of(output));
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
 
     FileArtifactValue metadata = handler.getMetadata(output);
 
@@ -546,7 +548,7 @@ public final class ActionMetadataHandlerTest {
             new ActionInputMap(0),
             /*forInputDiscovery=*/ false,
             /*outputs=*/ ImmutableSet.of(treeArtifact));
-    handler.discardOutputMetadata();
+    handler.prepareForActionExecution();
 
     FileArtifactValue treeMetadata = handler.getMetadata(treeArtifact);
     FileArtifactValue child1Metadata = handler.getMetadata(child1);
@@ -556,6 +558,7 @@ public final class ActionMetadataHandlerTest {
     assertThat(tree.getMetadata()).isEqualTo(treeMetadata);
     assertThat(tree.getChildValues())
         .containsExactly(child1, child1Metadata, child2, child2Metadata);
+    assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
     assertThat(handler.getOutputStore().getAllArtifactData()).isEmpty();
     assertThat(chmodCalls)
         .containsExactly(
@@ -592,5 +595,117 @@ public final class ActionMetadataHandlerTest {
     // We can transform it again.
     assertThat(newHandler.transformAfterInputDiscovery(new OutputStore())).isNotNull();
     assertThat(chmodCalls).isEmpty();
+  }
+
+  @Test
+  public void getTreeArtifactChildren_noData_returnsEmptySet() {
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("bin/tree"));
+    ActionMetadataHandler handler =
+        createHandler(
+            new ActionInputMap(0),
+            /*forInputDiscovery=*/ false,
+            /*outputs=*/ ImmutableSet.of(treeArtifact));
+    assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEmpty();
+  }
+
+  @Test
+  public void enteringExecutionModeClearsCachedOutputs() throws Exception {
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("bin/output"));
+    SpecialArtifact treeArtifact =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+            outputRoot, PathFragment.create("bin/tree"));
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(treeArtifact, "child");
+    scratch.file(artifact.getPath().getPathString(), "1");
+    scratch.file(child.getPath().getPathString(), "1");
+    ActionMetadataHandler handler =
+        createHandler(
+            new ActionInputMap(0),
+            /*forInputDiscovery=*/ false,
+            /*outputs=*/ ImmutableSet.of(artifact, treeArtifact));
+    OutputStore store = handler.getOutputStore();
+
+    FileArtifactValue artifactMetadata1 = handler.getMetadata(artifact);
+    FileArtifactValue treeArtifactMetadata1 = handler.getMetadata(treeArtifact);
+    assertThat(artifactMetadata1).isNotNull();
+    assertThat(artifactMetadata1).isNotNull();
+    assertThat(store.getAllArtifactData().keySet()).containsExactly(artifact);
+    assertThat(store.getAllTreeArtifactData().keySet()).containsExactly(treeArtifact);
+
+    // Entering execution mode should clear the cached outputs.
+    handler.prepareForActionExecution();
+    assertThat(store.getAllArtifactData()).isEmpty();
+    assertThat(store.getAllTreeArtifactData()).isEmpty();
+
+    // Updated metadata should be read from the filesystem.
+    scratch.overwriteFile(artifact.getPath().getPathString(), "2");
+    scratch.overwriteFile(child.getPath().getPathString(), "2");
+    FileArtifactValue artifactMetadata2 = handler.getMetadata(artifact);
+    FileArtifactValue treeArtifactMetadata2 = handler.getMetadata(treeArtifact);
+    assertThat(artifactMetadata2).isNotNull();
+    assertThat(treeArtifactMetadata2).isNotNull();
+    assertThat(artifactMetadata2).isNotEqualTo(artifactMetadata1);
+    assertThat(treeArtifactMetadata2).isNotEqualTo(treeArtifactMetadata1);
+  }
+
+  @Test
+  public void cannotEnterExecutionModeTwice() {
+    ActionMetadataHandler handler =
+        createHandler(
+            new ActionInputMap(0), /*forInputDiscovery=*/ false, /*outputs=*/ ImmutableSet.of());
+    handler.prepareForActionExecution();
+    assertThrows(IllegalStateException.class, handler::prepareForActionExecution);
+  }
+
+  @Test
+  public void fileArtifactValueFromArtifactCompatibleWithGetMetadata_changed() throws Exception {
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("bin/output"));
+    scratch.file(artifact.getPath().getPathString(), "1");
+    ActionMetadataHandler handler =
+        createHandler(
+            new ActionInputMap(0),
+            /*forInputDiscovery=*/ false,
+            /*outputs=*/ ImmutableSet.of(artifact));
+
+    FileArtifactValue getMetadataResult = handler.getMetadata(artifact);
+    assertThat(getMetadataResult).isNotNull();
+
+    scratch.overwriteFile(artifact.getPath().getPathString(), "2");
+    FileArtifactValue fileArtifactValueFromArtifactResult =
+        ActionMetadataHandler.fileArtifactValueFromArtifact(
+            artifact, /*statNoFollow=*/ null, /*tsgm=*/ null);
+    assertThat(fileArtifactValueFromArtifactResult).isNotNull();
+
+    assertThat(fileArtifactValueFromArtifactResult.couldBeModifiedSince(getMetadataResult))
+        .isTrue();
+  }
+
+  @Test
+  public void fileArtifactValueFromArtifactCompatibleWithGetMetadata_notChanged() throws Exception {
+    Artifact artifact =
+        ActionsTestUtil.createArtifactWithRootRelativePath(
+            outputRoot, PathFragment.create("bin/output"));
+    scratch.file(artifact.getPath().getPathString(), "contents");
+    ActionMetadataHandler handler =
+        createHandler(
+            new ActionInputMap(0),
+            /*forInputDiscovery=*/ false,
+            /*outputs=*/ ImmutableSet.of(artifact));
+
+    FileArtifactValue getMetadataResult = handler.getMetadata(artifact);
+    assertThat(getMetadataResult).isNotNull();
+
+    FileArtifactValue fileArtifactValueFromArtifactResult =
+        ActionMetadataHandler.fileArtifactValueFromArtifact(
+            artifact, /*statNoFollow=*/ null, /*tsgm=*/ null);
+    assertThat(fileArtifactValueFromArtifactResult).isNotNull();
+
+    assertThat(fileArtifactValueFromArtifactResult.couldBeModifiedSince(getMetadataResult))
+        .isFalse();
   }
 }

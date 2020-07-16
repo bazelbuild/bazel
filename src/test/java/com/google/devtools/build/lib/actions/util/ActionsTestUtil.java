@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.actions.util;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
@@ -23,9 +25,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.Streams;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -61,7 +60,6 @@ import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.
 import com.google.devtools.build.lib.actions.cache.Protos.ActionCacheStatistics.MissReason;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
-import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -98,15 +96,17 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrUntypedException;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
@@ -165,7 +165,7 @@ public final class ActionsTestUtil {
         ImmutableMap.copyOf(clientEnv),
         /*topLevelFilesets=*/ ImmutableMap.of(),
         actionGraph == null
-            ? createDummyArtifactExpander()
+            ? (artifact, output) -> {}
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph),
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
@@ -186,7 +186,7 @@ public final class ActionsTestUtil {
         eventHandler,
         /*clientEnv=*/ ImmutableMap.of(),
         /*topLevelFilesets=*/ ImmutableMap.of(),
-        createDummyArtifactExpander(),
+        (artifact, output) -> {},
         /*actionFileSystem=*/ null,
         /*skyframeDepsResult=*/ null,
         NestedSetExpander.DEFAULT);
@@ -215,15 +215,6 @@ public final class ActionsTestUtil {
         new BlockingSkyFunctionEnvironment(buildDriver, eventHandler),
         /*actionFileSystem=*/ null,
         nestedSetExpander);
-  }
-
-  private static ArtifactExpander createDummyArtifactExpander() {
-    return new ArtifactExpander() {
-      @Override
-      public void expand(Artifact artifact, Collection<? super Artifact> output) {
-        return;
-      }
-    };
   }
 
   public static Artifact createArtifact(ArtifactRoot root, Path path) {
@@ -566,9 +557,7 @@ public final class ActionsTestUtil {
 
   public static <T, R> List<R> transform(Iterable<T> iterable, Function<T, R> mapper) {
     // Can not use com.google.common.collect.Iterables.transform() there, as it returns Iterable.
-    return Streams.stream(iterable)
-        .map(mapper)
-        .collect(Collectors.toList());
+    return stream(iterable).map(mapper).collect(Collectors.toList());
   }
 
   /**
@@ -613,16 +602,6 @@ public final class ActionsTestUtil {
     return baseArtifactNames(FileType.filter(artifactClosureOf(artifacts), types));
   }
 
-  public String predecessorClosureOfJars(Iterable<Artifact> artifacts, FileType... types) {
-    return baseNamesOf(FileType.filter(artifactClosureOf(artifacts), types));
-  }
-
-  public Collection<String> predecessorClosureJarsAsCollection(Iterable<Artifact> artifacts,
-      FileType... types) {
-    Set<Artifact> visited = artifactClosureOf(artifacts);
-    return baseArtifactNames(FileType.filter(visited, types));
-  }
-
   /**
    * Returns the closure over the input files of an action.
    */
@@ -658,47 +637,36 @@ public final class ActionsTestUtil {
   }
 
   /** Returns the closure over the input files of an artifact, filtered by the given matcher. */
-  public Set<Artifact> filteredArtifactClosureOf(Artifact artifact, Predicate<Artifact> matcher) {
-    return ImmutableSet.copyOf(Iterables.filter(artifactClosureOf(artifact), matcher));
-  }
-
-  /**
-   * Returns the closure over the input files of a set of artifacts, filtered by the given matcher.
-   */
-  public Set<Artifact> filteredArtifactClosureOf(
-      Iterable<Artifact> artifacts, Predicate<Artifact> matcher) {
-    return ImmutableSet.copyOf(Iterables.filter(artifactClosureOf(artifacts), matcher));
+  public ImmutableSet<Artifact> filteredArtifactClosureOf(
+      Artifact artifact, Predicate<Artifact> matcher) {
+    return artifactClosureOf(artifact).stream().filter(matcher).collect(toImmutableSet());
   }
 
   /** Returns a predicate to match {@link Artifact}s with the given root-relative path suffix. */
-  public static Predicate<Artifact> getArtifactSuffixMatcher(final String suffix) {
-    return new Predicate<Artifact>() {
-      @Override
-      public boolean apply(Artifact input) {
-        return input.getRootRelativePath().getPathString().endsWith(suffix);
-      }
-    };
+  public static Predicate<Artifact> getArtifactSuffixMatcher(String suffix) {
+    return input -> input.getRootRelativePath().getPathString().endsWith(suffix);
   }
 
   /**
-   * Finds all the actions that are instances of <code>actionClass</code>
-   * in the transitive closure of prerequisites.
+   * Finds all the actions that are instances of {@code actionClass} in the transitive closure of
+   * prerequisites.
    */
-  public <A extends Action> List<A> findTransitivePrerequisitesOf(Artifact artifact,
-      Class<A> actionClass, Predicate<Artifact> allowedArtifacts) {
+  public <A extends Action> List<A> findTransitivePrerequisitesOf(
+      Artifact artifact, Class<A> actionClass, Predicate<Artifact> allowedArtifacts) {
     List<A> actions = new ArrayList<>();
-    Set<Artifact> visited = new LinkedHashSet<>();
-    List<Artifact> toVisit = new LinkedList<>();
+    Set<Artifact> visited = new HashSet<>();
+    Queue<Artifact> toVisit = new ArrayDeque<>();
     toVisit.add(artifact);
     while (!toVisit.isEmpty()) {
-      Artifact current = toVisit.remove(0);
+      Artifact current = toVisit.remove();
       if (!visited.add(current)) {
         continue;
       }
       ActionAnalysisMetadata generatingAction = actionGraph.getGeneratingAction(current);
       if (generatingAction != null) {
-        Iterables.addAll(
-            toVisit, Iterables.filter(generatingAction.getInputs().toList(), allowedArtifacts));
+        generatingAction.getInputs().toList().stream()
+            .filter(allowedArtifacts)
+            .forEach(toVisit::add);
         if (actionClass.isInstance(generatingAction)) {
           actions.add(actionClass.cast(generatingAction));
         }
@@ -709,7 +677,7 @@ public final class ActionsTestUtil {
 
   public <A extends Action> List<A> findTransitivePrerequisitesOf(
       Artifact artifact, Class<A> actionClass) {
-    return findTransitivePrerequisitesOf(artifact, actionClass, Predicates.<Artifact>alwaysTrue());
+    return findTransitivePrerequisitesOf(artifact, actionClass, Predicates.alwaysTrue());
   }
 
   /**
@@ -808,16 +776,6 @@ public final class ActionsTestUtil {
   }
 
   /**
-   * Assert that an artifact is the primary output of its generating action.
-   */
-  public void assertPrimaryInputAndOutputArtifacts(Artifact input, Artifact output) {
-    ActionAnalysisMetadata generatingAction = actionGraph.getGeneratingAction(output);
-    assertThat(generatingAction).isNotNull();
-    assertThat(generatingAction.getPrimaryOutput()).isEqualTo(output);
-    assertThat(generatingAction.getPrimaryInput()).isEqualTo(input);
-  }
-
-  /**
    * Returns the first artifact which is an output of "action" and has the
    * specified basename. An assertion error is raised if none is found.
    */
@@ -830,26 +788,12 @@ public final class ActionsTestUtil {
     throw new AssertionError("No output with basename '" + basename + "' in action " + action);
   }
 
-  public static void registerActionWith(ActionAnalysisMetadata action,
-      MutableActionGraph actionGraph) {
-    try {
-      actionGraph.registerAction(action);
-    } catch (ActionConflictException e) {
-      throw new UncheckedActionConflictException(e);
-    }
-  }
-
   public static SpawnActionTemplate createDummySpawnActionTemplate(
       SpecialArtifact inputTreeArtifact, SpecialArtifact outputTreeArtifact) {
     return new SpawnActionTemplate.Builder(inputTreeArtifact, outputTreeArtifact)
         .setCommandLineTemplate(CustomCommandLine.builder().build())
         .setExecutable(PathFragment.create("bin/executable"))
-        .setOutputPathMapper(new OutputPathMapper() {
-          @Override
-          public PathFragment parentRelativeOutputPath(TreeFileArtifact inputTreeFileArtifact) {
-            return inputTreeFileArtifact.getParentRelativePath();
-          }
-        })
+        .setOutputPathMapper(TreeFileArtifact::getParentRelativePath)
         .build(NULL_ACTION_OWNER);
   }
 
@@ -887,15 +831,6 @@ public final class ActionsTestUtil {
         result.add(detail);
       }
       return result;
-    }
-
-    /** Counts the total number of misses registered so far regardless of their reason. */
-    public int countMisses() {
-      int total = 0;
-      for (Map.Entry<MissReason, Integer> entry : details.entrySet()) {
-        total += entry.getValue();
-      }
-      return total;
     }
   }
 
@@ -970,7 +905,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public ImmutableSet<TreeFileArtifact> getExpandedOutputs(Artifact artifact) {
+    public ImmutableSet<TreeFileArtifact> getTreeArtifactChildren(SpecialArtifact treeArtifact) {
       throw new UnsupportedOperationException();
     }
 
@@ -999,11 +934,6 @@ public final class ActionsTestUtil {
     @Override
     public boolean artifactOmitted(Artifact artifact) {
       return false;
-    }
-
-    @Override
-    public void discardOutputMetadata() {
-      throw new UnsupportedOperationException();
     }
 
     @Override

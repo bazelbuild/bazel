@@ -45,12 +45,4 @@ public interface MetadataInjector {
    * @param children the metadata of the files stored in the directory
    */
   void injectDirectory(SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children);
-
-  /**
-   * Marks an {@link Artifact} as intentionally omitted.
-   *
-   * <p>This is used as an optimization to not download "orphaned artifacts" (=artifacts that no
-   * action depends on) from a remote system.
-   */
-  void markOmitted(Artifact output);
 }

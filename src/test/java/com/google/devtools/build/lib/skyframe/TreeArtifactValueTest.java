@@ -285,11 +285,6 @@ public final class TreeArtifactValueTest {
           SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children) {
         injectedTreeArtifacts.put(output, TreeArtifactValue.create(children));
       }
-
-      @Override
-      public void markOmitted(Artifact output) {
-        throw new UnsupportedOperationException();
-      }
     }
   }
 }
