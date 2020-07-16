@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
@@ -64,11 +65,12 @@ public final class CreateIncSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public void prepare(Path execRoot) throws IOException {
+  public void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException {
     if (includePath.isDirectory(Symlinks.NOFOLLOW)) {
       includePath.deleteTree();
     }
-    super.prepare(execRoot);
+    super.prepare(execRoot, bulkDeleter);
   }
 
   @Override
