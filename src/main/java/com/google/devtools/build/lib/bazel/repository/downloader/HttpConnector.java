@@ -107,6 +107,8 @@ class HttpConnector {
       try {
         connection = (HttpURLConnection)
             url.openConnection(proxyHelper.createProxyIfNeeded(url));
+        // TODO(zecke): Revise once https://bugs.openjdk.java.net/browse/JDK-8163921 is fixed.
+        connection.addRequestProperty("Accept", "text/html, image/gif, image/jpeg, */*");
         boolean isAlreadyCompressed =
             COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(url.getPath()))
                 || COMPRESSED_EXTENSIONS.contains(HttpUtils.getExtension(originalUrl.getPath()));
