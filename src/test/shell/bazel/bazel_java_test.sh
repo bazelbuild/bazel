@@ -1626,4 +1626,160 @@ EOF
   expect_log "hello 123"
 }
 
+
+function build_target() {
+  target=$1
+  sample_file=$2
+  javacopts=${3:-"-Xlint:none"}
+  mkdir test
+  touch "test/$target.java"
+  touch test/BUILD
+  cat > "test/$target.java" <<EOF
+    $sample_file
+EOF
+
+  cat > test/BUILD <<EOF
+java_binary(
+  name = "$target",
+  srcs = ["$target.java"],
+  javacopts = ["$javacopts"],
+  main_class = "$target",
+)
+EOF
+  bazel build --build_event_publish_all_actions //"test:$target" || true
+}
+
+function verify_output() {
+  target=$1
+  expected_outputs=$2
+  execution_root=$(bazel info execution_root)
+  output=$($(rlocation "io_bazel/tools/protoc/protoc") --decode_raw <"$execution_root"/bazel-out/darwin-fastbuild/bin/"$target".jar.diagnosticsproto)
+  for expected_output in "${expected_outputs[*]}"; do
+    if [[ "$output" != *"$expected_output"* ]]; then
+      fail "Expected: $expected_output, got: $output"
+    fi
+  done
+}
+
+function test_verify_simple_file() {
+  build_target "SimpleFile" "public class SimpleFile {
+  public static void main(String[] args) {
+    System.out.printn(\"Hello!\");
+  }
+}"
+  outputs=("2 {
+    1 {
+      1 {
+        1: 2
+        2: 14
+      }
+      2 {
+        1: 3
+      }
+    }
+    2: 1
+    5: \"cannot find symbol\n  symbol:   method printn(java.lang.String)\n  location: variable out of type java.io.PrintStream\"
+  }")
+  verify_output "SimpleFile" "${outputs[@]}"
+}
+
+function test_verify_two_errors_file() {
+  build_target "TwoErrorsFile" "public class TwoErrorsFile {
+  public static void main(String[] args) {
+    System.out.printn(\"Hello!\");
+    System.out.prin(\"Hello!\");
+  }
+}"
+  outputs=("2 {
+    1 {
+      1 {
+        1: 2
+        2: 14
+      }
+      2 {
+        1: 3
+      }
+    }
+    2: 1
+    5: \"cannot find symbol\n  symbol:   method printn(java.lang.String)\n  location: variable out of type java.io.PrintStream\"
+  }" "2 {
+    1 {
+      1 {
+        1: 3
+        2: 14
+      }
+      2 {
+        1: 4
+      }
+    }
+    2: 1
+    5: \"cannot find symbol\n  symbol:   method prin(java.lang.String)\n  location: variable out of type java.io.PrintStream\"
+  }")
+  verify_output "TwoErrorsFile" "${outputs[@]}"
+}
+
+function test_verify_warning_file() {
+  build_target "WarningFile" "import java.util.HashSet;
+  import java.util.Set;
+  public class WarningFile {
+    public static void main(String[] args) {
+      final Set people = new HashSet();
+      people.add(\"fred\");
+    }
+}" "-Xlint:unchecked"
+  outputs=("2 {
+    1 {
+      1 {
+        1: 5
+        2: 16
+      }
+      2 {
+        1: 6
+      }
+    }
+    2: 2
+    5: \"unchecked call to add(E) as a member of the raw type java.util.Set\"
+  }")
+  verify_output "WarningFile" "${outputs[@]}"
+}
+
+
+function test_verify_error_and_warning_file() {
+  build_target "ErrorAndWarningFile" "import java.util.HashSet;
+  import java.util.Set;
+  public class ErrorAndWarningFile {
+    public static void main(String[] args) {
+      final Set people = new HashSet();
+      people.add(\"fred\");
+      System.out.prin(people);
+    }
+}" "-Xlint:unchecked"
+  outputs=("2 {
+    1 {
+      1 {
+        1: 5
+        2: 16
+      }
+      2 {
+        1: 6
+      }
+    }
+    2: 2
+    5: \"unchecked call to add(E) as a member of the raw type java.util.Set\"
+  }" "2 {
+    1 {
+      1 {
+        1: 6
+        2: 16
+      }
+      2 {
+        1: 7
+      }
+    }
+    2: 1
+    5: \"cannot find symbol\n  symbol:   method prin(java.util.Set)\n  location: variable out of type java.io.PrintStream\"
+  }")
+  verify_output "ErrorAndWarningFile" "${outputs[@]}"
+}
+
 run_suite "Java integration tests"

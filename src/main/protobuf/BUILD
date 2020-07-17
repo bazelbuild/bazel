@@ -17,6 +17,7 @@ FILES = [
     "crosstool_config",
     "deps",
     "desugar_deps",
+    "diagnostics",
     "execution_statistics",
     "extra_actions_base",
     "invocation_policy",

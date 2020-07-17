@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+option java_package = "com.google.devtools.build.lib.diagnostics";
+
+enum Severity {
+  UNKNOWN = 0;
+  ERROR = 1;
+  WARNING = 2;
+  INFORMATION = 3;
+  HINT = 4;
+}
+
+message Position {
+  // 1-indexed
+  int32 line = 1;
+  // 1-indexed
+  int32 character = 2;
+}
+
+message Range {
+  Position start = 1;
+  Position end = 2;
+}
+
+message Location {
+  string path = 1;
+  Range range = 2;
+}
+
+message DiagnosticRelatedInformation {
+  Location location = 1;
+  string message = 2;
+}
+
+message Diagnostic {
+  Range range = 1;
+  Severity severity = 2;
+  int64 code = 3;
+  string message = 5;
+  repeated DiagnosticRelatedInformation related_information = 6;
+}
+
+message FileDiagnostics {
+  string path = 1;
+  repeated Diagnostic diagnostics = 2;
+}
+
+message TargetDiagnostics {
+  repeated FileDiagnostics diagnostics = 1;
+}

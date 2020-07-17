@@ -26,32 +26,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.ActionContinuationOrResult;
-import com.google.devtools.build.lib.actions.ActionEnvironment;
-import com.google.devtools.build.lib.actions.ActionExecutionContext;
-import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionOwner;
-import com.google.devtools.build.lib.actions.ActionResult;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.BaseSpawn;
-import com.google.devtools.build.lib.actions.CommandAction;
-import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.CommandLines;
+import com.google.devtools.build.lib.actions.*;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
-import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
-import com.google.devtools.build.lib.actions.EnvironmentalExecException;
-import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ParamFileInfo;
-import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.actions.ResourceSet;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
-import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.actions.SpawnContinuation;
-import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -76,6 +52,7 @@ import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LazyString;
+import com.google.devtools.build.lib.vfs.*;
 import com.google.devtools.build.lib.view.proto.Deps;
 import java.io.IOException;
 import java.io.InputStream;
@@ -85,6 +62,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Action that represents a Java compilation. */
@@ -127,7 +105,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
   private final NestedSet<Artifact> dependencyArtifacts;
   private final Artifact outputDepsProto;
   private final JavaClasspathMode classpathMode;
-
+  private final Artifact diagnosticsFile;
   @Nullable private final ExtraActionInfoSupplier extraActionInfoSupplier;
 
   public JavaCompileAction(
@@ -175,6 +153,20 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
     this.dependencyArtifacts = dependencyArtifacts;
     this.outputDepsProto = outputDepsProto;
     this.classpathMode = classpathMode;
+    FileSystem fileSystem = null;
+    try {
+      fileSystem = new JavaIoFileSystem();
+    } catch (DigestHashFunction.DefaultHashFunctionNotSetException e) {
+      e.printStackTrace();
+    }
+    if(fileSystem != null)
+      this.diagnosticsFile = new Artifact.SourceArtifact(
+              getPrimaryOutput().getRoot(),
+              PathFragment.create(getPrimaryOutput().getFilename() + ".diagnosticsproto"),
+              getPrimaryInput().getArtifactOwner()
+        );
+    else
+      this.diagnosticsFile = null;
   }
 
   @Override
@@ -283,6 +275,7 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
             .addCommandLine(executableLine)
             .addCommandLine(flagLine, PARAM_FILE_INFO)
             .addCommandLine(classpathLine.build(), PARAM_FILE_INFO)
+            .addCommandLine(getDiagnosticsOption(), PARAM_FILE_INFO)
             .build();
     CommandLines.ExpandedCommandLines expandedCommandLines =
         reducedCommandLine.expand(
@@ -299,6 +292,12 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         getEffectiveEnvironment(actionExecutionContext),
         executionInfo,
         inputs);
+  }
+
+  @Nullable
+  @Override
+  public Artifact getDiagnostics() {
+    return diagnosticsFile;
   }
 
   private JavaSpawn getFullSpawn(ActionExecutionContext actionExecutionContext)
@@ -483,7 +482,14 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
         .addCommandLine(executableLine)
         .addCommandLine(flagLine, PARAM_FILE_INFO)
         .addCommandLine(getFullClasspathLine(), PARAM_FILE_INFO)
+        .addCommandLine(getDiagnosticsOption(), PARAM_FILE_INFO)
         .build();
+  }
+
+  private CommandLine getDiagnosticsOption() {
+    return CustomCommandLine.builder()
+            .add("--diagnostics_file", diagnosticsFile.getPath().toString())
+            .build();
   }
 
   private CommandLine getFullClasspathLine() {

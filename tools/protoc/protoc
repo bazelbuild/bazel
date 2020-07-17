@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+#  export PATH="$(cd "$(dirname "$0")"; pwd)"/tools:$PATH
+tmp_dir=$(mktemp -d)
+tmp_protoc="$tmp_dir/protoc.zip"
+tools_path=$(cd "$(dirname "$0")"; pwd)
+protoc="$tools_path/bin/protoc"
+
+if ! [[ -f "$protoc" ]]; then
+  PB_REL="https://github.com/protocolbuffers/protobuf/releases"
+  protoc_version="protoc-3.12.1-osx-x86_64"
+  curl -o $tmp_protoc -LO $PB_REL/download/v3.12.1/"$protoc_version".zip
+  unzip "$tmp_protoc" -d "$tools_path"
+fi
+
+exec $protoc "$@"

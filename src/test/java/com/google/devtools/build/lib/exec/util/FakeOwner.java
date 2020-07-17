@@ -129,6 +129,12 @@ public class FakeOwner implements ActionExecutionMetadata {
     throw new UnsupportedOperationException();
   }
 
+  @Nullable
+  @Override
+  public Artifact getDiagnostics() {
+    return null;
+  }
+
   @Override
   public Iterable<String> getClientEnvironmentVariables() {
     throw new UnsupportedOperationException();
