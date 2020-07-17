@@ -236,6 +236,23 @@ public final class Starlark {
       return "bool";
     }
 
+    // Shortcut for the most common types.
+    // These cases can be handled by `getStarlarkBuiltin`
+    // but `getStarlarkBuiltin` is quite expensive.
+    if (c.equals(StarlarkList.class)) {
+      return "list";
+    } else if (c.equals(Tuple.class)) {
+      return "tuple";
+    } else if (c.equals(Dict.class)) {
+      return "dict";
+    } else if (c.equals(NoneType.class)) {
+      return "NoneType";
+    } else if (c.equals(StarlarkFunction.class)) {
+      return "function";
+    } else if (c.equals(RangeList.class)) {
+      return "range";
+    }
+
     StarlarkBuiltin module = StarlarkInterfaceUtils.getStarlarkBuiltin(c);
     if (module != null) {
       return module.name();
