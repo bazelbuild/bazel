@@ -378,7 +378,7 @@ java_import(
     jars = ["java-diff-utils.jar"],
 )
 
-# opencensus-java
+# libopencensus-java
 java_import(
     name = "opencensus-api",
     jars = [
@@ -387,7 +387,7 @@ java_import(
     ],
 )
 
-# perfmark-java
+# libperfmark-java
 java_import(
     name = "perfmark-api",
     jars = [
@@ -395,7 +395,7 @@ java_import(
     ],
 )
 
-# google-flogger
+# libgoogle-flogger-java
 java_import(
     name = "flogger",
     jars = [
@@ -415,13 +415,13 @@ filegroup(
     ],
 )
 
-# checker-framework
+# libchecker-framework-java
 java_import(
     name = "checker_framework_annotations",
     jars = ["checker-qual.jar"],
 )
 
-# grpc-java
+# libgrpc-java
 java_import(
     name = "grpc-jar",
     jars = [":bootstrap-grpc-jars"],
