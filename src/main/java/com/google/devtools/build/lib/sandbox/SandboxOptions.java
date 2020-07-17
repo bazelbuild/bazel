@@ -325,20 +325,6 @@ public class SandboxOptions extends OptionsBase {
   public boolean defaultSandboxAllowNetwork;
 
   @Option(
-      name = "incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        OptionMetadataTag.INCOMPATIBLE_CHANGE
-      },
-      help =
-          "If enabled, the sandbox will expand tree artifacts in runfiles, thus the files that "
-              + "are contained in the tree artifact will be symlinked as individual files.")
-  public boolean symlinkedSandboxExpandsTreeArtifactsInRunfilesTree;
-
-  @Option(
       name = "experimental_sandbox_async_tree_delete_idle_threads",
       defaultValue = "0",
       converter = AsyncTreeDeletesConverter.class,

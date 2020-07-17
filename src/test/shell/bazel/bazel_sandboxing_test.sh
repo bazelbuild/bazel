@@ -738,7 +738,7 @@ EOF
   expect_log "/sandbox/"  # Part of the path to the sandbox location.
 }
 
-function test_experimental_symlinked_sandbox_uses_expanded_tree_artifacts_in_runfiles_tree() {
+function test_sandbox_expands_tree_artifacts_in_runfiles_tree() {
   create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
@@ -789,11 +789,8 @@ sh_test(
 )
 EOF
 
-  bazel test --incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree \
-      --test_output=streamed :mkdata_test &>$TEST_log && fail "expected test to fail" || true
-
-  bazel test --noincompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree \
-      --test_output=streamed :mkdata_test &>$TEST_log || fail "expected test to pass"
+  bazel test --test_output=streamed //:mkdata_test &>$TEST_log && fail "expected test to fail" || true
+  expect_log "'file' is not a regular file"
 }
 
 # regression test for https://github.com/bazelbuild/bazel/issues/6262
