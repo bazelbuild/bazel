@@ -1224,7 +1224,7 @@ EOF
   expect_log_once "\"actionKey\":"
 }
 
-function test_dump_skyframe_state_after_build() {
+function test_dump_skyframe_state_after_build_default_output() {
     local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
@@ -1238,18 +1238,17 @@ EOF
   touch $pkg/foo_matching_in.java
 
   bazel clean
-
-  bazel build --experimental_aquery_dump_after_build_format=textproto "//$pkg:foo" > output 2> "$TEST_log" \
+  OUTPUT_BASE=$(bazel info output_base)
+  bazel build --experimental_aquery_dump_after_build_format=textproto "//$pkg:foo" &> "$TEST_log" \
     || fail "Expected success"
-  cat output >> "$TEST_log"
 
-  expect_log_once "actions {"
-  assert_contains "input_dep_set_ids: 1" output
-  assert_contains "output_ids: 3" output
-  assert_contains "mnemonic: \"Genrule\"" output
+  assert_contains "actions {" "$OUTPUT_BASE/aquery_dump.textproto"
+  assert_contains "input_dep_set_ids: 1" "$OUTPUT_BASE/aquery_dump.textproto"
+  assert_contains "output_ids: 3" "$OUTPUT_BASE/aquery_dump.textproto"
+  assert_contains "mnemonic: \"Genrule\"" "$OUTPUT_BASE/aquery_dump.textproto"
 }
 
-function test_dump_skyframe_state_after_build_to_file() {
+function test_dump_skyframe_state_after_build_to_specified_file() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'

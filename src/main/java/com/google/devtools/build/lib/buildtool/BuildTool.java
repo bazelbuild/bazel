@@ -65,8 +65,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.RegexPatternOption;
 import java.io.BufferedOutputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -280,10 +278,19 @@ public class BuildTool {
   protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException, ExitException {}
 
-  private void dumpSkyframeStateAfterBuild(String format, PathFragment outputFilePath)
+  private void dumpSkyframeStateAfterBuild(String format, PathFragment outputFilePathFragment)
       throws CommandLineExpansionException, IOException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
-    try (OutputStream outputStream = createOutputStreamForAqueryDump(outputFilePath);
+    Path localOutputFilePath;
+
+    if (outputFilePathFragment == null) {
+      localOutputFilePath = env.getOutputBase().getRelative(getDefaultOutputFileName(format));
+    } else {
+      localOutputFilePath = env.getOutputBase().getRelative(outputFilePathFragment);
+    }
+
+    getReporter().handle(Event.info("Writing aquery dump to " + localOutputFilePath));
+    try (OutputStream outputStream = initOutputStream(localOutputFilePath);
         PrintStream printStream = new PrintStream(outputStream)) {
       AqueryOutputHandler aqueryOutputHandler =
           ActionGraphProtoV2OutputFormatterCallback.constructAqueryOutputHandler(
@@ -301,14 +308,21 @@ public class BuildTool {
     }
   }
 
-  private OutputStream createOutputStreamForAqueryDump(PathFragment outputFilePathFragment)
-      throws FileNotFoundException {
-    if (outputFilePathFragment == null) {
-      return env.getReporter().getOutErr().getOutputStream();
+  private static String getDefaultOutputFileName(String format) {
+    switch (format) {
+      case "proto":
+        return "aquery_dump.proto";
+      case "textproto":
+        return "aquery_dump.textproto";
+      case "jsonproto":
+        return "aquery_dump.json";
+      default:
+        throw new IllegalArgumentException("Unsupported format type: " + format);
     }
-    Path outputPath = env.getOutputBase().getRelative(outputFilePathFragment);
-    getReporter().handle(Event.info("Writing aquery dump after this build to " + outputPath));
-    return new BufferedOutputStream(new FileOutputStream(outputPath.getPathString()));
+  }
+
+  private static OutputStream initOutputStream(Path outputFilePath) throws IOException {
+    return new BufferedOutputStream(outputFilePath.getOutputStream());
   }
 
   private void reportExceptionError(Exception e) {
