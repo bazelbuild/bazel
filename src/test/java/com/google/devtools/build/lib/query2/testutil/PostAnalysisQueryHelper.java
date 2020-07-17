@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.query2.testutil;
 
 import static com.google.devtools.build.lib.testutil.FoundationTestCase.failFastHandler;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -100,19 +101,19 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
     return wholeTestUniverse;
   }
 
-  public List<String> getUniverseScope() {
-    return universeScope;
+  public ImmutableList<String> getUniverseScopeAsStringList() {
+    return universeScope.getConstantValueMaybe().get();
   }
 
   @Override
   public void setUniverseScope(String universeScope) {
     if (!wholeTestUniverse) {
-      this.universeScope = new ArrayList<>(Arrays.asList(universeScope.split(",")));
+      super.setUniverseScope(universeScope);
     }
   }
 
   public void setWholeTestUniverseScope(String universeScope) {
-    this.universeScope = new ArrayList<>(Arrays.asList(universeScope.split(",")));
+    super.setUniverseScope(universeScope);
     wholeTestUniverse = true;
   }
 
@@ -220,7 +221,8 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
   @Override
   public ResultAndTargets<T> evaluateQuery(String query)
       throws QueryException, InterruptedException {
-    PostAnalysisQueryEnvironment<T> env = getPostAnalysisQueryEnvironment(universeScope);
+    PostAnalysisQueryEnvironment<T> env =
+        getPostAnalysisQueryEnvironment(getUniverseScopeAsStringList());
     AggregateAllOutputFormatterCallback<T, ?> callback =
         QueryUtil.newOrderedAggregateAllOutputFormatterCallback(env);
     QueryEvalResult queryEvalResult;

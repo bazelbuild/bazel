@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -290,7 +291,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             env,
             keepGoing,
             !QueryOutputUtils.shouldStreamResults(queryOptions, formatter),
-            /*universeScope=*/ ImmutableList.of(),
+            UniverseScope.EMPTY,
             /*loadingPhaseThreads=*/ 1,
             settings,
             /*useGraphlessQuery=*/ false);

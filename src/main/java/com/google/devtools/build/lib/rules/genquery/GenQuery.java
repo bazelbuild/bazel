@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -357,7 +358,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
               /*keepGoing=*/ false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
               /*orderedResults=*/ !graphlessQuery,
-              /*universeScope=*/ ImmutableList.of(),
+              UniverseScope.EMPTY,
               // Use a single thread to prevent race conditions causing nondeterministic output
               // (b/127644784). All the packages are already loaded at this point, so there is
               // no need to start up multiple threads anyway.

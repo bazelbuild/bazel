@@ -113,7 +113,7 @@ public abstract class PostAnalysisQueryTest<T> extends AbstractQueryTest<T> {
   // Parse the universe if the universe has not been set manually through the helper.
   private void maybeParseUniverseScope(String query) throws Exception {
     if (!getHelper()
-        .getUniverseScope()
+        .getUniverseScopeAsStringList()
         .equals(Collections.singletonList(getDefaultUniverseScope()))) {
       return;
     }
