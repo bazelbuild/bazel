@@ -246,7 +246,7 @@ public class LibrariesToLinkCollector {
           Preconditions.checkState(
               libDir.startsWith(solibDir) || libDir.startsWith(toolchainLibrariesSolibDir),
               "Artifact '%s' is not under directory expected '%s',"
-                  + " neither it is in directory for toolchain libraries '%'.",
+                  + " neither it is in directory for toolchain libraries '%s'.",
               input.getArtifact(),
               solibDir,
               toolchainLibrariesSolibDir);
