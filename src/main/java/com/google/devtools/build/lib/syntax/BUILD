@@ -31,6 +31,9 @@ java_library(
     srcs = [
         "Argument.java",
         "AssignmentStatement.java",
+        "Bc.java",
+        "BcInstr.java",
+        "BcInstrOperand.java",
         "BinaryOperatorExpression.java",
         "CallExpression.java",
         "Comment.java",
@@ -86,6 +89,7 @@ java_library(
     name = "evaluator",
     srcs = [
         "BuiltinCallable.java",
+        "BcEval.java",
         "CallUtils.java",
         "ClassObject.java",
         "CpuProfiler.java",

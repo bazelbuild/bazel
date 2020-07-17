@@ -114,6 +114,8 @@ public final class Resolver extends NodeVisitor {
     // TODO(adonovan): remove this hack when identifier resolution is accurate.
     final boolean isToplevel;
 
+    final Bc.Compiled compiled;
+
     private Function(
         String name,
         Location loc,
@@ -121,7 +123,8 @@ public final class Resolver extends NodeVisitor {
         ImmutableList<Statement> body,
         boolean hasVarargs,
         boolean hasKwargs,
-        int numKeywordOnlyParams) {
+        int numKeywordOnlyParams,
+        FileLocations locs) {
       this.name = name;
       this.location = loc;
       this.params = params;
@@ -137,6 +140,8 @@ public final class Resolver extends NodeVisitor {
       this.parameterNames = names.build();
 
       this.isToplevel = name.equals("<toplevel>");
+
+      this.compiled = Bc.compileFunction(locs, body);
     }
   }
 
@@ -463,14 +468,16 @@ public final class Resolver extends NodeVisitor {
             node.getIdentifier().getName(),
             node.getIdentifier().getStartLocation(),
             node.getParameters(),
-            node.getBody());
+            node.getBody(),
+            node.locs);
   }
 
   private Function resolveFunction(
       String name,
       Location loc,
       ImmutableList<Parameter> parameters,
-      ImmutableList<Statement> body) {
+      ImmutableList<Statement> body,
+      FileLocations locs) {
 
     // Resolve defaults in enclosing environment.
     for (Parameter param : parameters) {
@@ -565,7 +572,8 @@ public final class Resolver extends NodeVisitor {
         body,
         star != null && star.getIdentifier() != null,
         starStar != null,
-        numKeywordOnlyParams);
+        numKeywordOnlyParams,
+        locs);
   }
 
   private void bindParam(ImmutableList.Builder<Parameter> params, Parameter param) {
@@ -722,7 +730,8 @@ public final class Resolver extends NodeVisitor {
             /*body=*/ stmts,
             /*hasVarargs=*/ false,
             /*hasKwargs=*/ false,
-            /*numKeywordOnlyParams=*/ 0);
+            /*numKeywordOnlyParams=*/ 0,
+            file.locs);
   }
 
   /**
@@ -748,7 +757,8 @@ public final class Resolver extends NodeVisitor {
         ImmutableList.of(ReturnStatement.make(expr)),
         /*hasVarargs=*/ false,
         /*hasKwargs=*/ false,
-        /*numKeywordOnlyParams=*/ 0);
+        /*numKeywordOnlyParams=*/ 0,
+        expr.locs);
   }
 
   /** Open a new lexical block that will contain the future declarations. */

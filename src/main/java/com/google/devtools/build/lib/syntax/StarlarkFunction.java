@@ -140,7 +140,8 @@ public final class StarlarkFunction implements StarlarkCallable {
       fr.locals.put(names.get(i), arguments[i]);
     }
 
-    return Eval.execFunctionBody(fr, rfn.body);
+    //return Eval.execFunctionBody(fr, rfn.body);
+    return BcEval.eval(fr, rfn.compiled);
   }
 
   @Override
