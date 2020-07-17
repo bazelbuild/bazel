@@ -1006,7 +1006,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
   }
@@ -1039,7 +1040,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
   }
@@ -1055,7 +1057,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
 
@@ -1088,7 +1091,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
 
@@ -1118,7 +1122,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "all files in the glob have been excluded, but allow_empty is set to False.";
+        "all files in the glob have been excluded, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
 
@@ -1155,7 +1160,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "all files in the glob have been excluded, but allow_empty is set to False.";
+        "all files in the glob have been excluded, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
 
@@ -1183,7 +1189,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
 
@@ -1216,7 +1223,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
 
