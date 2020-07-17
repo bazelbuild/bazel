@@ -15,10 +15,8 @@ package com.google.devtools.build.lib.skyframe.packages;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import javax.annotation.Nullable;
@@ -40,22 +38,13 @@ public interface PackageLoader {
   /** Contains the result of package loading. */
   class Result {
     private final ImmutableMap<PackageIdentifier, PackageOrException> loadedPackages;
-    private final ImmutableList<Event> events;
 
-    Result(
-        ImmutableMap<PackageIdentifier, PackageOrException> loadedPackages,
-        ImmutableList<Event> events) {
+    Result(ImmutableMap<PackageIdentifier, PackageOrException> loadedPackages) {
       this.loadedPackages = loadedPackages;
-      this.events = events;
     }
 
     public ImmutableMap<PackageIdentifier, PackageOrException> getLoadedPackages() {
       return loadedPackages;
-    }
-
-    /** Returns all events generated while loading the requested packages. */
-    public ImmutableList<Event> getEvents() {
-      return events;
     }
   }
 
