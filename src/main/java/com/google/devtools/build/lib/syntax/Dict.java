@@ -63,11 +63,11 @@ import net.starlark.java.annot.StarlarkMethod;
             + "<li>A dictionary expression <code>{k: v, ...}</code> yields a new dictionary with"
             + " the specified key/value entries, inserted in the order they appear in the"
             + " expression. Evaluation fails if any two key expressions yield the same"
-            + " value.</p>\n"
+            + " value.</li>\n"
             + "<li>A dictionary comprehension <code>{k: v for vars in seq}</code> yields a new"
             + " dictionary into which each key/value pair is inserted in loop iteration order."
             + " Duplicates are permitted: the first insertion of a given key determines its"
-            + " position in the sequence, and the last determines its associated value.</p>\n"
+            + " position in the sequence, and the last determines its associated value.</li>\n"
             + "<pre class=\"language-python\">\n"
             + "{k: v for k, v in ((\"a\", 0), (\"b\", 1), (\"a\", 2))}  # {\"a\": 2, \"b\": 1}\n"
             + "{i: 2*i for i in range(3)}  # {0: 0, 1: 2, 2: 4}\n"
@@ -75,7 +75,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + "<li>A call to the built-in <a href=\"globals.html#dict\">dict</a> function returns"
             + " a dictionary containing the specified entries, which are inserted in argument"
             + " order, positional arguments before named. As with comprehensions, duplicate keys"
-            + " are permitted.\n"
+            + " are permitted.</li>\n"
             + "</ol>")
 // TODO(b/64208606): eliminate these type parameters as they are wildly unsound.
 // Starlark code may update a Dict in ways incompatible with its Java
