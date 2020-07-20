@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.TransitiveInfoCollecti
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ExecGroupCollectionApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;

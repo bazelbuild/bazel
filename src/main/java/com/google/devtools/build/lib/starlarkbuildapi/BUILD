@@ -16,31 +16,15 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + [
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/javascript:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/go:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/stubs:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/test:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto:srcs",
-    ],
+    srcs = glob(["**"]),
     visibility = ["//src:__subpackages__"],
 )
 
 java_library(
-    name = "skylarkbuildapi",
+    name = "starlarkbuildapi",
     srcs = glob(["*.java"]),
     deps = [
         "//third_party:guava",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",

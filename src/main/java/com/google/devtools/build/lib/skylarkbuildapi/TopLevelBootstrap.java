@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.DefaultInfoApi.DefaultInfoA
 import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi.OutputGroupInfoApiProvider;
 import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
 import com.google.devtools.build.lib.syntax.Starlark;
 
 /**

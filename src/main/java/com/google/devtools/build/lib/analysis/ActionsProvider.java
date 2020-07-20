@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylarkbuildapi.ActionsInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Starlark;
 import java.util.HashMap;
