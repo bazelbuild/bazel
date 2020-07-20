@@ -1118,37 +1118,24 @@ final class Parser {
     Expression cond = parseTest();
     expect(TokenKind.COLON);
     List<Statement> body = parseSuite();
-
-    ArrayList<Integer> elifOffsets = new ArrayList<>();
-    ArrayList<Expression> elifConditions = new ArrayList<>();
-    ArrayList<List<Statement>> elifBodies = new ArrayList<>();
-
+    IfStatement ifStmt = new IfStatement(locs, TokenKind.IF, ifOffset, cond, body);
+    IfStatement tail = ifStmt;
     while (token.kind == TokenKind.ELIF) {
-      elifOffsets.add(expect(TokenKind.ELIF));
-      elifConditions.add(parseTest());
+      int elifOffset = expect(TokenKind.ELIF);
+      cond = parseTest();
       expect(TokenKind.COLON);
-      elifBodies.add(parseSuite());
+      body = parseSuite();
+      IfStatement elif = new IfStatement(locs, TokenKind.ELIF, elifOffset, cond, body);
+      tail.setElseBlock(ImmutableList.of(elif));
+      tail = elif;
     }
-
-    List<Statement> tail;
     if (token.kind == TokenKind.ELSE) {
       expect(TokenKind.ELSE);
       expect(TokenKind.COLON);
-      tail = parseSuite();
-    } else {
-      tail = null;
+      body = parseSuite();
+      tail.setElseBlock(body);
     }
-
-    for (int i = elifOffsets.size() - 1; i >= 0; --i) {
-      int elifOffset = elifOffsets.get(i);
-      Expression elifCondition = elifConditions.get(i);
-      List<Statement> elifThenBlock = elifBodies.get(i);
-      IfStatement elif =
-          new IfStatement(locs, TokenKind.ELIF, elifOffset, elifCondition, elifThenBlock, tail);
-      tail = ImmutableList.of(elif);
-    }
-
-    return new IfStatement(locs, TokenKind.IF, ifOffset, cond, body, tail);
+    return ifStmt;
   }
 
   // for_stmt = FOR IDENTIFIER IN expr ':' suite
