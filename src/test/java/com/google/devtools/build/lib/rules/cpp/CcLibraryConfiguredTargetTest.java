@@ -1817,7 +1817,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "    hdrs = [\"other_test.h\"],",
             ")");
 
-
+    getConfiguredTarget("//transition:main");
     assertNoEvents();
   }
 }
