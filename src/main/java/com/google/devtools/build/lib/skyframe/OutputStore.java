@@ -28,12 +28,9 @@ import javax.annotation.Nullable;
  *
  * <p>Data stored in {@link #artifactData} and {@link #treeArtifactData} will be passed along to the
  * final {@link ActionExecutionValue}.
- *
- * <p>This implementation aggressively stores all data. Subclasses may override mutating methods to
- * avoid storing unnecessary data.
  */
 @ThreadSafe
-class OutputStore {
+final class OutputStore {
 
   private final ConcurrentMap<Artifact, FileArtifactValue> artifactData = new ConcurrentHashMap<>();
 
@@ -41,7 +38,7 @@ class OutputStore {
       new ConcurrentHashMap<>();
 
   @Nullable
-  final FileArtifactValue getArtifactData(Artifact artifact) {
+  FileArtifactValue getArtifactData(Artifact artifact) {
     return artifactData.get(artifact);
   }
 
@@ -53,16 +50,16 @@ class OutputStore {
     artifactData.put(artifact, value);
   }
 
-  final ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
+  ImmutableMap<Artifact, FileArtifactValue> getAllArtifactData() {
     return ImmutableMap.copyOf(artifactData);
   }
 
   @Nullable
-  final TreeArtifactValue getTreeArtifactData(Artifact artifact) {
+  TreeArtifactValue getTreeArtifactData(Artifact artifact) {
     return treeArtifactData.get(artifact);
   }
 
-  final void putTreeArtifactData(SpecialArtifact treeArtifact, TreeArtifactValue value) {
+  void putTreeArtifactData(SpecialArtifact treeArtifact, TreeArtifactValue value) {
     Preconditions.checkArgument(treeArtifact.isTreeArtifact(), "%s is not a tree artifact");
     treeArtifactData.put(treeArtifact, value);
   }
@@ -71,17 +68,12 @@ class OutputStore {
    * Returns data for TreeArtifacts that was computed during execution. May contain copies of {@link
    * TreeArtifactValue#MISSING_TREE_ARTIFACT}.
    */
-  final ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactData() {
+  ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactData() {
     return ImmutableMap.copyOf(treeArtifactData);
   }
 
-  // TODO(b/160603797): This is the same as putArtifactData. Merge and remove MinimalOutputStore.
-  final void injectOutputData(Artifact output, FileArtifactValue artifactValue) {
-    artifactData.put(output, artifactValue);
-  }
-
   /** Clears all data in this store. */
-  final void clear() {
+  void clear() {
     artifactData.clear();
     treeArtifactData.clear();
   }
@@ -92,7 +84,7 @@ class OutputStore {
    * <p>If a tree artifact parent is given, it will be cleared from {@link #treeArtifactData}. If a
    * tree artifact child is given, its enclosing tree artifact will not be removed.
    */
-  final void remove(Artifact artifact) {
+  void remove(Artifact artifact) {
     if (artifact.isTreeArtifact()) {
       treeArtifactData.remove(artifact);
     } else {

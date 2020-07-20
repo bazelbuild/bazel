@@ -731,6 +731,7 @@ java_library(
     name = "dependency_kind",
     srcs = ["DependencyKind.java"],
     deps = [
+        "toolchain_collection",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//third_party:auto_value",
         "//third_party:guava",

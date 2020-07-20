@@ -796,6 +796,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   public void testInstrumentedFilesInfo_coverageEnabled() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "",
         "def custom_rule_impl(ctx):",
         "  return [coverage_common.instrumented_files_info(ctx,",
         "      extensions = ['txt'],",
@@ -805,30 +807,37 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "custom_rule = rule(implementation = custom_rule_impl,",
         "  attrs = {",
         "      'attr1': attr.label_list(mandatory = True, allow_files=True),",
-        "      'attr2': attr.label_list(mandatory = True)})");
+        "      'attr2': attr.label_list(mandatory = True)})",
+        "",
+        "def test_rule_impl(ctx):",
+        "  return [MyInfo(",
+        // The point of this is to assert that these fields can be read in analysistest.
+        // Normally, this information wouldn't be forwarded via a different provider.
+        "    instrumented_files = ctx.attr.target[InstrumentedFilesInfo].instrumented_files,",
+        "    metadata_files = ctx.attr.target[InstrumentedFilesInfo].metadata_files)]",
+        "",
+        "test_rule = rule(implementation = test_rule_impl,",
+        "  attrs = {'target': attr.label(mandatory = True)})");
 
     scratch.file(
         "test/starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'custom_rule')",
+        "load('//test/starlark:extension.bzl', 'custom_rule', 'test_rule')",
         "",
         "cc_library(name='cl', srcs = [':A.cc'])",
-        "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':cl'])");
+        "custom_rule(name = 'cr', attr1 = [':a.txt', ':a.random'], attr2 = [':cl'])",
+        "test_rule(name = 'test', target = ':cr')");
 
     useConfiguration("--collect_code_coverage");
 
-    ConfiguredTarget target = getConfiguredTarget("//test/starlark:cr");
-
-    InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    assertWithMessage("InstrumentedFilesInfo should be set.").that(provider).isNotNull();
-    assertThat(ActionsTestUtil.baseArtifactNames(provider.getInstrumentedFiles()))
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
+    StructImpl myInfo = getMyInfoFromTarget(target);
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                ((Depset) myInfo.getValue("instrumented_files")).getSet(Artifact.class)))
         .containsExactly("a.txt", "A.cc");
     assertThat(
             ActionsTestUtil.baseArtifactNames(
-                ((Depset) provider.getValue("instrumented_files")).getSet(Artifact.class)))
-        .containsExactly("a.txt", "A.cc");
-    assertThat(
-            ActionsTestUtil.baseArtifactNames(
-                ((Depset) provider.getValue("metadata_files")).getSet(Artifact.class)))
+                ((Depset) myInfo.getValue("metadata_files")).getSet(Artifact.class)))
         .containsExactly("A.gcno");
   }
 

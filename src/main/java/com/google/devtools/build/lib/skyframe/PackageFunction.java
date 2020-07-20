@@ -341,11 +341,6 @@ public class PackageFunction implements SkyFunction {
     }
 
     Package pkg = workspace.getPackage();
-    Event.replayEventsOn(env.getListener(), pkg.getEvents());
-    for (Postable post : pkg.getPosts()) {
-      env.getListener().post(post);
-    }
-
     if (packageFactory != null) {
       try {
         packageFactory.afterDoneLoadingPackage(
@@ -1098,7 +1093,9 @@ public class PackageFunction implements SkyFunction {
             throw new BadGlobException(
                 "glob pattern '"
                     + ((GlobDescriptor) includeGlobKey.argument()).getPattern()
-                    + "' didn't match anything, but allow_empty is set to False.");
+                    + "' didn't match anything, but allow_empty is set to False "
+                    + "(the default value of allow_empty can be set with "
+                    + "--incompatible_disallow_empty_glob).");
           }
         }
         if (legacyIncludesToken != null) {
@@ -1113,7 +1110,9 @@ public class PackageFunction implements SkyFunction {
 
         if (!allowEmpty && result.isEmpty()) {
           throw new BadGlobException(
-              "all files in the glob have been excluded, but allow_empty is set to False.");
+              "all files in the glob have been excluded, but allow_empty is set to False "
+                  + "(the default value of allow_empty can be set with "
+                  + "--incompatible_disallow_empty_glob).");
         }
         return result;
       }

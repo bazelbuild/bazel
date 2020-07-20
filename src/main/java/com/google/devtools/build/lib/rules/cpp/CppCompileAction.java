@@ -978,6 +978,27 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return executionInfo;
   }
 
+  private boolean validateInclude(
+      ActionExecutionContext actionExecutionContext,
+      Set<Artifact> allowedIncludes,
+      Set<PathFragment> looseHdrsDirs,
+      Iterable<PathFragment> ignoreDirs,
+      Artifact include) {
+    // Only declared modules are added to an action and so they are always valid.
+    return include.isFileType(CppFileTypes.CPP_MODULE)
+        ||
+        // TODO(b/145253507): Exclude objc module maps from check, due to bad interaction with
+        // local_objc_modules feature.
+        include.isFileType(CppFileTypes.OBJC_MODULE_MAP)
+        ||
+        // It's a declared include/
+        allowedIncludes.contains(include)
+        ||
+        // Ignore headers from built-in include directories.
+        FileSystemUtils.startsWithAny(include.getExecPath(), ignoreDirs)
+        || isDeclaredIn(cppConfiguration, actionExecutionContext, include, looseHdrsDirs);
+  }
+
   /**
    * Enforce that the includes actually visited during the compile were properly declared in the
    * rules.
@@ -1020,28 +1041,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     // Copy the nested sets to hash sets for fast contains checking, but do so lazily.
     // Avoid immutable sets here to limit memory churn.
-    Set<PathFragment> looseHdrsDirs = null;
+    Set<PathFragment> looseHdrsDirs = ccCompilationContext.getLooseHdrsDirs().toSet();
     for (Artifact input : inputsForValidation.toList()) {
-      // Only declared modules are added to an action and so they are always valid.
-      if (input.isFileType(CppFileTypes.CPP_MODULE)) {
-        continue;
-      }
-      // TODO(b/145253507): Exclude objc module maps from check, due to bad interaction with
-      // local_objc_modules feature.
-      if (input.isFileType(CppFileTypes.OBJC_MODULE_MAP)) {
-        continue;
-      }
-      if (allowedIncludes.contains(input)) {
-        continue;
-      }
-      // Ignore headers from built-in include directories.
-      if (FileSystemUtils.startsWithAny(input.getExecPath(), ignoreDirs)) {
-        continue;
-      }
-      if (looseHdrsDirs == null) {
-        looseHdrsDirs = Sets.newHashSet(ccCompilationContext.getLooseHdrsDirs().toList());
-      }
-      if (!isDeclaredIn(cppConfiguration, actionExecutionContext, input, looseHdrsDirs)) {
+      if (!validateInclude(
+          actionExecutionContext, allowedIncludes, looseHdrsDirs, ignoreDirs, input)) {
         errors.add(input.getExecPath().toString());
       }
     }

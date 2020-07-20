@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -329,7 +330,8 @@ public interface JavaCommonApi<
           "Packs sources and source jars into a single source jar file. "
               + "The return value is typically passed to"
               + "<p><code><a class=\"anchor\" href=\"JavaInfo.html\">"
-              + "JavaInfo</a>#source_jar</code></p>.",
+              + "JavaInfo</a>#source_jar</code></p>."
+              + "At least one of parameters output_jar or output_source_jar is required.",
       parameters = {
         @Param(
             name = "actions",
@@ -341,7 +343,22 @@ public interface JavaCommonApi<
             positional = false,
             named = true,
             type = FileApi.class,
-            doc = "The output jar of the rule. Used to name the resulting source jar."),
+            noneable = true,
+            defaultValue = "None",
+            doc =
+                "Deprecated: The output jar of the rule. Used to name the resulting source jar. "
+                    + "The parameter sets output_source_jar parameter to `{output_jar}-src.jar`."
+                    + "Use output_source_jar parameter directly instead.",
+            disableWithFlag = StarlarkSemantics.FlagIdentifier.INCOMPATIBLE_JAVA_COMMON_PARAMETERS,
+            valueWhenDisabled = "None"),
+        @Param(
+            name = "output_source_jar",
+            positional = false,
+            named = true,
+            type = FileApi.class,
+            noneable = true,
+            defaultValue = "None",
+            doc = "The output source jar."),
         @Param(
             name = "sources",
             positional = false,
@@ -376,7 +393,8 @@ public interface JavaCommonApi<
       allowReturnNones = true)
   FileApi packSources(
       StarlarkActionFactoryT actions,
-      FileT outputJar,
+      Object outputJar,
+      Object outputSourceJar,
       Sequence<?> sourceFiles, // <FileT> expected.
       Sequence<?> sourceJars, // <FileT> expected.
       JavaToolchainT javaToolchain,

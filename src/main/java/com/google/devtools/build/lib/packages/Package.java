@@ -207,7 +207,6 @@ public class Package {
   private ImmutableSet<String> features;
 
   private ImmutableList<Event> events;
-  private ImmutableList<Postable> posts;
 
   private ImmutableList<String> registeredExecutionPlatforms;
   private ImmutableList<String> registeredToolchains;
@@ -439,7 +438,6 @@ public class Package {
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
     this.events = ImmutableList.copyOf(builder.events);
-    this.posts = ImmutableList.copyOf(builder.posts);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
@@ -532,10 +530,6 @@ public class Package {
    */
   public boolean containsErrors() {
     return containsErrors;
-  }
-
-  public List<Postable> getPosts() {
-    return posts;
   }
 
   public List<Event> getEvents() {

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -126,7 +127,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
           return preinjectedDiff;
         }
       };
-  private final Reporter reporter;
+  private final Reporter commonReporter;
   protected final ConfiguredRuleClassProvider ruleClassProvider;
   private final PackageFactory pkgFactory;
   protected StarlarkSemantics starlarkSemantics;
@@ -149,7 +150,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected ExternalFilesHelper externalFilesHelper;
     protected ConfiguredRuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
     protected StarlarkSemantics starlarkSemantics;
-    protected Reporter reporter = new Reporter(new EventBus());
+    protected Reporter commonReporter = new Reporter(new EventBus());
     protected Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
     int legacyGlobbingThreads = 1;
@@ -194,8 +195,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    public Builder setReporter(Reporter reporter) {
-      this.reporter = reporter;
+    /** Sets the reporter used by all skyframe evaluations. */
+    public Builder setCommonReporter(Reporter commonReporter) {
+      this.commonReporter = commonReporter;
       return this;
     }
 
@@ -258,7 +260,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   AbstractPackageLoader(Builder builder) {
     this.ruleClassProvider = builder.ruleClassProvider;
     this.starlarkSemantics = builder.starlarkSemantics;
-    this.reporter = builder.reporter;
+    this.commonReporter = builder.commonReporter;
     this.extraSkyFunctions = ImmutableMap.copyOf(builder.extraSkyFunctions);
     this.pkgLocatorRef = builder.pkgLocatorRef;
     this.legacyGlobbingThreads = builder.legacyGlobbingThreads;
@@ -312,17 +314,19 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   @Override
   public Package loadPackage(PackageIdentifier pkgId)
       throws NoSuchPackageException, InterruptedException {
-    return loadPackages(ImmutableList.of(pkgId)).get(pkgId).get();
+    return loadPackages(ImmutableList.of(pkgId)).getLoadedPackages().get(pkgId).get();
   }
 
   @Override
-  public ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> loadPackages(
-      Iterable<? extends PackageIdentifier> pkgIds) throws InterruptedException {
+  public Result loadPackages(Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
     ArrayList<SkyKey> keys = new ArrayList<>();
     for (PackageIdentifier pkgId : ImmutableSet.copyOf(pkgIds)) {
       keys.add(PackageValue.key(pkgId));
     }
 
+    Reporter reporter = new Reporter(commonReporter);
+    StoredEventHandler storedEventHandler = new StoredEventHandler();
+    reporter.addHandler(storedEventHandler);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
@@ -345,7 +349,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
               : new PackageOrException(packageValue.getPackage(), null));
     }
 
-    return result.build();
+    return new Result(result.build(), storedEventHandler.getEvents());
   }
 
   public ConfiguredRuleClassProvider getRuleClassProvider() {

@@ -44,6 +44,21 @@ def distrib_cc_library(name, visibility = None, enable_distributions = [], **kwa
 
     native.alias(name = name, actual = select(conditions), visibility = visibility)
 
+def distrib_cc_binary(name, visibility = None, enable_distributions = [], **kwargs):
+    """A macro for cc_binary rule to support distributions build (eg. Debian)"""
+    checked_in_name = name + "_checked_in"
+
+    native.cc_binary(name = checked_in_name, visibility = visibility, **kwargs)
+
+    conditions = {
+        "//conditions:default": ":" + checked_in_name,
+    }
+
+    if "debian" in enable_distributions:
+        conditions["//src/conditions:debian_build"] = "@debian_bin_deps//:" + name
+
+    native.alias(name = name, actual = select(conditions), visibility = visibility)
+
 def distrib_jar_filegroup(name, visibility = None, enable_distributions = [], **kwargs):
     """A macro for filegroup rule to support distributions build (eg. Debian)"""
     checked_in_name = name + "_checked_in"

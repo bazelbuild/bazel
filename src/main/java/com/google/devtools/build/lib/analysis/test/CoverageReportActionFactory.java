@@ -47,7 +47,6 @@ public interface CoverageReportActionFactory {
     private final Actions.GeneratingActions processedActions;
 
     public CoverageReportActionsWrapper(
-        EventHandler eventHandler,
         ActionAnalysisMetadata lcovWriteAction,
         ActionAnalysisMetadata coverageReportAction,
         ActionKeyContext actionKeyContext) {
@@ -55,7 +54,6 @@ public interface CoverageReportActionFactory {
       try {
         this.processedActions =
             Actions.assignOwnersAndFindAndThrowActionConflict(
-                eventHandler,
                 actionKeyContext,
                 ImmutableList.of(lcovWriteAction, coverageReportAction),
                 CoverageReportValue.COVERAGE_REPORT_KEY);

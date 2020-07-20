@@ -37,8 +37,7 @@ public class FailActionTest {
   private FailAction failAction;
   private final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
-  protected MutableActionGraph actionGraph =
-      new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, actionKeyContext);
+  protected MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
 
   @Before
   public final void setUp() throws Exception  {

@@ -187,8 +187,7 @@ public class ArtifactTest {
   @Test
   public void testAddExecPaths() throws Exception {
     List<String> paths = new ArrayList<>();
-    MutableActionGraph actionGraph =
-        new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, actionKeyContext);
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Artifact.addExecPaths(getFooBarArtifacts(actionGraph, false), paths);
     assertThat(paths).containsExactly("bar1.h", "bar2.h");
   }
@@ -196,8 +195,7 @@ public class ArtifactTest {
   @Test
   public void testAddExpandedArtifacts() throws Exception {
     List<Artifact> expanded = new ArrayList<>();
-    MutableActionGraph actionGraph =
-        new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, actionKeyContext);
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     List<Artifact> original = getFooBarArtifacts(actionGraph, true);
     Artifact.addExpandedArtifacts(original, expanded,
         ActionInputHelper.actionGraphArtifactExpander(actionGraph));
@@ -217,8 +215,7 @@ public class ArtifactTest {
   @Test
   public void testAddExecPathsNewActionGraph() throws Exception {
     List<String> paths = new ArrayList<>();
-    MutableActionGraph actionGraph =
-        new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, actionKeyContext);
+    MutableActionGraph actionGraph = new MapBasedActionGraph(actionKeyContext);
     Artifact.addExecPaths(getFooBarArtifacts(actionGraph, false), paths);
     assertThat(paths).containsExactly("bar1.h", "bar2.h");
   }

@@ -25,3 +25,9 @@ filegroup(
     name = "grpc-cpp-plugin",
     srcs = ["grpc_cpp_plugin"],
 )
+
+# protobuf-compiler-grpc-java-plugin
+filegroup(
+    name = "grpc-java-plugin",
+    srcs = ["grpc_java_plugin"],
+)

@@ -599,4 +599,80 @@ EOF
   expect_not_log //foo:BUILD
 }
 
+function test_infer_universe_scope_considers_only_target_patterns() {
+  # When we have three targets //a:a, //b:b, //c:c, with //b:b depending
+  # directly on //a:a, and //c:c depending directly on //b:b.
+  mkdir -p a b c
+  echo "sh_library(name = 'a')" > a/BUILD
+  echo "sh_library(name = 'b', deps = ['//a:a'])" > b/BUILD
+  echo "sh_library(name = 'c', deps = ['//b:b'])" > c/BUILD
+
+  # And we run 'bazel query' with both --infer_universe_scope and
+  # --order_output=no set (making this invocation eligible for SkyQuery), with
+  # a query expression of "allrdeps(//a)",
+  bazel query \
+    --infer_universe_scope \
+    --order_output=no \
+    "allrdeps(//a)" >& $TEST_log || fail "Expected success"
+  # Then the invocation succeeds (confirming SkyQuery mode was enabled),
+  # And also the result contains //a:a
+  expect_log //a:a
+  # But it does not contain //b:c or //c:c, because they aren't contained in
+  # the inferred universe scope.
+  expect_not_log //b:b
+  expect_not_log //c:c
+
+  # And also, when we run 'bazel clean' (just to be sure, since the semantics
+  # of SkyQuery depends on the state of the Bazel server)
+  bazel clean >& $TEST_log || fail "Expected success"
+
+  # And then we run 'bazel query' again, with the same options as last time,
+  # but this time with a query expression that contains target patterns whose
+  # DTC covers //b:b and //c:c too,
+  bazel query \
+    --infer_universe_scope --order_output=no \
+    "allrdeps(//a) ^ deps(//c:c)" >& $TEST_log || fail "Expected success"
+  # Then the invocation also succeeds (confirming SkyQuery mode was enabled),
+  # But this time the result contains all three targets.
+  expect_log //a:a
+  expect_log //b:b
+  expect_log //c:c
+}
+
+function test_infer_universe_scope_defers_to_universe_scope_value() {
+  # When we have two targets, in two different packages, that do not depend on
+  # each other,
+  mkdir -p a b
+  echo "sh_library(name = 'a')" > a/BUILD
+  echo "sh_library(name = 'b')" > b/BUILD
+
+  # And we run 'bazel query' with a --universe_scope value that covers only one
+  # of the targets but a query expression that has target patterns for both
+  # targets, but also pass --infer_universe_scope,
+  bazel query \
+    --universe_scope=//a:a \
+    --infer_universe_scope \
+    --order_output=no \
+    "//a:a + //b:b" >& $TEST_log && fail "Expected failure"
+  # Then the query invocation fails, because of the missing target, thus
+  # verifying that our value of --universe_scope was respected and
+  # --infer_universe_scope was ignored.
+  expect_log "Evaluation of subquery \"//b:b\" failed"
+
+  # And then, when we run 'bazel clean' (just to be sure, since the semantics
+  # of SkyQuery depends on the state of the Bazel server)
+  bazel clean >& $TEST_log || fail "Expected success"
+
+  # And we run 'bazel query', this time without setting --universe_scope, but
+  # with --infer_universe_scope and the same query expression,
+  bazel query \
+    --infer_universe_scope \
+    --order_output=no \
+    "//a:a + //b:b" >& $TEST_log || fail "Expected success"
+  # Then the query expression succeeds, because both targets are in the
+  # inferred universe.
+  expect_log //a:a
+  expect_log //b:b
+}
+
 run_suite "${PRODUCT_NAME} query tests"

@@ -225,8 +225,6 @@ public class WorkspaceFactory {
     this.loadedModules.putAll(loadedModules);
     builder.setWorkspaceName(aPackage.getWorkspaceName());
     // Transmit the content of the parent package to the new package builder.
-    builder.addPosts(aPackage.getPosts());
-    builder.addEvents(aPackage.getEvents());
     if (aPackage.containsErrors()) {
       builder.setContainsErrors();
     }

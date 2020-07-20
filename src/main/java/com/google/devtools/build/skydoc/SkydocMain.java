@@ -119,6 +119,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryMo
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeInstrumentedFilesInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
@@ -600,6 +601,7 @@ public class SkydocMain {
         new TestingBootstrap(
             new FakeTestingModule(),
             new FakeCoverageCommon(),
+            new FakeInstrumentedFilesInfoProvider(),
             new FakeAnalysisFailureInfoProvider(),
             new FakeAnalysisTestResultInfoProvider());
 
@@ -611,7 +613,6 @@ public class SkydocMain {
     for (String name :
         new String[] {
           "DataBindingV2Info",
-          "PintoModuleLegacyDepsMgmtProvider",
           "ProguardSpecProvider",
           "js_common",
           "pkg_common",

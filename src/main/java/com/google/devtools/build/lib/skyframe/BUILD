@@ -164,7 +164,6 @@ java_library(
         ":local_repository_lookup_value",
         ":managed_directories_knowledge",
         ":map_as_package_roots",
-        ":minimal_output_store",
         ":output_store",
         ":package_error_function",
         ":package_error_message_function",
@@ -1620,15 +1619,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "minimal_output_store",
-    srcs = ["MinimalOutputStore.java"],
-    deps = [
-        ":output_store",
-        "//src/main/java/com/google/devtools/build/lib/actions",
     ],
 )
 

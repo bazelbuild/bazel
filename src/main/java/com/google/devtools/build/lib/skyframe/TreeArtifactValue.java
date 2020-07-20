@@ -30,17 +30,14 @@ import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.vfs.Dirent;
-import com.google.devtools.build.lib.vfs.Dirent.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import javax.annotation.Nullable;
@@ -244,64 +241,90 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
     };
   }
 
-  private static void explodeDirectory(
-      Path treeArtifactPath,
-      PathFragment pathToExplode,
-      ImmutableSet.Builder<PathFragment> valuesBuilder)
+  /** Visitor for use in {@link #visitTree}. */
+  @FunctionalInterface
+  public interface TreeArtifactVisitor {
+    /**
+     * Called for every directory entry encountered during tree traversal.
+     *
+     * <p>Symlinks are not followed during traversal and are simply reported as {@link
+     * Dirent.Type#SYMLINK} regardless of whether they point to a file, directory, or are dangling.
+     *
+     * <p>{@code type} is guaranteed never to be {@link Dirent.Type#UNKNOWN}, since if this type is
+     * encountered, {@link IOException} is immediately thrown without invoking the visitor.
+     *
+     * <p>If the implementation throws {@link IOException}, traversal is immediately halted and the
+     * exception is propagated.
+     */
+    void visit(PathFragment parentRelativePath, Dirent.Type type) throws IOException;
+  }
+
+  /**
+   * Recursively visits all descendants under a directory.
+   *
+   * <p>{@link TreeArtifactVisitor#visit} is invoked on {@code visitor} for each directory, file,
+   * and symlink under the given {@code parentDir}.
+   *
+   * <p>This method is intended to provide uniform semantics for constructing a tree artifact,
+   * including special logic that validates directory entries. Invalid directory entries include a
+   * symlink that traverses outside of the tree artifact and any entry of {@link
+   * Dirent.Type#UNKNOWN}, such as a named pipe.
+   *
+   * @throws IOException if there is any problem reading or validating outputs under the given tree
+   *     artifact directory, or if {@link TreeArtifactVisitor#visit} throws {@link IOException}
+   */
+  public static void visitTree(Path parentDir, TreeArtifactVisitor visitor) throws IOException {
+    visitTree(parentDir, PathFragment.EMPTY_FRAGMENT, Preconditions.checkNotNull(visitor));
+  }
+
+  private static void visitTree(Path parentDir, PathFragment subdir, TreeArtifactVisitor visitor)
       throws IOException {
-    Path dir = treeArtifactPath.getRelative(pathToExplode);
-    Collection<Dirent> dirents = dir.readdir(Symlinks.NOFOLLOW);
-    for (Dirent dirent : dirents) {
-      PathFragment canonicalSubpathFragment = pathToExplode.getChild(dirent.getName());
-      if (dirent.getType() == Type.DIRECTORY) {
-        explodeDirectory(treeArtifactPath, canonicalSubpathFragment, valuesBuilder);
-      } else if (dirent.getType() == Type.SYMLINK) {
-        Path subpath = dir.getRelative(dirent.getName());
-        PathFragment linkTarget = subpath.readSymbolicLinkUnchecked();
-        valuesBuilder.add(canonicalSubpathFragment);
-        if (linkTarget.isAbsolute()) {
-          // We tolerate absolute symlinks here. They will probably be dangling if any downstream
-          // consumer tries to read them, but let that be downstream's problem.
-          continue;
-        }
-        // We visit each path segment of the link target to catch any path traversal outside of the
-        // TreeArtifact root directory. For example, for TreeArtifact a/b/c, it is possible to have
-        // a symlink, a/b/c/sym_link that points to ../outside_dir/../c/link_target. Although this
-        // symlink points to a file under the TreeArtifact, the link target traverses outside of the
-        // TreeArtifact into a/b/outside_dir.
-        PathFragment intermediatePath = canonicalSubpathFragment.getParentDirectory();
-        for (String pathSegment : linkTarget.getSegments()) {
-          intermediatePath = intermediatePath.getRelative(pathSegment);
-          if (intermediatePath.containsUplevelReferences()) {
-            String errorMessage =
-                String.format(
-                    "A TreeArtifact may not contain relative symlinks whose target paths traverse "
-                        + "outside of the TreeArtifact, found %s pointing to %s.",
-                    subpath, linkTarget);
-            throw new IOException(errorMessage);
-          }
-        }
-      } else if (dirent.getType() == Type.FILE) {
-        valuesBuilder.add(canonicalSubpathFragment);
-      } else {
-        // We shouldn't ever reach here.
-        Path subpath = dir.getRelative(dirent.getName());
-        throw new IllegalStateException("Could not determine type of file " + subpath);
+    for (Dirent dirent : parentDir.getRelative(subdir).readdir(Symlinks.NOFOLLOW)) {
+      PathFragment parentRelativePath = subdir.getChild(dirent.getName());
+      Dirent.Type type = dirent.getType();
+
+      if (type == Dirent.Type.UNKNOWN) {
+        throw new IOException(
+            "Could not determine type of file for " + parentRelativePath + " under " + parentDir);
+      }
+
+      if (type == Dirent.Type.SYMLINK) {
+        checkSymlink(subdir, parentDir.getRelative(parentRelativePath));
+      }
+
+      visitor.visit(parentRelativePath, type);
+
+      if (type == Dirent.Type.DIRECTORY) {
+        visitTree(parentDir, parentRelativePath, visitor);
       }
     }
   }
 
-  /**
-   * Recursively get all child files in a directory (excluding child directories themselves, but
-   * including all files in them).
-   *
-   * @throws IOException if there is any problem reading or validating outputs under the given tree
-   *     artifact.
-   */
-  public static Set<PathFragment> explodeDirectory(Path treeArtifactPath) throws IOException {
-    ImmutableSet.Builder<PathFragment> explodedDirectory = ImmutableSet.builder();
-    explodeDirectory(treeArtifactPath, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
-    return explodedDirectory.build();
+  private static void checkSymlink(PathFragment subDir, Path path) throws IOException {
+    PathFragment linkTarget = path.readSymbolicLinkUnchecked();
+    if (linkTarget.isAbsolute()) {
+      // We tolerate absolute symlinks here. They will probably be dangling if any downstream
+      // consumer tries to read them, but let that be downstream's problem.
+      return;
+    }
+
+    // Visit each path segment of the link target to catch any path traversal outside of the
+    // TreeArtifact root directory. For example, for TreeArtifact a/b/c, it is possible to have a
+    // symlink, a/b/c/sym_link that points to ../outside_dir/../c/link_target. Although this symlink
+    // points to a file under the TreeArtifact, the link target traverses outside of the
+    // TreeArtifact into a/b/outside_dir.
+    PathFragment intermediatePath = subDir;
+    for (String pathSegment : linkTarget.getSegments()) {
+      intermediatePath = intermediatePath.getRelative(pathSegment);
+      if (intermediatePath.containsUplevelReferences()) {
+        String errorMessage =
+            String.format(
+                "A TreeArtifact may not contain relative symlinks whose target paths traverse "
+                    + "outside of the TreeArtifact, found %s pointing to %s.",
+                path, linkTarget);
+        throw new IOException(errorMessage);
+      }
+    }
   }
 
   private static final class BasicMultiBuilder implements MultiBuilder {

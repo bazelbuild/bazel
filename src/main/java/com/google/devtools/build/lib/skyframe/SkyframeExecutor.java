@@ -828,7 +828,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    */
   public void notifyCommandComplete(ExtendedEventHandler eventHandler) throws InterruptedException {
     memoizingEvaluator.noteEvaluationsAtSameVersionMayBeFinished(eventHandler);
-    Actions.clearSharedActionsWarningFlag();
   }
 
   /**
@@ -1103,17 +1102,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
           }
         };
     return workspaceStatusActionFactory.createWorkspaceStatusAction(env);
-  }
-
-  @VisibleForTesting
-  @Nullable
-  public WorkspaceStatusAction getLastWorkspaceStatusAction() throws InterruptedException {
-    WorkspaceStatusValue workspaceStatusValue =
-        (WorkspaceStatusValue)
-            memoizingEvaluator.getExistingValue(WorkspaceStatusValue.BUILD_INFO_KEY);
-    return workspaceStatusValue == null
-        ? null
-        : (WorkspaceStatusAction) workspaceStatusValue.getAction(0);
   }
 
   public void injectCoverageReportData(Actions.GeneratingActions actions) {
@@ -2925,7 +2913,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     // available.
     return detailedExitCode != null
         ? new DetailedTargetParsingException(
-            (e instanceof TargetParsingException) ? e.getCause() : e, detailedExitCode)
+            (e instanceof TargetParsingException) ? e.getCause() : e,
+            e.getMessage(),
+            detailedExitCode)
         : (e instanceof TargetParsingException)
             ? (TargetParsingException) e
             : new TargetParsingException(e.getMessage(), e);

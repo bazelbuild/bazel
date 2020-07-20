@@ -156,7 +156,7 @@ public final class Tuple<E> extends AbstractList<E> implements Sequence<E> {
 
   @Override
   public Object[] toArray() {
-    return Arrays.copyOf(elems, elems.length);
+    return elems.length != 0 ? elems.clone() : elems;
   }
 
   @Override

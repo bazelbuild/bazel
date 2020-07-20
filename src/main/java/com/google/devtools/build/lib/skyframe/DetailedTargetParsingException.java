@@ -22,8 +22,9 @@ public class DetailedTargetParsingException extends TargetParsingException
 
   private final DetailedExitCode detailedExitCode;
 
-  public DetailedTargetParsingException(Throwable cause, DetailedExitCode detailedExitCode) {
-    super(detailedExitCode.getFailureDetail().getMessage(), cause);
+  public DetailedTargetParsingException(
+      Throwable cause, String message, DetailedExitCode detailedExitCode) {
+    super(message, cause);
     this.detailedExitCode = detailedExitCode;
   }
 

@@ -91,7 +91,8 @@ public class FakeJavaCommon
   @Override
   public FileApi packSources(
       StarlarkActionFactoryApi actions,
-      FileApi outputJar,
+      Object outputJar,
+      Object outputSourceJar,
       Sequence<?> sourceFiles,
       Sequence<?> sourceJars,
       FakeJavaToolchainStarlarkApiProviderApi javaToolchain,

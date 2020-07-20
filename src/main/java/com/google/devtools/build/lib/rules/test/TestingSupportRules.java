@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSe
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.CoverageCommon;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
 
@@ -36,6 +37,7 @@ public final class TestingSupportRules implements RuleSet {
         new TestingBootstrap(
             new StarlarkTestingModule(),
             new CoverageCommon(),
+            InstrumentedFilesInfo.STARLARK_CONSTRUCTOR,
             AnalysisFailureInfo.STARLARK_CONSTRUCTOR,
             AnalysisTestResultInfo.STARLARK_CONSTRUCTOR));
   }

@@ -208,4 +208,9 @@ public interface OutputService {
       throws IOException {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
+
+  @Nullable
+  default BulkDeleter bulkDeleter() {
+    return null;
+  }
 }

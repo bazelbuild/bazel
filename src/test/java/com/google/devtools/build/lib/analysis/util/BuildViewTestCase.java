@@ -264,7 +264,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     packageOptions = parsePackageOptions();
     starlarkSemanticsOptions = parseStarlarkSemanticsOptions();
     workspaceStatusActionFactory = new AnalysisTestUtil.DummyWorkspaceStatusActionFactory();
-    mutableActionGraph = new MapBasedActionGraph(/*eventHandler=*/ ignored -> {}, actionKeyContext);
+    mutableActionGraph = new MapBasedActionGraph(actionKeyContext);
     ruleClassProvider = createRuleClassProvider();
     getOutputPath().createDirectoryAndParents();
     ImmutableList<PrecomputedValue.Injected> extraPrecomputedValues =

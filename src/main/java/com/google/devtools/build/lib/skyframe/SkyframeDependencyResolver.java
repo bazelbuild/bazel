@@ -72,7 +72,7 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
     }
 
     String message;
-    if (dependencyKind == DependencyKind.TOOLCHAIN_DEPENDENCY) {
+    if (DependencyKind.isToolchain(dependencyKind)) {
       message =
           String.format(
               "Target '%s' depends on toolchain '%s', which cannot be found: %s'",

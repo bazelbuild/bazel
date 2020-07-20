@@ -147,6 +147,7 @@ public class StarlarkSemanticsConsistencyTest {
         "--incompatible_disallow_empty_glob=" + rand.nextBoolean(),
         "--incompatible_disallow_struct_provider_syntax=" + rand.nextBoolean(),
         "--incompatible_do_not_split_linking_cmdline=" + rand.nextBoolean(),
+        "--incompatible_java_common_parameters=" + rand.nextBoolean(),
         "--incompatible_linkopts_to_linklibs=" + rand.nextBoolean(),
         "--incompatible_new_actions_api=" + rand.nextBoolean(),
         "--incompatible_no_attr_license=" + rand.nextBoolean(),
@@ -198,6 +199,7 @@ public class StarlarkSemanticsConsistencyTest {
         .incompatibleDisallowEmptyGlob(rand.nextBoolean())
         .incompatibleDisallowStructProviderSyntax(rand.nextBoolean())
         .incompatibleDoNotSplitLinkingCmdline(rand.nextBoolean())
+        .incompatibleJavaCommonParameters(rand.nextBoolean())
         .incompatibleLinkoptsToLinkLibs(rand.nextBoolean())
         .incompatibleNewActionsApi(rand.nextBoolean())
         .incompatibleNoAttrLicense(rand.nextBoolean())

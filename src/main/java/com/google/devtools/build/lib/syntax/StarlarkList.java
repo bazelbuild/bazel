@@ -468,4 +468,9 @@ public final class StarlarkList<E> extends AbstractList<E>
     remove(index, (Location) null);
     return result;
   }
+
+  @Override
+  public Object[] toArray() {
+    return size != 0 ? Arrays.copyOf(elems, size) : EMPTY_ARRAY;
+  }
 }

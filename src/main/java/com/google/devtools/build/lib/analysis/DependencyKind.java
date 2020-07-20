@@ -26,15 +26,11 @@ import javax.annotation.Nullable;
  * toolchains.
  */
 public interface DependencyKind {
-
   /** A dependency for visibility. */
   DependencyKind VISIBILITY_DEPENDENCY = new NonAttributeDependencyKind("VISIBILITY");
 
   /** The dependency on the rule that creates a given output file. */
   DependencyKind OUTPUT_FILE_RULE_DEPENDENCY = new NonAttributeDependencyKind("OUTPUT_FILE");
-
-  /** A dependency on a resolved toolchain. */
-  DependencyKind TOOLCHAIN_DEPENDENCY = new NonAttributeDependencyKind("TOOLCHAIN");
 
   /**
    * The attribute through which a dependency arises.
@@ -76,6 +72,46 @@ public interface DependencyKind {
     public String toString() {
       return String.format("%s(%s)", getClass().getSimpleName(), this.name);
     }
+  }
+
+  /** A dependency for a toolchain context, identified by the execution group name. */
+  @AutoValue
+  abstract class ToolchainDependencyKind implements DependencyKind {
+    @Override
+    public Attribute getAttribute() {
+      return null;
+    }
+
+    @Nullable
+    @Override
+    public AspectClass getOwningAspect() {
+      throw new IllegalStateException();
+    }
+
+    /** The name of the execution group represented by this dependency kind. */
+    public abstract String getExecGroupName();
+
+    /** Returns true if this toolchain dependency is for the default exec group. */
+    public abstract boolean isDefaultExecGroup();
+  }
+
+  /** Returns a {@link DependencyKind} for the given execution group. */
+  static DependencyKind forExecGroup(String execGroupName) {
+    if (ToolchainCollection.DEFAULT_EXEC_GROUP_NAME.equals(execGroupName)) {
+      return defaultExecGroupToolchain();
+    }
+    return new AutoValue_DependencyKind_ToolchainDependencyKind(execGroupName, false);
+  }
+
+  /** Returns a {@link DependencyKind} for the default execution group. */
+  static DependencyKind defaultExecGroupToolchain() {
+    return new AutoValue_DependencyKind_ToolchainDependencyKind(
+        ToolchainCollection.DEFAULT_EXEC_GROUP_NAME, true);
+  }
+
+  /** Predicate to check if a dependency represents a toolchain. */
+  static boolean isToolchain(DependencyKind dependencyKind) {
+    return dependencyKind instanceof ToolchainDependencyKind;
   }
 
   /** A dependency through an attribute, either that of an aspect or the rule itself. */

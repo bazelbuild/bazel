@@ -241,7 +241,6 @@ public final class ConfiguredAspect implements ProviderCollection {
       AnalysisEnvironment analysisEnvironment = ruleContext.getAnalysisEnvironment();
       GeneratingActions generatingActions =
           Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              analysisEnvironment.getEventHandler(),
               analysisEnvironment.getActionKeyContext(),
               analysisEnvironment.getRegisteredActions(),
               ruleContext.getOwner(),

@@ -533,22 +533,24 @@ public final class PackageFactory {
             .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
-    Package result =
+    Package.Builder packageBuilder =
         createPackageFromAst(
-                externalPkg.getWorkspaceName(),
-                /*repositoryMapping=*/ ImmutableMap.of(),
-                packageId,
-                buildFile,
-                file,
-                /*loadedModules=*/ ImmutableMap.<String, Module>of(),
-                /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
-                semantics,
-                globber)
-            .build();
-    for (Postable post : result.getPosts()) {
+            externalPkg.getWorkspaceName(),
+            /*repositoryMapping=*/ ImmutableMap.of(),
+            packageId,
+            buildFile,
+            file,
+            /*loadedModules=*/ ImmutableMap.<String, Module>of(),
+            /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
+            semantics,
+            globber);
+    Package result = packageBuilder.build();
+
+    for (Postable post : packageBuilder.getPosts()) {
       eventHandler.post(post);
     }
-    Event.replayEventsOn(eventHandler, result.getEvents());
+    Event.replayEventsOn(eventHandler, packageBuilder.getEvents());
+
     return result;
   }
 
