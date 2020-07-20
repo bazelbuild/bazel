@@ -153,7 +153,6 @@ public class WorkerModule extends BlazeModule {
             env.getReporter(),
             createFallbackRunner(env, localEnvProvider),
             localEnvProvider,
-            sandboxOptions.symlinkedSandboxExpandsTreeArtifactsInRunfilesTree,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater

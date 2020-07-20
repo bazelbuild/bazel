@@ -70,11 +70,7 @@ final class WindowsSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
 
     SandboxInputs readablePaths =
         helpers.processInputFiles(
-            context.getInputMapping(
-                getSandboxOptions().symlinkedSandboxExpandsTreeArtifactsInRunfilesTree),
-            spawn,
-            context.getArtifactExpander(),
-            execRoot);
+            context.getInputMapping(true), spawn, context.getArtifactExpander(), execRoot);
 
     readablePaths.materializeVirtualInputs(execRoot);
 
