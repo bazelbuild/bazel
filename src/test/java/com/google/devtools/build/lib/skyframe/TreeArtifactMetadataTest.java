@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -104,17 +103,6 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     assertThat(value.getChildren())
         .containsExactlyElementsIn(
             Iterables.transform(children, child -> TreeFileArtifact.createTreeOutput(tree, child)));
-
-    // Assertions about digest. As of this writing this logic is essentially the same
-    // as that in TreeArtifact, but it's good practice to unit test anyway to guard against
-    // breaking changes.
-    Map<String, FileArtifactValue> digestBuilder = new HashMap<>();
-    for (PathFragment child : children) {
-      FileArtifactValue subdigest =
-          FileArtifactValue.createForTesting(tree.getPath().getRelative(child));
-      digestBuilder.put(child.getPathString(), subdigest);
-    }
-    assertThat(DigestUtils.fromMetadata(digestBuilder)).isEqualTo(value.getDigest());
     return value;
   }
 
