@@ -8,7 +8,7 @@
 #
 # This package contains core types that will be needed by other APIs, such as
 # StructApi and ProviderApi. Only add new types that will be widely used by
-# other parts of the skylarkbuildapi.
+# other parts of the starlarkbuildapi.
 
 load("@rules_java//java:defs.bzl", "java_library")
 

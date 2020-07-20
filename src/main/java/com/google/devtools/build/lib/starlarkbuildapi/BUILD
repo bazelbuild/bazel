@@ -16,7 +16,9 @@ package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core:srcs",
+    ],
     visibility = ["//src:__subpackages__"],
 )
 
@@ -30,7 +32,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         # TODO(cparsons): Remove dependency on Label implementation.
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//third_party:jsr305",
     ],

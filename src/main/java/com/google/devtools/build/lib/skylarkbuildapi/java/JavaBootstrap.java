@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.java;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 
 /** {@link Bootstrap} for Starlark objects related to the java language. */
 public class JavaBootstrap implements Bootstrap {

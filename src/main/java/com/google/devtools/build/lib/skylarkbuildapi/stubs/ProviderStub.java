@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.stubs;
 
-import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.Printer;
 
 /**

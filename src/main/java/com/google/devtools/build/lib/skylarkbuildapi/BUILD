@@ -20,7 +20,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/javascript:srcs",
@@ -46,7 +45,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         # TODO(cparsons): Remove dependency on Label implementation.
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//third_party:jsr305",
     ],

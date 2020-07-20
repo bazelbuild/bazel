@@ -15,7 +15,7 @@
 package com.google.devtools.build.skydoc.fakebuildapi.config;
 
 import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigStarlarkCommonApi;
-import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeProviderApi;
 
 /**

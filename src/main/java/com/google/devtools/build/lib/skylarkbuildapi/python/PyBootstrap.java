@@ -15,9 +15,9 @@
 package com.google.devtools.build.lib.skylarkbuildapi.python;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyInfoApi.PyInfoProviderApi;
 import com.google.devtools.build.lib.skylarkbuildapi.python.PyRuntimeInfoApi.PyRuntimeInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 

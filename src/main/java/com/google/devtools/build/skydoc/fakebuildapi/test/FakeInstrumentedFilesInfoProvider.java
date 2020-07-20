@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.test;
 
-import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.Printer;
 
 /** Fake implementation of {@link InstrumentedFilesInfoProviderApi}. */

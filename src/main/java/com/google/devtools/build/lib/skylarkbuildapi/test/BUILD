@@ -24,7 +24,7 @@ java_library(
         # TODO(b/80307387): Remove dependency on Label implementation.
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/core",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/com/google/devtools/build/lib:syntax",
