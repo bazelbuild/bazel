@@ -21,6 +21,7 @@ import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
-import java.util.List;
 import java.util.UUID;
 import org.junit.Before;
 import org.junit.Test;
@@ -417,9 +416,11 @@ public class PackageLoadingTest extends FoundationTestCase {
     scratch.file("e/f/BUILD");
     scratch.file("e/BUILD", "# Whatever", "filegroup(name='fg', srcs=['f/g'])");
     reporter.removeHandler(failFastHandler);
-    List<Event> events = getPackage("e").getEvents();
-    assertThat(events).hasSize(1);
-    assertThat(events.get(0).getLocation().line()).isEqualTo(2);
+
+    getPackage("e");
+
+    assertThat(eventCollector).hasSize(1);
+    assertThat(Iterables.getOnlyElement(eventCollector).getLocation().line()).isEqualTo(2);
   }
 
   /** Static tests (i.e. no changes to filesystem, nor calls to sync). */

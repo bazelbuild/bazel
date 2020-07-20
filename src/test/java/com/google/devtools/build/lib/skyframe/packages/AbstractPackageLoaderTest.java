@@ -85,7 +85,6 @@ public abstract class AbstractPackageLoaderTest {
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("bad"));
     Package badPkg = pkgLoader.loadPackage(pkgId);
     assertThat(badPkg.containsErrors()).isTrue();
-    assertContainsEvent(badPkg.getEvents(), "invalidBUILDsyntax");
     assertContainsEvent(handler.getEvents(), "invalidBUILDsyntax");
   }
 
@@ -98,7 +97,6 @@ public abstract class AbstractPackageLoaderTest {
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
-    assertNoEvents(goodPkg.getEvents());
     assertNoEvents(handler.getEvents());
   }
 
@@ -119,8 +117,7 @@ public abstract class AbstractPackageLoaderTest {
         .isEqualTo("sh_library");
     assertThat(pkgs.get(pkgId2).get().getTarget("good2").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
-    assertNoEvents(pkgs.get(pkgId1).get().getEvents());
-    assertNoEvents(pkgs.get(pkgId2).get().getEvents());
+
     assertNoEvents(result.getEvents());
     assertNoEvents(handler.getEvents());
   }
@@ -158,12 +155,13 @@ public abstract class AbstractPackageLoaderTest {
     PackageLoader pkgLoader = newPackageLoader();
     file("good1/BUILD", "sh_library(name = 'good1')");
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("good1"));
+    PackageLoader.Result result = pkgLoader.loadPackages(ImmutableList.of(pkgId, pkgId));
     ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> pkgs =
-        pkgLoader.loadPackages(ImmutableList.of(pkgId, pkgId)).getLoadedPackages();
+        result.getLoadedPackages();
     assertThat(pkgs.get(pkgId).get().containsErrors()).isFalse();
     assertThat(pkgs.get(pkgId).get().getTarget("good1").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
-    assertNoEvents(pkgs.get(pkgId).get().getEvents());
+    assertNoEvents(result.getEvents());
     assertNoEvents(handler.getEvents());
   }
 
@@ -177,7 +175,6 @@ public abstract class AbstractPackageLoaderTest {
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
-    assertNoEvents(goodPkg.getEvents());
     assertNoEvents(handler.getEvents());
   }
 
@@ -192,7 +189,6 @@ public abstract class AbstractPackageLoaderTest {
     Package fooPkg = pkgLoader.loadPackage(pkgId);
     assertThat(fooPkg.containsErrors()).isFalse();
     assertThat(fooPkg.getTarget("foo").getTargetKind()).isEqualTo("sh_library rule");
-    assertNoEvents(fooPkg.getEvents());
     assertNoEvents(handler.getEvents());
   }
 

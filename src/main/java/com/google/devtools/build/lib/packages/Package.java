@@ -206,8 +206,6 @@ public class Package {
 
   private ImmutableSet<String> features;
 
-  private ImmutableList<Event> events;
-
   private ImmutableList<String> registeredExecutionPlatforms;
   private ImmutableList<String> registeredToolchains;
 
@@ -437,7 +435,6 @@ public class Package {
     this.defaultLicense = builder.defaultLicense;
     this.defaultDistributionSet = builder.defaultDistributionSet;
     this.features = ImmutableSortedSet.copyOf(builder.features);
-    this.events = ImmutableList.copyOf(builder.events);
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
     this.repositoryMapping = Preconditions.checkNotNull(builder.repositoryMapping);
@@ -530,10 +527,6 @@ public class Package {
    */
   public boolean containsErrors() {
     return containsErrors;
-  }
-
-  public List<Event> getEvents() {
-    return events;
   }
 
   /** Returns an (immutable, ordered) view of all the targets belonging to this package. */
@@ -1034,10 +1027,22 @@ public class Package {
       return filename;
     }
 
+    /**
+     * Returns {@link Postable}s accumulated while building the package.
+     *
+     * <p>Should retrieved and reported as close to after {@link #build()} or {@link #finishBuild()}
+     * as possible - any earlier and the data may be incomplete.
+     */
     public List<Postable> getPosts() {
       return posts;
     }
 
+    /**
+     * Returns {@link Event}s accumulated while building the package.
+     *
+     * <p>Should retrieved and reported as close to after {@link #build()} or {@link #finishBuild()}
+     * as possible - any earlier and the data may be incomplete.
+     */
     public List<Event> getEvents() {
       return events;
     }

@@ -190,12 +190,10 @@ public class PackageFactoryApparatus {
     Package result;
     try {
       result = resultBuilder.build();
-    } catch (NoSuchPackageException e) {
+    } finally {
       // Make sure not to lose events if we fail to construct the package.
       Event.replayEventsOn(eventHandler, resultBuilder.getEvents());
-      throw e;
     }
-    Event.replayEventsOn(eventHandler, result.getEvents());
     return Pair.of(result, globCache);
   }
 
