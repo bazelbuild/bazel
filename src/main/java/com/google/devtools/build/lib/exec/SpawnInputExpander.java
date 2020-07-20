@@ -107,8 +107,7 @@ public class SpawnInputExpander {
       Map<PathFragment, ActionInput> inputMap,
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander,
-      boolean expandTreeArtifactsInRunfiles)
+      ArtifactExpander artifactExpander)
       throws IOException {
     Map<PathFragment, Map<PathFragment, Artifact>> rootsAndMappings =
         runfilesSupplier.getMappings();
@@ -122,7 +121,7 @@ public class SpawnInputExpander {
         Artifact localArtifact = mapping.getValue();
         if (localArtifact != null) {
           Preconditions.checkState(!localArtifact.isMiddlemanArtifact());
-          if (expandTreeArtifactsInRunfiles && localArtifact.isTreeArtifact()) {
+          if (localArtifact.isTreeArtifact()) {
             List<ActionInput> expandedInputs =
                 ActionInputHelper.expandArtifacts(
                     NestedSetBuilder.create(Order.STABLE_ORDER, localArtifact), artifactExpander);
@@ -152,16 +151,10 @@ public class SpawnInputExpander {
   public Map<PathFragment, ActionInput> addRunfilesToInputs(
       RunfilesSupplier runfilesSupplier,
       MetadataProvider actionFileCache,
-      ArtifactExpander artifactExpander,
-      boolean expandTreeArtifactsInRunfiles)
+      ArtifactExpander artifactExpander)
       throws IOException {
     Map<PathFragment, ActionInput> inputMap = new HashMap<>();
-    addRunfilesToInputs(
-        inputMap,
-        runfilesSupplier,
-        actionFileCache,
-        artifactExpander,
-        expandTreeArtifactsInRunfiles);
+    addRunfilesToInputs(inputMap, runfilesSupplier, actionFileCache, artifactExpander);
     return inputMap;
   }
 
@@ -225,20 +218,13 @@ public class SpawnInputExpander {
    * <p>The returned map contains all runfiles, but not the {@code MANIFEST}.
    */
   public SortedMap<PathFragment, ActionInput> getInputMapping(
-      Spawn spawn,
-      ArtifactExpander artifactExpander,
-      MetadataProvider actionInputFileCache,
-      boolean expandTreeArtifactsInRunfiles)
+      Spawn spawn, ArtifactExpander artifactExpander, MetadataProvider actionInputFileCache)
       throws IOException {
 
     TreeMap<PathFragment, ActionInput> inputMap = new TreeMap<>();
     addInputs(inputMap, spawn, artifactExpander);
     addRunfilesToInputs(
-        inputMap,
-        spawn.getRunfilesSupplier(),
-        actionInputFileCache,
-        artifactExpander,
-        expandTreeArtifactsInRunfiles);
+        inputMap, spawn.getRunfilesSupplier(), actionInputFileCache, artifactExpander);
     addFilesetManifests(spawn.getFilesetMappings(), inputMap);
     return inputMap;
   }
