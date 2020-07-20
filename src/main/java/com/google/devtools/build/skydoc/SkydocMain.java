@@ -613,7 +613,6 @@ public class SkydocMain {
     for (String name :
         new String[] {
           "DataBindingV2Info",
-          "PintoModuleLegacyDepsMgmtProvider",
           "ProguardSpecProvider",
           "js_common",
           "pkg_common",
