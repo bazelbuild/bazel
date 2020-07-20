@@ -15,12 +15,14 @@
 
 package com.google.devtools.build.lib.blackbox.tests.workspace;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRuleWritingTextGenerator.callRule;
 import static com.google.devtools.build.lib.blackbox.tests.workspace.RepoWithRuleWritingTextGenerator.loadRule;
 
 import com.google.devtools.build.lib.blackbox.framework.BlackBoxTestContext;
 import com.google.devtools.build.lib.blackbox.framework.BuilderRunner;
 import com.google.devtools.build.lib.blackbox.framework.PathUtils;
+import com.google.devtools.build.lib.blackbox.framework.ProcessResult;
 import com.google.devtools.build.lib.blackbox.junit.AbstractBlackBoxTest;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -239,6 +241,26 @@ public class GitRepositoryBlackBoxTest extends AbstractBlackBoxTest {
     bazel.build("@ext//:write_text");
     Path outPath = context().resolveBinPath(bazel, "external/ext/out");
     WorkspaceTestUtils.assertLinesExactly(outPath, HELLO_FROM_BRANCH);
+  }
+
+  /** Tests that the error message is produced if the git repository does not exist. */
+  @Test
+  public void testGitRepositoryErrorMessage() throws Exception {
+    context()
+        .write(
+            "WORKSPACE",
+            "load(\"@bazel_tools//tools/build_defs/repo:git.bzl\", \"git_repository\")",
+            "git_repository(",
+            "  name='ext',",
+            "  remote='file:///some_path',",
+            "  commit='some_hash',",
+            ")");
+
+    // This creates Bazel without MSYS, see implementation for details.
+    BuilderRunner bazel = WorkspaceTestUtils.bazel(context());
+    ProcessResult result = bazel.shouldFail().build("@ext//:write_text");
+    assertThat(result.errString()).contains("error running 'git fetch");
+    assertThat(result.errString()).contains("fatal: Could not read from remote repository.");
   }
 
   private static String setupGitRepository(BlackBoxTestContext context, Path repo)
