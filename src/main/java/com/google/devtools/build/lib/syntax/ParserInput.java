@@ -64,10 +64,9 @@ public final class ParserInput {
    * Returns an input source that reads from a Latin1-encoded byte array. The caller is free to
    * subsequently mutate the array.
    *
-   * @deprecated this function exists to support legacy uses of Latin1 in Bazel. Do not use Latin1
-   *     in new applications.
+   * <p>This function exists to support legacy uses of Latin1 in Bazel. Do not use Latin1 in new
+   * applications. (Consider this deprecated, without the fussy warnings.)
    */
-  @Deprecated
   public static ParserInput fromLatin1(byte[] bytes, String file) {
     char[] chars = new char[bytes.length];
     for (int i = 0; i < bytes.length; i++) {
@@ -79,12 +78,6 @@ public final class ParserInput {
   /** Returns an input source that reads from the given string. */
   public static ParserInput fromString(String content, String file) {
     return fromCharArray(content.toCharArray(), file);
-  }
-
-  /** Deprecated alias for {@link #fromString}. */
-  @Deprecated
-  public static ParserInput create(String content, String file) {
-    return fromString(content, file);
   }
 
   /**
