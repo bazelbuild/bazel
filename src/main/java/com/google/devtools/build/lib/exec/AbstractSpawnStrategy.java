@@ -158,7 +158,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
         spawnLogContext.logSpawn(
             spawn,
             actionExecutionContext.getMetadataProvider(),
-            context.getInputMapping(true),
+            context.getInputMapping(),
             context.getTimeout(),
             spawnResult);
       } catch (IOException e) {
@@ -221,7 +221,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
       if (Spawns.shouldPrefetchInputsForLocalExecution(spawn)) {
         actionExecutionContext
             .getActionInputPrefetcher()
-            .prefetchFiles(getInputMapping(true).values(), getMetadataProvider());
+            .prefetchFiles(getInputMapping().values(), getMetadataProvider());
       }
     }
 
@@ -273,8 +273,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        boolean expandTreeArtifactsInRunfiles) throws IOException {
+    public SortedMap<PathFragment, ActionInput> getInputMapping() throws IOException {
       if (lazyInputMapping == null) {
         try (SilentCloseable c =
             Profiler.instance().profile("AbstractSpawnStrategy.getInputMapping")) {
@@ -282,8 +281,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               spawnInputExpander.getInputMapping(
                   spawn,
                   actionExecutionContext.getArtifactExpander(),
-                  actionExecutionContext.getMetadataProvider(),
-                  expandTreeArtifactsInRunfiles);
+                  actionExecutionContext.getMetadataProvider());
         }
       }
       return lazyInputMapping;
