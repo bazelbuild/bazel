@@ -298,6 +298,7 @@ public final class Resolver extends NodeVisitor {
         assign(elem);
       }
     } else {
+      // TODO(adonovan): support x.f = y.
       errorf(lhs, "cannot assign to '%s'", lhs);
     }
   }

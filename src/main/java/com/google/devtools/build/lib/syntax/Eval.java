@@ -282,11 +282,6 @@ final class Eval {
     } else if (lhs instanceof ListExpression) {
       // a, b, c = ...
       ListExpression list = (ListExpression) lhs;
-      // Reject assignment to empty tuple/list.
-      // See https://github.com/bazelbuild/starlark/issues/93.
-      if (list.getElements().isEmpty()) {
-        throw Starlark.errorf("can't assign to %s", list);
-      }
       assignSequence(fr, list.getElements(), value);
 
     } else {
