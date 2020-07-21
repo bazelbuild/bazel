@@ -30,11 +30,15 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.DummyEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfterBuildEvent;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -68,6 +72,7 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import javax.annotation.Nullable;
 
 /**
  * Provides the bulk of the implementation of the 'blaze build' command.
@@ -215,6 +220,7 @@ public class BuildTool {
             && request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
           try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
             dumpSkyframeStateAfterBuild(
+                request.getOptions(BuildEventProtocolOptions.class),
                 request.getBuildOptions().aqueryDumpAfterBuildFormat,
                 request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
           } catch (CommandLineExpansionException | IOException e) {
@@ -278,19 +284,49 @@ public class BuildTool {
   protected void postProcessAnalysisResult(BuildRequest request, AnalysisResult analysisResult)
       throws InterruptedException, ViewCreationFailedException, ExitException {}
 
-  private void dumpSkyframeStateAfterBuild(String format, PathFragment outputFilePathFragment)
+  /**
+   * Produces an aquery dump of the state of Skyframe.
+   *
+   * <p>There are 2 possible output channels: a local file or a remote FS.
+   */
+  private void dumpSkyframeStateAfterBuild(
+      @Nullable BuildEventProtocolOptions besOptions,
+      String format,
+      @Nullable PathFragment outputFilePathFragment)
       throws CommandLineExpansionException, IOException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
-    Path localOutputFilePath;
+
+    UploadContext streamingContext = null;
+    Path localOutputFilePath = null;
+    String outputFileName;
 
     if (outputFilePathFragment == null) {
-      localOutputFilePath = env.getOutputBase().getRelative(getDefaultOutputFileName(format));
+      outputFileName = getDefaultOutputFileName(format);
+      if (besOptions != null && besOptions.streamingLogFileUploads) {
+        streamingContext =
+            runtime
+                .getBuildEventArtifactUploaderFactoryMap()
+                .select(besOptions.buildEventUploadStrategy)
+                .create(env)
+                .startUpload(LocalFileType.PERFORMANCE_LOG, /* inputSupplier= */ null);
+      } else {
+        localOutputFilePath = env.getOutputBase().getRelative(outputFileName);
+      }
     } else {
       localOutputFilePath = env.getOutputBase().getRelative(outputFilePathFragment);
+      outputFileName = localOutputFilePath.getBaseName();
     }
 
-    getReporter().handle(Event.info("Writing aquery dump to " + localOutputFilePath));
-    try (OutputStream outputStream = initOutputStream(localOutputFilePath);
+    if (localOutputFilePath != null) {
+      getReporter().handle(Event.info("Writing aquery dump to " + localOutputFilePath));
+      getReporter()
+          .post(new StartingAqueryDumpAfterBuildEvent(localOutputFilePath, outputFileName));
+    } else {
+      getReporter().handle(Event.info("Streaming aquery dump."));
+      getReporter().post(new StartingAqueryDumpAfterBuildEvent(streamingContext, outputFileName));
+    }
+
+    try (OutputStream outputStream = initOutputStream(streamingContext, localOutputFilePath);
         PrintStream printStream = new PrintStream(outputStream)) {
       AqueryOutputHandler aqueryOutputHandler =
           ActionGraphProtoV2OutputFormatterCallback.constructAqueryOutputHandler(
@@ -321,7 +357,11 @@ public class BuildTool {
     }
   }
 
-  private static OutputStream initOutputStream(Path outputFilePath) throws IOException {
+  private static OutputStream initOutputStream(
+      @Nullable UploadContext streamingContext, Path outputFilePath) throws IOException {
+    if (streamingContext != null) {
+      return new BufferedOutputStream(streamingContext.getOutputStream());
+    }
     return new BufferedOutputStream(outputFilePath.getOutputStream());
   }
 
