@@ -47,7 +47,7 @@ def run_bazel_in_client(args: List[str]) -> Tuple[int, List[str], List[str]]:
       cwd=os.getcwd(),
       stdout=subprocess.PIPE,
       stderr=subprocess.PIPE,
-      check=True)
+      check=False)
   return (result.returncode, result.stdout.decode("utf-8").split(os.linesep),
           result.stderr)
 
@@ -81,6 +81,8 @@ class BazelApi():
 
     cts = set()
     for line in stdout:
+      if len(line.strip()) == 0:
+        continue
       ctinfo = _parse_cquery_result_line(line)
       if ctinfo is not None:
         cts.add(ctinfo)

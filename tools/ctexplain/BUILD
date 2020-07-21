@@ -10,7 +10,19 @@ py_binary(
     name = "ctexplain",
     srcs = ["ctexplain.py"],
     python_version = "PY3",
-    deps = [":bazel_api"],
+    deps = [
+        ":ctexplain_lib",
+        "//third_party/py/abseil"
+    ],
+)
+
+py_library(
+    name = "ctexplain_lib",
+    srcs = ["ctexplain_lib.py"],
+    srcs_version = "PY3ONLY",
+    deps = [
+        ":base",
+        ":bazel_api"],
 )
 
 py_library(

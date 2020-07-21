@@ -12,14 +12,115 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ctexplain main entry point.
+"""ctexplain: how does configuration affect build graphs?
 
-Currently a stump.
+This is a swiss army knife tool that tries to explain why build graphs are the
+size they are and how build flags, configuration transitions, and dependency
+structures affect that.
+
+This can help developers use flags and transitions with minimal memory and
+maximum build speed.
+
+Usage:
+
+  $ ctexplain [--analysis=...] -b "<targets_to_build> [build flags]"
+
+Example:
+
+  $ ctexplain -b "//mypkg:mybinary --define MY_FEATURE=1"
+
+Relevant terms in https://docs.bazel.build/versions/master/glossary.html:
+  "target", "configuration", "analysis phase", "configured target",
+  "configuration trimming", "transition"
+ 
+TODO(gregce): link to proper documentation for full details.
 """
+from typing import Tuple
+
+from absl import app
+from absl import flags
+
 from tools.ctexplain.bazel_api import BazelApi
+from tools.ctexplain.ctexplain_lib import analyze_build
 
-bazel_api = BazelApi()
+FLAGS = flags.FLAGS
 
-# TODO(gregce): move all logic to a _lib library so we can easily include
-# end-to-end testing. We'll only handle flag parsing here, which we pass
-# into the main invoker as standard Python args.
+def _report_summary():
+    print("Reporting  the summary!")
+
+
+analyses = {
+    "summary": (
+        _report_summary,
+        "summarizes build graph size and how trimming could help"
+    ),
+    "culprits": (
+        _report_summary,
+        "shows which flags unnecessarily fork configured targets. These\n"
+        + "are conceptually mergeable."
+    ),
+    "forked_targets": (
+        _report_summary,
+        "ranks targets by how many configured targets they\n"
+        + "create. These may be legitimate forks (because they behave "
+        + "differently with\n different flags) or identical clones that are "
+        + "conceptually mergeable."
+    ),
+    "cloned_targets": (
+        _report_summary,
+        "ranks targets by how many behavior-identical configured\n targets "
+        + "they produce. These are conceptually mergeable."
+    )
+}
+
+def _render_analysis_help_text() -> str:
+    """Pretty-prints help text for available analyses."""
+    helptext = ""
+    for name in analyses.keys():
+        helptext += f'- "{name}": {analyses[name][1]}\n'
+    return helptext
+
+flags.DEFINE_list("analysis", ["summary"], f"""
+Analyses to run. May be any comma-separated combination of
+
+{_render_analysis_help_text()}
+""")
+
+flags.register_validator("analysis",
+  lambda values: all(value in analyses.keys() for value in values),
+  message=f'available analyses: {", ".join(analyses.keys())}')
+
+flags.DEFINE_multi_string("build", [],
+  "command-line invocation of the build to analyze. For example:\n"
+    + '"//foo --define a=b". If listed multiple times, this is a "multi-build\n'
+    + 'analysis" that measures how much distinct builds can share subgraphs',
+  short_name="b")
+
+def _get_build_flags(cmdline: str) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+    """Parses a build invocation command line.
+
+    Args:
+      cmdline: raw build invocation string. For example: "//foo --cpu=x86"
+
+    Returns:
+      Tuple of ((target labels to build), (build flags))
+    """
+    cmdlist = cmdline.split()
+    labels = [arg for arg in cmdlist if arg.startswith("//")]
+    build_flags = [arg for arg in cmdlist if not arg.startswith("//")]
+    return (tuple(labels), tuple(build_flags))
+
+def main(argv):
+    if len(FLAGS.build) == 0:
+        exit("ctexplain: build efficiency measurement tool. Add --help "
+            + "for usage.")
+    elif len(FLAGS.build) > 1:
+        exit("TODO(gregce): support multi-build shareability analysis")
+
+    bazel_api = BazelApi()
+    (labels, build_flags) = _get_build_flags(FLAGS.build[0])
+    cts = analyze_build(bazel_api, labels, build_flags)
+
+
+if __name__ == "__main__":
+  app.run(main)
