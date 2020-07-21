@@ -185,7 +185,7 @@ function serve_timeout() {
 # connections, which causes flakes.
 function wait_for_server_startup() {
   touch some-file
-  while ! curl http://localhost:$fileserver_port/some-file > /dev/null; do
+  while ! curl -f http://localhost:$fileserver_port/some-file > /dev/null; do
     echo "waiting for server, exit code: $?"
     sleep 1
   done
