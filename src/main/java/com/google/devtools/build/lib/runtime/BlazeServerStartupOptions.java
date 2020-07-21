@@ -208,8 +208,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
       effectTags = {OptionEffectTag.EAGERNESS_TO_EXIT, OptionEffectTag.LOSES_INCREMENTAL_STATE},
       valueHelp = "<integer>",
       help =
-          "The number of seconds the build server will wait idling before shutting down. Zero "
-              + "means that the server will never shutdown.")
+          "The number of seconds the build server will wait idling before shutting down. Zero"
+              + " means that the server will never shutdown. This is only read on server-startup,"
+              + " changing this option will not cause the server to restart.")
   public int maxIdleSeconds;
 
   @Option(

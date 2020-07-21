@@ -2876,7 +2876,8 @@ adb -s deadbeef install ...
   This option specifies how long, in seconds, the Bazel server process
   should wait after the last client request, before it exits.  The
   default value is 10800 (3 hours). <code class='flag'>--max_idle_secs=0</code> will cause the
-  Bazel server process to persist indefinitely.
+  Bazel server process to persist indefinitely. <i>NOTE:</i> this flag is only read if Bazel needs
+  to start a new server. Changing this option will not cause the server to restart.
 </p>
 <p>
   This option may be used by scripts that invoke Bazel to ensure that
