@@ -203,7 +203,7 @@ if [[ ! -x $BAZEL_REAL ]]; then
     if [[ -x $(command -v curl) && -w $wrapper_dir ]]; then
       (echo ""
       echo "You can download the required version directly using this command:"
-      echo "  (cd \"${wrapper_dir}\" && curl -LO --fail https://releases.bazel.build/${bazel_version}/release/${long_binary_name} && chmod +x ${long_binary_name})") 2>&1
+      echo "  (cd \"${wrapper_dir}\" && curl -LO -f https://releases.bazel.build/${bazel_version}/release/${long_binary_name} && chmod +x ${long_binary_name})") 2>&1
     elif [[ -x $(command -v wget) && -w $wrapper_dir ]]; then
       (echo ""
       echo "You can download the required version directly using this command:"
