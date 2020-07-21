@@ -18,6 +18,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -33,7 +34,7 @@ java_library(
         # TODO(cparsons): Remove dependency on Label implementation.
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//third_party:jsr305",
     ],
 )

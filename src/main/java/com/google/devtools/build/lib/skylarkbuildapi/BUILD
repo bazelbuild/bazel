@@ -24,7 +24,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/javascript:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/go:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/python:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/stubs:srcs",
@@ -46,7 +45,7 @@ java_library(
         # TODO(cparsons): Remove dependency on Label implementation.
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/platform",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//third_party:jsr305",
     ],
 )

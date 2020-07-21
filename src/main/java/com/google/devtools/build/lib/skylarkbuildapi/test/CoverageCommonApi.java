@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.test;
 
 import com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ConstraintValueInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;

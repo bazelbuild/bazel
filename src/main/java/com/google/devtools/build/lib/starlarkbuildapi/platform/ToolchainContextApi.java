@@ -12,26 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.platform;
+package com.google.devtools.build.lib.starlarkbuildapi.platform;
 
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.syntax.StarlarkIndexable;
+import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
-import net.starlark.java.annot.StarlarkMethod;
 
-/** Info object representing data about a specific toolchain type. */
+/** Stores toolchains available to a given rule. */
 @StarlarkBuiltin(
-    name = "ToolchainTypeInfo",
+    name = "ToolchainContext",
+    category = StarlarkDocumentationCategory.BUILTIN,
     doc =
-        "Provides access to data about a specific toolchain type. "
-            + PlatformInfoApi.EXPERIMENTAL_WARNING,
-    category = StarlarkDocumentationCategory.PROVIDER)
-public interface ToolchainTypeInfoApi extends StructApi {
-
-  @StarlarkMethod(
-      name = "type_label",
-      doc = "The label uniquely identifying this toolchain type.",
-      structField = true)
-  Label typeLabel();
-}
+        "Holds toolchains available for a particular exec group. Toolchain targets are accessed by"
+            + " indexing with the toolchain type, as in"
+            + " <code>context[\"//pkg:my_toolchain_type\"]</code>.")
+public interface ToolchainContextApi extends StarlarkValue, StarlarkIndexable {}
