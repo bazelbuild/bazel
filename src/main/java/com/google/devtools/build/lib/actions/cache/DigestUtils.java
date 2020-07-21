@@ -33,6 +33,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * Utility class for getting digests of files.
@@ -317,17 +318,10 @@ public class DigestUtils {
     return result;
   }
 
-  private static byte[] getDigest(Fingerprint fp, String execPath, FileArtifactValue md) {
+  private static byte[] getDigest(Fingerprint fp, String execPath, @Nullable FileArtifactValue md) {
     fp.addString(execPath);
-
-    if (md == null) {
-      // Move along, nothing to see here.
-    } else if (md.getDigest() != null) {
-      fp.addBytes(md.getDigest());
-    } else {
-      // Use the timestamp if the digest is not present, but not both. Modifying a timestamp while
-      // keeping the contents of a file the same should not cause rebuilds.
-      fp.addLong(md.getModifiedTime());
+    if (md != null) {
+      md.addTo(fp);
     }
     return fp.digestAndReset();
   }

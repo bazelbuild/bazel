@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -51,6 +53,55 @@ import org.junit.runners.Parameterized.Parameters;
 public final class TreeArtifactValueTest {
 
   private final Scratch scratch = new Scratch();
+  private final ArtifactRoot root = ArtifactRoot.asDerivedRoot(scratch.resolve("root"), "bin");
+
+  @Test
+  public void orderIndependence() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
+    FileArtifactValue metadata1 = metadataWithId(1);
+    FileArtifactValue metadata2 = metadataWithId(2);
+
+    TreeArtifactValue tree1 =
+        TreeArtifactValue.create(ImmutableMap.of(child1, metadata1, child2, metadata2));
+    TreeArtifactValue tree2 =
+        TreeArtifactValue.create(ImmutableMap.of(child2, metadata2, child1, metadata1));
+
+    assertThat(tree1).isEqualTo(tree2);
+  }
+
+  @Test
+  public void nullDigests_equal() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
+    FileArtifactValue metadataNoDigest = metadataWithIdNoDigest(1);
+
+    TreeArtifactValue tree1 = TreeArtifactValue.create(ImmutableMap.of(child, metadataNoDigest));
+    TreeArtifactValue tree2 = TreeArtifactValue.create(ImmutableMap.of(child, metadataNoDigest));
+
+    assertThat(metadataNoDigest.getDigest()).isNull();
+    assertThat(tree1.getDigest()).isNotNull();
+    assertThat(tree2.getDigest()).isNotNull();
+    assertThat(tree1).isEqualTo(tree2);
+  }
+
+  @Test
+  public void nullDigests_notEqual() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
+    FileArtifactValue metadataNoDigest1 = metadataWithIdNoDigest(1);
+    FileArtifactValue metadataNoDigest2 = metadataWithIdNoDigest(2);
+
+    TreeArtifactValue tree1 = TreeArtifactValue.create(ImmutableMap.of(child, metadataNoDigest1));
+    TreeArtifactValue tree2 = TreeArtifactValue.create(ImmutableMap.of(child, metadataNoDigest2));
+
+    assertThat(metadataNoDigest1.getDigest()).isNull();
+    assertThat(metadataNoDigest2.getDigest()).isNull();
+    assertThat(tree1.getDigest()).isNotNull();
+    assertThat(tree2.getDigest()).isNotNull();
+    assertThat(tree1.getDigest()).isNotEqualTo(tree2.getDigest());
+  }
 
   @Test
   public void visitTree_visitsEachChild() throws Exception {
@@ -224,7 +275,7 @@ public final class TreeArtifactValueTest {
     @Test
     public void singleTreeArtifact() {
       TreeArtifactValue.MultiBuilder treeArtifacts = multiBuilderType.newMultiBuilder();
-      SpecialArtifact parent = createTreeArtifact("tree");
+      SpecialArtifact parent = createTreeArtifact("bin/tree");
       TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
       TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
 
@@ -242,10 +293,10 @@ public final class TreeArtifactValueTest {
     @Test
     public void multipleTreeArtifacts() {
       TreeArtifactValue.MultiBuilder treeArtifacts = multiBuilderType.newMultiBuilder();
-      SpecialArtifact parent1 = createTreeArtifact("tree1");
+      SpecialArtifact parent1 = createTreeArtifact("bin/tree1");
       TreeFileArtifact parent1Child1 = TreeFileArtifact.createTreeOutput(parent1, "child1");
       TreeFileArtifact parent1Child2 = TreeFileArtifact.createTreeOutput(parent1, "child2");
-      SpecialArtifact parent2 = createTreeArtifact("tree2");
+      SpecialArtifact parent2 = createTreeArtifact("bin/tree2");
       TreeFileArtifact parent2Child = TreeFileArtifact.createTreeOutput(parent2, "child");
 
       treeArtifacts.putChild(parent1Child1, metadataWithId(1));
@@ -264,12 +315,7 @@ public final class TreeArtifactValueTest {
     }
 
     private static SpecialArtifact createTreeArtifact(String execPath) {
-      return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
-          ROOT, PathFragment.create(execPath));
-    }
-
-    private static FileArtifactValue metadataWithId(int id) {
-      return new RemoteFileArtifactValue(new byte[] {(byte) id}, id, id);
+      return TreeArtifactValueTest.createTreeArtifact(execPath, ROOT);
     }
 
     private static final class FakeMetadataInjector implements MetadataInjector {
@@ -286,5 +332,25 @@ public final class TreeArtifactValueTest {
         injectedTreeArtifacts.put(output, TreeArtifactValue.create(children));
       }
     }
+  }
+
+  private SpecialArtifact createTreeArtifact(String execPath) {
+    return createTreeArtifact(execPath, root);
+  }
+
+  private static SpecialArtifact createTreeArtifact(String execPath, ArtifactRoot root) {
+    return ActionsTestUtil.createTreeArtifactWithGeneratingAction(
+        root, PathFragment.create(execPath));
+  }
+
+  private static FileArtifactValue metadataWithId(int id) {
+    return new RemoteFileArtifactValue(new byte[] {(byte) id}, id, id);
+  }
+
+  private static FileArtifactValue metadataWithIdNoDigest(int id) {
+    FileArtifactValue value = mock(FileArtifactValue.class);
+    when(value.getDigest()).thenReturn(null);
+    when(value.getModifiedTime()).thenReturn((long) id);
+    return value;
   }
 }

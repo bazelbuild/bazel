@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -99,14 +99,18 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
    * Returns a TreeArtifactValue out of the given Artifact-relative path fragments and their
    * corresponding FileArtifactValues.
    */
-  static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
-    if (childFileValues.isEmpty()) {
+  static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childData) {
+    if (childData.isEmpty()) {
       return EMPTY;
     }
-    Map<String, FileArtifactValue> digestBuilder =
-        Maps.newHashMapWithExpectedSize(childFileValues.size());
+
+    // Sort the children to ensure a deterministic TreeArtifactValue (including digest).
+    ImmutableSortedMap<TreeFileArtifact, FileArtifactValue> sortedChildData =
+        ImmutableSortedMap.copyOf(childData);
+    Fingerprint fingerprint = new Fingerprint();
     boolean entirelyRemote = true;
-    for (Map.Entry<TreeFileArtifact, ? extends FileArtifactValue> e : childFileValues.entrySet()) {
+
+    for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : sortedChildData.entrySet()) {
       TreeFileArtifact child = e.getKey();
       FileArtifactValue value = e.getValue();
       Preconditions.checkState(
@@ -115,12 +119,11 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
           child);
       // Tolerate a tree artifact having a mix of local and remote children (b/152496153#comment80).
       entirelyRemote &= value.isRemote();
-      digestBuilder.put(child.getParentRelativePath().getPathString(), value);
+      fingerprint.addPath(child.getParentRelativePath());
+      value.addTo(fingerprint);
     }
-    return new TreeArtifactValue(
-        DigestUtils.fromMetadata(digestBuilder),
-        ImmutableSortedMap.copyOf(childFileValues),
-        entirelyRemote);
+
+    return new TreeArtifactValue(fingerprint.digestAndReset(), sortedChildData, entirelyRemote);
   }
 
   FileArtifactValue getMetadata() {

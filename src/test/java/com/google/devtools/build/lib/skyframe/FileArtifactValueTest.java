@@ -21,6 +21,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -30,8 +31,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+/** Tests for {@link FileArtifactValue}. */
 @RunWith(JUnit4.class)
-public class FileArtifactValueTest {
+public final class FileArtifactValueTest {
   private final ManualClock clock = new ManualClock();
   private final FileSystem fs = new InMemoryFileSystem(clock);
 
@@ -55,7 +57,7 @@ public class FileArtifactValueTest {
   }
 
   @Test
-  public void testEqualsAndHashCode() throws Exception {
+  public void testEqualsAndHashCode() {
     // Each "equality group" is checked for equality within itself (including hashCode equality)
     // and inequality with members of other equality groups.
     new EqualsTester()
@@ -242,5 +244,89 @@ public class FileArtifactValueTest {
     path.createDirectoryAndParents();
     clock.advanceMillis(1);
     assertThat(value.wasModifiedSinceDigest(path)).isTrue();
+  }
+
+  @Test
+  public void addToFingerprint_equalByDigest() throws Exception {
+    FileArtifactValue value1 =
+        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /*mtime=*/ 1, "content"));
+    FileArtifactValue value2 =
+        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /*mtime=*/ 2, "content"));
+    Fingerprint fingerprint1 = new Fingerprint();
+    Fingerprint fingerprint2 = new Fingerprint();
+
+    value1.addTo(fingerprint1);
+    value2.addTo(fingerprint2);
+
+    assertThat(value1.getDigest()).isNotNull();
+    assertThat(value2.getDigest()).isNotNull();
+    assertThat(fingerprint1.digestAndReset()).isEqualTo(fingerprint2.digestAndReset());
+  }
+
+  @Test
+  public void addToFingerprint_notEqualByDigest() throws Exception {
+    FileArtifactValue value1 =
+        FileArtifactValue.createForTesting(scratchFile("/dir/file1", /*mtime=*/ 1, "content1"));
+    FileArtifactValue value2 =
+        FileArtifactValue.createForTesting(scratchFile("/dir/file2", /*mtime=*/ 1, "content2"));
+    Fingerprint fingerprint1 = new Fingerprint();
+    Fingerprint fingerprint2 = new Fingerprint();
+
+    value1.addTo(fingerprint1);
+    value2.addTo(fingerprint2);
+
+    assertThat(value1.getDigest()).isNotNull();
+    assertThat(value2.getDigest()).isNotNull();
+    assertThat(fingerprint1.digestAndReset()).isNotEqualTo(fingerprint2.digestAndReset());
+  }
+
+  @Test
+  public void addToFingerprint_equalByMtime() throws Exception {
+    FileArtifactValue value1 =
+        FileArtifactValue.createForTesting(scratchDir("/dir1", /*mtime=*/ 1));
+    FileArtifactValue value2 =
+        FileArtifactValue.createForTesting(scratchDir("/dir2", /*mtime=*/ 1));
+    Fingerprint fingerprint1 = new Fingerprint();
+    Fingerprint fingerprint2 = new Fingerprint();
+
+    value1.addTo(fingerprint1);
+    value2.addTo(fingerprint2);
+
+    assertThat(value1.getDigest()).isNull();
+    assertThat(value2.getDigest()).isNull();
+    assertThat(fingerprint1.digestAndReset()).isEqualTo(fingerprint2.digestAndReset());
+  }
+
+  @Test
+  public void addToFingerprint_notEqualByMtime() throws Exception {
+    FileArtifactValue value1 =
+        FileArtifactValue.createForTesting(scratchDir("/dir1", /*mtime=*/ 1));
+    FileArtifactValue value2 =
+        FileArtifactValue.createForTesting(scratchDir("/dir2", /*mtime=*/ 2));
+    Fingerprint fingerprint1 = new Fingerprint();
+    Fingerprint fingerprint2 = new Fingerprint();
+
+    value1.addTo(fingerprint1);
+    value2.addTo(fingerprint2);
+
+    assertThat(value1.getDigest()).isNull();
+    assertThat(value2.getDigest()).isNull();
+    assertThat(fingerprint1.digestAndReset()).isNotEqualTo(fingerprint2.digestAndReset());
+  }
+
+  @Test
+  public void addToFingerprint_fileWithDigestNotEqualToFileWithOnlyMtime() throws Exception {
+    FileArtifactValue value1 = FileArtifactValue.createForTesting(scratchDir("/dir", /*mtime=*/ 1));
+    FileArtifactValue value2 =
+        FileArtifactValue.createForTesting(scratchFile("/dir/file", /*mtime=*/ 1, "contents"));
+    Fingerprint fingerprint1 = new Fingerprint();
+    Fingerprint fingerprint2 = new Fingerprint();
+
+    value1.addTo(fingerprint1);
+    value2.addTo(fingerprint2);
+
+    assertThat(value1.getDigest()).isNull();
+    assertThat(value2.getDigest()).isNotNull();
+    assertThat(fingerprint1.digestAndReset()).isNotEqualTo(fingerprint2.digestAndReset());
   }
 }
