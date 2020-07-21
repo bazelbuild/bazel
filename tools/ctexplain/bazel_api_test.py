@@ -77,7 +77,7 @@ class BazelApiTest(test_base.TestBase):
     config = self._bazel_api.get_config(cts[0].config_hash)
     expected_fragments = ['PlatformConfiguration', 'JavaConfiguration']
     for exp in expected_fragments:
-      self.assertIn(exp, config.fragments)
+      self.assertIn(exp, config.fragments.keys())
     core_options = config.options['CoreOptions']
     self.assertIsNotNone(core_options)
     self.assertIn(('stamp', 'false'), core_options.items())
@@ -110,6 +110,16 @@ class BazelApiTest(test_base.TestBase):
     # Null configurations have no information by definition.
     self.assertEqual(len(config.fragments), 0)
     self.assertEqual(len(config.options), 0)
+
+  def testConfigFragmentsMap(self):
+    self.ScratchFile('testapp/BUILD', [
+        'filegroup(name = "fg", srcs = ["a.file"])',
+    ])
+    cts = self._bazel_api.cquery(['//testapp:fg'])[2]
+    fragments_map = self._bazel_api.get_config(cts[0].config_hash).fragments
+    self.assertIn("PlatformOptions", fragments_map["PlatformConfiguration"])
+    self.assertIn(
+      "ShellConfiguration$Options", fragments_map["ShellConfiguration"])
 
   def testConfigWithDefines(self):
     self.ScratchFile('testapp/BUILD', [

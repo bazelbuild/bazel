@@ -109,11 +109,13 @@ class BazelApi():
     if returncode != 0:
       raise ValueError("Could not get config: " + stderr)
     config_json = json.loads(os.linesep.join(stdout))
-    fragments = [
-        fragment["name"].split(".")[-1] for fragment in config_json["fragments"]
-    ]
+    fragments = frozendict({
+      _base_name(entry["name"]): tuple(
+        _base_name(option_class) for option_class in entry["fragmentOptions"])
+      for entry in config_json["fragments"]
+    })
     options = frozendict({
-        entry["name"].split(".")[-1]: frozendict(entry["options"])
+        _base_name(entry["name"]): frozendict(entry["options"])
         for entry in config_json["fragmentOptions"]
     })
     return Configuration(fragments, options)
@@ -156,3 +158,13 @@ def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
       config=None,  # Not yet available: we'll need `bazel config` to get this.
       config_hash=config_hash,
       transitive_fragments=fragments)
+    
+def _base_name(full_name: str) -> str:
+  """Strips a fully qualified Java class name to the file scope.
+
+  Examples: 
+    - "A.B.OuterClass" -> "OuterClass"
+    - "A.B.OuterClass$InnerClass" -> "OuterClass$InnerClass"
+  """
+  return full_name.split(".")[-1]
+
