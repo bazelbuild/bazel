@@ -369,14 +369,14 @@ function setup_network_tests() {
 genrule(
   name = "localhost",
   outs = [ "localhost.txt" ],
-  cmd = "curl -f -o \$@ localhost:${nc_port}",
+  cmd = "curl -fo \$@ localhost:${nc_port}",
   tags = [ ${tags} ],
 )
 
 genrule(
   name = "unix-socket",
   outs = [ "unix-socket.txt" ],
-  cmd = "curl -f --unix-socket ${socket} -o \$@ irrelevant-url",
+  cmd = "curl --unix-socket ${socket} -fo \$@ irrelevant-url",
   tags = [ ${tags} ],
 )
 
@@ -387,7 +387,7 @@ genrule(
       + "pid=\$\$!; "
       + "while ! grep started port.txt; do sleep 1; done; "
       + "port=\$\$(head -n 1 port.txt); "
-      + "curl -f -o \$@ localhost:\$\$port; "
+      + "curl -fo \$@ localhost:\$\$port; "
       + "kill \$\$pid",
 )
 EOF
@@ -410,14 +410,14 @@ EOF
 genrule(
   name = "remote-ip",
   outs = [ "remote-ip.txt" ],
-  cmd = "curl -f -o \$@ ${remote_ip}:80",
+  cmd = "curl -fo \$@ ${remote_ip}:80",
   tags = [ ${tags} ],
 )
 
 genrule(
   name = "remote-name",
   outs = [ "remote-name.txt" ],
-  cmd = "curl -f -o \$@ '${REMOTE_NETWORK_ADDRESS}'",
+  cmd = "curl -fo \$@ '${REMOTE_NETWORK_ADDRESS}'",
   tags = [ ${tags} ],
 )
 EOF

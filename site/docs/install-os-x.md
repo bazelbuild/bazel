@@ -60,7 +60,7 @@ you will need to download the installer from the terminal using `curl`:
 ```shell
 # Example installing version `3.2.0`. Replace the version below as appropriate.
 export BAZEL_VERSION=3.2.0
-curl -f -LO "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-darwin-x86_64.sh"
+curl -fLO "https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-darwin-x86_64.sh"
 ```
 
 This is a temporary workaround until we fix notarization in our macOS release
