@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.actions;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,8 +25,8 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.OutputFile;
+import com.google.devtools.build.lib.skyframe.SkyframeAwareAction;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -35,15 +37,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.SortedMap;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
-/**
- * Helper class for actions.
- *
- * <p>We expect the class to be created exactly once per build doing shared actions check.
- */
-@ThreadSafe
+/** Utility class for actions. */
 public final class Actions {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -53,6 +49,28 @@ public final class Actions {
       .addEscape('\\', "_B")
       .addEscape(':', "_C")
       .build();
+
+  private Actions() {}
+
+  /**
+   * Determines whether the given action needs to depend on the build ID.
+   *
+   * <p>Such actions are not shareable across servers.
+   */
+  public static boolean dependsOnBuildId(ActionAnalysisMetadata action) {
+    // Volatile build actions may need to execute even if none of their known inputs have changed.
+    // Depending on the build ID ensures that these actions have a chance to execute.
+    // SkyframeAwareActions do not need to depend on the build ID because their volatility is due to
+    // their dependence on Skyframe nodes that are not captured in the action cache. Any changes to
+    // those nodes will cause this action to be rerun, so a build ID dependency is unnecessary.
+    if (!(action instanceof Action)) {
+      return false;
+    }
+    if (action instanceof NotifyOnActionCacheHit) {
+      return true;
+    }
+    return ((Action) action).isVolatile() && !(action instanceof SkyframeAwareAction);
+  }
 
   /**
    * Checks if the two actions are equivalent. This method exists to support sharing actions between
@@ -117,7 +135,7 @@ public final class Actions {
               .findFirst();
       treeArtifactInput.ifPresent(
           treeArtifact ->
-              logger.atInfo().atMostEvery(5, TimeUnit.MINUTES).log(
+              logger.atInfo().atMostEvery(5, MINUTES).log(
                   "Shared action: %s has a tree artifact input: %s -- shared actions"
                       + " detection is overly permissive in this case and may allow"
                       + " sharing of different actions",
@@ -164,7 +182,7 @@ public final class Actions {
   public static GeneratingActions assignOwnersAndFindAndThrowActionConflict(
       ActionKeyContext actionKeyContext,
       ImmutableList<ActionAnalysisMetadata> actions,
-      ActionLookupValue.ActionLookupKey actionLookupKey)
+      ActionLookupKey actionLookupKey)
       throws ActionConflictException {
     return Actions.assignOwnersAndMaybeFilterSharedActionsAndThrowIfConflict(
         actionKeyContext,
@@ -266,7 +284,10 @@ public final class Actions {
     // Loop over the actions, looking at all outputs for conflicts.
     int actionIndex = 0;
     for (ActionAnalysisMetadata action : actions) {
-      ActionLookupData generatingActionKey = ActionLookupData.create(actionLookupKey, actionIndex);
+      ActionLookupData generatingActionKey =
+          dependsOnBuildId(action)
+              ? ActionLookupData.createUnshareable(actionLookupKey, actionIndex)
+              : ActionLookupData.create(actionLookupKey, actionIndex);
       for (Artifact artifact : action.getOutputs()) {
         Preconditions.checkState(
             !artifact.isSourceArtifact(),
@@ -366,10 +387,10 @@ public final class Actions {
    *     sorted using the comparator from {@link #comparatorForPrefixConflicts()}.
    * @param strictConflictChecks report path prefix conflicts, regardless of
    *     shouldReportPathPrefixConflict().
-   * @return A map between actions that generated the conflicting artifacts and their associated
-   *     {@link ArtifactPrefixConflictException}.
+   * @return An immutable map between actions that generated the conflicting artifacts and their
+   *     associated {@link ArtifactPrefixConflictException}.
    */
-  public static Map<ActionAnalysisMetadata, ArtifactPrefixConflictException>
+  public static ImmutableMap<ActionAnalysisMetadata, ArtifactPrefixConflictException>
       findArtifactPrefixConflicts(
           ActionGraph actionGraph,
           SortedMap<PathFragment, Artifact> artifactPathMap,
@@ -477,9 +498,9 @@ public final class Actions {
 
     /** Used only for the workspace status action. Does not handle duplicate artifacts. */
     public static GeneratingActions fromSingleAction(
-        ActionAnalysisMetadata action, ActionLookupValue.ActionLookupKey actionLookupKey) {
+        ActionAnalysisMetadata action, ActionLookupKey actionLookupKey) {
       Preconditions.checkState(actionLookupKey.getLabel() == null, actionLookupKey);
-      ActionLookupData generatingActionKey = ActionLookupData.create(actionLookupKey, 0);
+      ActionLookupData generatingActionKey = ActionLookupData.createUnshareable(actionLookupKey, 0);
       for (Artifact output : action.getOutputs()) {
         ((Artifact.DerivedArtifact) output).setGeneratingActionKey(generatingActionKey);
       }

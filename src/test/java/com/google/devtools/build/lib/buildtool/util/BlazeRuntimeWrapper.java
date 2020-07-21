@@ -298,7 +298,7 @@ public class BlazeRuntimeWrapper {
 
       env.beforeCommand(InvocationPolicy.getDefaultInstance());
 
-      lastRequest = createRequest("build", targets);
+      lastRequest = createRequest(env.getCommandName(), targets);
       lastResult = new BuildResult(lastRequest.getStartTime());
       boolean success = false;
 
@@ -341,14 +341,19 @@ public class BlazeRuntimeWrapper {
   }
 
   BuildRequest createRequest(String commandName, List<String> targets) {
-    return BuildRequest.create(
-        commandName,
-        optionsParser,
-        null,
-        targets,
-        env.getReporter().getOutErr(),
-        env.getCommandId(),
-        runtime.getClock().currentTimeMillis());
+    BuildRequest request =
+        BuildRequest.create(
+            commandName,
+            optionsParser,
+            null,
+            targets,
+            env.getReporter().getOutErr(),
+            env.getCommandId(),
+            runtime.getClock().currentTimeMillis());
+    if ("test".equals(commandName)) {
+      request.setRunTests();
+    }
+    return request;
   }
 
   public BuildRequest getLastRequest() {

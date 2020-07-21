@@ -38,7 +38,17 @@ public class ActionLookupData implements SkyKey {
    * only be called once per {@code (actionLookupKey, actionIndex)} pair.
    */
   public static ActionLookupData create(ActionLookupKey actionLookupKey, int actionIndex) {
-    return new ActionLookupData(actionLookupKey, actionIndex);
+    // If the label is null, this is not a typical action (it may be the build info action or a
+    // coverage action, for example). Don't try to share it.
+    return actionLookupKey.getLabel() == null
+        ? createUnshareable(actionLookupKey, actionIndex)
+        : new ActionLookupData(actionLookupKey, actionIndex);
+  }
+
+  /** Similar to {@link #create}, but the key will have {@link ShareabilityOfValue#NEVER}. */
+  public static ActionLookupData createUnshareable(
+      ActionLookupKey actionLookupKey, int actionIndex) {
+    return new UnshareableActionLookupData(actionLookupKey, actionIndex);
   }
 
   public ActionLookupKey getActionLookupKey() {
@@ -55,12 +65,6 @@ public class ActionLookupData implements SkyKey {
 
   public Label getLabel() {
     return actionLookupKey.getLabel();
-  }
-
-  @Override
-  public ShareabilityOfValue getShareabilityOfValue() {
-    // If the label is null, this is a weird action. Don't try to share it.
-    return getLabel() != null ? SkyKey.super.getShareabilityOfValue() : ShareabilityOfValue.NEVER;
   }
 
   @Override
@@ -92,5 +96,16 @@ public class ActionLookupData implements SkyKey {
   @Override
   public SkyFunctionName functionName() {
     return SkyFunctions.ACTION_EXECUTION;
+  }
+
+  private static final class UnshareableActionLookupData extends ActionLookupData {
+    private UnshareableActionLookupData(ActionLookupKey actionLookupKey, int actionIndex) {
+      super(actionLookupKey, actionIndex);
+    }
+
+    @Override
+    public ShareabilityOfValue getShareabilityOfValue() {
+      return ShareabilityOfValue.NEVER;
+    }
   }
 }

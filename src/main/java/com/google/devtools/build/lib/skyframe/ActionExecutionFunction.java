@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionRewoundEvent;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -146,7 +147,7 @@ public class ActionExecutionFunction implements SkyFunction {
       return null;
     }
     skyframeActionExecutor.noteActionEvaluationStarted(actionLookupData, action);
-    if (SkyframeActionExecutor.actionDependsOnBuildId(action)) {
+    if (Actions.dependsOnBuildId(action)) {
       PrecomputedValue.BUILD_ID.get(env);
     }
 
@@ -780,7 +781,7 @@ public class ActionExecutionFunction implements SkyFunction {
           (action instanceof IncludeScannable)
               ? ((IncludeScannable) action).getDiscoveredModules()
               : null,
-          SkyframeActionExecutor.actionDependsOnBuildId(action));
+          Actions.dependsOnBuildId(action));
     }
 
     metadataHandler.prepareForActionExecution();
