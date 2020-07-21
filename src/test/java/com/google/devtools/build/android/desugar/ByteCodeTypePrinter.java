@@ -64,7 +64,7 @@ public class ByteCodeTypePrinter {
     private final PrintWriter printWriter;
 
     public ClassWithTypeDumper(PrintWriter printWriter) {
-      super(Opcodes.ASM5);
+      super(Opcodes.ASM8);
       this.printWriter = printWriter;
     }
 
@@ -96,7 +96,7 @@ public class ByteCodeTypePrinter {
   private static final class TextifierExt extends Textifier {
 
     public TextifierExt() {
-      super(Opcodes.ASM5);
+      super(Opcodes.ASM8);
     }
 
     public void print(String string) {
@@ -112,7 +112,7 @@ public class ByteCodeTypePrinter {
 
     public MethodIrTypeDumper(
         MethodVisitor visitor, BytecodeTypeInference inference, PrintWriter printWriter) {
-      super(Opcodes.ASM5, visitor);
+      super(Opcodes.ASM8, visitor);
       this.inference = inference;
       this.printWriter = printWriter;
     }
