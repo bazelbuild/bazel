@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ShareabilityOfValue;
@@ -523,6 +524,11 @@ public abstract class Artifact
    */
   public boolean isFileType(FileType fileType) {
     return fileType.matches(this);
+  }
+
+  /** Checks whether this artifact is of one of the types in the supplied set. */
+  public boolean isFileType(FileTypeSet fileTypeSet) {
+    return fileTypeSet.matches(filePathForFileTypeMatcher());
   }
 
   @Override
