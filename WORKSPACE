@@ -129,13 +129,13 @@ local_repository(
 
 http_archive(
     name = "desugar_jdk_libs",
-    # Commit e0b0291b2c51fbe5a7cfa14473a1ae850f94f021 of 2018-12-4
+    # Commit b102111a91ee5910e680bc9e32146da3e081055e of 2020-08-01
     # Computed using "shasum -a 256 <zip>"
-    sha256 = "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
-    strip_prefix = "desugar_jdk_libs-e0b0291b2c51fbe5a7cfa14473a1ae850f94f021",
+    sha256 = "2a043b861779ad382a75a6e3705c00a8168d433db07d09a883ae85912aa5009e",
+    strip_prefix = "desugar_jdk_libs-b102111a91ee5910e680bc9e32146da3e081055e",
     urls = [
-        "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-        "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
+        "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/b102111a91ee5910e680bc9e32146da3e081055e.zip",
+        "https://github.com/google/desugar_jdk_libs/archive/b102111a91ee5910e680bc9e32146da3e081055e.zip",
     ],
 )
 
@@ -145,7 +145,7 @@ distdir_tar(
     name = "additional_distfiles",
     # Keep in sync with the archives fetched as part of building bazel.
     archives = [
-        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
+        "b102111a91ee5910e680bc9e32146da3e081055e.zip",
         "java_tools_javac11_linux-v9.0.zip",
         "java_tools_javac11_windows-v9.0.zip",
         "java_tools_javac11_darwin-v9.0.zip",
@@ -182,7 +182,7 @@ distdir_tar(
     ],
     dirname = "derived/distdir",
     sha256 = {
-        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": "fe2e04f91ce8c59d49d91b8102edc6627c6fa2906c1b0e7346f01419ec4f419d",
+        "b102111a91ee5910e680bc9e32146da3e081055e.zip": "2a043b861779ad382a75a6e3705c00a8168d433db07d09a883ae85912aa5009e",
         "java_tools_javac11_linux-v9.0.zip": "0be37f4227590ecb6bc929a6a7e427c65e6239363e4c3b28b1a211718b9636c9",
         "java_tools_javac11_windows-v9.0.zip": "14b679e3bf6a7b4aec36dc33f15ad0027aef43f1bc92e1e2f5abf3a93c156bb5",
         "java_tools_javac11_darwin-v9.0.zip": "567f5fe77e0c561b454930dea412899543849510f48f9c092dfcff8192b4086f",
@@ -218,9 +218,9 @@ distdir_tar(
         "9effcbcb27f0a665f9f345030188c0b291e32482.tar.gz": "61d0417abd60e65ed589c9deee7c124fe76a4106831f6ad39464e1525cef1454",
     },
     urls = {
-        "e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip": [
-            "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
-            "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
+        "b102111a91ee5910e680bc9e32146da3e081055e.zip": [
+            "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/b102111a91ee5910e680bc9e32146da3e081055e.zip",
+            "https://github.com/google/desugar_jdk_libs/archive/b102111a91ee5910e680bc9e32146da3e081055e.zip",
         ],
         "java_tools_javac11_linux-v9.0.zip": [
             "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v9.0/java_tools_javac11_linux-v9.0.zip",
