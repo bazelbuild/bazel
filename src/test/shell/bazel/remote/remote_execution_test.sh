@@ -1816,33 +1816,50 @@ def _impl(ctx):
 
   ctx.file("BUILD")
 
-foo_configure = repository_rule(
+remote_foo_configure = repository_rule(
   implementation = _impl,
   remotable = True,
+)
+
+local_foo_configure = repository_rule(
+  implementation = _impl,
 )
 EOF
 
   cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+load("//:test.bzl", "remote_foo_configure", "local_foo_configure")
 
-foo_configure(
-  name = "default_foo",
+remote_foo_configure(
+  name = "remote_foo",
+)
+
+local_foo_configure(
+  name = "local_foo",
 )
 EOF
 
   bazel fetch \
     --remote_executor=grpc://localhost:${worker_port} \
     --experimental_repo_remote_exec \
-    @default_foo//:all
+    @remote_foo//:all
 
-  # This is indeed necessary in order to ensure that the repository is re-executed.
+  # '--expunge' is necessary in order to ensure that the repository is re-executed.
   bazel clean --expunge
 
   # Run on the host machine to test that the rule works for both local and remote execution.
   # In particular, that arguments of type label are accepted when doing local execution.
   bazel fetch \
     --experimental_repo_remote_exec \
-    @default_foo//:all
+    @remote_foo//:all
+
+  bazel clean --expunge
+
+  # Execute @local_foo which has the same implementation as @remote_foo but not the 'remotable'
+  # attribute. This tests that a non-remotable repo rule can also run a remotable implementation
+  # function.
+  bazel fetch \
+    --experimental_repo_remote_exec \
+    @local_foo//:all
 }
 
 # TODO(alpha): Add a test that fails remote execution when remote worker
