@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Collection;

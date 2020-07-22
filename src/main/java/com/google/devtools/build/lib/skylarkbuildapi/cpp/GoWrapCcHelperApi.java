@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.go.GoConfigurationApi;
-import com.google.devtools.build.lib.skylarkbuildapi.go.GoContextInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.TransitiveInfoCollectionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.go.GoConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.go.GoContextInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.go.GoPackageInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.NoneType;

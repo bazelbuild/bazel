@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidCcLinkParamsProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidCcLinkParamsProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A target that provides C++ libraries to be linked into Android targets. */

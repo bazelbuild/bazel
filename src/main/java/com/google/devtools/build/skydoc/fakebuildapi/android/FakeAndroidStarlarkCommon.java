@@ -14,11 +14,11 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidStarlarkCommonApi;
 import com.google.devtools.build.lib.skylarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransititionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCommonApi;
 
 /** Fake implementation of {@link AndroidStarlarkCommonApi}. */
 public class FakeAndroidStarlarkCommon

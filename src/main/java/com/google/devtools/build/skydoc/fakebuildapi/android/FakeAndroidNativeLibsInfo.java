@@ -15,8 +15,8 @@
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidNativeLibsInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidNativeLibsInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 

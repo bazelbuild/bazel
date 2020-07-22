@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.TriState;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDataContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**

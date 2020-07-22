@@ -81,7 +81,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/proto",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_and_data",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/android",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util",

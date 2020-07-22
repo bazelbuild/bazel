@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.Map;
