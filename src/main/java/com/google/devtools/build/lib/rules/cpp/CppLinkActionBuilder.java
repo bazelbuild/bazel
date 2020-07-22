@@ -251,7 +251,8 @@ public class CppLinkActionBuilder {
           LinkerInputs.simpleLinkerInput(
               this.ltoCompilationContext.getMinimizedBitcodeOrSelf(objectFile),
               ArtifactCategory.OBJECT_FILE,
-              /* disableWholeArchive= */ false));
+              /* disableWholeArchive= */ false,
+              objectFile.getRootRelativePathString()));
     }
     return objectFileInputsBuilder.build();
   }
@@ -843,7 +844,8 @@ public class CppLinkActionBuilder {
             thinltoParamFile,
             allowLtoIndexing,
             nonExpandedLinkerInputs,
-            needWholeArchive);
+            needWholeArchive,
+            ruleErrorConsumer);
     CollectedLibrariesToLink collectedLibrariesToLink =
         librariesToLinkCollector.collectLibrariesToLink();
 
@@ -1286,16 +1288,17 @@ public class CppLinkActionBuilder {
   public CppLinkActionBuilder addObjectFile(Artifact input) {
     addObjectFile(
         LinkerInputs.simpleLinkerInput(
-            input, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive= */ false));
+            input,
+            ArtifactCategory.OBJECT_FILE,
+            /* disableWholeArchive= */ false,
+            input.getRootRelativePathString()));
     return this;
   }
 
   /** Adds object files to the linker action. */
   public CppLinkActionBuilder addObjectFiles(Iterable<Artifact> inputs) {
     for (Artifact input : inputs) {
-      addObjectFile(
-          LinkerInputs.simpleLinkerInput(
-              input, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive= */ false));
+      addObjectFile(input);
     }
     return this;
   }

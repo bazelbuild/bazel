@@ -24,9 +24,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 
-/**
- * Factory for creating new {@link LinkerInput} objects.
- */
+/** Factory for creating new {@link LinkerInput} objects. */
 public abstract class LinkerInputs {
   /**
    * An opaque linker input that is not a library, for example a linker script or an individual
@@ -38,10 +36,15 @@ public abstract class LinkerInputs {
     private final Artifact artifact;
     private final ArtifactCategory category;
     private final boolean disableWholeArchive;
+    private final String libraryIdentifier;
 
     @AutoCodec.Instantiator
     public SimpleLinkerInput(
-        Artifact artifact, ArtifactCategory category, boolean disableWholeArchive) {
+        Artifact artifact,
+        ArtifactCategory category,
+        boolean disableWholeArchive,
+        String libraryIdentifier) {
+      Preconditions.checkNotNull(libraryIdentifier);
       String basename = artifact.getFilename();
       switch (category) {
         case STATIC_LIBRARY:
@@ -65,6 +68,7 @@ public abstract class LinkerInputs {
       this.artifact = Preconditions.checkNotNull(artifact);
       this.category = category;
       this.disableWholeArchive = disableWholeArchive;
+      this.libraryIdentifier = libraryIdentifier;
     }
 
     @Override
@@ -125,12 +129,21 @@ public abstract class LinkerInputs {
     public boolean disableWholeArchive() {
       return disableWholeArchive;
     }
+
+    @Override
+    public String getLibraryIdentifier() {
+      return libraryIdentifier;
+    }
   }
 
   @ThreadSafety.Immutable
   private static class LinkstampLinkerInput extends SimpleLinkerInput {
-    private LinkstampLinkerInput(Artifact artifact) {
-      super(artifact, ArtifactCategory.OBJECT_FILE, /* disableWholeArchive= */ false);
+    private LinkstampLinkerInput(Artifact artifact, String libraryIdentifier) {
+      super(
+          artifact,
+          ArtifactCategory.OBJECT_FILE,
+          /* disableWholeArchive= */ false,
+          libraryIdentifier);
       Preconditions.checkState(Link.OBJECT_FILETYPES.matches(artifact.getFilename()));
     }
 
@@ -155,13 +168,6 @@ public abstract class LinkerInputs {
      * number of LTO backends that can be generated for a single blaze test invocation.
      */
     ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
-
-    /**
-     * Return the identifier for the library. This is used for de-duplication of linker inputs: two
-     * libraries should have the same identifier iff they are in fact the same library but linked
-     * in a different way (e.g. static/dynamic, PIC/no-PIC)
-     */
-    String getLibraryIdentifier();
   }
 
   /**
@@ -188,8 +194,7 @@ public abstract class LinkerInputs {
 
     @Override
     public String toString() {
-      return String.format("SolibLibraryToLink(%s -> %s",
-          solibSymlinkArtifact.toString(), libraryArtifact.toString());
+      return String.format("SolibLibraryToLink(%s -> %s", solibSymlinkArtifact, libraryArtifact);
     }
 
     @Override
@@ -245,9 +250,8 @@ public abstract class LinkerInputs {
       }
 
       SolibLibraryToLink thatSolib = (SolibLibraryToLink) that;
-      return
-          solibSymlinkArtifact.equals(thatSolib.solibSymlinkArtifact) &&
-          libraryArtifact.equals(thatSolib.libraryArtifact);
+      return solibSymlinkArtifact.equals(thatSolib.solibSymlinkArtifact)
+          && libraryArtifact.equals(thatSolib.libraryArtifact);
     }
 
     @Override
@@ -426,20 +430,28 @@ public abstract class LinkerInputs {
   public static Iterable<LinkerInput> simpleLinkerInputs(
       Iterable<Artifact> input, final ArtifactCategory category, boolean disableWholeArchive) {
     return Iterables.transform(
-        input, artifact -> simpleLinkerInput(artifact, category, disableWholeArchive));
+        input,
+        artifact ->
+            simpleLinkerInput(
+                artifact, category, disableWholeArchive, artifact.getRootRelativePathString()));
   }
 
   public static Iterable<LinkerInput> linkstampLinkerInputs(Iterable<Artifact> input) {
-    return Iterables.transform(input, artifact -> new LinkstampLinkerInput(artifact));
+    return Iterables.transform(
+        input,
+        artifact -> new LinkstampLinkerInput(artifact, artifact.getRootRelativePathString()));
   }
 
   /** Creates a linker input for which we do not know what objects files it consists of. */
   public static LinkerInput simpleLinkerInput(
-      Artifact artifact, ArtifactCategory category, boolean disableWholeArchive) {
+      Artifact artifact,
+      ArtifactCategory category,
+      boolean disableWholeArchive,
+      String libraryIdentifier) {
     // This precondition check was in place and *most* of the tests passed with them; the only
     // exception is when you mention a generated .a file in the srcs of a cc_* rule.
     // Preconditions.checkArgument(!ARCHIVE_LIBRARY_FILETYPES.contains(artifact.getFileType()));
-    return new SimpleLinkerInput(artifact, category, disableWholeArchive);
+    return new SimpleLinkerInput(artifact, category, disableWholeArchive, libraryIdentifier);
   }
 
   /**
@@ -450,17 +462,13 @@ public abstract class LinkerInputs {
     return Iterables.transform(input, artifact -> precompiledLibraryToLink(artifact, category));
   }
 
-  /**
-   * Creates a solib library symlink from the given artifact.
-   */
+  /** Creates a solib library symlink from the given artifact. */
   public static LibraryToLink solibLibraryToLink(
       Artifact solibSymlink, Artifact original, String libraryIdentifier) {
     return new SolibLibraryToLink(solibSymlink, original, libraryIdentifier);
   }
 
-  /**
-   * Creates an input library for which we do not know what objects files it consists of.
-   */
+  /** Creates an input library for which we do not know what objects files it consists of. */
   public static LibraryToLink precompiledLibraryToLink(
       Artifact artifact, ArtifactCategory category) {
     // This precondition check was in place and *most* of the tests passed with them; the only
@@ -497,7 +505,9 @@ public abstract class LinkerInputs {
   }
 
   public static LibraryToLink opaqueLibraryToLink(
-      Artifact artifact, ArtifactCategory category, String libraryIdentifier,
+      Artifact artifact,
+      ArtifactCategory category,
+      String libraryIdentifier,
       CppConfiguration.StripMode stripMode) {
     return new CompoundLibraryToLink(
         artifact,
@@ -558,9 +568,7 @@ public abstract class LinkerInputs {
     return Iterables.transform(libraries, LibraryToLink::getOriginalLibraryArtifact);
   }
 
-  /**
-   * Returns the linker input artifacts from a collection of {@link LinkerInput} objects.
-   */
+  /** Returns the linker input artifacts from a collection of {@link LinkerInput} objects. */
   public static Iterable<Artifact> toLibraryArtifacts(Iterable<? extends LinkerInput> artifacts) {
     return Iterables.transform(artifacts, LinkerInput::getArtifact);
   }
