@@ -79,9 +79,7 @@ public class ActionExecutionValue implements SkyValue {
       }
       for (Map.Entry<TreeFileArtifact, FileArtifactValue> file :
           treeArtifact.getChildValues().entrySet()) {
-        // We should only have RegularFileValue instances in here, but apparently tree artifacts
-        // sometimes store their own root directory in here. Sad.
-        // https://github.com/bazelbuild/bazel/issues/9058
+        // Tree artifacts can contain symlinks to directories, which don't have a digest.
         if (file.getValue().getType().isFile()) {
           Preconditions.checkNotNull(
               file.getValue().getDigest(),

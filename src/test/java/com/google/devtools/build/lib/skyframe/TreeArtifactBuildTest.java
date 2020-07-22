@@ -833,6 +833,28 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     assertThat(artifact2.getPath().getDirectoryEntries()).isEmpty();
   }
 
+  // This happens in the wild. See https://github.com/bazelbuild/bazel/issues/11813.
+  @Test
+  public void treeArtifactContainsSymlinkToDirectory() throws Exception {
+    SpecialArtifact treeArtifact = createTreeArtifact("tree");
+    registerAction(
+        new SimpleTestAction(/*output=*/ treeArtifact) {
+          @Override
+          void run(ActionExecutionContext context) throws IOException {
+            PathFragment subdir = PathFragment.create("subdir");
+            touchFile(treeArtifact.getPath().getRelative(subdir).getRelative("file"));
+            treeArtifact.getPath().getRelative("link").createSymbolicLink(subdir);
+          }
+        });
+
+    TreeArtifactValue tree = buildArtifact(treeArtifact);
+
+    assertThat(tree.getChildren())
+        .containsExactly(
+            TreeFileArtifact.createTreeOutput(treeArtifact, "subdir/file"),
+            TreeFileArtifact.createTreeOutput(treeArtifact, "link"));
+  }
+
   private abstract static class SimpleTestAction extends TestAction {
     private final Button button;
 
