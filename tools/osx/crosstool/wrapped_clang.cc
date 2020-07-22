@@ -24,6 +24,13 @@
 //    link action generating the dsym file.
 // "DSYM_HINT_DSYM_PATH": Workspace-relative path to dSYM dwarf file.
 //
+// Additionally, this post-processes the output dependency file (`.d` file) to
+// always use the relative paths to the execution root, and to standardize the
+// system header paths to always start with
+// `/Applications/Xcode.app/Contents/Developer`).  This makes dependency files
+// deterministic and cacheable, as the user may have Xcode installed to a
+// non-standard location (e.g. `/Applications/Xcode-11.6.0.app`).
+//
 // Likewise, this wrapper also contains a workaround for a bug in ld that causes
 // flaky builds when using Bitcode symbol maps. ld allows the
 // -bitcode_symbol_map to be either a directory (into which the file will be
@@ -59,6 +66,7 @@ extern char **environ;
 namespace {
 
 constexpr char kAddASTPathPrefix[] = "-Wl,-add_ast_path,";
+constexpr char kStandardDeveloperDir[] = "/Applications/Xcode.app/Contents/Developer";
 
 // Returns the base name of the given filepath. For example, given
 // /foo/bar/baz.txt, returns 'baz.txt'.
@@ -169,6 +177,26 @@ bool StripPrefixStringIfPresent(std::string *str, const std::string &prefix) {
   return false;
 }
 
+// Post-processes the dependency file to convert the absolute paths to relative
+// paths and normalize the system header paths to always start with the
+// standard developer directory.
+void PostProcessDepFile(const std::string cwd_str,
+                        const std::string developer_dir,
+                        const std::string preprocessed_depfile,
+                        const std::string depfile) {
+  if (preprocessed_depfile.empty()) {
+    return;
+  }
+  std::ifstream in(preprocessed_depfile);
+  std::ofstream out(depfile);
+  std::string line;
+  while (getline(in, line)) {
+    FindAndReplace(developer_dir, kStandardDeveloperDir, &line);
+    FindAndReplace(cwd_str, "", &line);
+    out << line << '\n';
+  }
+}
+
 }  // namespace
 
 int main(int argc, char *argv[]) {
@@ -193,6 +221,7 @@ int main(int argc, char *argv[]) {
 
   std::string linked_binary, dsym_path, bitcode_symbol_map;
   std::string dest_dir;
+  std::string depfile, preprocessed_depfile;
 
   std::unique_ptr<char, decltype(std::free) *> cwd{getcwd(nullptr, 0),
                                                    std::free};
@@ -218,6 +247,10 @@ int main(int argc, char *argv[]) {
     }
     if (SetArgIfFlagPresent(arg, "DEBUG_PREFIX_MAP_PWD", &dest_dir)) {
       arg = "-fdebug-prefix-map=" + std::string(cwd.get()) + "=" + dest_dir;
+    }
+    if (SetArgIfFlagPresent(arg, "DEPENDENCY_FILE", &depfile)) {
+      preprocessed_depfile = depfile + "_preprocessed";
+      arg = preprocessed_depfile;
     }
     if (arg.compare("OSO_PREFIX_MAP_PWD") == 0) {
       arg = "-Wl,-oso_prefix," + std::string(cwd.get()) + "/";
@@ -268,13 +301,14 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  if (!postprocess) {
-    ExecProcess(processed_args);
-    std::cerr << "ExecProcess should not return. Please fix!\n";
-    abort();
-  }
-
   RunSubProcess(processed_args);
+
+  std::string cwd_str = std::string(cwd.get()) + "/";
+  PostProcessDepFile(cwd_str, developer_dir, preprocessed_depfile, depfile);
+
+  if (!postprocess) {
+    return 0;
+  }
 
   std::vector<std::string> dsymutil_args = {"/usr/bin/xcrun", "dsymutil",
                                             linked_binary, "-o", dsym_path,

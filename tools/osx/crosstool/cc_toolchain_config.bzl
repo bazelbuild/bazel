@@ -5572,7 +5572,11 @@ def _impl(ctx):
                 ],
                 flag_groups = [
                     flag_group(
-                        flags = ["-MD", "-MF", "%{dependency_file}"],
+                        flags = [
+                            "-MD",
+                            "-MF",
+                            "DEPENDENCY_FILE=%{dependency_file}",
+                        ],
                         expand_if_available = "dependency_file",
                     ),
                 ],
