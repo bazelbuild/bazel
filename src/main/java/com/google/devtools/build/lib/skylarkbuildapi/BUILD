@@ -10,8 +10,6 @@
 # StarlarkRuleClassApi and FileApi. Only add it as a dependency if you require
 # those APIs.
 
-load("@rules_java//java:defs.bzl", "java_library")
-
 package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
@@ -31,21 +29,4 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
-)
-
-java_library(
-    name = "skylarkbuildapi",
-    srcs = glob(["*.java"]),
-    deps = [
-        "//third_party:guava",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
-        "//src/main/java/net/starlark/java/annot",
-        "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        # TODO(cparsons): Remove dependency on Label implementation.
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
-        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
-        "//third_party:jsr305",
-    ],
 )

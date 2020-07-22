@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** Represents an aspect which can be attached to a Starlark-defined rule attribute. */

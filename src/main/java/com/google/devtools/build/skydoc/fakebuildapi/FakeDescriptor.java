@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAttrModuleApi.Descriptor;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi.Descriptor;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;

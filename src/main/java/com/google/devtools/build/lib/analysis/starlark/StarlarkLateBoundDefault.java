@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.LateBoundDefaultApi;
+import com.google.devtools.build.lib.starlarkbuildapi.LateBoundDefaultApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

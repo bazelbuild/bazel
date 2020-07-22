@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi;
+package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.DefaultInfoApi.DefaultInfoApiProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.OutputGroupInfoApi.OutputGroupInfoApiProvider;
-import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.DefaultInfoApi.DefaultInfoApiProvider;
+import com.google.devtools.build.lib.starlarkbuildapi.OutputGroupInfoApi.OutputGroupInfoApiProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.Starlark;

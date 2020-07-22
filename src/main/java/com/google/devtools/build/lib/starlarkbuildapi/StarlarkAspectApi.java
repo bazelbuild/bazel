@@ -12,11 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi;
+package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/** A value object used to represent an entry inside a "Fileset" BUILD rule. */
-@StarlarkBuiltin(name = "FilesetEntry", doc = "", documented = false)
-public interface FilesetEntryApi extends StarlarkValue {}
+/** The interface for Starlark-defined aspects in the Build API. */
+@StarlarkBuiltin(
+    name = "Aspect",
+    category = StarlarkDocumentationCategory.BUILTIN,
+    doc =
+        "For more information about Aspects, please consult the <a href=\"globals.html#aspect\">"
+            + "documentation of the aspect function</a> or the "
+            + "<a href=\"../aspects.md\">introduction to Aspects</a>.")
+public interface StarlarkAspectApi extends StarlarkValue {}

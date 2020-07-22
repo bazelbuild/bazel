@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.packages.StarlarkLibrary;
 import com.google.devtools.build.lib.packages.StarlarkNativeModule;
 import com.google.devtools.build.lib.packages.StructProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
 
 /** The basis for a Starlark Environment with all build-related modules registered. */
 public final class StarlarkModules {

@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAspectApi;
+import com.google.devtools.build.lib.starlarkbuildapi.ProtoInfoApi.ProtoInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAspectApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.FlagGuardedValue;

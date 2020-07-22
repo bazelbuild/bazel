@@ -12,15 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi;
+package com.google.devtools.build.lib.starlarkbuildapi;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
-/** A configuration fragment representing protocol buffers. */
-@StarlarkBuiltin(
-    name = "proto",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT,
-    doc = "A configuration fragment representing protocol buffers.")
-public interface ProtoConfigurationApi extends StarlarkValue {}
+/** A node in the build dependency graph, identified by a Label. */
+@StarlarkBuiltin(name = "target", doc = "", documented = false)
+public interface TargetApi extends StarlarkValue {
+
+  /** Returns the label of this target. (e.g. "//foo:bar") */
+  @StarlarkMethod(name = "label", documented = false)
+  Label getLabel();
+
+  /** Returns the name of this rule (relative to its owning package). */
+  @StarlarkMethod(name = "name", documented = false)
+  String getName();
+}

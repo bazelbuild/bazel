@@ -12,22 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi;
+package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
-/** The interface for late bound defaults in Starlark. */
+/** Interface for a single runfiles symlink represented by a link name and target. */
 @StarlarkBuiltin(
-    name = "LateBoundDefault",
+    name = "SymlinkEntry",
     category = StarlarkDocumentationCategory.BUILTIN,
-    doc =
-        "Represents a late-bound default attribute value of type 'Label'. The value of a"
-            + " LateBoundDefault is only resolvable in the context of a rule implementation"
-            + " function, and depends on the current build configuration. For example, a"
-            + " LateBoundDefault might represent the Label of the java toolchain in the current"
-            + " build configuration. <p>See <a"
-            + " href=\"globals.html#configuration_field\">configuration_field</a> for example"
-            + " usage.")
-public interface LateBoundDefaultApi extends StarlarkValue {}
+    doc = "A single runfiles symlink represented by a link name and target.")
+public interface SymlinkEntryApi extends StarlarkValue {
+
+  @StarlarkMethod(
+      name = "path",
+      doc = "The path of the symlink in the runfiles tree",
+      structField = true)
+  String getPathString();
+
+  @StarlarkMethod(name = "target_file", doc = "Target file of the symlink", structField = true)
+  FileApi getArtifact();
+}

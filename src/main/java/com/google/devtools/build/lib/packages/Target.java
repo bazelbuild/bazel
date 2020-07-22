@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.skylarkbuildapi.TargetApi;
+import com.google.devtools.build.lib.starlarkbuildapi.TargetApi;
 import com.google.devtools.build.lib.syntax.Location;
 import java.util.Set;
 import javax.annotation.Nullable;

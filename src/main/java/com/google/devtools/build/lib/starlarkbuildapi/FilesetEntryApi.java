@@ -1,4 +1,4 @@
-// Copyright 2020 The Bazel Authors. All rights reserved.
+// Copyright 2018 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi;
+package com.google.devtools.build.lib.starlarkbuildapi;
 
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/** A unit of toolchain resolution. Every rule has one or more of these. */
-@StarlarkBuiltin(
-    name = "exec_group",
-    category = StarlarkDocumentationCategory.BUILTIN,
-    documented = false)
-public interface ExecGroupApi extends StarlarkValue {}
+/** A value object used to represent an entry inside a "Fileset" BUILD rule. */
+@StarlarkBuiltin(name = "FilesetEntry", doc = "", documented = false)
+public interface FilesetEntryApi extends StarlarkValue {}
