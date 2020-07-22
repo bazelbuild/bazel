@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -1721,6 +1723,28 @@ public final class RuleContext extends TargetContext
   @Override
   public RuleErrorConsumer getRuleErrorConsumer() {
     return this;
+  }
+
+  /**
+   * Returns {@code true} if a {@link RequiredConfigFragmentsProvider} should be included for this
+   * rule.
+   */
+  public boolean shouldIncludeRequiredConfigFragmentsProvider() {
+    IncludeConfigFragmentsEnum setting =
+        getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .includeRequiredConfigFragmentsProvider;
+    switch (setting) {
+      case OFF:
+        return false;
+      case DIRECT_HOST_ONLY:
+        return getConfiguration().isHostConfiguration();
+      case DIRECT:
+      case TRANSITIVE:
+        return true;
+    }
+    throw new IllegalStateException("Unknown setting: " + setting);
   }
 
   @Override

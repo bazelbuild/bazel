@@ -83,6 +83,26 @@ public final class RequiredConfigFragmentsTest extends BuildViewTestCase {
     assertThat(configSettingDirectFragments).contains("CppOptions");
   }
 
+  @Test
+  public void provideDirectHostOnlyRequiredFragmentsMode() throws Exception {
+    useConfiguration("--include_config_fragments_provider=direct_host_only");
+    scratch.file(
+        "a/BUILD",
+        "py_library(name = 'pylib', srcs = ['pylib.py'])",
+        "cc_library(name = 'cclib', srcs = ['cclb.cc'], data = [':pylib'])");
+
+    RequiredConfigFragmentsProvider targetConfigProvider =
+        getConfiguredTarget("//a:cclib").getProvider(RequiredConfigFragmentsProvider.class);
+    RequiredConfigFragmentsProvider hostConfigProvider =
+        getHostConfiguredTarget("//a:cclib").getProvider(RequiredConfigFragmentsProvider.class);
+
+    assertThat(targetConfigProvider).isNull();
+    assertThat(hostConfigProvider).isNotNull();
+    assertThat(hostConfigProvider.getRequiredConfigFragments()).contains("CppConfiguration");
+    assertThat(hostConfigProvider.getRequiredConfigFragments())
+        .doesNotContain("PythonConfiguration");
+  }
+
   /**
    * Helper method that returns a combined set of the common fragments all genrules require plus
    * instance-specific requirements passed here.
