@@ -21,6 +21,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//third_party:guava",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",

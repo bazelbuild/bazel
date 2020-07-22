@@ -31,9 +31,8 @@ public interface ExecGroupCollectionApi extends StarlarkValue, StarlarkIndexable
   /**
    * Stores information about a single ExecGroup. The StarlarkMethod functions in this module should
    * be a subset of the StarlarkMethod functions available for the default exec group via {@link
-   * com.google.devtools.build.lib.skylarkbuildapi.StarlarkRuleContextApi}. This allows a user to
-   * pass in a rule ctx to the same places that take an exec group ctx to have them operate on the
-   * default exec group.
+   * StarlarkRuleContextApi}. This allows a user to pass in a rule ctx to the same places that take
+   * an exec group ctx to have them operate on the default exec group.
    */
   @StarlarkBuiltin(
       name = "ExecGroupContext",

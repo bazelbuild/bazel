@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skylarkbuildapi.proto;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.syntax.Sequence;
 import net.starlark.java.annot.StarlarkBuiltin;

@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.test;
+package com.google.devtools.build.lib.starlarkbuildapi.test;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfoApi.AnalysisTestResultInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisTestResultInfoApi.AnalysisTestResultInfoProviderApi;
 
 /** {@link Bootstrap} for Starlark objects related to testing. */
 public class TestingBootstrap implements Bootstrap {

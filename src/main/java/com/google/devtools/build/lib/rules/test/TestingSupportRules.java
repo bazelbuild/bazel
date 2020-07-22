@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.analysis.test.AnalysisTestResultInfo;
 import com.google.devtools.build.lib.analysis.test.CoverageCommon;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.rules.core.CoreRules;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestingBootstrap;
 
 /** Rules exposing testing infrastructure to Starlark */
 public final class TestingSupportRules implements RuleSet {
