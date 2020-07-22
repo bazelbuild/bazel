@@ -191,6 +191,9 @@ public final class StarlarkThread {
   /** The semantics options that affect how Starlark code is evaluated. */
   private final StarlarkSemantics semantics;
 
+  /** Cache from semantics. */
+  private final boolean allowRecursion;
+
   /** PrintHandler for Starlark print statements. */
   private PrintHandler printHandler = StarlarkThread::defaultPrintHandler;
 
@@ -375,6 +378,7 @@ public final class StarlarkThread {
     Preconditions.checkArgument(!mu.isFrozen());
     this.mutability = mu;
     this.semantics = semantics;
+    this.allowRecursion = semantics.getBool(StarlarkSemantics.ALLOW_RECURSION);
   }
 
   /**
@@ -396,6 +400,10 @@ public final class StarlarkThread {
 
   public StarlarkSemantics getSemantics() {
     return semantics;
+  }
+
+  public boolean isAllowRecursion() {
+    return allowRecursion;
   }
 
   // Implementation of Debug.getCallStack.

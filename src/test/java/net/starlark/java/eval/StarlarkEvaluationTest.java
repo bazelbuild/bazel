@@ -1770,6 +1770,25 @@ public final class StarlarkEvaluationTest {
   }
 
   @Test
+  public void testRecursionAllowedWithOption() throws Exception {
+    ParserInput input =
+        ParserInput.fromLines(
+            "def fac(n):", //
+            "  if n <= 1:",
+            "    return 1",
+            "  return n * fac(n - 1)",
+            "x = fac(5)");
+    Module module = Module.create();
+    try (Mutability mu = Mutability.create("test")) {
+      StarlarkSemantics semantics =
+          StarlarkSemantics.builder().setBool(StarlarkSemantics.ALLOW_RECURSION, true).build();
+      StarlarkThread thread = new StarlarkThread(mu, semantics);
+      Starlark.execFile(input, FileOptions.DEFAULT, module, thread);
+    }
+    assertThat(module.getGlobal("x")).isEqualTo(StarlarkInt.of(120));
+  }
+
+  @Test
   // TODO(adonovan): move to ResolverTest.
   public void testTypo() throws Exception {
     assertResolutionError(
