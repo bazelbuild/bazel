@@ -722,6 +722,20 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean disableNativeAndroidRules;
 
     @Option(
+        name = "incompatible_use_toolchain_resolution",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "Use toolchain resolution to select the Android SDK for android rules (Starlark and"
+                + " native)")
+    public boolean incompatibleUseToolchainResolution;
+
+    @Option(
         name = "experimental_filter_r_jars_from_android_test",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -971,6 +985,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean useRTxtFromMergedResources;
   private final Label legacyMainDexListGenerator;
   private final boolean disableInstrumentationManifestMerging;
+  private final boolean incompatibleUseToolchainResolution;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -1026,6 +1041,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
+    this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1246,6 +1262,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentBusyboxTools() {
     return persistentBusyboxTools;
+  }
+
+  @Override
+  public boolean incompatibleUseToolchainResolution() {
+    return incompatibleUseToolchainResolution;
   }
 
   @Override
