@@ -157,6 +157,38 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
+    name = "remotejdk14_linux",
+    build_file = "@local_jdk//:BUILD.bazel",
+    sha256 = "48bb8947034cd079ad1ef83335e7634db4b12a26743a0dc314b6b861480777aa",
+    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-linux_x64",
+    urls = [
+        "https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-linux_x64.tar.gz",
+    ],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
+    name = "remotejdk14_macos",
+    build_file = "@local_jdk//:BUILD.bazel",
+    sha256 = "088bd4d0890acc9f032b738283bf0f26b2a55c50b02d1c8a12c451d8ddf080dd",
+    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-macosx_x64",
+    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-macosx_x64.tar.gz"],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
+    name = "remotejdk14_win",
+    build_file = "@local_jdk//:BUILD.bazel",
+    sha256 = "9cb078b5026a900d61239c866161f0d9558ec759aa15c5b4c7e905370e868284",
+    strip_prefix = "zulu14.28.21-ca-jdk14.0.1-win_x64",
+    urls = ["https://mirror.bazel.build/cdn.azul.com/zulu/bin/zulu14.28.21-ca-jdk14.0.1-win_x64.zip"],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remote_java_tools_linux",
     sha256 = "0be37f4227590ecb6bc929a6a7e427c65e6239363e4c3b28b1a211718b9636c9",
     urls = [
