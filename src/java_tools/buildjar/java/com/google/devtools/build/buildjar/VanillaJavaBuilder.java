@@ -103,15 +103,20 @@ public class VanillaJavaBuilder implements Closeable {
         if (request == null) {
           break;
         }
+        VanillaJavaBuilderResult result;
         try (VanillaJavaBuilder builder = new VanillaJavaBuilder()) {
-          VanillaJavaBuilderResult result = builder.run(request.getArgumentsList());
-          WorkResponse response =
-              WorkResponse.newBuilder()
-                  .setOutput(result.output())
-                  .setExitCode(result.ok() ? 0 : 1)
-                  .build();
-          response.writeDelimitedTo(System.out);
+          result = builder.run(request.getArgumentsList());
         }
+        /* As soon as we write the response, bazel will start cleaning
+         * up the working tree. The VanillaJavaBuilder must be fully
+         * closed at this point.
+         */
+        WorkResponse response =
+            WorkResponse.newBuilder()
+                .setOutput(result.output())
+                .setExitCode(result.ok() ? 0 : 1)
+                .build();
+        response.writeDelimitedTo(System.out);
         System.out.flush();
       } catch (IOException e) {
         e.printStackTrace();
