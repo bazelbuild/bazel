@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -631,7 +632,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return new CachingAnalysisEnvironment(
         view.getArtifactFactory(),
         actionKeyContext,
-        new ActionLookupValue.ActionLookupKey() {
+        new ActionLookupKey() {
+          @Nullable
+          @Override
+          public Label getLabel() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;
@@ -1288,7 +1295,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected final Artifact.DerivedArtifact getDerivedArtifact(
       PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    if ((owner instanceof ActionLookupValue.ActionLookupKey)) {
+    if ((owner instanceof ActionLookupKey)) {
       ActionLookupValue actionLookupValue;
       try {
         actionLookupValue =
@@ -1319,7 +1326,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * "foo.o".
    */
   protected final Artifact getTreeArtifact(String packageRelativePath, ConfiguredTarget owner) {
-    ActionLookupValue.ActionLookupKey actionLookupKey =
+    ActionLookupKey actionLookupKey =
         ConfiguredTargetKey.builder()
             .setConfiguredTarget(owner)
             .setConfigurationKey(owner.getConfigurationKey())
@@ -2146,7 +2153,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public ActionLookupValue.ActionLookupKey getOwner() {
+    public ActionLookupKey getOwner() {
       throw new UnsupportedOperationException();
     }
 

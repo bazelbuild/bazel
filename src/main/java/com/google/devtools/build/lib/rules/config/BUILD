@@ -12,12 +12,12 @@ filegroup(
 #   Support for rules which enable users to define configuration
 java_library(
     name = "config",
-    srcs = glob([
-        "*.java",
-    ]),
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifact_owner",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_setting_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration_option_details",

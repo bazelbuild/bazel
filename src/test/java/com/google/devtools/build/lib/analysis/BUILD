@@ -38,6 +38,8 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/binary_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/compression",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
@@ -160,6 +162,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:guava-testlib",
+        "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
@@ -192,7 +195,7 @@ java_test(
     name = "AbstractConfiguredTargetTest",
     srcs = ["AbstractConfiguredTargetTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:top_level_artifact_context",
@@ -209,6 +212,7 @@ java_test(
     srcs = ["CachingTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:junit4",
@@ -239,9 +243,8 @@ java_test(
     srcs = ["SourceManifestActionTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -258,7 +261,7 @@ java_test(
     name = "RuleConfiguredTargetTest",
     srcs = ["RuleConfiguredTargetTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",

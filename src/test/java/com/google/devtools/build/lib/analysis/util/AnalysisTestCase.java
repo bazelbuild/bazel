@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -527,7 +528,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner)
       throws InterruptedException {
     Label label = owner.getLabel();
-    ActionLookupValue.ActionLookupKey actionLookupKey =
+    ActionLookupKey actionLookupKey =
         ConfiguredTargetKey.builder()
             .setLabel(label)
             .setConfigurationKey(owner.getConfigurationKey())

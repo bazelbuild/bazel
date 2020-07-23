@@ -86,6 +86,7 @@ java_library(
         ":PyBaseTestBase",
         ":PythonTestUtils",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//third_party:guava",
@@ -147,6 +148,7 @@ java_test(
     srcs = ["PythonVersionSelectTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:file_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -161,6 +163,7 @@ java_test(
     srcs = ["PythonSrcsVersionAspectTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -201,7 +204,7 @@ java_test(
     srcs = ["PyStructUtilsTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
@@ -219,6 +222,7 @@ java_test(
     srcs = ["PyInfoTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
@@ -234,7 +238,7 @@ java_test(
     name = "PyRuntimeInfoTest",
     srcs = ["PyRuntimeInfoTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/rules/python",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
@@ -266,7 +270,7 @@ java_test(
     name = "PythonStarlarkApiTest",
     srcs = ["PythonStarlarkApiTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/rules/python",

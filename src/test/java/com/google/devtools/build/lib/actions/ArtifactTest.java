@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -191,7 +190,7 @@ public class ArtifactTest {
           }
 
           @Override
-          public ActionLookupValue.ActionLookupKey getOwner() {
+          public ActionLookupKey getOwner() {
             throw new UnsupportedOperationException();
           }
         },
@@ -369,7 +368,7 @@ public class ArtifactTest {
             new Artifact.SourceArtifact(
                     ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))),
                     PathFragment.create("src/foo.cc"),
-                    ArtifactOwner.NullArtifactOwner.INSTANCE)
+                    ArtifactOwner.NULL_OWNER)
                 .isSourceArtifact())
         .isTrue();
     assertThat(
@@ -389,18 +388,28 @@ public class ArtifactTest {
   }
 
   @Test
-  public void hashCodeAndEquals() throws IOException {
+  public void hashCodeAndEquals() {
     Path execRoot = scratch.getFileSystem().getPath("/");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, "newRoot");
-    ActionLookupValue.ActionLookupKey firstOwner =
-        new ActionLookupValue.ActionLookupKey() {
+    ActionLookupKey firstOwner =
+        new ActionLookupKey() {
+          @Override
+          public Label getLabel() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;
           }
         };
-    ActionLookupValue.ActionLookupKey secondOwner =
-        new ActionLookupValue.ActionLookupKey() {
+    ActionLookupKey secondOwner =
+        new ActionLookupKey() {
+          @Override
+          public Label getLabel() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;

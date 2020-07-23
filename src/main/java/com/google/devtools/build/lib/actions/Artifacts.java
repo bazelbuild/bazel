@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.actions;
 import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.Collection;
 
-/** Helper functions for dealing with {@link Artifacts} */
+/** Helper functions for dealing with {@link Artifact}s. */
 public final class Artifacts {
 
   private Artifacts() {}
 
-  public static void addToFingerprint(Fingerprint fp, Artifact artifact) {
+  private static void addToFingerprint(Fingerprint fp, Artifact artifact) {
     fp.addString(artifact.getExecPathString());
   }
 

@@ -31,6 +31,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -711,7 +712,7 @@ public class BuildView {
     // might have injected.
     for (Artifact.DerivedArtifact artifact :
         provider.getTransitiveExtraActionArtifacts().toList()) {
-      ActionLookupValue.ActionLookupKey owner = artifact.getArtifactOwner();
+      ActionLookupKey owner = artifact.getArtifactOwner();
       if (owner instanceof AspectKey) {
         if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
           artifacts.add(artifact);

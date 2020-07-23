@@ -26,8 +26,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Actions;
@@ -40,6 +39,7 @@ import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.InjectedActionLookupKey;
@@ -337,7 +337,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
     evaluate(template);
   }
 
-  private static final ActionLookupValue.ActionLookupKey CTKEY = new InjectedActionLookupKey("key");
+  private static final ActionLookupKey CTKEY = new InjectedActionLookupKey("key");
 
   private ImmutableList<Action> evaluate(ActionTemplate<?> actionTemplate) throws Exception {
     ConfiguredTargetValue ctValue = createConfiguredTargetValue(actionTemplate);

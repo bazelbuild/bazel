@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Interner;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -31,14 +31,13 @@ import javax.annotation.Nullable;
  * A (Label, Configuration key) pair. Note that this pair may be used to look up the generating
  * action of an artifact.
  */
-@AutoCodec
-public class ConfiguredTargetKey extends ActionLookupKey {
+// TODO(janakr): Intern deserialized instances.
+public class ConfiguredTargetKey implements ActionLookupKey {
   private final Label label;
   @Nullable private final BuildConfigurationValue.Key configurationKey;
 
   private transient int hashCode;
 
-  @AutoCodec.VisibleForSerialization
   ConfiguredTargetKey(Label label, @Nullable BuildConfigurationValue.Key configurationKey) {
     this.label = Preconditions.checkNotNull(label);
     this.configurationKey = configurationKey;
@@ -90,7 +89,7 @@ public class ConfiguredTargetKey extends ActionLookupKey {
     return h;
   }
 
-  private final int computeHashCode() {
+  private int computeHashCode() {
     int configVal = configurationKey == null ? 79 : configurationKey.hashCode();
     int toolchainContextVal =
         getToolchainContextKey() == null ? 47 : getToolchainContextKey().hashCode();

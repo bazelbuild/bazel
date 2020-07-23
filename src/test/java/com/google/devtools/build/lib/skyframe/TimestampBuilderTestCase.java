@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -132,7 +132,7 @@ import org.junit.Before;
  */
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   @AutoCodec
-  protected static final ActionLookupValue.ActionLookupKey ACTION_LOOKUP_KEY =
+  protected static final ActionLookupKey ACTION_LOOKUP_KEY =
       new InjectedActionLookupKey("action_lookup_key");
 
   protected static final Predicate<Action> ALWAYS_EXECUTE_FILTER = Predicates.alwaysTrue();

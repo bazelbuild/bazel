@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.buildtool;
 
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog;
 import com.google.devtools.build.lib.skyframe.AspectCompletionValue;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;

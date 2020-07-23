@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -235,7 +236,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   // We delete any value that can hold an action -- all subclasses of ActionLookupKey.
   // Also remove ArtifactNestedSetValues to prevent memory leak (b/143940221).
   protected static final Predicate<SkyKey> ANALYSIS_INVALIDATING_PREDICATE =
-      k -> (k instanceof ArtifactNestedSetKey || k instanceof ActionLookupValue.ActionLookupKey);
+      k -> (k instanceof ArtifactNestedSetKey || k instanceof ActionLookupKey);
 
   private final EvaluatorSupplier evaluatorSupplier;
   protected MemoizingEvaluator memoizingEvaluator;
@@ -798,7 +799,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
         @Override
         public Predicate<SkyKey> depEdgeFilterForEventsAndPosts(SkyKey primaryKey) {
-          if (primaryKey instanceof ActionLookupValue.ActionLookupKey) {
+          if (primaryKey instanceof ActionLookupKey) {
             return Predicates.alwaysTrue();
           } else {
             return NO_ACTION_LOOKUP;
@@ -807,7 +808,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       };
 
   private static final Predicate<SkyKey> NO_ACTION_LOOKUP =
-      (key) -> !(key instanceof ActionLookupValue.ActionLookupKey);
+      (key) -> !(key instanceof ActionLookupKey);
 
   protected SkyframeProgressReceiver newSkyframeProgressReceiver() {
     return new SkyframeProgressReceiver();
@@ -2375,9 +2376,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
    * <p>This method is only called in keep-going mode, since otherwise any known action conflicts
    * will immediately fail the build.
    */
-  Predicate<ActionLookupValue.ActionLookupKey> filterActionConflictsForConfiguredTargetsAndAspects(
+  Predicate<ActionLookupKey> filterActionConflictsForConfiguredTargetsAndAspects(
       ExtendedEventHandler eventHandler,
-      Iterable<ActionLookupValue.ActionLookupKey> keys,
+      Iterable<ActionLookupKey> keys,
       ImmutableMap<ActionAnalysisMetadata, ArtifactConflictFinder.ConflictException>
           actionConflicts,
       TopLevelArtifactContext topLevelArtifactContext)
@@ -3065,7 +3066,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   private static void findActionsRecursively(
       WalkableGraph walkableGraph, SkyKey key, Set<SkyKey> seen, List<ActionLookupValue> result)
       throws InterruptedException {
-    if (!(key instanceof ActionLookupValue.ActionLookupKey) || !seen.add(key)) {
+    if (!(key instanceof ActionLookupKey) || !seen.add(key)) {
       // The subgraph of dependencies of ActionLookupValues never has a non-ActionLookupValue
       // depending on an ActionLookupValue. So we can skip any non-ActionLookupValues in the
       // traversal as an optimization.

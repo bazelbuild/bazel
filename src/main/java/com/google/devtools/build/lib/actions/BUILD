@@ -8,14 +8,6 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-LOCALHOST_CAPACITY_SRCS = [
-    "LocalHostCapacity.java",
-    "LocalHostResourceManagerLinux.java",
-    "LocalHostResourceManagerDarwin.java",
-    "LocalHostResourceFallback.java",
-    "ResourceSet.java",
-]
-
 java_library(
     name = "execution_requirements",
     srcs = ["ExecutionRequirements.java"],
@@ -34,14 +26,36 @@ java_library(
             "cache/*.java",
         ],
         exclude = [
+            "ActionInput.java",
+            "ActionLookupKey.java",
+            "Artifact.java",
+            "ArtifactFactory.java",
+            "ArtifactOwner.java",
+            "ArtifactPathResolver.java",
+            "ArtifactPrefixConflictException.java",
+            "ArtifactResolver.java",
+            "ArtifactRoot.java",
+            "Artifacts.java",
             "CommandLineItem.java",
+            "FilesetOutputSymlink.java",
             "ExecutionRequirements.java",
-        ] + LOCALHOST_CAPACITY_SRCS,
+            "LocalHostCapacity.java",
+            "LocalHostResourceManagerLinux.java",
+            "LocalHostResourceManagerDarwin.java",
+            "LocalHostResourceFallback.java",
+            "MiddlemanType.java",
+            "ResourceSet.java",
+        ],
     ),
     deps = [
+        ":action_lookup_key",
+        ":artifact_owner",
+        ":artifacts",
         ":commandline_item",
         ":execution_requirements",
+        ":fileset_output_symlink",
         ":localhost_capacity",
+        ":middleman_type",
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
@@ -96,13 +110,107 @@ java_library(
 )
 
 java_library(
+    name = "action_lookup_data",
+    srcs = ["ActionLookupData.java"],
+    deps = [
+        ":action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "action_lookup_key",
+    srcs = ["ActionLookupKey.java"],
+    deps = [
+        ":artifact_owner",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
+    name = "artifact_owner",
+    srcs = ["ArtifactOwner.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "artifacts",
+    srcs = [
+        "ActionInput.java",
+        "Artifact.java",
+        "ArtifactFactory.java",
+        "ArtifactPathResolver.java",
+        "ArtifactPrefixConflictException.java",
+        "ArtifactResolver.java",
+        "ArtifactRoot.java",
+        "Artifacts.java",
+    ],
+    deps = [
+        ":action_lookup_data",
+        ":action_lookup_key",
+        ":artifact_owner",
+        ":commandline_item",
+        ":fileset_output_symlink",
+        ":package_roots",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/concurrent",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/util:filetype",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
     name = "commandline_item",
     srcs = ["CommandLineItem.java"],
 )
 
 java_library(
+    name = "fileset_output_symlink",
+    srcs = ["FilesetOutputSymlink.java"],
+    deps = [
+        ":has_digest",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:auto_value",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "has_digest",
+    srcs = ["HasDigest.java"],
+    deps = ["//third_party/protobuf:protobuf_java"],
+)
+
+java_library(
     name = "localhost_capacity",
-    srcs = LOCALHOST_CAPACITY_SRCS,
+    srcs = [
+        "LocalHostCapacity.java",
+        "LocalHostResourceFallback.java",
+        "LocalHostResourceManagerDarwin.java",
+        "LocalHostResourceManagerLinux.java",
+        "ResourceSet.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
@@ -111,5 +219,25 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:flogger",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "middleman_type",
+    srcs = ["MiddlemanType.java"],
+)
+
+java_library(
+    name = "package_roots",
+    srcs = [
+        "PackageRootResolver.java",
+        "PackageRoots.java",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline:cmdline-primitives",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )

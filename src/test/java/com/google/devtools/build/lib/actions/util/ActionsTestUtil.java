@@ -38,8 +38,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -53,6 +52,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -233,7 +233,7 @@ public final class ActionsTestUtil {
 
   public static Artifact createArtifactWithExecPath(ArtifactRoot root, PathFragment execPath) {
     return root.isSourceRoot()
-        ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NullArtifactOwner.INSTANCE)
+        ? new Artifact.SourceArtifact(root, execPath, ArtifactOwner.NULL_OWNER)
         : new Artifact.DerivedArtifact(root, execPath, NULL_ARTIFACT_OWNER);
   }
 
@@ -327,7 +327,7 @@ public final class ActionsTestUtil {
 
   @SerializationConstant
   public static final ActionLookupKey NULL_ARTIFACT_OWNER =
-      new ActionLookupValue.ActionLookupKey() {
+      new ActionLookupKey() {
         @Override
         public SkyFunctionName functionName() {
           return null;

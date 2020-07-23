@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BasicActionLookupValue;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import javax.annotation.Nullable;
 
 /**
  * Value that stores the workspace status artifacts and their generating action. There should be
@@ -51,12 +54,18 @@ public class WorkspaceStatusValue extends BasicActionLookupValue {
   }
 
   /** {@link com.google.devtools.build.skyframe.SkyKey} for {@link WorkspaceStatusValue}. */
-  public static class BuildInfoKey extends ActionLookupKey {
+  public static final class BuildInfoKey implements ActionLookupKey {
     private BuildInfoKey() {}
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.BUILD_INFO;
+    }
+
+    @Nullable
+    @Override
+    public Label getLabel() {
+      return null;
     }
   }
 }

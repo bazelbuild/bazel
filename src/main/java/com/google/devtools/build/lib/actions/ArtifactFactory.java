@@ -17,7 +17,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.Striped;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -194,7 +193,7 @@ public class ArtifactFactory implements ArtifactResolver {
 
   @Override
   public SourceArtifact getSourceArtifact(PathFragment execPath, Root root) {
-    return getSourceArtifact(execPath, root, ArtifactOwner.NullArtifactOwner.INSTANCE);
+    return getSourceArtifact(execPath, root, ArtifactOwner.NULL_OWNER);
   }
 
   private void validatePath(PathFragment rootRelativePath, ArtifactRoot root) {
@@ -544,7 +543,7 @@ public class ArtifactFactory implements ArtifactResolver {
       }
     } else {
       // Must be a new artifact or artifact in the cache is stale, so create a new one.
-      artifact = getSourceArtifact(execPath, sourceRoot, ArtifactOwner.NullArtifactOwner.INSTANCE);
+      artifact = getSourceArtifact(execPath, sourceRoot, ArtifactOwner.NULL_OWNER);
     }
     return artifact;
   }

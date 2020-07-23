@@ -11,18 +11,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.actions;
 
-/**
- * An interface for registering actions.
- */
-public interface ActionRegistry {
-  /**
-   * This method notifies the registry new actions.
-   */
-  void registerAction(ActionAnalysisMetadata... actions);
+import com.google.devtools.build.skyframe.SkyKey;
 
-  /** Get the key of the ConfiguredTarget/Aspect ultimately responsible for all these actions. */
-  ActionLookupKey getOwner();
-}
+/**
+ * {@link SkyKey} for an {@link ActionLookupValue}.
+ *
+ * <p>All subclasses of {@link ActionLookupValue} "own" artifacts with {@link ArtifactOwner}s that
+ * are subclasses of {@link ActionLookupKey}. This allows callers to easily find the value key,
+ * while remaining agnostic to what action lookup values actually exist.
+ */
+public interface ActionLookupKey extends ArtifactOwner, SkyKey {}

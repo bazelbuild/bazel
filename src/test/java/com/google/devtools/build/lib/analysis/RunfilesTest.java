@@ -20,10 +20,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
@@ -33,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -135,7 +137,7 @@ public class RunfilesTest extends FoundationTestCase {
     assertThat(Iterables.getOnlyElement(eventCollector).getKind()).isEqualTo(EventKind.ERROR);
   }
 
-  private static class SimpleActionLookupKey extends ActionLookupKey {
+  private static final class SimpleActionLookupKey implements ActionLookupKey {
     private final String name;
 
     SimpleActionLookupKey(String name) {
@@ -145,6 +147,12 @@ public class RunfilesTest extends FoundationTestCase {
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctionName.createHermetic(name);
+    }
+
+    @Nullable
+    @Override
+    public Label getLabel() {
+      return null;
     }
   }
 

@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.OutputFile;

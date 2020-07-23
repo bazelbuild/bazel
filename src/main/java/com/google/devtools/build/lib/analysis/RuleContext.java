@@ -36,7 +36,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -211,7 +211,7 @@ public final class RuleContext extends TargetContext
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
 
-  private final SymbolGenerator<ActionLookupValue.ActionLookupKey> actionOwnerSymbolGenerator;
+  private final SymbolGenerator<ActionLookupKey> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
@@ -224,7 +224,7 @@ public final class RuleContext extends TargetContext
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableList<Class<? extends Fragment>> universalFragments,
       String ruleClassNameForLogging,
-      ActionLookupValue.ActionLookupKey actionLookupKey,
+      ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ConstraintSemantics<RuleContext> constraintSemantics,
@@ -548,7 +548,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public ActionLookupValue.ActionLookupKey getOwner() {
+  public ActionLookupKey getOwner() {
     return getAnalysisEnvironment().getOwner();
   }
 
@@ -1762,7 +1762,7 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Class<? extends Fragment>> universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
-    private final ActionLookupValue.ActionLookupKey actionOwnerSymbol;
+    private final ActionLookupKey actionOwnerSymbol;
     private final PrerequisiteValidator prerequisiteValidator;
     private final RuleErrorConsumer reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
@@ -1784,7 +1784,7 @@ public final class RuleContext extends TargetContext
         BuildConfiguration hostConfiguration,
         PrerequisiteValidator prerequisiteValidator,
         ConfigurationFragmentPolicy configurationFragmentPolicy,
-        ActionLookupValue.ActionLookupKey actionOwnerSymbol) {
+        ActionLookupKey actionOwnerSymbol) {
       this.env = Preconditions.checkNotNull(env);
       this.target = Preconditions.checkNotNull(target);
       this.aspects = aspects;
