@@ -15,16 +15,16 @@
 """General-purpose business logic."""
 from typing import Tuple
 
-import tools.ctexplain.bazel_api
+import tools.ctexplain.bazel_api as bazel_api
 from tools.ctexplain.types import ConfiguredTarget
 
 
-def analyze_build(bazel_api: bazel_api.BazelApi, labels: Tuple[str, ...],
+def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],
                   build_flags: Tuple[str, ...]) -> Tuple[ConfiguredTarget, ...]:
   """Gets a build invocation's configured targets.
 
   Args:
-    bazel_api: API for invoking Bazel.
+    bazel: API for invoking Bazel.
     labels: The targets to build.
     build_flags: The build flags to use.
 
@@ -36,7 +36,23 @@ def analyze_build(bazel_api: bazel_api.BazelApi, labels: Tuple[str, ...],
   """
   cquery_args = [f'deps({",".join(labels)})']
   cquery_args.extend(build_flags)
-  (success, stderr, cts) = bazel_api.cquery(cquery_args)
+  (success, stderr, cts) = bazel.cquery(cquery_args)
   if not success:
-    raise RuntimeError("invocation failed: " + stderr)
-  return cts
+    raise RuntimeError("invocation failed: " + "\n".join(stderr))
+
+  # We have to do separate calls to "bazel config" to get the actual configs
+  # from their hashes.
+  hashes_to_configs = {}
+  cts_with_configs = []
+  for ct in cts:
+    config = hashes_to_configs.setdefault(
+        ct.config_hash,
+        bazel.get_config(ct.config_hash))
+    cts_with_configs.append(
+        ConfiguredTarget(
+            ct.label,
+            config,
+            ct.config_hash,
+            ct.transitive_fragments))
+
+  return tuple(cts_with_configs)

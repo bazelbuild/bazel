@@ -40,10 +40,10 @@ from typing import Tuple
 from absl import app
 from absl import flags
 
-import tools.ctexplain.analyses.summary
-import tools.ctexplain.bazel_api
-import tools.ctexplain.ctexplain_lib
-import tools.ctexplain.util
+import tools.ctexplain.analyses.summary as summary
+import tools.ctexplain.bazel_api as bazel_api
+import tools.ctexplain.lib as lib
+import tools.ctexplain.util as util
 
 FLAGS = flags.FLAGS
 
@@ -51,7 +51,7 @@ FLAGS = flags.FLAGS
 # (implementation(cts: Tuple[ConfiguredTarget, ...]), descriptive help text).
 analyses = {
     "summary": (
-        lambda x: summary.report(summary.analyze(x))
+        lambda x: summary.report(summary.analyze(x)),
         "summarizes build graph size and how trimming could help"
     ),
     "culprits": (
@@ -132,7 +132,7 @@ def main(argv):
   (labels, build_flags) = _get_build_flags(FLAGS.build[0])
   build_desc = ",".join(labels)
   with util.ProgressStep(f'Collecting configured targets for {build_desc}'):
-    cts = lib.analyze_build(BazelApi(), labels, build_flags)
+    cts = lib.analyze_build(bazel_api.BazelApi(), labels, build_flags)
   for analysis in FLAGS.analysis:
     analyses[analysis][0](cts)
 

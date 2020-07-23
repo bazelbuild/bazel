@@ -73,19 +73,23 @@ class BazelApi():
       stderr contains the query's stderr (regardless of success value), and cts
       is the configured targets found by the query if successful, empty
       otherwise.
+
+      ct order preserves cquery's output order. This is topologically sorted
+      with duplicates removed. So no unique configured target appears twice and
+      if A depends on B, A appears before B.
     """
     base_args = ["cquery", "--show_config_fragments=transitive"]
     (returncode, stdout, stderr) = self.run_bazel(base_args + args)
     if returncode != 0:
       return (False, stderr, ())
 
-    cts = set()
+    cts = []
     for line in stdout:
       if not line.strip():
         continue
       ctinfo = _parse_cquery_result_line(line)
       if ctinfo is not None:
-        cts.add(ctinfo)
+        cts.append(ctinfo)
 
     return (True, stderr, tuple(cts))
 

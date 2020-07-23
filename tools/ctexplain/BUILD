@@ -18,6 +18,7 @@ py_binary(
     deps = [
         ":analyses",
         ":base",
+        ":bazel_api",
         ":lib",
         "//third_party/py/abseil"
     ],
@@ -61,6 +62,18 @@ py_library(
 )
 
 py_test(
+    name = "lib_test",
+    size = "small",
+    srcs = ["lib_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":bazel_api",
+        ":lib",
+        "//src/test/py/bazel:test_base",
+    ],
+)
+
+py_test(
     name = "bazel_api_test",
     size = "small",
     srcs = ["bazel_api_test.py"],
@@ -68,6 +81,18 @@ py_test(
     deps = [
         ":bazel_api",
         "//src/test/py/bazel:test_base",
+    ],
+)
+
+py_test(
+    name = "analyses_test",
+    size = "small",
+    srcs = ["analyses/summary_test.py"],
+    main = "analyses/summary_test.py", # TODO: generalize this.
+    python_version = "PY3",
+    deps = [
+        ":analyses",
+        ":base",
     ],
 )
 

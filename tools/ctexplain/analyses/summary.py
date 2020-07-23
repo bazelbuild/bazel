@@ -18,7 +18,7 @@ from typing import Tuple
 from dataclasses import dataclass
 
 from tools.ctexplain.types import ConfiguredTarget
-import tools.ctexplain.util
+import tools.ctexplain.util as util
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ class _Summary():
   repeated_targets: int
 
 
-def summary_analysis(cts: Tuple[types.ConfiguredTarget, ...]):
+def analyze(cts: Tuple[ConfiguredTarget, ...]):
   """Runs the analysis.
 
   Args:
@@ -53,12 +53,11 @@ def summary_analysis(cts: Tuple[types.ConfiguredTarget, ...]):
   configured_targets = len(cts)
   repeated_targets = sum([1 for count in label_count.values() if count > 1])
 
-  result = _Summary(len(configurations), len(targets), configured_targets,
+  return _Summary(len(configurations), len(targets), configured_targets,
                     repeated_targets)
-  _report_summary(result)
 
 
-def _report_summary(result: _Summary):
+def report(result: _Summary):
   """Reports analysis results to the user.
 
   We intentionally make this its own function to make it easy to support other
