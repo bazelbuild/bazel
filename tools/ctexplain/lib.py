@@ -47,7 +47,7 @@ def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],
   for ct in cts:
     config = hashes_to_configs.setdefault(
         ct.config_hash,
-        bazel.get_config(ct.config_hash))
+        lambda: bazel.get_config(ct.config_hash))
     cts_with_configs.append(
         ConfiguredTarget(
             ct.label,
