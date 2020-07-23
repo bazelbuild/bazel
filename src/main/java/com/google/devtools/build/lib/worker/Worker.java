@@ -79,7 +79,7 @@ class Worker {
     Runtime.getRuntime().addShutdownHook(shutdownHook);
   }
 
-  void createProcess() throws IOException {
+  Subprocess createProcess() throws IOException {
     ImmutableList<String> args = workerKey.getArgs();
     File executable = new File(args.get(0));
     if (!executable.isAbsolute() && executable.getParent() != null) {
@@ -92,7 +92,7 @@ class Worker {
     processBuilder.setWorkingDirectory(workDir.getPathFile());
     processBuilder.setStderr(logFile.getPathFile());
     processBuilder.setEnv(workerKey.getEnv());
-    this.process = processBuilder.start();
+    return processBuilder.start();
   }
 
   void destroy() throws IOException {
@@ -161,7 +161,7 @@ class Worker {
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException {
     if (process == null) {
-      createProcess();
+      process = createProcess();
     }
   }
 
