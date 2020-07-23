@@ -1224,6 +1224,25 @@ EOF
   expect_log_once "\"actionKey\":"
 }
 
+function test_aquery_json_v2_skyframe_state_invalid_format() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+
+  bazel clean
+
+  bazel aquery --incompatible_proto_output_v2 --output=text --skyframe_state &> "$TEST_log" \
+    && fail "Expected failure"
+  expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
+}
+
 function test_dump_skyframe_state_after_build_default_output() {
     local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
@@ -1270,6 +1289,26 @@ EOF
   assert_contains "input_dep_set_ids: 1" "$TEST_TMPDIR/foo.out"
   assert_contains "output_ids: 3" "$TEST_TMPDIR/foo.out"
   assert_contains "mnemonic: \"Genrule\"" "$TEST_TMPDIR/foo.out"
+}
+
+function test_dump_skyframe_state_after_build_invalid_format() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/BUILD" <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["foo_matching_in.java"],
+    outs = ["foo_matching_out"],
+    cmd = "echo unused > $(OUTS)",
+)
+EOF
+  touch $pkg/foo_matching_in.java
+
+  bazel clean
+
+  bazel build --experimental_aquery_dump_after_build_format=text --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
+    &> "$TEST_log" && fail "Expected success"
+  expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
 }
 
 run_suite "${PRODUCT_NAME} action graph query tests"

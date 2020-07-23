@@ -628,7 +628,10 @@ java_library(
 
 java_library(
     name = "actiongraph/v2/aquery_output_handler",
-    srcs = ["actiongraph/v2/AqueryOutputHandler.java"],
+    srcs = [
+        "actiongraph/v2/AqueryOutputHandler.java",
+        "actiongraph/v2/InvalidAqueryOutputFormatException.java",
+    ],
     deps = ["//src/main/protobuf:analysis_v2_java_proto"],
 )
 

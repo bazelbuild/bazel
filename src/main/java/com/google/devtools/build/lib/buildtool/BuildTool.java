@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
+import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -225,6 +226,9 @@ public class BuildTool {
                 request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
           } catch (CommandLineExpansionException | IOException e) {
             throw new PostExecutionActionGraphDumpException(e);
+          } catch (InvalidAqueryOutputFormatException e) {
+            throw new PostExecutionActionGraphDumpException(
+                "--skyframe_state must be used with --output=proto|textproto|jsonproto.", e);
           }
         }
       }
@@ -293,7 +297,7 @@ public class BuildTool {
       @Nullable BuildEventProtocolOptions besOptions,
       String format,
       @Nullable PathFragment outputFilePathFragment)
-      throws CommandLineExpansionException, IOException {
+      throws CommandLineExpansionException, IOException, InvalidAqueryOutputFormatException {
     Preconditions.checkState(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor);
 
     UploadContext streamingContext = null;
@@ -327,10 +331,10 @@ public class BuildTool {
     }
 
     try (OutputStream outputStream = initOutputStream(streamingContext, localOutputFilePath);
-        PrintStream printStream = new PrintStream(outputStream)) {
-      AqueryOutputHandler aqueryOutputHandler =
-          ActionGraphProtoV2OutputFormatterCallback.constructAqueryOutputHandler(
-              OutputType.fromString(format), outputStream, printStream);
+        PrintStream printStream = new PrintStream(outputStream);
+        AqueryOutputHandler aqueryOutputHandler =
+            ActionGraphProtoV2OutputFormatterCallback.constructAqueryOutputHandler(
+                OutputType.fromString(format), outputStream, printStream)) {
       // These options are fixed for simplicity. We'll add more configurability if the need arises.
       ActionGraphDump actionGraphDump =
           new ActionGraphDump(
@@ -340,7 +344,6 @@ public class BuildTool {
               /* includeParamFiles= */ false,
               aqueryOutputHandler);
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
-      aqueryOutputHandler.close();
     }
   }
 

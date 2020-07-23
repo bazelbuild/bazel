@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.query2.aquery.AqueryOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -151,7 +152,8 @@ public class BlazeRuntimeWrapper {
                 PackageOptions.class,
                 StarlarkSemanticsOptions.class,
                 UiOptions.class,
-                SandboxOptions.class));
+                SandboxOptions.class,
+                AqueryOptions.class));
 
     for (BlazeModule module : runtime.getBlazeModules()) {
       Iterables.addAll(options, module.getCommonCommandOptions());
