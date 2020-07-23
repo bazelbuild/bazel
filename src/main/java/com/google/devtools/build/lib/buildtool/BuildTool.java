@@ -337,7 +337,7 @@ public class BuildTool {
               /* includeActionCmdLine= */ false,
               /* includeArtifacts= */ true,
               /* actionFilters= */ null,
-              /* includeParamFiles= */ true,
+              /* includeParamFiles= */ false,
               aqueryOutputHandler);
       ((SequencedSkyframeExecutor) env.getSkyframeExecutor()).dumpSkyframeState(actionGraphDump);
       aqueryOutputHandler.close();
