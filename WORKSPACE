@@ -884,6 +884,39 @@ http_archive(
 
 # This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
 http_archive(
+    name = "remote_java_tools_javac14_test_linux",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    sha256 = "196128eadc68a55fb42a1f990c84ee816f5b29320a72fe542fcfc4206ac3978a",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac14/v1.0/java_tools_javac14_linux-v1.0.zip",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "remote_java_tools_javac14_test_windows",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    sha256 = "a6c69fd89b87fccc4c75203be6b407a1ca22cbdb54cffbd445f874281a933149",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac14/v1.0/java_tools_javac14_windows-v1.0.zip",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
+    name = "remote_java_tools_javac14_test_darwin",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_FILE_WIN,
+    sha256 = "e20f002ceb3f3353d64c022e1f3400d8539ee56ffcfd4a6680d73d6a2cac938b",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac14/v1.0/java_tools_javac14_darwin-v1.0.zip",
+    ],
+)
+
+# This must be kept in sync with src/test/shell/bazel/testdata/jdk_http_archives.
+http_archive(
     name = "openjdk11_linux_archive",
     build_file_content = """
 java_runtime(name = 'runtime', srcs =  glob(['**']), visibility = ['//visibility:public'])
