@@ -21,14 +21,22 @@ from tools.ctexplain.types import ConfiguredTarget
 
 def analyze_build(bazel_api: BazelApi, labels: Tuple[str, ...],
                   build_flags: Tuple[str, ...]) -> Tuple[ConfiguredTarget, ...]:
-    """Documentation here"""
-    cquery_args = [f'deps({",".join(labels)})']
-    cquery_args.extend(build_flags)
-    (success, stderr, cts) = bazel_api.cquery(cquery_args)
-    return cts
+  """Gets a build invocation's configured targets.
 
+  Args:
+    bazel_api: API for invoking Bazel.
+    labels: The targets to build.
+    build_flags: The build flags to use.
 
-# Get a build's CTs
-# Report basic statistics
-# Get the trimmed CT graph
-# Report comparative statistics
+  Returns:
+    Set of configured targets representing the build.
+
+  Raises:
+    RuntimeError: On any invocation errors.
+  """
+  cquery_args = [f'deps({",".join(labels)})']
+  cquery_args.extend(build_flags)
+  (success, stderr, cts) = bazel_api.cquery(cquery_args)
+  if not success:
+    raise RuntimeError("invocation failed: " + stderr)
+  return cts

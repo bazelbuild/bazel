@@ -20,55 +20,55 @@ from dataclasses import dataclass
 from tools.ctexplain.types import ConfiguredTarget
 from tools.ctexplain.util import percent_diff
 
+
 @dataclass(frozen=True)
 class _Summary():
-    """Analysis result."""
-    # Number of configurations in the build's configured target graph.
-    configurations: int
-    # Number of unique target labels.
-    targets: int
-    # Number of configured targets.
-    configured_targets: int
-    # Number of targets that produce multiple configured targets. This is more
-    # subtle than computing configured_targets - targets. For example, if
-    # targets=2 and configured_targets=4, that could mean both targets are
-    # configured twice. Or it could mean the first target is configured 3 times.
-    repeated_targets: int
+  """Analysis result."""
+  # Number of configurations in the build's configured target graph.
+  configurations: int
+  # Number of unique target labels.
+  targets: int
+  # Number of configured targets.
+  configured_targets: int
+  # Number of targets that produce multiple configured targets. This is more
+  # subtle than computing configured_targets - targets. For example, if
+  # targets=2 and configured_targets=4, that could mean both targets are
+  # configured twice. Or it could mean the first target is configured 3 times.
+  repeated_targets: int
 
 
 def summary_analysis(cts: Tuple[ConfiguredTarget, ...]):
-    """Runs the analysis.
+  """Runs the analysis.
 
-    Args:
-      cts: A build's configured targets
-    """
-    configurations = set()
-    targets = set()
-    label_count = {}
-    for ct in cts:
-        configurations.add(ct.config_hash)
-        targets.add(ct.label)
-        label_count[ct.label] = label_count.setdefault(ct.label, 0) + 1
-    configured_targets = len(cts)
-    repeated_targets = sum([1 for count in label_count.values() if count > 1])
+  Args:
+    cts: A build's configured targets
+  """
+  configurations = set()
+  targets = set()
+  label_count = {}
+  for ct in cts:
+    configurations.add(ct.config_hash)
+    targets.add(ct.label)
+    label_count[ct.label] = label_count.setdefault(ct.label, 0) + 1
+  configured_targets = len(cts)
+  repeated_targets = sum([1 for count in label_count.values() if count > 1])
 
-    result = _Summary(len(configurations), len(targets), configured_targets,
-        repeated_targets)
-    _report_summary(result)
+  result = _Summary(len(configurations), len(targets), configured_targets,
+                    repeated_targets)
+  _report_summary(result)
 
 
 def _report_summary(result: _Summary):
-    """Reports analysis results to the user.
+  """Reports analysis results to the user.
 
-    We intentionally make this its own function to make it easy to support other
-    output formats (like machine-readable) if we ever want to do that.
+  We intentionally make this its own function to make it easy to support other
+  output formats (like machine-readable) if we ever want to do that.
 
-    Args:
-      result: the analysis result
-    """
-    ct_surplus = percent_diff(result.targets, result.configured_targets)
-    print(
-f"""
+  Args:
+    result: the analysis result
+  """
+  ct_surplus = percent_diff(result.targets, result.configured_targets)
+  print(f"""
 Configurations: {result.configurations}
 Targets: {result.targets}
 Configured targets: {result.configured_targets} ({ct_surplus} vs. targets)

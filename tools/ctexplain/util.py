@@ -15,6 +15,7 @@
 """Generic utilities."""
 import time
 
+
 class ProgressStep:
   """A simple context manager that prints a progress message.
 
@@ -50,3 +51,4 @@ def percent_diff(val1, val2):
   """
   diff = (val2 - val1) / val1 * 100
   return f"+{diff:.1f}%" if diff >= 0 else f"{diff:.1f}%"
+  

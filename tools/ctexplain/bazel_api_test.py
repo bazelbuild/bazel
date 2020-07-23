@@ -117,9 +117,9 @@ class BazelApiTest(test_base.TestBase):
     ])
     cts = self._bazel_api.cquery(['//testapp:fg'])[2]
     fragments_map = self._bazel_api.get_config(cts[0].config_hash).fragments
-    self.assertIn("PlatformOptions", fragments_map["PlatformConfiguration"])
+    self.assertIn('PlatformOptions', fragments_map['PlatformConfiguration'])
     self.assertIn(
-      "ShellConfiguration$Options", fragments_map["ShellConfiguration"])
+        'ShellConfiguration$Options', fragments_map['ShellConfiguration'])
 
   def testConfigWithDefines(self):
     self.ScratchFile('testapp/BUILD', [

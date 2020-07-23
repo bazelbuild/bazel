@@ -32,7 +32,7 @@ Example:
 Relevant terms in https://docs.bazel.build/versions/master/glossary.html:
   "target", "configuration", "analysis phase", "configured target",
   "configuration trimming", "transition"
- 
+
 TODO(gregce): link to proper documentation for full details.
 """
 from typing import Tuple
@@ -40,11 +40,10 @@ from typing import Tuple
 from absl import app
 from absl import flags
 
+from tools.ctexplain.analyses.summary import summary_analysis
 from tools.ctexplain.bazel_api import BazelApi
 from tools.ctexplain.ctexplain_lib import analyze_build
-from tools.ctexplain.analyses.summary import summary_analysis
 from tools.ctexplain.util import ProgressStep
-from tools.ctexplain.types import ConfiguredTarget
 
 FLAGS = flags.FLAGS
 
@@ -76,12 +75,13 @@ analyses = {
 
 # Command-line flag registration:
 
+
 def _render_analysis_help_text() -> str:
-    """Pretty-prints help text for available analyses."""
-    helptext = ""
-    for name in analyses.keys():
-        helptext += f'- "{name}": {analyses[name][1]}\n'
-    return helptext
+  """Pretty-prints help text for available analyses."""
+  helptext = ""
+  for name in analyses:
+    helptext += f'- "{name}": {analyses[name][1]}\n'
+  return helptext
 
 flags.DEFINE_list("analysis", ["summary"], f"""
 Analyses to run. May be any comma-separated combination of
@@ -89,45 +89,50 @@ Analyses to run. May be any comma-separated combination of
 {_render_analysis_help_text()}
 """)
 
-flags.register_validator("analysis",
-  lambda values: all(value in analyses.keys() for value in values),
-  message=f'available analyses: {", ".join(analyses.keys())}')
+flags.register_validator(
+    "analysis",
+    lambda flag_value: all(name in analyses for name in flag_value),
+    message=f'available analyses: {", ".join(analyses.keys())}')
 
-flags.DEFINE_multi_string("build", [],
-  "command-line invocation of the build to analyze. For example:\n"
-    + '"//foo --define a=b". If listed multiple times, this is a "multi-build\n'
-    + 'analysis" that measures how much distinct builds can share subgraphs',
-  short_name="b")
+flags.DEFINE_multi_string(
+    "build", [],
+    """command-line invocation of the build to analyze. For example:
+"//foo --define a=b". If listed multiple times, this is a "multi-build
+analysis" that measures how much distinct builds can share subgraphs""",
+    short_name="b")
 
 # Core program logic:
 
+
 def _get_build_flags(cmdline: str) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
-    """Parses a build invocation command line.
+  """Parses a build invocation command line.
 
-    Args:
-      cmdline: raw build invocation string. For example: "//foo --cpu=x86"
+  Args:
+    cmdline: raw build invocation string. For example: "//foo --cpu=x86"
 
-    Returns:
-      Tuple of ((target labels to build), (build flags))
-    """
-    cmdlist = cmdline.split()
-    labels = [arg for arg in cmdlist if arg.startswith("//")]
-    build_flags = [arg for arg in cmdlist if not arg.startswith("//")]
-    return (tuple(labels), tuple(build_flags))
+  Returns:
+    Tuple of ((target labels to build), (build flags))
+  """
+  cmdlist = cmdline.split()
+  labels = [arg for arg in cmdlist if arg.startswith("//")]
+  build_flags = [arg for arg in cmdlist if not arg.startswith("//")]
+  return (tuple(labels), tuple(build_flags))
+
 
 def main(argv):
-    if len(FLAGS.build) == 0:
-        exit("ctexplain: build efficiency measurement tool. Add --help "
-            + "for usage.")
-    elif len(FLAGS.build) > 1:
-        exit("TODO(gregce): support multi-build shareability analysis")
+  del argv  # Satisfy py linter's "unused" warning.
+  if not FLAGS.build:
+    exit("ctexplain: build efficiency measurement tool. Add --help "
+         + "for usage.")
+  elif len(FLAGS.build) > 1:
+    exit("TODO(gregce): support multi-build shareability analysis")
 
-    bazel_api = BazelApi()
-    (labels, build_flags) = _get_build_flags(FLAGS.build[0])
-    with ProgressStep(f'Collecting configured targets for {",".join(labels)}'):
-      cts = analyze_build(bazel_api, labels, build_flags)
-    for analysis in FLAGS.analysis:
-        analyses[analysis][0](cts)
+  bazel_api = BazelApi()
+  (labels, build_flags) = _get_build_flags(FLAGS.build[0])
+  with ProgressStep(f'Collecting configured targets for {",".join(labels)}'):
+    cts = analyze_build(bazel_api, labels, build_flags)
+  for analysis in FLAGS.analysis:
+    analyses[analysis][0](cts)
 
 
 if __name__ == "__main__":

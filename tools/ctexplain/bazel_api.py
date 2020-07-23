@@ -81,7 +81,7 @@ class BazelApi():
 
     cts = set()
     for line in stdout:
-      if len(line.strip()) == 0:
+      if not line.strip():
         continue
       ctinfo = _parse_cquery_result_line(line)
       if ctinfo is not None:
@@ -99,7 +99,7 @@ class BazelApi():
       The matching configuration or None if no match is found.
 
     Raises:
-      ValueError on any parsing problems.
+      ValueError: On any parsing problems.
     """
     if config_hash == "HOST":
       return HostConfiguration()
@@ -112,9 +112,9 @@ class BazelApi():
       raise ValueError("Could not get config: " + stderr)
     config_json = json.loads(os.linesep.join(stdout))
     fragments = frozendict({
-      _base_name(entry["name"]): tuple(
-        _base_name(option_class) for option_class in entry["fragmentOptions"])
-      for entry in config_json["fragments"]
+        _base_name(entry["name"]): tuple(
+            _base_name(clazz) for clazz in entry["fragmentOptions"])
+        for entry in config_json["fragments"]
     })
     options = frozendict({
         _base_name(entry["name"]): frozendict(entry["options"])
@@ -160,13 +160,20 @@ def _parse_cquery_result_line(line: str) -> ConfiguredTarget:
       config=None,  # Not yet available: we'll need `bazel config` to get this.
       config_hash=config_hash,
       transitive_fragments=fragments)
-    
+
+
 def _base_name(full_name: str) -> str:
   """Strips a fully qualified Java class name to the file scope.
 
-  Examples: 
+  Examples:
     - "A.B.OuterClass" -> "OuterClass"
     - "A.B.OuterClass$InnerClass" -> "OuterClass$InnerClass"
+
+  Args:
+    full_name: Fully qualified class name.
+
+  Returns:
+    Stripped name.
   """
   return full_name.split(".")[-1]
 
