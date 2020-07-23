@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Tests for lib.py."""
-import os
 import unittest
 from src.test.py.bazel import test_base
 import tools.ctexplain.bazel_api as bazel_api
@@ -49,9 +48,9 @@ class LibTest(test_base.TestBase):
         'rule_with_host_dep(name = "a", host_deps = [":h"])',
         'filegroup(name = "h", srcs = ["h.src"])'
     ])
-    cts = lib.analyze_build(self._bazel, ("//testapp:a",), ())
+    cts = lib.analyze_build(self._bazel, ('//testapp:a',), ())
     # Remove boilerplate deps to focus on targets declared here.
-    cts = [ct for ct in cts if ct.label.startswith("//testapp")]
+    cts = [ct for ct in cts if ct.label.startswith('//testapp')]
 
     self.assertListEqual(
         [ct.label for ct in cts],
@@ -77,9 +76,9 @@ class LibTest(test_base.TestBase):
         'rule_with_host_dep(name = "other")',
         'filegroup(name = "h", srcs = ["h.src", ":other"])'
     ])
-    cts = lib.analyze_build(self._bazel, ("//testapp:a",), ())
+    cts = lib.analyze_build(self._bazel, ('//testapp:a',), ())
     # Remove boilerplate deps to focus on targets declared here.
-    cts = [ct for ct in cts if ct.label.startswith("//testapp")]
+    cts = [ct for ct in cts if ct.label.startswith('//testapp')]
 
     # Even though the build references //testapp:other twice, it only appears
     # once.

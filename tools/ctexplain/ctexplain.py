@@ -131,7 +131,7 @@ def main(argv):
 
   (labels, build_flags) = _get_build_flags(FLAGS.build[0])
   build_desc = ",".join(labels)
-  with util.ProgressStep(f'Collecting configured targets for {build_desc}'):
+  with util.ProgressStep(f"Collecting configured targets for {build_desc}"):
     cts = lib.analyze_build(bazel_api.BazelApi(), labels, build_flags)
   for analysis in FLAGS.analysis:
     analyses[analysis][0](cts)

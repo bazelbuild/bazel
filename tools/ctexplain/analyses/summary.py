@@ -42,6 +42,9 @@ def analyze(cts: Tuple[ConfiguredTarget, ...]):
 
   Args:
     cts: A build's configured targets
+
+  Returns:
+    Analysis result as a _Summary.
   """
   configurations = set()
   targets = set()
@@ -54,7 +57,7 @@ def analyze(cts: Tuple[ConfiguredTarget, ...]):
   repeated_targets = sum([1 for count in label_count.values() if count > 1])
 
   return _Summary(len(configurations), len(targets), configured_targets,
-                    repeated_targets)
+                  repeated_targets)
 
 
 def report(result: _Summary):
