@@ -42,36 +42,39 @@ from absl import flags
 
 from tools.ctexplain.bazel_api import BazelApi
 from tools.ctexplain.ctexplain_lib import analyze_build
+from tools.ctexplain.analyses.summary import summary_analysis
+from tools.ctexplain.util import ProgressStep
+from tools.ctexplain.types import ConfiguredTarget
 
 FLAGS = flags.FLAGS
 
-def _report_summary():
-    print("Reporting  the summary!")
-
-
+# Available analyses. Key is which --analysis value triggers the analysis, value
+# (implementation(cts: Tuple[ConfiguredTarget, ...]), descriptive help text).
 analyses = {
     "summary": (
-        _report_summary,
+        summary_analysis,
         "summarizes build graph size and how trimming could help"
     ),
     "culprits": (
-        _report_summary,
+        lambda x: print("this analysis not yet implemented"),
         "shows which flags unnecessarily fork configured targets. These\n"
         + "are conceptually mergeable."
     ),
     "forked_targets": (
-        _report_summary,
+        lambda x: print("this analysis not yet implemented"),
         "ranks targets by how many configured targets they\n"
         + "create. These may be legitimate forks (because they behave "
         + "differently with\n different flags) or identical clones that are "
         + "conceptually mergeable."
     ),
     "cloned_targets": (
-        _report_summary,
+        lambda x: print("this analysis not yet implemented"),
         "ranks targets by how many behavior-identical configured\n targets "
         + "they produce. These are conceptually mergeable."
     )
 }
+
+# Command-line flag registration:
 
 def _render_analysis_help_text() -> str:
     """Pretty-prints help text for available analyses."""
@@ -96,6 +99,8 @@ flags.DEFINE_multi_string("build", [],
     + 'analysis" that measures how much distinct builds can share subgraphs',
   short_name="b")
 
+# Core program logic:
+
 def _get_build_flags(cmdline: str) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
     """Parses a build invocation command line.
 
@@ -119,7 +124,10 @@ def main(argv):
 
     bazel_api = BazelApi()
     (labels, build_flags) = _get_build_flags(FLAGS.build[0])
-    cts = analyze_build(bazel_api, labels, build_flags)
+    with ProgressStep(f'Collecting configured targets for {",".join(labels)}'):
+      cts = analyze_build(bazel_api, labels, build_flags)
+    for analysis in FLAGS.analysis:
+        analyses[analysis][0](cts)
 
 
 if __name__ == "__main__":

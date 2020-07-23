@@ -12,6 +12,7 @@ py_binary(
     python_version = "PY3",
     deps = [
         ":ctexplain_lib",
+        ":analyses",
         "//third_party/py/abseil"
     ],
 )
@@ -19,6 +20,15 @@ py_binary(
 py_library(
     name = "ctexplain_lib",
     srcs = ["ctexplain_lib.py"],
+    srcs_version = "PY3ONLY",
+    deps = [
+        ":base",
+        ":bazel_api"],
+)
+
+py_library(
+    name = "analyses",
+    srcs = ["analyses/summary.py"],
     srcs_version = "PY3ONLY",
     deps = [
         ":base",
@@ -47,6 +57,7 @@ py_library(
     name = "base",
     srcs = [
         "types.py",
+        "util.py",
     ],
     srcs_version = "PY3ONLY",
     deps = [

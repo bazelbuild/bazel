@@ -25,9 +25,6 @@ def analyze_build(bazel_api: BazelApi, labels: Tuple[str, ...],
     cquery_args = [f'deps({",".join(labels)})']
     cquery_args.extend(build_flags)
     (success, stderr, cts) = bazel_api.cquery(cquery_args)
-    print(f"success: {success}")
-    print(f"stderr: {stderr}")
-    print(f"CTs: {len(cts)}")
     return cts
 
 
@@ -35,11 +32,3 @@ def analyze_build(bazel_api: BazelApi, labels: Tuple[str, ...],
 # Report basic statistics
 # Get the trimmed CT graph
 # Report comparative statistics
-
-# Collect results into a machine-readable data structure
-# Pass through user outputters for user-friendly output.
-
-# TODO(gregce): move all logic to a _lib library so we can easily include
-# end-to-end testing. We'll only handle flag parsing here, which we pass
-# into the main invoker as standard Python args.
-
