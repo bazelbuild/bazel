@@ -266,7 +266,7 @@ EOF
   assert_equals "1" $work_count
 }
 
-function test_build_fails_when_worker_exits() {
+function test_build_succeeds_even_if_worker_exits() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
@@ -276,14 +276,32 @@ function test_build_fails_when_worker_exits() {
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
-
-  bazel build :hello_world_1 &> $TEST_log \
+  # The worker dies after finishing the action, so the build succeeds.
+  bazel build --worker_verbose :hello_world_1 &> $TEST_log \
     || fail "build failed"
 
-  bazel build :hello_world_2 &> $TEST_log \
-    && fail "expected build to failed" || true
+  # This time, the worker is dead before the build starts, so a new one is made.
+  bazel build --worker_verbose :hello_world_2 &> $TEST_log \
+    || fail "build failed"
 
-  expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
+  expect_log "Work worker (id 1) has unexpectedly died with exit code 0."
+}
+
+function test_build_fails_if_worker_dies_during_action() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--exit_during=1"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build --worker_verbose :hello_world_1 &> $TEST_log \
+    && fail "expected build to fail" || true
+
+  expect_log "Worker process did not return a WorkResponse:"
 }
 
 function test_worker_restarts_when_worker_binary_changes() {

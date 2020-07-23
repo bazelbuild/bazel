@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 
@@ -55,6 +56,8 @@ class Worker {
 
   private Subprocess process;
   private Thread shutdownHook;
+  /** True if we deliberately destroyed this process. */
+  private boolean wasDestroyed;
 
   Worker(WorkerKey workerKey, int workerId, final Path workDir, Path logFile) {
     this.workerKey = workerKey;
@@ -97,6 +100,7 @@ class Worker {
       Runtime.getRuntime().removeShutdownHook(shutdownHook);
     }
     if (process != null) {
+      wasDestroyed = true;
       process.destroyAndWait();
     }
   }
@@ -121,6 +125,18 @@ class Worker {
     // This is horrible, but Process.isAlive() is only available from Java 8 on and this is the
     // best we can do prior to that.
     return !process.finished();
+  }
+
+  /** Returns true if this process is dead but we didn't deliberately kill it. */
+  boolean diedUnexpectedly() {
+    return process != null && !wasDestroyed && !process.isAlive();
+  }
+
+  /** Returns the exit value of this worker's process, if it has exited. */
+  public Optional<Integer> getExitValue() {
+    return process != null && !process.isAlive()
+        ? Optional.of(process.exitValue())
+        : Optional.empty();
   }
 
   void putRequest(WorkRequest request) throws IOException {

@@ -29,11 +29,12 @@ java_library(
         "//src/java_tools/buildjar:buildjar_package_group",
         "//src/test/java/com/google/devtools/build/lib:__subpackages__",
     ],
-    deps = [
-        ":javac_options",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
+    deps =
+        [
+            ":javac_options",
+            "//third_party:guava",
+            "//third_party:jsr305",
+        ],
 )
 
 JAVAC_OPTIONS_SRCS = [

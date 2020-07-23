@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Optional;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.commons.pool2.BaseKeyedPooledObjectFactory;
@@ -125,10 +126,44 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
     p.getObject().destroy();
   }
 
-  /** The worker is considered to be valid when its files have not changed on disk. */
+  /**
+   * Returns true if this worker is still valid. The worker is considered to be valid as long as its
+   * process has not exited and its files have not changed on disk.
+   */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
     Worker worker = p.getObject();
+    Optional<Integer> exitValue = worker.getExitValue();
+    if (exitValue.isPresent()) {
+      if (workerOptions.workerVerbose) {
+        if (worker.diedUnexpectedly()) {
+          String msg =
+              String.format(
+                  "%s %s (id %d) has unexpectedly died with exit code %d.",
+                  key.getMnemonic(),
+                  WorkerKey.makeWorkerTypeName(key.getProxied()),
+                  worker.getWorkerId(),
+                  exitValue.get());
+          ErrorMessage errorMessage =
+              ErrorMessage.builder()
+                  .message(msg)
+                  .logFile(worker.getLogFile())
+                  .logSizeLimit(4096)
+                  .build();
+          reporter.handle(Event.warn(errorMessage.toString()));
+        } else {
+          // Can't rule this out entirely, but it's not an unexpected death.
+          String msg =
+              String.format(
+                  "%s %s (id %d) was destroyed, but is still in the worker pool.",
+                  key.getMnemonic(),
+                  WorkerKey.makeWorkerTypeName(key.getProxied()),
+                  worker.getWorkerId());
+          reporter.handle(Event.info(msg));
+        }
+      }
+      return false;
+    }
     boolean hashMatches =
         key.getWorkerFilesCombinedHash().equals(worker.getWorkerFilesCombinedHash());
 
