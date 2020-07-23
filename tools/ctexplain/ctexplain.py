@@ -40,10 +40,10 @@ from typing import Tuple
 from absl import app
 from absl import flags
 
-from tools.ctexplain.analyses.summary import summary_analysis
-from tools.ctexplain.bazel_api import BazelApi
-from tools.ctexplain.ctexplain_lib import analyze_build
-from tools.ctexplain.util import ProgressStep
+import tools.ctexplain.analyses.summary
+import tools.ctexplain.bazel_api
+import tools.ctexplain.ctexplain_lib
+import tools.ctexplain.util
 
 FLAGS = flags.FLAGS
 
@@ -51,7 +51,7 @@ FLAGS = flags.FLAGS
 # (implementation(cts: Tuple[ConfiguredTarget, ...]), descriptive help text).
 analyses = {
     "summary": (
-        summary_analysis,
+        lambda x: summary.report(summary.analyze(x))
         "summarizes build graph size and how trimming could help"
     ),
     "culprits": (
@@ -72,6 +72,7 @@ analyses = {
         + "they produce. These are conceptually mergeable."
     )
 }
+
 
 # Command-line flag registration:
 
@@ -101,6 +102,7 @@ flags.DEFINE_multi_string(
 analysis" that measures how much distinct builds can share subgraphs""",
     short_name="b")
 
+
 # Core program logic:
 
 
@@ -127,10 +129,10 @@ def main(argv):
   elif len(FLAGS.build) > 1:
     exit("TODO(gregce): support multi-build shareability analysis")
 
-  bazel_api = BazelApi()
   (labels, build_flags) = _get_build_flags(FLAGS.build[0])
-  with ProgressStep(f'Collecting configured targets for {",".join(labels)}'):
-    cts = analyze_build(bazel_api, labels, build_flags)
+  build_desc = ",".join(labels)
+  with util.ProgressStep(f'Collecting configured targets for {build_desc}'):
+    cts = lib.analyze_build(BazelApi(), labels, build_flags)
   for analysis in FLAGS.analysis:
     analyses[analysis][0](cts)
 

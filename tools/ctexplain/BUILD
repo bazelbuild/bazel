@@ -6,33 +6,31 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])  # Apache 2.0
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["*"]),
+)
+
 py_binary(
     name = "ctexplain",
     srcs = ["ctexplain.py"],
     python_version = "PY3",
     deps = [
-        ":ctexplain_lib",
         ":analyses",
+        ":base",
+        ":lib",
         "//third_party/py/abseil"
     ],
 )
 
 py_library(
-    name = "ctexplain_lib",
-    srcs = ["ctexplain_lib.py"],
+    name = "lib",
+    srcs = ["lib.py"],
     srcs_version = "PY3ONLY",
     deps = [
         ":base",
-        ":bazel_api"],
-)
-
-py_library(
-    name = "analyses",
-    srcs = ["analyses/summary.py"],
-    srcs_version = "PY3ONLY",
-    deps = [
-        ":base",
-        ":bazel_api"],
+        ":bazel_api",
+    ],
 )
 
 py_library(
@@ -42,15 +40,11 @@ py_library(
     deps = [":base"],
 )
 
-py_test(
-    name = "bazel_api_test",
-    size = "small",
-    srcs = ["bazel_api_test.py"],
-    python_version = "PY3",
-    deps = [
-        ":bazel_api",
-        "//src/test/py/bazel:test_base",
-    ],
+py_library(
+    name = "analyses",
+    srcs = ["analyses/summary.py"],
+    srcs_version = "PY3ONLY",
+    deps = [":base"],
 )
 
 py_library(
@@ -67,6 +61,17 @@ py_library(
 )
 
 py_test(
+    name = "bazel_api_test",
+    size = "small",
+    srcs = ["bazel_api_test.py"],
+    python_version = "PY3",
+    deps = [
+        ":bazel_api",
+        "//src/test/py/bazel:test_base",
+    ],
+)
+
+py_test(
     name = "types_test",
     size = "small",
     srcs = ["types_test.py"],
@@ -75,9 +80,4 @@ py_test(
         ":base",
         "//third_party/py/frozendict",
     ],
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["*"]),
 )

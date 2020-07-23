@@ -12,14 +12,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ctexplain business logic."""
+"""General-purpose business logic."""
 from typing import Tuple
 
-from tools.ctexplain.bazel_api import BazelApi
+import tools.ctexplain.bazel_api
 from tools.ctexplain.types import ConfiguredTarget
 
 
-def analyze_build(bazel_api: BazelApi, labels: Tuple[str, ...],
+def analyze_build(bazel_api: bazel_api.BazelApi, labels: Tuple[str, ...],
                   build_flags: Tuple[str, ...]) -> Tuple[ConfiguredTarget, ...]:
   """Gets a build invocation's configured targets.
 

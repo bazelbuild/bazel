@@ -18,7 +18,7 @@ from typing import Tuple
 from dataclasses import dataclass
 
 from tools.ctexplain.types import ConfiguredTarget
-from tools.ctexplain.util import percent_diff
+import tools.ctexplain.util
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ class _Summary():
   repeated_targets: int
 
 
-def summary_analysis(cts: Tuple[ConfiguredTarget, ...]):
+def summary_analysis(cts: Tuple[types.ConfiguredTarget, ...]):
   """Runs the analysis.
 
   Args:
@@ -67,7 +67,7 @@ def _report_summary(result: _Summary):
   Args:
     result: the analysis result
   """
-  ct_surplus = percent_diff(result.targets, result.configured_targets)
+  ct_surplus = util.percent_diff(result.targets, result.configured_targets)
   print(f"""
 Configurations: {result.configurations}
 Targets: {result.targets}
