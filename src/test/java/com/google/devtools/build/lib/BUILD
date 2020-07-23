@@ -539,6 +539,7 @@ java_test(
         ":AllTests",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//src/main/java/com/google/devtools/build/lib/util:resource_converter",
@@ -557,6 +558,7 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
