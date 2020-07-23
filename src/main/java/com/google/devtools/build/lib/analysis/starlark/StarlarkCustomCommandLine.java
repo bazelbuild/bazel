@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
@@ -214,8 +215,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // It's safe to uniquify at this stage, any transformations after this
       // will ensure continued uniqueness of the values
       if ((features & UNIQUIFY) != 0) {
-        HashSet<String> seen = new HashSet<>(stringValues.size());
         int count = stringValues.size();
+        HashSet<String> seen = Sets.newHashSetWithExpectedSize(count);
         int addIndex = 0;
         for (int i = 0; i < count; ++i) {
           String val = stringValues.get(i);
@@ -295,11 +296,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private static List<Object> expandDirectories(
         Artifact.ArtifactExpander artifactExpander, List<Object> originalValues)
         throws CommandLineExpansionException {
-      List<Object> expandedValues;
-      int n = originalValues.size();
-      expandedValues = new ArrayList<>(n);
-      for (int i = 0; i < n; ++i) {
-        Object object = originalValues.get(i);
+      List<Object> expandedValues = new ArrayList<>(originalValues.size());
+      for (Object object : originalValues) {
         if (isDirectory(object)) {
           Artifact artifact = (Artifact) object;
           if (artifact.isTreeArtifact()) {
@@ -345,7 +343,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
       StarlarkCallable mapEach =
           ((features & HAS_MAP_EACH) != 0) ? (StarlarkCallable) arguments.get(argi++) : null;
       if ((features & IS_NESTED_SET) != 0) {
-        NestedSet<?> values = (NestedSet) arguments.get(argi++);
+        NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
           CommandLineItem.MapFn<Object> commandLineItemMapFn =
               new CommandLineItemMapEachAdaptor(mapEach, location, starlarkSemantics);
