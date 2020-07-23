@@ -133,6 +133,18 @@ maybe(
 # This must be kept in sync with the top-level WORKSPACE file.
 maybe(
     http_archive,
+    name = "remotejdk11_linux_s390x",
+    build_file = "@local_jdk//:BUILD.bazel",
+    sha256 = "d9b72e87a1d3ebc0c9552f72ae5eb150fffc0298a7cb841f1ce7bfc70dcd1059",
+    strip_prefix = "jdk-11.0.7+10",
+    urls = [
+        "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7%2B10/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.7_10.tar.gz",
+    ],
+)
+
+# This must be kept in sync with the top-level WORKSPACE file.
+maybe(
+    http_archive,
     name = "remotejdk11_macos",
     build_file = "@local_jdk//:BUILD.bazel",
     sha256 = "e1fe56769f32e2aaac95e0a8f86b5a323da5af3a3b4bba73f3086391a6cc056f",

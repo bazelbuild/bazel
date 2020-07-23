@@ -361,6 +361,15 @@ http_file(
 )
 
 http_file(
+    name = "openjdk_linux_s390x_vanilla",
+    downloaded_file_path="adoptopenjdk-s390x-vanilla.tar.gz",
+    sha256 = "d9b72e87a1d3ebc0c9552f72ae5eb150fffc0298a7cb841f1ce7bfc70dcd1059",
+    urls = [
+        "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7%2B10/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.7_10.tar.gz",
+    ],
+)
+
+http_file(
     name = "openjdk_macos",
     downloaded_file_path = "zulu-macos.tar.gz",
     sha256 = "8e283cfd23c7555be8e17295ed76eb8f00324c88ab904b8de37bbe08f90e569b",
@@ -755,6 +764,19 @@ http_archive(
     urls = [
         "https://mirror.bazel.build/openjdk/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7+10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
         "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7+10/OpenJDK11U-jdk_ppc64le_linux_hotspot_11.0.7_10.tar.gz",
+    ],
+)
+
+# This must be kept in sync with src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
+http_archive(
+    name = "remotejdk11_linux_s390x_for_testing",
+    build_file = "@local_jdk//:BUILD.bazel",
+    patch_cmds = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE,
+    patch_cmds_win = EXPORT_WORKSPACE_IN_BUILD_BAZEL_FILE_WIN,
+    sha256 = "d9b72e87a1d3ebc0c9552f72ae5eb150fffc0298a7cb841f1ce7bfc70dcd1059",
+    strip_prefix = "jdk-11.0.7+10",
+    urls = [
+        "https://github.com/AdoptOpenJDK/openjdk11-binaries/releases/download/jdk-11.0.7%2B10/OpenJDK11U-jdk_s390x_linux_hotspot_11.0.7_10.tar.gz",
     ],
 )
 
