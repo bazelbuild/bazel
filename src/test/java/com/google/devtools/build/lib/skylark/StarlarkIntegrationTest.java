@@ -3435,4 +3435,51 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "",
         "malloc_rule(name = 'malloc')");
   }
+
+  // Test for an interesting situation for the inlining implementation's attempt to process
+  // subsequent load statements even when an earlier one has a missing Skyframe dep.
+  @Test
+  public void bzlFileWithErrorsLoadedThroughMultipleLoadPathsWithTheLatterOneHavingMissingDeps()
+      throws Exception {
+    scratch.file("test/starlark/error.bzl", "nope");
+    scratch.file("test/starlark/ok.bzl", "ok = 42");
+    scratch.file(
+        "test/starlark/loads-error-and-has-missing-deps.bzl",
+        "load('//test/starlark:error.bzl', 'doesntmatter')",
+        "load('//test/starlark:ok.bzl', 'ok')");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:error.bzl', 'doesntmatter')",
+        "load('//test/starlark:loads-error-and-has-missing-deps.bzl', 'doesntmatter')");
+
+    reporter.removeHandler(failFastHandler);
+    BuildFileContainsErrorsException e =
+        assertThrows(
+            BuildFileContainsErrorsException.class, () -> getTarget("//test/starlark:BUILD"));
+    assertThat(e).hasMessageThat().contains("Extension 'test/starlark/error.bzl' has errors");
+  }
+
+  // Test for an interesting situation for the inlining implementation's attempt to process
+  // subsequent load statements even when an earlier one has a missing Skyframe dep.
+  @Test
+  public void bzlFileWithErrorsLoadedThroughMultipleLoadPathsWithTheLatterOneNotHavingMissingDeps()
+      throws Exception {
+    scratch.file("test/starlark/error.bzl", "nope");
+    scratch.file("test/starlark/ok.bzl", "ok = 42");
+    scratch.file(
+        "test/starlark/loads-error-and-has-missing-deps.bzl",
+        "load('//test/starlark:error.bzl', 'doesntmatter')",
+        "load('//test/starlark:ok.bzl', 'ok')");
+    scratch.file(
+        "test/starlark/BUILD",
+        "load('//test/starlark:ok.bzl', 'ok')",
+        "load('//test/starlark:error.bzl', 'doesntmatter')",
+        "load('//test/starlark:loads-error-and-has-missing-deps.bzl', 'doesntmatter')");
+
+    reporter.removeHandler(failFastHandler);
+    BuildFileContainsErrorsException e =
+        assertThrows(
+            BuildFileContainsErrorsException.class, () -> getTarget("//test/starlark:BUILD"));
+    assertThat(e).hasMessageThat().contains("Extension 'test/starlark/error.bzl' has errors");
+  }
 }
