@@ -912,9 +912,6 @@ public class ActionExecutionFunction implements SkyFunction {
     Map<SkyKey, ValueOrException<IOException>> nonMandatoryDiscovered =
         env.getValuesOrThrow(
             Iterables.transform(discoveredInputs, Artifact::key), IOException.class);
-    if (env.valuesMissing()) {
-      return DiscoveredState.VALUES_MISSING;
-    }
     if (nonMandatoryDiscovered.isEmpty()) {
       return DiscoveredState.NO_DISCOVERED_DATA;
     }
@@ -943,6 +940,14 @@ public class ActionExecutionFunction implements SkyFunction {
             createDetailedExitCode(message, Code.DISCOVERED_INPUT_DOES_NOT_EXIST);
         throw new ActionExecutionException(message, actionForError, false, code);
       }
+      if (retrievedMetadata == null) {
+        Preconditions.checkState(
+            env.valuesMissing(),
+            "%s had no metadata but all values were present for %s",
+            input,
+            actionForError);
+        continue;
+      }
       if (retrievedMetadata instanceof TreeArtifactValue) {
         TreeArtifactValue treeValue = (TreeArtifactValue) retrievedMetadata;
         expandedArtifacts.put(input, ImmutableSet.copyOf(treeValue.getChildren()));
@@ -963,7 +968,7 @@ public class ActionExecutionFunction implements SkyFunction {
             "unknown metadata for " + input.getExecPathString() + ": " + retrievedMetadata);
       }
     }
-    return DiscoveredState.DISCOVERED_DATA;
+    return env.valuesMissing() ? DiscoveredState.VALUES_MISSING : DiscoveredState.DISCOVERED_DATA;
   }
 
   private static <E extends Exception> Object establishSkyframeDependencies(
