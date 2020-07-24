@@ -214,6 +214,50 @@ public class DigestUtilsTest {
   }
 
   @Test
+  public void testCacheWithSymlinks_cacheHit() throws Exception {
+    final AtomicInteger getFastDigestCounter = new AtomicInteger(0);
+    final AtomicInteger getDigestCounter = new AtomicInteger(0);
+
+    FileSystem tracingFileSystem =
+        new InMemoryFileSystem(BlazeClock.instance()) {
+          @Override
+          protected byte[] getFastDigest(Path path) {
+            getFastDigestCounter.incrementAndGet();
+            return null;
+          }
+
+          @Override
+          protected byte[] getDigest(Path path) throws IOException {
+            getDigestCounter.incrementAndGet();
+            return super.getDigest(path);
+          }
+        };
+
+    DigestUtils.configureCache(2);
+
+    final Path file1 = tracingFileSystem.getPath("/file1.txt");
+    FileSystemUtils.writeContentAsLatin1(file1, "some contents");
+    // Create a symlink to file1
+    final Path directory = tracingFileSystem.getPath("/dir");
+    directory.createDirectory();
+    final Path symlink = tracingFileSystem.getPath("/dir/symlink_to_file1.txt");
+    symlink.createSymbolicLink(file1);
+
+    byte[] digest1 = DigestUtils.getDigestWithManualFallback(file1, file1.getFileSize());
+    assertThat(getFastDigestCounter.get()).isEqualTo(1);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    new CacheStatsChecker().evictionCount(0).hitCount(0).missCount(1).check();
+
+    // Check that there is a cache hit for the symlink
+    byte[] digest2 = DigestUtils.getDigestWithManualFallback(symlink, symlink.getFileSize());
+    assertThat(getFastDigestCounter.get()).isEqualTo(2);
+    assertThat(getDigestCounter.get()).isEqualTo(1);
+    new CacheStatsChecker().evictionCount(0).hitCount(1).missCount(1).check();
+
+    assertThat(digest1).isEqualTo(digest2);
+  }
+
+  @Test
   public void manuallyComputeDigest() throws Exception {
     byte[] digest = {1, 2, 3};
     FileSystem noDigestFileSystem =
