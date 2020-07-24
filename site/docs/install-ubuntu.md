@@ -69,6 +69,13 @@ can be useful if you need a specific version of Bazel to build a project, e.g.
 because it uses a `.bazelversion` file to explicitly state with which Bazel
 version it should be built.
 
+Optionally, this version can be symlinked to `bazel` via the following command:
+
+```shell
+sudo ln -s /usr/bin/bazel-1.0.0 /usr/bin/bazel
+bazel --version  # 1.0.0
+```
+
 ### Step 3: Install a JDK (optional)
 
 Bazel includes a private, bundled JRE as its runtime and doesn't require you to
