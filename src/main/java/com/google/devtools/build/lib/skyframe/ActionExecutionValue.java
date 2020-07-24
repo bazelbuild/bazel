@@ -271,16 +271,15 @@ public class ActionExecutionValue implements SkyValue {
     }
 
     SpecialArtifact newParent = (SpecialArtifact) newArtifact;
+    TreeArtifactValue.Builder newTree = TreeArtifactValue.newBuilder(newParent);
 
-    Map<TreeFileArtifact, FileArtifactValue> newChildren =
-        Maps.newHashMapWithExpectedSize(tree.getChildValues().size());
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> child : tree.getChildValues().entrySet()) {
-      newChildren.put(
+      newTree.putChild(
           TreeFileArtifact.createTreeOutput(newParent, child.getKey().getParentRelativePath()),
           child.getValue());
     }
 
-    return TreeArtifactValue.create(newChildren);
+    return newTree.build();
   }
 
   ActionExecutionValue transformForSharedAction(ImmutableSet<Artifact> outputs) {

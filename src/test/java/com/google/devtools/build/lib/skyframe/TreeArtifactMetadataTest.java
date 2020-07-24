@@ -57,9 +57,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -263,12 +261,12 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
     @Override
     public SkyValue compute(SkyKey skyKey, Environment env)
         throws SkyFunctionException, InterruptedException {
-      Map<TreeFileArtifact, FileArtifactValue> treeArtifactData = new HashMap<>();
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
       ActionLookupValue actionLookupValue =
           (ActionLookupValue) env.getValue(actionLookupData.getActionLookupKey());
       Action action = actionLookupValue.getAction(actionLookupData.getActionIndex());
       SpecialArtifact output = (SpecialArtifact) Iterables.getOnlyElement(action.getOutputs());
+      TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(output);
       for (PathFragment subpath : testTreeArtifactContents) {
         try {
           TreeFileArtifact suboutput = TreeFileArtifact.createTreeOutput(output, subpath);
@@ -281,17 +279,15 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
           FileArtifactValue withDigest =
               FileArtifactValue.createFromInjectedDigest(
                   noDigest, path.getDigest(), !output.isConstantMetadata());
-          treeArtifactData.put(suboutput, withDigest);
+          tree.putChild(suboutput, withDigest);
         } catch (IOException e) {
           throw new SkyFunctionException(e, Transience.TRANSIENT) {};
         }
       }
 
-      TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(treeArtifactData);
-
       return ActionExecutionValue.create(
           /*artifactData=*/ ImmutableMap.of(),
-          ImmutableMap.of(output, treeArtifactValue),
+          ImmutableMap.of(output, tree.build()),
           /*outputSymlinks=*/ null,
           /*discoveredModules=*/ null,
           /*actionDependsOnBuildId=*/ false);

@@ -2674,11 +2674,14 @@ java_library(
 
 java_library(
     name = "tree_artifact_value",
-    srcs = ["TreeArtifactValue.java"],
+    srcs = [
+        "TreeArtifactInjector.java",
+        "TreeArtifactValue.java",
+    ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
+        "//src/main/java/com/google/devtools/build/lib/actions:has_digest",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
         "//src/main/java/com/google/devtools/build/lib/util",

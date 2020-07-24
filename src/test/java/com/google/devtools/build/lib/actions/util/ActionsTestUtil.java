@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue;
 import com.google.devtools.build.lib.skyframe.ActionTemplateExpansionValue.ActionTemplateExpansionKey;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.util.FileType;
@@ -921,8 +922,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void injectDirectory(
-        SpecialArtifact treeArtifact, Map<TreeFileArtifact, FileArtifactValue> children) {
+    public void injectTree(SpecialArtifact treeArtifact, TreeArtifactValue tree) {
       throw new UnsupportedOperationException();
     }
 

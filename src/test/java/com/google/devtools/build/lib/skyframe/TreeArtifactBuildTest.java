@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.Action;
@@ -627,7 +626,12 @@ public final class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
             actionExecutionContext
                 .getMetadataHandler()
-                .injectDirectory(out, ImmutableMap.of(child1, remoteFile1, child2, remoteFile2));
+                .injectTree(
+                    out,
+                    TreeArtifactValue.newBuilder(out)
+                        .putChild(child1, remoteFile1)
+                        .putChild(child2, remoteFile2)
+                        .build());
           }
         };
 

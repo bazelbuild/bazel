@@ -384,20 +384,17 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
       throws Exception {
     SpecialArtifact treeArtifact = createTreeArtifact(path);
     treeArtifact.setGeneratingActionKey(ActionLookupData.create(CTKEY, /*actionIndex=*/ 0));
-    Map<TreeFileArtifact, FileArtifactValue> treeFileArtifactMap = new LinkedHashMap<>();
+    TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(treeArtifact);
 
     for (String childRelativePath : childRelativePaths) {
       TreeFileArtifact treeFileArtifact =
           TreeFileArtifact.createTreeOutput(treeArtifact, childRelativePath);
       scratch.file(treeFileArtifact.getPath().toString(), childRelativePath);
       // We do not care about the FileArtifactValues in this test.
-      treeFileArtifactMap.put(
-          treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
+      tree.putChild(treeFileArtifact, FileArtifactValue.createForTesting(treeFileArtifact));
     }
 
-    artifactValueMap.put(
-        treeArtifact, TreeArtifactValue.create(ImmutableMap.copyOf(treeFileArtifactMap)));
-
+    artifactValueMap.put(treeArtifact, tree.build());
     return treeArtifact;
   }
 

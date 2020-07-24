@@ -33,8 +33,8 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
    * <p>Freshly created output files (i.e. from an action that just executed) that require a stat to
    * obtain the metadata will first be set read-only and executable during this call. This ensures
    * that the returned metadata has an appropriate ctime, which is affected by chmod. Note that this
-   * does not apply to outputs injected via {@link #injectFile} or {@link #injectDirectory} since a
-   * stat is not required for them.
+   * does not apply to outputs injected via {@link #injectFile} or {@link #injectTree} since a stat
+   * is not required for them.
    */
   @Override
   @Nullable
@@ -47,7 +47,7 @@ public interface MetadataHandler extends MetadataProvider, MetadataInjector {
    * Constructs a {@link FileArtifactValue} for the given output whose digest is known.
    *
    * <p>This call does not inject the returned metadata. It should be injected with a followup call
-   * to {@link #injectFile} or {@link #injectDirectory} as appropriate.
+   * to {@link #injectFile} or {@link #injectTree} as appropriate.
    *
    * <p>chmod will not be called on the output.
    */

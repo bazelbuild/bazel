@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
@@ -27,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.ActionTemplate;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -189,11 +188,14 @@ class ArtifactFunction implements SkyFunction {
       return null;
     }
 
-    // Aggregate the ArtifactValues for individual TreeFileArtifacts into a TreeArtifactValue for
-    // the parent TreeArtifact.
-    ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> map = ImmutableMap.builder();
+    // Aggregate the metadata for individual TreeFileArtifacts into a TreeArtifactValue for the
+    // parent TreeArtifact.
+    SpecialArtifact parent = (SpecialArtifact) artifactDependencies.artifact;
+    TreeArtifactValue.Builder treeBuilder = TreeArtifactValue.newBuilder(parent);
     boolean omitted = false;
+
     for (ActionLookupData actionKey : expandedActionExecutionKeys) {
+      boolean sawTreeChild = false;
       ActionExecutionValue actionExecutionValue =
           (ActionExecutionValue)
               Preconditions.checkNotNull(
@@ -202,48 +204,47 @@ class ArtifactFunction implements SkyFunction {
                   artifactDependencies,
                   expansionValue,
                   expandedActionValueMap);
-      Iterable<TreeFileArtifact> treeFileArtifacts =
-          Iterables.transform(
-              Iterables.filter(
-                  actionExecutionValue.getAllFileValues().keySet(),
-                  artifact -> {
-                    Preconditions.checkState(
-                        artifact.hasParent(),
-                        "No parent: %s %s %s",
-                        artifact,
-                        actionExecutionValue,
-                        artifactDependencies);
-                    return artifact.getParent().equals(artifactDependencies.artifact);
-                  }),
-              artifact -> (TreeFileArtifact) artifact);
 
-      Preconditions.checkState(
-          !Iterables.isEmpty(treeFileArtifacts),
-          "Action denoted by %s does not output TreeFileArtifact from %s",
-          actionKey,
-          artifactDependencies);
+      for (Map.Entry<Artifact, FileArtifactValue> entry :
+          actionExecutionValue.getAllFileValues().entrySet()) {
+        Artifact artifact = entry.getKey();
+        Preconditions.checkState(
+            artifact.hasParent(),
+            "Parentless artifact %s found in ActionExecutionValue for %s: %s %s",
+            artifact,
+            actionKey,
+            actionExecutionValue,
+            artifactDependencies);
 
-      for (TreeFileArtifact treeFileArtifact : treeFileArtifacts) {
-        FileArtifactValue value =
-            actionExecutionValue.getExistingFileArtifactValue(treeFileArtifact);
-        if (FileArtifactValue.OMITTED_FILE_MARKER.equals(value)) {
-          omitted = true;
-        } else {
-          map.put(treeFileArtifact, value);
+        if (artifact.getParent().equals(parent)) {
+          sawTreeChild = true;
+          if (FileArtifactValue.OMITTED_FILE_MARKER.equals(entry.getValue())) {
+            omitted = true;
+          } else {
+            treeBuilder.putChild((TreeFileArtifact) artifact, entry.getValue());
+          }
         }
       }
+
+      Preconditions.checkState(
+          sawTreeChild,
+          "Action denoted by %s does not output any TreeFileArtifacts from %s",
+          actionKey,
+          artifactDependencies);
     }
 
-    ImmutableMap<TreeFileArtifact, FileArtifactValue> children = map.build();
+    TreeArtifactValue tree = treeBuilder.build();
 
     if (omitted) {
       Preconditions.checkState(
-          children.isEmpty(),
+          tree.getChildValues().isEmpty(),
           "Action template expansion has some but not all outputs omitted, present outputs: %s",
-          children);
+          artifactDependencies,
+          tree.getChildValues());
       return TreeArtifactValue.OMITTED_TREE_MARKER;
     }
-    return TreeArtifactValue.create(children);
+
+    return tree;
   }
 
   private static SkyValue createSourceValue(Artifact artifact, Environment env)

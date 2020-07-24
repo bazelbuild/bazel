@@ -20,14 +20,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Pair;
@@ -56,6 +54,86 @@ public final class TreeArtifactValueTest {
   private final ArtifactRoot root = ArtifactRoot.asDerivedRoot(scratch.resolve("root"), "bin");
 
   @Test
+  public void builderCreatesCorrectValue() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
+    TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
+    FileArtifactValue metadata1 = metadataWithId(1);
+    FileArtifactValue metadata2 = metadataWithId(2);
+
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(parent)
+            .putChild(child1, metadata1)
+            .putChild(child2, metadata2)
+            .build();
+
+    assertThat(tree.getChildren()).containsExactly(child1, child2);
+    assertThat(tree.getChildValues()).containsExactly(child1, metadata1, child2, metadata2);
+    assertThat(tree.getChildPaths())
+        .containsExactly(child1.getParentRelativePath(), child2.getParentRelativePath());
+    assertThat(tree.getDigest()).isNotNull();
+    assertThat(tree.getMetadata().getDigest()).isEqualTo(tree.getDigest());
+  }
+
+  @Test
+  public void empty() {
+    TreeArtifactValue emptyTree = TreeArtifactValue.empty();
+
+    assertThat(emptyTree.getChildren()).isEmpty();
+    assertThat(emptyTree.getChildValues()).isEmpty();
+    assertThat(emptyTree.getChildPaths()).isEmpty();
+    assertThat(emptyTree.getDigest()).isNotNull();
+    assertThat(emptyTree.getMetadata().getDigest()).isEqualTo(emptyTree.getDigest());
+  }
+
+  @Test
+  public void canonicalEmptyInstance() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+
+    TreeArtifactValue emptyTreeFromBuilder = TreeArtifactValue.newBuilder(parent).build();
+
+    assertThat(emptyTreeFromBuilder).isSameInstanceAs(TreeArtifactValue.empty());
+  }
+
+  @Test
+  public void cannotCreateBuilderForNonTreeArtifact() {
+    SpecialArtifact notTreeArtifact =
+        new SpecialArtifact(
+            root,
+            PathFragment.create("bin/not_tree"),
+            ActionsTestUtil.NULL_ARTIFACT_OWNER,
+            SpecialArtifactType.FILESET);
+
+    assertThrows(
+        IllegalArgumentException.class, () -> TreeArtifactValue.newBuilder(notTreeArtifact));
+  }
+
+  @Test
+  public void cannotMixParentsWithinSingleBuilder() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeFileArtifact childOfAnotherParent =
+        TreeFileArtifact.createTreeOutput(createTreeArtifact("bin/other_tree"), "child");
+
+    TreeArtifactValue.Builder builderForParent = TreeArtifactValue.newBuilder(parent);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> builderForParent.putChild(childOfAnotherParent, metadataWithId(1)));
+  }
+
+  @Test
+  public void cannotAddOmittedChildToBuilder() {
+    SpecialArtifact parent = createTreeArtifact("bin/tree");
+    TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
+
+    TreeArtifactValue.Builder builder = TreeArtifactValue.newBuilder(parent);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> builder.putChild(child, FileArtifactValue.OMITTED_FILE_MARKER));
+  }
+
+  @Test
   public void orderIndependence() {
     SpecialArtifact parent = createTreeArtifact("bin/tree");
     TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
@@ -64,9 +142,15 @@ public final class TreeArtifactValueTest {
     FileArtifactValue metadata2 = metadataWithId(2);
 
     TreeArtifactValue tree1 =
-        TreeArtifactValue.create(ImmutableMap.of(child1, metadata1, child2, metadata2));
+        TreeArtifactValue.newBuilder(parent)
+            .putChild(child1, metadata1)
+            .putChild(child2, metadata2)
+            .build();
     TreeArtifactValue tree2 =
-        TreeArtifactValue.create(ImmutableMap.of(child2, metadata2, child1, metadata1));
+        TreeArtifactValue.newBuilder(parent)
+            .putChild(child2, metadata2)
+            .putChild(child1, metadata1)
+            .build();
 
     assertThat(tree1).isEqualTo(tree2);
   }
@@ -77,8 +161,10 @@ public final class TreeArtifactValueTest {
     TreeFileArtifact child = TreeFileArtifact.createTreeOutput(parent, "child");
     FileArtifactValue metadataNoDigest = metadataWithIdNoDigest(1);
 
-    TreeArtifactValue tree1 = TreeArtifactValue.create(ImmutableMap.of(child, metadataNoDigest));
-    TreeArtifactValue tree2 = TreeArtifactValue.create(ImmutableMap.of(child, metadataNoDigest));
+    TreeArtifactValue tree1 =
+        TreeArtifactValue.newBuilder(parent).putChild(child, metadataNoDigest).build();
+    TreeArtifactValue tree2 =
+        TreeArtifactValue.newBuilder(parent).putChild(child, metadataNoDigest).build();
 
     assertThat(metadataNoDigest.getDigest()).isNull();
     assertThat(tree1.getDigest()).isNotNull();
@@ -93,8 +179,10 @@ public final class TreeArtifactValueTest {
     FileArtifactValue metadataNoDigest1 = metadataWithIdNoDigest(1);
     FileArtifactValue metadataNoDigest2 = metadataWithIdNoDigest(2);
 
-    TreeArtifactValue tree1 = TreeArtifactValue.create(ImmutableMap.of(child, metadataNoDigest1));
-    TreeArtifactValue tree2 = TreeArtifactValue.create(ImmutableMap.of(child, metadataNoDigest2));
+    TreeArtifactValue tree1 =
+        TreeArtifactValue.newBuilder(parent).putChild(child, metadataNoDigest1).build();
+    TreeArtifactValue tree2 =
+        TreeArtifactValue.newBuilder(parent).putChild(child, metadataNoDigest2).build();
 
     assertThat(metadataNoDigest1.getDigest()).isNull();
     assertThat(metadataNoDigest2.getDigest()).isNull();
@@ -256,7 +344,7 @@ public final class TreeArtifactValueTest {
     }
 
     @Parameter public MultiBuilderType multiBuilderType;
-    private final FakeMetadataInjector metadataInjector = new FakeMetadataInjector();
+    private final Map<SpecialArtifact, TreeArtifactValue> results = new HashMap<>();
 
     @Parameters(name = "{0}")
     public static MultiBuilderType[] params() {
@@ -267,9 +355,9 @@ public final class TreeArtifactValueTest {
     public void empty() {
       TreeArtifactValue.MultiBuilder treeArtifacts = multiBuilderType.newMultiBuilder();
 
-      treeArtifacts.injectTo(metadataInjector);
+      treeArtifacts.injectTo(results::put);
 
-      assertThat(metadataInjector.injectedTreeArtifacts).isEmpty();
+      assertThat(results).isEmpty();
     }
 
     @Test
@@ -279,15 +367,18 @@ public final class TreeArtifactValueTest {
       TreeFileArtifact child1 = TreeFileArtifact.createTreeOutput(parent, "child1");
       TreeFileArtifact child2 = TreeFileArtifact.createTreeOutput(parent, "child2");
 
-      treeArtifacts.putChild(child1, metadataWithId(1));
-      treeArtifacts.putChild(child2, metadataWithId(2));
-      treeArtifacts.injectTo(metadataInjector);
+      treeArtifacts
+          .putChild(child1, metadataWithId(1))
+          .putChild(child2, metadataWithId(2))
+          .injectTo(results::put);
 
-      assertThat(metadataInjector.injectedTreeArtifacts)
+      assertThat(results)
           .containsExactly(
               parent,
-              TreeArtifactValue.create(
-                  ImmutableMap.of(child1, metadataWithId(1), child2, metadataWithId(2))));
+              TreeArtifactValue.newBuilder(parent)
+                  .putChild(child1, metadataWithId(1))
+                  .putChild(child2, metadataWithId(2))
+                  .build());
     }
 
     @Test
@@ -299,38 +390,27 @@ public final class TreeArtifactValueTest {
       SpecialArtifact parent2 = createTreeArtifact("bin/tree2");
       TreeFileArtifact parent2Child = TreeFileArtifact.createTreeOutput(parent2, "child");
 
-      treeArtifacts.putChild(parent1Child1, metadataWithId(1));
-      treeArtifacts.putChild(parent2Child, metadataWithId(3));
-      treeArtifacts.putChild(parent1Child2, metadataWithId(2));
-      treeArtifacts.injectTo(metadataInjector);
+      treeArtifacts
+          .putChild(parent1Child1, metadataWithId(1))
+          .putChild(parent2Child, metadataWithId(3))
+          .putChild(parent1Child2, metadataWithId(2))
+          .injectTo(results::put);
 
-      assertThat(metadataInjector.injectedTreeArtifacts)
+      assertThat(results)
           .containsExactly(
               parent1,
-              TreeArtifactValue.create(
-                  ImmutableMap.of(
-                      parent1Child1, metadataWithId(1), parent1Child2, metadataWithId(2))),
+              TreeArtifactValue.newBuilder(parent1)
+                  .putChild(parent1Child1, metadataWithId(1))
+                  .putChild(parent1Child2, metadataWithId(2))
+                  .build(),
               parent2,
-              TreeArtifactValue.create(ImmutableMap.of(parent2Child, metadataWithId(3))));
+              TreeArtifactValue.newBuilder(parent2)
+                  .putChild(parent2Child, metadataWithId(3))
+                  .build());
     }
 
     private static SpecialArtifact createTreeArtifact(String execPath) {
       return TreeArtifactValueTest.createTreeArtifact(execPath, ROOT);
-    }
-
-    private static final class FakeMetadataInjector implements MetadataInjector {
-      private final Map<SpecialArtifact, TreeArtifactValue> injectedTreeArtifacts = new HashMap<>();
-
-      @Override
-      public void injectFile(Artifact output, FileArtifactValue metadata) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void injectDirectory(
-          SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children) {
-        injectedTreeArtifacts.put(output, TreeArtifactValue.create(children));
-      }
     }
   }
 

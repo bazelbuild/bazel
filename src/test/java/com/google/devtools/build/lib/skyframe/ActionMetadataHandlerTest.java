@@ -44,7 +44,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -382,34 +381,31 @@ public final class ActionMetadataHandlerTest {
             /*outputs=*/ ImmutableSet.of(treeArtifact));
     handler.prepareForActionExecution();
 
-    RemoteFileArtifactValue fooValue =
-        new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1, "foo");
-    RemoteFileArtifactValue barValue =
-        new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1, "bar");
-    Map<TreeFileArtifact, FileArtifactValue> children =
-        ImmutableMap.of(
-            TreeFileArtifact.createTreeOutput(treeArtifact, "foo"), fooValue,
-            TreeFileArtifact.createTreeOutput(treeArtifact, "bar"), barValue);
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(treeArtifact)
+            .putChild(
+                TreeFileArtifact.createTreeOutput(treeArtifact, "foo"),
+                new RemoteFileArtifactValue(new byte[] {1, 2, 3}, 5, 1, "foo"))
+            .putChild(
+                TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
+                new RemoteFileArtifactValue(new byte[] {4, 5, 6}, 10, 1, "bar"))
+            .build();
 
-    handler.injectDirectory(treeArtifact, children);
+    handler.injectTree(treeArtifact, tree);
 
     FileArtifactValue value = handler.getMetadata(treeArtifact);
     assertThat(value).isNotNull();
-    TreeArtifactValue treeValue = handler.getOutputStore().getTreeArtifactData(treeArtifact);
-    assertThat(treeValue).isNotNull();
-    assertThat(treeValue.getDigest()).isEqualTo(value.getDigest());
+    assertThat(value.getDigest()).isEqualTo(tree.getDigest());
+    assertThat(handler.getOutputStore().getTreeArtifactData(treeArtifact)).isEqualTo(tree);
     assertThat(chmodCalls).isEmpty();
 
-    assertThat(treeValue.getChildPaths())
-        .containsExactly(PathFragment.create("foo"), PathFragment.create("bar"));
-    assertThat(treeValue.getChildValues().values()).containsExactly(fooValue, barValue);
-    assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEqualTo(treeValue.getChildren());
+    assertThat(handler.getTreeArtifactChildren(treeArtifact)).isEqualTo(tree.getChildren());
 
     // Make sure that all children are transferred properly into the ActionExecutionValue. If any
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.createFromOutputStore(handler.getOutputStore(), null, null, false);
-    treeValue.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
+    tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 
   @Test

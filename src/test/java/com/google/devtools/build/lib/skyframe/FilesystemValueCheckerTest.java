@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.cache.MetadataInjector;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -84,7 +83,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -531,11 +529,11 @@ public final class FilesystemValueCheckerTest {
             actionKey2,
             actionValueWithTreeArtifacts(ImmutableList.of(file21, file22)),
             actionKeyEmpty,
-            actionValueWithEmptyDirectory(outEmpty),
+            actionValueWithTreeArtifact(outEmpty, TreeArtifactValue.empty()),
             actionKeyUnchanging,
-            actionValueWithEmptyDirectory(outUnchanging),
+            actionValueWithTreeArtifact(outUnchanging, TreeArtifactValue.empty()),
             actionKeyLast,
-            actionValueWithEmptyDirectory(last)));
+            actionValueWithTreeArtifact(last, TreeArtifactValue.empty())));
 
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
@@ -861,15 +859,6 @@ public final class FilesystemValueCheckerTest {
         /*actionDependsOnBuildId=*/ false);
   }
 
-  private static ActionExecutionValue actionValueWithEmptyDirectory(SpecialArtifact emptyDir) {
-    return ActionExecutionValue.create(
-        /*artifactData=*/ ImmutableMap.of(),
-        ImmutableMap.of(emptyDir, TreeArtifactValue.create(ImmutableMap.of())),
-        /*outputSymlinks=*/ null,
-        /*discoveredModules=*/ null,
-        /*actionDependsOnBuildId=*/ false);
-  }
-
   private static ActionExecutionValue actionValueWithTreeArtifacts(
       List<TreeFileArtifact> contents) {
     TreeArtifactValue.MultiBuilder treeArtifacts = TreeArtifactValue.newMultiBuilder();
@@ -892,17 +881,7 @@ public final class FilesystemValueCheckerTest {
     }
 
     Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
-    treeArtifacts.injectTo(
-        new MetadataInjector() {
-          @Override
-          public void injectFile(Artifact output, FileArtifactValue metadata) {}
-
-          @Override
-          public void injectDirectory(
-              SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children) {
-            treeArtifactData.put(output, TreeArtifactValue.create(children));
-          }
-        });
+    treeArtifacts.injectTo(treeArtifactData::put);
 
     return ActionExecutionValue.create(
         /*artifactData=*/ ImmutableMap.of(),
@@ -912,31 +891,24 @@ public final class FilesystemValueCheckerTest {
         /*actionDependsOnBuildId=*/ false);
   }
 
-  private static ActionExecutionValue actionValueWithRemoteTreeArtifact(
-      SpecialArtifact output, Map<PathFragment, RemoteFileArtifactValue> children) {
-    ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> childFileValues =
-        ImmutableMap.builder();
-    for (Map.Entry<PathFragment, RemoteFileArtifactValue> child : children.entrySet()) {
-      childFileValues.put(
-          TreeFileArtifact.createTreeOutput(output, child.getKey()), child.getValue());
-    }
-    TreeArtifactValue treeArtifactValue = TreeArtifactValue.create(childFileValues.build());
+  private static ActionExecutionValue actionValueWithTreeArtifact(
+      SpecialArtifact output, TreeArtifactValue tree) {
     return ActionExecutionValue.create(
         ImmutableMap.of(),
-        Collections.singletonMap(output, treeArtifactValue),
-        /* outputSymlinks= */ null,
-        /* discoveredModules= */ null,
-        /* actionDependsOnBuildId= */ false);
+        ImmutableMap.of(output, tree),
+        /*outputSymlinks=*/ null,
+        /*discoveredModules=*/ null,
+        /*actionDependsOnBuildId=*/ false);
   }
 
   private static ActionExecutionValue actionValueWithRemoteArtifact(
       Artifact output, RemoteFileArtifactValue value) {
     return ActionExecutionValue.create(
-        Collections.singletonMap(output, value),
+        ImmutableMap.of(output, value),
         ImmutableMap.of(),
-        /* outputSymlinks= */ null,
-        /* discoveredModules= */ null,
-        /* actionDependsOnBuildId= */ false);
+        /*outputSymlinks=*/ null,
+        /*discoveredModules=*/ null,
+        /*actionDependsOnBuildId=*/ false);
   }
 
   private RemoteFileArtifactValue createRemoteFileArtifactValue(String contents) {
@@ -1008,16 +980,17 @@ public final class FilesystemValueCheckerTest {
 
     SpecialArtifact treeArtifact = createTreeArtifact("dir");
     treeArtifact.getPath().createDirectoryAndParents();
-    Map<PathFragment, RemoteFileArtifactValue> treeArtifactMetadata = new HashMap<>();
-    treeArtifactMetadata.put(
-        PathFragment.create("foo"), createRemoteFileArtifactValue("foo-content"));
-    treeArtifactMetadata.put(
-        PathFragment.create("bar"), createRemoteFileArtifactValue("bar-content"));
+    TreeArtifactValue tree =
+        TreeArtifactValue.newBuilder(treeArtifact)
+            .putChild(
+                TreeFileArtifact.createTreeOutput(treeArtifact, "foo"),
+                createRemoteFileArtifactValue("foo-content"))
+            .putChild(
+                TreeFileArtifact.createTreeOutput(treeArtifact, "bar"),
+                createRemoteFileArtifactValue("bar-content"))
+            .build();
 
-    Map<SkyKey, SkyValue> metadataToInject = new HashMap<>();
-    metadataToInject.put(
-        actionKey, actionValueWithRemoteTreeArtifact(treeArtifact, treeArtifactMetadata));
-    differencer.inject(metadataToInject);
+    differencer.inject(ImmutableMap.of(actionKey, actionValueWithTreeArtifact(treeArtifact, tree)));
 
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()

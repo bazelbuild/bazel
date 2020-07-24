@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.BaseEncoding;
@@ -322,8 +321,7 @@ final class ActionMetadataHandler implements MetadataHandler {
       setPathReadOnlyAndExecutable(treeDir);
     }
 
-    ImmutableSortedMap.Builder<TreeFileArtifact, FileArtifactValue> values =
-        ImmutableSortedMap.naturalOrder();
+    TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
 
     TreeArtifactValue.visitTree(
         treeDir,
@@ -347,10 +345,10 @@ final class ActionMetadataHandler implements MetadataHandler {
             throw new IOException(errorMessage, e);
           }
 
-          values.put(child, metadata);
+          tree.putChild(child, metadata);
         });
 
-    return TreeArtifactValue.create(values.build());
+    return tree.build();
   }
 
   @Override
@@ -379,7 +377,7 @@ final class ActionMetadataHandler implements MetadataHandler {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
     checkArgument(
         !output.isTreeArtifact() && !output.isChildOfDeclaredDirectory(),
-        "Tree artifacts and their children must be injected via injectDirectory: %s",
+        "Tree artifacts and their children must be injected via injectTree: %s",
         output);
     checkState(executionMode.get(), "Tried to inject %s outside of execution", output);
 
@@ -387,13 +385,12 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void injectDirectory(
-      SpecialArtifact output, Map<TreeFileArtifact, FileArtifactValue> children) {
+  public void injectTree(SpecialArtifact output, TreeArtifactValue tree) {
     checkArgument(isKnownOutput(output), "%s is not a declared output of this action", output);
     checkArgument(output.isTreeArtifact(), "Output must be a tree artifact: %s", output);
     checkState(executionMode.get(), "Tried to inject %s outside of execution", output);
 
-    store.putTreeArtifactData(output, TreeArtifactValue.create(children));
+    store.putTreeArtifactData(output, tree);
   }
 
   @Override
