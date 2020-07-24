@@ -45,9 +45,11 @@ def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],
   hashes_to_configs = {}
   cts_with_configs = []
   for ct in cts:
-    config = hashes_to_configs.setdefault(
-        ct.config_hash,
-        lambda: bazel.get_config(ct.config_hash))
+    # Don't use dict.setdefault because that unconditionally calls get_config
+    # as one of its parameters and that's an expensive operation to waste.
+    if ct.config_hash not in hashes_to_configs:
+      hashes_to_configs[ct.config_hash] = bazel.get_config(ct.config_hash)
+    config = hashes_to_configs[ct.config_hash]
     cts_with_configs.append(
         ConfiguredTarget(
             ct.label,
