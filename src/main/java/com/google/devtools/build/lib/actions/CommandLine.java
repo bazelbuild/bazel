@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.util.Fingerprint;
+import javax.annotation.Nullable;
 
 /** A representation of a list of arguments. */
 public abstract class CommandLine {
@@ -52,7 +53,18 @@ public abstract class CommandLine {
     return arguments();
   }
 
-  public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint)
+  /**
+   * Adds the command line to the provided {@link Fingerprint}.
+   *
+   * <p>Some of the implementations may require the to expand provided directory in order to produce
+   * a unique key. Consequently, the result of calling this function can be different depending on
+   * whether the {@link ArtifactExpander} is provided. Moreover, without it, the produced key may
+   * not always be unique.
+   */
+  public void addToFingerprint(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fingerprint)
       throws CommandLineExpansionException {
     for (String s : arguments()) {
       fingerprint.addString(s);

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Interner;
@@ -189,12 +190,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         originalValues = arguments.subList(argi, argi + count);
         argi += count;
       }
-      List<Object> expandedValues = originalValues;
-      if (artifactExpander != null && (features & EXPAND_DIRECTORIES) != 0) {
-        if (hasDirectory(originalValues)) {
-          expandedValues = expandDirectories(artifactExpander, originalValues);
-        }
-      }
+      List<Object> expandedValues = maybeExpandDirectories(artifactExpander, originalValues);
       List<String> stringValues;
       if (mapEach != null) {
         stringValues = new ArrayList<>(expandedValues.size());
@@ -278,6 +274,25 @@ public class StarlarkCustomCommandLine extends CommandLine {
       return argi;
     }
 
+    /**
+     * Expands the directories if {@code expand_directories} feature is enabled and a
+     * ArtifactExpander is available.
+     *
+     * <p>Technically, we should always expand the directories if the feature is requested, however
+     * we cannot do that in the absence of the {@link ArtifactExpander}.
+     */
+    private List<Object> maybeExpandDirectories(
+        @Nullable ArtifactExpander artifactExpander, List<Object> originalValues)
+        throws CommandLineExpansionException {
+      if ((features & EXPAND_DIRECTORIES) == 0
+          || artifactExpander == null
+          || !hasDirectory(originalValues)) {
+        return originalValues;
+      }
+
+      return expandDirectories(artifactExpander, originalValues);
+    }
+
     private static boolean hasDirectory(List<Object> originalValues) {
       int n = originalValues.size();
       for (int i = 0; i < n; ++i) {
@@ -336,7 +351,8 @@ public class StarlarkCustomCommandLine extends CommandLine {
         int argi,
         ActionKeyContext actionKeyContext,
         Fingerprint fingerprint,
-        StarlarkSemantics starlarkSemantics)
+        StarlarkSemantics starlarkSemantics,
+        @Nullable ArtifactExpander artifactExpander)
         throws CommandLineExpansionException {
       final Location location =
           ((features & HAS_LOCATION) != 0) ? (Location) arguments.get(argi++) : null;
@@ -345,36 +361,52 @@ public class StarlarkCustomCommandLine extends CommandLine {
       if ((features & IS_NESTED_SET) != 0) {
         NestedSet<?> values = (NestedSet<?>) arguments.get(argi++);
         if (mapEach != null) {
-          CommandLineItem.MapFn<Object> commandLineItemMapFn =
-              new CommandLineItemMapEachAdaptor(mapEach, location, starlarkSemantics);
+          CommandLineItemMapEachAdaptor commandLineItemMapFn =
+              new CommandLineItemMapEachAdaptor(
+                  mapEach,
+                  location,
+                  starlarkSemantics,
+                  (features & EXPAND_DIRECTORIES) != 0 ? artifactExpander : null);
           try {
             actionKeyContext.addNestedSetToFingerprint(commandLineItemMapFn, fingerprint, values);
           } catch (UncheckedCommandLineExpansionException e) {
             // We wrap the CommandLineExpansionException below, unwrap here
             throw e.cause;
+          } finally {
+            // The cache holds an entry for a NestedSet for every (map_fn, hasArtifactExpanderBit).
+            // Clearing the artifactExpander itself saves us from storing the contents of it in the
+            // cache keys (it is no longer needed after we evaluate the value).
+            // NestedSet cache is cleared after every build, which means that the artifactExpander
+            // for a given action, if present, cannot change within the lifetime of the fingerprint
+            // cache (we call getKey with artifactExpander to check action key, when we are ready to
+            // execute the action in case of a cache miss).
+            commandLineItemMapFn.clearArtifactExpander();
           }
         } else {
           actionKeyContext.addNestedSetToFingerprint(fingerprint, values);
         }
       } else {
         int count = (Integer) arguments.get(argi++);
-        final List<Object> originalValues = arguments.subList(argi, argi + count);
+        List<Object> maybeExpandedValues =
+            maybeExpandDirectories(artifactExpander, arguments.subList(argi, argi + count));
         argi += count;
         if (mapEach != null) {
-          List<String> stringValues = new ArrayList<>(count);
+          // TODO(b/160181927): If artifactExpander == null (which happens in the analysis phase)
+          // but expandDirectories is true, we run the map_each function on directory values without
+          // actually expanding them. This differs from the real evaluation behavior. This means
+          // that we can erroneously produce the same digest for two command lines that differ only
+          // in their directory expansion. Fortunately, this is only a problem for shared action
+          // conflict checking/aquery result, since at execution time we have an artifactExpander.
           applyMapEach(
               mapEach,
-              originalValues,
-              stringValues::add,
+              maybeExpandedValues,
+              fingerprint::addString,
               location,
-              /*artifactExpander=*/ null,
+              artifactExpander,
               starlarkSemantics);
-          for (String s : stringValues) {
-            fingerprint.addString(s);
-          }
         } else {
-          for (int i = 0; i < count; ++i) {
-            fingerprint.addString(CommandLineItem.expandToCommandLine(originalValues.get(i)));
+          for (Object value : maybeExpandedValues) {
+            fingerprint.addString(CommandLineItem.expandToCommandLine(value));
           }
         }
       }
@@ -659,7 +691,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
   }
 
   @Override
-  public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint)
+  public void addToFingerprint(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fingerprint)
       throws CommandLineExpansionException {
     for (int argi = 0; argi < arguments.size(); ) {
       Object arg = arguments.get(argi++);
@@ -667,7 +702,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
         argi =
             ((VectorArg) arg)
                 .addToFingerprint(
-                    arguments, argi, actionKeyContext, fingerprint, starlarkSemantics);
+                    arguments,
+                    argi,
+                    actionKeyContext,
+                    fingerprint,
+                    starlarkSemantics,
+                    artifactExpander);
       } else if (arg instanceof ScalarArg) {
         argi = ((ScalarArg) arg).addToFingerprint(arguments, argi, fingerprint);
       } else {
@@ -676,7 +716,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
   }
 
-  /** Used during action key evaluation when we don't have an artifact expander. * */
+  /** Used during action key evaluation when we don't have an artifact expander. */
   private static class NoopExpander implements DirectoryExpander {
     @Override
     public ImmutableList<FileApi> list(FileApi file) {
@@ -769,29 +809,51 @@ public class StarlarkCustomCommandLine extends CommandLine {
     private final StarlarkCallable mapFn;
     private final Location location;
     private final StarlarkSemantics starlarkSemantics;
+    /**
+     * Indicates whether artifactExpander was provided on construction. This is used to distinguish
+     * the case where it's not provided from the case where it was provided but subsequently
+     * cleared.
+     */
+    private final boolean hasArtifactExpander;
+
+    @Nullable private ArtifactExpander artifactExpander;
 
     CommandLineItemMapEachAdaptor(
-        StarlarkCallable mapFn, Location location, StarlarkSemantics starlarkSemantics) {
+        StarlarkCallable mapFn,
+        Location location,
+        StarlarkSemantics starlarkSemantics,
+        @Nullable ArtifactExpander artifactExpander) {
       this.mapFn = mapFn;
       this.location = location;
       this.starlarkSemantics = starlarkSemantics;
+      this.hasArtifactExpander = artifactExpander != null;
+      this.artifactExpander = artifactExpander;
     }
 
     @Override
     public void expandToCommandLine(Object object, Consumer<String> args) {
+      Preconditions.checkState(artifactExpander != null || !hasArtifactExpander);
       try {
         applyMapEach(
             mapFn,
-            ImmutableList.of(object),
+            maybeExpandDirectory(object),
             args,
             location,
-            /*artifactExpander=*/ null,
+            artifactExpander,
             starlarkSemantics);
       } catch (CommandLineExpansionException e) {
         // Rather than update CommandLineItem#expandToCommandLine and the numerous callers,
         // we wrap this in a runtime exception and handle it above
         throw new UncheckedCommandLineExpansionException(e);
       }
+    }
+
+    private List<Object> maybeExpandDirectory(Object object) throws CommandLineExpansionException {
+      if (artifactExpander == null || !VectorArg.isDirectory(object)) {
+        return ImmutableList.of(object);
+      }
+
+      return VectorArg.expandDirectories(artifactExpander, ImmutableList.of(object));
     }
 
     @Override
@@ -803,13 +865,18 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // Instance compare intentional
       // The normal implementation uses location + name of function,
       // which can conceivably conflict in tests
-      return mapFn == other.mapFn;
+      // We only compare presence of artifactExpander vs absence of it since the nestedset
+      // fingerprint cache is emptied after every build, therefore if the artifact expander is
+      // provided, it will be the same.
+      return mapFn == other.mapFn && hasArtifactExpander == other.hasArtifactExpander;
     }
 
     @Override
     public int hashCode() {
-      // identity hashcode intentional
-      return System.identityHashCode(mapFn);
+      // Force use of identityHashCode, in case the callable uses a custom hash function. (As of
+      // this writing, only providers seem to have a custom hashCode, and those shouldn't be used
+      // as map_each functions, but doesn't hurt to be safe...).
+      return 31 * System.identityHashCode(mapFn) + Boolean.hashCode(hasArtifactExpander);
     }
 
     @Override
@@ -817,6 +884,18 @@ public class StarlarkCustomCommandLine extends CommandLine {
       // No limit to these, as this is just a wrapper for Starlark functions, which are
       // always static
       return Integer.MAX_VALUE;
+    }
+
+    /**
+     * Clears the artifact expander in order not to prolong the lifetime of it unnecessarily.
+     *
+     * <p>Although this operation technically changes this object, it can be called after we add the
+     * object to a {@link HashSet}. Clearing the artifactExpander does not affect the result of
+     * {@link #equals} or {@link #hashCode}. Please note that once we call this function, we can no
+     * longer call {@link #expandToCommandLine}.
+     */
+    void clearArtifactExpander() {
+      artifactExpander = null;
     }
   }
 

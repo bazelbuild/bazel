@@ -1288,7 +1288,10 @@ public final class CustomCommandLine extends CommandLine {
 
   @Override
   @SuppressWarnings("unchecked")
-  public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint) {
+  public void addToFingerprint(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fingerprint) {
     int count = arguments.size();
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);

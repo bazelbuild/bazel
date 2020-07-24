@@ -28,33 +28,42 @@ public abstract class ActionKeyCacher implements ActionAnalysisMetadata {
   @Override
   public final String getKey(
       ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+    // Only cache the key when it is given all necessary information to compute a correct key.
+    // Practically, most of the benefit of the cache comes from execution, which does provide the
+    // artifactExpander.
+    if (artifactExpander == null) {
+      return computeActionKey(actionKeyContext, null);
+    }
+
     if (cachedKey == null) {
       synchronized (this) {
         if (cachedKey == null) {
-          try {
-            Fingerprint fp = new Fingerprint();
-            // TODO(b/153904017): Make use of the provided artifactExpander and only cache if
-            // present.
-            computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
-
-            // Add a bool indicating whether the execution platform was set.
-            fp.addBoolean(getExecutionPlatform() != null);
-            if (getExecutionPlatform() != null) {
-              // Add the execution platform information.
-              getExecutionPlatform().addTo(fp);
-            }
-
-            fp.addStringMap(getExecProperties());
-
-            // Compute the actual key and store it.
-            cachedKey = fp.hexDigestAndReset();
-          } catch (CommandLineExpansionException e) {
-            cachedKey = KEY_ERROR;
-          }
+          cachedKey = computeActionKey(actionKeyContext, artifactExpander);
         }
       }
     }
     return cachedKey;
+  }
+
+  private String computeActionKey(
+      ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
+    try {
+      Fingerprint fp = new Fingerprint();
+      computeKey(actionKeyContext, artifactExpander, fp);
+
+      // Add a bool indicating whether the execution platform was set.
+      fp.addBoolean(getExecutionPlatform() != null);
+      if (getExecutionPlatform() != null) {
+        // Add the execution platform information.
+        getExecutionPlatform().addTo(fp);
+      }
+
+      fp.addStringMap(getExecProperties());
+      // Compute the actual key and store it.
+      return fp.hexDigestAndReset();
+    } catch (CommandLineExpansionException e) {
+      return KEY_ERROR;
+    }
   }
 
   /**

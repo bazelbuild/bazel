@@ -20,15 +20,18 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
-import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
@@ -61,10 +64,10 @@ import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -87,7 +90,7 @@ import org.junit.runners.JUnit4;
 @StarlarkGlobalLibrary // needed for CallUtils.getBuiltinCallable, sadly
 public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
 
-  private final EvaluationTestCase ev = new BazelEvaluationTestCase();
+  private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
 
   private StarlarkRuleContext createRuleContext(String label) throws Exception {
     return new StarlarkRuleContext(
@@ -2864,12 +2867,9 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
             "args.add_all(values, map_each=_map_each)"));
 
     // Ensure all these command lines have distinct keys
-    ActionKeyContext actionKeyContext = new ActionKeyContext();
     Map<String, CommandLine> digests = new HashMap<>();
     for (CommandLine commandLine : commandLines.build()) {
-      Fingerprint fingerprint = new Fingerprint();
-      commandLine.addToFingerprint(actionKeyContext, fingerprint);
-      String digest = fingerprint.hexDigestAndReset();
+      String digest = getDigest(commandLine);
       CommandLine previous = digests.putIfAbsent(digest, commandLine);
       if (previous != null) {
         fail(
@@ -2890,7 +2890,261 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
             "args.add_all(values, map_each=_bad_fn)");
     assertThrows(
         CommandLineExpansionException.class,
-        () -> commandLine.addToFingerprint(actionKeyContext, new Fingerprint()));
+        () ->
+            commandLine.addToFingerprint(
+                actionKeyContext, /*artifactExpander=*/ null, new Fingerprint()));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputation_differentMapEach() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _fun1(arg): return 'val1'",
+            "def _fun2(arg): return 'val2'",
+            "args.add_all(['a'], map_each=_fun1)");
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _fun1(arg): return 'val1'",
+            "def _fun2(arg): return 'val2'",
+            "args.add_all(['a'], map_each=_fun2)");
+
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputation_differentArg() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _fun(arg): return arg",
+            "args.add_all(['a'], map_each=_fun)");
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "def _fun(arg): return arg",
+            "args.add_all(['b'], map_each=_fun)");
+
+    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputationWithExpander_equivalentMapEach_sameKey()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "args.add_joined([directory], join_with=',', map_each=str, expand_directories=True)");
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "def mystr(file): return str(file)",
+            "args.add_joined([directory], join_with=',', map_each=mystr, expand_directories=True)");
+
+    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
+    assertThat(getDigest(commandLine1, expander)).isEqualTo(getDigest(commandLine2, expander));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputationWithExpander_mapEachConstantForDir()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "def _constant_for_dir(f): return 'constant' if f.path.endswith('dir') else 'value1'",
+            "args.add_all([directory], map_each=_constant_for_dir, expand_directories=True)");
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "def _constant_for_dir(f): return 'constant' if f.path.endswith('dir') else 'value2'",
+            "args.add_all([directory], map_each=_constant_for_dir, expand_directories=True)");
+
+    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
+    assertThat(getDigest(commandLine1, expander)).isNotEqualTo(getDigest(commandLine2, expander));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputationWithExpander_constantForDirWithNestedSet()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "dir = ruleContext.actions.declare_directory('dir')",
+            "def _constant_for_dir(f): return 'constant' if f.path.endswith('dir') else 'value1'",
+            "args.add_all(depset([dir]), map_each=_constant_for_dir, expand_directories=True)");
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "dir = ruleContext.actions.declare_directory('dir')",
+            "def _constant_for_dir(f): return 'constant' if f.path.endswith('dir') else 'value2'",
+            "args.add_all(depset([dir]), map_each=_constant_for_dir, expand_directories=True)");
+
+    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
+    assertThat(getDigest(commandLine1, expander)).isNotEqualTo(getDigest(commandLine2, expander));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputationWithExpander_mapEachFailsForDir()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "ruleContext.actions.run_shell(outputs=[directory], command='')",
+            "def _fail_for_dir(file):",
+            "   if file.path.endswith('dir'): fail('hello')",
+            "   return 'value1'",
+            "args.add_all([directory], map_each=_fail_for_dir, expand_directories=True)");
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "ruleContext.actions.run_shell(outputs=[directory], command='')",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "def _fail_for_dir(file):",
+            "   if file.path.endswith('dir'): fail('hello')",
+            "   return 'value2'",
+            "args.add_all([directory], map_each=_fail_for_dir, expand_directories=True)");
+
+    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
+    assertThat(getDigest(commandLine1, expander)).isNotEqualTo(getDigest(commandLine2, expander));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputationWithExpander_differentExpansion()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    CommandLine commandLine =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "ruleContext.actions.run_shell(outputs=[directory], command='')",
+            "def _get_path(file): return file.path",
+            "args.add_all([directory], map_each=_get_path, expand_directories=True)");
+
+    ArtifactExpander expander1 = createArtifactExpander("foo/dir", "file1");
+    ArtifactExpander expander2 = createArtifactExpander("foo/dir", "file2");
+    assertThat(getDigest(commandLine, expander1)).isNotEqualTo(getDigest(commandLine, expander2));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputationWithExpander_differentExpansionNoMapEach()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    CommandLine commandLine =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "args.add_all([directory])");
+
+    ArtifactExpander expander1 = createArtifactExpander("foo/dir", "file1");
+    ArtifactExpander expander2 = createArtifactExpander("foo/dir", "file2");
+    assertThat(getDigest(commandLine, expander1)).isNotEqualTo(getDigest(commandLine, expander2));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputationWithExpander_extraFileInExpansionNoMapEach()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    CommandLine commandLine =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "args.add_all([directory])");
+
+    ArtifactExpander expander1 = createArtifactExpander("foo/dir", "file1");
+    ArtifactExpander expander2 = createArtifactExpander("foo/dir", "file1", "file2");
+    assertThat(getDigest(commandLine, expander1)).isNotEqualTo(getDigest(commandLine, expander2));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputationWithExpander_constantForDirAddJoined()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "def _constant_for_dir(f): return 'constant' if f.path.endswith('dir') else 'value1'",
+            "args.add_joined([directory], join_with=',', map_each=_constant_for_dir,"
+                + " expand_directories=True)");
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "def _constant_for_dir(f): return 'constant' if f.path.endswith('dir') else 'value2'",
+            "args.add_joined([directory], join_with=',', map_each=_constant_for_dir,"
+                + " expand_directories=True)");
+
+    ArtifactExpander expander = createArtifactExpander("foo/dir", "file");
+    assertThat(getDigest(commandLine1, expander)).isNotEqualTo(getDigest(commandLine2, expander));
+  }
+
+  @Test
+  public void skylarkCustomCommandLineKeyComputation_inconsequentialChangeToStarlarkSemantics()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    CommandLine commandLine1 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "def _path(f): return f.path",
+            "args.add_all([directory], map_each=_path)");
+
+    ev.setSemantics("--incompatible_run_shell_command_string");
+    // setStarlarkSemanticsOptions reinitializes the thread -- set the ruleContext on the new one.
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine2 =
+        getCommandLine(
+            "args = ruleContext.actions.args()",
+            "directory = ruleContext.actions.declare_directory('dir')",
+            "def _path(f): return f.path",
+            "args.add_all([directory], map_each=_path)");
+
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+  }
+
+  private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
+    return (artifact, output) -> {
+      Preconditions.checkArgument(
+          artifact.getRootRelativePath().equals(PathFragment.create(dirRelativePath)));
+      for (String file : files) {
+        output.add(
+            new DerivedArtifact(
+                artifact.getRoot(),
+                artifact.getExecPath().getRelative(file),
+                (ActionLookupKey) artifact.getArtifactOwner()));
+      }
+    };
+  }
+
+  private String getDigest(CommandLine commandLine) throws CommandLineExpansionException {
+    return getDigest(commandLine, /*artifactExpander=*/ null);
+  }
+
+  private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
+      throws CommandLineExpansionException {
+    Fingerprint fingerprint = new Fingerprint();
+    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    return fingerprint.hexDigestAndReset();
   }
 
   private CommandLine getCommandLine(String... lines) throws Exception {

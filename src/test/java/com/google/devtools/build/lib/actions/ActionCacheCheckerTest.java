@@ -118,10 +118,17 @@ public class ActionCacheCheckerTest {
 
     Token token =
         cacheChecker.getTokenIfNeedToExecute(
-            action, null, clientEnv, null, metadataHandler, platform);
+            action,
+            /*resolvedCacheArtifacts=*/ null,
+            clientEnv,
+            /*handler=*/ null,
+            metadataHandler,
+            /*artifactExpander=*/ null,
+            platform);
     if (token != null) {
       // Real action execution would happen here.
-      cacheChecker.updateActionCache(action, token, metadataHandler, clientEnv, platform);
+      cacheChecker.updateActionCache(
+          action, token, metadataHandler, /*artifactExpander=*/ null, clientEnv, platform);
     }
   }
 

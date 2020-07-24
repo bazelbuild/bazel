@@ -182,6 +182,6 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(type.toString());
-    commandLine.addToFingerprint(actionKeyContext, fp);
+    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
   }
 }

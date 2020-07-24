@@ -190,8 +190,8 @@ public class JavaCompileAction extends AbstractAction implements CommandAction {
       throws CommandLineExpansionException {
     fp.addUUID(GUID);
     fp.addInt(classpathMode.ordinal());
-    executableLine.addToFingerprint(actionKeyContext, fp);
-    flagLine.addToFingerprint(actionKeyContext, fp);
+    executableLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    flagLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);

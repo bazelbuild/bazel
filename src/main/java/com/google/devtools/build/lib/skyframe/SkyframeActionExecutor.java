@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpanderImpl;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -111,7 +111,6 @@ import com.google.devtools.common.options.OptionsProvider;
 import java.io.Closeable;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -394,7 +393,7 @@ public final class SkyframeActionExecutor {
       ActionMetadataHandler metadataHandler,
       long actionStartTime,
       ActionLookupData actionLookupData,
-      Map<Artifact, Collection<Artifact>> expandedInputs,
+      ArtifactExpander artifactExpander,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
@@ -416,8 +415,7 @@ public final class SkyframeActionExecutor {
             env,
             action,
             metadataHandler,
-            expandedInputs,
-            expandedFilesets,
+            artifactExpander,
             topLevelFilesets,
             actionFileSystem,
             skyframeDepsResult);
@@ -485,8 +483,7 @@ public final class SkyframeActionExecutor {
       Environment env,
       Action action,
       MetadataHandler metadataHandler,
-      Map<Artifact, Collection<Artifact>> expandedInputs,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets,
+      ArtifactExpander artifactExpander,
       ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
       @Nullable FileSystem actionFileSystem,
       @Nullable Object skyframeDepsResult) {
@@ -495,7 +492,7 @@ public final class SkyframeActionExecutor {
         ArtifactPathResolver.createPathResolver(actionFileSystem, executorEngine.getExecRoot());
     FileOutErr fileOutErr;
     if (replayActionOutErr) {
-      String actionKey = action.getKey(actionKeyContext, /*artifactExpander=*/ null);
+      String actionKey = action.getKey(actionKeyContext, artifactExpander);
       fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, artifactPathResolver);
       try {
         fileOutErr.getErrorPath().delete();
@@ -520,7 +517,7 @@ public final class SkyframeActionExecutor {
             : selectEventHandler(emitProgressEvents),
         clientEnv,
         topLevelFilesets,
-        new ArtifactExpanderImpl(expandedInputs, expandedFilesets),
+        artifactExpander,
         actionFileSystem,
         skyframeDepsResult,
         nestedSetExpander);
@@ -552,6 +549,7 @@ public final class SkyframeActionExecutor {
       ExtendedEventHandler eventHandler,
       Action action,
       MetadataHandler metadataHandler,
+      ArtifactExpander artifactExpander,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
       Map<String, String> clientEnv,
@@ -573,6 +571,7 @@ public final class SkyframeActionExecutor {
                   ? reporter
                   : null,
               metadataHandler,
+              artifactExpander,
               remoteDefaultProperties);
     } catch (UserExecException e) {
       throw e.toActionExecutionException(action);
@@ -588,7 +587,7 @@ public final class SkyframeActionExecutor {
       if (replayActionOutErr) {
         // TODO(ulfjack): This assumes that the stdout/stderr files are unmodified. It would be
         //  better to integrate them with the action cache and rerun the action when they change.
-        String actionKey = action.getKey(actionKeyContext, /*artifactExpander=*/ null);
+        String actionKey = action.getKey(actionKeyContext, artifactExpander);
         FileOutErr fileOutErr = actionLogBufferPathGenerator.persistent(actionKey, pathResolver);
         // Set the mightHaveOutput bit in FileOutErr. Otherwise hasRecordedOutput() doesn't check if
         // the file exists and just returns false.
@@ -632,7 +631,11 @@ public final class SkyframeActionExecutor {
   }
 
   void updateActionCache(
-      Action action, MetadataHandler metadataHandler, Token token, Map<String, String> clientEnv)
+      Action action,
+      MetadataHandler metadataHandler,
+      ArtifactExpander artifactExpander,
+      Token token,
+      Map<String, String> clientEnv)
       throws ActionExecutionException {
     if (!actionCacheChecker.enabled()) {
       return;
@@ -650,7 +653,7 @@ public final class SkyframeActionExecutor {
 
     try {
       actionCacheChecker.updateActionCache(
-          action, token, metadataHandler, clientEnv, remoteDefaultProperties);
+          action, token, metadataHandler, artifactExpander, clientEnv, remoteDefaultProperties);
     } catch (IOException e) {
       // Skyframe has already done all the filesystem access needed for outputs and swallows
       // IOExceptions for inputs. So an IOException is impossible here.
