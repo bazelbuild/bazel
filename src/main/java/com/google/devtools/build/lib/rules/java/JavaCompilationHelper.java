@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -149,12 +148,6 @@ public final class JavaCompilationHelper {
         JavaRuntimeInfo.forHost(ruleContext),
         additionalJavaBaseInputs,
         disableStrictDeps);
-  }
-
-  @VisibleForTesting
-  JavaCompilationHelper(
-      RuleContext ruleContext, JavaSemantics semantics, JavaTargetAttributes.Builder attributes) {
-    this(ruleContext, semantics, getDefaultJavacOptsFromRule(ruleContext), attributes);
   }
 
   JavaTargetAttributes getAttributes() {
@@ -815,24 +808,8 @@ public final class JavaCompilationHelper {
    * Gets the value of the "javacopts" attribute combining them with the default options. If the
    * current rule has no javacopts attribute, this method only returns the default options.
    */
-  @VisibleForTesting
-  public ImmutableList<String> getJavacOpts() {
+  private ImmutableList<String> getJavacOpts() {
     return customJavacOpts;
-  }
-
-  /**
-   * Obtains the standard list of javac opts needed to build {@code rule}.
-   *
-   * <p>This method must only be called during initialization.
-   *
-   * @param ruleContext a rule context
-   * @return a list of options to provide to javac
-   */
-  private static ImmutableList<String> getDefaultJavacOptsFromRule(RuleContext ruleContext) {
-    return ImmutableList.copyOf(
-        Iterables.concat(
-            JavaToolchainProvider.from(ruleContext).getJavacOptions(ruleContext),
-            ruleContext.getExpander().withDataLocations().tokenized("javacopts")));
   }
 
   public void setTranslations(Collection<Artifact> translations) {
