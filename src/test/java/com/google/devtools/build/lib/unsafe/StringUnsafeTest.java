@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import java.nio.ByteOrder;
 
 /** Tests for {@link StringUnsafe}. */
 @RunWith(JUnit4.class)
@@ -44,8 +45,15 @@ public class StringUnsafeTest {
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("hello")))
         .isEqualTo(StandardCharsets.ISO_8859_1.encode("hello"));
-    assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
-        .isEqualTo(StandardCharsets.UTF_16LE.encode("lambda λ"));
+
+    if (ByteOrder.nativeOrder().equals(ByteOrder.BIG_ENDIAN)) {
+         assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
+             .isEqualTo(StandardCharsets.UTF_16BE.encode("lambda λ"));
+    }
+    else {
+         assertThat(ByteBuffer.wrap(stringUnsafe.getByteArray("lambda λ")))
+             .isEqualTo(StandardCharsets.UTF_16LE.encode("lambda λ"));
+    }
   }
 
   @Test
