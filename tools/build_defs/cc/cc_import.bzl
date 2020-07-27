@@ -191,7 +191,7 @@ def _cc_import_impl(ctx):
         cc_infos.append(dep[CcInfo])
     merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
 
-    return merged_cc_info
+    return [merged_cc_info]
 
 cc_import = rule(
     implementation = _cc_import_impl,
