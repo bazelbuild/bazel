@@ -1691,7 +1691,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "transition/custom_transition.bzl",
         "def _custom_transition_impl(settings, attr):",
         "    _ignore = settings, attr",
-        "    print('transition')",
         "",
         "    return {'//command_line_option:copt': ['-DFLAG']}",
         "",
@@ -1793,27 +1792,66 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "    srcs = ['main.cc'],",
         "    linkstatic = 0,",
         "    deps = [",
-        "        'dep2',",
+        "        'dep1',",
         "        'dep3',",
         "    ],",
         ")",
-        "",
         "apply_custom_transition(",
         "    name = 'dep1',",
         "    deps = [",
         "        ':dep2',",
         "    ],",
         ")",
-        "",
         "cc_library(",
         "    name = 'dep2',",
         "    srcs = ['test.cc'],",
         "    hdrs = ['test.h'],",
         ")",
-        "",
         "cc_library(",
         "    name = 'dep3',",
         "    srcs = ['other_test.cc'],",
+        "    hdrs = ['other_test.h'],",
+        ")");
+
+    getConfiguredTarget("//transition:main");
+    assertNoEvents();
+  }
+
+  // b/162180592
+  @Test
+  public void testSameSymlinkedLibraryDoesNotGiveDuplicateError() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    scratch.file(
+        "transition/BUILD",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    deps = [",
+        "        'dep1',",
+        "        'dep2',",
+        "    ],",
+        ")",
+        "cc_binary(",
+        "    name = 'libshared.so',",
+        "    srcs = ['shared.cc'],",
+        "    linkshared = 1,",
+        ")",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['test.cc', 'libshared.so'],",
+        "    hdrs = ['test.h'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['other_test.cc', 'libshared.so'],",
         "    hdrs = ['other_test.h'],",
         ")");
 
