@@ -20,14 +20,9 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.List;
 import java.util.Map;
@@ -62,38 +57,40 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     throw new InterruptedException();
   }
 
-  private static final NativeProvider<NativeInfoMock> CONSTRUCTOR =
-      new NativeProvider<NativeInfoMock>(NativeInfoMock.class, "native_info_mock") {};
+  // A trivial struct-like class with Starlark fields defined by a map.
+  private static class SimpleStruct implements StarlarkValue, ClassObject {
+    final ImmutableMap<String, Object> fields;
 
-  @StarlarkBuiltin(name = "Mock", doc = "")
-  class NativeInfoMock extends NativeInfo {
-
-    public NativeInfoMock() {
-      super(CONSTRUCTOR);
+    SimpleStruct(ImmutableMap<String, Object> fields) {
+      this.fields = fields;
     }
 
-    @StarlarkMethod(name = "callable_string", documented = false, structField = false)
-    public String callableString() {
-      return "a";
+    @Override
+    public ImmutableCollection<String> getFieldNames() {
+      return fields.keySet();
     }
 
-    @StarlarkMethod(name = "struct_field_string", documented = false, structField = true)
-    public String structFieldString() {
-      return "a";
+    @Override
+    public Object getValue(String name) {
+      return fields.get(name);
     }
 
-    @StarlarkMethod(name = "struct_field_callable", documented = false, structField = true)
-    public BuiltinCallable structFieldCallable() {
-      return new BuiltinCallable(StarlarkEvaluationTest.this, "foobar");
-    }
-
-    @StarlarkMethod(
-        name = "struct_field_none",
-        documented = false,
-        structField = true,
-        allowReturnNones = true)
-    public String structFieldNone() {
+    @Override
+    public String getErrorMessageForUnknownField(String name) {
       return null;
+    }
+
+    @Override
+    public void repr(Printer p) {
+      // This repr function prints only the fields.
+      // Any methods are still accessible through dir/getattr/hasattr.
+      p.append("simplestruct(");
+      String sep = "";
+      for (Map.Entry<String, Object> e : fields.entrySet()) {
+        p.append(sep).append(e.getKey()).append(" = ").repr(e.getValue());
+        sep = ", ";
+      }
+      p.append(")");
     }
   }
 
@@ -355,7 +352,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     public ClassObject proxyMethodsObject() {
       ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
       Starlark.addMethods(builder, this);
-      return StructProvider.STRUCT.create(builder.build(), "no native callable '%s'");
+      return new SimpleStruct(builder.build());
     }
 
     @StarlarkMethod(
@@ -463,29 +460,6 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     @Override
     public Boolean isEmptyInterface(String str) {
       return str.isEmpty();
-    }
-  }
-
-  @StarlarkBuiltin(name = "MockClassObject", documented = false, doc = "")
-  static final class MockClassObject implements ClassObject, StarlarkValue {
-    @Override
-    public Object getValue(String name) {
-      switch (name) {
-        case "field": return "a";
-        case "nset":
-          return NestedSetBuilder.stableOrder().build(); // not a legal Starlark value
-        default: return null;
-      }
-    }
-
-    @Override
-    public ImmutableCollection<String> getFieldNames() {
-      return ImmutableList.of("field", "nset");
-    }
-
-    @Override
-    public String getErrorMessageForUnknownField(String name) {
-      return null;
     }
   }
 
@@ -1378,9 +1352,9 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructAccessTypo() throws Exception {
     new Scenario()
-        .update("mock", new MockClassObject())
+        .update("mock", new SimpleStruct(ImmutableMap.of("field", 123)))
         .testIfExactError(
-            "'MockClassObject' value has no field or method 'fild' (did you mean 'field'?)",
+            "'SimpleStruct' value has no field or method 'fild' (did you mean 'field'?)",
             "mock.fild");
   }
 
@@ -1416,7 +1390,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testClassObjectAccess() throws Exception {
     new Scenario()
-        .update("mock", new MockClassObject())
+        .update("mock", new SimpleStruct(ImmutableMap.of("field", "a")))
         .setUp("v = mock.field")
         .testLookup("v", "a");
   }
@@ -1435,15 +1409,12 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testFieldReturnsNestedSet() throws Exception {
-    update("mock", new MockClassObject());
-    IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> eval("mock.nset"));
+  public void testFieldReturnsNonStarlarkValue() throws Exception {
+    update("s", new SimpleStruct(ImmutableMap.of("bad", new StringBuilder())));
+    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> eval("s.bad"));
     assertThat(e)
         .hasMessageThat()
-        .contains(
-            "invalid Starlark value: class"
-                + " com.google.devtools.build.lib.collect.nestedset.NestedSet");
+        .contains("invalid Starlark value: class java.lang.StringBuilder");
   }
 
   @Test
@@ -1845,8 +1816,8 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testDirFindsClassObjectFields() throws Exception {
     new Scenario()
-        .update("mock", new MockClassObject())
-        .testExactOrder("dir(mock)", "field", "nset");
+        .update("s", new SimpleStruct(ImmutableMap.of("a", 1, "b", 2)))
+        .testExactOrder("dir(s)", "a", "b");
   }
 
   @Test
@@ -1880,28 +1851,6 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testStrNativeInfo() throws Exception {
-    new Scenario()
-        .update("mock", new NativeInfoMock())
-        .testEval(
-            "str(mock)",
-            "'struct(struct_field_callable = <built-in function foobar>, struct_field_none = None, "
-                + "struct_field_string = \"a\")'");
-  }
-
-  @Test
-  public void testNativeInfoAttrs() throws Exception {
-    new Scenario()
-        .update("mock", new NativeInfoMock())
-        .testEval(
-            "dir(mock)",
-            "['callable_string', 'struct_field_callable', 'struct_field_none', "
-                + "'struct_field_string', 'to_json', 'to_proto']")
-        .testExpression("str(mock.to_json)", "<built-in function to_json>")
-        .testExpression("str(getattr(mock, 'to_json'))", "<built-in function to_json>");
-  }
-
-  @Test
   public void testPrint() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
     setFailFast(false);
@@ -1932,18 +1881,11 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         .testExpression("foo(23, 5, 0)", 18);
   }
 
-  // This class extends NativeInfo (which provides @StarlarkMethod-annotated fields)
-  // with additional fields from a map. The only production code that currently
-  // does that is ToolchainInfo and its subclasses.
-  @StarlarkBuiltin(name = "StarlarkStructWithStarlarkMethods", doc = "")
-  private static final class StarlarkStructWithStarlarkMethods extends NativeInfo {
-
-    static final NativeProvider<StarlarkStructWithStarlarkMethods> CONSTRUCTOR =
-        new NativeProvider<StarlarkStructWithStarlarkMethods>(
-            StarlarkStructWithStarlarkMethods.class, "struct_with_starlark_callables") {};
+  // SimpleStructWithMethods augments SimpleStruct's fields with annotated Java methods.
+  private static final class SimpleStructWithMethods extends SimpleStruct {
 
     // A function that returns "fromValues".
-    Object returnFromValues =
+    private static final Object returnFromValues =
         new StarlarkCallable() {
           @Override
           public String getName() {
@@ -1956,33 +1898,17 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
           }
         };
 
-    final Map<String, Object> fields =
-        ImmutableMap.of(
-            "values_only_field",
-            "fromValues",
-            "values_only_method",
-            returnFromValues,
-            "collision_field",
-            "fromValues",
-            "collision_method",
-            returnFromValues);
-
-    StarlarkStructWithStarlarkMethods() {
-      super(CONSTRUCTOR, Location.BUILTIN);
-    }
-
-    @Override
-    public Object getValue(String name) throws EvalException {
-      Object x = fields.get(name);
-      return x != null ? x : super.getValue(name);
-    }
-
-    @Override
-    public ImmutableCollection<String> getFieldNames() {
-      return ImmutableSet.<String>builder()
-          .addAll(fields.keySet())
-          .addAll(super.getFieldNames())
-          .build();
+    SimpleStructWithMethods() {
+      super(
+          ImmutableMap.of(
+              "values_only_field",
+              "fromValues",
+              "values_only_method",
+              returnFromValues,
+              "collision_field",
+              "fromValues",
+              "collision_method",
+              returnFromValues));
     }
 
     @StarlarkMethod(name = "callable_only_field", documented = false, structField = true)
@@ -2009,7 +1935,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructFieldDefinedOnlyInValues() throws Exception {
     new Scenario()
-        .update("val", new StarlarkStructWithStarlarkMethods())
+        .update("val", new SimpleStructWithMethods())
         .setUp("v = val.values_only_field")
         .testLookup("v", "fromValues");
   }
@@ -2017,7 +1943,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructMethodDefinedOnlyInValues() throws Exception {
     new Scenario()
-        .update("val", new StarlarkStructWithStarlarkMethods())
+        .update("val", new SimpleStructWithMethods())
         .setUp("v = val.values_only_method()")
         .testLookup("v", "fromValues");
   }
@@ -2025,7 +1951,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructFieldDefinedOnlyInStarlarkMethod() throws Exception {
     new Scenario()
-        .update("val", new StarlarkStructWithStarlarkMethods())
+        .update("val", new SimpleStructWithMethods())
         .setUp("v = val.callable_only_field")
         .testLookup("v", "fromStarlarkMethod");
   }
@@ -2033,7 +1959,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testStructMethodDefinedOnlyInStarlarkMethod() throws Exception {
     new Scenario()
-        .update("val", new StarlarkStructWithStarlarkMethods())
+        .update("val", new SimpleStructWithMethods())
         .setUp("v = val.callable_only_method()")
         .testLookup("v", "fromStarlarkMethod");
   }
@@ -2043,32 +1969,21 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
     // This test exercises the resolution of ambiguity between @StarlarkMethod-annotated
     // fields and those reported by ClassObject.getValue.
     new Scenario()
-        .update("val", new StarlarkStructWithStarlarkMethods())
+        .update("val", new SimpleStructWithMethods())
         .setUp("v = val.collision_method()")
         .testLookup("v", "fromStarlarkMethod");
   }
 
   @Test
-  public void testStructFieldNotDefined() throws Exception {
+  public void testAttrNotDefined() throws Exception {
     new Scenario()
-        .update("val", new StarlarkStructWithStarlarkMethods())
+        .update("s", new SimpleStructWithMethods())
+        // TODO(adonovan): this error message will include spelling suggestions when CL 319083265
+        // finally lands.
         .testIfExactError(
-            // TODO(bazel-team): This should probably list callable_only_method as well.
-            "'struct_with_starlark_callables' value has no field or method 'nonexistent_field'\n"
-                + "Available attributes: callable_only_field, collision_field, collision_method, "
-                + "values_only_field, values_only_method",
-            "v = val.nonexistent_field");
-  }
-
-  @Test
-  public void testStructMethodNotDefined() throws Exception {
-    new Scenario()
-        .update("val", new StarlarkStructWithStarlarkMethods())
+            "'SimpleStructWithMethods' value has no field or method 'nonesuch'", "s.nonesuch")
         .testIfExactError(
-            "'struct_with_starlark_callables' value has no field or method 'nonexistent_method'\n"
-                + "Available attributes: callable_only_field, collision_field, collision_method, "
-                + "values_only_field, values_only_method",
-            "v = val.nonexistent_method()");
+            "'SimpleStructWithMethods' value has no field or method 'nonesuch'", "s.nonesuch()");
   }
 
   @Test
