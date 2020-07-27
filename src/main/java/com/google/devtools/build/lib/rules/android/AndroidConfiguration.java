@@ -722,7 +722,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean disableNativeAndroidRules;
 
     @Option(
-        name = "incompatible_use_toolchain_resolution",
+        name = "incompatible_enable_android_toolchain_resolution",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
