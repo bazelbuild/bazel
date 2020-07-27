@@ -644,11 +644,12 @@ public final class EvalUtils {
   public static Object exec(StarlarkFile file, Module module, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(
-        file.resolved,
+        file.getResolvedFunction(),
         "cannot evaluate unresolved syntax (use other exec method, or parseAndValidate)");
 
     Tuple<Object> defaultValues = Tuple.empty();
-    StarlarkFunction toplevel = new StarlarkFunction(file.resolved, defaultValues, module);
+    StarlarkFunction toplevel =
+        new StarlarkFunction(file.getResolvedFunction(), defaultValues, module);
 
     return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
   }
