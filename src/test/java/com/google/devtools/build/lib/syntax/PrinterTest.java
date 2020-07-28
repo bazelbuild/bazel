@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.cmdline.Label;
 import java.util.IllegalFormatException;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,8 +36,7 @@ public class PrinterTest {
 
   @Test
   public void testPrinter() throws Exception {
-    // Note that prettyPrintValue and printValue only differ on behaviour of
-    // labels and strings at toplevel.
+    // Note that str and repr only differ on behaviour of strings at toplevel.
     assertThat(Starlark.str(createObjWithStr())).isEqualTo("<str marker>");
     assertThat(Starlark.repr(createObjWithStr())).isEqualTo("<repr marker>");
 
@@ -51,10 +49,6 @@ public class PrinterTest {
     assertThat(Starlark.str(3)).isEqualTo("3");
     assertThat(Starlark.repr(3)).isEqualTo("3");
     assertThat(Starlark.repr(Starlark.NONE)).isEqualTo("None");
-
-    assertThat(Starlark.str(Label.parseAbsolute("//x", ImmutableMap.of()))).isEqualTo("//x:x");
-    assertThat(Starlark.repr(Label.parseAbsolute("//x", ImmutableMap.of())))
-        .isEqualTo("Label(\"//x:x\")");
 
     List<?> list = StarlarkList.of(null, "foo", "bar");
     List<?> tuple = Tuple.of("foo", "bar");

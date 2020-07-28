@@ -20,9 +20,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
-import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import java.util.List;
 import java.util.Map;
@@ -2006,22 +2003,6 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         "  return x",
         "y = [f() for x in [2]][0]");
     assertThat(lookup("y")).isEqualTo(1);
-  }
-
-  @Test
-  public void testAnalysisFailureInfo() throws Exception {
-    AnalysisFailure cause = new AnalysisFailure(Label.create("test", "test"), "ErrorMessage");
-
-    AnalysisFailureInfo info = AnalysisFailureInfo.forAnalysisFailures(ImmutableList.of(cause));
-
-    new Scenario()
-        .update("val", info)
-        .setUp(
-            "causes = val.causes",
-            "label = causes.to_list()[0].label",
-            "message = causes.to_list()[0].message")
-        .testLookup("label", Label.create("test", "test"))
-        .testLookup("message", "ErrorMessage");
   }
 
   @Test

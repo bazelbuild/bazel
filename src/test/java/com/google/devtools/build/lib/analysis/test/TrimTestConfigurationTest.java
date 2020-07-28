@@ -43,7 +43,15 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.syntax.EvalUtils;
+import com.google.devtools.build.lib.syntax.FileOptions;
+import com.google.devtools.build.lib.syntax.Module;
+import com.google.devtools.build.lib.syntax.Mutability;
+import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
+import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -773,5 +781,30 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:suite", "//test:suite_2");
     assertThat(getAnalysisResult().getTargetsToBuild()).hasSize(2);
+  }
+
+  // Test Starlark API of AnalysisFailureInfo itself.
+  @Test
+  public void testAnalysisFailureInfo() throws Exception {
+    Label label = Label.create("test", "test");
+    AnalysisFailureInfo info =
+        AnalysisFailureInfo.forAnalysisFailures(
+            Arrays.asList(new AnalysisFailure(label, "ErrorMessage")));
+    // TODO(adonovan): simplify all this to Starlark.getattr(info, "causes")
+    // and assertions on a Depset once CL 319083265 lands.
+    ParserInput input =
+        ParserInput.fromLines(
+            "causes = info.causes.to_list()[0]", //
+            "label = causes.label",
+            "message = causes.message");
+    Module module =
+        Module.withPredeclared(
+            StarlarkSemantics.DEFAULT, //
+            ImmutableMap.of("info", info));
+    Mutability mu = Mutability.create("test");
+    StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
+    EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
+    assertThat(module.getGlobal("label")).isSameInstanceAs(label);
+    assertThat(module.getGlobal("message")).isEqualTo("ErrorMessage");
   }
 }

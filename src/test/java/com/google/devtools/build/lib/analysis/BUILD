@@ -96,6 +96,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
         "//src/main/java/com/google/devtools/build/lib/analysis:starlark/function_transition_util",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/test_trimming_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:toolchain_collection",
