@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -37,6 +38,16 @@ public class FakeApkInfo implements ApkInfoApi<FileApi> {
 
   @Override
   public FileApi getKeystore() {
+    return null;
+  }
+
+  @Override
+  public ImmutableList<FileApi> getSigningKeys() {
+    return null;
+  }
+
+  @Override
+  public FileApi getSigningLineage() {
     return null;
   }
 

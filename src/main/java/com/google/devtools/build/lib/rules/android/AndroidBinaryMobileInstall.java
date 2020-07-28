@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Encapsulates the logic for creating actions for mobile-install. */
 public final class AndroidBinaryMobileInstall {
@@ -106,7 +107,8 @@ public final class AndroidBinaryMobileInstall {
       MobileInstallResourceApks mobileInstallResourceApks,
       FilesToRunProvider resourceExtractor,
       NestedSet<Artifact> nativeLibsAar,
-      Artifact signingKey,
+      ImmutableList<Artifact> signingKeys,
+      @Nullable Artifact signingLineage,
       ImmutableList<Artifact> additionalMergedManifests)
       throws InterruptedException, RuleErrorException {
 
@@ -155,7 +157,8 @@ public final class AndroidBinaryMobileInstall {
             .addInputZips(nativeLibsAar.toList())
             .setJavaResourceFile(stubData)
             .setSignedApk(incrementalApk)
-            .setSigningKey(signingKey);
+            .setSigningKeys(signingKeys)
+            .setSigningLineageFile(signingLineage);
 
     incrementalActionsBuilder.registerActions(ruleContext);
 
@@ -197,7 +200,8 @@ public final class AndroidBinaryMobileInstall {
     ApkActionsBuilder.create("split Android resource apk")
         .addInputZip(mobileInstallResourceApks.splitResourceApk.getArtifact())
         .setSignedApk(resourceSplitApk)
-        .setSigningKey(signingKey)
+        .setSigningKeys(signingKeys)
+        .setSigningLineageFile(signingLineage)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(resourceSplitApk);
 
@@ -210,7 +214,8 @@ public final class AndroidBinaryMobileInstall {
           .setClassesDex(shardDexZips.get(i))
           .addInputZip(splitApkResources)
           .setSignedApk(splitApk)
-          .setSigningKey(signingKey)
+          .setSigningKeys(signingKeys)
+          .setSigningLineageFile(signingLineage)
           .registerActions(ruleContext);
       splitApkSetBuilder.add(splitApk);
     }
@@ -222,7 +227,8 @@ public final class AndroidBinaryMobileInstall {
         .addInputZip(nativeSplitApkResources)
         .setNativeLibs(nativeLibs)
         .setSignedApk(nativeSplitApk)
-        .setSigningKey(signingKey)
+        .setSigningKeys(signingKeys)
+        .setSigningLineageFile(signingLineage)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(nativeSplitApk);
 
@@ -234,7 +240,8 @@ public final class AndroidBinaryMobileInstall {
         .addInputZip(javaSplitApkResources)
         .setJavaResourceZip(javaResourceJar, resourceExtractor)
         .setSignedApk(javaSplitApk)
-        .setSigningKey(signingKey)
+        .setSigningKeys(signingKeys)
+        .setSigningLineageFile(signingLineage)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(javaSplitApk);
 
@@ -264,7 +271,8 @@ public final class AndroidBinaryMobileInstall {
         .addInputZip(splitMainApkResources)
         .addInputZips(nativeLibsAar.toList())
         .setSignedApk(splitMainApk)
-        .setSigningKey(signingKey)
+        .setSigningKeys(signingKeys)
+        .setSigningLineageFile(signingLineage)
         .registerActions(ruleContext);
     splitApkSetBuilder.add(splitMainApk);
     NestedSet<Artifact> allSplitApks = splitApkSetBuilder.build();
