@@ -556,6 +556,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     spawnAction
         .setExecutable(javaRuntime.javaBinaryExecPathFragment())
         .addCommandLine(commandLine.build())
+        .setMnemonic("JavaJSA")
+        .setProgressMessage("Dumping Java Shared Archive %s", jsa.prettyPrint())
         .addOutput(jsa)
         .addInput(classlist)
         .addInput(merged)
