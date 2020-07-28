@@ -1284,6 +1284,123 @@ EOF
   expect_log "uri:.*bytestream://localhost"
 }
 
+# This test is derivative of test_bep_output_groups in
+# build_event_stream_test.sh, which verifies that successful output groups'
+# artifacts appear in BEP when a top-level target fails to build.
+function test_downloads_minimal_bep_partially_failed_target() {
+  # Test that when using --remote_download_minimal all URI's in the BEP
+  # are rewritten as bytestream://.. *even when* a target fails to be built and
+  # some output groups within that target are successfully built.
+  mkdir -p outputgroups
+  cat > outputgroups/rules.bzl <<EOF
+def _my_rule_impl(ctx):
+    group_kwargs = {}
+    for name, exit in (("foo", 0), ("bar", 0)):
+        outfile = ctx.actions.declare_file(ctx.label.name + "-" + name + ".out")
+        ctx.actions.run_shell(
+            outputs = [outfile],
+            command = "printf %s > %s && exit %d" % (name, outfile.path, exit),
+        )
+        group_kwargs[name + "_outputs"] = depset([outfile])
+    for name, exit, suffix in (
+      ("foo", 1, ".fail.out"), ("bar", 0, ".ok.out"), ("bar", 0, ".ok.out2")):
+        outfile = ctx.actions.declare_file(ctx.label.name + "-" + name + suffix)
+        ctx.actions.run_shell(
+            outputs = [outfile],
+            command = "printf %s > %s && exit %d" % (name, outfile.path, exit),
+        )
+        group_kwargs[name + "_outputs"] = depset(
+            [outfile], transitive=[group_kwargs[name + "_outputs"]])
+    return [OutputGroupInfo(**group_kwargs)]
+
+my_rule = rule(implementation = _my_rule_impl, attrs = {
+    "outs": attr.output_list(),
+})
+EOF
+  cat > outputgroups/BUILD <<EOF
+load("//outputgroups:rules.bzl", "my_rule")
+my_rule(name = "my_lib", outs=[])
+EOF
+
+  # In outputgroups/rules.bzl, the `my_rule` definition defines four output
+  # groups with different (successful/failed) action counts:
+  #    1. foo_outputs (1 successful/1 failed)
+  #    2. bar_outputs (1/0)
+  #
+  # We request both output groups and expect artifacts produced by bar_outputs
+  # to appear in BEP with bytestream URIs.
+  bazel build //outputgroups:my_lib \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --keep_going \
+    --remote_download_minimal \
+    --build_event_text_file=$TEST_log \
+    --output_groups=foo_outputs,bar_outputs \
+    && fail "expected failure" || true
+
+  expect_not_log 'uri:.*file://'
+  expect_log "uri:.*bytestream://localhost"
+}
+
+# This test is derivative of test_failing_aspect_bep_output_groups in
+# build_event_stream_test.sh, which verifies that successful output groups'
+# artifacts appear in BEP when a top-level aspect fails to build.
+function test_downloads_minimal_bep_partially_failed_aspect() {
+  # Test that when using --remote_download_minimal all URI's in the BEP
+  # are rewritten as bytestream://.. *even when* an aspect fails to be built and
+  # some output groups within that aspect are successfully built.
+  touch BUILD
+  cat > semifailingaspect.bzl <<'EOF'
+def _semifailing_aspect_impl(target, ctx):
+    if not ctx.rule.attr.outs:
+        return struct(output_groups = {})
+    bad_outputs = list()
+    good_outputs = list()
+    for out in ctx.rule.attr.outs:
+        if out.name[0] == "f":
+            aspect_out = ctx.actions.declare_file(out.name + ".aspect.bad")
+            bad_outputs.append(aspect_out)
+            cmd = "false"
+        else:
+            aspect_out = ctx.actions.declare_file(out.name + ".aspect.good")
+            good_outputs.append(aspect_out)
+            cmd = "echo %s > %s" % (out.name, aspect_out.path)
+        ctx.actions.run_shell(
+            inputs = [],
+            outputs = [aspect_out],
+            command = cmd,
+        )
+    return [OutputGroupInfo(**{
+        "bad-aspect-out": depset(bad_outputs),
+        "good-aspect-out": depset(good_outputs),
+    })]
+
+semifailing_aspect = aspect(implementation = _semifailing_aspect_impl)
+EOF
+  mkdir -p semifailingpkg/
+  cat > semifailingpkg/BUILD <<'EOF'
+genrule(
+  name = "semifail",
+  outs = ["out1.txt", "out2.txt", "failingout1.txt"],
+  cmd = "for f in $(OUTS); do echo foo > $(RULEDIR)/$$f; done"
+)
+EOF
+
+  # In semifailingaspect.bzl, the `semifailing_aspect` definition defines two
+  # output groups: good-aspect-out and bad-aspect-out. We expect the artifacts
+  # produced by good-aspect-out to have bytestream URIs in BEP.
+  bazel build //semifailingpkg:semifail \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --keep_going \
+    --remote_download_minimal \
+    --build_event_text_file=$TEST_log \
+    --aspects=semifailingaspect.bzl%semifailing_aspect \
+    --output_groups=good-aspect-out,bad-aspect-out \
+    && fail "expected failure" || true
+
+  expect_not_log 'uri:.*file://'
+  expect_log "uri:.*bytestream://localhost"
+}
+
 function test_remote_exec_properties() {
   # Test that setting remote exec properties works.
   mkdir -p a

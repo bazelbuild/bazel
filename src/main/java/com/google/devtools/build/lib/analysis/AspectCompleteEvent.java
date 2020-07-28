@@ -78,12 +78,12 @@ public class AspectCompleteEvent
    */
   public static AspectCompleteEvent createFailed(
       AspectValue value,
+      CompletionContext ctx,
       NestedSet<Cause> rootCauses,
       BuildEventId configurationEventId,
       NestedSet<ArtifactsInOutputGroup> outputs) {
     Preconditions.checkArgument(!rootCauses.isEmpty());
-    return new AspectCompleteEvent(
-        value, rootCauses, CompletionContext.FAILED_COMPLETION_CTX, outputs, configurationEventId);
+    return new AspectCompleteEvent(value, rootCauses, ctx, outputs, configurationEventId);
   }
 
   /**

@@ -610,7 +610,7 @@ function test_bep_output_groups() {
   # In outputgroups/rules.bzl, the `my_rule` definition defines four output
   # groups with different (successful/failed) action counts:
   #    1. foo_outputs (1 successful/1 failed)
-  #    2. bar_outputs (1/0)
+  #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
   #
@@ -668,7 +668,7 @@ function test_failing_aspect_bep_output_groups() {
   # In outputgroups/rules.bzl, the `my_rule` definition defines four output
   # groups with different (successful/failed) action counts:
   #    1. foo_outputs (1 successful/1 failed)
-  #    2. bar_outputs (1/0)
+  #    2. bar_outputs (6/0)
   #    3. baz_outputs (0/1)
   #    4. skip_outputs (1/0)
   #

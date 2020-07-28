@@ -36,7 +36,11 @@ import javax.annotation.Nullable;
 
 /** Manages completing builds for configured targets. */
 class TargetCompletor
-    implements Completor<ConfiguredTargetValue, TargetCompletionValue, TargetCompletionKey> {
+    implements Completor<
+        ConfiguredTargetValue,
+        TargetCompletionValue,
+        TargetCompletionKey,
+        ConfiguredTargetAndData> {
   static SkyFunction targetCompletionFunction(
       PathResolverFactory pathResolverFactory, SkyframeActionExecutor skyframeActionExecutor) {
     return new CompletionFunction<>(
@@ -82,20 +86,22 @@ class TargetCompletor
 
   @Override
   @Nullable
+  public ConfiguredTargetAndData getFailureData(
+      TargetCompletionKey key, ConfiguredTargetValue value, Environment env)
+      throws InterruptedException {
+    ConfiguredTarget target = value.getConfiguredTarget();
+    return ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(target, env);
+  }
+
+  @Override
+  @Nullable
   public ExtendedEventHandler.Postable createFailed(
       ConfiguredTargetValue value,
       NestedSet<Cause> rootCauses,
+      CompletionContext ctx,
       NestedSet<ArtifactsInOutputGroup> outputs,
-      Environment env,
-      TargetCompletionKey key)
-      throws InterruptedException {
-    ConfiguredTarget target = value.getConfiguredTarget();
-    ConfiguredTargetAndData configuredTargetAndData =
-        ConfiguredTargetAndData.fromConfiguredTargetInSkyframe(target, env);
-    if (configuredTargetAndData == null) {
-      return null;
-    }
-    return TargetCompleteEvent.createFailed(configuredTargetAndData, rootCauses, outputs);
+      ConfiguredTargetAndData configuredTargetAndData) {
+    return TargetCompleteEvent.createFailed(configuredTargetAndData, ctx, rootCauses, outputs);
   }
 
   @Override
