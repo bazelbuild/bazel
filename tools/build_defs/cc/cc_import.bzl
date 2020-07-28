@@ -160,6 +160,7 @@ def _cc_import_impl(ctx):
         static_library = static_library,
         pic_static_library = pic_static_library,
         interface_library = ctx.file.interface_library,
+        dynamic_library = ctx.file.shared_library,
         pic_objects = ctx.files.pic_objects,
         objects = ctx.files.objects,
         alwayslink = ctx.attr.alwayslink,
@@ -199,7 +200,7 @@ cc_import = rule(
         "hdrs": attr.label_list(allow_files = [".h"]),
         "static_library": attr.label(allow_single_file = [".a", ".lib"]),
         "pic_static_library": attr.label(allow_single_file = [".pic.a", ".pic.lib"]),
-        "shared_library": attr.label(allow_single_file = True),
+        "shared_library": attr.label(allow_single_file = [".so", ".dll", ".dylib"]),
         "interface_library": attr.label(
             allow_single_file = [".ifso", ".tbd", ".lib", ".so", ".dylib"],
         ),
