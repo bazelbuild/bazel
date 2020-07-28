@@ -164,6 +164,7 @@ assert_eq("\"", '"')
 "\777" ### octal escape sequence out of range (maximum is \377)
 ---
 "\" ### unterminated string literal at eol
+
 ---
 """ ### unterminated string literal at eof
 ---
