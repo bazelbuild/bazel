@@ -284,7 +284,7 @@ EOF
   bazel build --worker_verbose :hello_world_2 &> $TEST_log \
     || fail "build failed"
 
-  expect_log "Work worker (id 1) has unexpectedly died with exit code 0."
+  expect_log "Work worker (id 2) has unexpectedly died with exit code 0."
 }
 
 function test_build_fails_if_worker_dies_during_action() {

@@ -33,7 +33,9 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
   // It's fine to use an AtomicInteger here (which is 32-bit), because it is only incremented when
   // spawning a new worker, thus even under worst-case circumstances and buggy workers quitting
   // after each action, this should never overflow.
-  private static final AtomicInteger pidCounter = new AtomicInteger();
+  // This starts at 1 to avoid hiding latent problems of multiplex workers not returning a
+  // request_id (which is indistinguishable from 0 in proto3).
+  private static final AtomicInteger pidCounter = new AtomicInteger(1);
 
   private WorkerOptions workerOptions;
   private final Path workerBaseDir;
