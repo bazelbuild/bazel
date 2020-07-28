@@ -70,14 +70,11 @@ java_library(
         "UnaryOperatorExpression.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
+        # Do not add Bazel or Google dependencies here!
         "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -123,7 +120,7 @@ java_library(
     ],
     deps = [
         ":frontend",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        # Do not add Bazel or Google dependencies here!
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/spelling",
         "//third_party:auto_value",
