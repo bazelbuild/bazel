@@ -22,10 +22,7 @@ filegroup(
 java_library(
     name = "rules",
     srcs = glob(["*.java"]),
-    resources = glob([
-        "*.txt",
-        "*.WORKSPACE",
-    ]),
+    resources = glob(["*.WORKSPACE"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",

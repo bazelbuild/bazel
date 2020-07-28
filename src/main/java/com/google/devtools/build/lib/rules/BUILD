@@ -577,7 +577,6 @@ filegroup(
         [
             "*.java",
             "test/*.java",
-            "workspace/*.java",
             "extra/*.java",
         ],
     ),

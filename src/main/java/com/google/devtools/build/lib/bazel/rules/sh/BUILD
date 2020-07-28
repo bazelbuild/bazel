@@ -13,12 +13,7 @@ filegroup(
 java_library(
     name = "sh",
     srcs = glob(["*.java"]),
-    resources = glob(
-        [
-            "*.txt",
-            "*.WORKSPACE",
-        ],
-    ),
+    resources = glob(["*.WORKSPACE"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
