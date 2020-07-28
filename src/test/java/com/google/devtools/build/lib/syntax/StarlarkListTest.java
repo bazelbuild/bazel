@@ -26,49 +26,51 @@ import org.junit.runners.JUnit4;
 
 /** Tests for Sequence. */
 @RunWith(JUnit4.class)
-public final class StarlarkListTest extends EvaluationTestCase {
+public final class StarlarkListTest {
+
+  private final EvaluationTestCase ev = new EvaluationTestCase();
 
   @Test
   public void testIndex() throws Exception {
-    exec("l = [1, '2', 3]");
-    assertThat(eval("l[0]")).isEqualTo(1);
-    assertThat(eval("l[1]")).isEqualTo("2");
-    assertThat(eval("l[2]")).isEqualTo(3);
+    ev.exec("l = [1, '2', 3]");
+    assertThat(ev.eval("l[0]")).isEqualTo(1);
+    assertThat(ev.eval("l[1]")).isEqualTo("2");
+    assertThat(ev.eval("l[2]")).isEqualTo(3);
 
-    exec("t = (1, '2', 3)");
-    assertThat(eval("t[0]")).isEqualTo(1);
-    assertThat(eval("t[1]")).isEqualTo("2");
-    assertThat(eval("t[2]")).isEqualTo(3);
+    ev.exec("t = (1, '2', 3)");
+    assertThat(ev.eval("t[0]")).isEqualTo(1);
+    assertThat(ev.eval("t[1]")).isEqualTo("2");
+    assertThat(ev.eval("t[2]")).isEqualTo(3);
   }
 
   @Test
   public void testIndexOutOfBounds() throws Exception {
-    checkEvalError(
+    ev.checkEvalError(
         "index out of range (index is 3, but sequence has 3 elements)", "['a', 'b', 'c'][3]");
-    checkEvalError(
+    ev.checkEvalError(
         "index out of range (index is 10, but sequence has 3 elements)", "['a', 'b', 'c'][10]");
-    checkEvalError("index out of range (index is 0, but sequence has 0 elements)", "[][0]");
+    ev.checkEvalError("index out of range (index is 0, but sequence has 0 elements)", "[][0]");
   }
 
   @Test
   public void testNegativeIndices() throws Exception {
-    exec("l = ['a', 'b', 'c']");
-    assertThat(eval("l[0]")).isEqualTo("a");
-    assertThat(eval("l[-1]")).isEqualTo("c");
-    assertThat(eval("l[-2]")).isEqualTo("b");
-    assertThat(eval("l[-3]")).isEqualTo("a");
-    checkEvalError("index out of range (index is -4, but sequence has 3 elements)", "l[-4]");
-    checkEvalError("index out of range (index is -1, but sequence has 0 elements)", "[][-1]");
+    ev.exec("l = ['a', 'b', 'c']");
+    assertThat(ev.eval("l[0]")).isEqualTo("a");
+    assertThat(ev.eval("l[-1]")).isEqualTo("c");
+    assertThat(ev.eval("l[-2]")).isEqualTo("b");
+    assertThat(ev.eval("l[-3]")).isEqualTo("a");
+    ev.checkEvalError("index out of range (index is -4, but sequence has 3 elements)", "l[-4]");
+    ev.checkEvalError("index out of range (index is -1, but sequence has 0 elements)", "[][-1]");
   }
 
   @SuppressWarnings("unchecked")
   private Sequence<Object> listEval(String... input) throws Exception {
-    return (Sequence<Object>) eval(input);
+    return (Sequence<Object>) ev.eval(input);
   }
 
   @Test
   public void testSlice() throws Exception {
-    exec("l = ['a', 'b', 'c']");
+    ev.exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[0:3]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[0:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[0:1]")).containsExactly("a").inOrder();
@@ -79,14 +81,14 @@ public final class StarlarkListTest extends EvaluationTestCase {
     assertThat(listEval("l[2:1]")).isEmpty();
     assertThat(listEval("l[3:0]")).isEmpty();
 
-    exec("t = ('a', 'b', 'c')");
+    ev.exec("t = ('a', 'b', 'c')");
     assertThat(listEval("t[0:3]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("t[1:2]")).containsExactly("b").inOrder();
   }
 
   @Test
   public void testSliceDefault() throws Exception {
-    exec("l = ['a', 'b', 'c']");
+    ev.exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[:]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[2:]")).containsExactly("c").inOrder();
@@ -94,7 +96,7 @@ public final class StarlarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceNegative() throws Exception {
-    exec("l = ['a', 'b', 'c']");
+    ev.exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[-2:-1]")).containsExactly("b").inOrder();
     assertThat(listEval("l[-2:]")).containsExactly("b", "c").inOrder();
     assertThat(listEval("l[0:-1]")).containsExactly("a", "b").inOrder();
@@ -103,7 +105,7 @@ public final class StarlarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceBounds() throws Exception {
-    exec("l = ['a', 'b', 'c']");
+    ev.exec("l = ['a', 'b', 'c']");
     assertThat(listEval("l[0:5]")).containsExactly("a", "b", "c").inOrder();
     assertThat(listEval("l[-10:2]")).containsExactly("a", "b").inOrder();
     assertThat(listEval("l[3:10]")).isEmpty();
@@ -112,7 +114,7 @@ public final class StarlarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceSkip() throws Exception {
-    exec("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
+    ev.exec("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
     assertThat(listEval("l[0:6:2]")).containsExactly("a", "c", "e").inOrder();
     assertThat(listEval("l[0:7:2]")).containsExactly("a", "c", "e", "g").inOrder();
     assertThat(listEval("l[0:10:2]")).containsExactly("a", "c", "e", "g").inOrder();
@@ -125,7 +127,7 @@ public final class StarlarkListTest extends EvaluationTestCase {
 
   @Test
   public void testSliceNegativeSkip() throws Exception {
-    exec("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
+    ev.exec("l = ['a', 'b', 'c', 'd', 'e', 'f', 'g']");
     assertThat(listEval("l[5:2:-1]")).containsExactly("f", "e", "d").inOrder();
     assertThat(listEval("l[5:2:-2]")).containsExactly("f", "d").inOrder();
     assertThat(listEval("l[5:3:-2]")).containsExactly("f").inOrder();
@@ -138,110 +140,110 @@ public final class StarlarkListTest extends EvaluationTestCase {
     assertThat(listEval("l[-10:5:-1]")).isEmpty();
     assertThat(listEval("l[1:-8:-1]")).containsExactly("b", "a").inOrder();
 
-    checkEvalError("slice step cannot be zero", "l[2:5:0]");
+    ev.checkEvalError("slice step cannot be zero", "l[2:5:0]");
   }
 
   @Test
   public void testListSize() throws Exception {
-    assertThat(eval("len([42, 'hello, world', []])")).isEqualTo(3);
+    assertThat(ev.eval("len([42, 'hello, world', []])")).isEqualTo(3);
   }
 
   @Test
   public void testListEmpty() throws Exception {
-    assertThat(eval("8 if [1, 2, 3] else 9")).isEqualTo(8);
-    assertThat(eval("8 if [] else 9")).isEqualTo(9);
+    assertThat(ev.eval("8 if [1, 2, 3] else 9")).isEqualTo(8);
+    assertThat(ev.eval("8 if [] else 9")).isEqualTo(9);
   }
 
   @Test
   public void testListConcat() throws Exception {
-    assertThat(eval("[1, 2] + [3, 4]"))
+    assertThat(ev.eval("[1, 2] + [3, 4]"))
         .isEqualTo(StarlarkList.of(/*mutability=*/ null, 1, 2, 3, 4));
   }
 
   @Test
   public void testConcatListIndex() throws Exception {
-    exec(
+    ev.exec(
         "l = [1, 2] + [3, 4]", //
         "e0 = l[0]",
         "e1 = l[1]",
         "e2 = l[2]",
         "e3 = l[3]");
-    assertThat(lookup("e0")).isEqualTo(1);
-    assertThat(lookup("e1")).isEqualTo(2);
-    assertThat(lookup("e2")).isEqualTo(3);
-    assertThat(lookup("e3")).isEqualTo(4);
+    assertThat(ev.lookup("e0")).isEqualTo(1);
+    assertThat(ev.lookup("e1")).isEqualTo(2);
+    assertThat(ev.lookup("e2")).isEqualTo(3);
+    assertThat(ev.lookup("e3")).isEqualTo(4);
   }
 
   @Test
   public void testConcatListHierarchicalIndex() throws Exception {
-    exec(
+    ev.exec(
         "l = [1] + (([2] + [3, 4]) + [5])", //
         "e0 = l[0]",
         "e1 = l[1]",
         "e2 = l[2]",
         "e3 = l[3]",
         "e4 = l[4]");
-    assertThat(lookup("e0")).isEqualTo(1);
-    assertThat(lookup("e1")).isEqualTo(2);
-    assertThat(lookup("e2")).isEqualTo(3);
-    assertThat(lookup("e3")).isEqualTo(4);
-    assertThat(lookup("e4")).isEqualTo(5);
+    assertThat(ev.lookup("e0")).isEqualTo(1);
+    assertThat(ev.lookup("e1")).isEqualTo(2);
+    assertThat(ev.lookup("e2")).isEqualTo(3);
+    assertThat(ev.lookup("e3")).isEqualTo(4);
+    assertThat(ev.lookup("e4")).isEqualTo(5);
   }
 
   @Test
   public void testConcatListSize() throws Exception {
-    assertThat(eval("len([1, 2] + [3, 4])")).isEqualTo(4);
+    assertThat(ev.eval("len([1, 2] + [3, 4])")).isEqualTo(4);
   }
 
   @Test
   public void testAppend() throws Exception {
-    exec("l = [1, 2]");
-    assertThat(Starlark.NONE).isEqualTo(eval("l.append([3, 4])"));
-    assertThat(eval("[1, 2, [3, 4]]")).isEqualTo(lookup("l"));
+    ev.exec("l = [1, 2]");
+    assertThat(Starlark.NONE).isEqualTo(ev.eval("l.append([3, 4])"));
+    assertThat(ev.eval("[1, 2, [3, 4]]")).isEqualTo(ev.lookup("l"));
   }
 
   @Test
   public void testExtend() throws Exception {
-    exec("l = [1, 2]");
-    assertThat(Starlark.NONE).isEqualTo(eval("l.extend([3, 4])"));
-    assertThat(eval("[1, 2, 3, 4]")).isEqualTo(lookup("l"));
+    ev.exec("l = [1, 2]");
+    assertThat(Starlark.NONE).isEqualTo(ev.eval("l.extend([3, 4])"));
+    assertThat(ev.eval("[1, 2, 3, 4]")).isEqualTo(ev.lookup("l"));
   }
 
   @Test
   public void listAfterRemoveHasExpectedEqualsAndHashCode() throws Exception {
-    exec("l = [1, 2, 3]");
-    exec("l.remove(3)");
-    assertThat(lookup("l")).isEqualTo(eval("[1, 2]"));
-    assertThat(lookup("l").hashCode()).isEqualTo(eval("[1, 2]").hashCode());
+    ev.exec("l = [1, 2, 3]");
+    ev.exec("l.remove(3)");
+    assertThat(ev.lookup("l")).isEqualTo(ev.eval("[1, 2]"));
+    assertThat(ev.lookup("l").hashCode()).isEqualTo(ev.eval("[1, 2]").hashCode());
   }
 
   @Test
   public void testConcatListToString() throws Exception {
-    assertThat(eval("str([1, 2] + [3, 4])")).isEqualTo("[1, 2, 3, 4]");
+    assertThat(ev.eval("str([1, 2] + [3, 4])")).isEqualTo("[1, 2, 3, 4]");
   }
 
   @Test
   public void testConcatListNotEmpty() throws Exception {
-    exec("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
-    assertThat(lookup("v")).isEqualTo(1);
+    ev.exec("l = [1, 2] + [3, 4]", "v = 1 if l else 0");
+    assertThat(ev.lookup("v")).isEqualTo(1);
   }
 
   @Test
   public void testConcatListEmpty() throws Exception {
-    exec("l = [] + []", "v = 1 if l else 0");
-    assertThat(lookup("v")).isEqualTo(0);
+    ev.exec("l = [] + []", "v = 1 if l else 0");
+    assertThat(ev.lookup("v")).isEqualTo(0);
   }
 
   @Test
   public void testListComparison() throws Exception {
-    assertThat(eval("(1, 'two', [3, 4]) == (1, 'two', [3, 4])")).isEqualTo(true);
-    assertThat(eval("[1, 2, 3, 4] == [1, 2] + [3, 4]")).isEqualTo(true);
-    assertThat(eval("[1, 2, 3, 4] == (1, 2, 3, 4)")).isEqualTo(false);
-    assertThat(eval("[1, 2] == [1, 2, 3]")).isEqualTo(false);
-    assertThat(eval("[] == []")).isEqualTo(true);
-    assertThat(eval("() == ()")).isEqualTo(true);
-    assertThat(eval("() == (1,)")).isEqualTo(false);
-    assertThat(eval("(1) == (1,)")).isEqualTo(false);
+    assertThat(ev.eval("(1, 'two', [3, 4]) == (1, 'two', [3, 4])")).isEqualTo(true);
+    assertThat(ev.eval("[1, 2, 3, 4] == [1, 2] + [3, 4]")).isEqualTo(true);
+    assertThat(ev.eval("[1, 2, 3, 4] == (1, 2, 3, 4)")).isEqualTo(false);
+    assertThat(ev.eval("[1, 2] == [1, 2, 3]")).isEqualTo(false);
+    assertThat(ev.eval("[] == []")).isEqualTo(true);
+    assertThat(ev.eval("() == ()")).isEqualTo(true);
+    assertThat(ev.eval("() == (1,)")).isEqualTo(false);
+    assertThat(ev.eval("(1) == (1,)")).isEqualTo(false);
   }
 
   @Test

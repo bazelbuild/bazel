@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.syntax.EvalUtils.ComparisonException;
-import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import org.junit.Test;
@@ -30,7 +29,7 @@ import org.junit.runners.JUnit4;
  * parse trees.
  */
 @RunWith(JUnit4.class)
-public final class EvalUtilsTest extends EvaluationTestCase {
+public final class EvalUtilsTest {
 
   private static StarlarkList<Object> makeList(@Nullable Mutability mu) {
     return StarlarkList.of(mu, 1, 2, 3);

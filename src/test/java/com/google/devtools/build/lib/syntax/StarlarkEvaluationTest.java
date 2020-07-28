@@ -37,7 +37,9 @@ import org.junit.runners.JUnit4;
 // TODO(adonovan): reorganize.
 @StarlarkGlobalLibrary // required for @StarlarkMethod-annotated methods
 @RunWith(JUnit4.class)
-public final class StarlarkEvaluationTest extends EvaluationTestCase {
+public final class StarlarkEvaluationTest {
+
+  private final EvaluationTestCase ev = new EvaluationTestCase();
 
   static class Bad {
     Bad () {
@@ -484,7 +486,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   // declaration, due to the interface's method declaration being generic.
   @Test
   public void testParameterizedMock() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new ParameterizedMock())
         .setUp("result = mock.method('bar')")
         .testLookup("result", "bar");
@@ -492,14 +494,14 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSimpleIf() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def foo():", "  a = 0", "  x = 0", "  if x: a = 5", "  return a", "a = foo()")
         .testLookup("a", 0);
   }
 
   @Test
   public void testIfPass() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def foo():", "  a = 1", "  x = True", "  if x: pass", "  return a", "a = foo()")
         .testLookup("a", 1);
   }
@@ -513,7 +515,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   private void executeNestedIf(int x, int y, int expected) throws Exception {
     String fun = String.format("foo%s%s", x, y);
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def " + fun + "():",
             "  x = " + x,
@@ -536,7 +538,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   private void executeIfElse(String fun, String y, int expected) throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def " + fun + "():",
             "  y = '" + y + "'",
@@ -565,7 +567,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   private void execIfElifElse(int x, int y, int v) throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  x = " + x + "",
@@ -582,7 +584,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForOnList() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  s = ''",
@@ -595,7 +597,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForAssignmentList() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  d = ['a', 'b', 'c']",
@@ -610,7 +612,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForAssignmentDict() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def func():",
             "  d = {'a' : 1, 'b' : 2, 'c' : 3}",
@@ -625,7 +627,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForUpdateList() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  xs = [1, 2, 3]",
@@ -638,7 +640,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForUpdateDict() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def foo():", "  d = {'a': 1, 'b': 2, 'c': 3}", "  for k in d:", "    d[k] *= 2")
         .testIfErrorContains(
             "dict value is temporarily immutable due to active for-loop iteration", "foo()");
@@ -646,7 +648,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForUnlockedAfterBreak() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  xs = [1, 2]",
@@ -659,7 +661,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForNestedOnSameListStillLocked() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  xs = [1, 2]",
@@ -675,7 +677,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForNestedOnSameListUnlockedAtEnd() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  xs = [1, 2]",
@@ -690,7 +692,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForNestedWithListCompGood() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  xs = [1, 2]",
@@ -702,7 +704,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
   @Test
   public void testForNestedWithListCompBad() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  xs = [1, 2, 3]",
@@ -717,7 +719,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testForDeepUpdate() throws Exception {
     // Check that indirectly reachable values can still be manipulated as normal.
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  xs = [['a'], ['b'], ['c']]",
@@ -733,7 +735,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForNotIterable() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "type 'int' is not iterable",
@@ -744,7 +746,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForStringNotIterable() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "type 'string' is not iterable", "def func():", "  for i in 'abc': a = i", "func()\n");
@@ -752,7 +754,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForOnDictionary() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  d = {1: 'a', 2: 'b', 3: 'c'}",
@@ -765,12 +767,12 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testBadDictKey() throws Exception {
-    new Scenario().testIfErrorContains("unhashable type: 'list'", "{ [1, 2]: [3, 4] }");
+    ev.new Scenario().testIfErrorContains("unhashable type: 'list'", "{ [1, 2]: [3, 4] }");
   }
 
   @Test
   public void testForLoopReuseVariable() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  s = ''",
@@ -783,7 +785,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testForLoopMultipleVariables() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  s = ''",
@@ -806,7 +808,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @SuppressWarnings("unchecked")
   private void simpleFlowTest(String statement, int expected) throws Exception {
-    exec(
+    ev.exec(
         "def foo():",
         "  s = 0",
         "  hit = 0",
@@ -816,7 +818,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         "    hit = 1",
         "  return [s, hit]",
         "x = foo()");
-    assertThat((Iterable<Object>) lookup("x")).containsExactly(expected, 0).inOrder();
+    assertThat((Iterable<Object>) ev.lookup("x")).containsExactly(expected, 0).inOrder();
   }
 
   @Test
@@ -832,7 +834,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   }
 
   private void flowFromDeeperBlock(String statement, int expected) throws Exception {
-    exec(
+    ev.exec(
         "def foo():",
         "   s = 0",
         "   for i in range(0, 10):",
@@ -841,11 +843,11 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         "       s = s + 1",
         "   return s",
         "x = foo()");
-    assertThat(lookup("x")).isEqualTo(expected);
+    assertThat(ev.lookup("x")).isEqualTo(expected);
   }
 
   private void flowFromNestedBlocks(String statement, int expected) throws Exception {
-    exec(
+    ev.exec(
         "def foo2():",
         "   s = 0",
         "   for i in range(1, 41):",
@@ -856,7 +858,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         "       s = s + 1",
         "   return s",
         "y = foo2()");
-    assertThat(lookup("y")).isEqualTo(expected);
+    assertThat(ev.lookup("y")).isEqualTo(expected);
   }
 
   @Test
@@ -872,7 +874,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @SuppressWarnings("unchecked")
   private void nestedLoopsTest(String statement, Integer outerExpected, int firstExpected,
       int secondExpected) throws Exception {
-    exec(
+    ev.exec(
         "def foo():",
         "   outer = 0",
         "   first = 0",
@@ -891,8 +893,9 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         "       outer = outer + 1",
         "   return [outer, first, second]",
         "x = foo()");
-    assertThat((Iterable<Object>) lookup("x"))
-        .containsExactly(outerExpected, firstExpected, secondExpected).inOrder();
+    assertThat((Iterable<Object>) ev.lookup("x"))
+        .containsExactly(outerExpected, firstExpected, secondExpected)
+        .inOrder();
   }
 
   @Test
@@ -909,7 +912,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   // TODO(adonovan): move this and all tests that use it to ResolverTest.
   private void assertResolutionError(String expectedError, final String... lines) throws Exception {
-    SyntaxError.Exception error = assertThrows(SyntaxError.Exception.class, () -> exec(lines));
+    SyntaxError.Exception error = assertThrows(SyntaxError.Exception.class, () -> ev.exec(lines));
     assertThat(error).hasMessageThat().contains(expectedError);
   }
 
@@ -940,26 +943,26 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testNoneAssignment() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def foo(x=None):", "  x = 1", "  x = None", "  return 2", "s = foo()")
         .testLookup("s", 2);
   }
 
   @Test
   public void testReassignment() throws Exception {
-    exec(
+    ev.exec(
         "def foo(x=None):", //
         "  x = 1",
         "  x = [1, 2]",
         "  x = 'str'",
         "  return x",
         "s = foo()");
-    assertThat(lookup("s")).isEqualTo("str");
+    assertThat(ev.lookup("s")).isEqualTo("str");
   }
 
   @Test
   public void testJavaCalls() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.is_empty('a')")
         .testLookup("b", Boolean.FALSE);
@@ -967,7 +970,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaCallsOnSubClass() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new MockSubClass())
         .setUp("b = mock.is_empty('a')")
         .testLookup("b", Boolean.FALSE);
@@ -975,7 +978,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaCallsOnInterface() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new MockSubClass())
         .setUp("b = mock.is_empty_interface('a')")
         .testLookup("b", Boolean.FALSE);
@@ -983,34 +986,34 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaCallsNotStarlarkMethod() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfExactError("'Mock' value has no field or method 'value'", "mock.value()");
   }
 
   @Test
   public void testNoOperatorIndex() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfExactError("type 'Mock' has no operator [](int)", "mock[2]");
   }
 
   @Test
   public void testJavaCallsNoMethod() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfExactError("'Mock' value has no field or method 'bad'", "mock.bad()");
   }
 
   @Test
   public void testJavaCallsNoMethodErrorMsg() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfExactError("'int' value has no field or method 'bad'", "s = 3.bad('a', 'b', 'c')");
   }
 
   @Test
   public void testJavaCallWithKwargs() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfExactError(
             "'Mock' value has no field or method 'isEmpty'", "mock.isEmpty(str='abc')");
@@ -1018,7 +1021,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStringListDictValues() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "def func(mock):",
@@ -1031,7 +1034,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testProxyMethodsObject() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("m = mock.proxy_methods_object()", "b = m.with_params(1, True, named=True)")
         .testLookup("b", "with_params(1, true, false, true, false, a)");
@@ -1045,7 +1048,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   public void testArgSpecifiedBothByNameAndPosition() throws Exception {
     // in with_params, 'posOrNamed' is positional parameter index 2. So by specifying both
     // posOrNamed by name and three positional parameters, there is a conflict.
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "with_params() got multiple values for argument 'posOrNamed'",
@@ -1054,19 +1057,19 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testTooManyPositionalArgs() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "with_params() accepts no more than 3 positional arguments but got 4",
             "mock.with_params(1, True, True, 'toomany', named=True)");
 
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "with_params() accepts no more than 3 positional arguments but got 5",
             "mock.with_params(1, True, True, 'toomany', 'alsotoomany', named=True)");
 
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "is_empty() accepts no more than 1 positional argument but got 2",
@@ -1075,68 +1078,68 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaCallWithPositionalAndKwargs() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True)")
         .testLookup("b", "with_params(1, true, false, true, false, a)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, multi=1)")
         .testLookup("b", "with_params(1, true, false, true, false, a, 1)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, multi='abc')")
         .testLookup("b", "with_params(1, true, false, true, false, a, abc)");
 
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, multi=[1,2,3])")
         .testLookup("b", "with_params(1, true, false, true, false, a, [1, 2, 3])");
 
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "with_params() missing 1 required named argument: named", "mock.with_params(1, True)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "with_params() missing 1 required named argument: named",
             "mock.with_params(1, True, True)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, True, named=True)")
         .testLookup("b", "with_params(1, true, true, true, false, a)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, posOrNamed=True)")
         .testLookup("b", "with_params(1, true, true, true, false, a)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, posOrNamed=True, optionalNamed=True)")
         .testLookup("b", "with_params(1, true, true, true, true, a)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "with_params() got unexpected keyword argument 'posornamed' (did you mean"
                 + " 'posOrNamed'?)",
             "mock.with_params(1, True, named=True, posornamed=True)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "with_params() got unexpected keyword argument 'n'",
             "mock.with_params(1, True, named=True, posOrNamed=True, n=2)");
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
             "in call to with_params(), parameter 'nonNoneable' cannot be None",
             "mock.with_params(1, True, True, named=True, optionalNamed=False, nonNoneable=None)");
 
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("")
         .testIfExactError(
@@ -1146,7 +1149,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
     // We do not enforce list item parameter type constraints.
     // Test for this behavior.
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params(1, True, named=True, multi=['a', 'b'])")
         .testLookup("b", "with_params(1, true, false, true, false, a, [\"a\", \"b\"])");
@@ -1154,35 +1157,38 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testNoJavaCallsWithoutStarlark() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfExactError("'int' value has no field or method 'to_string'", "s = 3.to_string()");
   }
 
   @Test
   public void testStructAccess() throws Exception {
-    new Scenario().update("mock", new Mock()).setUp("v = mock.struct_field").testLookup("v", "a");
+    ev.new Scenario()
+        .update("mock", new Mock())
+        .setUp("v = mock.struct_field")
+        .testLookup("v", "a");
   }
 
   @Test
   public void testStructAccessAsFuncallNonCallable() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfExactError("'string' object is not callable", "v = mock.struct_field()");
   }
 
   @Test
   public void testSelfCall() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock('bestmock')")
         .testLookup("v", "I'm a mock named bestmock");
 
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("mockfunction = mock", "v = mockfunction('bestmock')")
         .testLookup("v", "I'm a mock named bestmock");
 
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfErrorContains(
             "in call to MockFn(), parameter 'pos' got value of type 'int', want 'string'",
@@ -1191,7 +1197,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructAccessAsFuncall() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.struct_field_callable()")
         .testLookup("v", "foobar");
@@ -1199,25 +1205,25 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testCallingInterruptedStructField() throws Exception {
-    update("mock", new Mock());
-    assertThrows(InterruptedException.class, () -> eval("mock.interrupted_struct_field()"));
+    ev.update("mock", new Mock());
+    assertThrows(InterruptedException.class, () -> ev.eval("mock.interrupted_struct_field()"));
   }
 
   @Test
   public void testCallingInterruptedFunction() throws Exception {
-    update("interrupted_function", new BuiltinCallable(this, "interrupted_function"));
-    assertThrows(InterruptedException.class, () -> eval("interrupted_function()"));
+    ev.update("interrupted_function", new BuiltinCallable(this, "interrupted_function"));
+    assertThrows(InterruptedException.class, () -> ev.eval("interrupted_function()"));
   }
 
   @Test
   public void testCallingMethodThatRaisesUncheckedException() throws Exception {
-    update("mock", new Mock());
-    assertThrows(InternalError.class, () -> eval("mock.raise_unchecked_exception()"));
+    ev.update("mock", new Mock());
+    assertThrows(InternalError.class, () -> ev.eval("mock.raise_unchecked_exception()"));
   }
 
   @Test
   public void testJavaFunctionWithExtraInterpreterParams() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.with_extra()")
         .testLookup("v", "with_extra(1)");
@@ -1225,7 +1231,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructFieldWithExtraInterpreterParams() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.struct_field_with_extra")
         .testLookup("v", "struct_field_with_extra(true)");
@@ -1233,7 +1239,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaFunctionWithParamsAndExtraInterpreterParams() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_params_and_extra(1, True, named=True)")
         .testLookup("b", "with_params_and_extra(1, true, false, true, false, a, 1)");
@@ -1241,13 +1247,13 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaFunctionWithExtraArgsAndThread() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_args_and_thread(1, True, 'extraArg1', 'extraArg2', named=True)")
         .testLookup("b", "with_args_and_thread(1, true, true, args(extraArg1, extraArg2))");
 
     // Use an args list.
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "myargs = ['extraArg2']",
@@ -1257,13 +1263,13 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaFunctionWithExtraKwargs() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_kwargs(True, extraKey1=True, named=True, extraKey2='x')")
         .testLookup("b", "with_kwargs(true, true, kwargs(extraKey1=true, extraKey2=x))");
 
     // Use a kwargs dict.
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "mykwargs = {'extraKey2':'x', 'named':True}",
@@ -1274,14 +1280,14 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testJavaFunctionWithArgsAndKwargs() throws Exception {
     // Foo is used positionally
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_args_and_kwargs('foo', 'bar', 'baz', extraKey1=True, extraKey2='x')")
         .testLookup(
             "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey1=true, extraKey2=x))");
 
     // Use an args list and a kwargs dict
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "mykwargs = {'extraKey1':True}",
@@ -1291,13 +1297,13 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
             "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey2=x, extraKey1=true))");
 
     // Foo is used by name
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_args_and_kwargs(foo='foo', extraKey1=True)")
         .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs(extraKey1=true))");
 
     // Empty args and kwargs.
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("b = mock.with_args_and_kwargs('foo')")
         .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs())");
@@ -1306,7 +1312,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testProxyMethodsObjectWithArgsAndKwargs() throws Exception {
     // Foo is used positionally
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "m = mock.proxy_methods_object()",
@@ -1315,7 +1321,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
             "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey1=true, extraKey2=x))");
 
     // Use an args list and a kwargs dict
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "mykwargs = {'extraKey1':True}",
@@ -1326,7 +1332,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
             "b", "with_args_and_kwargs(foo, args(bar, baz), kwargs(extraKey2=x, extraKey1=true))");
 
     // Foo is used by name
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "m = mock.proxy_methods_object()",
@@ -1334,7 +1340,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs(extraKey1=true))");
 
     // Empty args and kwargs.
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("m = mock.proxy_methods_object()", "b = m.with_args_and_kwargs('foo')")
         .testLookup("b", "with_args_and_kwargs(foo, args(), kwargs())");
@@ -1342,13 +1348,13 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructAccessOfMethod() throws Exception {
-    new Scenario().update("mock", new Mock()).testExpression("type(mock.function)", "function");
-    new Scenario().update("mock", new Mock()).testExpression("mock.function()", "a");
+    ev.new Scenario().update("mock", new Mock()).testExpression("type(mock.function)", "function");
+    ev.new Scenario().update("mock", new Mock()).testExpression("mock.function()", "a");
   }
 
   @Test
   public void testStructAccessTypo() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new SimpleStruct(ImmutableMap.of("field", 123)))
         .testIfExactError(
             "'SimpleStruct' value has no field or method 'fild' (did you mean 'field'?)",
@@ -1357,7 +1363,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructAccessType_nonClassObject() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testIfExactError(
             "'Mock' value has no field or method 'sturct_field' (did you mean 'struct_field'?)",
@@ -1366,9 +1372,9 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaFunctionReturnsIllegalValue() throws Exception {
-    update("mock", new Mock());
+    ev.update("mock", new Mock());
     IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> eval("mock.return_bad()"));
+        assertThrows(IllegalArgumentException.class, () -> ev.eval("mock.return_bad()"));
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -1378,15 +1384,15 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaFunctionReturnsNullFails() throws Exception {
-    update("mock", new Mock());
+    ev.update("mock", new Mock());
     IllegalStateException e =
-        assertThrows(IllegalStateException.class, () -> eval("mock.nullfunc_failing('abc', 1)"));
+        assertThrows(IllegalStateException.class, () -> ev.eval("mock.nullfunc_failing('abc', 1)"));
     assertThat(e).hasMessageThat().contains("method invocation returned None");
   }
 
   @Test
   public void testClassObjectAccess() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new SimpleStruct(ImmutableMap.of("field", "a")))
         .setUp("v = mock.field")
         .testLookup("v", "a");
@@ -1394,7 +1400,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testSetIsNotIterable() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains("not iterable", "list(depset(['a', 'b']))")
         .testIfErrorContains("not iterable", "max(depset([1, 2, 3]))")
         .testIfErrorContains(
@@ -1407,8 +1413,9 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testFieldReturnsNonStarlarkValue() throws Exception {
-    update("s", new SimpleStruct(ImmutableMap.of("bad", new StringBuilder())));
-    IllegalArgumentException e = assertThrows(IllegalArgumentException.class, () -> eval("s.bad"));
+    ev.update("s", new SimpleStruct(ImmutableMap.of("bad", new StringBuilder())));
+    IllegalArgumentException e =
+        assertThrows(IllegalArgumentException.class, () -> ev.eval("s.bad"));
     assertThat(e)
         .hasMessageThat()
         .contains("invalid Starlark value: class java.lang.StringBuilder");
@@ -1416,7 +1423,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testJavaFunctionReturnsNone() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.nullfunc_working()")
         .testLookup("v", Starlark.NONE);
@@ -1424,7 +1431,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testVoidJavaFunctionReturnsNone() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp("v = mock.voidfunc()")
         .testLookup("v", Starlark.NONE);
@@ -1432,7 +1439,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testAugmentedAssignment() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def f1(x):", "  x += 1", "  return x", "", "foo = f1(41)")
         .testLookup("foo", 42);
   }
@@ -1440,7 +1447,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testAugmentedAssignmentHasNoSideEffects() throws Exception {
     // Check object position.
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "counter = [0]",
             "value = [1, 2]",
@@ -1453,7 +1460,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         .testLookup("counter", StarlarkList.of(null, 1));
 
     // Check key position.
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "counter = [0]",
             "value = [1, 2]",
@@ -1487,7 +1494,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testAssignmentEvaluationOrder() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "ordinary = []",
             "augmented = []",
@@ -1509,7 +1516,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictComprehensions_IterationOrder() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def foo():",
             "  d = {x : x for x in ['c', 'a', 'b']}",
@@ -1523,13 +1530,13 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDotExpressionOnNonStructObject() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfExactError("'string' value has no field or method 'field'", "x = 'a'.field");
   }
 
   @Test
   public void testPlusEqualsOnListMutating() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def func():",
             "  l1 = [1, 2]",
@@ -1540,7 +1547,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
         .testLookup("lists", "([1, 2, 3, 4], [1, 2, 3, 4])");
 
     // The same but with += after an IndexExpression
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def func():",
             "  l = [1, 2]",
@@ -1553,7 +1560,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testPlusEqualsOnTuple() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def func():",
             "  t1 = (1, 2)",
@@ -1566,9 +1573,9 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testPlusOnDictDeprecated() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains("unsupported binary operation: dict + dict", "{1: 2} + {3: 4}");
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains(
             "unsupported binary operation: dict + dict",
             "def func():",
@@ -1579,14 +1586,14 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictAssignmentAsLValue() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def func():", "  d = {'a' : 1}", "  d['b'] = 2", "  return d", "d = func()")
         .testLookup("d", ImmutableMap.of("a", 1, "b", 2));
   }
 
   @Test
   public void testNestedDictAssignmentAsLValue() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def func():",
             "  d = {'a' : 1}",
@@ -1599,7 +1606,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListAssignmentAsLValue() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def func():",
             "  a = [1, 2]",
@@ -1612,7 +1619,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testNestedListAssignmentAsLValue() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def func():",
             "  d = [1, 2]",
@@ -1625,7 +1632,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictTupleAssignmentAsLValue() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def func():", "  d = {'a' : 1}", "  d['b'], d['c'] = 2, 3", "  return d", "d = func()")
         .testLookup("d", ImmutableMap.of("a", 1, "b", 2, "c", 3));
@@ -1633,42 +1640,42 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testDictItemPlusEqual() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def func():", "  d = {'a' : 2}", "  d['a'] += 3", "  return d", "d = func()")
         .testLookup("d", ImmutableMap.of("a", 5));
   }
 
   @Test
   public void testDictAssignmentAsLValueSideEffects() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def func(d):", "  d['b'] = 2", "d = {'a' : 1}", "func(d)")
         .testLookup("d", Dict.of((Mutability) null, "a", 1, "b", 2));
   }
 
   @Test
   public void testAssignmentToListInDictSideEffect() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("l = [1, 2]", "d = {0: l}", "d[0].append(3)")
         .testLookup("l", StarlarkList.of(null, 1, 2, 3));
   }
 
   @Test
   public void testUserFunctionKeywordArgs() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def foo(a, b, c):", "  return a + b + c", "s = foo(1, c=2, b=3)")
         .testLookup("s", 6);
   }
 
   @Test
   public void testFunctionCallOrdering() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def func(): return foo() * 2", "def foo(): return 2", "x = func()")
         .testLookup("x", 4);
   }
 
   @Test
   public void testFunctionCallBadOrdering() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains(
             "global variable 'foo' is referenced before assignment.",
             "def func(): return foo() * 2",
@@ -1678,7 +1685,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testLocalVariableDefinedBelow() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp(
             "def beforeEven(li):", // returns the value before the first even number
             "    for i in li:",
@@ -1692,7 +1699,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testShadowisNotInitialized() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains(
             /* error message */ "local variable 'gl' is referenced before assignment",
             "gl = 5",
@@ -1704,7 +1711,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testShadowBuiltin() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains(
             "global variable 'len' is referenced before assignment",
             "x = len('abc')",
@@ -1714,7 +1721,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testFunctionCallRecursion() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains(
             "function 'f' called recursively",
             "def main():",
@@ -1738,7 +1745,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testNoneTrueFalseInStarlark() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("a = None", "b = True", "c = False")
         .testLookup("a", Starlark.NONE)
         .testLookup("b", Boolean.TRUE)
@@ -1747,7 +1754,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testHasattrMethods() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "a = hasattr(mock, 'struct_field')",
@@ -1764,7 +1771,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testGetattrMethods() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .setUp(
             "a = str(getattr(mock, 'struct_field', 'no'))",
@@ -1781,45 +1788,45 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListAnTupleConcatenationDoesNotWorkInStarlark() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfExactError("unsupported binary operation: list + tuple", "[1, 2] + (3, 4)");
   }
 
   @Test
   public void testCannotCreateMixedListInStarlark() throws Exception {
-    new Scenario().testExactOrder("['a', 'b', 1, 2]", "a", "b", 1, 2);
+    ev.new Scenario().testExactOrder("['a', 'b', 1, 2]", "a", "b", 1, 2);
   }
 
   @Test
   public void testCannotConcatListInStarlarkWithDifferentGenericTypes() throws Exception {
-    new Scenario().testExactOrder("[1, 2] + ['a', 'b']", 1, 2, "a", "b");
+    ev.new Scenario().testExactOrder("[1, 2] + ['a', 'b']", 1, 2, "a", "b");
   }
 
   @Test
   public void testConcatEmptyListWithNonEmptyWorks() throws Exception {
-    new Scenario().testExactOrder("[] + ['a', 'b']", "a", "b");
+    ev.new Scenario().testExactOrder("[] + ['a', 'b']", "a", "b");
   }
 
   @Test
   public void testFormatStringWithTuple() throws Exception {
-    new Scenario().setUp("v = '%s%s' % ('a', 1)").testLookup("v", "a1");
+    ev.new Scenario().setUp("v = '%s%s' % ('a', 1)").testLookup("v", "a1");
   }
 
   @Test
   public void testSingletonTuple() throws Exception {
-    new Scenario().testExactOrder("(1,)", 1);
+    ev.new Scenario().testExactOrder("(1,)", 1);
   }
 
   @Test
   public void testDirFindsClassObjectFields() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("s", new SimpleStruct(ImmutableMap.of("a", 1, "b", 2)))
         .testExactOrder("dir(s)", "a", "b");
   }
 
   @Test
   public void testDirFindsJavaObjectStructFieldsAndMethods() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("mock", new Mock())
         .testExactOrder(
             "dir(mock)",
@@ -1850,30 +1857,30 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   @Test
   public void testPrint() throws Exception {
     // TODO(fwe): cannot be handled by current testing suite
-    setFailFast(false);
-    exec("print('hello')");
-    assertContainsDebug("hello");
-    exec("print('a', 'b')");
-    assertContainsDebug("a b");
-    exec("print('a', 'b', sep='x')");
-    assertContainsDebug("axb");
+    ev.setFailFast(false);
+    ev.exec("print('hello')");
+    ev.assertContainsDebug("hello");
+    ev.exec("print('a', 'b')");
+    ev.assertContainsDebug("a b");
+    ev.exec("print('a', 'b', sep='x')");
+    ev.assertContainsDebug("axb");
   }
 
   @Test
   public void testPrintBadKwargs() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains(
             "print() got unexpected keyword argument 'end'", "print(end='x', other='y')");
   }
 
   @Test
   public void testConditionalExpressionAtToplevel() throws Exception {
-    new Scenario().setUp("x = 1 if 2 else 3").testLookup("x", 1);
+    ev.new Scenario().setUp("x = 1 if 2 else 3").testLookup("x", 1);
   }
 
   @Test
   public void testConditionalExpressionInFunction() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .setUp("def foo(a, b, c): return a+b if c else a-b\n")
         .testExpression("foo(23, 5, 0)", 18);
   }
@@ -1931,7 +1938,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructFieldDefinedOnlyInValues() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("val", new SimpleStructWithMethods())
         .setUp("v = val.values_only_field")
         .testLookup("v", "fromValues");
@@ -1939,7 +1946,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructMethodDefinedOnlyInValues() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("val", new SimpleStructWithMethods())
         .setUp("v = val.values_only_method()")
         .testLookup("v", "fromValues");
@@ -1947,7 +1954,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructFieldDefinedOnlyInStarlarkMethod() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("val", new SimpleStructWithMethods())
         .setUp("v = val.callable_only_field")
         .testLookup("v", "fromStarlarkMethod");
@@ -1955,7 +1962,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testStructMethodDefinedOnlyInStarlarkMethod() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("val", new SimpleStructWithMethods())
         .setUp("v = val.callable_only_method()")
         .testLookup("v", "fromStarlarkMethod");
@@ -1965,7 +1972,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
   public void testStructMethodDefinedInValuesAndStarlarkMethod() throws Exception {
     // This test exercises the resolution of ambiguity between @StarlarkMethod-annotated
     // fields and those reported by ClassObject.getValue.
-    new Scenario()
+    ev.new Scenario()
         .update("val", new SimpleStructWithMethods())
         .setUp("v = val.collision_method()")
         .testLookup("v", "fromStarlarkMethod");
@@ -1973,7 +1980,7 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testAttrNotDefined() throws Exception {
-    new Scenario()
+    ev.new Scenario()
         .update("s", new SimpleStructWithMethods())
         // TODO(adonovan): this error message will include spelling suggestions when CL 319083265
         // finally lands.
@@ -1985,30 +1992,30 @@ public final class StarlarkEvaluationTest extends EvaluationTestCase {
 
   @Test
   public void testListComprehensionsShadowGlobalVariable() throws Exception {
-    exec(
+    ev.exec(
         "a = 18", //
         "def foo():",
         "  b = [a for a in range(3)]",
         "  return a",
         "x = foo()");
-    assertThat(lookup("x")).isEqualTo(18);
+    assertThat(ev.lookup("x")).isEqualTo(18);
   }
 
   @Test
   public void testComprehensionsAreLocal() throws Exception {
     // Regression test for https://github.com/bazelbuild/starlark/issues/92.
-    exec(
+    ev.exec(
         "x = 1", // this global binding is not affected (even temporarily) by the comprehension
         "def f():",
         "  return x",
         "y = [f() for x in [2]][0]");
-    assertThat(lookup("y")).isEqualTo(1);
+    assertThat(ev.lookup("y")).isEqualTo(1);
   }
 
   @Test
   public void testFunctionEvaluatedBeforeArguments() throws Exception {
     // ''.nonesuch must be evaluated (and fail) before f().
-    new Scenario()
+    ev.new Scenario()
         .testIfErrorContains(
             "'string' value has no field or method 'nonesuch'",
             "def f(): x = 1//0",
