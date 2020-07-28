@@ -136,11 +136,11 @@ $ bazel aquery 'inputs(".*cpp", deps(//src/target_a))'
 
 <h3 id="aquery-options">Aquery options</h3>
 
-<h4><code class='flag'>--output=(text|proto|textproto), default=text</code></h4>
+<h4><code class='flag'>--output=(text|proto|textproto|jsonproto), default=text</code></h4>
 
 <p>
   The default output format (<code>text</code>) is human-readable,
-  use <code>proto</code> or <code>textproto</code> for machine-readable format.
+  use <code>proto</code>, <code>textproto</code>, or <code>jsonproto</code> for machine-readable format.
 </p>
 
 <h4><code class='flag'>--include_commandline, default=true</code></h4>
