@@ -112,7 +112,7 @@ public class GcovJsonParser {
 
   static class GcovJsonLine {
     GcovJsonBranch[] branches;
-    int count;
+    long count;
     int line_number;
     boolean unexecuted_block;
     String function_name;
