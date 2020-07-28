@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TerminationStatus;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.StarlarkExecutionResultApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkExecutionResultApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;

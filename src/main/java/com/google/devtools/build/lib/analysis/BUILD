@@ -1750,7 +1750,7 @@ java_library(
         ":config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/config",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//third_party:guava",

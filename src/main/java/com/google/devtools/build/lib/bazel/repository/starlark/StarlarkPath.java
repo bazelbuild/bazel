@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryPathApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryPathApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;

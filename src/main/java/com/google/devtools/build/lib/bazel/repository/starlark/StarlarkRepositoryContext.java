@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.rules.repository.WorkspaceAttributeMapper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.StarlarkRepositoryContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;

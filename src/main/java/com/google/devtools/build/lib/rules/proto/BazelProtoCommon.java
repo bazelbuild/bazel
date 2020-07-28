@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
 
 /** Protocol buffers support for Starlark. */
 public class BazelProtoCommon implements ProtoCommonApi {

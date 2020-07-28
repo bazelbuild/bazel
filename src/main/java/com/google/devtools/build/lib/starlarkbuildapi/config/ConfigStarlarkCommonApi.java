@@ -12,26 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.repository;
+package com.google.devtools.build.lib.starlarkbuildapi.config;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
-/** A Starlark structure to deliver information about the system we are running on. */
+/** Helper utility containing functions regarding configurations.ss */
 @StarlarkBuiltin(
-    name = "repository_os",
-    category = StarlarkDocumentationCategory.BUILTIN,
-    doc = "Various data about the current platform Bazel is running on.")
-public interface StarlarkOSApi extends StarlarkValue {
-  @StarlarkMethod(name = "environ", structField = true, doc = "The list of environment variables.")
-  ImmutableMap<String, String> getEnvironmentVariables();
+    name = "config_common",
+    doc = "Functions for Starlark to interact with Blaze's configurability APIs.")
+public interface ConfigStarlarkCommonApi extends StarlarkValue {
 
   @StarlarkMethod(
-      name = "name",
-      structField = true,
-      doc = "A string identifying the current system Bazel is running on.")
-  String getName();
+      name = "FeatureFlagInfo",
+      doc = "The key used to retrieve the provider containing config_feature_flag's value.",
+      structField = true)
+  ProviderApi getConfigFeatureFlagProviderConstructor();
 }

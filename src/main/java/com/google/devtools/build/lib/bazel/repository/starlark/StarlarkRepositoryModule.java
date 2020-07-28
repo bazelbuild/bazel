@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Module;

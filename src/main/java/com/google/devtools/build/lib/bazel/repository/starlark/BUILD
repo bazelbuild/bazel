@@ -36,7 +36,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/shell",
         "//src/main/java/com/google/devtools/build/lib/skyframe:ignored_package_prefixes_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/repository",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
         "//src/main/java/com/google/devtools/build/lib/syntax:frontend",
         "//src/main/java/com/google/devtools/build/lib/util",

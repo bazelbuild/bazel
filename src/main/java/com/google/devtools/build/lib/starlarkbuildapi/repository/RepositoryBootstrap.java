@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.repository;
+package com.google.devtools.build.lib.starlarkbuildapi.repository;
 
 import com.google.common.collect.ImmutableMap.Builder;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
