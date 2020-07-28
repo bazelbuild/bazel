@@ -61,7 +61,7 @@ android/ @ahumesky
 
 # Skylark
 
-/src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @c-parsons @laurentlb @vladmos
+/src/main/java/com/google/devtools/build/lib/syntax/ @brandjon @laurentlb @alandonovan
 
 /tools/coverage/ @lberki
 /tools/test/collect_coverage.sh @lberki
