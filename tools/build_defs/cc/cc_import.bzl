@@ -184,7 +184,14 @@ def _cc_import_impl(ctx):
         name = ctx.label.name,
     )
 
-    return [CcInfo(compilation_context = compilation_context, linking_context = linking_context)]
+    this_cc_info = CcInfo(compilation_context = compilation_context, linking_context = linking_context)
+    cc_infos = [this_cc_info]
+
+    for dep in ctx.attr.deps:
+        cc_infos.append(dep[CcInfo])
+    merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)
+
+    return [merged_cc_info]
 
 cc_import = rule(
     implementation = _cc_import_impl,
@@ -206,6 +213,7 @@ cc_import = rule(
         "alwayslink": attr.bool(default = False),
         "linkopts": attr.string_list(),
         "includes": attr.string_list(),
+        "deps": attr.label_list(),
         "_cc_toolchain": attr.label(default = "@bazel_tools//tools/cpp:current_cc_toolchain"),
     },
     toolchains = ["@rules_cc//cc:toolchain_type"],  # copybara-use-repo-external-label
