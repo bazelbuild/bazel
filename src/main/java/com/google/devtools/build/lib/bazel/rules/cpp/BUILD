@@ -18,12 +18,7 @@ java_library(
         ["*.java"],
         exclude = ["BazelCppSemantics.java"],
     ),
-    resources = glob(
-        [
-            "*.txt",
-            "*.WORKSPACE",
-        ],
-    ),
+    resources = glob(["*.WORKSPACE"]),
     deps = [
         ":bazel_cpp_semantics",
         "//src/main/java/com/google/devtools/build/lib:syntax",

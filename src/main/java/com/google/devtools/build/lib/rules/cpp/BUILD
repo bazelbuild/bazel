@@ -24,10 +24,7 @@ INTERFACE_SOURCES = [
 java_library(
     name = "cpp",
     srcs = glob(
-        [
-            "*.java",
-            "transitions/*.java",
-        ],
+        ["*.java"],
         exclude = INTERFACE_SOURCES + [
             "DeniedImplicitOutputMarkerProvider.java",
         ],
