@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-
-import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -86,19 +84,5 @@ public class FileLocationsTest {
 
     // start of final empty line
     checkOffset(table, 17, "6:1"); // EOF
-  }
-
-  @Test
-  public void testCodec() throws Exception {
-    new SerializationTester(
-            create(
-                "#\n"
-                    + "#line 67 \"/foo\"\n"
-                    + "cc_binary(name='a',\n"
-                    + "          srcs=[])\n"
-                    + "#line 23 \"/ba.r\"\n"
-                    + "vardef(x,y)\n"),
-            create("\ntwo\nthree\n\nfive\n"))
-        .runTests();
   }
 }

@@ -25,7 +25,6 @@ java_test(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
         "//src/main/java/net/starlark/java/annot",
         "//src/test/java/com/google/devtools/build/lib/syntax/util",
         "//third_party:guava",
