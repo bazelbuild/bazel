@@ -59,9 +59,9 @@ If you are not getting the cache hit rate you are expecting, do the following:
    a. Re-run the build(s) or test(s) in question to obtain execution logs:
 
           bazel clean
-          bazel $YOUR_FLAGS build //your:target --experimental_execution_log_file=/tmp/exec1.log
+          bazel $YOUR_FLAGS build //your:target --execution_log_binary_file=/tmp/exec1.log
           bazel clean
-          bazel $YOUR_FLAGS build //your:target --experimental_execution_log_file=/tmp/exec2.log
+          bazel $YOUR_FLAGS build //your:target --execution_log_binary_file=/tmp/exec2.log
 
    b. [Compare the execution logs](#comparing-the-execution-logs) between the
       two runs. Ensure that the actions are identical across the two log files.
@@ -114,13 +114,13 @@ not happening across machines, do the following:
 2. Run the build on the first machine:
 
           bazel clean
-          bazel ... build ... --experimental_execution_log_file=/tmp/exec1.log
+          bazel ... build ... --execution_log_binary_file=/tmp/exec1.log
 
 3. Run the build on the second machine, ensuring the modification from step 1
    is included:
 
           bazel clean
-          bazel ... build ... --experimental_execution_log_file=/tmp/exec2.log
+          bazel ... build ... --execution_log_binary_file=/tmp/exec2.log
 
 4. [Compare the execution logs](#comparing-the-execution-logs) for the two
     runs. If the logs are not identical, investigate your build configurations
