@@ -16,7 +16,6 @@ package com.google.devtools.build.buildjar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult;
 import com.google.devtools.build.buildjar.javac.BlazeJavacResult.Status;
 import com.google.devtools.build.buildjar.javac.FormattedDiagnostic;
@@ -32,7 +31,6 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 /** The JavaBuilder main called by bazel. */
@@ -93,15 +91,6 @@ public abstract class BazelJavaBuilder {
           build.getDependencyModule().reduceClasspath()
               ? new ReducedClasspathJavaLibraryBuilder()
               : new SimpleJavaLibraryBuilder()) {
-
-        // TODO(b/36228287): delete this once the migration to -XepDisableAllChecks is complete
-        if (!Collections.disjoint(
-            build.getJavacOpts(),
-            ImmutableSet.of("-extra_checks", "-extra_checks:on", "-extra_checks:off"))) {
-          throw new InvalidCommandLineException(
-              "-extra_checks is no longer supported;"
-                  + " use -XepDisableAllChecks to disable Error Prone");
-        }
 
         BlazeJavacResult result = builder.run(build);
         if (result.status() == Status.REQUIRES_FALLBACK) {
