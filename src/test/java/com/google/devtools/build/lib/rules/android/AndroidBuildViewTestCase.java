@@ -300,6 +300,41 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
     return Sets.difference(action.getInputs().toSet(), action.getTools().toSet());
   }
 
+  protected void checkDebugKey(String debugKeyFile, boolean hasDebugKeyTarget) throws Exception {
+    ConfiguredTarget binary = getConfiguredTarget("//java/com/google/android/hello:b");
+    Label defaultKeyStoreFile =
+        Label.parseAbsoluteUnchecked(
+            ruleClassProvider.getToolsRepository() + "//tools/android:debug_keystore");
+    Label debugKeyFileLabel = Label.parseAbsolute(debugKeyFile, ImmutableMap.of());
+
+    if (hasDebugKeyTarget) {
+      assertWithMessage("Debug key file target missing.")
+          .that(checkKeyPresence(binary, debugKeyFileLabel, defaultKeyStoreFile))
+          .isTrue();
+    } else {
+      assertWithMessage("Debug key file is default, although different target specified.")
+          .that(checkKeyPresence(binary, defaultKeyStoreFile, debugKeyFileLabel))
+          .isTrue();
+    }
+  }
+
+  private boolean checkKeyPresence(
+      ConfiguredTarget binary, Label shouldHaveKey, Label shouldNotHaveKey) throws Exception {
+    boolean hasKey = false;
+    boolean doesNotHaveKey = false;
+
+    for (ConfiguredTarget debugKeyTarget : getDirectPrerequisites(binary)) {
+      if (debugKeyTarget.getLabel().equals(shouldHaveKey)) {
+        hasKey = true;
+      }
+      if (debugKeyTarget.getLabel().equals(shouldNotHaveKey)) {
+        doesNotHaveKey = true;
+      }
+    }
+
+    return hasKey && !doesNotHaveKey;
+  }
+
   protected String getAndroidJarPath() throws Exception {
     return getAndroidSdk().getAndroidJar().getRootRelativePathString();
   }

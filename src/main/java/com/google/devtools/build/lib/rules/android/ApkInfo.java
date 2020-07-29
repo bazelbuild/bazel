@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
@@ -21,7 +20,6 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ApkInfoApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import java.util.List;
 import javax.annotation.Nullable;
 
 /** A provider for targets that produce an apk file. */
@@ -40,23 +38,20 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   @Nullable
   private final Artifact coverageMetadata;
   private final Artifact mergedManifest;
-  private final ImmutableList<Artifact> signingKeys;
-  @Nullable private final Artifact signingLineage;
+  private final Artifact keystore;
 
   ApkInfo(
       Artifact apk,
       Artifact unsignedApk,
       @Nullable Artifact coverageMetadata,
       Artifact mergedManifest,
-      List<Artifact> signingKeys,
-      @Nullable Artifact signingLineage) {
+      Artifact keystore) {
     super(PROVIDER);
     this.apk = apk;
     this.unsignedApk = unsignedApk;
     this.coverageMetadata = coverageMetadata;
     this.mergedManifest = mergedManifest;
-    this.signingKeys = ImmutableList.copyOf(signingKeys);
-    this.signingLineage = signingLineage;
+    this.keystore = keystore;
   }
 
   @Override
@@ -85,18 +80,7 @@ public class ApkInfo extends NativeInfo implements ApkInfoApi<Artifact> {
   /* The keystore that was used to sign the apk returned from {@see getApk() */
   @Override
   public Artifact getKeystore() {
-    return signingKeys.get(0);
-  }
-
-  @Override
-  public ImmutableList<Artifact> getSigningKeys() {
-    return signingKeys;
-  }
-
-  @Nullable
-  @Override
-  public Artifact getSigningLineage() {
-    return signingLineage;
+    return keystore;
   }
 
   /** Provider for {@link ApkInfo}. */

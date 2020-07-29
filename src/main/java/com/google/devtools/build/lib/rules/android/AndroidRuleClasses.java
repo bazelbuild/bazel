@@ -626,27 +626,6 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.createFactory())
                   .legacyAllowAnyFileType()
                   .value(env.getToolsLabel("//tools/android:debug_keystore")))
-          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_signing_keys) -->
-          List of files, debug keystores to be used to sign the debug apk. Usually you do not
-          want to use keys other than the default key, so this attribute should be omitted.
-          <p><em class="harmful">WARNING: Do not use your production keys, they should be
-          strictly safeguarded and not kept in your source tree</em>.</p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(
-              attr("debug_signing_keys", LABEL_LIST)
-                  .cfg(HostTransition.createFactory())
-                  .value(ImmutableList.of(env.getToolsLabel("//tools/android:debug_keystore")))
-                  .legacyAllowAnyFileType())
-          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_signing_lineage_file) -->
-          File containing the signing lineage for the debug_signing_keys. Usually you do not
-          want to use keys other than the default key, so this attribute should be omitted.
-          <p><em class="harmful">WARNING: Do not use your production keys, they should be
-          strictly safeguarded and not kept in your source tree</em>.</p>
-          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-          .add(
-              attr("debug_signing_lineage_file", LABEL)
-                  .cfg(HostTransition.createFactory())
-                  .legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(nocompress_extensions) -->
           A list of file extension to leave uncompressed in apk.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

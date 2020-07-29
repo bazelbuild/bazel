@@ -3743,6 +3743,30 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
   }
 
   @Test
+  public void testDebugKeyExistsBinary() throws Exception {
+    String debugKeyTarget = "//java/com/google/android/hello:debug_keystore";
+    scratch.file("java/com/google/android/hello/debug_keystore", "A debug key");
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml',",
+        "               debug_key = '" + debugKeyTarget + "')");
+    checkDebugKey(debugKeyTarget, true);
+  }
+
+  @Test
+  public void testDebugKeyNotExistsBinary() throws Exception {
+    String debugKeyTarget = "//java/com/google/android/hello:debug_keystore";
+    scratch.file(
+        "java/com/google/android/hello/BUILD",
+        "android_binary(name = 'b',",
+        "               srcs = ['HelloApp.java'],",
+        "               manifest = 'AndroidManifest.xml')");
+    checkDebugKey(debugKeyTarget, false);
+  }
+
+  @Test
   public void testOnlyProguardSpecs() throws Exception {
     scratch.file(
         "java/com/google/android/hello/BUILD",

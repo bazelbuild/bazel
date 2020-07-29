@@ -405,11 +405,8 @@ public class AndroidCommon {
   }
 
   /** Returns the artifact for the debug key for signing the APK. */
-  static ImmutableList<Artifact> getApkDebugSigningKeys(RuleContext ruleContext) {
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("debug_key")) {
-      return ImmutableList.of(ruleContext.getHostPrerequisiteArtifact("debug_key"));
-    }
-    return ruleContext.getPrerequisiteArtifacts("debug_signing_keys", TransitionMode.HOST).list();
+  static Artifact getApkDebugSigningKey(RuleContext ruleContext) {
+    return ruleContext.getHostPrerequisiteArtifact("debug_key");
   }
 
   private void compileResources(

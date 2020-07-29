@@ -22,6 +22,5 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
-        "//third_party:guava",
     ],
 )

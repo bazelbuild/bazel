@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
@@ -63,33 +62,13 @@ public interface ApkInfoApi<FileT extends FileApi> extends StructApi {
       allowReturnNones = true)
   FileT getCoverageMetadata();
 
-  /**
-   * Returns keystore that was used to sign the APK.
-   *
-   * <p>Prefer using getSigningKeys(), this method is deprecated.
-   */
+  /** Returns keystore that was used to sign the APK */
   @StarlarkMethod(
       name = "keystore",
-      doc = "Returns a keystore that was used to sign the APK. Deprecated: prefer signing_keys.",
+      doc = "Returns a keystore that was used to sign the APK.",
       documented = false,
       structField = true)
   FileT getKeystore();
-
-  /** Returns a list of signing keystores that were used to sign the APK */
-  @StarlarkMethod(
-      name = "signing_keys",
-      doc = "Returns a list of signing keystores that were used to sign the APK.",
-      documented = false,
-      structField = true)
-  ImmutableList<FileT> getSigningKeys();
-
-  /** Returns the signing lineage file, if present, that was used to sign the APK */
-  @StarlarkMethod(
-      name = "signing_lineage",
-      doc = "Returns the signing lineage file, if present, that was used to sign the APK.",
-      documented = false,
-      structField = true)
-  FileT getSigningLineage();
 
   /** Provider for {@link ApkInfoApi}. */
   @StarlarkBuiltin(

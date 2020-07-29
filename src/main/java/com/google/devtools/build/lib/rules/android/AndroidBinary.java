@@ -197,13 +197,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 + pathsWithUnexpectedExtension);
       }
     }
-
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("debug_key")
-        && ruleContext.attributes().isAttributeValueExplicitlySpecified("debug_signing_keys")) {
-      ruleContext.throwWithAttributeError(
-          "debug_signing_keys",
-          "Cannot specify both debug_key and debug_signing_keys. Prefer using debug_signing_keys");
-    }
   }
 
   private static RuleConfiguredTargetBuilder init(
@@ -514,9 +507,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
     Artifact zipAlignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_APK);
-    ImmutableList<Artifact> signingKeys = AndroidCommon.getApkDebugSigningKeys(ruleContext);
-    Artifact signingLineage =
-        ruleContext.getPrerequisiteArtifact("debug_signing_lineage_file", TransitionMode.HOST);
+    Artifact signingKey = AndroidCommon.getApkDebugSigningKey(ruleContext);
     FilesToRunProvider resourceExtractor =
         ruleContext.getExecutablePrerequisite("$resource_extractor", TransitionMode.HOST);
 
@@ -586,8 +577,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setNativeLibs(nativeLibs)
         .setUnsignedApk(unsignedApk)
         .setSignedApk(zipAlignedApk)
-        .setSigningKeys(signingKeys)
-        .setSigningLineageFile(signingLineage)
+        .setSigningKey(signingKey)
         .setZipalignApk(true)
         .registerActions(ruleContext);
 
@@ -678,8 +668,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           mobileInstallResourceApks,
           resourceExtractor,
           nativeLibsAar,
-          signingKeys,
-          signingLineage,
+          signingKey,
           additionalMergedManifests);
     }
 
@@ -703,8 +692,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 unsignedApk,
                 getCoverageInstrumentationJarForApk(ruleContext),
                 resourceApk.getManifest(),
-                signingKeys,
-                signingLineage))
+                AndroidCommon.getApkDebugSigningKey(ruleContext)))
         .addNativeDeclaredProvider(new AndroidPreDexJarProvider(jarToDex))
         .addNativeDeclaredProvider(
             AndroidFeatureFlagSetProvider.create(
