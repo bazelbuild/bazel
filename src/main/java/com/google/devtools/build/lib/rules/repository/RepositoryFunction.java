@@ -129,20 +129,21 @@ public abstract class RepositoryFunction {
           Transience.PERSISTENT);
     }
   }
+
   /**
    * An exception thrown when a dependency is missing to notify the SkyFunction from an evaluation.
    */
   protected static class RepositoryMissingDependencyException extends EvalException {
-
     RepositoryMissingDependencyException() {
       super(Location.BUILTIN, "Internal exception");
     }
 
     @Override
-    public boolean canBeAddedToStackTrace() {
-      return false;
+    protected boolean canBeAddedToStackTrace() {
+      return false; // to avoid polluting the log with internal cause information
     }
   }
+
   /**
    * repository functions can throw the result of this function to notify the RepositoryFunction
    * that a dependency was missing and the evaluation of the function must be restarted.
