@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -92,7 +93,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + " may interfere with the ordering semantics.")
 @Immutable
 @AutoCodec
-public final class Depset implements StarlarkValue {
+public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttributes {
   private final ElementType elemType;
   private final NestedSet<?> set;
 
@@ -328,6 +329,14 @@ public final class Depset implements StarlarkValue {
       printer.repr(order.getStarlarkName());
     }
     printer.append(")");
+  }
+
+  @Override
+  public ImmutableList<Debug.DebugAttribute> getDebugAttributes() {
+    return ImmutableList.of(
+        new Debug.DebugAttribute("order", getOrder().getStarlarkName()),
+        new Debug.DebugAttribute("directs", set.getLeaves()),
+        new Debug.DebugAttribute("transitives", set.getNonLeaves()));
   }
 
   @StarlarkMethod(
