@@ -39,17 +39,14 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.FileOptions;
-import com.google.devtools.build.lib.syntax.Module;
-import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.ParserInput;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
-import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
@@ -783,28 +780,22 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     assertThat(getAnalysisResult().getTargetsToBuild()).hasSize(2);
   }
 
-  // Test Starlark API of AnalysisFailureInfo itself.
+  // Test Starlark API of AnalysisFailure{,Info}.
   @Test
   public void testAnalysisFailureInfo() throws Exception {
     Label label = Label.create("test", "test");
-    AnalysisFailureInfo info =
-        AnalysisFailureInfo.forAnalysisFailures(
-            Arrays.asList(new AnalysisFailure(label, "ErrorMessage")));
-    // TODO(adonovan): simplify all this to Starlark.getattr(info, "causes")
-    // and assertions on a Depset once CL 319083265 lands.
-    ParserInput input =
-        ParserInput.fromLines(
-            "causes = info.causes.to_list()[0]", //
-            "label = causes.label",
-            "message = causes.message");
-    Module module =
-        Module.withPredeclared(
-            StarlarkSemantics.DEFAULT, //
-            ImmutableMap.of("info", info));
-    Mutability mu = Mutability.create("test");
-    StarlarkThread thread = new StarlarkThread(mu, StarlarkSemantics.DEFAULT);
-    EvalUtils.exec(input, FileOptions.DEFAULT, module, thread);
-    assertThat(module.getGlobal("label")).isSameInstanceAs(label);
-    assertThat(module.getGlobal("message")).isEqualTo("ErrorMessage");
+    AnalysisFailure failure = new AnalysisFailure(label, "ErrorMessage");
+    assertThat(getattr(failure, "label")).isSameInstanceAs(label);
+    assertThat(getattr(failure, "message")).isEqualTo("ErrorMessage");
+
+    AnalysisFailureInfo info = AnalysisFailureInfo.forAnalysisFailures(Arrays.asList(failure));
+    // info.causes.to_list()[0] == failure
+    NestedSet<AnalysisFailure> causes =
+        Depset.cast(getattr(info, "causes"), AnalysisFailure.class, "causes");
+    assertThat(causes.toList().get(0)).isSameInstanceAs(failure);
+  }
+
+  private static Object getattr(Object x, String name) throws Exception {
+    return Starlark.getattr(/*mu=*/ null, StarlarkSemantics.DEFAULT, x, name, null);
   }
 }

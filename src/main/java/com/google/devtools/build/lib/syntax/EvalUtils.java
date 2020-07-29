@@ -17,11 +17,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
 import java.util.IllegalFormatException;
-import net.starlark.java.spelling.SpellChecker;
 
 /** Utilities used by the evaluator. */
 // TODO(adonovan): move all fundamental values and operators of the language to Starlark
-// class---equal, compare, getattr, index, slice, parse, exec, eval, and so on---and make this
+// class---equal, compare, index, slice, parse, exec, eval, and so on---and make this
 // private.
 public final class EvalUtils {
 
@@ -207,50 +206,6 @@ public final class EvalUtils {
   /** @return true if x is Java null or Starlark None */
   public static boolean isNullOrNone(Object x) {
     return x == null || x == Starlark.NONE;
-  }
-
-  /** Returns the named field or method of value {@code x}, or null if not found. */
-  // TODO(adonovan): publish this method as Starlark.getattr(Semantics, Mutability, Object, String).
-  static Object getAttr(StarlarkThread thread, Object x, String name)
-      throws EvalException, InterruptedException {
-    StarlarkSemantics semantics = thread.getSemantics();
-    Mutability mu = thread.mutability();
-
-    // @StarlarkMethod-annotated field or method?
-    MethodDescriptor method = CallUtils.getMethod(semantics, x.getClass(), name);
-    if (method != null) {
-      if (method.isStructField()) {
-        return method.callField(x, semantics, mu);
-      } else {
-        return new BuiltinCallable(x, name, method);
-      }
-    }
-
-    // user-defined field?
-    if (x instanceof ClassObject) {
-      Object field = ((ClassObject) x).getValue(semantics, name);
-      if (field != null) {
-        return Starlark.checkValid(field);
-      }
-    }
-
-    return null;
-  }
-
-  static EvalException getMissingAttrException(
-      Object object, String name, StarlarkSemantics semantics) {
-    String suffix = "";
-    if (object instanceof ClassObject) {
-      String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
-      if (customErrorMessage != null) {
-        return Starlark.errorf("%s", customErrorMessage);
-      }
-      suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
-    } else {
-      suffix = SpellChecker.didYouMean(name, CallUtils.getFieldNames(semantics, object));
-    }
-    return Starlark.errorf(
-        "'%s' value has no field or method '%s'%s", Starlark.type(object), name, suffix);
   }
 
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
