@@ -380,22 +380,21 @@ public class UiEventHandler implements EventHandler {
         // Debugging only: show all events visible to the new UI.
         clearProgressBar();
         terminal.flush();
-        outErr.getOutputStream().write((event + "\n").getBytes(StandardCharsets.UTF_8));
-        if (event.getStdOut() != null) {
-          outErr
-              .getOutputStream()
-              .write(
-                  ("... with STDOUT: " + event.getStdOut() + "\n")
-                      .getBytes(StandardCharsets.UTF_8));
+        OutputStream stream = outErr.getOutputStream();
+        stream.write((event + "\n").getBytes(StandardCharsets.ISO_8859_1));
+        byte[] stdout = event.getStdOut();
+        if (stdout != null) {
+          stream.write("... with STDOUT: ".getBytes(StandardCharsets.ISO_8859_1));
+          stream.write(stdout);
+          stream.write("\n".getBytes(StandardCharsets.ISO_8859_1));
         }
-        if (event.getStdErr() != null) {
-          outErr
-              .getOutputStream()
-              .write(
-                  ("... with STDERR: " + event.getStdErr() + "\n")
-                      .getBytes(StandardCharsets.UTF_8));
+        byte[] stderr = event.getStdErr();
+        if (stderr != null) {
+          stream.write("... with STDERR: ".getBytes(StandardCharsets.ISO_8859_1));
+          stream.write(stderr);
+          stream.write("\n".getBytes(StandardCharsets.ISO_8859_1));
         }
-        outErr.getOutputStream().flush();
+        stream.flush();
         addProgressBar();
         terminal.flush();
       } else {
@@ -589,6 +588,9 @@ public class UiEventHandler implements EventHandler {
     }
   }
 
+  // TODO(jmmv): This feature needs to be removed. It has only caused confusion in the past
+  // (see cl/261885840 and https://github.com/bazelbuild/bazel/issues/7184) and would let us
+  // simplify the code here significantly.
   private boolean shouldDeduplicate(Event event) {
     if (!deduplicate) {
       // deduplication disabled
@@ -609,23 +611,27 @@ public class UiEventHandler implements EventHandler {
       // only deduplicate INFO messages
       return false;
     }
-    if (event.getStdOut() == null && event.getStdErr() == null) {
+    byte[] stdout = event.getStdOut();
+    byte[] stderr = event.getStdErr();
+    if (stdout == null && stderr == null) {
       // We deduplicate on the attached output (assuming the event itself only describes
       // the source of the output). If no output is attached it is a different kind of event
       // and should not be deduplicated.
       return false;
     }
     boolean allMessagesSeen = true;
-    if (event.getStdOut() != null) {
-      for (String line : Splitter.on("\n").split(event.getStdOut())) {
+    if (stdout != null) {
+      String stdoutString = new String(stdout, StandardCharsets.ISO_8859_1);
+      for (String line : Splitter.on("\n").split(stdoutString)) {
         if (!messagesSeen.contains(line)) {
           allMessagesSeen = false;
           messagesSeen.add(line);
         }
       }
     }
-    if (event.getStdErr() != null) {
-      for (String line : Splitter.on("\n").split(event.getStdErr())) {
+    if (stderr != null) {
+      String stderrString = new String(stderr, StandardCharsets.ISO_8859_1);
+      for (String line : Splitter.on("\n").split(stderrString)) {
         if (!messagesSeen.contains(line)) {
           allMessagesSeen = false;
           messagesSeen.add(line);
