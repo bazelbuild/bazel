@@ -109,6 +109,10 @@ public final class JavaToolchainRule<C extends JavaToolchain> implements RuleDef
         True if JavaBuilder supports running as a persistent worker, false if it doesn't.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("javac_supports_workers", BOOLEAN).value(true))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac_supports_multiplex_workers) -->
+        True if JavaBuilder supports running as a multiplex persistent worker, false if it doesn't.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("javac_supports_multiplex_workers", BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(javac) -->
         Label of the javac jar.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

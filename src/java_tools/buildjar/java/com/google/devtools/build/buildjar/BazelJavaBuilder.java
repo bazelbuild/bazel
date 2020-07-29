@@ -67,6 +67,7 @@ public abstract class BazelJavaBuilder {
           WorkResponse.newBuilder()
               .setOutput(sw.toString())
               .setExitCode(exitCode)
+              .setRequestId(request.getRequestId())
               .build()
               .writeDelimitedTo(System.out);
           System.out.flush();

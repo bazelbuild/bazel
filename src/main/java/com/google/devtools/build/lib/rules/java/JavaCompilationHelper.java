@@ -358,13 +358,16 @@ public final class JavaCompilationHelper {
 
   private ImmutableMap<String, String> getExecutionInfo() throws InterruptedException {
     ImmutableMap.Builder<String, String> executionInfo = ImmutableMap.builder();
+    ImmutableMap.Builder<String, String> workerInfo = ImmutableMap.builder();
+    if (javaToolchain.getJavacSupportsWorkers()) {
+      workerInfo.put(ExecutionRequirements.SUPPORTS_WORKERS, "1");
+    }
+    if (javaToolchain.getJavacSupportsMultiplexWorkers()) {
+      workerInfo.put(ExecutionRequirements.SUPPORTS_MULTIPLEX_WORKERS, "1");
+    }
     executionInfo.putAll(
         getConfiguration()
-            .modifiedExecutionInfo(
-                javaToolchain.getJavacSupportsWorkers()
-                    ? ExecutionRequirements.WORKER_MODE_ENABLED
-                    : ImmutableMap.of(),
-                JavaCompileActionBuilder.MNEMONIC));
+            .modifiedExecutionInfo(workerInfo.build(), JavaCompileActionBuilder.MNEMONIC));
     executionInfo.putAll(
         TargetUtils.getExecutionInfo(ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 

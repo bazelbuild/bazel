@@ -200,6 +200,7 @@ public class ResourceProcessorBusyBox {
 
           WorkResponse.newBuilder()
               .setExitCode(exitCode)
+              .setRequestId(request.getRequestId())
               .setOutput(buf.toString())
               .build()
               .writeDelimitedTo(realStdOut);

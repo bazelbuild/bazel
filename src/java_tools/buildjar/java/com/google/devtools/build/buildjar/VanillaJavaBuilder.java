@@ -115,6 +115,7 @@ public class VanillaJavaBuilder implements Closeable {
             WorkResponse.newBuilder()
                 .setOutput(result.output())
                 .setExitCode(result.ok() ? 0 : 1)
+                .setRequestId(request.getRequestId())
                 .build();
         response.writeDelimitedTo(System.out);
         System.out.flush();

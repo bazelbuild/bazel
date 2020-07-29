@@ -61,6 +61,8 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
     BootClassPathInfo bootclasspath = getBootClassPathInfo(ruleContext);
     boolean javacSupportsWorkers =
         ruleContext.attributes().get("javac_supports_workers", Type.BOOLEAN);
+    boolean javacSupportsMultiplexWorkers =
+        ruleContext.attributes().get("javac_supports_multiplex_workers", Type.BOOLEAN);
     Artifact javac = ruleContext.getPrerequisiteArtifact("javac", TransitionMode.HOST);
     FilesToRunProvider javabuilder =
         ruleContext.getExecutablePrerequisite("javabuilder", TransitionMode.HOST);
@@ -144,6 +146,7 @@ public class JavaToolchain implements RuleConfiguredTargetFactory {
             javabuilderJvmOpts,
             turbineJvmOpts,
             javacSupportsWorkers,
+            javacSupportsMultiplexWorkers,
             bootclasspath,
             javac,
             tools,
