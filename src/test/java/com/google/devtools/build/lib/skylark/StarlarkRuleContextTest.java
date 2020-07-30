@@ -2142,6 +2142,23 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testInvalidMnemonic() throws Exception {
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  out = ctx.actions.declare_file('f')",
+        "  ctx.actions.run_shell(",
+        "      outputs=[out], command='false', mnemonic='@@@')",
+        "r = rule(implementation = _impl)");
+    scratch.file("test/BUILD", "load('//test:rule.bzl', 'r')", "r(name = 'target')");
+
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:target");
+    assertContainsEvent(
+        "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"@@@\"");
+  }
+
+  @Test
   public void testFileWriteActionInterface() throws Exception {
     scratch.file(
         "test/rules.bzl",

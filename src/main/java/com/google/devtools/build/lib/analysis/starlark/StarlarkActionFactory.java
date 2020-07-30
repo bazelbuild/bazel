@@ -629,7 +629,11 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     String mnemonic = getMnemonic(mnemonicUnchecked);
-    builder.setMnemonic(mnemonic);
+    try {
+      builder.setMnemonic(mnemonic);
+    } catch (IllegalArgumentException e) {
+      throw Starlark.errorf("%s", e.getMessage());
+    }
     if (envUnchecked != Starlark.NONE) {
       builder.setEnvironment(
           ImmutableMap.copyOf(Dict.cast(envUnchecked, String.class, String.class, "env")));

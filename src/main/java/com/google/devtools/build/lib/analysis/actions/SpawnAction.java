@@ -1291,6 +1291,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       return this;
     }
 
+    /** @throws IllegalArgumentException if the mnemonic is invalid. */
     public Builder setMnemonic(String mnemonic) {
       Preconditions.checkArgument(
           !mnemonic.isEmpty() && CharMatcher.javaLetterOrDigit().matchesAllOf(mnemonic),
