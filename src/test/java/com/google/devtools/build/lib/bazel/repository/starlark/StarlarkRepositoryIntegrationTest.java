@@ -496,4 +496,22 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             + "Check the visibility declaration of the former target if you think the "
             + "dependency is legitimate");
   }
+
+  @Test
+  public void testCallRepositoryRuleFromBuildFile() throws Exception {
+    // Check that we get a proper error when calling a repository rule from a BUILD file.
+
+    reporter.removeHandler(failFastHandler);
+    scratch.file(
+        "repo.bzl",
+        "def _impl(ctx):",
+        "    pass",
+        "",
+        "repo = repository_rule(implementation = _impl)");
+    scratch.file("BUILD", "load('repo.bzl', 'repo')", "repo(name = 'repository_rule')");
+
+    invalidatePackages();
+    getConfiguredTarget("//:x");
+    assertContainsEvent("'repository rule repo' can only be called during workspace loading");
+  }
 }

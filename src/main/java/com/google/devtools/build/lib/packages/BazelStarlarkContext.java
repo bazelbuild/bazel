@@ -148,4 +148,16 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
           null, "'" + function + "' can only be called during the loading phase");
     }
   }
+
+  /**
+   * Checks that the current StarlarkThread is in the workspace phase.
+   *
+   * @param function name of a function that requires this check
+   */
+  public void checkWorkspacePhase(String function) throws EvalException {
+    if (phase != Phase.WORKSPACE) {
+      throw new EvalException(
+          null, "'" + function + "' can only be called during workspace loading");
+    }
+  }
 }
