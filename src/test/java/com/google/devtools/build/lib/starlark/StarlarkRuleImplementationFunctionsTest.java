@@ -3260,4 +3260,18 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     assertThat(commandLine.arguments(artifactExpander))
         .containsExactly("foo/dir/file1", "foo/dir/file2", "foo/file3");
   }
+
+  @Test
+  public void testCallDirectoryExpanderWithWrongType() throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+    ev.exec(
+        "args = ruleContext.actions.args()",
+        "f = ruleContext.actions.declare_file('file')",
+        "def _expand_dirs(artifact, dir_expander):",
+        "  return dir_expander.expand('oh no a string')",
+        "args.add_all([f], map_each=_expand_dirs)");
+    Args args = (Args) ev.eval("args");
+    CommandLine commandLine = args.build();
+    assertThrows(CommandLineExpansionException.class, commandLine::arguments);
+  }
 }
