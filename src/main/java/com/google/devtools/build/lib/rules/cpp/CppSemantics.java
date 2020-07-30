@@ -42,7 +42,8 @@ public interface CppSemantics {
   HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);
 
   /** Determines the applicable mode of headers checking in Starlark. */
-  HeadersCheckingMode determineStarlarkHeadersCheckingMode(CppConfiguration cppConfiguration);
+  HeadersCheckingMode determineStarlarkHeadersCheckingMode(
+      RuleContext ruleContex, CppConfiguration cppConfiguration, CcToolchainProvider toolchain);
 
   /** Returns the include processing closure, which handles include processing for this build */
   IncludeProcessing getIncludeProcessing();

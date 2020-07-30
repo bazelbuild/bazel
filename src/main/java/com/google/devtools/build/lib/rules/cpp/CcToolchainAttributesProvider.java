@@ -100,6 +100,7 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final TransitiveInfoCollection staticRuntimeLib;
   private final TransitiveInfoCollection dynamicRuntimeLib;
   private final PackageSpecificationProvider allowlistForLayeringCheck;
+  private final PackageSpecificationProvider allowlistForLooseHeaderCheck;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -236,6 +237,9 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     this.allowlistForLayeringCheck =
         Allowlist.fetchPackageSpecificationProvider(
             ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
+    this.allowlistForLooseHeaderCheck =
+        Allowlist.fetchPackageSpecificationProvider(
+            ruleContext, CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST);
   }
 
   public String getCpu() {
@@ -425,6 +429,10 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
 
   public PackageSpecificationProvider getAllowlistForLayeringCheck() {
     return allowlistForLayeringCheck;
+  }
+
+  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
+    return allowlistForLooseHeaderCheck;
   }
 
   private static NestedSet<Artifact> getMiddlemanOrFiles(RuleContext context, String attribute) {

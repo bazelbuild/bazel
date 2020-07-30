@@ -360,6 +360,9 @@ public final class CcToolchainRule implements RuleDefinition {
             Allowlist.getAttributeFromAllowlistName(
                     CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST)
                 .value(CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_LABEL))
+        .add(
+            Allowlist.getAttributeFromAllowlistName(CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST)
+                .value(CcToolchain.LOOSE_HEADER_CHECK_LABEL))
         .build();
   }
 

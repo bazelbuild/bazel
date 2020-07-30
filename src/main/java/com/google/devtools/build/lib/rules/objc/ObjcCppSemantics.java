@@ -93,7 +93,8 @@ public class ObjcCppSemantics implements CppSemantics {
   }
 
   @Override
-  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(CppConfiguration cppConfig) {
+  public HeadersCheckingMode determineStarlarkHeadersCheckingMode(
+      RuleContext context, CppConfiguration cppConfig, CcToolchainProvider toolchain) {
     if (cppConfig.strictHeaderCheckingFromStarlark()) {
       return HeadersCheckingMode.STRICT;
     }

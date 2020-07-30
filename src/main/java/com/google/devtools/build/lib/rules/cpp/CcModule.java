@@ -1818,10 +1818,12 @@ public abstract class CcModule
             .setHeadersCheckingMode(
                 getSemantics()
                     .determineStarlarkHeadersCheckingMode(
+                        actions.getRuleContext(),
                         actions
                             .getActionConstructionContext()
                             .getConfiguration()
-                            .getFragment(CppConfiguration.class)));
+                            .getFragment(CppConfiguration.class),
+                        ccToolchainProvider));
     if (disallowNopicOutputs) {
       helper.setGenerateNoPicAction(false);
     }

@@ -187,6 +187,9 @@ public class CcToolchainProviderHelper {
     PackageSpecificationProvider allowlistForLayeringCheck =
         attributes.getAllowlistForLayeringCheck();
 
+    PackageSpecificationProvider allowlistForLooseHeaderCheck =
+        attributes.getAllowlistForLooseHeaderCheck();
+
     return new CcToolchainProvider(
         getToolchainForStarlark(toolPaths),
         cppConfiguration,
@@ -249,7 +252,8 @@ public class CcToolchainProviderHelper {
         toolchainConfigInfo.getTargetSystemName(),
         computeAdditionalMakeVariables(toolchainConfigInfo),
         computeLegacyCcFlagsMakeVariable(toolchainConfigInfo),
-        allowlistForLayeringCheck);
+        allowlistForLayeringCheck,
+        allowlistForLooseHeaderCheck);
   }
 
   @Nullable
