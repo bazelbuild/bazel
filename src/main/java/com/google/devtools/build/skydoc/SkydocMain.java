@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryReso
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidManifestInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidPreDexJarProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidProguardInfoApi;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.ProguardMappingProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
@@ -93,6 +92,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBr
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidResourcesInfo.FakeAndroidResourcesInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSdkProvider.FakeProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
@@ -563,7 +563,8 @@ public class SkydocMain {
             new FakeAndroidDeviceBrokerInfoProvider(),
             new FakeAndroidResourcesInfoProvider(),
             new FakeAndroidNativeLibsInfoProvider(),
-            new FakeAndroidApplicationResourceInfoProvider());
+            new FakeAndroidApplicationResourceInfoProvider(),
+            new FakeProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
         new ConfigBootstrap(
@@ -689,7 +690,6 @@ public class SkydocMain {
     UsesDataBindingProviderApi.NAME,
     AndroidCcLinkParamsProviderApi.NAME,
     AndroidLibraryResourceClassJarProviderApi.NAME,
-    AndroidSdkProviderApi.NAME,
     AndroidFeatureFlagSetProviderApi.NAME,
     ProguardMappingProviderApi.NAME,
     GeneratedExtensionRegistryProviderApi.NAME,
