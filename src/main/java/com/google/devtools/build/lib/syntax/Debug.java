@@ -24,6 +24,18 @@ import javax.annotation.Nullable;
 // TODO(adonovan): move Debugger to Debug.Debugger.
 public final class Debug {
 
+  /**
+   * A simple interface for the Starlark interpreter to notify a debugger of events during
+   * execution.
+   */
+  public interface Debugger {
+    /** Notify the debugger that execution is at the point immediately before {@code loc}. */
+    void before(StarlarkThread thread, Location loc);
+
+    /** Notify the debugger that it will no longer receive events from the interpreter. */
+    void close();
+  }
+
   /** A Starlark value that can expose additional information to a debugger. */
   public interface ValueWithDebugAttributes extends StarlarkValue {
     /**

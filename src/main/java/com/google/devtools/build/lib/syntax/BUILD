@@ -87,7 +87,6 @@ java_library(
         "ClassObject.java",
         "CpuProfiler.java",
         "Debug.java",
-        "Debugger.java",
         "Dict.java",
         "Eval.java",
         "EvalException.java",

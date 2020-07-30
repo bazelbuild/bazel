@@ -111,7 +111,10 @@ public final class StarlarkThread {
   static final class Frame implements Debug.Frame {
     final StarlarkThread thread;
     final StarlarkCallable fn; // the called function
-    @Nullable final Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
+
+    @Nullable
+    final Debug.Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
+
     int compcount = 0; // number of enclosing comprehensions
 
     Object result = Starlark.NONE; // the operand of a Starlark return statement
