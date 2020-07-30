@@ -40,8 +40,6 @@ import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -89,28 +87,12 @@ public final class TestActionBuilder {
    * @return ordered list of test status artifacts
    */
   public TestParams build() {
-    Preconditions.checkState(runfilesSupport != null);
-    boolean local = TargetUtils.isTestRuleAndRunsLocally(ruleContext.getRule());
+    Preconditions.checkNotNull(runfilesSupport);
     TestShardingStrategy strategy =
         ruleContext.getConfiguration().getFragment(TestConfiguration.class).testShardingStrategy();
-    int shards = strategy.getNumberOfShards(
-        local, explicitShardCount, isTestShardingCompliant(),
-        TestSize.getTestSize(ruleContext.getRule()));
-    Preconditions.checkState(shards >= 0);
+    int shards = strategy.getNumberOfShards(explicitShardCount);
+    Preconditions.checkState(shards >= 0, "%s returned negative shard count %s", strategy, shards);
     return createTestAction(shards);
-  }
-
-  private boolean isTestShardingCompliant() {
-    // See if it has a data dependency on the special target
-    // //tools:test_sharding_compliant. Test runners add this dependency
-    // to show they speak the sharding protocol.
-    // There are certain cases where this heuristic may fail, giving
-    // a "false positive" (where we shard the test even though the
-    // it isn't supported). We may want to refine this logic, but
-    // heuristically sharding is currently experimental. Also, we do detect
-    // false-positive cases and return an error.
-    return runfilesSupport.getRunfilesSymlinkNames().contains(
-        PathFragment.create("tools/test_sharding_compliant"));
   }
 
   /**
