@@ -48,7 +48,7 @@ public class EvalExceptionWithStackTrace extends EvalException {
   EvalExceptionWithStackTrace(EvalException original, Node culprit) {
     // The 'message' here must be non-empty in case getCause() is null,
     // as the super(-fragile) constructor crashes if both are empty.
-    super(nodeLocation(culprit), getNonEmptyMessage(original), original.getCause());
+    super(nodeLocation(culprit), getNonEmptyMessage(original), original);
     registerNode(culprit);
   }
 
