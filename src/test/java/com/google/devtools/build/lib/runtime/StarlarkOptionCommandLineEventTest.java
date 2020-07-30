@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.bazel.BazelStartupOptionsModule.Options;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.CanonicalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.CommandLineEvent.OriginalCommandLineEvent;
 import com.google.devtools.build.lib.runtime.proto.CommandLineOuterClass.CommandLine;
-import com.google.devtools.build.lib.skylark.util.StarlarkOptionsTestCase;
+import com.google.devtools.build.lib.starlark.util.StarlarkOptionsTestCase;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Optional;
 import org.junit.Test;

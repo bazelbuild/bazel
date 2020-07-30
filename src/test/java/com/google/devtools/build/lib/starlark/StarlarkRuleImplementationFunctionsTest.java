@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylark;
+package com.google.devtools.build.lib.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -57,7 +57,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -2896,7 +2896,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputation_differentMapEach() throws Exception {
+  public void starlarkCustomCommandLineKeyComputation_differentMapEach() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
     CommandLine commandLine1 =
@@ -2916,7 +2916,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputation_differentArg() throws Exception {
+  public void starlarkCustomCommandLineKeyComputation_differentArg() throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
     CommandLine commandLine1 =
@@ -2934,7 +2934,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputationWithExpander_equivalentMapEach_sameKey()
+  public void starlarkCustomCommandLineKeyComputationWithExpander_equivalentMapEach_sameKey()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
@@ -2955,7 +2955,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputationWithExpander_mapEachConstantForDir()
+  public void starlarkCustomCommandLineKeyComputationWithExpander_mapEachConstantForDir()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
@@ -2977,7 +2977,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputationWithExpander_constantForDirWithNestedSet()
+  public void starlarkCustomCommandLineKeyComputationWithExpander_constantForDirWithNestedSet()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
@@ -2999,7 +2999,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputationWithExpander_mapEachFailsForDir()
+  public void starlarkCustomCommandLineKeyComputationWithExpander_mapEachFailsForDir()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
@@ -3027,7 +3027,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputationWithExpander_differentExpansion()
+  public void starlarkCustomCommandLineKeyComputationWithExpander_differentExpansion()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     CommandLine commandLine =
@@ -3044,7 +3044,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputationWithExpander_differentExpansionNoMapEach()
+  public void starlarkCustomCommandLineKeyComputationWithExpander_differentExpansionNoMapEach()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     CommandLine commandLine =
@@ -3059,7 +3059,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputationWithExpander_extraFileInExpansionNoMapEach()
+  public void starlarkCustomCommandLineKeyComputationWithExpander_extraFileInExpansionNoMapEach()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     CommandLine commandLine =
@@ -3074,7 +3074,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputationWithExpander_constantForDirAddJoined()
+  public void starlarkCustomCommandLineKeyComputationWithExpander_constantForDirAddJoined()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
 
@@ -3098,7 +3098,7 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
-  public void skylarkCustomCommandLineKeyComputation_inconsequentialChangeToStarlarkSemantics()
+  public void starlarkCustomCommandLineKeyComputation_inconsequentialChangeToStarlarkSemantics()
       throws Exception {
     setRuleContext(createRuleContext("//foo:foo"));
     CommandLine commandLine1 =

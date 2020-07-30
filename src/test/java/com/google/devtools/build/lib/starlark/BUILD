@@ -9,7 +9,7 @@ filegroup(
     name = "srcs",
     testonly = 0,
     srcs = glob(["**"]) + [
-        "//src/test/java/com/google/devtools/build/lib/skylark/util:srcs",
+        "//src/test/java/com/google/devtools/build/lib/starlark/util:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -71,7 +71,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/skylark/util",
+        "//src/test/java/com/google/devtools/build/lib/starlark/util",
         "//src/test/java/com/google/devtools/build/lib/syntax/util",
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
