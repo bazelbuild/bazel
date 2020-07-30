@@ -102,7 +102,7 @@ public final class FilesystemValueCheckerTest {
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
           .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-          .setEventHander(NullEventHandler.INSTANCE)
+          .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
   private RecordingDifferencer differencer;
@@ -415,7 +415,7 @@ public final class FilesystemValueCheckerTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(1)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
 
     tsgm.setCommandStartTime();
@@ -539,7 +539,7 @@ public final class FilesystemValueCheckerTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(1)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(driver.evaluate(ImmutableList.of(), evaluationContext).hasError()).isFalse();
     assertThat(
@@ -942,7 +942,7 @@ public final class FilesystemValueCheckerTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(1)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(
             driver.evaluate(ImmutableList.of(actionKey1, actionKey2), evaluationContext).hasError())
@@ -996,7 +996,7 @@ public final class FilesystemValueCheckerTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(1)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     assertThat(driver.evaluate(ImmutableList.of(actionKey), evaluationContext).hasError())
         .isFalse();

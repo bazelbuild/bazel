@@ -331,7 +331,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(skyframeThreads)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     EvaluationResult<PackageValue> evalResult = makeFreshDriver().evaluate(keys, evaluationContext);
 

@@ -283,7 +283,7 @@ public final class ActionsTestUtil {
             EvaluationContext.newBuilder()
                 .setKeepGoing(false)
                 .setNumThreads(ResourceUsage.getAvailableProcessors())
-                .setEventHander(new Reporter(new EventBus(), eventHandler))
+                .setEventHandler(new Reporter(new EventBus(), eventHandler))
                 .build();
         evaluationResult = driver.evaluate(depKeys, evaluationContext);
       } catch (InterruptedException e) {

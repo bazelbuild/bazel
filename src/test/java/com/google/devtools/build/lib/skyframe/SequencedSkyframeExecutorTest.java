@@ -643,7 +643,7 @@ public final class SequencedSkyframeExecutorTest extends BuildViewTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     return skyframeExecutor.getDriver().evaluate(roots, evaluationContext);
   }

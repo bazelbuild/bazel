@@ -122,7 +122,7 @@ public final class SyncCommand implements BlazeCommand {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setNumThreads(threadsOption.threads)
-              .setEventHander(env.getReporter())
+              .setEventHandler(env.getReporter())
               .build();
       EvaluationResult<SkyValue> packageLookupValue =
           skyframeExecutor.prepareAndGet(ImmutableSet.of(packageLookupKey), evaluationContext);

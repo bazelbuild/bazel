@@ -1181,7 +1181,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(1)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
 
     synchronized (valueLookupLock) {
@@ -1570,7 +1570,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
               .setKeepGoing(options.getOptions(KeepGoingOption.class).keepGoing)
               .setNumThreads(options.getOptions(BuildRequestOptions.class).jobs)
               .setUseForkJoinPool(options.getOptions(BuildRequestOptions.class).useForkJoinPool)
-              .setEventHander(reporter)
+              .setEventHandler(reporter)
               .setExecutionPhase()
               .build();
       return buildDriver.evaluate(
@@ -1647,7 +1647,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .setUseForkJoinPool(true)
             .build();
     return buildDriver.evaluate(patternSkyKeys, evaluationContext);
@@ -2358,7 +2358,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
             .setNumThreads(numThreads)
             .setExecutorServiceSupplier(
                 () -> NamedForkJoinPool.newNamedPool("skyframe-evaluator", numThreads))
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     EvaluationResult<ActionLookupValue> result =
         buildDriver.evaluate(Iterables.concat(values, aspectKeys), evaluationContext);
@@ -3094,7 +3094,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(numThreads)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     return buildDriver.evaluate(roots, evaluationContext);
   }

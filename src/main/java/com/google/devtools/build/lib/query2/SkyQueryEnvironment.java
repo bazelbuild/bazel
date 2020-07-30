@@ -251,7 +251,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setNumThreads(loadingPhaseThreads)
-              .setEventHander(universeEvalEventHandler)
+              .setEventHandler(universeEvalEventHandler)
               .build();
       result = graphFactory.prepareAndGet(roots, configureEvaluationContext(evaluationContext));
     }

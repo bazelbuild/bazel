@@ -494,7 +494,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     getDriver().evaluate(ImmutableList.of(), evaluationContext);
 
@@ -915,7 +915,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
                   EvaluationContext.newBuilder()
                       .setKeepGoing(false)
                       .setNumThreads(ResourceUsage.getAvailableProcessors())
-                      .setEventHander(eventHandler)
+                      .setEventHandler(eventHandler)
                       .build();
               getDriver().evaluate(ImmutableList.of(), evaluationContext);
               return null;
@@ -1035,7 +1035,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(DEFAULT_THREAD_COUNT)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .build();
     return getDriver().evaluate(ImmutableSet.of(key), evaluationContext).get(key);
   }

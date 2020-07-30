@@ -348,7 +348,7 @@ public final class ActionTemplateExpansionFunctionTest extends FoundationTestCas
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     EvaluationResult<ActionTemplateExpansionValue> result =
         driver.evaluate(ImmutableList.of(templateKey), evaluationContext);

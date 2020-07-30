@@ -208,7 +208,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(LOADING_PHASE_THREADS)
-            .setEventHander(new Reporter(new EventBus(), eventCollector))
+            .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
         getSkyframeExecutor().getDriver().evaluate(singletonTargetPattern, evaluationContext);

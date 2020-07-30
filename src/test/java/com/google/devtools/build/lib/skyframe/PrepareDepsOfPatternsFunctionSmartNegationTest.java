@@ -222,7 +222,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(100)
-            .setEventHander(new Reporter(new EventBus(), eventCollector))
+            .setEventHandler(new Reporter(new EventBus(), eventCollector))
             .build();
     EvaluationResult<SkyValue> evaluationResult =
         skyframeExecutor.getDriver().evaluate(singletonTargetPattern, evaluationContext);

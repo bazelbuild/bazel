@@ -201,7 +201,7 @@ public abstract class PackageLookupFunctionTest extends FoundationTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return driver.<PackageLookupValue>evaluate(
         ImmutableList.of(packageIdentifierSkyKey), evaluationContext);

@@ -349,7 +349,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             EvaluationContext.newBuilder()
                 .setKeepGoing(keepGoing)
                 .setNumThreads(threadCount)
-                .setEventHander(reporter)
+                .setEventHandler(reporter)
                 .build();
         EvaluationResult<SkyValue> result = driver.evaluate(keys, evaluationContext);
         this.latestResult = result;
