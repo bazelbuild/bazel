@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
+import static com.google.devtools.build.lib.rules.apple.AppleBitcodeConverter.INVALID_APPLE_BITCODE_OPTION_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.ABSOLUTE_INCLUDES_PATH_FORMAT;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.BOTH_MODULE_NAME_AND_MODULE_MAP_SPECIFIED;
 import static com.google.devtools.build.lib.rules.objc.CompilationSupport.FILE_IN_SRCS_AND_HDRS_WARNING_FORMAT;
@@ -678,6 +679,138 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
     assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
     assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testCompilationActionsWithEmbeddedBitcodeForMultiplePlatformsWithMatch()
+      throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=ios=embedded",
+        "--apple_bitcode=watchos=embedded");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode");
+  }
+
+  @Test
+  public void testCompilationActionsWithEmbeddedBitcodeForMultiplePlatformsWithoutMatch()
+      throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=tvos=embedded",
+        "--apple_bitcode=watchos=embedded");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testLaterBitcodeOptionsOverrideEarlierOptionsForSamePlatform() throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=ios=embedded",
+        "--apple_bitcode=ios=embedded_markers");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
+    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testLaterPlatformBitcodeOptionWithPlatformOverridesEarlierOptionWithoutPlatform()
+      throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=ios=embedded",
+        "--apple_bitcode=embedded_markers");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
+    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testLaterBitcodeOptionWithoutPlatformOverridesEarlierOptionWithPlatform()
+      throws Exception {
+    useConfiguration(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=embedded",
+        "--apple_bitcode=ios=embedded_markers");
+    createLibraryTargetWriter("//objc:lib")
+        .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+        .setAndCreateFiles("hdrs", "c.h")
+        .write();
+
+    CommandAction compileActionA = compileAction("//objc:lib", "a.o");
+
+    assertThat(compileActionA.getArguments()).doesNotContain("-fembed-bitcode");
+    assertThat(compileActionA.getArguments()).contains("-fembed-bitcode-marker");
+  }
+
+  @Test
+  public void testAppleBitcode_invalidPlatformNameGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios",
+        "--ios_multi_cpus=arm64",
+        "--apple_bitcode=ios=embedded",
+        "--apple_bitcode=nachos=embedded");
+  }
+
+  @Test
+  public void testAppleBitcode_invalidBitcodeModeGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=indebted");
+  }
+
+  @Test
+  public void testAppleBitcode_invalidBitcodeModeWithPlatformGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=ios=indebted");
+  }
+
+  @Test
+  public void testAppleBitcode_emptyBitcodeModeGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=ios=");
+  }
+
+  @Test
+  public void testAppleBitcode_emptyValueGivesError() throws Exception {
+    checkBitcodeModeError(
+        "--apple_platform_type=ios", "--ios_multi_cpus=arm64", "--apple_bitcode=");
+  }
+
+  private void checkBitcodeModeError(String... args) throws Exception {
+    OptionsParsingException thrown =
+        assertThrows(OptionsParsingException.class, () -> useConfiguration(args));
+    assertThat(thrown).hasMessageThat().contains(INVALID_APPLE_BITCODE_OPTION_FORMAT);
   }
 
   @Test

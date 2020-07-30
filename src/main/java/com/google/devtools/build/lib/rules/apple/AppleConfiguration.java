@@ -33,7 +33,10 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 
 /** A configuration containing flags required for Apple platforms and tools. */
@@ -70,7 +73,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final ImmutableList<String> watchosCpus;
   private final ImmutableList<String> tvosCpus;
   private final ImmutableList<String> macosCpus;
-  private final AppleBitcodeMode bitcodeMode;
+  private final EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes;
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
   @Nullable private final Label defaultProvisioningProfileLabel;
@@ -95,7 +98,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.macosCpus = (options.macosCpus == null || options.macosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
         : ImmutableList.copyOf(options.macosCpus);
-    this.bitcodeMode = options.appleBitcodeMode;
+    this.platformBitcodeModes = collectBitcodeModes(options.appleBitcodeMode);
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
     this.defaultProvisioningProfileLabel = options.defaultProvisioningProfile;
@@ -357,11 +360,13 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   @Override
   public AppleBitcodeMode getBitcodeMode() {
-    if (hasValidSingleArchPlatform() && getSingleArchPlatform().isDevice()) {
-      return bitcodeMode;
-    } else {
-      return AppleBitcodeMode.NONE;
+    if (hasValidSingleArchPlatform()) {
+      ApplePlatform platform = getSingleArchPlatform();
+      if (platform.isDevice()) {
+        return platformBitcodeModes.get(applePlatformType);
+      }
     }
+    return AppleBitcodeMode.NONE;
   }
 
   /**
@@ -431,6 +436,35 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   @VisibleForTesting
   static AppleConfiguration create(AppleCommandLineOptions appleOptions, String cpu) {
     return new AppleConfiguration(appleOptions, iosCpuFromCpu(cpu));
+  }
+
+  /**
+   * Compute the platform-type-to-bitcode-mode mapping from the pairs that were passed on the
+   * command line.
+   */
+  private static EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> collectBitcodeModes(
+      List<Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode>> platformModeMappings) {
+    EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> modes =
+        new EnumMap<>(ApplePlatform.PlatformType.class);
+    ApplePlatform.PlatformType[] allPlatforms = ApplePlatform.PlatformType.values();
+
+    // Seed the map with the default mode for every key so that there is a valid mode for every
+    // platform.
+    // TODO(blaze-team): Default to embedded_markers when fully implemented.
+    Arrays.stream(allPlatforms).forEach(platform -> modes.put(platform, AppleBitcodeMode.NONE));
+
+    // Process the entries in order. If we encounter one with a null key, apply the mode to all
+    // platforms; otherwise, apply it only to that specific platform. This ensures that the later
+    // options override the earlier options.
+    for (Map.Entry<ApplePlatform.PlatformType, AppleBitcodeMode> entry : platformModeMappings) {
+      if (entry.getKey() == null) {
+        Arrays.stream(allPlatforms).forEach(platform -> modes.put(platform, entry.getValue()));
+      } else {
+        modes.put(entry.getKey(), entry.getValue());
+      }
+    }
+
+    return modes;
   }
 
   /**
