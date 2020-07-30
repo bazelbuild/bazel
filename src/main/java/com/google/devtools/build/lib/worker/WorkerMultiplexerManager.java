@@ -22,16 +22,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 
-/** A manager to instantiate and destroy multiplexers. */
+/**
+ * A manager to instantiate and destroy multiplexers. There should only be one {@code
+ * WorkerMultiplexer} corresponding to workers with the same {@code WorkerKey}. If the {@code
+ * WorkerMultiplexer} has been constructed, other workers should point to the same one.
+ */
 public class WorkerMultiplexerManager {
   /**
-   * There should only be one WorkerMultiplexer corresponding to workers with the same mnemonic. If
-   * the WorkerMultiplexer has been constructed, other workers should point to the same one. The
-   * hash of WorkerKey is used as key.
+   * A map from the hash of {@code WorkerKey} objects to the corresponding information about the
+   * multiplexer instance.
    */
   private static Map<Integer, InstanceInfo> multiplexerInstance;
 
-  /** A semaphore to protect multiplexerInstance and multiplexerRefCount objects. */
+  /** A semaphore to protect {@code multiplexerInstance} and {@code multiplexerRefCount} objects. */
   private static Semaphore semMultiplexer;
 
   static {
@@ -42,9 +45,9 @@ public class WorkerMultiplexerManager {
   private WorkerMultiplexerManager() {}
 
   /**
-   * Returns a WorkerMultiplexer instance to WorkerProxy. WorkerProxies with the same workerHash
-   * talk to the same WorkerMultiplexer. Also, record how many WorkerProxies are talking to this
-   * WorkerMultiplexer.
+   * Returns a {@code WorkerMultiplexer} instance to {@code WorkerProxy}. {@code WorkerProxy}
+   * objects with the same workerHash talk to the same {@code WorkerMultiplexer}. Also, record how
+   * many {@code WorkerProxy} objects are talking to this {@code WorkerMultiplexer}.
    */
   public static WorkerMultiplexer getInstance(Integer workerHash) throws InterruptedException {
     semMultiplexer.acquire();
@@ -58,7 +61,10 @@ public class WorkerMultiplexerManager {
     return workerMultiplexer;
   }
 
-  /** Remove the WorkerMultiplexer instance and reference count since it is no longer in use. */
+  /**
+   * Removes the {@code WorkerMultiplexer} instance and reference count since it is no longer in
+   * use.
+   */
   public static void removeInstance(Integer workerHash)
       throws InterruptedException, UserExecException {
     semMultiplexer.acquire();
@@ -108,7 +114,7 @@ public class WorkerMultiplexerManager {
             .build());
   }
 
-  /** Contains the WorkerMultiplexer instance and reference count */
+  /** Contains the WorkerMultiplexer instance and reference count. */
   static class InstanceInfo {
     private WorkerMultiplexer workerMultiplexer;
     private Integer refCount;
