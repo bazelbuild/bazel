@@ -16,10 +16,10 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:srcs",
         "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/java:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/javascript:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/go:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/python:srcs",

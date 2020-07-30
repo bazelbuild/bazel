@@ -20,7 +20,7 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.XcodePropertiesApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.XcodePropertiesApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
