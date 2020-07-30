@@ -19,8 +19,8 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.syntax.StarlarkThread.ReadyToPause;
-import com.google.devtools.build.lib.syntax.StarlarkThread.Stepping;
+import com.google.devtools.build.lib.syntax.Debug.ReadyToPause;
+import com.google.devtools.build.lib.syntax.Debug.Stepping;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -126,7 +126,7 @@ public class StarlarkThreadDebuggingTest {
   public void testStepIntoFunction() throws Exception {
     StarlarkThread thread = newThread();
 
-    ReadyToPause predicate = thread.stepControl(Stepping.INTO);
+    ReadyToPause predicate = Debug.stepControl(thread, Stepping.INTO);
     thread.push(defineFunc());
 
     assertThat(predicate.test(thread)).isTrue();
@@ -138,7 +138,7 @@ public class StarlarkThreadDebuggingTest {
     // current frame
     StarlarkThread thread = newThread();
 
-    ReadyToPause predicate = thread.stepControl(Stepping.INTO);
+    ReadyToPause predicate = Debug.stepControl(thread, Stepping.INTO);
 
     assertThat(predicate.test(thread)).isTrue();
   }
@@ -149,7 +149,7 @@ public class StarlarkThreadDebuggingTest {
     StarlarkThread thread = newThread();
     thread.push(defineFunc());
 
-    ReadyToPause predicate = thread.stepControl(Stepping.INTO);
+    ReadyToPause predicate = Debug.stepControl(thread, Stepping.INTO);
     thread.pop();
 
     assertThat(predicate.test(thread)).isTrue();
@@ -159,7 +159,7 @@ public class StarlarkThreadDebuggingTest {
   public void testStepOverFunction() throws Exception {
     StarlarkThread thread = newThread();
 
-    ReadyToPause predicate = thread.stepControl(Stepping.OVER);
+    ReadyToPause predicate = Debug.stepControl(thread, Stepping.OVER);
     thread.push(defineFunc());
 
     assertThat(predicate.test(thread)).isFalse();
@@ -173,7 +173,7 @@ public class StarlarkThreadDebuggingTest {
     StarlarkThread thread = newThread();
     thread.push(defineFunc());
 
-    ReadyToPause predicate = thread.stepControl(Stepping.OVER);
+    ReadyToPause predicate = Debug.stepControl(thread, Stepping.OVER);
     thread.pop();
 
     assertThat(predicate.test(thread)).isTrue();
@@ -184,7 +184,7 @@ public class StarlarkThreadDebuggingTest {
     StarlarkThread thread = newThread();
     thread.push(defineFunc());
 
-    ReadyToPause predicate = thread.stepControl(Stepping.OUT);
+    ReadyToPause predicate = Debug.stepControl(thread, Stepping.OUT);
 
     assertThat(predicate.test(thread)).isFalse();
     thread.pop();
@@ -195,14 +195,14 @@ public class StarlarkThreadDebuggingTest {
   public void testStepOutOfOutermostFrame() {
     StarlarkThread thread = newThread();
 
-    assertThat(thread.stepControl(Stepping.OUT)).isNull();
+    assertThat(Debug.stepControl(thread, Stepping.OUT)).isNull();
   }
 
   @Test
   public void testStepControlWithNoSteppingReturnsNull() {
     StarlarkThread thread = newThread();
 
-    assertThat(thread.stepControl(Stepping.NONE)).isNull();
+    assertThat(Debug.stepControl(thread, Stepping.NONE)).isNull();
   }
 
   @Test
