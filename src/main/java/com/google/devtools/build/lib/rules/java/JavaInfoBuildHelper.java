@@ -169,7 +169,7 @@ final class JavaInfoBuildHelper {
           "pack_sources requires at least one of the parameters output_jar or output_source_jar");
     }
     // If we only have one source jar, return it directly to avoid action creation
-    if (sourceFiles.isEmpty() && sourceJars.size() == 1) {
+    if (sourceFiles.isEmpty() && sourceJars.size() == 1 && outputSourceJar == null) {
       return sourceJars.get(0);
     }
     ActionRegistry actionRegistry = actions.asActionRegistry(actions);

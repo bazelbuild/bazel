@@ -226,6 +226,28 @@ public class JavaInfoStarlarkApiTest extends BuildViewTestCase {
   }
 
   @Test
+  public void buildHelperPackSources_repackSingleJar() throws Exception {
+    ruleBuilder().withSourceFiles().build();
+    scratch.file(
+        "foo/BUILD",
+        "load(':extension.bzl', 'my_rule')",
+        "my_rule(name = 'my_starlark_rule',",
+        "        output_jar = 'my_starlark_rule_lib.jar',",
+        "        source_jars = ['my_starlark_rule_src.jar']",
+        ")");
+    assertNoEvents();
+
+    JavaSourceJarsProvider sourceJarsProvider =
+        fetchJavaInfo().getProvider(JavaSourceJarsProvider.class);
+
+    assertThat(prettyArtifactNames(sourceJarsProvider.getSourceJars()))
+        .containsExactly("foo/my_starlark_rule_lib-src.jar");
+
+    assertThat(prettyArtifactNames(sourceJarsProvider.getTransitiveSourceJars()))
+        .containsExactly("foo/my_starlark_rule_lib-src.jar");
+  }
+
+  @Test
   public void buildHelperCreateJavaInfoWithSourceFiles_namingSourceJarFromOutputJar()
       throws Exception {
     ruleBuilder().withSourceFilesFromJar().build();
