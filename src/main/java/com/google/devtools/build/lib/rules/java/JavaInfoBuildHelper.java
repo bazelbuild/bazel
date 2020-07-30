@@ -248,14 +248,6 @@ final class JavaInfoBuildHelper {
       StarlarkThread thread)
       throws EvalException, InterruptedException {
 
-    if (sourceJars.isEmpty()
-        && sourceFiles.isEmpty()
-        && exports.isEmpty()
-        && exportedPlugins.isEmpty()) {
-      throw Starlark.errorf(
-          "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
-    }
-
     JavaToolchainProvider toolchainProvider = javaToolchain;
 
     JavaLibraryHelper helper =
