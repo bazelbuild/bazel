@@ -155,7 +155,6 @@ public class ResolverTest {
     // initialized).
     assertValid("a = a");
     assertValid("a += a");
-    assertValid("[[] for a in a]");
     assertValid("def f():", "  for a in a: pass");
   }
 

@@ -507,14 +507,14 @@ public final class EvaluationTest {
     // because it doesn't record the scope in the syntax tree.)
     ev.new Scenario()
         .testIfErrorContains(
-            "local variable 'y' is referenced before assignment", //
+            "name 'y' is not defined", //
             "[x for x in (1, 2) if y for y in (3, 4)]");
 
     // This is the corresponding test for BUILD files.
-    EvalException ex =
+    SyntaxError.Exception ex =
         assertThrows(
-            EvalException.class, () -> execBUILD("[x for x in (1, 2) if y for y in (3, 4)]"));
-    assertThat(ex).hasMessageThat().isEqualTo("variable 'y' is referenced before assignment");
+            SyntaxError.Exception.class, () -> execBUILD("[x for x in (1, 2) if y for y in (3, 4)]"));
+    assertThat(ex).hasMessageThat().isEqualTo("name 'y' is not defined");
   }
 
   private static void execBUILD(String... lines)
@@ -716,6 +716,16 @@ public final class EvaluationTest {
             // Use short-circuiting to produce valid output in the event
             // the exception is not raised.
             "[y for x in xs for y in (xs.append(4) or xs)]");
+  }
+
+  @Test
+  public void testCompr() throws Exception {
+    ev.new Scenario()
+      .setUp("x = [[1, 2]]")
+      .testExpression(
+        "[x for x in x for y in x]",
+        StarlarkList.of(null, StarlarkList.of(null, 1, 2), StarlarkList.of(null, 1, 2)));
+
   }
 
   @Test

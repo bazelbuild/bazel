@@ -496,14 +496,8 @@ public final class Resolver extends NodeVisitor {
     for (Comprehension.Clause clause : node.getClauses()) {
       if (clause instanceof Comprehension.For) {
         Comprehension.For forClause = (Comprehension.For) clause;
-        createBindings(forClause.getVars());
-      }
-    }
-    // TODO(adonovan): opt: combine loops
-    for (Comprehension.Clause clause : node.getClauses()) {
-      if (clause instanceof Comprehension.For) {
-        Comprehension.For forClause = (Comprehension.For) clause;
         visit(forClause.getIterable());
+        createBindings(forClause.getVars());
         assign(forClause.getVars());
       } else {
         Comprehension.If ifClause = (Comprehension.If) clause;
