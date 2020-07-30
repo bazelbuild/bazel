@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.query2.engine.QueryParser;
 import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorWrappingWalkableGraph;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -49,7 +50,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import org.junit.After;
@@ -182,16 +182,18 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
 
   public PostAnalysisQueryEnvironment<T> getPostAnalysisQueryEnvironment(
       Collection<String> universe) throws QueryException, InterruptedException {
-    if (universe.equals(Collections.singletonList(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
+    if (ImmutableList.copyOf(universe)
+        .equals(ImmutableList.of(PostAnalysisQueryTest.DEFAULT_UNIVERSE))) {
       throw new QueryException(
           "Tests must set universe scope by either having parsable labels in each query expression "
-              + "or setting explicitly through query helper.");
+              + "or setting explicitly through query helper.",
+          Query.Code.QUERY_UNKNOWN);
     }
     AnalysisResult analysisResult;
     try {
       analysisResult = analysisHelper.update(universe.toArray(new String[0]));
     } catch (Exception e) {
-      throw new QueryException(e.getMessage());
+      throw new QueryException(e.getMessage(), Query.Code.QUERY_UNKNOWN);
     }
     WalkableGraph walkableGraph =
         SkyframeExecutorWrappingWalkableGraph.of(analysisHelper.getSkyframeExecutor());

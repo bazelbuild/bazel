@@ -401,7 +401,8 @@ public class ConfiguredTargetQueryEnvironment
                 pattern,
                 userFriendlyConfigName
                     ? "'" + configuration + "' configuration"
-                    : "configuration with checksum '" + configuration + "'"));
+                    : "configuration with checksum '" + configuration + "'"),
+            ConfigurableQuery.Code.TARGET_MISSING);
       }
       callback.process(transformedResult);
       return null;

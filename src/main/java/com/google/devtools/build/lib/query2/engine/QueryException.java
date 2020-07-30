@@ -19,8 +19,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.Optional;
 
-/**
- */
+/** Exception indicating a failure in Blaze query, aquery, or cquery. */
 public class QueryException extends Exception {
   /**
    * Returns a better error message for the query.
@@ -101,10 +100,6 @@ public class QueryException extends Exception {
     super(message, cause);
     this.expression = null;
     this.failureDetail = Optional.of(failureDetail);
-  }
-
-  public QueryException(String message) {
-    this(null, message);
   }
 
   public QueryException(String message, Query.Code queryCode) {
