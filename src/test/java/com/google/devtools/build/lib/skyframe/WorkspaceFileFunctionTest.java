@@ -193,12 +193,6 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     StarlarkSemantics semantics = getStarlarkSemantics();
     Injectable injectable = getSkyframeExecutor().injectable();
     try {
-      StarlarkSemantics semanticsWithManagedDirectories =
-          StarlarkSemantics.builderWithDefaults()
-              .experimentalAllowIncrementalRepositoryUpdates(true)
-              .build();
-      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithManagedDirectories);
-
       TestManagedDirectoriesListener listener = new TestManagedDirectoriesListener();
       ManagedDirectoriesKnowledgeImpl knowledge = new ManagedDirectoriesKnowledgeImpl(listener);
 
@@ -250,12 +244,6 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     StarlarkSemantics semantics = getStarlarkSemantics();
     Injectable injectable = getSkyframeExecutor().injectable();
     try {
-      StarlarkSemantics semanticsWithManagedDirectories =
-          StarlarkSemantics.builderWithDefaults()
-              .experimentalAllowIncrementalRepositoryUpdates(true)
-              .build();
-      PrecomputedValue.STARLARK_SEMANTICS.set(injectable, semanticsWithManagedDirectories);
-
       createWorkspaceFileValueForTest();
 
       // Test intentionally introduces errors.

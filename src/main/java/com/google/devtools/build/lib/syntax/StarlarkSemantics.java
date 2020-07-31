@@ -73,8 +73,6 @@ public abstract class StarlarkSemantics {
     // TODO(adonovan): move these constants up into the relevant packages of
     // Bazel, and make them identical to the strings used in flag declarations.
     public static final String EXPERIMENTAL_ACTION_ARGS = "experimental_action_args";
-    public static final String EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES =
-        "experimental_allow_incremental_repository_updates";
     public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE =
         "experimental_disable_external_package";
     public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
@@ -119,8 +117,6 @@ public abstract class StarlarkSemantics {
     switch (flag) {
       case FlagIdentifier.EXPERIMENTAL_ACTION_ARGS:
         return experimentalActionArgs();
-      case FlagIdentifier.EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES:
-        return experimentalAllowIncrementalRepositoryUpdates();
       case FlagIdentifier.EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE:
         return experimentalDisableExternalPackage();
       case FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT:
@@ -203,8 +199,6 @@ public abstract class StarlarkSemantics {
 
   // <== Add new options here in alphabetic order ==>
   public abstract boolean experimentalActionArgs();
-
-  public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
 
   public abstract String experimentalBuiltinsBzlPath();
 
@@ -323,7 +317,6 @@ public abstract class StarlarkSemantics {
           .experimentalAllowTagsPropagation(false)
           .experimentalBuiltinsBzlPath("")
           .experimentalCcStarlarkApiEnabledPackages(ImmutableList.of())
-          .experimentalAllowIncrementalRepositoryUpdates(true)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
           .experimentalNinjaActions(false)
@@ -369,8 +362,6 @@ public abstract class StarlarkSemantics {
 
     // <== Add new options here in alphabetic order ==>
     public abstract Builder experimentalActionArgs(boolean value);
-
-    public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
 
     public abstract Builder experimentalAllowTagsPropagation(boolean value);
 
