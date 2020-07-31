@@ -1,8 +1,7 @@
---------------------------------------------------------------------------------
-
+---
 layout: documentation
-
-## title: Persistent workers
+title: Persistent workers
+---
 
 # Persistent workers
 
