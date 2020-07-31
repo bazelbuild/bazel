@@ -611,4 +611,17 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
   // The effective default value comes from the --nested_set_depth_limit
   // flag in NestedSetOptionsModule, which overrides this.
   private static final AtomicInteger depthLimit = new AtomicInteger(3500);
+
+  // Delegate equality to the underlying NestedSet. Otherwise, it's possible to create multiple
+  // Depset instances wrapping the same NestedSet that aren't equal to each other.
+
+  @Override
+  public int hashCode() {
+    return set.hashCode();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof Depset && set.equals(((Depset) other).set);
+  }
 }
