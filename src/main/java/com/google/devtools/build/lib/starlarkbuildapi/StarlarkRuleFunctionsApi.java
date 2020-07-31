@@ -350,8 +350,12 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
             positional = false,
             enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
             valueWhenDisabled = "None",
-            // TODO(juliexxia): beef up this description when we actually hook up to something"
-            doc = "Dictionary to declare execution groups. DO NOT USE - not function yet.")
+            doc =
+                "Dict of execution group name (string) to <a"
+                    + " href='globals.html#exec_group'><code>exec_group</code>s</a>. If set,"
+                    + " allows rules to run actions on multiple execution platforms within a"
+                    + " single target. See <a href='../../exec-groups.html'>execution groups"
+                    + " documentation</a> for more info.")
       },
       useStarlarkThread = true)
   StarlarkCallable rule(
@@ -564,12 +568,10 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
 
   @StarlarkMethod(
       name = "exec_group",
-      // TODO(juliexxia); uncomment or remove based on resolution of b/152637857
-      // enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS,
       doc =
-          "<i>experimental</i> Creates an execution group which can be used to create"
-              + "actions for a specific execution platform during rule implementation. This is "
-              + "ongoing work and not yet functional - DO NOT USE.",
+          "<i>experimental</i> Creates an <a href='../../exec-groups.html'>execution group</a> "
+              + "which can be used to create actions for a specific execution platform during rule "
+              + "implementation.",
       parameters = {
         @Param(
             name = TOOLCHAINS_PARAM,
