@@ -84,8 +84,6 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_PLATFORM_API = "experimental_platform_api";
     public static final String EXPERIMENTAL_STARLARK_CONFIG_TRANSITION =
         "experimental_starlark_config_transition";
-    public static final String EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST =
-        "experimental_starlark_unused_inputs_list";
     public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "experimental_repo_remote_exec";
     public static final String EXPERIMENTAL_EXEC_GROUPS = "experimental_exec_groups";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
@@ -131,8 +129,6 @@ public abstract class StarlarkSemantics {
         return experimentalPlatformsApi();
       case FlagIdentifier.EXPERIMENTAL_STARLARK_CONFIG_TRANSITION:
         return experimentalStarlarkConfigTransitions();
-      case FlagIdentifier.EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST:
-        return experimentalStarlarkUnusedInputsList();
       case FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC:
         return experimentalRepoRemoteExec();
       case FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS:
@@ -213,8 +209,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean experimentalStarlarkConfigTransitions();
-
-  public abstract boolean experimentalStarlarkUnusedInputsList();
 
   public abstract boolean experimentalCcSharedLibrary();
 
@@ -322,7 +316,6 @@ public abstract class StarlarkSemantics {
           .experimentalNinjaActions(false)
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
-          .experimentalStarlarkUnusedInputsList(true)
           .experimentalCcSharedLibrary(false)
           .experimentalRepoRemoteExec(false)
           .experimentalDisableExternalPackage(false)
@@ -378,8 +371,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalPlatformsApi(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
-
-    public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
 
     public abstract Builder experimentalCcSharedLibrary(boolean value);
 

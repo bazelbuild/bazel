@@ -132,7 +132,6 @@ public class StarlarkSemanticsConsistencyTest {
         "--experimental_ninja_actions=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
-        "--experimental_starlark_unused_inputs_list=" + rand.nextBoolean(),
         "--incompatible_allow_tags_propagation=" + rand.nextBoolean(), // flag, Java names differ
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
         "--experimental_repo_remote_exec=" + rand.nextBoolean(),
@@ -183,7 +182,6 @@ public class StarlarkSemanticsConsistencyTest {
         .experimentalNinjaActions(rand.nextBoolean())
         .experimentalPlatformsApi(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
-        .experimentalStarlarkUnusedInputsList(rand.nextBoolean())
         .experimentalAllowTagsPropagation(rand.nextBoolean())
         .experimentalCcSharedLibrary(rand.nextBoolean())
         .experimentalRepoRemoteExec(rand.nextBoolean())
