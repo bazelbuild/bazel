@@ -27,10 +27,7 @@ sh_library(
         "unittest.bash",
         "unittest_utils.sh",
     ],
-    data = [
-        "testenv.sh",
-        "//tools:test_sharding_compliant",
-    ],
+    data = ["testenv.sh"],
     visibility = ["//visibility:public"],
 )
 
