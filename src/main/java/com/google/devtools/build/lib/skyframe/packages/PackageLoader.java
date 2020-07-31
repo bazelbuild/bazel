@@ -24,7 +24,7 @@ import com.google.devtools.build.lib.packages.Package;
 import javax.annotation.Nullable;
 
 /** A standalone library for performing Bazel package loading. */
-public interface PackageLoader {
+public interface PackageLoader extends AutoCloseable {
   /**
    * Loads and returns a single package. This method is a simplified shorthand for {@link
    * #loadPackages} when just a single {@link Package} and nothing else is desired.
@@ -36,6 +36,15 @@ public interface PackageLoader {
    * may contain errors - see {@link Package#containsErrors()} for details.
    */
   Result loadPackages(Iterable<PackageIdentifier> pkgIds) throws InterruptedException;
+
+  /**
+   * Shut down the internal threadpools used by the {@link PackageLoader}.
+   *
+   * <p>Call this method when you are completely done with the {@link PackageLoader} instance,
+   * otherwise there may be resource leaks.
+   */
+  @Override
+  void close();
 
   /** Contains the result of package loading. */
   class Result {

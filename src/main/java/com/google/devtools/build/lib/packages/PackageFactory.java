@@ -180,6 +180,7 @@ public final class PackageFactory {
   // so WorkspaceFactory can add an extra top-level builtin.
   public PackageFactory(
       RuleClassProvider ruleClassProvider,
+      ForkJoinPool executorForGlobbing,
       Iterable<EnvironmentExtension> environmentExtensions,
       String version,
       PackageSettings packageSettings,
@@ -188,7 +189,7 @@ public final class PackageFactory {
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleFunctions = buildRuleFunctions(ruleFactory);
     this.ruleClassProvider = ruleClassProvider;
-    setGlobbingThreads(100);
+    this.executor = executorForGlobbing;
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
     this.packageArguments = createPackageArguments();
     this.nativeModuleBindingsForBuild =
@@ -206,11 +207,33 @@ public final class PackageFactory {
     this.syscalls = Preconditions.checkNotNull(syscalls);
   }
 
-  /** Sets the max number of threads to use for globbing. */
+  /**
+   * Sets the max number of threads to use for globbing.
+   *
+   * <p>Internally there is a {@link ForkJoinPool} used for globbing. If the specified {@code
+   * globbingThreads} does not match the previous value (initial value is 100), then we {@link
+   * ForkJoinPool#shutdown()} the old {@link ForkJoinPool} instance and make a new one.
+   */
   public void setGlobbingThreads(int globbingThreads) {
-    if (executor == null || executor.getParallelism() != globbingThreads) {
-      executor = NamedForkJoinPool.newNamedPool("globbing pool", globbingThreads);
+    if (executor == null) {
+      executor = makeForkJoinPool(globbingThreads);
+      return;
     }
+    if (executor.getParallelism() == globbingThreads) {
+      return;
+    }
+    // We don't use ForkJoinPool#shutdownNow since it has a performance bug. See
+    // http://b/33482341#comment13.
+    executor.shutdown();
+    executor = makeForkJoinPool(globbingThreads);
+  }
+
+  public static ForkJoinPool makeDefaultSizedForkJoinPoolForGlobbing() {
+    return makeForkJoinPool(/*globbingThreads=*/ 100);
+  }
+
+  private static ForkJoinPool makeForkJoinPool(int globbingThreads) {
+    return NamedForkJoinPool.newNamedPool("globbing pool", globbingThreads);
   }
 
   /**

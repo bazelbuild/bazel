@@ -64,6 +64,7 @@ public class PackageFactoryApparatus {
     factory =
         new PackageFactory(
             ruleClassProvider,
+            PackageFactory.makeDefaultSizedForkJoinPoolForGlobbing(),
             /*environmentExtensions=*/ ImmutableList.of(),
             "test",
             DefaultPackageSettings.INSTANCE,
