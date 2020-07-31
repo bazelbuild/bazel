@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidAssetsInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataInfoApi;
@@ -47,6 +46,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.ProguardMappingPro
 import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaNativeLibraryInfoApi;

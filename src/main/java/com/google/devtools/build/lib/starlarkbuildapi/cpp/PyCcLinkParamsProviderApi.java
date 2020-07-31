@@ -12,16 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.cpp;
+package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
+import net.starlark.java.annot.StarlarkMethod;
 
-/** An info object that provides the included files of a _wrap_cc rule. */
+/** A target that provides C++ libraries to be linked into Python targets. */
 @StarlarkBuiltin(
-    name = "WrapCcIncludeProvider",
+    name = "PyCcLinkParamsProvider",
     documented = false,
     category = StarlarkDocumentationCategory.PROVIDER,
-    doc = "")
-public interface WrapCcIncludeProviderApi extends StructApi {}
+    doc = "Wrapper for every C++ linking provider")
+public interface PyCcLinkParamsProviderApi<FileT extends FileApi> extends StructApi {
+  @StarlarkMethod(name = "cc_info", doc = "", structField = true, documented = false)
+  CcInfoApi<FileT> getCcInfo();
+
+  /** Provider for PyCcLinkParamsProvider objects. */
+  @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
+  public interface Provider extends ProviderApi {}
+}

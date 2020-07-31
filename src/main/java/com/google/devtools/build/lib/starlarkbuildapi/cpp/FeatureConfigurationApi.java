@@ -12,16 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.cpp;
+package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/** Type encapsulating build variables. */
+/** Class used to construct command lines from CROSSTOOL features. */
 @StarlarkBuiltin(
-    name = "Variables",
-    documented = false,
+    name = "FeatureConfiguration",
     category = StarlarkDocumentationCategory.BUILTIN,
-    doc = "Class encapsulating cc_toolchain variables.")
-public interface CcToolchainVariablesApi extends StarlarkValue {}
+    doc = "Class used to construct command lines from CROSSTOOL features.")
+public interface FeatureConfigurationApi extends StarlarkValue {}

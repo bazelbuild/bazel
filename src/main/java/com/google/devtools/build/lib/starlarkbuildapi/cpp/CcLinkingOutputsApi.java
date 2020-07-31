@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.cpp;
+package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
@@ -20,16 +20,28 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
-/** Interface for a helper class containing CC compilation providers. */
+/** Interface for a structured representation of the linking outputs of a C++ rule. */
 @StarlarkBuiltin(
-    name = "compilation_info",
-    documented = false,
+    name = "CcLinkingOutputs",
     category = StarlarkDocumentationCategory.BUILTIN,
-    doc = "Helper class containing CC compilation providers.")
-public interface CompilationInfoApi<FileT extends FileApi> extends StarlarkValue {
-  @StarlarkMethod(name = "cc_compilation_outputs", structField = true, documented = false)
-  CcCompilationOutputsApi<?> getCcCompilationOutputs();
+    documented = true,
+    doc = "Helper class containing CC compilation outputs.")
+public interface CcLinkingOutputsApi<FileT extends FileApi> extends StarlarkValue {
+  @StarlarkMethod(
+      name = "library_to_link",
+      structField = true,
+      allowReturnNones = true,
+      doc =
+          "<a href='LibraryToLink.html'><code>LibraryToLink</code></a> for including these outputs "
+              + "in further linking.",
+      documented = true)
+  LibraryToLinkApi<FileT> getLibraryToLink();
 
-  @StarlarkMethod(name = "compilation_context", structField = true, documented = false)
-  CcCompilationContextApi<FileT> getCcCompilationContext();
+  @StarlarkMethod(
+      name = "executable",
+      structField = true,
+      allowReturnNones = true,
+      doc = "<a href='File.html'><code>File</code></a> object representing the linked executable.",
+      documented = true)
+  FileT getExecutable();
 }

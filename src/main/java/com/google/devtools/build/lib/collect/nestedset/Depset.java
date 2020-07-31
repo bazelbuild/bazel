@@ -478,13 +478,13 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     // and represents "any value".
     //
     // This leads one to wonder why canBeCastTo calls getTypeClass at all.
-    // The answer is that it is yet another hack to support skylarkbuildapi.
+    // The answer is that it is yet another hack to support starlarkbuildapi.
     // For example, (FileApi).canBeCastTo(Artifact.class) reports true,
     // because a Depset whose elements are nominally of type FileApi is assumed
     // to actually contain only elements of class Artifact. If there were
     // a second implementation of FileAPI, the operation would be unsafe.
     //
-    // TODO(adonovan): once skylarkbuildapi has been deleted, eliminate the
+    // TODO(adonovan): once starlarkbuildapi has been deleted, eliminate the
     // getTypeClass calls here and in ElementType.of, and remove the special
     // case for Object.class since isAssignableFrom will allow any supertype
     // of the element type, whether or not it is a Starlark value class.

@@ -17,8 +17,20 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/config:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/javascript:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/go:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/python:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/stubs:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test:srcs",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/proto:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
