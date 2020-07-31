@@ -47,6 +47,8 @@ import org.mockito.ArgumentCaptor;
 @RunWith(JUnit4.class)
 public class BugReportTest {
 
+  private static final String TEST_EXCEPTION_NAME =
+      "com.google.devtools.build.lib.bugreport.BugReportTest$TestException";
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   @After
@@ -82,15 +84,15 @@ public class BugReportTest {
     FailureDetail failureDetail =
         FailureDetail.parseFrom(
             Files.readAllBytes(failureDetailFilePath), ExtensionRegistry.getEmptyRegistry());
-    assertThat(failureDetail.getMessage()).isEqualTo("Crashed: myMessage");
+    assertThat(failureDetail.getMessage())
+        .isEqualTo(String.format("Crashed: (%s) myMessage", TEST_EXCEPTION_NAME));
     assertThat(failureDetail.hasCrash()).isTrue();
     Crash crash = failureDetail.getCrash();
     assertThat(crash.getCode()).isEqualTo(Code.CRASH_UNKNOWN);
     assertThat(crash.getCausesList()).hasSize(1);
     Throwable cause = crash.getCauses(0);
     assertThat(cause.getMessage()).isEqualTo("myMessage");
-    assertThat(cause.getThrowableClass())
-        .isEqualTo("com.google.devtools.build.lib.bugreport.BugReportTest$TestException");
+    assertThat(cause.getThrowableClass()).isEqualTo(TEST_EXCEPTION_NAME);
     assertThat(cause.getStackTraceCount()).isAtLeast(1);
     assertThat(cause.getStackTrace(0))
         .contains(

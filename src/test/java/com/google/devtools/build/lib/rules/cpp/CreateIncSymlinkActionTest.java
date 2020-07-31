@@ -154,13 +154,13 @@ public class CreateIncSymlinkActionTest extends FoundationTestCase {
     Path extra = rootDirectory.getRelative("out/extra");
     FileSystemUtils.createEmptyFile(extra);
     assertThat(extra.exists()).isTrue();
-    action.prepare(rootDirectory);
+    action.prepare(rootDirectory, /*bulkDeleter=*/ null);
     assertThat(extra.exists()).isFalse();
   }
 
   private String computeKey(CreateIncSymlinkAction action) {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, fp);
+    action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
     return fp.hexDigestAndReset();
   }
 }

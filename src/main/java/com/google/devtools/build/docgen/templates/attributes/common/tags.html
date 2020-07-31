@@ -83,21 +83,25 @@
 </p>
 
 <ul>
-  <li><code>exclusive</code> keyword will force the test to be run in the
+  <li><code>exclusive</code> will force the test to be run in the
     &quot;exclusive&quot; mode, ensuring that no other tests are running at the
     same time. Such tests will be executed in serial fashion after all build
     activity and non-exclusive tests have been completed. They will also always
     run locally and thus without sandboxing.
   </li>
 
-  <li><code>manual</code> keyword will force the test target to not be included in target pattern
-    wildcards (<code>...</code>, <code>:*</code>, <code>:all</code>, etc); the test target will be
-    neither built nor run. It will also be ignored by the <code>test_suite</code> rules that do not
-    mention this test explicitly. The only way to build or run such a test is to specify it via an
-    explicit target pattern on the command line. Bazel query does not honour
-    the <code>manual</code> tag.
+  <li><code>manual</code> keyword will exclude the target from expansion of target pattern wildcards
+    (<code>...</code>, <code>:*</code>, <code>:all</code>, etc.) and <code>test_suite</code> rules
+    which do not list the test explicitly when computing the set of top-level targets to build/run
+    for the <code>build</code>, <code>test</code>, and <code>coverage</code> commands. It does not
+    affect target wildcard or test suite expansion in other contexts, including the
+    <code>query</code> command. Note that <code>manual</code> does not imply that a target should
+    not be built/run automatically by continuous build/test systems. For example, it may be
+    desirable to exclude a target from <code>bazel test ...</code> because it requires specific
+    Bazel flags, but still have it included in properly-configured presubmit or continuous test
+    runs.
 
-  </li>
+      </li>
 
   <li><code>external</code> keyword will force test to be unconditionally
     executed (regardless of <code class='flag'>--cache_test_results</code>

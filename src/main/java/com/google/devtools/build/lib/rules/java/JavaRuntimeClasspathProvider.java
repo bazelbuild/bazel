@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaRuntimeClasspathProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaRuntimeClasspathProviderApi;
 
 /**
  * Provider for the runtime classpath contributions of a Java binary.

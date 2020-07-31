@@ -33,10 +33,11 @@ like linking in c++ builds without over-allocating to less demanding tasks.
 During rule definition, rule authors can declare a set of execution groups. On
 each execution group, the rule author can specify everything needed to select
 an execution platform for that execution group, namely any constraints via
-`exec_compatible_with` and toolchain types via `toolchain`. Execution groups do
-not inherit the values of these
+`exec_compatible_with` and toolchain types via `toolchain`. If an execution group
+is created as empty (no specified toolchains or constraints) it will
+automatically inherit these
 [parameters](https://docs.bazel.build/versions/master/skylark/lib/globals.html#rule)
-from the rule to which they're attached.
+from the rule to which the group is attached.
 
 TODO(juliexxia): link to exec_group method docs when they get released in bazel.
 
@@ -55,7 +56,7 @@ my_rule = rule(
         ),
     },
     attrs = {
-        "_compiler": attr.label(cfg = config.exec(“link”))
+        "_compiler": attr.label(cfg = config.exec("link"))
     },
 )
 ```
@@ -82,7 +83,7 @@ param of action generating methods, specifically [`ctx.actions.run`]
 def _impl(ctx):
   ctx.actions.run(
      inputs = [ctx.attr._some_tool, ctx.srcs[0]]
-     exec_group = "compile”,
+     exec_group = "compile",
      # ...
   )
 ```
@@ -94,10 +95,10 @@ can access the resolved toolchain of a target:
 ```python
 # foo.bzl
 def _impl(ctx):
-  foo_info = ctx.exec_groups[‘link’].toolchains[‘//foo:toolchain_type”].fooinfo
+  foo_info = ctx.exec_groups["link"].toolchains["//foo:toolchain_type"].fooinfo
   ctx.actions.run(
      inputs = [foo_info, ctx.srcs[0]]
-     exec_group = "link”,
+     exec_group = "link",
      # ...
   )
 ```
@@ -122,14 +123,14 @@ entry with an execution-group-augmented key, e.g.:
 my_rule(
     name = 'my_target',
     exec_properties = {
-        'mem': '12G',
-        'link.mem': '16G'
+        'mem': '12g',
+        'link.mem': '16g'
     }
     …
 )
 ```
 
 All actions with `exec_group = "link"` would see the exec properties
-dictionary as `{"memory": "16G"}`. As you see here, execution-group-level
+dictionary as `{"mem": "16g"}`. As you see here, execution-group-level
 settings override target-level settings.
 

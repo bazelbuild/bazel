@@ -18,6 +18,9 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if defined(__linux__)
+#include <sys/prctl.h>
+#endif
 #include <unistd.h>
 
 #include <cstring>
@@ -26,6 +29,11 @@
 #include <vector>
 
 #include "src/main/tools/logging.h"
+
+#if defined(__linux__) && !defined(PR_GET_CHILD_SUBREAPER)
+// https://github.com/torvalds/linux/blob/v5.7/tools/include/uapi/linux/prctl.h#L159
+#define PR_GET_CHILD_SUBREAPER 37
+#endif
 
 struct Options opt;
 
@@ -117,6 +125,16 @@ static void ParseCommandLine(const std::vector<char *> &args) {
         opt.debug = true;
         break;
       case 'W':
+#if defined(__linux__)
+        unsigned long result;  // NOLINT(runtime/int) - interface requires long
+        if (prctl(PR_GET_CHILD_SUBREAPER, &result, 0, 0, 0) == -1 &&
+            errno == EINVAL) {
+          fprintf(stderr,
+                  "warning: The \"wait for subprocesses\" feature requires "
+                  "Linux kernel version 3.4 or later.\n");
+          break;
+        }
+#endif
         opt.wait_fix = true;
         break;
       case '?':

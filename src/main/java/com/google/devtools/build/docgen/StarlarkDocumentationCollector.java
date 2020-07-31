@@ -14,11 +14,10 @@
 package com.google.devtools.build.docgen;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkConstructorMethodDoc;
 import com.google.devtools.build.docgen.starlark.StarlarkJavaMethodDoc;
-import com.google.devtools.build.lib.syntax.CallUtils;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.lang.reflect.Method;
@@ -52,6 +51,15 @@ final class StarlarkDocumentationCollector {
    * a map that maps Starlark module name to the module documentation.
    */
   public static Map<String, StarlarkBuiltinDoc> collectModules(Iterable<Class<?>> classes) {
+    // Force class loading of com.google.devtools.build.lib.syntax.Starlark before we do any of our
+    // own processing. Otherwise, we're in trouble since com.google.devtools.build.lib.syntax.Dict
+    // happens to be the first class on our classpath that we proccess via #collectModuleMethods,
+    // but that entails a logical cycle in
+    // com.google.devtools.build.lib.syntax.CallUtils#getCacheValue.
+    // TODO(b/161479826): Address this in a less hacky manner.
+    @SuppressWarnings("unused")
+    Object forceClassLoading = Starlark.UNIVERSE;
+
     Map<String, StarlarkBuiltinDoc> modules = new TreeMap<>();
     // The top level module first.
     // (This is a special case of {@link StarlarkBuiltinDoc} as it has no object name).
@@ -163,11 +171,10 @@ final class StarlarkDocumentationCollector {
           Preconditions.checkNotNull(modules.get(moduleAnnotation.name()));
 
       if (moduleClass == moduleDoc.getClassObject()) {
-        ImmutableMap<Method, StarlarkMethod> methods =
-            CallUtils.collectStarlarkMethodsWithAnnotation(moduleClass);
-        for (Map.Entry<Method, StarlarkMethod> entry : methods.entrySet()) {
-          // Only collect methods not annotated with @StarlarkConstructor. Methods with
-          // @StarlarkConstructor are added later.
+        for (Map.Entry<Method, StarlarkMethod> entry :
+            Starlark.getAnnotatedMethods(moduleClass).entrySet()) {
+          // Only collect methods not annotated with @StarlarkConstructor.
+          // Methods with @StarlarkConstructor are added later.
           if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
             moduleDoc.addMethod(
                 new StarlarkJavaMethodDoc(moduleDoc.getName(), entry.getKey(), entry.getValue()));
@@ -179,7 +186,7 @@ final class StarlarkDocumentationCollector {
 
   @Nullable
   private static Method getSelfCallConstructorMethod(Class<?> objectClass) {
-    Method selfCallMethod = CallUtils.getSelfCallMethod(StarlarkSemantics.DEFAULT, objectClass);
+    Method selfCallMethod = Starlark.getSelfCallMethod(StarlarkSemantics.DEFAULT, objectClass);
     if (selfCallMethod != null && selfCallMethod.isAnnotationPresent(StarlarkConstructor.class)) {
       return selfCallMethod;
     }
@@ -196,9 +203,8 @@ final class StarlarkDocumentationCollector {
     Preconditions.checkArgument(moduleClass.isAnnotationPresent(StarlarkGlobalLibrary.class));
     StarlarkBuiltinDoc topLevelModuleDoc = getTopLevelModuleDoc(modules);
 
-    ImmutableMap<Method, StarlarkMethod> methods =
-        CallUtils.collectStarlarkMethodsWithAnnotation(moduleClass);
-    for (Map.Entry<Method, StarlarkMethod> entry : methods.entrySet()) {
+    for (Map.Entry<Method, StarlarkMethod> entry :
+        Starlark.getAnnotatedMethods(moduleClass).entrySet()) {
       // Only add non-constructor global library methods. Constructors are added later.
       if (!entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
         topLevelModuleDoc.addMethod(
@@ -250,9 +256,8 @@ final class StarlarkDocumentationCollector {
       collectConstructor(modules, moduleClass, selfCallConstructor);
     }
 
-    ImmutableMap<Method, StarlarkMethod> methods =
-        CallUtils.collectStarlarkMethodsWithAnnotation(moduleClass);
-    for (Map.Entry<Method, StarlarkMethod> entry : methods.entrySet()) {
+    for (Map.Entry<Method, StarlarkMethod> entry :
+        Starlark.getAnnotatedMethods(moduleClass).entrySet()) {
       if (entry.getKey().isAnnotationPresent(StarlarkConstructor.class)) {
         collectConstructor(modules, moduleClass, entry.getKey());
       }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -32,12 +33,18 @@ public final class HostTransition implements PatchTransition {
   }
 
   @Override
-  public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+  public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+    return ImmutableSet.of(CoreOptions.class);
+  }
+
+  @Override
+  public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
     if (options.get(CoreOptions.class).isHost) {
       // If the input already comes from the host configuration, just return the existing values.
       //
       // We don't do this just for convenience: if an
-      // {@link com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy}
+      // {@link
+      // com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy}
       // overrides option defaults, {@link FragmentOptions#getHost} won't honor that policy. That's
       // because it uses its own options parser that's not aware of the policy. This can create
       // problems for, e.g., {@link JavaOptions#getHost}, which promotes --host_foo flags to
@@ -48,9 +55,9 @@ public final class HostTransition implements PatchTransition {
       // manually set host.hostFoo = original.hostFoo). But those raise larger questions about the
       // nature of host/target relationships, so for the time being this is a straightforward
       // and practical fix.
-      return options.clone();
+      return options.clone().underlying();
     } else {
-      return options.createHostOptions();
+      return options.underlying().createHostOptions();
     }
   }
 

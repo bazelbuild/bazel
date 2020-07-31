@@ -71,11 +71,11 @@ public final class ProguardLibrary {
 
     Collection<Artifact> localSpecs = collectLocalProguardSpecs();
     if (!localSpecs.isEmpty()) {
-      // Pass our local proguard configs through the validator, which checks a whitelist.
-      FilesToRunProvider proguardWhitelister =
+      // Pass our local proguard configs through the validator, which checks an allowlist.
+      FilesToRunProvider proguardAllowlister =
           ruleContext.getExecutablePrerequisite("$proguard_whitelister", TransitionMode.HOST);
       for (Artifact specToValidate : localSpecs) {
-        specsBuilder.add(validateProguardSpec(proguardWhitelister, specToValidate));
+        specsBuilder.add(validateProguardSpec(proguardAllowlister, specToValidate));
       }
     }
 
@@ -108,11 +108,11 @@ public final class ProguardLibrary {
   }
 
   /**
-   * Creates an action to run the Proguard whitelister over the given Proguard spec and returns the
+   * Creates an action to run the Proguard allowlister over the given Proguard spec and returns the
    * validated Proguard spec, ready to be exported.
    */
   private Artifact validateProguardSpec(
-      FilesToRunProvider proguardWhitelister, Artifact specToValidate) {
+      FilesToRunProvider proguardAllowlister, Artifact specToValidate) {
     // If we're validating j/a/b/testapp/proguard.cfg, the output will be:
     // j/a/b/testapp/proguard.cfg_valid
     Artifact output =
@@ -126,7 +126,7 @@ public final class ProguardLibrary {
         new SpawnAction.Builder()
             .addInput(specToValidate)
             .addOutput(output)
-            .setExecutable(proguardWhitelister)
+            .setExecutable(proguardAllowlister)
             .setProgressMessage("Validating proguard configuration")
             .setMnemonic("ValidateProguard")
             .addCommandLine(

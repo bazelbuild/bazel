@@ -53,10 +53,11 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValueRootPackageExtractor;
@@ -169,7 +170,8 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       throw new QueryException(
           String.format(
               "The following filter(s) are not currently supported by configured query: %s",
-              settings.toString()));
+              settings),
+          ConfigurableQuery.Code.FILTERS_NOT_SUPPORTED);
     }
   }
 
@@ -215,10 +217,10 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
     return (ConfiguredTargetValue) walkableGraphSupplier.get().getValue(key);
   }
 
-  public ImmutableSet<PathFragment> getBlacklistedPackagePrefixesPathFragments()
+  public ImmutableSet<PathFragment> getIgnoredPackagePrefixesPathFragments()
       throws InterruptedException {
-    return ((BlacklistedPackagePrefixesValue)
-            walkableGraphSupplier.get().getValue(BlacklistedPackagePrefixesValue.key()))
+    return ((IgnoredPackagePrefixesValue)
+            walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key()))
         .getPatterns();
   }
 
@@ -486,12 +488,16 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
       boolean loads,
       QueryExpressionContext<T> context)
       throws QueryException {
-    throw new QueryException("buildfiles() doesn't make sense for the configured target graph");
+    throw new QueryException(
+        "buildfiles() doesn't make sense for the configured target graph",
+        ConfigurableQuery.Code.BUILDFILES_FUNCTION_NOT_SUPPORTED);
   }
 
   @Override
   public Collection<T> getSiblingTargetsInPackage(T target) throws QueryException {
-    throw new QueryException("siblings() not supported for post analysis queries");
+    throw new QueryException(
+        "siblings() not supported for post analysis queries",
+        ConfigurableQuery.Code.SIBLINGS_FUNCTION_NOT_SUPPORTED);
   }
 
   @Override

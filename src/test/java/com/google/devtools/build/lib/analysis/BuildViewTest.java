@@ -1208,7 +1208,8 @@ public class BuildViewTest extends BuildViewTestBase {
     reporter.removeHandler(failFastHandler);
     AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a", "//b");
     assertThat(result.hasError()).isTrue();
-    assertThat(result.getError()).contains("command succeeded, but not all targets were analyzed");
+    assertThat(result.getFailureDetail().getMessage())
+        .contains("command succeeded, but not all targets were analyzed");
   }
 
   @Test

@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.SwiftConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.SwiftConfigurationApi;
 
 /**
  * A configuration containing flags required for Swift tools. This is used primarily by swift_*

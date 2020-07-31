@@ -395,6 +395,72 @@ replacements {
 
 replacements {
   source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math"
+      name: "floorDiv"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math8"
+      name: "floorDiv"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math"
+      name: "floorMod"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math8"
+      name: "floorMod"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+}
+
+replacements {
+  source {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math"
+      name: "multiplyExact"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  destination {
+    opcode: 184
+    method_id {
+      owner: "java/lang/Math8"
+      name: "multiplyExact"
+      desc: "(JI)J"
+    }
+    is_interface: false
+  }
+  range: DESUGAR_JAVA8_LIBS
+}
+
+replacements {
+  source {
     method_id {
       owner: "java/io/BufferedReader"
       name: "lines"

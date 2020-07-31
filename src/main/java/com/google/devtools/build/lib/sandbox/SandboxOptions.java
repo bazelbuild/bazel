@@ -27,7 +27,6 @@ import com.google.devtools.common.options.Converters.TriStateConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
@@ -323,20 +322,6 @@ public class SandboxOptions extends OptionsBase {
           "Allow network access by default for actions; this may not work with all sandboxing "
               + "implementations.")
   public boolean defaultSandboxAllowNetwork;
-
-  @Option(
-      name = "incompatible_symlinked_sandbox_expands_tree_artifacts_in_runfiles_tree",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES,
-        OptionMetadataTag.INCOMPATIBLE_CHANGE
-      },
-      help =
-          "If enabled, the sandbox will expand tree artifacts in runfiles, thus the files that "
-              + "are contained in the tree artifact will be symlinked as individual files.")
-  public boolean symlinkedSandboxExpandsTreeArtifactsInRunfilesTree;
 
   @Option(
       name = "experimental_sandbox_async_tree_delete_idle_threads",

@@ -142,6 +142,7 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
                 ImmutableList.<Aspect>of(),
                 ImmutableMap.<Label, ConfigMatchingProvider>of(),
                 /*toolchainContext=*/ null,
+                /* useToolchainTransition= */ false,
                 stateProvider.lateBoundRuleClassProvider(),
                 stateProvider.lateBoundHostConfig(),
                 NestedSetBuilder.<Package>stableOrder(),
@@ -347,9 +348,9 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
   @Test
   public void sameTransitionDifferentParameters() throws Exception {
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//a/...',",
         "    ],",
@@ -377,8 +378,8 @@ public class ConfigurationsForTargetsTest extends AnalysisTestCase {
         "    cfg = my_transition,",
         "    attrs = {",
         "        'myattr': attr.string(),",
-        "        '_whitelist_function_transition': attr.label(",
-        "            default = '//tools/whitelists/function_transition_whitelist')",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist')",
         "    }",
         ")");
     scratch.file(

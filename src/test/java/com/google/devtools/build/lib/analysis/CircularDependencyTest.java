@@ -23,9 +23,12 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -268,17 +271,24 @@ public class CircularDependencyTest extends BuildViewTestCase {
                         @Override
                         public SplitTransition create(AttributeTransitionData data) {
                           return new SplitTransition() {
+
+                            @Override
+                            public ImmutableSet<Class<? extends FragmentOptions>>
+                                requiresOptionFragments() {
+                              return ImmutableSet.of(CoreOptions.class);
+                            }
+
                             @Override
                             public Map<String, BuildOptions> split(
-                                BuildOptions options, EventHandler eventHandler) {
+                                BuildOptionsView options, EventHandler eventHandler) {
                               String define = data.attributes().get("define", STRING);
-                              BuildOptions newOptions = options.clone();
+                              BuildOptionsView newOptions = options.clone();
                               CoreOptions optionsFragment = newOptions.get(CoreOptions.class);
                               optionsFragment.commandLineBuildVariables =
                                   optionsFragment.commandLineBuildVariables.stream()
                                       .filter((pair) -> !pair.getKey().equals(define))
                                       .collect(toImmutableList());
-                              return ImmutableMap.of("define_cleaner", newOptions);
+                              return ImmutableMap.of("define_cleaner", newOptions.underlying());
                             }
                           };
                         }

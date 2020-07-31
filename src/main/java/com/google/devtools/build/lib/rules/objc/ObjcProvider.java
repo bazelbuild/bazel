@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ObjcProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -318,10 +318,13 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
 
   private final CcCompilationContext ccCompilationContext;
 
-  /** Keys corresponding to compile information that has been migrated to CcCompilationContext. */
-  static final ImmutableSet<Key<?>> KEYS_FOR_COMPILE_INFO =
+  /**
+   * Keys that are deprecated and will be removed. These include compile information that has been
+   * migrated to CcCompilationContext, plus MERGE_ZIP.
+   */
+  static final ImmutableSet<Key<?>> DEPRECATED_KEYS =
       ImmutableSet.<Key<?>>of(
-          DEFINE, FRAMEWORK_SEARCH_PATHS, HEADER, INCLUDE, INCLUDE_SYSTEM, IQUOTE);
+          DEFINE, FRAMEWORK_SEARCH_PATHS, HEADER, INCLUDE, INCLUDE_SYSTEM, IQUOTE, MERGE_ZIP);
 
   /** All keys in ObjcProvider that will be passed in the corresponding Starlark provider. */
   static final ImmutableList<Key<?>> KEYS_FOR_STARLARK =
@@ -990,6 +993,10 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       this.starlarkSemantics = semantics;
     }
 
+    public StarlarkSemantics getStarlarkSemantics() {
+      return starlarkSemantics;
+    }
+
     private static void maybeAddEmptyBuilder(Map<Key<?>, NestedSetBuilder<?>> set, Key<?> key) {
       set.computeIfAbsent(key, k -> new NestedSetBuilder<>(k.order));
     }
@@ -1185,53 +1192,17 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
      */
     void addElementsFromStarlark(Key<?> key, Object starlarkToAdd) throws EvalException {
       NestedSet<?> toAdd = ObjcProviderStarlarkConverters.convertToJava(key, starlarkToAdd);
-      if (KEYS_FOR_COMPILE_INFO.contains(key)) {
-        String keyName = key.getStarlarkKeyName();
-
-        if (key == DEFINE) {
-          ccCompilationContextBuilder.addDefines(
-              Depset.noneableCast(starlarkToAdd, String.class, keyName));
-        } else if (key == FRAMEWORK_SEARCH_PATHS) {
-          // Due to legacy reasons, There is a mismatch between the starlark interface for the
-          // framework search path, and the internal representation.  The interface specifies that
-          // framework_search_paths include the framework directories, but internally we only store
-          // their parents.  We will eventually clean up the interface, but for now we need to do
-          // this ugly conversion.
-
-          ImmutableList<PathFragment> frameworks =
-              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
-                  .map(x -> PathFragment.create(x))
-                  .collect(ImmutableList.toImmutableList());
-
-          ImmutableList.Builder<PathFragment> frameworkSearchPaths = ImmutableList.builder();
-          for (PathFragment framework : frameworks) {
-            if (!framework.getSafePathString().endsWith(FRAMEWORK_SUFFIX)) {
-              throw new EvalException(
-                  null, String.format(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework));
-            }
-            frameworkSearchPaths.add(framework.getParentDirectory());
+      if (DEPRECATED_KEYS.contains(key)) {
+        if (getStarlarkSemantics().incompatibleObjcProviderRemoveCompileInfo()) {
+          if (!KEYS_FOR_DIRECT.contains(key)) {
+            throw new EvalException(
+                null,
+                String.format(AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName()));
           }
-          ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkSearchPaths.build());
-        } else if (key == HEADER) {
-          ImmutableList<Artifact> hdrs =
-              Depset.noneableCast(starlarkToAdd, Artifact.class, keyName).toList();
-          ccCompilationContextBuilder.addDeclaredIncludeSrcs(hdrs);
-          ccCompilationContextBuilder.addTextualHdrs(hdrs);
-        } else if (key == INCLUDE) {
-          ccCompilationContextBuilder.addIncludeDirs(
-              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
-                  .map(x -> PathFragment.create(x))
-                  .collect(ImmutableList.toImmutableList()));
-        } else if (key == INCLUDE_SYSTEM) {
-          ccCompilationContextBuilder.addSystemIncludeDirs(
-              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
-                  .map(x -> PathFragment.create(x))
-                  .collect(ImmutableList.toImmutableList()));
-        } else if (key == IQUOTE) {
-          ccCompilationContextBuilder.addQuoteIncludeDirs(
-              Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
-                  .map(x -> PathFragment.create(x))
-                  .collect(ImmutableList.toImmutableList()));
+        } else {
+          if (!addCompileElementsFromStarlark(key, starlarkToAdd)) {
+            uncheckedAddTransitive(key, toAdd);
+          }
         }
       } else {
         uncheckedAddTransitive(key, toAdd);
@@ -1240,6 +1211,64 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
       if (KEYS_FOR_DIRECT.contains(key)) {
         uncheckedAddAllDirect(key, toAdd.toList());
       }
+    }
+
+    private boolean addCompileElementsFromStarlark(Key<?> key, Object starlarkToAdd)
+        throws EvalException {
+      String keyName = key.getStarlarkKeyName();
+
+      if (key == DEFINE) {
+        ccCompilationContextBuilder.addDefines(
+            Depset.noneableCast(starlarkToAdd, String.class, keyName));
+        return true;
+      } else if (key == FRAMEWORK_SEARCH_PATHS) {
+        // Due to legacy reasons, There is a mismatch between the starlark interface for the
+        // framework search path, and the internal representation.  The interface specifies that
+        // framework_search_paths include the framework directories, but internally we only store
+        // their parents.  We will eventually clean up the interface, but for now we need to do
+        // this ugly conversion.
+
+        ImmutableList<PathFragment> frameworks =
+            Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList());
+
+        ImmutableList.Builder<PathFragment> frameworkSearchPaths = ImmutableList.builder();
+        for (PathFragment framework : frameworks) {
+          if (!framework.getSafePathString().endsWith(FRAMEWORK_SUFFIX)) {
+            throw new EvalException(
+                null, String.format(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework));
+          }
+          frameworkSearchPaths.add(framework.getParentDirectory());
+        }
+        ccCompilationContextBuilder.addFrameworkIncludeDirs(frameworkSearchPaths.build());
+        return true;
+      } else if (key == HEADER) {
+        ImmutableList<Artifact> hdrs =
+            Depset.noneableCast(starlarkToAdd, Artifact.class, keyName).toList();
+        ccCompilationContextBuilder.addDeclaredIncludeSrcs(hdrs);
+        ccCompilationContextBuilder.addTextualHdrs(hdrs);
+        return true;
+      } else if (key == INCLUDE) {
+        ccCompilationContextBuilder.addIncludeDirs(
+            Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList()));
+        return true;
+      } else if (key == INCLUDE_SYSTEM) {
+        ccCompilationContextBuilder.addSystemIncludeDirs(
+            Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList()));
+        return true;
+      } else if (key == IQUOTE) {
+        ccCompilationContextBuilder.addQuoteIncludeDirs(
+            Depset.noneableCast(starlarkToAdd, String.class, keyName).toList().stream()
+                .map(PathFragment::create)
+                .collect(ImmutableList.toImmutableList()));
+        return true;
+      }
+      return false;
     }
 
     /**

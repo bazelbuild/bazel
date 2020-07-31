@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
@@ -44,7 +45,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -98,13 +99,8 @@ public class RemoteCache implements AutoCloseable {
     void lock() throws InterruptedException, IOException;
   }
 
-  private static final ListenableFuture<Void> COMPLETED_SUCCESS = SettableFuture.create();
-  private static final ListenableFuture<byte[]> EMPTY_BYTES = SettableFuture.create();
-
-  static {
-    ((SettableFuture<Void>) COMPLETED_SUCCESS).set(null);
-    ((SettableFuture<byte[]>) EMPTY_BYTES).set(new byte[0]);
-  }
+  private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);
+  private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
 
   protected final RemoteCacheClient cacheProtocol;
   protected final RemoteOptions options;
@@ -356,12 +352,9 @@ public class RemoteCache implements AutoCloseable {
         ExecException execEx =
             new EnvironmentalExecException(
                 ioEx,
-                FailureDetail.newBuilder()
-                    .setMessage("Failed to delete output files after incomplete download")
-                    .setRemoteExecution(
-                        RemoteExecution.newBuilder()
-                            .setCode(Code.INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE))
-                    .build());
+                createFailureDetail(
+                    "Failed to delete output files after incomplete download",
+                    Code.INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE));
         execEx.addSuppressed(e);
         throw execEx;
       }
@@ -443,7 +436,7 @@ public class RemoteCache implements AutoCloseable {
     }
   }
 
-  /** Download a file (that is not a directory). The content is fetched from the digest. */
+  /** Downloads a file (that is not a directory). The content is fetched from the digest. */
   public ListenableFuture<Void> downloadFile(Path path, Digest digest) throws IOException {
     Preconditions.checkNotNull(path.getParentDirectory()).createDirectoryAndParents();
     if (digest.getSizeBytes() == 0) {
@@ -624,8 +617,7 @@ public class RemoteCache implements AutoCloseable {
                 + "--experimental_remote_download_outputs=minimal");
       }
       SpecialArtifact parent = (SpecialArtifact) output;
-      ImmutableMap.Builder<TreeFileArtifact, FileArtifactValue> childMetadata =
-          ImmutableMap.builderWithExpectedSize(directory.files.size());
+      TreeArtifactValue.Builder tree = TreeArtifactValue.newBuilder(parent);
       for (FileMetadata file : directory.files()) {
         TreeFileArtifact child =
             TreeFileArtifact.createTreeOutput(parent, file.path().relativeTo(parent.getPath()));
@@ -635,9 +627,9 @@ public class RemoteCache implements AutoCloseable {
                 file.digest().getSizeBytes(),
                 /*locationIndex=*/ 1,
                 actionId);
-        childMetadata.put(child, value);
+        tree.putChild(child, value);
       }
-      metadataInjector.injectDirectory(parent, childMetadata.build());
+      metadataInjector.injectTree(parent, tree.build());
     } else {
       FileMetadata outputMetadata = metadata.file(execRoot.getRelative(output.getExecPathString()));
       if (outputMetadata == null) {
@@ -968,12 +960,13 @@ public class RemoteCache implements AutoCloseable {
 
     private void illegalOutput(Path what) throws ExecException {
       String kind = what.isSymbolicLink() ? "symbolic link" : "special file";
-      throw new UserExecException(
+      String message =
           String.format(
               "Output %s is a %s. Only regular files and directories may be "
                   + "uploaded to a remote cache. "
                   + "Change the file type or use --remote_allow_symlink_upload.",
-              what.relativeTo(execRoot), kind));
+              what.relativeTo(execRoot), kind);
+      throw new UserExecException(createFailureDetail(message, Code.ILLEGAL_OUTPUT));
     }
   }
 
@@ -981,6 +974,13 @@ public class RemoteCache implements AutoCloseable {
   @Override
   public void close() {
     cacheProtocol.close();
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
+        .build();
   }
 
   /**

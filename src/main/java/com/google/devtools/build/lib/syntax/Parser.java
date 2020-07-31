@@ -34,8 +34,8 @@ final class Parser {
     // Maps char offsets in the file to Locations.
     final FileLocations locs;
 
-    /** The statements (rules, basically) from the parsed file. */
-    final List<Statement> statements;
+    /** The top-level statements of the parsed file. */
+    final ImmutableList<Statement> statements;
 
     /** The comments from the parsed file. */
     final List<Comment> comments;
@@ -44,9 +44,9 @@ final class Parser {
     // These lists are ultimately owned by StarlarkFile.
     final List<SyntaxError> errors;
 
-    ParseResult(
+    private ParseResult(
         FileLocations locs,
-        List<Statement> statements,
+        ImmutableList<Statement> statements,
         List<Comment> comments,
         List<SyntaxError> errors) {
       this.locs = locs;
@@ -175,7 +175,7 @@ final class Parser {
     StarlarkFile.ParseProfiler profiler = Parser.profiler;
     Object span = profiler != null ? profiler.start(input.getFile()) : null;
     try {
-      List<Statement> statements = parser.parseFileInput();
+      ImmutableList<Statement> statements = parser.parseFileInput();
       return new ParseResult(lexer.locs, statements, lexer.getComments(), errors);
     } finally {
       if (profiler != null) {
@@ -190,7 +190,7 @@ final class Parser {
   //      | def_stmt
   //      | for_stmt
   //      | if_stmt
-  private void parseStatement(List<Statement> list) {
+  private void parseStatement(ImmutableList.Builder<Statement> list) {
     if (token.kind == TokenKind.DEF) {
       list.add(parseDefStatement());
     } else if (token.kind == TokenKind.IF) {
@@ -945,8 +945,8 @@ final class Parser {
   }
 
   // file_input = ('\n' | stmt)* EOF
-  private List<Statement> parseFileInput() {
-    List<Statement> list =  new ArrayList<>();
+  private ImmutableList<Statement> parseFileInput() {
+    ImmutableList.Builder<Statement> list = ImmutableList.builder();
     try {
       while (token.kind != TokenKind.EOF) {
         if (token.kind == TokenKind.NEWLINE) {
@@ -980,7 +980,7 @@ final class Parser {
           locs.file(),
           Throwables.getStackTraceAsString(ex));
     }
-    return list;
+    return list.build();
   }
 
   // load '(' STRING (COMMA [IDENTIFIER EQUALS] STRING)+ COMMA? ')'
@@ -1056,7 +1056,7 @@ final class Parser {
   }
 
   // simple_stmt = small_stmt (';' small_stmt)* ';'? NEWLINE
-  private void parseSimpleStatement(List<Statement> list) {
+  private void parseSimpleStatement(ImmutableList.Builder<Statement> list) {
     list.add(parseSmallStatement());
 
     while (token.kind == TokenKind.SEMI) {
@@ -1117,7 +1117,7 @@ final class Parser {
     int ifOffset = expect(TokenKind.IF);
     Expression cond = parseTest();
     expect(TokenKind.COLON);
-    List<Statement> body = parseSuite();
+    ImmutableList<Statement> body = parseSuite();
     IfStatement ifStmt = new IfStatement(locs, TokenKind.IF, ifOffset, cond, body);
     IfStatement tail = ifStmt;
     while (token.kind == TokenKind.ELIF) {
@@ -1145,7 +1145,7 @@ final class Parser {
     expect(TokenKind.IN);
     Expression collection = parseExpression();
     expect(TokenKind.COLON);
-    List<Statement> body = parseSuite();
+    ImmutableList<Statement> body = parseSuite();
     return new ForStatement(locs, forOffset, vars, collection, body);
   }
 
@@ -1157,7 +1157,7 @@ final class Parser {
     ImmutableList<Parameter> params = parseParameters();
     expect(TokenKind.RPAREN);
     expect(TokenKind.COLON);
-    ImmutableList<Statement> block = ImmutableList.copyOf(parseSuite());
+    ImmutableList<Statement> block = parseSuite();
     return new DefStatement(locs, defOffset, ident, params, block);
   }
 
@@ -1185,15 +1185,13 @@ final class Parser {
   // suite is typically what follows a colon (e.g. after def or for).
   // suite = simple_stmt
   //       | NEWLINE INDENT stmt+ OUTDENT
-  //
-  // TODO(adonovan): return ImmutableList and simplify downstream.
-  private List<Statement> parseSuite() {
-    List<Statement> list = new ArrayList<>();
+  private ImmutableList<Statement> parseSuite() {
+    ImmutableList.Builder<Statement> list = ImmutableList.builder();
     if (token.kind == TokenKind.NEWLINE) {
       expect(TokenKind.NEWLINE);
       if (token.kind != TokenKind.INDENT) {
         reportError(token.start, "expected an indented block");
-        return list;
+        return list.build();
       }
       expect(TokenKind.INDENT);
       while (token.kind != TokenKind.OUTDENT && token.kind != TokenKind.EOF) {
@@ -1203,7 +1201,7 @@ final class Parser {
     } else {
       parseSimpleStatement(list);
     }
-    return list;
+    return list.build();
   }
 
   // return_stmt = RETURN [expr]

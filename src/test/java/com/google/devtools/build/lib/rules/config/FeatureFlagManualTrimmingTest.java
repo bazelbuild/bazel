@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
@@ -885,10 +887,13 @@ public final class FeatureFlagManualTrimmingTest extends BuildViewTestCase {
 
     BuildOptions topLevelOptions =
         getConfiguration(getConfiguredTarget("//test:toplevel_target")).getOptions();
-    BuildOptions depOptions =
+    PatchTransition transition =
         new ConfigFeatureFlagTaggedTrimmingTransitionFactory(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
-            .create((Rule) getTarget("//test:dep"))
-            .patch(topLevelOptions, eventCollector);
+            .create((Rule) getTarget("//test:dep"));
+    BuildOptions depOptions =
+        transition.patch(
+            new BuildOptionsView(topLevelOptions, transition.requiresOptionFragments()),
+            eventCollector);
     assertThat(depOptions).isSameInstanceAs(topLevelOptions);
   }
 

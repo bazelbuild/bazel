@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.skylarkbuildapi.FragmentCollectionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FragmentCollectionApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 

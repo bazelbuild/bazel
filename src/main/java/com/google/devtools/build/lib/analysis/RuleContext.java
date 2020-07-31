@@ -36,7 +36,7 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentCollection;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -209,7 +211,7 @@ public final class RuleContext extends TargetContext
   /** Map of exec group names to ActionOwners. */
   private final Map<String, ActionOwner> actionOwners = new HashMap<>();
 
-  private final SymbolGenerator<ActionLookupValue.ActionLookupKey> actionOwnerSymbolGenerator;
+  private final SymbolGenerator<ActionLookupKey> actionOwnerSymbolGenerator;
 
   /* lazily computed cache for Make variables, computed from the above. See get... method */
   private transient ConfigurationMakeVariableContext configurationMakeVariableContext = null;
@@ -222,7 +224,7 @@ public final class RuleContext extends TargetContext
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableList<Class<? extends Fragment>> universalFragments,
       String ruleClassNameForLogging,
-      ActionLookupValue.ActionLookupKey actionLookupKey,
+      ActionLookupKey actionLookupKey,
       ImmutableMap<String, Attribute> aspectAttributes,
       @Nullable ToolchainCollection<ResolvedToolchainContext> toolchainContexts,
       ConstraintSemantics<RuleContext> constraintSemantics,
@@ -258,7 +260,7 @@ public final class RuleContext extends TargetContext
     this.actionOwnerSymbolGenerator = new SymbolGenerator<>(actionLookupKey);
     reporter = builder.reporter;
     this.toolchainContexts = toolchainContexts;
-    this.execProperties = parseExecProperties();
+    this.execProperties = parseExecProperties(builder.rawExecProperties);
     this.constraintSemantics = constraintSemantics;
     this.requiredConfigFragments = requiredConfigFragments;
   }
@@ -435,14 +437,14 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
+  @Nullable
   public ActionOwner getActionOwner(String execGroup) {
     if (actionOwners.containsKey(execGroup)) {
       return actionOwners.get(execGroup);
     }
-    Preconditions.checkState(
-        toolchainContexts == null || toolchainContexts.hasToolchainContext(execGroup),
-        "action owner requested for non-existent exec group '%s'.",
-        execGroup);
+    if (toolchainContexts != null && !toolchainContexts.hasToolchainContext(execGroup)) {
+      return null;
+    }
     ActionOwner actionOwner =
         createActionOwner(
             rule,
@@ -483,8 +485,11 @@ public final class RuleContext extends TargetContext
   }
 
   @Nullable
-  protected <T extends Fragment> T getFragment(Class<T> fragment, String name,
-      String additionalErrorMessage, ConfigurationTransition transition) {
+  <T extends Fragment> T getFragment(
+      Class<T> fragment,
+      String name,
+      String additionalErrorMessage,
+      ConfigurationTransition transition) {
     // TODO(bazel-team): The fragments can also be accessed directly through BuildConfiguration.
     // Can we lock that down somehow?
     Preconditions.checkArgument(isLegalFragment(fragment, transition),
@@ -543,7 +548,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public ActionLookupValue.ActionLookupKey getOwner() {
+  public ActionLookupKey getOwner() {
     return getAnalysisEnvironment().getOwner();
   }
 
@@ -708,6 +713,7 @@ public final class RuleContext extends TargetContext
    * configuration. The choice of which tree to use is based on the rule with which this target
    * (which must be an OutputFile or a Rule) is associated.
    */
+  @Override
   public ArtifactRoot getBinOrGenfilesDirectory() {
     return rule.hasBinaryOutput()
         ? getConfiguration().getBinDirectory(rule.getRepository())
@@ -1284,13 +1290,13 @@ public final class RuleContext extends TargetContext
     return ans.build();
   }
 
-  private ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties()
-      throws InvalidExecGroupException {
-    if (!isAttrDefined(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+  private ImmutableMap<String, ImmutableMap<String, String>> parseExecProperties(
+      Map<String, String> execProperties) throws InvalidExecGroupException {
+    if (execProperties.isEmpty()) {
       return ImmutableMap.of(DEFAULT_EXEC_GROUP_NAME, ImmutableMap.of());
     } else {
       return parseExecProperties(
-          attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT),
+          execProperties,
           toolchainContexts == null ? ImmutableSet.of() : toolchainContexts.getExecGroups());
     }
   }
@@ -1508,12 +1514,12 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Returns a path fragment qualified by the rule name and unique fragment to
-   * disambiguate artifacts produced from the source file appearing in
-   * multiple rules.
+   * Returns a path fragment qualified by the rule name and unique fragment to disambiguate
+   * artifacts produced from the source file appearing in multiple rules.
    *
    * <p>For example "pkg/dir/name" -> "pkg/&lt;fragment>/rule/dir/name.
    */
+  @Override
   public final PathFragment getUniqueDirectory(PathFragment fragment) {
     return AnalysisUtils.getUniqueDirectory(getLabel(), fragment);
   }
@@ -1719,6 +1725,28 @@ public final class RuleContext extends TargetContext
     return this;
   }
 
+  /**
+   * Returns {@code true} if a {@link RequiredConfigFragmentsProvider} should be included for this
+   * rule.
+   */
+  public boolean shouldIncludeRequiredConfigFragmentsProvider() {
+    IncludeConfigFragmentsEnum setting =
+        getConfiguration()
+            .getOptions()
+            .get(CoreOptions.class)
+            .includeRequiredConfigFragmentsProvider;
+    switch (setting) {
+      case OFF:
+        return false;
+      case DIRECT_HOST_ONLY:
+        return getConfiguration().isHostConfiguration();
+      case DIRECT:
+      case TRANSITIVE:
+        return true;
+    }
+    throw new IllegalStateException("Unknown setting: " + setting);
+  }
+
   @Override
   public String toString() {
     return "RuleContext(" + getLabel() + ", " + getConfiguration() + ")";
@@ -1734,7 +1762,7 @@ public final class RuleContext extends TargetContext
     private ImmutableList<Class<? extends Fragment>> universalFragments;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
-    private final ActionLookupValue.ActionLookupKey actionOwnerSymbol;
+    private final ActionLookupKey actionOwnerSymbol;
     private final PrerequisiteValidator prerequisiteValidator;
     private final RuleErrorConsumer reporter;
     private OrderedSetMultimap<Attribute, ConfiguredTargetAndData> prerequisiteMap;
@@ -1743,6 +1771,7 @@ public final class RuleContext extends TargetContext
     private ImmutableMap<String, Attribute> aspectAttributes;
     private ImmutableList<Aspect> aspects;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
+    private ImmutableMap<String, String> rawExecProperties;
     private ConstraintSemantics<RuleContext> constraintSemantics;
     private ImmutableSet<String> requiredConfigFragments = ImmutableSet.of();
 
@@ -1755,7 +1784,7 @@ public final class RuleContext extends TargetContext
         BuildConfiguration hostConfiguration,
         PrerequisiteValidator prerequisiteValidator,
         ConfigurationFragmentPolicy configurationFragmentPolicy,
-        ActionLookupValue.ActionLookupKey actionOwnerSymbol) {
+        ActionLookupKey actionOwnerSymbol) {
       this.env = Preconditions.checkNotNull(env);
       this.target = Preconditions.checkNotNull(target);
       this.aspects = aspects;
@@ -1785,6 +1814,14 @@ public final class RuleContext extends TargetContext
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(target.getAssociatedRule(), configConditions);
+      if (rawExecProperties == null) {
+        if (!attributes.has(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT)) {
+          rawExecProperties = ImmutableMap.of();
+        } else {
+          rawExecProperties =
+              ImmutableMap.copyOf(attributes.get(RuleClass.EXEC_PROPERTIES, Type.STRING_DICT));
+        }
+      }
       return new RuleContext(
           this,
           attributes,
@@ -1870,6 +1907,15 @@ public final class RuleContext extends TargetContext
           this.toolchainContexts == null,
           "toolchainContexts has already been set for this Builder");
       this.toolchainContexts = toolchainContexts;
+      return this;
+    }
+
+    /**
+     * Warning: if you set the exec properties using this method any exec_properties attribute value
+     * will be ignored in favor of this value.
+     */
+    public Builder setExecProperties(ImmutableMap<String, String> execProperties) {
+      this.rawExecProperties = execProperties;
       return this;
     }
 

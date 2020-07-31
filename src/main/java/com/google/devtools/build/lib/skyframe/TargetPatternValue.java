@@ -330,38 +330,37 @@ public final class TargetPatternValue implements SkyValue {
     }
 
     ImmutableSet<PathFragment> getAllSubdirectoriesToExclude(
-        Iterable<PathFragment> blacklistedPackagePrefixes) throws InterruptedException {
+        Iterable<PathFragment> ignoredPackagePrefixes) throws InterruptedException {
       ImmutableSet.Builder<PathFragment> excludedPathsBuilder = ImmutableSet.builder();
       excludedPathsBuilder.addAll(getExcludedSubdirectories());
       excludedPathsBuilder.addAll(
-          getAllBlacklistedSubdirectoriesToExclude(() -> blacklistedPackagePrefixes));
+          getAllIgnoredSubdirectoriesToExclude(() -> ignoredPackagePrefixes));
       return excludedPathsBuilder.build();
     }
 
-    public ImmutableSet<PathFragment> getAllBlacklistedSubdirectoriesToExclude(
-        InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
+    public ImmutableSet<PathFragment> getAllIgnoredSubdirectoriesToExclude(
+        InterruptibleSupplier<? extends Iterable<PathFragment>> ignoredPackagePrefixes)
         throws InterruptedException {
-      return getAllBlacklistedSubdirectoriesToExclude(parsedPattern, blacklistedPackagePrefixes);
+      return getAllIgnoredSubdirectoriesToExclude(parsedPattern, ignoredPackagePrefixes);
     }
 
-    public static ImmutableSet<PathFragment> getAllBlacklistedSubdirectoriesToExclude(
+    public static ImmutableSet<PathFragment> getAllIgnoredSubdirectoriesToExclude(
         TargetPattern pattern,
-        InterruptibleSupplier<? extends Iterable<PathFragment>> blacklistedPackagePrefixes)
+        InterruptibleSupplier<? extends Iterable<PathFragment>> ignoredPackagePrefixes)
         throws InterruptedException {
-      ImmutableSet.Builder<PathFragment> blacklistedPathsBuilder = ImmutableSet.builder();
+      ImmutableSet.Builder<PathFragment> ignoredPathsBuilder = ImmutableSet.builder();
       if (pattern.getType() == Type.TARGETS_BELOW_DIRECTORY) {
-        for (PathFragment blacklistedPackagePrefix : blacklistedPackagePrefixes.get()) {
-          PackageIdentifier pkgIdForBlacklistedDirectorPrefix =
+        for (PathFragment ignoredPackagePrefix : ignoredPackagePrefixes.get()) {
+          PackageIdentifier pkgIdForIgnoredDirectorPrefix =
               PackageIdentifier.create(
                   pattern.getDirectoryForTargetsUnderDirectory().getRepository(),
-                  blacklistedPackagePrefix);
-          if (pattern.containsAllTransitiveSubdirectoriesForTBD(
-              pkgIdForBlacklistedDirectorPrefix)) {
-            blacklistedPathsBuilder.add(blacklistedPackagePrefix);
+                  ignoredPackagePrefix);
+          if (pattern.containsAllTransitiveSubdirectoriesForTBD(pkgIdForIgnoredDirectorPrefix)) {
+            ignoredPathsBuilder.add(ignoredPackagePrefix);
           }
         }
       }
-      return blacklistedPathsBuilder.build();
+      return ignoredPathsBuilder.build();
     }
 
     @Override

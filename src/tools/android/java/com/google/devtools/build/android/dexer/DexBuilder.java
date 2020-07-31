@@ -192,6 +192,7 @@ class DexBuilder {
           WorkResponse.newBuilder()
               .setOutput(output)
               .setExitCode(exitCode)
+              .setRequestId(request.getRequestId())
               .build()
               .writeDelimitedTo(System.out);
           System.out.flush();

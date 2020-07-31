@@ -15,6 +15,7 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_EXTENSION;
+import static com.google.devtools.coverageoutputgenerator.Constants.GCOV_JSON_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.PROFDATA_EXTENSION;
 import static com.google.devtools.coverageoutputgenerator.Constants.TRACEFILE_EXTENSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -79,7 +80,11 @@ public class Main {
                 LcovParser::parse,
                 flags.parseParallelism()),
             parseFiles(
-                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()));
+                getGcovInfoFiles(filesInCoverageDir), GcovParser::parse, flags.parseParallelism()),
+            parseFiles(
+                getGcovJsonInfoFiles(filesInCoverageDir),
+                GcovJsonParser::parse,
+                flags.parseParallelism()));
 
     if (flags.sourcesToReplaceFile() != null) {
       coverage.maybeReplaceSourceFileNames(getMapFromFile(flags.sourcesToReplaceFile()));
@@ -91,7 +96,9 @@ public class Main {
       if (profdataFile == null) {
         try {
           logger.log(Level.WARNING, "There was no coverage found.");
-          Files.createFile(outputFile.toPath()); // Generate empty declared output
+          if (!Files.exists(outputFile.toPath())) {
+            Files.createFile(outputFile.toPath()); // Generate empty declared output
+          }
           exitStatus = 0;
         } catch (IOException e) {
           logger.log(
@@ -151,7 +158,9 @@ public class Main {
     if (coverage.isEmpty()) {
       try {
         logger.log(Level.WARNING, "There was no coverage found.");
-        Files.createFile(outputFile.toPath()); // Generate empty declared output
+        if (!Files.exists(outputFile.toPath())) {
+          Files.createFile(outputFile.toPath()); // Generate empty declared output
+        }
         return 0;
       } catch (IOException e) {
         logger.log(
@@ -219,6 +228,16 @@ public class Main {
       logger.log(Level.INFO, "Found " + gcovFiles.size() + " gcov info files.");
     }
     return gcovFiles;
+  }
+
+  private static List<File> getGcovJsonInfoFiles(List<File> filesInCoverageDir) {
+    List<File> gcovJsonFiles = getFilesWithExtension(filesInCoverageDir, GCOV_JSON_EXTENSION);
+    if (gcovJsonFiles.isEmpty()) {
+      logger.log(Level.INFO, "No gcov json file found.");
+    } else {
+      logger.log(Level.INFO, "Found " + gcovJsonFiles.size() + " gcov json files.");
+    }
+    return gcovJsonFiles;
   }
 
   /**
@@ -352,6 +371,7 @@ public class Main {
                   p ->
                       p.toString().endsWith(TRACEFILE_EXTENSION)
                           || p.toString().endsWith(GCOV_EXTENSION)
+                          || p.toString().endsWith(GCOV_JSON_EXTENSION)
                           || p.toString().endsWith(PROFDATA_EXTENSION))
               .map(path -> path.toFile())
               .collect(Collectors.toList());

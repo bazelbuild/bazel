@@ -63,8 +63,8 @@ public final class IfStatement extends Statement {
     return elseBlock;
   }
 
-  void setElseBlock(List<Statement> elseBlock) {
-    this.elseBlock = ImmutableList.copyOf(elseBlock);
+  void setElseBlock(ImmutableList<Statement> elseBlock) {
+    this.elseBlock = elseBlock;
   }
 
   @Override

@@ -1615,22 +1615,247 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         "            allow_single_file = True,",
         "            cfg = cpu_transition,",
         "        ),",
-        "        '_whitelist_function_transition': attr.label(",
-        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
         "    },",
         ")");
     scratch.overwriteFile(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = ['//...'],",
         ")",
         "filegroup(",
         "    name = 'srcs',",
         "    srcs = glob(['**']),",
-        "    visibility = ['//tools/whitelists:__pkg__'],",
+        "    visibility = ['//tools/allowlists:__pkg__'],",
         ")");
     checkError("//foo", "Trying to link twice");
+  }
+
+  @Test
+  public void testImplicitOutputsWhitelistNotOnWhitelist() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
+    scratch.overwriteFile(
+        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
+        "package_group(",
+        "    name = 'allowed_cc_lib_implicit_outputs',",
+        "    packages = [])");
+
+    scratch.file(
+        "foo/BUILD",
+        "filegroup(",
+        "    name = 'denied',",
+        "    srcs = [':libdenied_cc_lib.a'],",
+        ")",
+        "cc_library(",
+        "    name = 'denied_cc_lib',",
+        "    srcs = ['denied_cc_lib.cc'],",
+        ")");
+    checkError(
+        "//foo:denied",
+        "Using implicit outputs from cc_library (//foo:denied_cc_lib) is "
+            + "forbidden. Use the rule cc_implicit_output as an alternative.");
+  }
+
+  @Test
+  public void testImplicitOutputsWhitelistOnWhitelist() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
+    scratch.overwriteFile(
+        "tools/build_defs/cc/whitelists/cc_lib_implicit_outputs/BUILD",
+        "package_group(",
+        "    name = 'allowed_cc_lib_implicit_outputs',",
+        "    packages = ['//bar'])");
+
+    scratch.file(
+        "bar/BUILD",
+        "filegroup(",
+        "    name = 'allowed',",
+        "    srcs = [':liballowed_cc_lib.a'],",
+        ")",
+        "cc_library(",
+        "    name = 'allowed_cc_lib',",
+        "    srcs = ['allowed_cc_lib.cc'],",
+        ")");
+    getConfiguredTarget("//bar:allowed");
+    assertNoEvents();
+  }
+
+  private void prepareCustomTransition() throws Exception {
+    scratch.file(
+        "transition/custom_transition.bzl",
+        "def _custom_transition_impl(settings, attr):",
+        "    _ignore = settings, attr",
+        "",
+        "    return {'//command_line_option:copt': ['-DFLAG']}",
+        "",
+        "custom_transition = transition(",
+        "    implementation = _custom_transition_impl,",
+        "    inputs = [],",
+        "    outputs = ['//command_line_option:copt'],",
+        ")",
+        "",
+        "def _apply_custom_transition_impl(ctx):",
+        "    cc_infos = []",
+        "    for dep in ctx.attr.deps:",
+        "        cc_infos.append(dep[CcInfo])",
+        "    merged_cc_info = cc_common.merge_cc_infos(cc_infos = cc_infos)",
+        "    return merged_cc_info",
+        "",
+        "apply_custom_transition = rule(",
+        "    implementation = _apply_custom_transition_impl,",
+        "    attrs = {",
+        "        '_whitelist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
+        "        ),",
+        "        'deps': attr.label_list(cfg = custom_transition),",
+        "    },",
+        ")");
+    scratch.overwriteFile(
+        "tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = ['//...'],",
+        ")",
+        "filegroup(",
+        "    name = 'srcs',",
+        "    srcs = glob(['**']),",
+        "    visibility = ['//tools/allowlists:__pkg__'],",
+        ")");
+  }
+
+  @Test
+  public void testDynamicLinkTwiceAfterTransition() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+
+    scratch.file(
+        "transition/BUILD",
+        "load(':custom_transition.bzl', 'apply_custom_transition')",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        "    deps = [",
+        "        'dep1',",
+        "        'dep2',",
+        "    ],",
+        ")",
+        "",
+        "apply_custom_transition(",
+        "    name = 'dep1',",
+        "    deps = [",
+        "        ':dep2',",
+        "    ],",
+        ")",
+        "",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['test.cc'],",
+        "    hdrs = ['test.h'],",
+        ")");
+
+    checkError("//transition:main", "built in a different configuration");
+  }
+
+  @Test
+  public void testDynamicLinkUniqueAfterTransition() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    prepareCustomTransition();
+
+    scratch.file(
+        "transition/BUILD",
+        "load(':custom_transition.bzl', 'apply_custom_transition')",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    linkstatic = 0,",
+        "    deps = [",
+        "        'dep1',",
+        "        'dep3',",
+        "    ],",
+        ")",
+        "apply_custom_transition(",
+        "    name = 'dep1',",
+        "    deps = [",
+        "        ':dep2',",
+        "    ],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['test.cc'],",
+        "    hdrs = ['test.h'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep3',",
+        "    srcs = ['other_test.cc'],",
+        "    hdrs = ['other_test.h'],",
+        ")");
+
+    getConfiguredTarget("//transition:main");
+    assertNoEvents();
+  }
+
+  // b/162180592
+  @Test
+  public void testSameSymlinkedLibraryDoesNotGiveDuplicateError() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCcToolchainConfig(
+            mockToolsConfig,
+            CcToolchainConfig.builder()
+                .withFeatures(
+                    CppRuleClasses.COPY_DYNAMIC_LIBRARIES_TO_BINARY,
+                    CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
+
+    scratch.file(
+        "transition/BUILD",
+        "cc_binary(",
+        "    name = 'main',",
+        "    srcs = ['main.cc'],",
+        "    deps = [",
+        "        'dep1',",
+        "        'dep2',",
+        "    ],",
+        ")",
+        "cc_binary(",
+        "    name = 'libshared.so',",
+        "    srcs = ['shared.cc'],",
+        "    linkshared = 1,",
+        ")",
+        "cc_library(",
+        "    name = 'dep1',",
+        "    srcs = ['test.cc', 'libshared.so'],",
+        "    hdrs = ['test.h'],",
+        ")",
+        "cc_library(",
+        "    name = 'dep2',",
+        "    srcs = ['other_test.cc', 'libshared.so'],",
+        "    hdrs = ['other_test.h'],",
+        ")");
+
+    getConfiguredTarget("//transition:main");
+    assertNoEvents();
   }
 }

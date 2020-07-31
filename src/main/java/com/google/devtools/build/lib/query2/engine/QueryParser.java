@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -68,8 +69,9 @@ public final class QueryParser {
     QueryParser parser = new QueryParser(Lexer.scan(query), functions);
     QueryExpression expr = parser.parseExpression();
     if (parser.token.kind != TokenKind.EOF) {
-      throw new QueryException("unexpected token '" + parser.token
-          + "' after query expression '" + expr +  "'");
+      throw new QueryException(
+          "unexpected token '" + parser.token + "' after query expression '" + expr + "'",
+          Query.Code.UNEXPECTED_TOKEN_ERROR);
     }
     return expr;
   }
@@ -86,6 +88,7 @@ public final class QueryParser {
    */
   private QueryException syntaxError(Lexer.Token token) {
     String message = "premature end of input";
+    Query.Code queryCode = Query.Code.PREMATURE_END_OF_INPUT_ERROR;
     if (token.kind != TokenKind.EOF) {
       StringBuilder buf = new StringBuilder("syntax error at '");
       String sep = "";
@@ -97,8 +100,9 @@ public final class QueryParser {
       }
       buf.append("'");
       message = buf.toString();
+      queryCode = Query.Code.SYNTAX_ERROR;
     }
-    return new QueryException(message);
+    return new QueryException(message, queryCode);
   }
 
   /**
@@ -124,7 +128,8 @@ public final class QueryParser {
     try {
       return Integer.parseInt(intString);
     } catch (NumberFormatException e) {
-      throw new QueryException("expected an integer literal: '" + intString + "'");
+      throw new QueryException(
+          "expected an integer literal: '" + intString + "'", Query.Code.INTEGER_LITERAL_MISSING);
     }
   }
 
@@ -267,7 +272,8 @@ public final class QueryParser {
   private static TargetLiteral validateTargetLiteral(String word) throws QueryException {
     if (word.startsWith("-") || word.startsWith("*")) {
       throw new QueryException(
-          "target literal must not begin with " + "(" + word.charAt(0) + "): " + word);
+          "target literal must not begin with " + "(" + word.charAt(0) + "): " + word,
+          Query.Code.INVALID_STARTING_CHARACTER_ERROR);
     }
     return new TargetLiteral(word);
   }

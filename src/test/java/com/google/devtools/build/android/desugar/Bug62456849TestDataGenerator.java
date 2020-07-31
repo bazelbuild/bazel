@@ -87,7 +87,7 @@ public class Bug62456849TestDataGenerator {
       ClassReader reader = new ClassReader(content);
       ClassWriter writer = new ClassWriter(0);
       ClassVisitor converter =
-          new ClassVisitor(Opcodes.ASM5, writer) {
+          new ClassVisitor(Opcodes.ASM8, writer) {
             @Override
             public MethodVisitor visitMethod(
                 int access, String name, String desc, String signature, String[] exceptions) {

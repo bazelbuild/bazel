@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.MutableMap;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskCallable;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
@@ -26,6 +29,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -67,7 +71,7 @@ public final class QueryUtil {
     }
   }
 
-  private static class OrderedAggregateAllOutputFormatterCallbackImpl<T>
+  private static final class OrderedAggregateAllOutputFormatterCallbackImpl<T>
       extends AggregateAllOutputFormatterCallback<T, Set<T>> {
     private final Set<T> resultSet;
     private final List<T> resultList;
@@ -78,7 +82,7 @@ public final class QueryUtil {
     }
 
     @Override
-    public final synchronized void processOutput(Iterable<T> partialResult) {
+    public synchronized void processOutput(Iterable<T> partialResult) {
       for (T element : partialResult) {
         if (resultSet.add(element)) {
           resultList.add(element);
@@ -95,6 +99,29 @@ public final class QueryUtil {
     }
   }
 
+  private static final class LexicographicallySortedTargetAggregator
+      extends AggregateAllOutputFormatterCallback<Target, Set<Target>> {
+    private final Map<Label, Target> resultMap = new HashMap<>();
+
+    @Override
+    public synchronized void processOutput(Iterable<Target> partialResult) {
+      for (Target target : partialResult) {
+        resultMap.put(target.getLabel(), target);
+      }
+    }
+
+    @Override
+    public synchronized ImmutableSortedSet<Target> getResult() {
+      return ImmutableSortedSet.copyOf(
+          LexicographicallySortedTargetAggregator::compareTargetsByLabel, resultMap.values());
+    }
+
+    // A reference to this method is significantly more efficient than using Comparator#comparing.
+    private static int compareTargetsByLabel(Target t1, Target t2) {
+      return t1.getLabel().compareTo(t2.getLabel());
+    }
+  }
+
   /**
    * Returns a fresh {@link AggregateAllOutputFormatterCallback} instance whose
    * {@link AggregateAllCallback#getResult} returns all the elements of the result in the order they
@@ -103,6 +130,16 @@ public final class QueryUtil {
   public static <T> AggregateAllOutputFormatterCallback<T, Set<T>>
       newOrderedAggregateAllOutputFormatterCallback(QueryEnvironment<T> env) {
     return new OrderedAggregateAllOutputFormatterCallbackImpl<>(env);
+  }
+
+  /**
+   * Returns a fresh {@link AggregateAllOutputFormatterCallback} instance whose {@link
+   * AggregateAllCallback#getResult} returns all the targets in the result sorted lexicographically
+   * by {@link Label}.
+   */
+  public static AggregateAllOutputFormatterCallback<Target, Set<Target>>
+      newLexicographicallySortedTargetAggregator() {
+    return new LexicographicallySortedTargetAggregator();
   }
 
   /**

@@ -23,7 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.DottedVersionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.DottedVersionApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.ArrayList;
 import java.util.Objects;

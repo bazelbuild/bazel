@@ -15,20 +15,26 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
 
-/** A manager to instantiate and distroy multiplexers. */
+/**
+ * A manager to instantiate and destroy multiplexers. There should only be one {@code
+ * WorkerMultiplexer} corresponding to workers with the same {@code WorkerKey}. If the {@code
+ * WorkerMultiplexer} has been constructed, other workers should point to the same one.
+ */
 public class WorkerMultiplexerManager {
   /**
-   * There should only be one WorkerMultiplexer corresponding to workers with the same mnemonic. If
-   * the WorkerMultiplexer has been constructed, other workers should point to the same one. The
-   * hash of WorkerKey is used as key.
+   * A map from the hash of {@code WorkerKey} objects to the corresponding information about the
+   * multiplexer instance.
    */
   private static Map<Integer, InstanceInfo> multiplexerInstance;
 
-  /** A semaphore to protect multiplexerInstance and multiplexerRefCount objects. */
+  /** A semaphore to protect {@code multiplexerInstance} and {@code multiplexerRefCount} objects. */
   private static Semaphore semMultiplexer;
 
   static {
@@ -39,9 +45,9 @@ public class WorkerMultiplexerManager {
   private WorkerMultiplexerManager() {}
 
   /**
-   * Returns a WorkerMultiplexer instance to WorkerProxy. WorkerProxies with the same workerHash
-   * talk to the same WorkerMultiplexer. Also, record how many WorkerProxies are talking to this
-   * WorkerMultiplexer.
+   * Returns a {@code WorkerMultiplexer} instance to {@code WorkerProxy}. {@code WorkerProxy}
+   * objects with the same workerHash talk to the same {@code WorkerMultiplexer}. Also, record how
+   * many {@code WorkerProxy} objects are talking to this {@code WorkerMultiplexer}.
    */
   public static WorkerMultiplexer getInstance(Integer workerHash) throws InterruptedException {
     semMultiplexer.acquire();
@@ -55,7 +61,10 @@ public class WorkerMultiplexerManager {
     return workerMultiplexer;
   }
 
-  /** Remove the WorkerMultiplexer instance and reference count since it is no longer in use. */
+  /**
+   * Removes the {@code WorkerMultiplexer} instance and reference count since it is no longer in
+   * use.
+   */
   public static void removeInstance(Integer workerHash)
       throws InterruptedException, UserExecException {
     semMultiplexer.acquire();
@@ -67,12 +76,8 @@ public class WorkerMultiplexerManager {
         multiplexerInstance.remove(workerHash);
       }
     } catch (Exception e) {
-      throw new UserExecException(
-          ErrorMessage.builder()
-              .message("NullPointerException while accessing non-existent multiplexer instance.")
-              .exception(e)
-              .build()
-              .toString());
+      String message = "NullPointerException while accessing non-existent multiplexer instance.";
+      throw createUserExecException(e, message, Code.MULTIPLEXER_INSTANCE_REMOVAL_FAILURE);
     } finally {
       semMultiplexer.release();
     }
@@ -82,12 +87,8 @@ public class WorkerMultiplexerManager {
     try {
       return multiplexerInstance.get(workerHash).getWorkerMultiplexer();
     } catch (NullPointerException e) {
-      throw new UserExecException(
-          ErrorMessage.builder()
-              .message("NullPointerException while accessing non-existent multiplexer instance.")
-              .exception(e)
-              .build()
-              .toString());
+      String message = "NullPointerException while accessing non-existent multiplexer instance.";
+      throw createUserExecException(e, message, Code.MULTIPLEXER_DOES_NOT_EXIST);
     }
   }
 
@@ -95,12 +96,8 @@ public class WorkerMultiplexerManager {
     try {
       return multiplexerInstance.get(workerHash).getRefCount();
     } catch (NullPointerException e) {
-      throw new UserExecException(
-          ErrorMessage.builder()
-              .message("NullPointerException while accessing non-existent multiplexer instance.")
-              .exception(e)
-              .build()
-              .toString());
+      String message = "NullPointerException while accessing non-existent multiplexer instance.";
+      throw createUserExecException(e, message, Code.MULTIPLEXER_DOES_NOT_EXIST);
     }
   }
 
@@ -108,7 +105,16 @@ public class WorkerMultiplexerManager {
     return multiplexerInstance.keySet().size();
   }
 
-  /** Contains the WorkerMultiplexer instance and reference count */
+  private static UserExecException createUserExecException(
+      Exception e, String message, Code detailedCode) {
+    return new UserExecException(
+        FailureDetail.newBuilder()
+            .setMessage(ErrorMessage.builder().message(message).exception(e).build().toString())
+            .setWorker(FailureDetails.Worker.newBuilder().setCode(detailedCode))
+            .build());
+  }
+
+  /** Contains the WorkerMultiplexer instance and reference count. */
   static class InstanceInfo {
     private WorkerMultiplexer workerMultiplexer;
     private Integer refCount;

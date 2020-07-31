@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleStaticLibraryInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleStaticLibraryInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /**

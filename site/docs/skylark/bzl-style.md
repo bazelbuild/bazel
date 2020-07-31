@@ -30,10 +30,11 @@ files simple will allow you to get better tooling. As a code base grows, it
 becomes more and more frequent to do changes across many BUILD files in order to
 update a library or do a cleanup.
 
-Do not create a macro just to avoid some amount of repetition in BUILD files.
-The [DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle
-doesn't really apply here. The goal is not to make the file shorter; the goal is
-to make your files easy to process, both by humans and tools.
+**IMPORTANT:** Do not create a variable or macro just to avoid some amount of
+repetition in BUILD files. Your BUILD file should be easily readable both by
+developers and tools. The
+[DRY](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself) principle doesn't
+really apply here.
 
 ## General advice
 

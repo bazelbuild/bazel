@@ -123,6 +123,10 @@ public class ExampleWorker {
           System.setErr(originalStdErr);
         }
 
+        if (workerOptions.exitDuring > 0 && workUnitCounter > workerOptions.exitDuring) {
+          return;
+        }
+
         if (poisoned) {
           baos.writeTo(System.out);
         } else {

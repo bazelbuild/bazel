@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisTestResultInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisTestResultInfoApi;
 
 /**
  * Encapsulates the result of analyis-phase testing. Build targets which return an instance of this

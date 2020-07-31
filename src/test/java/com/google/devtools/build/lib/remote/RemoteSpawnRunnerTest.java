@@ -809,7 +809,7 @@ public class RemoteSpawnRunnerTest {
             execRoot,
             Options.getDefaults(RemoteOptions.class),
             executionOptions,
-            l -> true,
+            true,
             /*cmdlineReporter=*/ null,
             "build-req-id",
             "command-id",
@@ -1026,18 +1026,25 @@ public class RemoteSpawnRunnerTest {
   }
 
   private RemoteSpawnRunner newSpawnRunner() {
-    return newSpawnRunner(executor, /* reporter= */ null, /* topLevelOutputs= */ ImmutableSet.of());
+    return newSpawnRunner(
+        /* verboseFailures= */ false,
+        executor,
+        /* reporter= */ null,
+        /* topLevelOutputs= */ ImmutableSet.of());
   }
 
   private RemoteSpawnRunner newSpawnRunner(Reporter reporter) {
-    return newSpawnRunner(executor, reporter, /* topLevelOutputs= */ ImmutableSet.of());
+    return newSpawnRunner(
+        /* verboseFailures= */ false, executor, reporter, /* topLevelOutputs= */ ImmutableSet.of());
   }
 
   private RemoteSpawnRunner newSpawnRunner(ImmutableSet<ActionInput> topLevelOutputs) {
-    return newSpawnRunner(executor, /* reporter= */ null, topLevelOutputs);
+    return newSpawnRunner(
+        /* verboseFailures= */ false, executor, /* reporter= */ null, topLevelOutputs);
   }
 
   private RemoteSpawnRunner newSpawnRunner(
+      boolean verboseFailures,
       @Nullable GrpcRemoteExecutor executor,
       @Nullable Reporter reporter,
       ImmutableSet<ActionInput> topLevelOutputs) {
@@ -1045,7 +1052,7 @@ public class RemoteSpawnRunnerTest {
         execRoot,
         remoteOptions,
         Options.getDefaults(ExecutionOptions.class),
-        l -> false,
+        verboseFailures,
         reporter,
         "build-req-id",
         "command-id",

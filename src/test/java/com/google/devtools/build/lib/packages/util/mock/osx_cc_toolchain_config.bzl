@@ -67,10 +67,15 @@ _supports_dynamic_linker_feature = feature(
     enabled = True,
 )
 
+_parse_headers_feature = feature(
+    name = "parse_headers",
+)
+
 _feature_name_to_feature = {
     "default_feature": _default_feature,
     "supports_interface_shared_libraries": _supports_interface_shared_libraries_feature,
     "supports_dynamic_linker": _supports_dynamic_linker_feature,
+    "parse_headers": _parse_headers_feature,
 }
 
 _action_name_to_action = {}
@@ -3838,6 +3843,7 @@ def _impl(ctx):
     if (ctx.attr.cpu == "x64_windows"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch <architecture>"])],
@@ -3866,6 +3872,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "ios_arm64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch arm64"])],
@@ -3894,6 +3901,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "tvos_arm64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch arm64"])],
@@ -3922,6 +3930,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "ios_armv7"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch armv7"])],
@@ -3950,6 +3959,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "watchos_armv7k"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch armv7k"])],
@@ -3978,6 +3988,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "ios_i386"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch i386"])],
@@ -4006,6 +4017,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "watchos_i386"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch i386"])],
@@ -4034,6 +4046,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "ios_x86_64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch x86_64"])],
@@ -4062,6 +4075,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "darwin_x86_64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch x86_64"])],
@@ -4090,6 +4104,7 @@ def _impl(ctx):
     elif (ctx.attr.cpu == "tvos_x86_64"):
         linkstamp_compile_action = action_config(
             action_name = ACTION_NAMES.linkstamp_compile,
+            enabled = True,
             flag_sets = [
                 flag_set(
                     flag_groups = [flag_group(flags = ["-arch x86_64"])],
@@ -6890,6 +6905,7 @@ def _impl(ctx):
             "preprocess-assemble",
             "c-compile",
             "c++-compile",
+            "c++-header-parsing",
             "c++-link-static-library",
             "c++-link-dynamic-library",
             "c++-link-nodeps-dynamic-library",

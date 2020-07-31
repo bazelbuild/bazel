@@ -72,8 +72,24 @@ public class Filegroup implements RuleConfiguredTargetFactory {
     InstrumentedFilesInfo instrumentedFilesProvider =
         InstrumentedFilesCollector.collectTransitive(
             ruleContext,
-            // what do *we* know about whether this is a source file or not
-            new InstrumentationSpec(FileTypeSet.ANY_FILE, "srcs", "deps", "data"),
+            // Seems strange to have "srcs" in "dependency attributes" instead of "source
+            // attributes", but that's correct behavior here because:
+            // 1. This rule is essentially forwarding, it has no idea how the stuff in srcs is used.
+            //    Thus, it needs to look at any dependencies transitively via
+            //    InstrumentedFilesProvider.
+            // 2. This rule doesn't _process_ any source files. The rule which does process the
+            //    source files in filegroup.srcs will include those files in its inputs and in its
+            //    InstrumentedFileProvider the same way, via FileProvider. This ensures that when
+            //    --instrumentation_filter says a rule's sources should be instrumented for coverage
+            //    data collection, it also says all of those sources should be included in the
+            //    coverage manifest.
+            // Previously, this would have needed to include "srcs" in "source attributes" anyways,
+            // since it might have been _consumed_ by a rule using the legacy InstrumentationSpec.
+            // In that case, since filegroup provided InstrumentedFilesProvider, the legacy
+            // consumer would never try to gather filegroup's instrumented sources via FileProvider.
+            new InstrumentationSpec(FileTypeSet.ANY_FILE)
+                .withDeprecatedSourceOrDependencyAttributes("srcs", "deps", "data")
+                .withDependencyAttributes("srcs", "data"),
             /* reportedToActualSources= */ NestedSetBuilder.create(Order.STABLE_ORDER));
 
     RunfilesProvider runfilesProvider =

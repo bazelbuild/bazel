@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.Info;
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisFailureInfoApi;
 
 /**
  * Implementation of {@link AnalysisFailureInfoApi}.

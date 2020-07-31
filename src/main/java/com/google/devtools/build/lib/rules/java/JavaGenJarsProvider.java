@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -22,7 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaAnnotationProcessingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaAnnotationProcessingApi;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -42,7 +44,7 @@ public final class JavaGenJarsProvider
   private final NestedSet<Artifact> transitiveGenClassJars;
   private final NestedSet<Artifact> transitiveGenSourceJars;
 
-  static JavaGenJarsProvider create(
+  public static JavaGenJarsProvider create(
       boolean usesAnnotationProcessing,
       @Nullable Artifact genClassJar,
       @Nullable Artifact genSourceJar,
@@ -69,6 +71,33 @@ public final class JavaGenJarsProvider
         plugins.plugins().processorClasses(),
         classJarsBuilder.build(),
         sourceJarsBuilder.build());
+  }
+
+  /** Returns a copy with the given details, preserving transitiveXxx sets. */
+  public JavaGenJarsProvider withDirectInfo(
+      boolean usesAnnotationProcessing,
+      @Nullable Artifact genClassJar,
+      @Nullable Artifact genSourceJar,
+      NestedSet<Artifact> processorClasspath,
+      NestedSet<String> processorClassNames) {
+    // Existing Jars would be a problem b/c we can't remove them from transitiveXxx sets
+    checkState(this.genClassJar == null, "Existing genClassJar: %s", this.genClassJar);
+    checkState(this.genSourceJar == null, "Existing genSrcJar: %s", this.genSourceJar);
+    return new JavaGenJarsProvider(
+        usesAnnotationProcessing,
+        genClassJar,
+        genSourceJar,
+        processorClasspath,
+        processorClassNames,
+        addIf(transitiveGenClassJars, genClassJar),
+        addIf(transitiveGenSourceJars, genSourceJar));
+  }
+
+  private static <T> NestedSet<T> addIf(NestedSet<T> set, @Nullable T element) {
+    if (element == null) {
+      return set;
+    }
+    return NestedSetBuilder.<T>stableOrder().add(element).addTransitive(set).build();
   }
 
   // Package-private for @AutoCodec

@@ -41,4 +41,5 @@ java_library(
 java_library(
     name = "out-err",
     srcs = OUT_ERR_SRCS,
+    deps = ["//third_party:guava"],
 )

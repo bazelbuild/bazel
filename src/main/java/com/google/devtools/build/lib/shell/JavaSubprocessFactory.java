@@ -66,6 +66,11 @@ public class JavaSubprocessFactory implements SubprocessFactory {
     }
 
     @Override
+    public boolean isAlive() {
+      return process.isAlive();
+    }
+
+    @Override
     public boolean timedout() {
       return deadlineExceeded.get();
     }

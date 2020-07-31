@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -93,7 +94,7 @@ public final class SymlinkAction extends AbstractAction {
 
   @VisibleForSerialization
   @AutoCodec.Instantiator
-  protected SymlinkAction(
+  SymlinkAction(
       ActionOwner owner,
       PathFragment inputPath,
       Artifact primaryInput,
@@ -189,10 +190,12 @@ public final class SymlinkAction extends AbstractAction {
     try {
       getOutputPath(actionExecutionContext).createSymbolicLink(srcPath);
     } catch (IOException e) {
-      throw new ActionExecutionException("failed to create symbolic link '"
-          + Iterables.getOnlyElement(getOutputs()).prettyPrint()
-          + "' to '" + printInputs()
-          + "' due to I/O error: " + e.getMessage(), e, this, false);
+      String message =
+          String.format(
+              "failed to create symbolic link '%s' to '%s' due to I/O error: %s",
+              Iterables.getOnlyElement(getOutputs()).prettyPrint(), printInputs(), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.LINK_CREATION_IO_EXCEPTION);
+      throw new ActionExecutionException(message, e, this, false, code);
     }
 
     updateInputMtimeIfNeeded(actionExecutionContext);
@@ -256,16 +259,14 @@ public final class SymlinkAction extends AbstractAction {
         actionExecutionContext.getExecRoot().getRelative(getInputPath()).createDirectory();
       }
     } catch (IOException e) {
-      throw new ActionExecutionException(
-          "failed to touch symbolic link '"
-              + Iterables.getOnlyElement(getOutputs()).prettyPrint()
-              + "' to the '"
-              + getInputs().getSingleton().prettyPrint()
-              + "' due to I/O error: "
-              + e.getMessage(),
-          e,
-          this,
-          false);
+      String message =
+          String.format(
+              "failed to touch symbolic link '%s' to the '%s' due to I/O error: %s",
+              Iterables.getOnlyElement(getOutputs()).prettyPrint(),
+              getInputs().getSingleton().prettyPrint(),
+              e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.LINK_TOUCH_IO_EXCEPTION);
+      throw new ActionExecutionException(message, e, this, false, code);
     }
   }
 
@@ -281,7 +282,10 @@ public final class SymlinkAction extends AbstractAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     // We don't normally need to add inputs to the key. In this case, however, the inputPath can be
     // different from the actual input artifact.

@@ -43,8 +43,6 @@ import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationOptionDetails;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions.IncludeConfigFragmentsEnum;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions.SelectRestriction;
 import com.google.devtools.build.lib.analysis.config.TransitiveOptionDetails;
@@ -131,21 +129,14 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    // For config_setting, transitive and direct are the same (it has no transitive deps).
-    boolean includeRequiredFragments =
-        ruleContext
-                .getConfiguration()
-                .getOptions()
-                .get(CoreOptions.class)
-                .includeRequiredConfigFragmentsProvider
-            != IncludeConfigFragmentsEnum.OFF;
-
     ConfigMatchingProvider configMatcher =
         new ConfigMatchingProvider(
             ruleContext.getLabel(),
             nativeFlagSettings,
             userDefinedFlags.getSpecifiedFlagValues(),
-            includeRequiredFragments ? requiredFragmentOptions.build() : ImmutableSet.<String>of(),
+            ruleContext.shouldIncludeRequiredConfigFragmentsProvider()
+                ? requiredFragmentOptions.build()
+                : ImmutableSet.of(),
             nativeFlagsMatch && userDefinedFlags.matches() && constraintValuesMatch);
 
     return new RuleConfiguredTargetBuilder(ruleContext)

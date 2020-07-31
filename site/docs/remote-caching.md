@@ -154,7 +154,7 @@ to/from your GCS bucket.
 
 4. Connect to Cloud Storage by adding the following flags to your Bazel command:
    * Pass the following URL to Bazel by using the flag:
-       `--remote_http_cache=https://storage.googleapis.com/bucket-name`
+       `--remote_cache=https://storage.googleapis.com/bucket-name`
        where `bucket-name` is the name of your storage bucket.
    * Pass the authentication key using the flag: `--google_credentials=/path/to/your/secret-key.json`, or
      `--google_default_credentials` to use [Application Default Credentials].

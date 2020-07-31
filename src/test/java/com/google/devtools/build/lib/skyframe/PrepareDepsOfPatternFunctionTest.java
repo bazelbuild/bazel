@@ -55,7 +55,7 @@ public final class PrepareDepsOfPatternFunctionTest extends BuildViewTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     EvaluationResult<PrepareDepsOfPatternValue> evaluationResult =
         skyframeExecutor.getDriver().evaluate(ImmutableList.of(key), evaluationContext);

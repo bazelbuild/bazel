@@ -216,7 +216,7 @@ public class CommandEnvironment {
 
     this.repoEnv.putAll(clientEnv);
     if (command.builds()) {
-      // Compute the set of environment variables that are whitelisted on the commandline
+      // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
       for (Map.Entry<String, String> entry :
           options.getOptions(CoreOptions.class).actionEnvironment) {
@@ -318,6 +318,7 @@ public class CommandEnvironment {
     return directories;
   }
 
+  @Nullable
   public PathPackageLocator getPackageLocator() {
     return packageLocator;
   }
@@ -358,18 +359,18 @@ public class CommandEnvironment {
   }
 
   /**
-   * Return an ordered version of the client environment restricted to those variables whitelisted
+   * Return an ordered version of the client environment restricted to those variables allowlisted
    * by the command-line options to be inheritable by actions.
    */
-  public Map<String, String> getWhitelistedActionEnv() {
+  public Map<String, String> getAllowlistedActionEnv() {
     return filterClientEnv(visibleActionEnv);
   }
 
   /**
-   * Return an ordered version of the client environment restricted to those variables whitelisted
+   * Return an ordered version of the client environment restricted to those variables allowlisted
    * by the command-line options to be inheritable by actions.
    */
-  public Map<String, String> getWhitelistedTestEnv() {
+  public Map<String, String> getAllowlistedTestEnv() {
     return filterClientEnv(visibleTestEnv);
   }
 
@@ -688,7 +689,8 @@ public class CommandEnvironment {
    *
    * @throws AbruptExitException if this command is unsuitable to be run as specified
    */
-  void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
+  @VisibleForTesting
+  public void beforeCommand(InvocationPolicy invocationPolicy) throws AbruptExitException {
     CommonCommandOptions commonOptions = options.getOptions(CommonCommandOptions.class);
     eventBus.post(new BuildMetadataEvent(makeMapFromMapEntries(commonOptions.buildMetadata)));
     eventBus.post(

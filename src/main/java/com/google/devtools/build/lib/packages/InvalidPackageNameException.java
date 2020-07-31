@@ -15,11 +15,17 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 
 /** Exception indicating that a package name was invalid. */
 public class InvalidPackageNameException extends NoSuchPackageException {
 
   public InvalidPackageNameException(PackageIdentifier packageIdentifier, String message) {
     super(packageIdentifier, message);
+  }
+
+  public InvalidPackageNameException(
+      PackageIdentifier packageIdentifier, String message, DetailedExitCode detailedExitCode) {
+    super(packageIdentifier, message, detailedExitCode);
   }
 }

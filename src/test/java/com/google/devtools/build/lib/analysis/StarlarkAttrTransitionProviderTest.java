@@ -25,16 +25,21 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.StarlarkRuleTransitionProviderTest.DummyTestLoader;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration.TestOptions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AttributeTransitionData;
+import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.BazelMockAndroidSupport;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.Fingerprint;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -69,11 +74,11 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     return (StructImpl) configuredTarget.get(key);
   }
 
-  private void writeWhitelistFile() throws Exception {
+  private void writeAllowlistFile() throws Exception {
     scratch.file(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -82,7 +87,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   private void writeBasicTestFiles() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -103,8 +108,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  attrs = {",
         "    'deps': attr.label_list(cfg = my_transition),",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -119,7 +124,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testStarlarkSplitTransitionSplitAttr() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -139,8 +144,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  }",
         ")",
@@ -177,7 +182,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testStarlarkListSplitTransitionSplitAttr() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -197,8 +202,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  }",
         ")",
@@ -229,7 +234,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testStarlarkPatchTransitionSplitAttr() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -246,8 +251,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  }",
         ")",
@@ -280,7 +285,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     // This is a customized test case for b/152078818, where a starlark transition that takes a
     // starlark config as input caused a failure when no custom values were provided for the config.
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/starlark/rules.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
@@ -303,8 +308,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  }",
         ")",
@@ -342,12 +347,12 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testTargetAndRuleNotInWhitelist() throws Exception {
+  public void testTargetAndRuleNotInAllowlist() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     scratch.file(
-        "not_whitelisted/my_rule.bzl",
+        "not_allowlisted/my_rule.bzl",
         "load('//myinfo:myinfo.bzl', 'MyInfo')",
         "def transition_func(settings, attr):",
         "  return [",
@@ -365,19 +370,19 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  attrs = {",
         "    'deps': attr.label_list(cfg = my_transition),",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
     scratch.file(
-        "not_whitelisted/BUILD",
-        "load('//not_whitelisted:my_rule.bzl', 'my_rule')",
+        "not_allowlisted/BUILD",
+        "load('//not_allowlisted:my_rule.bzl', 'my_rule')",
         "my_rule(name = 'test', dep = ':main')",
         "cc_binary(name = 'main', srcs = ['main.c'])");
 
     reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//not_whitelisted:test");
-    assertContainsEvent("Non-whitelisted use of Starlark transition");
+    getConfiguredTarget("//not_allowlisted:test");
+    assertContainsEvent("Non-allowlisted use of Starlark transition");
   }
 
   private void testSplitTransitionCheckAttrDeps(ConfiguredTarget target) throws Exception {
@@ -412,7 +417,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   private void writeReadSettingsTestFiles() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -431,8 +436,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -462,7 +467,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   private void writeOptionConversionTestFiles() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -483,8 +488,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -512,7 +517,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testUndeclaredOptionKey() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -525,8 +530,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -545,7 +550,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testDeclaredOutputNotReturned() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -561,8 +566,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -582,7 +587,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testSettingsContainOnlyInputs() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -602,8 +607,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -619,7 +624,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidInputKey() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -633,8 +638,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -654,7 +659,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidNativeOptionInput() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -669,8 +674,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -690,7 +695,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidNativeOptionOutput() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -704,8 +709,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -725,7 +730,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidOutputKey() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -739,8 +744,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -760,7 +765,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testInvalidOptionValue() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -774,8 +779,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -793,7 +798,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testDuplicateOutputs() throws Exception {
     setStarlarkSemanticsOptions("--experimental_starlark_config_transitions=true");
-    writeWhitelistFile();
+    writeAllowlistFile();
 
     scratch.file(
         "test/starlark/my_rule.bzl",
@@ -810,8 +815,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = impl,",
         "  attrs = {",
         "    'dep':  attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })");
 
@@ -920,8 +925,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _rule_impl,",
         "  attrs = {",
         "    'dep': attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "      default = '//tools/whitelists/function_transition_whitelist'),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
         "  }",
         ")",
         "def _dep_rule_impl(ctx):",
@@ -936,7 +941,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_fromDefault() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeBuildSettingsBzl();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
@@ -962,7 +967,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_fromCommandLine() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeBuildSettingsBzl();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
@@ -1000,7 +1005,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testOutputDirHash_multipleNativeOptionTransitions() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_impl(settings, attr):",
@@ -1022,8 +1027,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  cfg = foo_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = bar_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1051,22 +1056,21 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertThat(affectedOptions).containsExactly("foo", "bar");
 
     assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo("ST-" + new Fingerprint().addString("foo=foosball").hexDigestAndReset());
+        .isEqualTo(
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("foo=foosball")));
 
     assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
         .isEqualTo(
-            "ST-"
-                + new Fingerprint()
-                    .addString("bar=barsball")
-                    .addString("foo=foosball")
-                    .hexDigestAndReset());
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("bar=barsball", "foo=foosball")));
   }
 
   // Test that a no-op starlark transition to an already starlark transitioned configuration
   // results in the same configuration.
   @Test
   public void testOutputDirHash_noop_changeToSameState() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _bar_impl(settings, attr):",
@@ -1084,8 +1088,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  cfg = bar_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = bar_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1115,7 +1119,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testOutputDirHash_noop_emptyReturns() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _bar_impl(settings, attr):",
@@ -1133,8 +1137,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  cfg = bar_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = bar_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1162,7 +1166,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   // TODO(bazel-team): This can be optimized. Make these the same configuration.
   @Test
   public void testOutputDirHash_noop_changeToDifferentStateAsTopLevel() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _bar_impl(settings, attr):",
@@ -1179,8 +1183,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'dep': attr.label(cfg = bar_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1226,7 +1230,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testOutputDirHash_multipleStarlarkOptionTransitions_backToDefaultCommandLine()
       throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_two_impl(settings, attr):",
@@ -1243,8 +1247,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'dep': attr.label(cfg = foo_two_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1278,7 +1282,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   // TODO(bazel-team): This can be optimized. Make these the same configuration.
   @Test
   public void testOutputDirHash_multipleStarlarkOptionTransitions_backToDefault() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_two_impl(settings, attr):",
@@ -1295,8 +1299,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _impl,",
         "  attrs = {",
         "    'dep': attr.label(cfg = foo_two_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1329,7 +1333,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
   @Test
   public void testOutputDirHash_starlarkOption_differentBoolRepresentationsNotEquals()
       throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_impl(settings, attr):",
@@ -1351,8 +1355,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  cfg = foo_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = foo_two_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1377,14 +1381,18 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             (List<ConfiguredTarget>) getMyInfoFromTarget(test).getValue("dep"));
 
     assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo("ST-" + new Fingerprint().addString("//test:foo=1").hexDigestAndReset());
+        .isEqualTo(
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("//test:foo=1")));
     assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
-        .isEqualTo("ST-" + new Fingerprint().addString("//test:foo=true").hexDigestAndReset());
+        .isEqualTo(
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("//test:foo=true")));
   }
 
   @Test
   public void testOutputDirHash_nativeOption_differentBoolRepresentationsEquals() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _bool_impl(settings, attr):",
@@ -1406,8 +1414,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  cfg = bool_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = bool_two_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1432,7 +1440,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testOutputDirHash_multipleStarlarkTransitions() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_impl(settings, attr):",
@@ -1454,8 +1462,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  cfg = foo_transition,",
         "  attrs = {",
         "    'dep': attr.label(cfg = bar_transition), ",
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1486,21 +1494,20 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     // Assert that affectedOptions is empty but final fragment is still different.
     assertThat(affectedOptions).isEmpty();
     assertThat(getCoreOptions(test).transitionDirectoryNameFragment)
-        .isEqualTo("ST-" + new Fingerprint().addString("//test:foo=foosball").hexDigestAndReset());
+        .isEqualTo(
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("//test:foo=foosball")));
     assertThat(getCoreOptions(dep).transitionDirectoryNameFragment)
         .isEqualTo(
-            "ST-"
-                + new Fingerprint()
-                    .addString("//test:bar=barsball")
-                    .addString("//test:foo=foosball")
-                    .hexDigestAndReset());
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("//test:bar=barsball", "//test:foo=foosball")));
   }
 
   // This test is massive but mostly exists to ensure that all the parts are working together
   // properly amidst multiple complicated transitions.
   @Test
   public void testOutputDirHash_multipleMixedTransitions() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     scratch.file(
         "test/transitions.bzl",
         "def _foo_impl(settings, attr):",
@@ -1535,8 +1542,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  cfg = foo_transition,", // transition #1
         "  attrs = {",
         "    'dep': attr.label(cfg = zee_transition), ", // transition #2
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _impl_b(ctx):",
@@ -1546,8 +1553,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  cfg = bar_transition,", // transition #3
         "  attrs = {",
         "    'dep': attr.label(cfg = xan_transition), ", // transition #4
-        "    '_whitelist_function_transition': attr.label(",
-        "        default = '//tools/whitelists/function_transition_whitelist',",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
         "    ),",
         "  })",
         "def _basic_impl(ctx):",
@@ -1575,7 +1582,9 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
     assertThat(affectedOptionsTop).containsExactly("foo");
     assertThat(getConfiguration(top).getOptions().getStarlarkOptions()).isEmpty();
     assertThat(getCoreOptions(top).transitionDirectoryNameFragment)
-        .isEqualTo("ST-" + new Fingerprint().addString("foo=foosball").hexDigestAndReset());
+        .isEqualTo(
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("foo=foosball")));
 
     // test:middle (foo_transition, zee_transition, bar_transition)
     @SuppressWarnings("unchecked")
@@ -1591,12 +1600,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:zee"), "zeesball"));
     assertThat(getCoreOptions(middle).transitionDirectoryNameFragment)
         .isEqualTo(
-            "ST-"
-                + new Fingerprint()
-                    .addString("//test:zee=zeesball")
-                    .addString("bar=barsball")
-                    .addString("foo=foosball")
-                    .hexDigestAndReset());
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of("//test:zee=zeesball", "bar=barsball", "foo=foosball")));
 
     // test:bottom (foo_transition, zee_transition, bar_transition, xan_transition)
     @SuppressWarnings("unchecked")
@@ -1614,18 +1619,14 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
             Maps.immutableEntry(Label.parseAbsoluteUnchecked("//test:xan"), "xansball"));
     assertThat(getCoreOptions(bottom).transitionDirectoryNameFragment)
         .isEqualTo(
-            "ST-"
-                + new Fingerprint()
-                    .addString("//test:xan=xansball")
-                    .addString("//test:zee=zeesball")
-                    .addString("bar=barsball")
-                    .addString("foo=foosball")
-                    .hexDigestAndReset());
+            FunctionTransitionUtil.transitionDirectoryNameFragment(
+                ImmutableList.of(
+                    "//test:xan=xansball", "//test:zee=zeesball", "bar=barsball", "foo=foosball")));
   }
 
   @Test
   public void testTransitionOnBuildSetting_badValue() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeBuildSettingsBzl();
     scratch.file(
         "test/starlark/rules.bzl",
@@ -1644,8 +1645,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _rule_impl,",
         "  attrs = {",
         "    'dep': attr.label(cfg = my_transition),",
-        "    '_whitelist_function_transition': attr.label(",
-        "      default = '//tools/whitelists/function_transition_whitelist'),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
         "  }",
         ")",
         "def _dep_rule_impl(ctx):",
@@ -1677,7 +1678,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_noSuchTarget() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeRulesWithAttrTransitionBzl();
     // Still need to write this file in order not to rewrite rules.bzl file (has loads from this
     // file)
@@ -1697,7 +1698,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
 
   @Test
   public void testTransitionOnBuildSetting_notABuildSetting() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     writeRulesWithAttrTransitionBzl();
     scratch.file(
         "test/starlark/build_settings.bzl",
@@ -1728,7 +1729,7 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
    */
   @Test
   public void testBuildSettingTransitionsWorkWithExecTransitions() throws Exception {
-    writeWhitelistFile();
+    writeAllowlistFile();
     // This setup creates an int_flag_reading_rule whose output is the value of an int_flag (which
     // guarantees actions in configurations with different Starlark flag values are different). It
     // then makes this a genrule exec tool (so it applies after an exec transition). And finally
@@ -1762,8 +1763,8 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         "  implementation = _rule_impl,",
         "  attrs = {",
         "    'dep': attr.label(cfg = my_transition, allow_single_file = True),",
-        "    '_whitelist_function_transition': attr.label(",
-        "      default = '//tools/whitelists/function_transition_whitelist'),",
+        "    '_allowlist_function_transition': attr.label(",
+        "      default = '//tools/allowlists/function_transition_allowlist'),",
         "  })");
     scratch.file(
         "test/starlark/BUILD",
@@ -1792,6 +1793,52 @@ public class StarlarkAttrTransitionProviderTest extends BuildViewTestCase {
         /*doAnalysis=*/ true,
         new EventBus());
     assertNoEvents();
+  }
+
+  @Test
+  public void starlarkSplitTransitionRequiredFragments() throws Exception {
+    // All Starlark rule transitions are patch transitions, while all Starlark attribute transitions
+    // are split transitions.
+    writeAllowlistFile();
+    scratch.file(
+        "test/my_rule.bzl",
+        "load('//myinfo:myinfo.bzl', 'MyInfo')",
+        "def transition_func(settings, attr):",
+        "  return [",
+        "    {'//command_line_option:copt': []}", // --copt is a C++ option.
+        "  ]",
+        "my_transition = transition(",
+        "  implementation = transition_func,",
+        "  inputs = [],",
+        "  outputs = ['//command_line_option:copt'])",
+        "def impl(ctx): ",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = impl,",
+        "  attrs = {",
+        "    'dep': attr.label(cfg = my_transition),",
+        "    '_allowlist_function_transition': attr.label(",
+        "        default = '//tools/allowlists/function_transition_allowlist',",
+        "    ),",
+        "  })");
+    scratch.file(
+        "test/BUILD",
+        "load('//test:my_rule.bzl', 'my_rule')",
+        "my_rule(name = 'test', dep = ':dep')",
+        "cc_library(name = 'dep', srcs = ['dep.c'])");
+
+    ConfiguredTargetAndData ct = getConfiguredTargetAndData("//test");
+    assertNoEvents();
+    Rule testTarget = (Rule) ct.getTarget();
+    ConfiguredAttributeMapper attributes =
+        ConfiguredAttributeMapper.of(testTarget, ImmutableMap.of());
+    ConfigurationTransition attrTransition =
+        attributes
+            .getAttributeDefinition("dep")
+            .getTransitionFactory()
+            .create(AttributeTransitionData.builder().attributes(attributes).build());
+    assertThat(attrTransition.requiresOptionFragments(ct.getConfiguration().getOptions()))
+        .containsExactly("CppOptions");
   }
 
   @Test

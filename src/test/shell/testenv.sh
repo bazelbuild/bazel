@@ -280,9 +280,9 @@ EOF
         "openjdk11_darwin_archive"
         "openjdk11_linux_archive"
         "openjdk11_windows_archive"
-        "openjdk12_darwin_archive"
-        "openjdk12_linux_archive"
-        "openjdk12_windows_archive"
+        "openjdk14_darwin_archive"
+        "openjdk14_linux_archive"
+        "openjdk14_windows_archive"
         "openjdk_linux_aarch64_minimal"
         "openjdk_linux_minimal"
         "openjdk_macos_minimal"
@@ -292,9 +292,6 @@ EOF
         "remote_java_tools_javac11_test_darwin"
         "remote_java_tools_javac11_test_linux"
         "remote_java_tools_javac11_test_windows"
-        "remote_java_tools_javac12_test_darwin"
-        "remote_java_tools_javac12_test_linux"
-        "remote_java_tools_javac12_test_windows"
         "remote_java_tools_linux_for_testing"
         "remote_java_tools_windows_for_testing"
         "remotejdk11_linux_for_testing"
@@ -302,6 +299,9 @@ EOF
         "remotejdk11_linux_ppc64le_for_testing"
         "remotejdk11_macos_for_testing"
         "remotejdk11_win_for_testing"
+        "remotejdk14_linux_for_testing"
+        "remotejdk14_macos_for_testing"
+        "remotejdk14_win_for_testing"
         "rules_cc"
         "rules_java"
         "rules_pkg"
@@ -468,6 +468,9 @@ new_local_repository(
     build_file_content = '',
     path='$skylib_root',
 )
+
+load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
+bazel_skylib_workspace()
 EOF
 }
 

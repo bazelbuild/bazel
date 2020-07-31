@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.test;
 
-import com.google.devtools.build.lib.skylarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.test.AnalysisFailureInfoApi.AnalysisFailureInfoProviderApi;
 import com.google.devtools.build.lib.syntax.Printer;
 
 /**

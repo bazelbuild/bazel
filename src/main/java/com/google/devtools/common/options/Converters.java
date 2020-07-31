@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.common.options;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.cache.CacheBuilderSpec;
@@ -31,6 +32,12 @@ import java.util.regex.PatternSyntaxException;
 /** Some convenient converters used by blaze. Note: These are specific to blaze. */
 public final class Converters {
 
+  private static final ImmutableList<String> ENABLED_REPS =
+      ImmutableList.of("true", "1", "yes", "t", "y");
+
+  private static final ImmutableList<String> DISABLED_REPS =
+      ImmutableList.of("false", "0", "no", "f", "n");
+
   /** Standard converter for booleans. Accepts common shorthands/synonyms. */
   public static class BooleanConverter implements Converter<Boolean> {
     @Override
@@ -38,19 +45,11 @@ public final class Converters {
       if (input == null) {
         return false;
       }
-      input = input.toLowerCase();
-      if (input.equals("true")
-          || input.equals("1")
-          || input.equals("yes")
-          || input.equals("t")
-          || input.equals("y")) {
+      input = Ascii.toLowerCase(input);
+      if (ENABLED_REPS.contains(input)) {
         return true;
       }
-      if (input.equals("false")
-          || input.equals("0")
-          || input.equals("no")
-          || input.equals("f")
-          || input.equals("n")) {
+      if (DISABLED_REPS.contains(input)) {
         return false;
       }
       throw new OptionsParsingException("'" + input + "' is not a boolean");
@@ -133,22 +132,14 @@ public final class Converters {
       if (input == null) {
         return TriState.AUTO;
       }
-      input = input.toLowerCase();
+      input = Ascii.toLowerCase(input);
       if (input.equals("auto")) {
         return TriState.AUTO;
       }
-      if (input.equals("true")
-          || input.equals("1")
-          || input.equals("yes")
-          || input.equals("t")
-          || input.equals("y")) {
+      if (ENABLED_REPS.contains(input)) {
         return TriState.YES;
       }
-      if (input.equals("false")
-          || input.equals("0")
-          || input.equals("no")
-          || input.equals("f")
-          || input.equals("n")) {
+      if (DISABLED_REPS.contains(input)) {
         return TriState.NO;
       }
       throw new OptionsParsingException("'" + input + "' is not a boolean");

@@ -24,7 +24,7 @@ public class FilesystemFileAccessor implements StarlarkFileAccessor {
 
   @Override
   public ParserInput inputSource(String filename) throws IOException {
-    return ParserInput.create(Files.readAllBytes(Paths.get(filename)), filename);
+    return ParserInput.fromLatin1(Files.readAllBytes(Paths.get(filename)), filename);
   }
 
   @Override

@@ -71,7 +71,7 @@ public class ResolvedFileFunction implements SkyFunction {
 
         // parse
         StarlarkFile file =
-            StarlarkFile.parse(ParserInput.create(bytes, key.getPath().asPath().toString()));
+            StarlarkFile.parse(ParserInput.fromLatin1(bytes, key.getPath().asPath().toString()));
         if (!file.ok()) {
           Event.replayEventsOn(env.getListener(), file.errors());
           throw resolvedValueError("Failed to parse resolved file " + key.getPath());

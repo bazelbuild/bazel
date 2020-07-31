@@ -14,30 +14,24 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.skylarkbuildapi.ExecGroupApi;
+import com.google.devtools.build.lib.starlarkbuildapi.ExecGroupApi;
 import java.util.Set;
 
-/**
- * Resolves the appropriate toolchains for the given parameters.
- *
- * <p>Currently just a stub.
- */
-public class ExecGroup implements ExecGroupApi {
-  private final ImmutableSet<Label> requiredToolchains;
-  private final ImmutableSet<Label> execCompatibleWith;
+/** Resolves the appropriate toolchains for the given parameters. */
+@AutoValue
+public abstract class ExecGroup implements ExecGroupApi {
 
-  public ExecGroup(Set<Label> requiredToolchains, Set<Label> execCompatibleWith) {
-    this.requiredToolchains = ImmutableSet.copyOf(requiredToolchains);
-    this.execCompatibleWith = ImmutableSet.copyOf(execCompatibleWith);
+  static final ExecGroup EMPTY_EXEC_GROUP = create(ImmutableSet.of(), ImmutableSet.of());
+
+  public static ExecGroup create(Set<Label> requiredToolchains, Set<Label> execCompatibleWith) {
+    return new AutoValue_ExecGroup(
+        ImmutableSet.copyOf(requiredToolchains), ImmutableSet.copyOf(execCompatibleWith));
   }
 
-  public ImmutableSet<Label> getRequiredToolchains() {
-    return requiredToolchains;
-  }
+  public abstract ImmutableSet<Label> requiredToolchains();
 
-  public ImmutableSet<Label> getExecutionPlatformConstraints() {
-    return execCompatibleWith;
-  }
+  public abstract ImmutableSet<Label> execCompatibleWith();
 }

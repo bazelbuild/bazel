@@ -21,10 +21,12 @@ import static com.google.devtools.build.lib.packages.Type.STRING;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
@@ -266,9 +268,9 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
 
   private void createConfigTransitioningRuleClass() throws Exception {
     writeFile(
-        "tools/whitelists/function_transition_whitelist/BUILD",
+        "tools/allowlists/function_transition_allowlist/BUILD",
         "package_group(",
-        "    name = 'function_transition_whitelist',",
+        "    name = 'function_transition_allowlist',",
         "    packages = [",
         "        '//test/...',",
         "    ],",
@@ -292,8 +294,8 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         "    implementation = _rule_impl,",
         "    attrs = {",
         "        'deps': attr.label_list(cfg = my_transition),",
-        "        '_whitelist_function_transition': attr.label(",
-        "            default = '//tools/whitelists/function_transition_whitelist',",
+        "        '_allowlist_function_transition': attr.label(",
+        "            default = '//tools/allowlists/function_transition_allowlist',",
         "        ),",
         "    }",
         ")",
@@ -486,9 +488,14 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
   /** Return an empty BuildOptions for testing fragment dropping. * */
   public static class RemoveTestOptionsTransition implements PatchTransition {
     @Override
-    public BuildOptions patch(BuildOptions options, EventHandler eventHandler) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(TestOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
       BuildOptions.Builder builder = BuildOptions.builder();
-      for (FragmentOptions option : options.getNativeOptions()) {
+      for (FragmentOptions option : options.underlying().getNativeOptions()) {
         if (!(option instanceof TestOptions)) {
           builder.addFragmentOptions(option);
         }

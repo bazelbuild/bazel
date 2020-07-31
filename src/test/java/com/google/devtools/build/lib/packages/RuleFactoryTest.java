@@ -70,14 +70,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     RuleClass ruleClass = provider.getRuleClassMap().get("cc_library");
     Rule rule =
-        RuleFactory.createAndAddRule(
+        RuleFactory.createAndAddRuleImpl(
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
             StarlarkSemantics.DEFAULT,
-            DUMMY_STACK,
-            new AttributeContainer(ruleClass));
+            DUMMY_STACK);
 
     assertThat(rule.getAssociatedRule()).isSameInstanceAs(rule);
 
@@ -128,14 +127,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
     RuleClass ruleClass = provider.getRuleClassMap().get("bind");
     Rule rule =
-        RuleFactory.createAndAddRule(
+        RuleFactory.createAndAddRuleImpl(
             pkgBuilder,
             ruleClass,
             new BuildLangTypedAttributeValuesMap(attributeValues),
             new Reporter(new EventBus()),
             StarlarkSemantics.DEFAULT,
-            DUMMY_STACK,
-            new AttributeContainer(ruleClass));
+            DUMMY_STACK);
     assertThat(rule.containsErrors()).isFalse();
   }
 
@@ -157,14 +155,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRule(
+                RuleFactory.createAndAddRuleImpl(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
                     StarlarkSemantics.DEFAULT,
-                    DUMMY_STACK,
-                    new AttributeContainer(ruleClass)));
+                    DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("must be in the WORKSPACE file");
   }
 
@@ -186,14 +183,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRule(
+                RuleFactory.createAndAddRuleImpl(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
                     StarlarkSemantics.DEFAULT,
-                    DUMMY_STACK,
-                    new AttributeContainer(ruleClass)));
+                    DUMMY_STACK));
     assertThat(e).hasMessageThat().contains("cannot be in the WORKSPACE file");
   }
 
@@ -227,14 +223,13 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
         assertThrows(
             RuleFactory.InvalidRuleException.class,
             () ->
-                RuleFactory.createAndAddRule(
+                RuleFactory.createAndAddRuleImpl(
                     pkgBuilder,
                     ruleClass,
                     new BuildLangTypedAttributeValuesMap(attributeValues),
                     new Reporter(new EventBus()),
                     StarlarkSemantics.DEFAULT,
-                    DUMMY_STACK,
-                    new AttributeContainer(ruleClass)));
+                    DUMMY_STACK));
     assertWithMessage(e.getMessage())
         .that(e.getMessage().contains("output file name can't be equal '.'"))
         .isTrue();

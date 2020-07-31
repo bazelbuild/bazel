@@ -244,11 +244,11 @@ EOF
 
   bazel build //test:test --nested_set_depth_limit=500 &> $TEST_log \
       && fail "Build should have failed at depth limit 500"
-  expect_log "depset exceeded maximum depth 500"
+  expect_log "depset depth 501 exceeds limit (500)"
 
   bazel build //test:test --nested_set_depth_limit=100 &> $TEST_log \
       && fail "Build should have failed at depth limit 100"
-  expect_log "depset exceeded maximum depth 100"
+  expect_log "depset depth 101 exceeds limit (100)"
 
   bazel build //test:test --nested_set_depth_limit=3000 &> $TEST_log \
       || fail "Build should have succeeded at depth limit 3000"

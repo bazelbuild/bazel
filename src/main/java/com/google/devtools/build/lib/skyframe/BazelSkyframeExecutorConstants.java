@@ -27,7 +27,7 @@ public class BazelSkyframeExecutorConstants {
   private BazelSkyframeExecutorConstants() {
   }
 
-  public static final ImmutableSet<PathFragment> HARDCODED_BLACKLISTED_PACKAGE_PREFIXES =
+  public static final ImmutableSet<PathFragment> HARDCODED_IGNORED_PACKAGE_PREFIXES =
       ImmutableSet.of();
 
   /**
@@ -40,8 +40,8 @@ public class BazelSkyframeExecutorConstants {
    * after pattern expansion. So if a pattern expansion fails (e.g., due to symlink-cycles) and
    * therefore fails the build, this ignore functionality currently has no chance to kick in.
    */
-  public static final SkyFunction BLACKLISTED_PACKAGE_PREFIXES_FUNCTION =
-      new BlacklistedPackagePrefixesFunction(PathFragment.create(".bazelignore"));
+  public static final SkyFunction IGNORED_PACKAGE_PREFIXES_FUNCTION =
+      new IgnoredPackagePrefixesFunction(PathFragment.create(".bazelignore"));
 
   public static final CrossRepositoryLabelViolationStrategy
       CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY = CrossRepositoryLabelViolationStrategy.ERROR;
@@ -61,7 +61,7 @@ public class BazelSkyframeExecutorConstants {
 
   public static SequencedSkyframeExecutor.Builder newBazelSkyframeExecutorBuilder() {
     return SequencedSkyframeExecutor.builder()
-        .setBlacklistedPackagePrefixesFunction(BLACKLISTED_PACKAGE_PREFIXES_FUNCTION)
+        .setIgnoredPackagePrefixesFunction(IGNORED_PACKAGE_PREFIXES_FUNCTION)
         .setActionOnIOExceptionReadingBuildFile(ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
         .setCrossRepositoryLabelViolationStrategy(CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
         .setBuildFilesByPriority(BUILD_FILES_BY_PRIORITY)

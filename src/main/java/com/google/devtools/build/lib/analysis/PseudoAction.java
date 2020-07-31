@@ -34,6 +34,7 @@ import com.google.protobuf.Extension;
 import com.google.protobuf.MessageLite;
 import java.util.Collection;
 import java.util.UUID;
+import javax.annotation.Nullable;
 
 /**
  * An action that is inserted into the build graph only to provide info
@@ -83,7 +84,10 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addUUID(uuid);
     fp.addBytes(getInfo().toByteArray());
   }

@@ -121,7 +121,7 @@ final class Eval {
 
   private static void execDef(StarlarkThread.Frame fr, DefStatement node)
       throws EvalException, InterruptedException {
-    Resolver.Function rfn = node.resolved;
+    Resolver.Function rfn = node.getResolvedFunction();
 
     // Evaluate default value expressions of optional parameters.
     // We use MANDATORY to indicate a required parameter
@@ -129,9 +129,10 @@ final class Eval {
     // it will be constructed by the code emitted by the compiler).
     // As an optimization, we omit the prefix of MANDATORY parameters.
     Object[] defaults = null;
-    int nparams = rfn.params.size() - (rfn.hasKwargs ? 1 : 0) - (rfn.hasVarargs ? 1 : 0);
+    int nparams =
+        rfn.getParameters().size() - (rfn.hasKwargs() ? 1 : 0) - (rfn.hasVarargs() ? 1 : 0);
     for (int i = 0; i < nparams; i++) {
-      Expression expr = rfn.params.get(i).getDefaultValue();
+      Expression expr = rfn.getParameters().get(i).getDefaultValue();
       if (expr == null && defaults == null) {
         continue; // skip prefix of required parameters
       }
@@ -282,11 +283,6 @@ final class Eval {
     } else if (lhs instanceof ListExpression) {
       // a, b, c = ...
       ListExpression list = (ListExpression) lhs;
-      // Reject assignment to empty tuple/list.
-      // See https://github.com/bazelbuild/starlark/issues/93.
-      if (list.getElements().isEmpty()) {
-        throw Starlark.errorf("can't assign to %s", list);
-      }
       assignSequence(fr, list.getElements(), value);
 
     } else {
@@ -312,7 +308,7 @@ final class Eval {
               ? Resolver.Scope.GLOBAL //
               : Resolver.Scope.LOCAL;
     } else {
-      scope = bind.scope;
+      scope = bind.getScope();
     }
 
     String name = id.getName();
@@ -386,11 +382,6 @@ final class Eval {
       } catch (EvalException ex) {
         throw ex.ensureLocation(stmt.getOperatorLocation());
       }
-
-    } else if (lhs instanceof ListExpression) {
-      // TODO(adonovan): make this a static error.
-      throw new EvalException(
-          stmt.getOperatorLocation(), "cannot perform augmented assignment on a list literal");
 
     } else {
       // Not possible for resolved ASTs.
@@ -509,11 +500,8 @@ final class Eval {
     Object object = eval(fr, dot.getObject());
     String name = dot.getField().getName();
     try {
-      Object result = EvalUtils.getAttr(fr.thread, object, name);
-      if (result == null) {
-        throw EvalUtils.getMissingAttrException(object, name, fr.thread.getSemantics());
-      }
-      return result;
+      return Starlark.getattr(
+          fr.thread.mutability(), fr.thread.getSemantics(), object, name, /*defaultValue=*/ null);
     } catch (EvalException ex) {
       throw ex.ensureLocation(dot.getDotLocation());
     }
@@ -646,7 +634,7 @@ final class Eval {
     }
 
     Object result;
-    switch (bind.scope) {
+    switch (bind.getScope()) {
       case LOCAL:
         result = fr.locals.get(name);
         break;
@@ -665,7 +653,8 @@ final class Eval {
       // but its assignment was not yet executed.
       throw new EvalException(
           id.getStartLocation(),
-          String.format("%s variable '%s' is referenced before assignment.", bind.scope, name));
+          String.format(
+              "%s variable '%s' is referenced before assignment.", bind.getScope(), name));
     }
     return result;
   }
@@ -810,8 +799,9 @@ final class Eval {
 
   /** Returns an exception which should be thrown instead of the original one. */
   private static EvalException maybeTransformException(Node node, EvalException original) {
-    // TODO(adonovan): the only place that should be doing this is Starlark.fastcall,
-    // and it should grab the entire callstack from the thread at that moment.
+    // TODO(adonovan): the only place that should be adding stack frames to the
+    // exception is Starlark.fastcall, and it should grab the entire callstack
+    // from the thread at that moment, with no reference to syntax.
 
     // If there is already a non-empty stack trace, we only add this node iff it describes a
     // new scope (e.g. CallExpression).

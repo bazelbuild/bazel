@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -45,9 +46,12 @@ import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -308,6 +312,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
     assertThat(errorMessage).contains(expectedMessage);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
   }
 
   @Test
@@ -344,6 +350,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
     assertThat(errorMessage).contains(expectedMessage);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR);
   }
 
   /** Regression test for unexpected exception type from PackageValue. */
@@ -372,6 +380,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertThat(errorMessage).contains("Inconsistent filesystem operations");
     assertThat(errorMessage).contains(expectedMessage);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR);
   }
 
   @SuppressWarnings("unchecked") // Cast of srcs attribute to Iterable<Label>.
@@ -617,6 +627,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "error loading package 'test/starlark': "
             + "cannot load '//test/starlark:bad_extension.bzl': no such file";
     assertThat(errorInfo.getException()).hasMessageThat().isEqualTo(expectedMsg);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -646,6 +658,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             "error loading package 'test/starlark': "
                 + "in /workspace/test/starlark/extension.bzl: "
                 + "cannot load '//test/starlark:bad_extension.bzl': no such file");
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -673,6 +687,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .isEqualTo(
             "error loading package 'test/starlark': Encountered error while reading extension "
                 + "file 'test/starlark/extension.bzl': Symlink cycle");
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -855,6 +871,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains("nope");
     assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
     assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
+    assertDetailedExitCode(errorInfo.getException(), PackageLoading.Code.BUILD_FILE_MISSING);
   }
 
   @Test
@@ -874,6 +891,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains("nope");
     assertThat(errorInfo.getException()).isInstanceOf(NoSuchPackageException.class);
     assertThat(errorInfo.getException()).hasCauseThat().isInstanceOf(IOException.class);
+    assertDetailedExitCode(
+        errorInfo.getException(), PackageLoading.Code.IMPORT_STARLARK_FILE_ERROR);
   }
 
   @Test
@@ -929,11 +948,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     invalidatePackages();
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
-    Package pkg = validPackage(skyKey);
+    validPackage(skyKey);
 
-    String expectedEventString = "expected boolean for argument `allow_empty`, got `5`";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
-    assertContainsEvent(expectedEventString);
+    assertContainsEvent("expected boolean for argument `allow_empty`, got `5`");
   }
 
   @Test
@@ -944,7 +961,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isFalse();
-    assertThat(pkg.getEvents()).isEmpty();
+    assertNoEvents();
   }
 
   @Test
@@ -960,7 +977,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//pkg"));
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isFalse();
-    assertThat(pkg.getEvents()).isEmpty();
+    assertNoEvents();
   }
 
   @Test
@@ -973,7 +990,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isFalse();
-    assertThat(pkg.getEvents()).isEmpty();
+    assertNoEvents();
 
     scratch.deleteFile("pkg/blah.foo");
     getSkyframeExecutor()
@@ -985,10 +1002,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
-    String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
-    assertContainsEvent(expectedEventString);
+    assertContainsEvent(
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).");
   }
 
   @Test
@@ -1006,7 +1022,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isFalse();
-    assertThat(pkg.getEvents()).isEmpty();
+    assertNoEvents();
 
     scratch.deleteFile("pkg/blah.foo");
     getSkyframeExecutor()
@@ -1018,10 +1034,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
-    String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
-    assertContainsEvent(expectedEventString);
+    assertContainsEvent(
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).");
   }
 
   @Test
@@ -1035,8 +1050,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     assertContainsEvent(expectedEventString);
 
     scratch.overwriteFile("pkg/BUILD", "x = " + "glob(['*.foo'], allow_empty=False) #comment");
@@ -1048,7 +1063,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
   }
 
@@ -1068,8 +1082,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     assertContainsEvent(expectedEventString);
 
     scratch.overwriteFile("pkg/BUILD", "x = " + "glob(['*.foo']) #comment");
@@ -1081,7 +1095,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
   }
 
@@ -1098,8 +1111,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "all files in the glob have been excluded, but allow_empty is set to False.";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
+        "all files in the glob have been excluded, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     assertContainsEvent(expectedEventString);
 
     scratch.overwriteFile(
@@ -1113,7 +1126,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
   }
 
@@ -1135,8 +1147,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
     String expectedEventString =
-        "all files in the glob have been excluded, but allow_empty is set to False.";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
+        "all files in the glob have been excluded, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).";
     assertContainsEvent(expectedEventString);
 
     scratch.overwriteFile("pkg/BUILD", "x = glob(include=['*.foo'], exclude=['blah.*']) # comment");
@@ -1148,7 +1160,6 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
     assertContainsEvent(expectedEventString);
   }
 
@@ -1162,10 +1173,9 @@ public class PackageFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
-    String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
-    assertContainsEvent(expectedEventString);
+    assertContainsEvent(
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).");
 
     scratch.file("pkg/blah.foo");
     getSkyframeExecutor()
@@ -1175,9 +1185,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
 
     reporter.addHandler(failFastHandler);
+    eventCollector.clear();
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isFalse();
-    assertThat(pkg.getEvents()).isEmpty();
+    assertNoEvents();
   }
 
   @Test
@@ -1195,10 +1206,10 @@ public class PackageFunctionTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     Package pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isTrue();
-    String expectedEventString =
-        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False";
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), expectedEventString);
-    assertContainsEvent(expectedEventString);
+
+    assertContainsEvent(
+        "glob pattern '*.foo' didn't match anything, but allow_empty is set to False (the "
+            + "default value of allow_empty can be set with --incompatible_disallow_empty_glob).");
 
     scratch.file("pkg/blah.foo");
     getSkyframeExecutor()
@@ -1208,9 +1219,45 @@ public class PackageFunctionTest extends BuildViewTestCase {
             Root.fromPath(rootDirectory));
 
     reporter.addHandler(failFastHandler);
+    eventCollector.clear();
     pkg = validPackage(skyKey);
     assertThat(pkg.containsErrors()).isFalse();
-    assertThat(pkg.getEvents()).isEmpty();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testPackageRecordsLoadedModules() throws Exception {
+    scratch.file("p/BUILD", "load('a.bzl', 'a'); load(':b.bzl', 'b')");
+    scratch.file("p/a.bzl", "load('c.bzl', 'c'); a = c");
+    scratch.file("p/b.bzl", "load(':c.bzl', 'c'); b = c");
+    scratch.file("p/c.bzl", "c = 0");
+
+    // load p
+    preparePackageLoading(rootDirectory);
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//p"));
+    Package p = validPackageWithoutErrors(skyKey);
+
+    // Keys are load strings as they appear in the source (notice ":" in one of them).
+    Map<String, Module> pLoads = p.getLoads();
+    assertThat(pLoads.keySet().toString()).isEqualTo("[a.bzl, :b.bzl]");
+
+    // subgraph a
+    Module a = pLoads.get("a.bzl");
+    assertThat(a.toString()).isEqualTo("<module //p:a.bzl>");
+    Map<String, Module> aLoads = BazelModuleContext.of(a).loads();
+    assertThat(aLoads.keySet().toString()).isEqualTo("[c.bzl]");
+    Module cViaA = aLoads.get("c.bzl");
+    assertThat(cViaA.toString()).isEqualTo("<module //p:c.bzl>");
+
+    // subgraph b
+    Module b = pLoads.get(":b.bzl");
+    assertThat(b.toString()).isEqualTo("<module //p:b.bzl>");
+    Map<String, Module> bLoads = BazelModuleContext.of(b).loads();
+    assertThat(bLoads.keySet().toString()).isEqualTo("[:c.bzl]");
+    Module cViaB = bLoads.get(":c.bzl");
+    assertThat(cViaB).isSameInstanceAs(cViaA);
+
+    assertThat(cViaA.getGlobal("c")).isEqualTo(0);
   }
 
   @Test
@@ -1307,6 +1354,15 @@ public class PackageFunctionTest extends BuildViewTestCase {
         .rootCauseOfExceptionIs(pkgKey);
     // Thus showing that clean and incremental package loading have the same semantics in the
     // presence of a symlink cycle encountered during glob evaluation.
+  }
+
+  private static void assertDetailedExitCode(
+      Exception exception, PackageLoading.Code expectedPackageLoadingCode) {
+    assertThat(exception).isInstanceOf(DetailedException.class);
+    DetailedExitCode detailedExitCode = ((DetailedException) exception).getDetailedExitCode();
+    assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
+    assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())
+        .isEqualTo(expectedPackageLoadingCode);
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {

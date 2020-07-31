@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryAarInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryAarInfoApi;
 import java.util.Objects;
 import javax.annotation.Nullable;
 

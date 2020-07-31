@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.devtools.build.lib.analysis.DependencyKind.OUTPUT_FILE_RULE_DEPENDENCY;
-import static com.google.devtools.build.lib.analysis.DependencyKind.TOOLCHAIN_DEPENDENCY;
 import static com.google.devtools.build.lib.analysis.DependencyKind.VISIBILITY_DEPENDENCY;
 
 import com.google.auto.value.AutoValue;
@@ -25,6 +24,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.AspectCollection.AspectCycleOnPathException;
 import com.google.devtools.build.lib.analysis.DependencyKind.AttributeDependencyKind;
+import com.google.devtools.build.lib.analysis.DependencyKind.ToolchainDependencyKind;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
@@ -71,6 +71,30 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
+
+  /**
+   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
+   * change flag and the rule's toolchain transition readiness attribute.
+   */
+  // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
+  public static boolean shouldUseToolchainTransition(
+      @Nullable BuildConfiguration configuration, Target target) {
+    // Check whether the global incompatible change flag is set.
+    if (configuration != null) {
+      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
+      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
+        return true;
+      }
+    }
+
+    // Check the rule definition to see if it is ready.
+    if (target instanceof Rule && ((Rule) target).getRuleClassObject().useToolchainTransition()) {
+      return true;
+    }
+
+    // Default to false.
+    return false;
+  }
 
   /**
    * What we know about a dependency edge after factoring in the properties of the configured target
@@ -148,6 +172,7 @@ public abstract class DependencyResolver {
       @Nullable Aspect aspect,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      boolean useToolchainTransition,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
     NestedSetBuilder<Cause> rootCauses = NestedSetBuilder.stableOrder();
@@ -155,9 +180,10 @@ public abstract class DependencyResolver {
         dependentNodeMap(
             node,
             hostConfig,
-            aspect != null ? ImmutableList.of(aspect) : ImmutableList.<Aspect>of(),
+            aspect != null ? ImmutableList.of(aspect) : ImmutableList.of(),
             configConditions,
             toolchainContexts,
+            useToolchainTransition,
             rootCauses,
             trimmingTransitionFactory);
     if (!rootCauses.isEmpty()) {
@@ -203,6 +229,7 @@ public abstract class DependencyResolver {
       Iterable<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      boolean useToolchainTransition,
       NestedSetBuilder<Cause> rootCauses,
       @Nullable TransitionFactory<Rule> trimmingTransitionFactory)
       throws EvalException, InterruptedException, InconsistentAspectOrderException {
@@ -239,9 +266,6 @@ public abstract class DependencyResolver {
       return OrderedSetMultimap.create();
     }
 
-    // TODO(#10523): Remove this when the migration period for toolchain transitions has ended.
-    boolean useToolchainTransition =
-        shouldUseToolchainTransition(node.getConfiguration(), fromRule);
     OrderedSetMultimap<DependencyKind, PartiallyResolvedDependency> partiallyResolvedDeps =
         partiallyResolveDependencies(
             outgoingLabels,
@@ -256,29 +280,6 @@ public abstract class DependencyResolver {
             partiallyResolvedDeps, targetMap, node.getConfiguration(), trimmingTransitionFactory);
 
     return outgoingEdges;
-  }
-
-  /**
-   * Returns whether or not to use the new toolchain transition. Checks the global incompatible
-   * change flag and the rule's toolchain transition readiness attribute.
-   */
-  private static boolean shouldUseToolchainTransition(
-      @Nullable BuildConfiguration configuration, @Nullable Rule fromRule) {
-    // Check whether the global incompatible change flag is set.
-    if (configuration != null) {
-      PlatformOptions platformOptions = configuration.getOptions().get(PlatformOptions.class);
-      if (platformOptions != null && platformOptions.overrideToolchainTransition) {
-        return true;
-      }
-    }
-
-    // Check the rule definition to see if it is ready.
-    if (fromRule != null && fromRule.getRuleClassObject().useToolchainTransition()) {
-      return true;
-    }
-
-    // Default to false.
-    return false;
   }
 
   /**
@@ -304,7 +305,7 @@ public abstract class DependencyResolver {
     for (Map.Entry<DependencyKind, Label> entry : outgoingLabels.entries()) {
       Label toLabel = entry.getValue();
 
-      if (entry.getKey() == TOOLCHAIN_DEPENDENCY) {
+      if (DependencyKind.isToolchain(entry.getKey())) {
         // This dependency is a toolchain. Its package has not been loaded and therefore we can't
         // determine which aspects and which rule configuration transition we should use, so just
         // use sensible defaults. Not depending on their package makes the error message reporting
@@ -312,22 +313,20 @@ public abstract class DependencyResolver {
         // TODO(lberki): This special-casing is weird. Find a better way to depend on toolchains.
         // TODO(#10523): Remove check when this is fully released.
         if (useToolchainTransition) {
-          // We need to create an individual PRD for each distinct toolchain context that contains
-          // this toolchain, because each has a different ToolchainContextKey.
-          for (ToolchainContext toolchainContext :
-              toolchainContexts.getContextsForResolvedToolchain(toLabel)) {
-            partiallyResolvedDeps.put(
-                TOOLCHAIN_DEPENDENCY,
-                PartiallyResolvedDependency.builder()
-                    .setLabel(toLabel)
-                    .setTransition(NoTransition.INSTANCE)
-                    .setToolchainContextKey(toolchainContext.key())
-                    .build());
-          }
+          ToolchainDependencyKind tdk = (ToolchainDependencyKind) entry.getKey();
+          ToolchainContext toolchainContext =
+              toolchainContexts.getToolchainContext(tdk.getExecGroupName());
+          partiallyResolvedDeps.put(
+              entry.getKey(),
+              PartiallyResolvedDependency.builder()
+                  .setLabel(toLabel)
+                  .setTransition(NoTransition.INSTANCE)
+                  .setToolchainContextKey(toolchainContext.key())
+                  .build());
         } else {
           // Legacy approach: use a HostTransition.
           partiallyResolvedDeps.put(
-              TOOLCHAIN_DEPENDENCY,
+              entry.getKey(),
               PartiallyResolvedDependency.builder()
                   .setLabel(toLabel)
                   .setTransition(HostTransition.INSTANCE)
@@ -512,7 +511,12 @@ public abstract class DependencyResolver {
     }
 
     if (toolchainContexts != null) {
-      outgoingLabels.putAll(TOOLCHAIN_DEPENDENCY, toolchainContexts.getResolvedToolchains());
+      for (Map.Entry<String, ToolchainContext> entry :
+          toolchainContexts.getContextMap().entrySet()) {
+        outgoingLabels.putAll(
+            DependencyKind.forExecGroup(entry.getKey()),
+            entry.getValue().resolvedToolchainLabels());
+      }
     }
 
     if (!rule.isAttributeValueExplicitlySpecified(RuleClass.APPLICABLE_LICENSES_ATTR)) {

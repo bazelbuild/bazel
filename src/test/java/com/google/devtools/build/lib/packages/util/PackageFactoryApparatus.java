@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
@@ -27,6 +26,7 @@ import com.google.devtools.build.lib.packages.GlobCache;
 import com.google.devtools.build.lib.packages.LegacyGlobber;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
@@ -66,7 +66,7 @@ public class PackageFactoryApparatus {
             ruleClassProvider,
             /*environmentExtensions=*/ ImmutableList.of(),
             "test",
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             packageValidator,
             PackageLoadingListener.NOOP_LISTENER);
   }
@@ -146,7 +146,7 @@ public class PackageFactoryApparatus {
   // TODO(adonovan): inline this into all callers. It has nothing to do with PackageFactory.
   public StarlarkFile parse(Path buildFile) throws IOException {
     byte[] bytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
-    ParserInput input = ParserInput.create(bytes, buildFile.toString());
+    ParserInput input = ParserInput.fromLatin1(bytes, buildFile.toString());
     StarlarkFile file = StarlarkFile.parse(input);
     Event.replayEventsOn(eventHandler, file.errors());
     return file;
@@ -185,18 +185,15 @@ public class PackageFactoryApparatus {
             globber,
             ConstantRuleVisibility.PUBLIC,
             StarlarkSemantics.DEFAULT,
-            ImmutableMap.<String, Module>of(),
-            ImmutableList.<Label>of(),
+            /*loadedModules=*/ ImmutableMap.<String, Module>of(),
             /*repositoryMapping=*/ ImmutableMap.of());
     Package result;
     try {
       result = resultBuilder.build();
-    } catch (NoSuchPackageException e) {
+    } finally {
       // Make sure not to lose events if we fail to construct the package.
       Event.replayEventsOn(eventHandler, resultBuilder.getEvents());
-      throw e;
     }
-    Event.replayEventsOn(eventHandler, result.getEvents());
     return Pair.of(result, globCache);
   }
 

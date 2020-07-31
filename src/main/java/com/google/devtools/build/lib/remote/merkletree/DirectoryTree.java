@@ -147,7 +147,7 @@ final class DirectoryTree {
   private final Map<PathFragment, DirectoryNode> tree;
   private final int numFiles;
 
-  protected DirectoryTree(Map<PathFragment, DirectoryNode> tree, int numFiles) {
+  DirectoryTree(Map<PathFragment, DirectoryNode> tree, int numFiles) {
     Preconditions.checkState(numFiles >= 0, "numFiles must gte 0");
     this.tree = Preconditions.checkNotNull(tree, "tree");
     this.numFiles = numFiles;

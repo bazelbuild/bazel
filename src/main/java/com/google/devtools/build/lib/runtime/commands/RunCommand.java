@@ -430,12 +430,17 @@ public class RunCommand implements BlazeCommand  {
       workingDir = env.getExecRoot();
 
       try {
-        testAction.prepare(env.getExecRoot());
+        testAction.prepare(env.getExecRoot(), /* bulkDeleter= */ null);
       } catch (IOException e) {
         return reportAndCreateFailureResult(
             env,
             "Error while setting up test: " + e.getMessage(),
             Code.TEST_ENVIRONMENT_SETUP_FAILURE);
+      } catch (InterruptedException e) {
+        return reportAndCreateFailureResult(
+            env,
+            "Error while setting up test: " + e.getMessage(),
+            Code.TEST_ENVIRONMENT_SETUP_INTERRUPTED);
       }
 
       try {

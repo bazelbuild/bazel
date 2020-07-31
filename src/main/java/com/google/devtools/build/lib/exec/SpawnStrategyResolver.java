@@ -23,6 +23,9 @@ import com.google.devtools.build.lib.actions.SpawnContinuation;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnStrategy;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -91,13 +94,18 @@ public final class SpawnStrategyResolver implements ActionContext {
             .collect(Collectors.toList());
 
     if (strategies.isEmpty()) {
-      throw new UserExecException(
+      String message =
           String.format(
               "No usable spawn strategy found for spawn with mnemonic %s.  Your"
                   + " --spawn_strategy, --genrule_strategy and/or --strategy flags are probably too"
                   + " strict. Visit https://github.com/bazelbuild/bazel/issues/7480 for"
                   + " migration advice",
-              spawn.getMnemonic()));
+              spawn.getMnemonic());
+      throw new UserExecException(
+          FailureDetail.newBuilder()
+              .setMessage(message)
+              .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.NO_USABLE_STRATEGY_FOUND))
+              .build());
     }
 
     return strategies;

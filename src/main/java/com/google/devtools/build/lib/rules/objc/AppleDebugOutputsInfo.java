@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleDebugOutputsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleDebugOutputsApi;
 import java.util.HashMap;
 import java.util.Map;
 

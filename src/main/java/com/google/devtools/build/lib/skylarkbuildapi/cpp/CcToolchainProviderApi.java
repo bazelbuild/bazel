@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.ToolchainInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;

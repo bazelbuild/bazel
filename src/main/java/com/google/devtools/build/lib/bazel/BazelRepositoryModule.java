@@ -73,7 +73,7 @@ import com.google.devtools.build.lib.skyframe.MutableSupplier;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -248,19 +248,19 @@ public class BazelRepositoryModule extends BlazeModule {
         starlarkRepositoryFunction.setTimeoutScaling(1.0);
       }
       if (repoOptions.experimentalRepositoryCache != null) {
-        // A set but empty path indicates a request to disable the repository cache.
-        if (!repoOptions.experimentalRepositoryCache.isEmpty()) {
-          Path repositoryCachePath;
-          if (repoOptions.experimentalRepositoryCache.isAbsolute()) {
-            repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
-          } else {
-            repositoryCachePath =
-                env.getBlazeWorkspace()
-                    .getWorkspace()
-                    .getRelative(repoOptions.experimentalRepositoryCache);
-          }
-          repositoryCache.setRepositoryCachePath(repositoryCachePath);
+        Path repositoryCachePath;
+        if (repoOptions.experimentalRepositoryCache.isEmpty()) {
+          // A set but empty path indicates a request to disable the repository cache.
+          repositoryCachePath = null;
+        } else if (repoOptions.experimentalRepositoryCache.isAbsolute()) {
+          repositoryCachePath = filesystem.getPath(repoOptions.experimentalRepositoryCache);
+        } else {
+          repositoryCachePath =
+              env.getBlazeWorkspace()
+                  .getWorkspace()
+                  .getRelative(repoOptions.experimentalRepositoryCache);
         }
+        repositoryCache.setRepositoryCachePath(repositoryCachePath);
       } else {
         Path repositoryCachePath =
             env.getDirectories()

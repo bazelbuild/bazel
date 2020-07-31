@@ -211,6 +211,11 @@ public class WindowsSubprocess implements Subprocess {
   }
 
   @Override
+  public boolean isAlive() {
+    return !processFuture.isDone();
+  }
+
+  @Override
   public boolean timedout() {
     return timedout;
   }

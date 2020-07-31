@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.rules.repository.ResolvedHashesValue;
 import com.google.devtools.build.lib.rules.repository.WorkspaceFileHelper;
 import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -137,13 +137,13 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    BlacklistedPackagePrefixesValue blacklistedPackagesValue =
-        (BlacklistedPackagePrefixesValue) env.getValue(BlacklistedPackagePrefixesValue.key());
+    IgnoredPackagePrefixesValue ignoredPackagesValue =
+        (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key());
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<PathFragment> blacklistedPatterns =
-        Preconditions.checkNotNull(blacklistedPackagesValue).getPatterns();
+    ImmutableSet<PathFragment> ignoredPatterns =
+        Preconditions.checkNotNull(ignoredPackagesValue).getPatterns();
 
     try (Mutability mu = Mutability.create("Starlark repository")) {
       StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
@@ -165,7 +165,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
               rule,
               packageLocator,
               outputDirectory,
-              blacklistedPatterns,
+              ignoredPatterns,
               env,
               clientEnvironment,
               downloadManager,

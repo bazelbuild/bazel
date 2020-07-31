@@ -42,15 +42,12 @@ java_library(
     ],
 )
 
-java_test(
+java_library(
     name = "skyframe_tests",
-    size = "medium",
     srcs = glob(
         ["*.java"],
         exclude = TESTUTIL_FILES,
     ),
-    shard_count = 2,
-    test_class = "com.google.devtools.build.skyframe.AllTests",
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -73,6 +70,14 @@ java_test(
         "//third_party:mockito",
         "//third_party:truth",
     ],
+)
+
+java_test(
+    name = "SkyframeTests",
+    size = "medium",
+    shard_count = 2,
+    test_class = "com.google.devtools.build.skyframe.AllTests",
+    runtime_deps = [":skyframe_tests"],
 )
 
 test_suite(

@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupData;
-import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -73,6 +73,9 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.server.FailureDetails.Execution;
+import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -85,6 +88,7 @@ import com.google.devtools.build.lib.testutil.TestPackageFactoryBuilderFactory;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -128,7 +132,7 @@ import org.junit.Before;
  */
 public abstract class TimestampBuilderTestCase extends FoundationTestCase {
   @AutoCodec
-  protected static final ActionLookupValue.ActionLookupKey ACTION_LOOKUP_KEY =
+  protected static final ActionLookupKey ACTION_LOOKUP_KEY =
       new InjectedActionLookupKey("action_lookup_key");
 
   protected static final Predicate<Action> ALWAYS_EXECUTE_FILTER = Predicates.alwaysTrue();
@@ -345,7 +349,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             EvaluationContext.newBuilder()
                 .setKeepGoing(keepGoing)
                 .setNumThreads(threadCount)
-                .setEventHander(reporter)
+                .setEventHandler(reporter)
                 .build();
         EvaluationResult<SkyValue> result = driver.evaluate(keys, evaluationContext);
         this.latestResult = result;
@@ -357,9 +361,11 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             hasCycles |= !Iterables.isEmpty(cycles);
           }
           if (hasCycles) {
-            throw new BuildFailedException(CYCLE_MSG);
+            throw new BuildFailedException(CYCLE_MSG, createDetailedExitCode(Code.CYCLE));
           } else if (result.errorMap().isEmpty() || keepGoing) {
-            throw new BuildFailedException();
+            // The specific detailed code used here doesn't matter.
+            throw new BuildFailedException(
+                null, createDetailedExitCode(Code.NON_ACTION_EXECUTION_FAILURE));
           } else {
             SkyframeBuilder.rethrow(Preconditions.checkNotNull(result.getError().getException()));
           }
@@ -484,6 +490,13 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     } finally {
       tsgm.waitForTimestampGranularity(reporter.getOutErr());
     }
+  }
+
+  private static DetailedExitCode createDetailedExitCode(Code detailedCode) {
+    return DetailedExitCode.of(
+        FailureDetail.newBuilder()
+            .setExecution(Execution.newBuilder().setCode(detailedCode))
+            .build());
   }
 
   /** {@link TestAction} that copies its single input to its single output. */

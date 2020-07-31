@@ -18,6 +18,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -489,5 +490,12 @@ public class LabelTest {
         .isEqualTo("foo");
     assertThat(Label.parseAbsolute("//bar:baz", ImmutableMap.of()).getWorkspaceName()).isEmpty();
     assertThat(Label.parseAbsolute("@//bar:baz", ImmutableMap.of()).getWorkspaceName()).isEmpty();
+  }
+
+  @Test
+  public void testStarlarkStrAndRepr() throws Exception {
+    Label label = Label.parseAbsolute("//x", ImmutableMap.of());
+    assertThat(Starlark.str(label)).isEqualTo("//x:x");
+    assertThat(Starlark.repr(label)).isEqualTo("Label(\"//x:x\")");
   }
 }

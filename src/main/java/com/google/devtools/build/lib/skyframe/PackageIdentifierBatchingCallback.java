@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
-import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -24,16 +24,16 @@ import javax.annotation.concurrent.GuardedBy;
  * A callback for {@link
  * com.google.devtools.build.lib.pkgcache.RecursivePackageProvider#streamPackagesUnderDirectory}
  * that buffers the PackageIdentifiers it receives into fixed-size batches that it delivers to a
- * supplied {@code ThreadSafeBatchCallback<PackageIdentifier, RuntimeException>}.
+ * supplied {@code BatchCallback<PackageIdentifier, RuntimeException>}.
  *
  * <p>The final batch delivered to the delegate callback may be smaller than the fixed size; the
  * callback must be {@link #close() closed} to deliver this final batch.
  */
 @ThreadSafe
 public class PackageIdentifierBatchingCallback
-    implements ThreadSafeBatchCallback<PackageIdentifier, UnusedException>, AutoCloseable {
+    implements BatchCallback<PackageIdentifier, UnusedException>, AutoCloseable {
 
-  private final ThreadSafeBatchCallback<PackageIdentifier, UnusedException> batchResults;
+  private final BatchCallback<PackageIdentifier, UnusedException> batchResults;
   private final int batchSize;
 
   @GuardedBy("this")
@@ -43,7 +43,7 @@ public class PackageIdentifierBatchingCallback
   private int bufferedPackageIds;
 
   public PackageIdentifierBatchingCallback(
-      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> batchResults, int batchSize) {
+      BatchCallback<PackageIdentifier, UnusedException> batchResults, int batchSize) {
     this.batchResults = batchResults;
     this.batchSize = batchSize;
     reset();

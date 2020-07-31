@@ -264,7 +264,7 @@ public interface JavaSemantics {
       Artifact launcher,
       boolean usingNativeSinglejar,
       OneVersionEnforcementLevel oneVersionEnforcementLevel,
-      Artifact oneVersionWhitelistArtifact,
+      Artifact oneVersionAllowlistArtifact,
       Artifact sharedArchive);
 
   /**

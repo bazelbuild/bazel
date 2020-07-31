@@ -44,7 +44,7 @@ public class ParallelVisitorTest {
   }
 
   @ThreadSafe
-  private interface TestCallback<T> extends ThreadSafeBatchCallback<T, SampleException> {
+  private interface TestCallback<T> extends BatchCallback<T, SampleException> {
 
     @Override
     void process(Iterable<T> partialResult) throws SampleException, InterruptedException;

@@ -31,6 +31,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -66,6 +67,11 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PackageManager.PackageManagerStatistics;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.Analysis;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns.Code;
 import com.google.devtools.build.lib.skyframe.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.AspectValueKey.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
@@ -523,8 +529,8 @@ public class BuildView {
     ImmutableSet<ConfiguredTarget> parallelTests = testsPair.first;
     ImmutableSet<ConfiguredTarget> exclusiveTests = testsPair.second;
 
-    String error =
-        createErrorMessage(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
+    FailureDetail failureDetail =
+        createFailureDetail(loadingResult, skyframeAnalysisResult, topLevelTargetsWithConfigs);
 
     final WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
     final ActionGraph actionGraph =
@@ -558,7 +564,7 @@ public class BuildView {
         aspects,
         allTargetsToTest == null ? null : ImmutableList.copyOf(allTargetsToTest),
         ImmutableSet.copyOf(targetsToSkip),
-        error,
+        failureDetail,
         actionGraph,
         artifactsToOwnerLabelsBuilder.build(),
         parallelTests,
@@ -575,22 +581,38 @@ public class BuildView {
    * interleaved, but sequential on the single target scale).
    */
   @Nullable
-  public static String createErrorMessage(
+  public static FailureDetail createFailureDetail(
       TargetPatternPhaseValue loadingResult,
       @Nullable SkyframeAnalysisResult skyframeAnalysisResult,
       @Nullable TopLevelTargetsAndConfigsResult topLevelTargetsAndConfigs) {
     if (loadingResult.hasError()) {
-      return "command succeeded, but there were errors parsing the target pattern";
+      return FailureDetail.newBuilder()
+          .setMessage("command succeeded, but there were errors parsing the target pattern")
+          .setTargetPatterns(TargetPatterns.newBuilder().setCode(Code.TARGET_PATTERN_PARSE_FAILURE))
+          .build();
     }
     if (loadingResult.hasPostExpansionError()
         || (skyframeAnalysisResult != null && skyframeAnalysisResult.hasLoadingError())) {
-      return "command succeeded, but there were loading phase errors";
+      return FailureDetail.newBuilder()
+          .setMessage("command succeeded, but there were loading phase errors")
+          .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.GENERIC_LOADING_PHASE_FAILURE))
+          .build();
     }
     if (topLevelTargetsAndConfigs != null && topLevelTargetsAndConfigs.hasError()) {
-      return "command succeeded, but top level configurations could not be created";
+      return FailureDetail.newBuilder()
+          .setMessage("command succeeded, but top level configurations could not be created")
+          .setBuildConfiguration(
+              FailureDetails.BuildConfiguration.newBuilder()
+                  .setCode(
+                      FailureDetails.BuildConfiguration.Code
+                          .TOP_LEVEL_CONFIGURATION_CREATION_FAILURE))
+          .build();
     }
     if (skyframeAnalysisResult != null && skyframeAnalysisResult.hasAnalysisError()) {
-      return "command succeeded, but not all targets were analyzed";
+      return FailureDetail.newBuilder()
+          .setMessage("command succeeded, but not all targets were analyzed")
+          .setAnalysis(Analysis.newBuilder().setCode(Analysis.Code.NOT_ALL_TARGETS_ANALYZED))
+          .build();
     }
     return null;
   }
@@ -690,7 +712,7 @@ public class BuildView {
     // might have injected.
     for (Artifact.DerivedArtifact artifact :
         provider.getTransitiveExtraActionArtifacts().toList()) {
-      ActionLookupValue.ActionLookupKey owner = artifact.getArtifactOwner();
+      ActionLookupKey owner = artifact.getArtifactOwner();
       if (owner instanceof AspectKey) {
         if (aspectClasses.contains(((AspectKey) owner).getAspectClass())) {
           artifacts.add(artifact);

@@ -49,7 +49,7 @@ public class UiOptions extends OptionsBase {
   public static class EventFiltersConverter implements Converter<List<EventKind>> {
 
     /** A converter for event kinds. */
-    public class EventKindConverter extends EnumConverter<EventKind> {
+    public static class EventKindConverter extends EnumConverter<EventKind> {
 
       public EventKindConverter(String typeName) {
         super(EventKind.class, typeName);
@@ -62,6 +62,7 @@ public class UiOptions extends OptionsBase {
       this.delegate = new CommaSeparatedOptionListConverter();
     }
 
+    @Override
     public List<EventKind> convert(String input) throws OptionsParsingException {
       if (input.isEmpty()) {
         // This method is not called to convert the default value

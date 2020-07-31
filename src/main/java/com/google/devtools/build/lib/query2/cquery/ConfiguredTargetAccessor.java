@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.TargetAccess
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryVisibility;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -130,7 +131,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
           caller,
           String.format(
               "%s %s of type %s does not have attribute '%s'",
-              errorMsgPrefix, configuredTarget, rule.getRuleClass(), attrName));
+              errorMsgPrefix, configuredTarget, rule.getRuleClass(), attrName),
+          ConfigurableQuery.Code.ATTRIBUTE_MISSING);
     }
     ImmutableList.Builder<ConfiguredTarget> toReturn = ImmutableList.builder();
     attributeMapper.visitLabels(attributeMapper.getAttributeDefinition(attrName)).stream()
@@ -160,7 +162,9 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
   public Set<QueryVisibility<ConfiguredTarget>> getVisibility(ConfiguredTarget from)
       throws QueryException, InterruptedException {
     // TODO(bazel-team): implement this if needed.
-    throw new QueryException("visible() is not supported on configured targets");
+    throw new QueryException(
+        "visible() is not supported on configured targets",
+        ConfigurableQuery.Code.VISIBLE_FUNCTION_NOT_SUPPORTED);
   }
 
   public Target getTargetFromConfiguredTarget(ConfiguredTarget configuredTarget) {
@@ -232,8 +236,8 @@ public class ConfiguredTargetAccessor implements TargetAccessor<ConfiguredTarget
                 walkableGraph.getValue(
                     ToolchainContextKey.key()
                         .configurationKey(BuildConfigurationValue.key(config))
-                        .requiredToolchainTypeLabels(execGroup.getRequiredToolchains())
-                        .execConstraintLabels(execGroup.getExecutionPlatformConstraints())
+                        .requiredToolchainTypeLabels(execGroup.requiredToolchains())
+                        .execConstraintLabels(execGroup.execCompatibleWith())
                         .build());
         if (context == null) {
           return null;

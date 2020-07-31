@@ -55,6 +55,7 @@ public final class BazelMockCcSupport extends MockCcSupport {
     setupRulesCc(config);
     setupCcToolchainConfig(config);
     createParseHeadersAndLayeringCheckWhitelist(config);
+    createStarlarkLooseHeadersWhitelist(config, "//...");
   }
 
   @Override

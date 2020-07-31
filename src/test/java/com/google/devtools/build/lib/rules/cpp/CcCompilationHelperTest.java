@@ -66,7 +66,8 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
             FeatureConfiguration.EMPTY,
             ccToolchain,
             fdoContext,
-            /* executionInfo= */ ImmutableMap.of()));
+            /* executionInfo= */ ImmutableMap.of(),
+            /* shouldProcessHeaders= */ true));
   }
 
   @Test
@@ -88,7 +89,8 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
                 FeatureConfiguration.EMPTY,
                 ccToolchain,
                 fdoContext,
-                /* executionInfo= */ ImmutableMap.of())
+                /* executionInfo= */ ImmutableMap.of(),
+                /* shouldProcessHeaders= */ true)
             .addSources(objcSrc);
 
     ImmutableList.Builder<Artifact> helperArtifacts = ImmutableList.builder();
@@ -120,7 +122,8 @@ public final class CcCompilationHelperTest extends BuildViewTestCase {
                 ccToolchain,
                 fdoContext,
                 ruleContext.getConfiguration(),
-                ImmutableMap.of())
+                ImmutableMap.of(),
+                /* shouldProcessHeaders= */ true)
             .addSources(objcSrc);
 
     ImmutableList.Builder<Artifact> helperArtifacts = ImmutableList.builder();

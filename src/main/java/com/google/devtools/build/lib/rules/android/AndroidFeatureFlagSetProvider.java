@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlag;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import java.util.Map;
@@ -66,10 +66,10 @@ public final class AndroidFeatureFlagSetProvider extends NativeInfo
 
   /**
    * Constructs a definition for the attribute used to restrict access to feature flags. The
-   * whitelist will only be reached if the feature_flags attribute is explicitly set.
+   * allowlist will only be reached if the feature_flags attribute is explicitly set.
    */
-  public static Attribute.Builder<Label> getWhitelistAttribute(RuleDefinitionEnvironment env) {
-    return ConfigFeatureFlag.getWhitelistAttribute(env, FEATURE_FLAG_ATTR);
+  public static Attribute.Builder<Label> getAllowlistAttribute(RuleDefinitionEnvironment env) {
+    return ConfigFeatureFlag.getAllowlistAttribute(env, FEATURE_FLAG_ATTR);
   }
 
   /**

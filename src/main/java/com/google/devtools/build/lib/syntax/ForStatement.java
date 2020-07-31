@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import java.util.List;
 
 /** Syntax node for a for loop statement. */
 public final class ForStatement extends Statement {
@@ -31,12 +30,12 @@ public final class ForStatement extends Statement {
       int forOffset,
       Expression vars,
       Expression collection,
-      List<Statement> body) {
+      ImmutableList<Statement> body) {
     super(locs);
     this.forOffset = forOffset;
     this.vars = Preconditions.checkNotNull(vars);
     this.collection = Preconditions.checkNotNull(collection);
-    this.body = ImmutableList.copyOf(body);
+    this.body = body;
   }
 
   public Expression getVars() {

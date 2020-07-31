@@ -152,7 +152,7 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return driver.<LocalRepositoryLookupValue>evaluate(
         ImmutableList.of(directoryKey), evaluationContext);

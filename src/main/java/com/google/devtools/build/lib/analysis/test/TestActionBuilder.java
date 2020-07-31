@@ -40,8 +40,6 @@ import com.google.devtools.build.lib.analysis.test.TestProvider.TestParams;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -89,28 +87,12 @@ public final class TestActionBuilder {
    * @return ordered list of test status artifacts
    */
   public TestParams build() {
-    Preconditions.checkState(runfilesSupport != null);
-    boolean local = TargetUtils.isTestRuleAndRunsLocally(ruleContext.getRule());
+    Preconditions.checkNotNull(runfilesSupport);
     TestShardingStrategy strategy =
         ruleContext.getConfiguration().getFragment(TestConfiguration.class).testShardingStrategy();
-    int shards = strategy.getNumberOfShards(
-        local, explicitShardCount, isTestShardingCompliant(),
-        TestSize.getTestSize(ruleContext.getRule()));
-    Preconditions.checkState(shards >= 0);
+    int shards = strategy.getNumberOfShards(explicitShardCount);
+    Preconditions.checkState(shards >= 0, "%s returned negative shard count %s", strategy, shards);
     return createTestAction(shards);
-  }
-
-  private boolean isTestShardingCompliant() {
-    // See if it has a data dependency on the special target
-    // //tools:test_sharding_compliant. Test runners add this dependency
-    // to show they speak the sharding protocol.
-    // There are certain cases where this heuristic may fail, giving
-    // a "false positive" (where we shard the test even though the
-    // it isn't supported). We may want to refine this logic, but
-    // heuristically sharding is currently experimental. Also, we do detect
-    // false-positive cases and return an error.
-    return runfilesSupport.getRunfilesSymlinkNames().contains(
-        PathFragment.create("tools/test_sharding_compliant"));
   }
 
   /**
@@ -158,6 +140,14 @@ public final class TestActionBuilder {
     return this;
   }
 
+  private boolean isPersistentTestRunner() {
+    return ruleContext
+            .getConfiguration()
+            .getFragment(TestConfiguration.class)
+            .isPersistentTestRunner()
+        && persistentTestRunnerRunfiles != null;
+  }
+
   /**
    * Creates a test action and artifacts for the given rule. The test action will
    * use the specified executable and runfiles.
@@ -188,8 +178,8 @@ public final class TestActionBuilder {
           PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime", TransitionMode.HOST);
       inputsBuilder.addTransitive(testRuntime);
     }
-    TestTargetProperties testProperties = new TestTargetProperties(
-        ruleContext, executionRequirements);
+    TestTargetProperties testProperties =
+        new TestTargetProperties(ruleContext, executionRequirements, isPersistentTestRunner());
 
     // If the test rule does not provide InstrumentedFilesProvider, there's not much that we can do.
     final boolean collectCodeCoverage = config.isCodeCoverageEnabled()
@@ -301,7 +291,7 @@ public final class TestActionBuilder {
     } else {
       Artifact flagFile = null;
       // The worker spawn runner expects a flag file containg the worker's flags.
-      if (testConfiguration.isPersistentTestRunner()) {
+      if (isPersistentTestRunner()) {
         flagFile = ruleContext.getBinArtifact(ruleContext.getLabel().getName() + "_flag_file.txt");
         inputsBuilder.add(flagFile);
       }
@@ -366,7 +356,7 @@ public final class TestActionBuilder {
             testConfiguration.runsPerTestDetectsFlakes()
                 && testConfiguration.cancelConcurrentTests();
         RunfilesSupplier testRunfilesSupplier;
-        if (testConfiguration.isPersistentTestRunner()) {
+        if (isPersistentTestRunner()) {
           // Create a RunfilesSupplier from the persistent test runner's runfiles. Pass only the
           // test runner's runfiles to avoid using a different worker for every test run.
           testRunfilesSupplier =
@@ -380,7 +370,7 @@ public final class TestActionBuilder {
         }
 
         ImmutableList.Builder<Artifact> tools = new ImmutableList.Builder<>();
-        if (testConfiguration.isPersistentTestRunner()) {
+        if (isPersistentTestRunner()) {
           tools.add(testActionExecutable);
           tools.add(executionSettings.getExecutable());
           tools.addAll(additionalTools.build());

@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformCommonApi;
 
 /** Starlark namespace used to interact with the platform APIs. */
 public class PlatformCommon implements PlatformCommonApi {

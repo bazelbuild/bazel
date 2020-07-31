@@ -330,7 +330,7 @@ public class ActionGraphQueryEnvironment
           Futures.catchingAsync(
               patternToEval.evalAdaptedForAsync(
                   resolver,
-                  getBlacklistedPackagePrefixesPathFragments(),
+                  getIgnoredPackagePrefixesPathFragments(),
                   /* excludedSubdirectories= */ ImmutableSet.of(),
                   (Callback<Target>)
                       partialResult -> {

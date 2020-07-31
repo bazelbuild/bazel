@@ -371,6 +371,18 @@ public class FdoHelper {
           fdoProfile,
           "Symlinking LLVM ZIP Profile " + fdoProfile.getBasename());
 
+      // We invoke different binaries depending on whether the unzip_fdo tool
+      // is available. When it isn't, unzip_fdo is aliased to the generic
+      // zipper tool, which takes different command-line arguments.
+      CustomCommandLine.Builder argv = new CustomCommandLine.Builder();
+      if (zipperBinaryArtifact.getExecPathString().endsWith("unzip_fdo")) {
+        argv.addExecPath("--profile_zip", zipProfileArtifact)
+            .add("--cpu", cpu)
+            .add("--output_file", rawProfileArtifact.getExecPath().getSafePathString());
+      } else {
+        argv.addExecPath("xf", zipProfileArtifact)
+            .add("-d", rawProfileArtifact.getExecPath().getParentDirectory().getSafePathString());
+      }
       // Unzip the profile.
       ruleContext.registerAction(
           new SpawnAction.Builder()
@@ -382,13 +394,7 @@ public class FdoHelper {
               .setProgressMessage(
                   "LLVMUnzipProfileAction: Generating %s", rawProfileArtifact.prettyPrint())
               .setMnemonic("LLVMUnzipProfileAction")
-              .addCommandLine(
-                  CustomCommandLine.builder()
-                      .addExecPath("xf", zipProfileArtifact)
-                      .add(
-                          "-d",
-                          rawProfileArtifact.getExecPath().getParentDirectory().getSafePathString())
-                      .build())
+              .addCommandLine(argv.build())
               .build(ruleContext));
     } else {
       rawProfileArtifact =

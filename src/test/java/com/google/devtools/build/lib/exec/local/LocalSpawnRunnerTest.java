@@ -160,6 +160,11 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
+    public boolean isAlive() {
+      return false;
+    }
+
+    @Override
     public boolean timedout() {
       return false;
     }
@@ -254,8 +259,7 @@ public class LocalSpawnRunnerTest {
     }
 
     @Override
-    public SortedMap<PathFragment, ActionInput> getInputMapping(
-        boolean expandTreeArtifactsInRunfiles) {
+    public SortedMap<PathFragment, ActionInput> getInputMapping() {
       return inputMapping;
     }
 

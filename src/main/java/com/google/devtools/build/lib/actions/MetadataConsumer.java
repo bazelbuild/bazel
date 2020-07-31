@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import java.io.IOException;
+import java.util.function.BiConsumer;
 
 /**
  * Consumes metadata for artifacts.
@@ -21,6 +21,4 @@ import java.io.IOException;
  * <p>May be called when metadata isn't otherwise propagated at the spawn level.
  */
 @FunctionalInterface
-public interface MetadataConsumer {
-  void accept(Artifact artifact, FileArtifactValue value) throws IOException;
-}
+public interface MetadataConsumer extends BiConsumer<Artifact, FileArtifactValue> {}

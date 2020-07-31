@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
  * symlinks because action execution can hopefully depend on {@link BlazeDirectories}.
  *
  * <p>There is also the awful and incorrect {@link Path#exists()} call in {@link
- * com.google.devtools.build.lib.view.proto.CcProtoProfileProvider#getProfile(
+ * com.google.devtools.build.lib.view.cpp.proto.CcProtoProfileProvider#getProfile(
  * com.google.devtools.build.lib.analysis.RuleContext)} which needs a {@link Path}.
  */
 public class CcSkyframeFdoSupportFunction implements SkyFunction {

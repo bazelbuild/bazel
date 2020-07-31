@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -56,7 +57,8 @@ public final class AqueryCommandUtils {
               + query
               + "': Specifying build target(s) "
               + topLevelTargets
-              + " with --skyframe_state is currently not supported.");
+              + " with --skyframe_state is currently not supported.",
+          ActionQuery.Code.TOP_LEVEL_TARGETS_WITH_SKYFRAME_STATE_NOT_SUPPORTED);
     }
 
     return topLevelTargets;

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.skylarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -43,6 +43,20 @@ public interface LibraryToLinkApi<FileT extends FileApi> extends StarlarkValue {
       doc = "<code>List</code> of pic object files in the library.",
       structField = true)
   Sequence<FileT> getPicObjectFilesForStarlark();
+
+  @StarlarkMethod(
+      name = "lto_bitcode_files",
+      allowReturnNones = true,
+      doc = "<code>List</code> of LTO bitcode files in the library.",
+      structField = true)
+  Sequence<FileT> getLtoBitcodeFilesForStarlark();
+
+  @StarlarkMethod(
+      name = "pic_lto_bitcode_files",
+      allowReturnNones = true,
+      doc = "<code>List</code> of pic LTO bitcode files in the library.",
+      structField = true)
+  Sequence<FileT> getPicLtoBitcodeFilesForStarlark();
 
   @StarlarkMethod(
       name = "static_library",

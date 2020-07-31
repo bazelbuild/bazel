@@ -82,7 +82,7 @@ EOF
 
 int main(void)
 {
-#ifdef COMPILER_MSVC
+#ifdef _WIN32
   // MSVC does not support the #warning directive.
   int unused_variable__triggers_a_warning;  // triggers C4101
 #else  // not COMPILER_MSVC

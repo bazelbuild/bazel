@@ -41,7 +41,20 @@ public class JarHelper {
   public static final String MANIFEST_NAME = JarFile.MANIFEST_NAME;
   public static final String SERVICES_DIR = "META-INF/services/";
 
-  /** Normalize timestamps. */
+  /**
+   * Normalize timestamps to 2010-1-1.
+   *
+   * <p>The ZIP format uses MS-DOS timestamps (see <a
+   * href="https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT">APPNOTE.TXT</a>) which use
+   * 1980-1-1 as the epoch, but {@link ZipEntry#setTime(long)} expects milliseconds since the unix
+   * epoch (1970-1-1). To work around this, {@link ZipEntry} uses portability-reducing ZIP
+   * extensions to store pre-1980 timestamps, which can occasionally <a
+   * href="https://bugs.openjdk.java.net/browse/JDK-8246129>cause</a> <a
+   * href="https://openjdk.markmail.org/thread/wzw7zfilk5j7uzqk>issues</a>. For that reason, using a
+   * fixed post-1980 timestamp is preferred to e.g. calling {@code setTime(0)}. At Google, the
+   * timestamp of 2010-1-1 is used by convention in deterministic jar archives.
+   */
+  @SuppressWarnings("GoodTime-ApiWithNumericTimeUnit") // Use setTime(LocalDateTime) in Java > 9
   public static final long DEFAULT_TIMESTAMP =
       LocalDateTime.of(2010, 1, 1, 0, 0, 0)
           .atZone(ZoneId.systemDefault())

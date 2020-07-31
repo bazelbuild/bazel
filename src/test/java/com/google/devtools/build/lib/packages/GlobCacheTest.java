@@ -91,12 +91,12 @@ public class GlobCacheTest {
     createCache();
   }
 
-  private void createCache(PathFragment... blacklistedDirectories) {
+  private void createCache(PathFragment... ignoredDirectories) {
     cache =
         new GlobCache(
             packageDirectory,
             PackageIdentifier.createInMainRepo("isolated"),
-            ImmutableSet.copyOf(blacklistedDirectories),
+            ImmutableSet.copyOf(ignoredDirectories),
             new CachingPackageLocator() {
               @Override
               public Path getBuildFileForPackage(PackageIdentifier packageId) {
@@ -121,7 +121,7 @@ public class GlobCacheTest {
   }
 
   @Test
-  public void testBlacklistedDirectory() throws Exception {
+  public void testIgnoredDirectory() throws Exception {
     createCache(PathFragment.create("isolated/foo"));
     List<Path> paths = cache.safeGlobUnsorted("**/*.js", true).get();
     assertPathsAre(

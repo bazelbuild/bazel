@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.substitutePlaceholderIntoTemplate;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 import static com.google.devtools.build.lib.packages.RuleClass.NO_EXTERNAL_BINDINGS;
+import static com.google.devtools.build.lib.packages.RuleClass.NO_TOOLCHAINS_TO_REGISTER;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.INTEGER;
 import static com.google.devtools.build.lib.packages.Type.STRING;
@@ -29,7 +30,6 @@ import static com.google.devtools.build.lib.packages.Type.STRING_LIST;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Strings;
@@ -122,7 +122,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -159,7 +158,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -289,7 +287,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -336,7 +333,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -435,7 +431,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -476,7 +471,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true);
@@ -512,7 +506,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -681,7 +674,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -724,7 +716,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
             PREFERRED_DEPENDENCY_PREDICATE,
             AdvertisedProviderSet.EMPTY,
             null,
-            NO_EXTERNAL_BINDINGS,
             ImmutableSet.<Class<?>>of(),
             MissingFragmentPolicy.FAIL_ANALYSIS,
             true,
@@ -800,7 +791,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         reporter,
         location,
         callstack,
-        new AttributeContainer(ruleClass),
         /*checkThirdPartyRulesHaveLicenses=*/ true);
   }
 
@@ -882,7 +872,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
       Predicate<String> preferredDependencyPredicate,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkFunction configuredTargetFunction,
-      Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       Set<Class<?>> allowedConfigurationFragments,
       MissingFragmentPolicy missingFragmentPolicy,
       boolean supportsConstraintChecking,
@@ -910,7 +899,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
         preferredDependencyPredicate,
         advertisedProviders,
         configuredTargetFunction,
-        externalBindingsFunction,
+        NO_EXTERNAL_BINDINGS,
+        NO_TOOLCHAINS_TO_REGISTER,
         /*optionReferenceFunction=*/ RuleClass.NO_OPTION_REFERENCE,
         /*ruleDefinitionEnvironmentLabel=*/ null,
         /*ruleDefinitionEnvironmentDigest=*/ null,
@@ -947,7 +937,6 @@ public class RuleClassTest extends PackageLoadingTestCase {
         PREFERRED_DEPENDENCY_PREDICATE,
         AdvertisedProviderSet.EMPTY,
         null,
-        NO_EXTERNAL_BINDINGS,
         ImmutableSet.<Class<?>>of(DummyFragment.class),
         MissingFragmentPolicy.FAIL_ANALYSIS,
         true,
@@ -1145,14 +1134,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
     ruleClassBuilder.addExecGroups(
         ImmutableMap.of(
-            "cherry", new ExecGroup(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
+            "cherry", ExecGroup.create(ImmutableSet.of(toolchain), ImmutableSet.of(constraint))));
 
     RuleClass ruleClass = ruleClassBuilder.build();
 
     assertThat(ruleClass.getExecGroups()).hasSize(1);
-    assertThat(ruleClass.getExecGroups().get("cherry").getRequiredToolchains())
+    assertThat(ruleClass.getExecGroups().get("cherry").requiredToolchains())
         .containsExactly(toolchain);
-    assertThat(ruleClass.getExecGroups().get("cherry").getExecutionPlatformConstraints())
+    assertThat(ruleClass.getExecGroups().get("cherry").execCompatibleWith())
         .containsExactly(constraint);
   }
 

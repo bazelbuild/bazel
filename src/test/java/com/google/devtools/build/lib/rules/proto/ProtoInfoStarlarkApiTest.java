@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoCommonApi;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;

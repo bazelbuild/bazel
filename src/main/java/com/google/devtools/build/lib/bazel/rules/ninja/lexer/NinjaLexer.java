@@ -115,6 +115,9 @@ public class NinjaLexer {
           if (step.tryReadDoublePipe()) {
             return push(NinjaToken.PIPE2);
           }
+          if (step.tryReadPipeAt()) {
+            return push(NinjaToken.PIPE_AT);
+          }
           return push(NinjaToken.PIPE);
         case '$':
           if (step.trySkipEscapedNewline()) {

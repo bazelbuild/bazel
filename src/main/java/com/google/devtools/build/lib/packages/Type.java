@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -36,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.RandomAccess;
 import java.util.Set;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
@@ -468,9 +468,11 @@ public abstract class Type<T> {
 
     @Override
     public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
-      for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
-        keyType.visitLabels(visitor, entry.getKey(), context);
-        valueType.visitLabels(visitor, entry.getValue(), context);
+      if (labelClass != LabelClass.NONE) {
+        for (Map.Entry<KeyT, ValueT> entry : cast(value).entrySet()) {
+          keyType.visitLabels(visitor, entry.getKey(), context);
+          valueType.visitLabels(visitor, entry.getValue(), context);
+        }
       }
     }
 
@@ -586,9 +588,13 @@ public abstract class Type<T> {
 
     @Override
     public <T> void visitLabels(LabelVisitor<T> visitor, Object value, T context) {
+      if (elemType.getLabelClass() == LabelClass.NONE) {
+        return;
+      }
+
       List<ElemT> elems = cast(value);
       // Hot code path. Optimize for lists with O(1) access to avoid iterator garbage.
-      if (elems instanceof ImmutableList || elems instanceof ArrayList) {
+      if (elems instanceof RandomAccess) {
         for (int i = 0; i < elems.size(); i++) {
           elemType.visitLabels(visitor, elems.get(i), context);
         }
@@ -612,17 +618,7 @@ public abstract class Type<T> {
       if (x instanceof Iterable) {
         iterable = (Iterable<?>) x;
       } else if (x instanceof Depset) {
-        try {
-          iterable = ((Depset) x).toList();
-        } catch (NestedSetDepthException exception) {
-          throw new ConversionException(
-              "depset exceeded maximum depth "
-                  + exception.getDepthLimit()
-                  + ". This was only discovered when attempting to flatten the depset for"
-                  + " iteration, as the size of depsets is unknown until flattening. See"
-                  + " https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-                  + "solutions.");
-        }
+        iterable = ((Depset) x).toList();
       } else {
         throw new ConversionException(this, x, what);
       }

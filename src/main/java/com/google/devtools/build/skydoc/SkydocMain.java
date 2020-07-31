@@ -28,36 +28,37 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidAssetsInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidCcLinkParamsProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDex2OatInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdeInfoProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidIdlProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryAarInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidLibraryResourceClassJarProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidPreDexJarProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidProguardInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSdkProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.ProguardMappingProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.UsesDataBindingProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.javascript.JsModuleInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.StarlarkAspectStub;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidAssetsInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidCcLinkParamsProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDex2OatInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidFeatureFlagSetProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdlProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryAarInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryResourceClassJarProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidManifestInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidPreDexJarProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidProguardInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.ProguardMappingProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.UsesDataBindingProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.java.GeneratedExtensionRegistryProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaNativeLibraryInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.javascript.JsModuleInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.StarlarkAspectStub;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -118,6 +119,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryMo
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeInstrumentedFilesInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import com.google.devtools.build.skydoc.rendering.AspectInfoWrapper;
 import com.google.devtools.build.skydoc.rendering.DocstringParseException;
@@ -193,7 +195,6 @@ public class SkydocMain {
             .build();
     parser.parseAndExitUponError(args);
     StarlarkSemanticsOptions semanticsOptions = parser.getOptions(StarlarkSemanticsOptions.class);
-    semanticsOptions.incompatibleDisableDeprecatedAttrParams = false;
     semanticsOptions.incompatibleNewActionsApi = false;
     SkydocOptions skydocOptions = parser.getOptions(SkydocOptions.class);
 
@@ -600,6 +601,7 @@ public class SkydocMain {
         new TestingBootstrap(
             new FakeTestingModule(),
             new FakeCoverageCommon(),
+            new FakeInstrumentedFilesInfoProvider(),
             new FakeAnalysisFailureInfoProvider(),
             new FakeAnalysisTestResultInfoProvider());
 
@@ -611,7 +613,6 @@ public class SkydocMain {
     for (String name :
         new String[] {
           "DataBindingV2Info",
-          "PintoModuleLegacyDepsMgmtProvider",
           "ProguardSpecProvider",
           "js_common",
           "pkg_common",
@@ -693,6 +694,7 @@ public class SkydocMain {
     ProguardMappingProviderApi.NAME,
     GeneratedExtensionRegistryProviderApi.NAME,
     AndroidBinaryDataInfoApi.NAME,
+    JavaNativeLibraryInfoApi.NAME,
     JsModuleInfoApi.NAME,
     "JsInfo",
     "PintoModuleProvider"

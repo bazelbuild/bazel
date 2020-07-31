@@ -15,11 +15,16 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import java.nio.charset.StandardCharsets;
 
 /**
  * The apparent name and contents of a source file, for consumption by the parser. The file name
  * appears in the location information in the syntax tree, and in error messages, but the Starlark
  * interpreter will not attempt to open the file.
+ *
+ * <p>The parser consumes a stream of chars (UTF-16 codes), and the syntax positions reported by
+ * {@link Node#getStartOffset} and {@link Location.column} are effectively indices into a char
+ * array.
  */
 public final class ParserInput {
 
@@ -43,30 +48,43 @@ public final class ParserInput {
 
   /** Returns an unnamed input source that reads from a list of strings, joined by newlines. */
   public static ParserInput fromLines(String... lines) {
-    return create(Joiner.on("\n").join(lines), "");
+    return fromString(Joiner.on("\n").join(lines), "");
   }
 
-  /** Returns an import source that reads from a Latin-1 encoded byte array. */
-  public static ParserInput create(byte[] bytes, String file) {
-    char[] content = convertFromLatin1(bytes);
-    return new ParserInput(content, file);
+  /**
+   * Returns an input source that reads from a UTF-8-encoded byte array. The caller is free to
+   * subsequently mutate the array.
+   */
+  public static ParserInput fromUTF8(byte[] bytes, String file) {
+    // TODO(adonovan): opt: avoid one of the two copies.
+    return fromString(new String(bytes, StandardCharsets.UTF_8), file);
+  }
+
+  /**
+   * Returns an input source that reads from a Latin1-encoded byte array. The caller is free to
+   * subsequently mutate the array.
+   *
+   * <p>This function exists to support legacy uses of Latin1 in Bazel. Do not use Latin1 in new
+   * applications. (Consider this deprecated, without the fussy warnings.)
+   */
+  public static ParserInput fromLatin1(byte[] bytes, String file) {
+    char[] chars = new char[bytes.length];
+    for (int i = 0; i < bytes.length; i++) {
+      chars[i] = (char) (0xff & bytes[i]);
+    }
+    return new ParserInput(chars, file);
   }
 
   /** Returns an input source that reads from the given string. */
-  public static ParserInput create(String content, String file) {
-    return create(content.toCharArray(), file);
+  public static ParserInput fromString(String content, String file) {
+    return fromCharArray(content.toCharArray(), file);
   }
 
-  /** Returns an input source that reads from the given char array. */
-  public static ParserInput create(char[] content, String file) {
+  /**
+   * Returns an input source that reads from the given char array. The caller must not subsequently
+   * modify the array.
+   */
+  public static ParserInput fromCharArray(char[] content, String file) {
     return new ParserInput(content, file);
-  }
-
-  private static char[] convertFromLatin1(byte[] content) {
-    char[] latin1 = new char[content.length];
-    for (int i = 0; i < latin1.length; i++) { // yeah, latin1 is this easy! :-)
-      latin1[i] = (char) (0xff & content[i]);
-    }
-    return latin1;
   }
 }

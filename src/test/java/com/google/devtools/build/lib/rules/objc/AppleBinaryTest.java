@@ -1844,6 +1844,24 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     assertThat(objcProvider.sdkFramework().toList()).contains("TestFramework");
   }
 
+  @Test
+  public void testIncludesLinkstampFiles() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        "apple_binary(",
+        "  name = 'bin',",
+        "  platform_type = 'macos',",
+        "  deps = [':lib'],",
+        ")",
+        "cc_library(",
+        "  name = 'lib',",
+        "  linkstamp = 'some_linkstamp.cc',",
+        ")");
+    CommandAction linkAction = linkAction("//test:bin");
+    assertThat(paramFileArgsForAction(linkAction))
+        .contains(execPathEndingWith(linkAction.getInputs().toList(), "some_linkstamp.o"));
+  }
+
   protected RuleType getRuleType() {
     return RULE_TYPE;
   }

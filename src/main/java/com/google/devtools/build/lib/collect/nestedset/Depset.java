@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet.NestedSetDepthException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.syntax.Debug;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
@@ -92,7 +93,7 @@ import net.starlark.java.annot.StarlarkMethod;
             + " may interfere with the ordering semantics.")
 @Immutable
 @AutoCodec
-public final class Depset implements StarlarkValue {
+public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttributes {
   private final ElementType elemType;
   private final NestedSet<?> set;
 
@@ -330,6 +331,14 @@ public final class Depset implements StarlarkValue {
     printer.append(")");
   }
 
+  @Override
+  public ImmutableList<Debug.DebugAttribute> getDebugAttributes() {
+    return ImmutableList.of(
+        new Debug.DebugAttribute("order", getOrder().getStarlarkName()),
+        new Debug.DebugAttribute("directs", set.getLeaves()),
+        new Debug.DebugAttribute("transitives", set.getNonLeaves()));
+  }
+
   @StarlarkMethod(
       name = "to_list",
       doc =
@@ -341,18 +350,7 @@ public final class Depset implements StarlarkValue {
               + "on the depset and vice versa.",
       useStarlarkThread = true)
   public StarlarkList<Object> toListForStarlark(StarlarkThread thread) throws EvalException {
-    try {
-      return StarlarkList.copyOf(thread.mutability(), this.toList());
-    } catch (NestedSetDepthException exception) {
-      throw new EvalException(
-          null,
-          "depset exceeded maximum depth "
-              + exception.getDepthLimit()
-              + ". This was only discovered when attempting to flatten the depset for to_list(), "
-              + "as the size of depsets is unknown until flattening. "
-              + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-              + "solutions.");
-    }
+    return StarlarkList.copyOf(thread.mutability(), this.toList());
   }
 
   /** Create a Depset from the given direct and transitive components. */
@@ -540,7 +538,7 @@ public final class Depset implements StarlarkValue {
             null,
             "parameter 'direct' must contain a list of elements, and may no longer accept a"
                 + " depset. The deprecated behavior may be temporarily re-enabled by setting"
-                + " --incompatible_disable_depset_inputs=false");
+                + " --incompatible_disable_depset_items=false");
       }
       result =
           fromDirectAndTransitive(
@@ -559,17 +557,13 @@ public final class Depset implements StarlarkValue {
       result = legacyDepsetConstructor(items, order, direct, transitive, semantics);
     }
 
-    if (semantics.debugDepsetDepth()) {
-      // Flatten the underlying nested set. If the set exceeds the depth limit, then this will
-      // throw a NestedSetDepthException.
-      // This is an extremely inefficient check and should be only done in the
-      // "--debug_depset_depth" mode.
-      try {
-        result.toList(); // may throw exception
-      } catch (NestedSetDepthException ex) {
-        throw Starlark.errorf("depset exceeded maximum depth %d", ex.getDepthLimit());
-      }
+    // check depth limit
+    int depth = result.getSet().getApproxDepth();
+    int limit = depthLimit.get();
+    if (depth > limit) {
+      throw Starlark.errorf("depset depth %d exceeds limit (%d)", depth, limit);
     }
+
     return result;
   }
 
@@ -602,4 +596,19 @@ public final class Depset implements StarlarkValue {
   private static boolean isEmptyStarlarkList(Object o) {
     return o instanceof Sequence && ((Sequence) o).isEmpty();
   }
+
+  /**
+   * Sets the maximum depth for nested sets constructed by the Starlark {@code depset} function (as
+   * set by {@code --nested_set_depth_limit}).
+   *
+   * @return whether the new limit differs from the old
+   */
+  public static boolean setDepthLimit(int newLimit) {
+    int oldValue = depthLimit.getAndSet(newLimit);
+    return oldValue != newLimit;
+  }
+
+  // The effective default value comes from the --nested_set_depth_limit
+  // flag in NestedSetOptionsModule, which overrides this.
+  private static final AtomicInteger depthLimit = new AtomicInteger(3500);
 }

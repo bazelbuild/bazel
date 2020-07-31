@@ -143,6 +143,7 @@ public final class CallStack {
         int line = entry.location.line();
         int column = entry.location.column();
         if (i < depth
+            && parent == nodes[i].parent
             && name == nodes[i].name
             && file == nodes[i].file
             && line == nodes[i].line

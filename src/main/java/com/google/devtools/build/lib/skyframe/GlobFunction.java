@@ -58,9 +58,8 @@ public final class GlobFunction implements SkyFunction {
     GlobDescriptor glob = (GlobDescriptor) skyKey.argument();
 
     RepositoryName repositoryName = glob.getPackageId().getRepository();
-    BlacklistedPackagePrefixesValue blacklistedPackagePrefixes =
-        (BlacklistedPackagePrefixesValue)
-            env.getValue(BlacklistedPackagePrefixesValue.key(repositoryName));
+    IgnoredPackagePrefixesValue ignoredPackagePrefixes =
+        (IgnoredPackagePrefixesValue) env.getValue(IgnoredPackagePrefixesValue.key(repositoryName));
     if (env.valuesMissing()) {
       return null;
     }
@@ -68,8 +67,8 @@ public final class GlobFunction implements SkyFunction {
     PathFragment globSubdir = glob.getSubdir();
     PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
 
-    for (PathFragment blacklistedPrefix : blacklistedPackagePrefixes.getPatterns()) {
-      if (dirPathFragment.startsWith(blacklistedPrefix)) {
+    for (PathFragment ignoredPrefix : ignoredPackagePrefixes.getPatterns()) {
+      if (dirPathFragment.startsWith(ignoredPrefix)) {
         return GlobValue.EMPTY;
       }
     }

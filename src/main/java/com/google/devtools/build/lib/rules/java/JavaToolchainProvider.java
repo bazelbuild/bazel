@@ -33,8 +33,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaToolchainStarlarkApiProviderApi;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
@@ -78,6 +78,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javabuilderJvmOptions,
       ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
+      boolean javacSupportsMultiplexWorkers,
       BootClassPathInfo bootclasspath,
       @Nullable Artifact javac,
       NestedSet<Artifact> tools,
@@ -91,7 +92,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
-      @Nullable Artifact oneVersionWhitelist,
+      @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
@@ -115,7 +116,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         forciblyDisableHeaderCompilation,
         singleJar,
         oneVersion,
-        oneVersionWhitelist,
+        oneVersionAllowlist,
         genClass,
         resourceJarBuilder,
         timezoneData,
@@ -126,6 +127,7 @@ public class JavaToolchainProvider extends ToolchainInfo
         javabuilderJvmOptions,
         turbineJvmOptions,
         javacSupportsWorkers,
+        javacSupportsMultiplexWorkers,
         packageConfiguration,
         jacocoRunner,
         javaSemantics);
@@ -145,7 +147,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final boolean forciblyDisableHeaderCompilation;
   private final Artifact singleJar;
   @Nullable private final Artifact oneVersion;
-  @Nullable private final Artifact oneVersionWhitelist;
+  @Nullable private final Artifact oneVersionAllowlist;
   private final Artifact genClass;
   @Nullable private final Artifact resourceJarBuilder;
   @Nullable private final Artifact timezoneData;
@@ -156,6 +158,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   private final ImmutableList<String> javabuilderJvmOptions;
   private final ImmutableList<String> turbineJvmOptions;
   private final boolean javacSupportsWorkers;
+  private final boolean javacSupportsMultiplexWorkers;
   private final ImmutableList<JavaPackageConfigurationProvider> packageConfiguration;
   private final FilesToRunProvider jacocoRunner;
   private final JavaSemantics javaSemantics;
@@ -176,7 +179,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       boolean forciblyDisableHeaderCompilation,
       Artifact singleJar,
       @Nullable Artifact oneVersion,
-      @Nullable Artifact oneVersionWhitelist,
+      @Nullable Artifact oneVersionAllowlist,
       Artifact genClass,
       @Nullable Artifact resourceJarBuilder,
       @Nullable Artifact timezoneData,
@@ -187,6 +190,7 @@ public class JavaToolchainProvider extends ToolchainInfo
       ImmutableList<String> javabuilderJvmOptions,
       ImmutableList<String> turbineJvmOptions,
       boolean javacSupportsWorkers,
+      boolean javacSupportsMultiplexWorkers,
       ImmutableList<JavaPackageConfigurationProvider> packageConfiguration,
       FilesToRunProvider jacocoRunner,
       JavaSemantics javaSemantics) {
@@ -206,7 +210,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.forciblyDisableHeaderCompilation = forciblyDisableHeaderCompilation;
     this.singleJar = singleJar;
     this.oneVersion = oneVersion;
-    this.oneVersionWhitelist = oneVersionWhitelist;
+    this.oneVersionAllowlist = oneVersionAllowlist;
     this.genClass = genClass;
     this.resourceJarBuilder = resourceJarBuilder;
     this.timezoneData = timezoneData;
@@ -217,6 +221,7 @@ public class JavaToolchainProvider extends ToolchainInfo
     this.javabuilderJvmOptions = javabuilderJvmOptions;
     this.turbineJvmOptions = turbineJvmOptions;
     this.javacSupportsWorkers = javacSupportsWorkers;
+    this.javacSupportsMultiplexWorkers = javacSupportsMultiplexWorkers;
     this.packageConfiguration = packageConfiguration;
     this.jacocoRunner = jacocoRunner;
     this.javaSemantics = javaSemantics;
@@ -289,6 +294,7 @@ public class JavaToolchainProvider extends ToolchainInfo
   }
 
   /** Returns the {@link Artifact} of the SingleJar deploy jar */
+  @Override
   public Artifact getSingleJar() {
     return singleJar;
   }
@@ -302,10 +308,16 @@ public class JavaToolchainProvider extends ToolchainInfo
     return oneVersion;
   }
 
-  /** Return the {@link Artifact} of the whitelist used by the one-version compliance checker. */
+  /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
+  @Nullable
+  public Artifact getOneVersionAllowlist() {
+    return oneVersionAllowlist;
+  }
+
+  /** Return the {@link Artifact} of the allowlist used by the one-version compliance checker. */
   @Nullable
   public Artifact getOneVersionWhitelist() {
-    return oneVersionWhitelist;
+    return oneVersionAllowlist;
   }
 
   /** Returns the {@link Artifact} of the GenClass deploy jar */
@@ -371,6 +383,11 @@ public class JavaToolchainProvider extends ToolchainInfo
   /** @return whether JavaBuilders supports running as a persistent worker or not */
   public boolean getJavacSupportsWorkers() {
     return javacSupportsWorkers;
+  }
+
+  /** Returns whether JavaBuilders supports running persistent workers in multiplex mode */
+  public boolean getJavacSupportsMultiplexWorkers() {
+    return javacSupportsMultiplexWorkers;
   }
 
   /** Returns the global {@code java_plugin_configuration} data. */

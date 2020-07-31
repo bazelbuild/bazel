@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSdkProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import javax.annotation.Nullable;
 

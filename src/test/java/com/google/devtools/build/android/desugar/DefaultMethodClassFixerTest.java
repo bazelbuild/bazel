@@ -140,13 +140,13 @@ public class DefaultMethodClassFixerTest {
       byte[] classContent) {
     ClassReader reader = new ClassReader(classContent);
     reader.accept(
-        new ClassVisitor(Opcodes.ASM5) {
+        new ClassVisitor(Opcodes.ASM8) {
 
           class ClinitMethod extends MethodNode {
 
             public ClinitMethod(
                 int access, String name, String desc, String signature, String[] exceptions) {
-              super(Opcodes.ASM5, access, name, desc, signature, exceptions);
+              super(Opcodes.ASM8, access, name, desc, signature, exceptions);
             }
           }
 

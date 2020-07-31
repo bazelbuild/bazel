@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import com.google.devtools.build.lib.bazel.rules.python.BazelPythonSemantics;
+import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 
@@ -90,5 +92,10 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
       throws IOException {
     // Under BazelPythonSemantics, we can simply set --python_top to be the py_runtime target.
     return pyRuntimeLabel;
+  }
+
+  @Override
+  public PythonSemantics getPythonSemantics() {
+    return new BazelPythonSemantics();
   }
 }

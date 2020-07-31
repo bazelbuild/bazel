@@ -31,8 +31,8 @@ import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.StrictDepsMode;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -130,6 +130,16 @@ final class JavaInfoBuildHelper {
         JavaSourceJarsProvider.class,
         createJavaSourceJarsProvider(sourceJars, concat(compileTimeDeps, runtimeDeps, exports)));
 
+    javaInfoBuilder.addProvider(
+        JavaGenJarsProvider.class,
+        JavaGenJarsProvider.create(
+            false,
+            null,
+            null,
+            JavaPluginInfoProvider.empty(),
+            JavaInfo.fetchProvidersFromList(
+                concat(compileTimeDeps, exports), JavaGenJarsProvider.class)));
+
     javaInfoBuilder.setRuntimeJars(ImmutableList.of(outputJar));
 
     return javaInfoBuilder.build();
@@ -143,9 +153,8 @@ final class JavaInfoBuildHelper {
    * @param outputJar name of output Jar artifact.
    * @param outputSourceJar name of output source Jar artifact, or {@code null}. If unset, defaults
    *     to base name of the output jar with the suffix {@code -src.jar}.
-   * @return generated artifact, or null if there's nothing to pack
+   * @return generated artifact (can also be empty)
    */
-  @Nullable
   Artifact packSourceFiles(
       StarlarkActionFactory actions,
       Artifact outputJar,
@@ -155,12 +164,12 @@ final class JavaInfoBuildHelper {
       JavaToolchainProvider javaToolchain,
       JavaRuntimeInfo hostJavabase)
       throws EvalException {
-    // No sources to pack, return None
-    if (sourceFiles.isEmpty() && sourceJars.isEmpty()) {
-      return null;
+    if (outputJar == null && outputSourceJar == null) {
+      throw Starlark.errorf(
+          "pack_sources requires at least one of the parameters output_jar or output_source_jar");
     }
     // If we only have one source jar, return it directly to avoid action creation
-    if (sourceFiles.isEmpty() && sourceJars.size() == 1) {
+    if (sourceFiles.isEmpty() && sourceJars.size() == 1 && outputSourceJar == null) {
       return sourceJars.get(0);
     }
     ActionRegistry actionRegistry = actions.asActionRegistry(actions);
@@ -238,14 +247,6 @@ final class JavaInfoBuildHelper {
       JavaSemantics javaSemantics,
       StarlarkThread thread)
       throws EvalException, InterruptedException {
-
-    if (sourceJars.isEmpty()
-        && sourceFiles.isEmpty()
-        && exports.isEmpty()
-        && exportedPlugins.isEmpty()) {
-      throw Starlark.errorf(
-          "source_jars, sources, exports and exported_plugins cannot be simultaneously empty");
-    }
 
     JavaToolchainProvider toolchainProvider = javaToolchain;
 

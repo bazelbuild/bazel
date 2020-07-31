@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.python;
 
-import com.google.devtools.build.lib.skylarkbuildapi.python.PyStarlarkTransitionsApi;
+import com.google.devtools.build.lib.starlarkbuildapi.python.PyStarlarkTransitionsApi;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigurationTransition;
 

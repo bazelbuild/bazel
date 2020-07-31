@@ -233,25 +233,26 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     // Use an alias package group to allow for modification at the simpler path
     config.create(
-        "bazel_tools_workspace/tools/whitelists/config_feature_flag/BUILD",
+        "bazel_tools_workspace/tools/allowlists/config_feature_flag/BUILD",
         "package_group(",
         "    name='config_feature_flag',",
-        "    includes=['@//tools/whitelists/config_feature_flag'],",
+        "    includes=['@//tools/allowlists/config_feature_flag'],",
         ")");
 
     config.create(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name='config_feature_flag', packages=['//...'])");
 
     config.create(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name='config_feature_flag', packages=['//...'])");
 
     config.create(
         "bazel_tools_workspace/tools/zip/BUILD",
         "package(default_visibility=['//visibility:public'])",
         "exports_files(['precompile.py'])",
-        "cc_binary(name='zipper', srcs=['zip_main.cc'])");
+        "cc_binary(name='zipper', srcs=['zip_main.cc'])",
+        "alias(name='unzip_fdo', actual=':zipper')");
 
     config.create(
         "bazel_tools_workspace/tools/launcher/BUILD",
@@ -336,6 +337,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     ImmutableList.Builder<String> androidBuildContents = ImmutableList.builder();
 
     androidBuildContents.add(
+        "toolchain_type(name = 'sdk_toolchain_type')",
         "android_sdk(",
         "    name = 'sdk',",
         "    aapt = ':static_aapt_tool',",
@@ -401,9 +403,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
         .add("sh_binary(name = 'jarjar_bin', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
-        .add("package_group(name = 'android_device_whitelist', packages = ['//...'])")
-        .add("package_group(name = 'export_deps_whitelist', packages = ['//...'])")
-        .add("package_group(name = 'allow_android_library_deps_without_srcs_whitelist',")
+        .add("package_group(name = 'android_device_allowlist', packages = ['//...'])")
+        .add("package_group(name = 'export_deps_allowlist', packages = ['//...'])")
+        .add("package_group(name = 'allow_android_library_deps_without_srcs_allowlist',")
         .add("    packages=['//...'])")
         .add("android_tools_defaults_jar(name = 'android_jar')")
         .add("sh_binary(name = 'dex_list_obfuscator', srcs = ['empty.sh'])");

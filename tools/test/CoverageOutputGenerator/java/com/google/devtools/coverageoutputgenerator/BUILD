@@ -49,6 +49,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//third_party:auto_value",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/jcommander",
@@ -118,6 +119,21 @@ java_library(
 )
 
 java_library(
+    name = "GcovJsonParser",
+    srcs = [
+        "GcovJsonParser.java",
+        "Parser.java",
+    ],
+    deps = [
+        ":BranchCoverage",
+        ":Constants",
+        ":LineCoverage",
+        ":SourceFileCoverage",
+        "//third_party:gson",
+    ],
+)
+
+java_library(
     name = "LcovParser",
     srcs = [
         "LcovParser.java",
@@ -158,6 +174,7 @@ java_library(
     deps = [
         ":Constants",
         ":Coverage",
+        ":GcovJsonParser",
         ":GcovParser",
         ":LcovMergerFlags",
         ":LcovParser",

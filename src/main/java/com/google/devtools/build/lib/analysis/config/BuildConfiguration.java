@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.BuildConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.BuildConfigurationApi;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -167,7 +167,7 @@ public class BuildConfiguration implements BuildConfigurationApi {
       return false;
     }
     BuildConfiguration otherConfig = (BuildConfiguration) other;
-    return fragments.values().equals(otherConfig.fragments.values())
+    return fragments.values().asList().equals(otherConfig.fragments.values().asList())
         && buildOptions.equals(otherConfig.buildOptions);
   }
 
@@ -659,6 +659,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public boolean experimentalForwardInstrumentedFilesInfoByDefault() {
     return options.experimentalForwardInstrumentedFilesInfoByDefault;
+  }
+
+  public boolean experimentalIgnoreDeprecatedInstrumentationSpec() {
+    return options.experimentalIgnoreDeprecatedInstrumentationSpec;
   }
 
   public RunUnder getRunUnder() {

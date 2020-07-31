@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.util.FileTypeSet.NO_FILE;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -35,7 +36,9 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.TransitionFactories;
 import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
@@ -62,7 +65,7 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidSplitTransititionApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransititionApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -231,7 +234,7 @@ public final class AndroidRuleClasses {
   /** Android Split configuration transition for properly handling native dependencies */
   public static final class AndroidSplitTransition
       implements SplitTransition, AndroidSplitTransititionApi {
-    private static void setCrosstoolToAndroid(BuildOptions options) {
+    private static void setCrosstoolToAndroid(BuildOptionsView options) {
       AndroidConfiguration.Options androidOptions = options.get(AndroidConfiguration.Options.class);
 
       CppOptions cppOptions = options.get(CppOptions.class);
@@ -243,8 +246,17 @@ public final class AndroidRuleClasses {
     }
 
     @Override
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(
+          AndroidConfiguration.Options.class,
+          CoreOptions.class,
+          CppOptions.class,
+          PlatformOptions.class);
+    }
+
+    @Override
     public ImmutableMap<String, BuildOptions> split(
-        BuildOptions buildOptions, EventHandler eventHandler) {
+        BuildOptionsView buildOptions, EventHandler eventHandler) {
 
       AndroidConfiguration.Options androidOptions =
           buildOptions.get(AndroidConfiguration.Options.class);
@@ -256,21 +268,22 @@ public final class AndroidRuleClasses {
         if (androidOptions.cpu.isEmpty()
             || androidCrosstoolTop == null
             || androidCrosstoolTop.equals(cppOptions.crosstoolTop)) {
-          return ImmutableMap.of(buildOptions.get(CoreOptions.class).cpu, buildOptions);
+          return ImmutableMap.of(
+              buildOptions.get(CoreOptions.class).cpu, buildOptions.underlying());
 
         } else {
 
-          BuildOptions splitOptions = buildOptions.clone();
+          BuildOptionsView splitOptions = buildOptions.clone();
           splitOptions.get(CoreOptions.class).cpu = androidOptions.cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
-          return ImmutableMap.of(androidOptions.cpu, splitOptions);
+          return ImmutableMap.of(androidOptions.cpu, splitOptions.underlying());
         }
 
       } else {
 
         ImmutableMap.Builder<String, BuildOptions> result = ImmutableMap.builder();
         for (String cpu : ImmutableSortedSet.copyOf(androidOptions.fatApkCpus)) {
-          BuildOptions splitOptions = buildOptions.clone();
+          BuildOptionsView splitOptions = buildOptions.clone();
           // Disable fat APKs for the child configurations.
           splitOptions.get(AndroidConfiguration.Options.class).fatApkCpus = ImmutableList.of();
 
@@ -279,14 +292,14 @@ public final class AndroidRuleClasses {
           splitOptions.get(AndroidConfiguration.Options.class).cpu = cpu;
           splitOptions.get(CoreOptions.class).cpu = cpu;
           setCommonAndroidOptions(androidOptions, splitOptions);
-          result.put(cpu, splitOptions);
+          result.put(cpu, splitOptions.underlying());
         }
         return result.build();
       }
     }
 
     private void setCommonAndroidOptions(
-        AndroidConfiguration.Options androidOptions, BuildOptions newOptions) {
+        AndroidConfiguration.Options androidOptions, BuildOptionsView newOptions) {
       newOptions.get(CppOptions.class).cppCompiler = androidOptions.cppCompiler;
       newOptions.get(CppOptions.class).libcTopLabel = androidOptions.androidLibcTopLabel;
       newOptions.get(CppOptions.class).dynamicMode = androidOptions.dynamicMode;
@@ -613,6 +626,26 @@ public final class AndroidRuleClasses {
                   .cfg(HostTransition.createFactory())
                   .legacyAllowAnyFileType()
                   .value(env.getToolsLabel("//tools/android:debug_keystore")))
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_signing_keys) -->
+          List of files, debug keystores to be used to sign the debug apk. Usually you do not
+          want to use keys other than the default key, so this attribute should be omitted.
+          <p><em class="harmful">WARNING: Do not use your production keys, they should be
+          strictly safeguarded and not kept in your source tree</em>.</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("debug_signing_keys", LABEL_LIST)
+                  .cfg(HostTransition.createFactory())
+                  .legacyAllowAnyFileType())
+          /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(debug_signing_lineage_file) -->
+          File containing the signing lineage for the debug_signing_keys. Usually you do not
+          want to use keys other than the default key, so this attribute should be omitted.
+          <p><em class="harmful">WARNING: Do not use your production keys, they should be
+          strictly safeguarded and not kept in your source tree</em>.</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(
+              attr("debug_signing_lineage_file", LABEL)
+                  .cfg(HostTransition.createFactory())
+                  .legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(nocompress_extensions) -->
           A list of file extension to leave uncompressed in apk.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -872,7 +905,7 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes()
                   .nonconfigurable("defines an aspect of configuration")
                   .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
-          .add(AndroidFeatureFlagSetProvider.getWhitelistAttribute(env))
+          .add(AndroidFeatureFlagSetProvider.getAllowlistAttribute(env))
           // The resource extractor is used at the binary level to extract java resources from the
           // deploy jar so that they can be added to the APK.
           .add(

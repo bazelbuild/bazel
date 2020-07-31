@@ -19,11 +19,11 @@ import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.util.Pair;
 
 /** The artifacts behind a runfiles middleman. */
-class RunfilesArtifactValue extends AggregatingArtifactValue {
+final class RunfilesArtifactValue extends AggregatingArtifactValue {
   RunfilesArtifactValue(
       ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs,
       ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs,
-      FileArtifactValue selfData) {
-    super(fileInputs, directoryInputs, selfData);
+      FileArtifactValue metadata) {
+    super(fileInputs, directoryInputs, metadata);
   }
 }

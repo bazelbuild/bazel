@@ -26,8 +26,7 @@ final class UploadCommand {
   private final InputStream data;
   private final long contentLength;
 
-  protected UploadCommand(
-      URI uri, boolean casUpload, String hash, InputStream data, long contentLength) {
+  UploadCommand(URI uri, boolean casUpload, String hash, InputStream data, long contentLength) {
     this.uri = Preconditions.checkNotNull(uri);
     this.casUpload = casUpload;
     this.hash = Preconditions.checkNotNull(hash);

@@ -151,14 +151,12 @@ public final class LtoBackendAction extends SpawnAction {
         }
       }
     } catch (IOException e) {
-      throw new ActionExecutionException(
-          "error iterating imports file "
-              + actionExecutionContext.getInputPath(imports)
-              + ": "
-              + e.getMessage(),
-          e,
-          this,
-          false);
+      String message =
+          String.format(
+              "error iterating imports file %s: %s",
+              actionExecutionContext.getInputPath(imports), e.getMessage());
+      DetailedExitCode code = createDetailedExitCode(message, Code.IMPORTS_READ_IO_EXCEPTION);
+      throw new ActionExecutionException(message, e, this, false, code);
     }
 
     // Convert the import set of paths to the set of bitcode file artifacts.
@@ -209,7 +207,10 @@ public final class LtoBackendAction extends SpawnAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     try {
       fp.addStrings(getArguments());

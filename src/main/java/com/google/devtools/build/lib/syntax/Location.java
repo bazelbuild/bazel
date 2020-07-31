@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.io.Serializable;
 import javax.annotation.concurrent.Immutable;
 
@@ -113,5 +112,5 @@ public final class Location implements Serializable, Comparable<Location> {
   }
 
   /** A location for built-in functions. */
-  @SerializationConstant public static final Location BUILTIN = fromFile("<builtin>");
+  public static final Location BUILTIN = fromFile("<builtin>");
 }

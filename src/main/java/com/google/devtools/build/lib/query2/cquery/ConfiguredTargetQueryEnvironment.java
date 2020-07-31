@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKeyExtractorBackedSetImpl;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
 import com.google.devtools.build.lib.rules.AliasConfiguredTarget;
+import com.google.devtools.build.lib.server.FailureDetails.ConfigurableQuery;
 import com.google.devtools.build.lib.skyframe.BuildConfigurationValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetValue;
@@ -251,6 +252,7 @@ public class ConfiguredTargetQueryEnvironment
             eventHandler, cqueryOptions, out, skyframeExecutor, accessor));
   }
 
+  @Override
   public String getOutputFormat() {
     return cqueryOptions.outputFormat;
   }
@@ -285,7 +287,7 @@ public class ConfiguredTargetQueryEnvironment
           Futures.catchingAsync(
               patternToEval.evalAdaptedForAsync(
                   resolver,
-                  getBlacklistedPackagePrefixesPathFragments(),
+                  getIgnoredPackagePrefixesPathFragments(),
                   /* excludedSubdirectories= */ ImmutableSet.of(),
                   (Callback<Target>)
                       partialResult -> {
@@ -385,7 +387,8 @@ public class ConfiguredTargetQueryEnvironment
                 "Unknown value '"
                     + configuration
                     + "'. The second argument of config() must be 'target', 'host', 'null', or a"
-                    + " valid configuration hash (i.e. one of the outputs of 'blaze config')");
+                    + " valid configuration hash (i.e. one of the outputs of 'blaze config')",
+                ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
         }
         if (configuredTarget != null) {
           transformedResult.add(configuredTarget);
@@ -398,7 +401,8 @@ public class ConfiguredTargetQueryEnvironment
                 pattern,
                 userFriendlyConfigName
                     ? "'" + configuration + "' configuration"
-                    : "configuration with checksum '" + configuration + "'"));
+                    : "configuration with checksum '" + configuration + "'"),
+            ConfigurableQuery.Code.TARGET_MISSING);
       }
       callback.process(transformedResult);
       return null;

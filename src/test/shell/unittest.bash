@@ -683,6 +683,7 @@ function run_suite() {
 
       total=$(($total + 1))
       if [[ "$TEST_verbose" == "true" ]]; then
+          date >&2
           __pad $TEST_name '*' >&2
       fi
 
@@ -738,6 +739,10 @@ function run_suite() {
       local red='\033[0;31m'
       local green='\033[0;32m'
       local no_color='\033[0m'
+
+      if [[ "$TEST_verbose" == "true" ]]; then
+          echo >&2
+      fi
 
       if [[ "$TEST_passed" == "true" ]]; then
         if [[ "$TEST_verbose" == "true" ]]; then

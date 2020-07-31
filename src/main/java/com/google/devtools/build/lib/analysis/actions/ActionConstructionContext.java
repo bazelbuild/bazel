@@ -50,8 +50,9 @@ public interface ActionConstructionContext {
 
   /**
    * Returns the action owner that should be used for actions with the given exec group's execution
-   * platform. If an invalid exec group is given, throws a runtime exception.
+   * platform. If an invalid exec group is given, returns null.
    */
+  @Nullable
   ActionOwner getActionOwner(String execGroup);
 
   /** Returns the action key context. */
