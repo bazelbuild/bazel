@@ -17,11 +17,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.Ordering;
 import java.util.IllegalFormatException;
-import net.starlark.java.spelling.SpellChecker;
 
 /** Utilities used by the evaluator. */
 // TODO(adonovan): move all fundamental values and operators of the language to Starlark
-// class---equal, compare, getattr, index, slice, parse, exec, eval, and so on---and make this
+// class---equal, compare, index, slice, parse, exec, eval, and so on---and make this
 // private.
 public final class EvalUtils {
 
@@ -209,50 +208,6 @@ public final class EvalUtils {
     return x == null || x == Starlark.NONE;
   }
 
-  /** Returns the named field or method of value {@code x}, or null if not found. */
-  // TODO(adonovan): publish this method as Starlark.getattr(Semantics, Mutability, Object, String).
-  static Object getAttr(StarlarkThread thread, Object x, String name)
-      throws EvalException, InterruptedException {
-    StarlarkSemantics semantics = thread.getSemantics();
-    Mutability mu = thread.mutability();
-
-    // @StarlarkMethod-annotated field or method?
-    MethodDescriptor method = CallUtils.getMethod(semantics, x.getClass(), name);
-    if (method != null) {
-      if (method.isStructField()) {
-        return method.callField(x, semantics, mu);
-      } else {
-        return new BuiltinCallable(x, name, method);
-      }
-    }
-
-    // user-defined field?
-    if (x instanceof ClassObject) {
-      Object field = ((ClassObject) x).getValue(semantics, name);
-      if (field != null) {
-        return Starlark.checkValid(field);
-      }
-    }
-
-    return null;
-  }
-
-  static EvalException getMissingAttrException(
-      Object object, String name, StarlarkSemantics semantics) {
-    String suffix = "";
-    if (object instanceof ClassObject) {
-      String customErrorMessage = ((ClassObject) object).getErrorMessageForUnknownField(name);
-      if (customErrorMessage != null) {
-        return Starlark.errorf("%s", customErrorMessage);
-      }
-      suffix = SpellChecker.didYouMean(name, ((ClassObject) object).getFieldNames());
-    } else {
-      suffix = SpellChecker.didYouMean(name, CallUtils.getFieldNames(semantics, object));
-    }
-    return Starlark.errorf(
-        "'%s' value has no field or method '%s'%s", Starlark.type(object), name, suffix);
-  }
-
   /** Evaluates an eager binary operation, {@code x op y}. (Excludes AND and OR.) */
   static Object binaryOp(
       TokenKind op, Object x, Object y, StarlarkSemantics semantics, Mutability mu)
@@ -340,9 +295,9 @@ public final class EvalUtils {
           if (yi < 0) {
             throw Starlark.errorf("negative shift count: %d", yi);
           }
-          int z = xi << yi;
-          if (z >> yi != xi) {
-            throw Starlark.errorf("integer overflow");
+          int z = xi << yi; // only uses low 5 bits of yi
+          if ((z >> yi) != xi || yi >= 32) {
+            throw Starlark.errorf("integer overflow in left shift");
           }
           return z;
         }
@@ -419,6 +374,9 @@ public final class EvalUtils {
           if ((xi < 0) != (yi < 0) && rem != 0) {
             quo--;
           }
+          if (xi == Integer.MIN_VALUE && yi == -1) { // HD 2-13
+            throw Starlark.errorf("integer overflow in division");
+          }
           return quo;
         }
         break;
@@ -474,8 +432,8 @@ public final class EvalUtils {
         return compare(x, y) >= 0;
 
       case IN:
-        if (y instanceof StarlarkQueryable) {
-          return ((StarlarkQueryable) y).containsKey(semantics, x);
+        if (y instanceof StarlarkIndexable) {
+          return ((StarlarkIndexable) y).containsKey(semantics, x);
         } else if (y instanceof String) {
           if (!(x instanceof String)) {
             throw Starlark.errorf(
@@ -641,11 +599,12 @@ public final class EvalUtils {
   public static Object exec(StarlarkFile file, Module module, StarlarkThread thread)
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(
-        file.resolved,
+        file.getResolvedFunction(),
         "cannot evaluate unresolved syntax (use other exec method, or parseAndValidate)");
 
     Tuple<Object> defaultValues = Tuple.empty();
-    StarlarkFunction toplevel = new StarlarkFunction(file.resolved, defaultValues, module);
+    StarlarkFunction toplevel =
+        new StarlarkFunction(file.getResolvedFunction(), defaultValues, module);
 
     return Starlark.fastcall(thread, toplevel, NOARGS, NOARGS);
   }

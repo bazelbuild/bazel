@@ -41,7 +41,7 @@ public class EvalException extends Exception {
    * @param location the location where evaluation/execution failed.
    * @param message the error message.
    */
-  public EvalException(Location location, String message) {
+  public EvalException(@Nullable Location location, String message) {
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
   }
@@ -51,7 +51,11 @@ public class EvalException extends Exception {
    * @param message the error message.
    * @param cause a Throwable that caused this exception.
    */
-  public EvalException(Location location, String message, Throwable cause) {
+  // TODO(adonovan): eliminate the constructors from Throwable and the notion of causes. Make the
+  // callers format the error string, incorporating the Throwable's error message if desired.
+  // Instead, have callers call setCause if they need to associate a cause that is later accessible
+  // from the Java API. It should not be visible to the Starlark user.
+  public EvalException(@Nullable Location location, String message, Throwable cause) {
     super(cause);
     this.location = location;
     // This is only used from Starlark, it's useful for debugging.
@@ -63,11 +67,15 @@ public class EvalException extends Exception {
       } else {
         details = "Invalid EvalException:\n" + Throwables.getStackTraceAsString(cause);
       }
+      // TODO(adonovan): it's bad design to have the exception constructor
+      // (the 3-arg one, no less, which represents uncommon errors) crash if
+      // the---undocumented---precondition that at least one of message and cause
+      // are nonempty. Simplify, in the direction of being more permissive.
       throw new IllegalArgumentException(details);
     }
   }
 
-  public EvalException(Location location, Throwable cause) {
+  public EvalException(@Nullable Location location, Throwable cause) {
     this(location, null, cause);
   }
 
@@ -140,7 +148,8 @@ public class EvalException extends Exception {
    * Returns whether this exception can be added to a stack trace created by {@link
    * EvalExceptionWithStackTrace}.
    */
-  public boolean canBeAddedToStackTrace() {
+  protected boolean canBeAddedToStackTrace() {
+    // TODO(adonovan): make private. Exposed only to rules/repository/RepositoryFunction.
     return true;
   }
 }

@@ -26,8 +26,6 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
-import com.google.devtools.build.lib.actions.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -41,10 +39,11 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ShareabilityOfValue;
@@ -298,12 +297,12 @@ public abstract class Artifact
 
     @Override
     public ArtifactOwner getArtifactOwner() {
-      return ArtifactOwner.NullArtifactOwner.INSTANCE;
+      return ArtifactOwner.NULL_OWNER;
     }
 
     @Override
     public Label getOwnerLabel() {
-      return ArtifactOwner.NullArtifactOwner.INSTANCE.getLabel();
+      return ArtifactOwner.NULL_OWNER.getLabel();
     }
 
     @Override
@@ -384,7 +383,7 @@ public abstract class Artifact
     }
 
     @Override
-    public final ActionLookupValue.ActionLookupKey getArtifactOwner() {
+    public final ActionLookupKey getArtifactOwner() {
       return owner instanceof ActionLookupData
           ? getGeneratingActionKey().getActionLookupKey()
           : (ActionLookupKey) owner;
@@ -525,6 +524,11 @@ public abstract class Artifact
     return fileType.matches(this);
   }
 
+  /** Checks whether this artifact is of one of the types in the supplied set. */
+  public boolean isFileType(FileTypeSet fileTypeSet) {
+    return fileTypeSet.matches(filePathForFileTypeMatcher());
+  }
+
   @Override
   public final String filePathForFileTypeMatcher() {
     return getExecPath().filePathForFileTypeMatcher();
@@ -543,11 +547,10 @@ public abstract class Artifact
 
   /**
    * Gets the {@code ActionLookupKey} of the {@code ConfiguredTarget} that owns this artifact, if it
-   * was set. Otherwise, this should be a dummy value -- either {@link
-   * ArtifactOwner.NullArtifactOwner#INSTANCE} or a dummy owner set in tests. Such a dummy value
-   * should only occur for source artifacts if created without specifying the owner, or for special
-   * derived artifacts, such as target completion middleman artifacts, build info artifacts, and the
-   * like.
+   * was set. Otherwise, this should be a dummy value -- either {@link ArtifactOwner#NULL_OWNER} or
+   * a dummy owner set in tests. Such a dummy value should only occur for source artifacts if
+   * created without specifying the owner, or for special derived artifacts, such as target
+   * completion middleman artifacts, build info artifacts, and the like.
    */
   public abstract ArtifactOwner getArtifactOwner();
 
@@ -1129,7 +1132,7 @@ public abstract class Artifact
    * method.
    */
   public static void addExecPaths(Iterable<Artifact> artifacts, Collection<String> output) {
-    addNonMiddlemanArtifacts(artifacts, output, ActionInputHelper.EXEC_PATH_STRING_FORMATTER);
+    addNonMiddlemanArtifacts(artifacts, output, ActionInput::getExecPathString);
   }
 
   /**
@@ -1169,7 +1172,8 @@ public abstract class Artifact
    * this method.
    */
   public static Iterable<String> toExecPaths(Iterable<Artifact> artifacts) {
-    return ActionInputHelper.toExecPaths(Iterables.filter(artifacts, MIDDLEMAN_FILTER));
+    return Iterables.transform(
+        Iterables.filter(artifacts, MIDDLEMAN_FILTER), ActionInput::getExecPathString);
   }
 
   /**

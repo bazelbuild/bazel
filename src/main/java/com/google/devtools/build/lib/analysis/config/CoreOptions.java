@@ -387,6 +387,17 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean experimentalForwardInstrumentedFilesInfoByDefault;
 
   @Option(
+      name = "experimental_ignore_deprecated_instrumentation_spec",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "If specified, use a new configuration of InstrumentationSpec which distinguishes "
+              + "between source and dependency attributes for rules which still used a legacy "
+              + "configuration with a single list of coverage-relevant attributes.")
+  public boolean experimentalIgnoreDeprecatedInstrumentationSpec;
+
+  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -788,7 +799,8 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help =
           "INTERNAL BLAZE DEVELOPER FEATURE: If \"direct\", all configured targets expose "
               + "RequiredConfigFragmentsProvider with the configuration fragments they directly "
-              + "require. If \"transitive\", they do the same but also include the fragments their "
+              + "require (use \"direct_host_only\" to limit to targets in the host configuration). "
+              + "If \"transitive\", they do the same but also include the fragments their "
               + "transitive dependencies require. If \"off\", the provider is omitted. "
               + ""
               + "If not \"off\", this also populates config_setting's "
@@ -847,12 +859,19 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
-    // Don't offer the provider at all. This is best for most builds, which don't use this
-    // information and don't need the extra memory hit over every configured target.
+    /**
+     * Don't offer the provider at all. This is best for most builds, which don't use this
+     * information and don't need the extra memory hit over every configured target.
+     */
     OFF,
-    // Provide the fragments required *directly* by this rule.
+    /**
+     * Provide the fragments required <em>directly</em> by this rule if it is being analyzed in the
+     * host configuration.
+     */
+    DIRECT_HOST_ONLY,
+    /** Provide the fragments required <em>directly</em> by this rule. */
     DIRECT,
-    // Provide the fragments required by this rule and its transitive dependencies.
+    /** Provide the fragments required by this rule and its transitive dependencies. */
     TRANSITIVE;
   }
 

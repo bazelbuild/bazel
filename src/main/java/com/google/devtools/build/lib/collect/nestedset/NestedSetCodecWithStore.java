@@ -32,7 +32,9 @@ import java.util.concurrent.ExecutionException;
 public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
 
   private enum NestedSetSize {
-    EMPTY, SINGLETON, GROUP
+    EMPTY, // distinguished empty node; size = 0, depth = 0
+    LEAF, // a single element; size = 1, depth = 1
+    NONLEAF // more than one element; size > 1, depth > 1
   }
 
   private final NestedSetStore nestedSetStore;
@@ -75,10 +77,11 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       codedOut.writeEnumNoTag(NestedSetSize.EMPTY.ordinal());
     } else if (obj.isSingleton()) {
       // If the NestedSet is a singleton, we serialize directly as an optimization.
-      codedOut.writeEnumNoTag(NestedSetSize.SINGLETON.ordinal());
+      codedOut.writeEnumNoTag(NestedSetSize.LEAF.ordinal());
       context.serialize(obj.getChildren(), codedOut);
     } else {
-      codedOut.writeEnumNoTag(NestedSetSize.GROUP.ordinal());
+      codedOut.writeEnumNoTag(NestedSetSize.NONLEAF.ordinal());
+      context.serialize(obj.getApproxDepth(), codedOut);
       FingerprintComputationResult fingerprintComputationResult =
           nestedSetStore.computeFingerprintAndStore((Object[]) obj.getChildren(), context);
       context.addFutureToBlockWritingOn(fingerprintComputationResult.writeStatus());
@@ -95,12 +98,13 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
     switch (nestedSetSize) {
       case EMPTY:
         return NestedSetBuilder.emptySet(order);
-      case SINGLETON:
+      case LEAF:
         Object contents = context.deserialize(codedIn);
-        return intern(order, contents);
-      case GROUP:
+        return intern(order, 1, contents);
+      case NONLEAF:
+        int depth = context.deserialize(codedIn);
         ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
-        return intern(order, nestedSetStore.getContentsAndDeserialize(fingerprint, context));
+        return intern(order, depth, nestedSetStore.getContentsAndDeserialize(fingerprint, context));
     }
     throw new IllegalStateException("NestedSet size " + nestedSetSize + " not known");
   }
@@ -127,12 +131,12 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
    * not before. This should be ok as long as the contained object properly implements equality.
    */
   @SuppressWarnings("unchecked")
-  private NestedSet<?> intern(Order order, Object contents) {
+  private NestedSet<?> intern(Order order, int depth, Object contents) {
     NestedSet<?> result;
     if (contents instanceof ListenableFuture) {
-      result = NestedSet.withFuture(order, (ListenableFuture<Object[]>) contents);
+      result = NestedSet.withFuture(order, depth, (ListenableFuture<Object[]>) contents);
     } else {
-      result = NestedSet.forDeserialization(order, contents);
+      result = NestedSet.forDeserialization(order, depth, contents);
     }
     try {
       return interner.get(new EqualsWrapper(result), () -> result);

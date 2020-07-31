@@ -628,6 +628,9 @@ public final class Label
   /** Two labels are equal iff both their name and their package name are equal. */
   @Override
   public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
     if (!(other instanceof Label)) {
       return false;
     }
@@ -645,6 +648,9 @@ public final class Label
    */
   @Override
   public int compareTo(Label other) {
+    if (this == other) {
+      return 0;
+    }
     return ComparisonChain.start()
         .compare(packageIdentifier, other.packageIdentifier)
         .compare(name, other.name)

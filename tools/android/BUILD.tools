@@ -3,6 +3,9 @@ load("//tools/python:private/version.bzl", "PY_BINARY_VERSION")
 
 package(default_visibility = ["//visibility:public"])
 
+# The toolchain type used to distinguish Android SDK toolchains.
+toolchain_type(name = "sdk_toolchain_type")
+
 alias(
     name = "sdk",
     actual = "//external:android/sdk",
@@ -484,17 +487,17 @@ config_setting(
 )
 
 package_group(
-    name = "android_device_whitelist",
+    name = "android_device_allowlist",
     packages = ["//..."],
 )
 
 package_group(
-    name = "export_deps_whitelist",
+    name = "export_deps_allowlist",
     packages = ["//..."],
 )
 
 package_group(
-    name = "allow_android_library_deps_without_srcs_whitelist",
+    name = "allow_android_library_deps_without_srcs_allowlist",
     packages = ["//..."],
 )
 

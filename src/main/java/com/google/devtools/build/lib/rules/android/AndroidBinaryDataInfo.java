@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBinaryDataInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataInfoApi;
 
 /**
  * Provides information on Android resource, asset, and manifest information specific to binaries.

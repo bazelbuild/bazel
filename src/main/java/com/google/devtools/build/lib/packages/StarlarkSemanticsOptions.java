@@ -64,19 +64,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   // <== Add new options here in alphabetic order ==>
 
   @Option(
-      name = "debug_depset_depth",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {},
-      help =
-          "Enables an expensive additional check that causes depset construction to fail fast if "
-              + "the depset's depth would exceed the limit specified by "
-              + "`--nested_set_depth_limit`. Ordinarily this failure occurs only when the depset "
-              + "is flattened, which may be far from its point of creation.")
-  public boolean debugDepsetDepth;
-
-  @Option(
       name = "experimental_action_args",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -332,20 +319,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
               + "function, use `ctx.attr.dep[MyInfo]`. See "
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
   public boolean incompatibleDisableTargetProviderFields;
-
-  @Option(
-      name = "incompatible_disable_deprecated_attr_params",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
-      metadataTags = {
-        OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
-      },
-      help =
-          "If set to true, disable the deprecated parameters 'single_file' and 'non_empty' on "
-              + "attribute definition methods, such as attr.label().")
-  public boolean incompatibleDisableDeprecatedAttrParams;
 
   @Option(
       name = "incompatible_disable_depset_items",
@@ -622,6 +595,30 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean incompatibleLinkoptsToLinkLibs;
 
   @Option(
+      name = "incompatible_objc_provider_remove_compile_info",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, the ObjcProvider's APIs for compile info/merge_zip will be removed.")
+  public boolean incompatibleObjcProviderRemoveCompileInfo;
+
+  @Option(
+      name = "incompatible_java_common_parameters",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {
+        OptionMetadataTag.INCOMPATIBLE_CHANGE,
+        OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+      },
+      help = "If set to true, the jar_file parameter in pack_sources will be removed.")
+  public boolean incompatibleJavaCommonParameters;
+
+  @Option(
       name = "max_computation_steps",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -654,7 +651,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
-            .debugDepsetDepth(debugDepsetDepth)
             .experimentalActionArgs(experimentalActionArgs)
             .experimentalAllowIncrementalRepositoryUpdates(
                 experimentalAllowIncrementalRepositoryUpdates)
@@ -676,11 +672,11 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleDisableTargetProviderFields(incompatibleDisableTargetProviderFields)
             .incompatibleDisableThirdPartyLicenseChecking(
                 incompatibleDisableThirdPartyLicenseChecking)
-            .incompatibleDisableDeprecatedAttrParams(incompatibleDisableDeprecatedAttrParams)
             .incompatibleAlwaysCheckDepsetElements(incompatibleAlwaysCheckDepsetElements)
             .incompatibleDisableDepsetItems(incompatibleDisableDepsetItems)
             .incompatibleDisallowEmptyGlob(incompatibleDisallowEmptyGlob)
             .incompatibleDisallowStructProviderSyntax(incompatibleDisallowStructProviderSyntax)
+            .incompatibleJavaCommonParameters(incompatibleJavaCommonParameters)
             .incompatibleNewActionsApi(incompatibleNewActionsApi)
             .incompatibleNoAttrLicense(incompatibleNoAttrLicense)
             .incompatibleNoImplicitFileExport(incompatibleNoImplicitFileExport)
@@ -697,6 +693,7 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .incompatibleRequireLinkerInputCcApi(incompatibleRequireLinkerInputCcApi)
             .incompatibleRestrictStringEscapes(incompatibleRestrictStringEscapes)
             .incompatibleLinkoptsToLinkLibs(incompatibleLinkoptsToLinkLibs)
+            .incompatibleObjcProviderRemoveCompileInfo(incompatibleObjcProviderRemoveCompileInfo)
             .maxComputationSteps(maxComputationSteps)
             .recordRuleInstantiationCallstack(recordRuleInstantiationCallstack)
             .build();

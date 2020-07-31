@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.NativeInfo;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigFeatureFlagProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigFeatureFlagProviderApi;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.StarlarkValue;
 import net.starlark.java.annot.Param;

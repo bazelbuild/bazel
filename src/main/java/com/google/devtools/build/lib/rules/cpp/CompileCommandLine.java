@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nullable;
 
 /** The compile command line for the C++ compile action. */
@@ -65,7 +65,7 @@ public final class CompileCommandLine {
   }
 
   /** Returns the environment variables that should be set for C++ compile actions. */
-  protected Map<String, String> getEnvironment() throws CommandLineExpansionException {
+  ImmutableMap<String, String> getEnvironment() throws CommandLineExpansionException {
     try {
       return featureConfiguration.getEnvironmentVariables(actionName, variables);
     } catch (ExpansionException e) {
@@ -87,7 +87,7 @@ public final class CompileCommandLine {
    * @param overwrittenVariables: Variables that will overwrite original build variables. When null,
    *     unmodified original variables are used.
    */
-  protected List<String> getArguments(
+  List<String> getArguments(
       @Nullable PathFragment parameterFilePath, @Nullable CcToolchainVariables overwrittenVariables)
       throws CommandLineExpansionException {
     List<String> commandLine = new ArrayList<>();

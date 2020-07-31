@@ -16,7 +16,7 @@ package com.google.devtools.build.skydoc.fakebuildapi.repository;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;

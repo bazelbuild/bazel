@@ -79,9 +79,7 @@ public class ActionExecutionValue implements SkyValue {
       }
       for (Map.Entry<TreeFileArtifact, FileArtifactValue> file :
           treeArtifact.getChildValues().entrySet()) {
-        // We should only have RegularFileValue instances in here, but apparently tree artifacts
-        // sometimes store their own root directory in here. Sad.
-        // https://github.com/bazelbuild/bazel/issues/9058
+        // Tree artifacts can contain symlinks to directories, which don't have a digest.
         if (file.getValue().getType().isFile()) {
           Preconditions.checkNotNull(
               file.getValue().getDigest(),
@@ -267,17 +265,21 @@ public class ActionExecutionValue implements SkyValue {
       Artifact newArtifact, TreeArtifactValue tree) {
     Preconditions.checkState(
         newArtifact.isTreeArtifact(), "Expected tree artifact, got %s", newArtifact);
-    SpecialArtifact newParent = (SpecialArtifact) newArtifact;
 
-    Map<TreeFileArtifact, FileArtifactValue> newChildren =
-        Maps.newHashMapWithExpectedSize(tree.getChildValues().size());
+    if (TreeArtifactValue.OMITTED_TREE_MARKER.equals(tree)) {
+      return TreeArtifactValue.OMITTED_TREE_MARKER;
+    }
+
+    SpecialArtifact newParent = (SpecialArtifact) newArtifact;
+    TreeArtifactValue.Builder newTree = TreeArtifactValue.newBuilder(newParent);
+
     for (Map.Entry<TreeFileArtifact, FileArtifactValue> child : tree.getChildValues().entrySet()) {
-      newChildren.put(
+      newTree.putChild(
           TreeFileArtifact.createTreeOutput(newParent, child.getKey().getParentRelativePath()),
           child.getValue());
     }
 
-    return TreeArtifactValue.create(newChildren);
+    return newTree.build();
   }
 
   ActionExecutionValue transformForSharedAction(ImmutableSet<Artifact> outputs) {

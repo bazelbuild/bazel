@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.compat.FakeLoadTarget;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.Callback;
@@ -85,8 +86,9 @@ import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
@@ -113,6 +115,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.RejectedExecutionException;
@@ -143,7 +146,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   protected final int loadingPhaseThreads;
   protected final WalkableGraphFactory graphFactory;
-  protected final ImmutableList<String> universeScope;
+  protected final UniverseScope universeScope;
   protected boolean blockUniverseEvaluationErrors;
   protected ExtendedEventHandler universeEvalEventHandler;
   protected final String parserPrefix;
@@ -154,11 +157,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   // The following fields are set in the #beforeEvaluateQuery method.
   private MultisetSemaphore<PackageIdentifier> packageSemaphore;
   protected WalkableGraph graph;
-  protected InterruptibleSupplier<ImmutableSet<PathFragment>> blacklistPatternsSupplier;
+  protected InterruptibleSupplier<ImmutableSet<PathFragment>> ignoredPatternsSupplier;
   protected GraphBackedRecursivePackageProvider graphBackedRecursivePackageProvider;
   protected ListeningExecutorService executor;
   private RecursivePackageProviderBackedTargetPatternResolver resolver;
-  protected final SkyKey universeKey;
 
   public SkyQueryEnvironment(
       boolean keepGoing,
@@ -168,7 +170,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Iterable<QueryFunction> extraFunctions,
       String parserPrefix,
       WalkableGraphFactory graphFactory,
-      List<String> universeScope,
+      UniverseScope universeScope,
       PathPackageLocator pkgPath,
       boolean blockUniverseEvaluationErrors) {
     this(
@@ -196,7 +198,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Iterable<QueryFunction> extraFunctions,
       String parserPrefix,
       WalkableGraphFactory graphFactory,
-      List<String> universeScope,
+      UniverseScope universeScope,
       PathPackageLocator pkgPath,
       boolean blockUniverseEvaluationErrors) {
     super(
@@ -209,12 +211,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this.loadingPhaseThreads = loadingPhaseThreads;
     this.graphFactory = graphFactory;
     this.pkgPath = pkgPath;
-    this.universeScope = ImmutableList.copyOf(Preconditions.checkNotNull(universeScope));
+    this.universeScope = universeScope;
     this.parserPrefix = parserPrefix;
-    Preconditions.checkState(
-        !universeScope.isEmpty(), "No queries can be performed with an empty universe");
     this.queryEvaluationParallelismLevel = queryEvaluationParallelismLevel;
-    this.universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
     this.blockUniverseEvaluationErrors = blockUniverseEvaluationErrors;
     this.universeEvalEventHandler =
         this.blockUniverseEvaluationErrors
@@ -235,34 +234,38 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   /** Gets roots of graph which contains all nodes needed to evaluate {@code expr}. */
-  protected Set<SkyKey> getGraphRootsFromExpression(QueryExpression expr)
-      throws QueryException, InterruptedException {
+  protected Set<SkyKey> getGraphRootsFromUniverseKeyAndExpression(
+      SkyKey universeKey, QueryExpression expr) throws QueryException, InterruptedException {
     return ImmutableSet.of(universeKey);
   }
 
   protected void beforeEvaluateQuery(QueryExpression expr)
       throws QueryException, InterruptedException {
-    Set<SkyKey> roots = getGraphRootsFromExpression(expr);
+    ImmutableList<String> universeScopeListToUse = universeScope.inferFromQueryExpression(expr);
+    logger.atInfo().log("Using a --universe_scope value of %s", universeScopeListToUse);
+    SkyKey universeKey = graphFactory.getUniverseKey(universeScopeListToUse, parserPrefix);
+    Set<SkyKey> roots = getGraphRootsFromUniverseKeyAndExpression(universeKey, expr);
 
     EvaluationResult<SkyValue> result;
     try (AutoProfiler p = GoogleAutoProfilerUtils.logged("evaluation and walkable graph")) {
       EvaluationContext evaluationContext =
           EvaluationContext.newBuilder()
               .setNumThreads(loadingPhaseThreads)
-              .setEventHander(universeEvalEventHandler)
+              .setEventHandler(universeEvalEventHandler)
               .build();
       result = graphFactory.prepareAndGet(roots, configureEvaluationContext(evaluationContext));
     }
 
     if (graph == null || graph != result.getWalkableGraph()) {
-      checkEvaluationResult(roots, result);
+      checkEvaluationResult(universeScopeListToUse, roots, universeKey, result);
       packageSemaphore = makeFreshPackageMultisetSemaphore();
       graph = result.getWalkableGraph();
-      blacklistPatternsSupplier = MemoizingInterruptibleSupplier.of(new BlacklistSupplier(graph));
+      ignoredPatternsSupplier =
+          MemoizingInterruptibleSupplier.of(new IgnoredPatternSupplier(graph));
       graphBackedRecursivePackageProvider =
           new GraphBackedRecursivePackageProvider(
               graph,
-              getTargetPatternsForUniverse(),
+              getTargetPatternsForUniverseKey(universeKey),
               pkgPath,
               new TraversalInfoRootPackageExtractor());
     }
@@ -285,8 +288,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
             packageSemaphore);
   }
 
-  /** Returns the TargetPatterns corresponding to {@link #universeKey}. */
-  protected ImmutableList<TargetPattern> getTargetPatternsForUniverse() {
+  /** Returns the TargetPatterns corresponding to {@code universeKey}. */
+  protected ImmutableList<TargetPattern> getTargetPatternsForUniverseKey(SkyKey universeKey) {
     return ImmutableList.copyOf(
         Iterables.transform(
             PrepareDepsOfPatternsFunction.getTargetPatternKeys(
@@ -315,7 +318,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return dependencyFilter != DependencyFilter.ALL_DEPS;
   }
 
-  protected void checkEvaluationResult(Set<SkyKey> roots, EvaluationResult<SkyValue> result)
+  protected void checkEvaluationResult(
+      ImmutableList<String> universeScopeList,
+      Set<SkyKey> roots,
+      SkyKey universeKey,
+      EvaluationResult<SkyValue> result)
       throws QueryException {
     // If the only root is the universe key, we expect to see either a single successfully evaluated
     // value or a cycle in the result.
@@ -325,7 +332,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Preconditions.checkState(
             values.size() == 1,
             "Universe query \"%s\" returned multiple values unexpectedly (%s values in result)",
-            universeScope,
+            universeScopeList,
             values.size());
         Preconditions.checkNotNull(result.get(universeKey), result);
       } else {
@@ -334,7 +341,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         Preconditions.checkState(
             foundCycle,
             "Universe query \"%s\" failed with non-cycle error: %s",
-            universeScope,
+            universeScopeList,
             result.getError());
       }
     }
@@ -358,11 +365,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   protected QueryExpressionMapper<Void> getQueryExpressionMapper() {
-    if (universeScope.size() != 1) {
+    Optional<ImmutableList<String>> constantUniverseScopeListMaybe =
+        universeScope.getConstantValueMaybe();
+    if (!constantUniverseScopeListMaybe.isPresent()) {
+      return QueryExpressionMapper.identity();
+    }
+    ImmutableList<String> constantUniverseScopeList = constantUniverseScopeListMaybe.get();
+    if (constantUniverseScopeList.size() != 1) {
       return QueryExpressionMapper.identity();
     }
     TargetPattern.Parser targetPatternParser = new TargetPattern.Parser(parserPrefix);
-    String universeScopePattern = Iterables.getOnlyElement(universeScope);
+    String universeScopePattern = Iterables.getOnlyElement(constantUniverseScopeList);
     return QueryExpressionMapper.compose(
         ImmutableList.of(
             new RdepsToAllRdepsQueryExpressionMapper(targetPatternParser, universeScopePattern),
@@ -770,9 +783,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     return new UniquifierImpl<>(SkyKeyKeyExtractor.INSTANCE, queryEvaluationParallelismLevel);
   }
 
-  private ImmutableSet<PathFragment> getBlacklistedExcludes(TargetPatternKey targetPatternKey)
-  throws InterruptedException {
-    return targetPatternKey.getAllBlacklistedSubdirectoriesToExclude(blacklistPatternsSupplier);
+  private ImmutableSet<PathFragment> getIgnoredSubdirectories(TargetPatternKey targetPatternKey)
+      throws InterruptedException {
+    return targetPatternKey.getAllIgnoredSubdirectoriesToExclude(ignoredPatternsSupplier);
   }
 
   @ThreadSafe
@@ -802,9 +815,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   @ThreadSafe
   public QueryTaskFuture<Void> evalTargetPatternKey(
       QueryExpression owner, TargetPatternKey targetPatternKey, Callback<Target> callback) {
-    ImmutableSet<PathFragment> blacklistedSubdirectoriesToExclude;
+    ImmutableSet<PathFragment> ignoredSubdirectoriesToExclude;
     try {
-      blacklistedSubdirectoriesToExclude = getBlacklistedExcludes(targetPatternKey);
+      ignoredSubdirectoriesToExclude = getIgnoredSubdirectories(targetPatternKey);
     } catch (InterruptedException ie) {
       return immediateCancelledFuture();
     }
@@ -829,7 +842,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     ListenableFuture<Void> evalFuture =
         patternToEval.evalAsync(
             resolver,
-            blacklistedSubdirectoriesToExclude,
+            ignoredSubdirectoriesToExclude,
             additionalSubdirectoriesToExclude,
             filteredCallback,
             QueryException.class,
@@ -893,7 +906,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try {
       buildFileForLoad = pkgPath.getPackageBuildFile(packageIdentifier);
     } catch (NoSuchPackageException e) {
-      throw new QueryException(packageIdentifier + " does not exist in graph");
+      throw new QueryException(
+          packageIdentifier + " does not exist in graph",
+          e,
+          e.getDetailedExitCode().getFailureDetail());
     }
     return Label.createUnvalidated(packageIdentifier, buildFileForLoad.getBaseName());
   }
@@ -945,7 +961,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       if (graph.isCycle(packageKey)) {
         throw new NoSuchPackageException(packageIdentifier, "Package depends on a cycle");
       } else {
-        throw new QueryException(packageKey + " does not exist in graph");
+        throw new QueryException(packageKey + " does not exist in graph", Query.Code.CYCLE);
       }
     }
   }
@@ -1241,18 +1257,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         .build();
   }
 
-  private static class BlacklistSupplier
+  private static class IgnoredPatternSupplier
       implements InterruptibleSupplier<ImmutableSet<PathFragment>> {
     private final WalkableGraph graph;
 
-    private BlacklistSupplier(WalkableGraph graph) {
+    private IgnoredPatternSupplier(WalkableGraph graph) {
       this.graph = graph;
     }
 
     @Override
     public ImmutableSet<PathFragment> get() throws InterruptedException {
-      return ((BlacklistedPackagePrefixesValue)
-              graph.getValue(BlacklistedPackagePrefixesValue.key()))
+      return ((IgnoredPackagePrefixesValue) graph.getValue(IgnoredPackagePrefixesValue.key()))
           .getPatterns();
     }
   }

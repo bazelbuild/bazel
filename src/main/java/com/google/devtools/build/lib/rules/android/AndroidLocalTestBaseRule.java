@@ -88,7 +88,7 @@ public class AndroidLocalTestBaseRule implements RuleDefinition {
                 .allowedFileTypes()
                 .nonconfigurable("defines an aspect of configuration")
                 .mandatoryProviders(ImmutableList.of(ConfigFeatureFlagProvider.id())))
-        .add(AndroidFeatureFlagSetProvider.getWhitelistAttribute(environment))
+        .add(AndroidFeatureFlagSetProvider.getAllowlistAttribute(environment))
         // TODO(b/38314524): Move $android_resources_busybox and :android_sdk to a separate
         // rule so they're not defined in multiple places
         .add(

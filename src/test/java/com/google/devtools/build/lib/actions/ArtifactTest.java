@@ -19,7 +19,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver.ArtifactResolverSupplier;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -35,6 +34,8 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationDepsUtils;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -143,6 +144,24 @@ public class ArtifactTest {
   }
 
   @Test
+  public void testIsFileType() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
+    Artifact javaFile = ActionsTestUtil.createArtifact(root, scratch.file("/foo/Bar.java"));
+    assertThat(javaFile.isFileType(FileType.of("java"))).isTrue();
+    assertThat(javaFile.isFileType(FileType.of("cc"))).isFalse();
+  }
+
+  @Test
+  public void testIsFileTypeSet() throws Exception {
+    ArtifactRoot root = ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/foo")));
+    Artifact javaFile = ActionsTestUtil.createArtifact(root, scratch.file("/foo/Bar.java"));
+    assertThat(javaFile.isFileType(FileTypeSet.of(FileType.of("cc"), FileType.of("java"))))
+        .isTrue();
+    assertThat(javaFile.isFileType(FileTypeSet.of(FileType.of("py"), FileType.of("js")))).isFalse();
+    assertThat(javaFile.isFileType(FileTypeSet.of())).isFalse();
+  }
+
+  @Test
   public void testMangledPath() {
     String path = "dir/sub_dir/name:end";
     assertThat(Actions.escapedPath(path)).isEqualTo("dir_Ssub_Udir_Sname_Cend");
@@ -171,7 +190,7 @@ public class ArtifactTest {
           }
 
           @Override
-          public ActionLookupValue.ActionLookupKey getOwner() {
+          public ActionLookupKey getOwner() {
             throw new UnsupportedOperationException();
           }
         },
@@ -349,7 +368,7 @@ public class ArtifactTest {
             new Artifact.SourceArtifact(
                     ArtifactRoot.asSourceRoot(Root.fromPath(scratch.dir("/"))),
                     PathFragment.create("src/foo.cc"),
-                    ArtifactOwner.NullArtifactOwner.INSTANCE)
+                    ArtifactOwner.NULL_OWNER)
                 .isSourceArtifact())
         .isTrue();
     assertThat(
@@ -369,18 +388,28 @@ public class ArtifactTest {
   }
 
   @Test
-  public void hashCodeAndEquals() throws IOException {
+  public void hashCodeAndEquals() {
     Path execRoot = scratch.getFileSystem().getPath("/");
     ArtifactRoot root = ArtifactRoot.asDerivedRoot(execRoot, "newRoot");
-    ActionLookupValue.ActionLookupKey firstOwner =
-        new ActionLookupValue.ActionLookupKey() {
+    ActionLookupKey firstOwner =
+        new ActionLookupKey() {
+          @Override
+          public Label getLabel() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;
           }
         };
-    ActionLookupValue.ActionLookupKey secondOwner =
-        new ActionLookupValue.ActionLookupKey() {
+    ActionLookupKey secondOwner =
+        new ActionLookupKey() {
+          @Override
+          public Label getLabel() {
+            return null;
+          }
+
           @Override
           public SkyFunctionName functionName() {
             return null;

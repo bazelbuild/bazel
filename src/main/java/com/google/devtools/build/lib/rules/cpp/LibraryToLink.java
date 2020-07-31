@@ -83,6 +83,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
   }
 
   @Nullable
+  @Override
+  public Sequence<Artifact> getLtoBitcodeFilesForStarlark() {
+    if (getLtoCompilationContext() == null) {
+      return StarlarkList.empty();
+    }
+    return StarlarkList.immutableCopyOf(getLtoCompilationContext().getBitcodeFiles());
+  }
+
+  @Nullable
   public abstract ImmutableMap<Artifact, LtoBackendArtifacts> getSharedNonLtoBackends();
 
   @Nullable
@@ -102,6 +111,15 @@ public abstract class LibraryToLink implements LibraryToLinkApi<Artifact> {
       return StarlarkList.empty();
     }
     return StarlarkList.immutableCopyOf(getPicObjectFiles());
+  }
+
+  @Nullable
+  @Override
+  public Sequence<Artifact> getPicLtoBitcodeFilesForStarlark() {
+    if (getPicLtoCompilationContext() == null) {
+      return StarlarkList.empty();
+    }
+    return StarlarkList.immutableCopyOf(getPicLtoCompilationContext().getBitcodeFiles());
   }
 
   @Nullable

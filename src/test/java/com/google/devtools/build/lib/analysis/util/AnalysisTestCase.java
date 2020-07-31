@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
@@ -45,7 +46,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -527,7 +528,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner)
       throws InterruptedException {
     Label label = owner.getLabel();
-    ActionLookupValue.ActionLookupKey actionLookupKey =
+    ActionLookupKey actionLookupKey =
         ConfiguredTargetKey.builder()
             .setLabel(label)
             .setConfigurationKey(owner.getConfigurationKey())
@@ -582,11 +583,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         expected.keySet().stream()
             .collect(toImmutableMap(label -> label, label -> actualSet.count(label)));
     assertThat(actual).containsExactlyEntriesIn(expected);
-  }
-
-  protected String getAnalysisError() {
-    ensureUpdateWasCalled();
-    return analysisResult.getError();
   }
 
   protected BuildViewForTesting getView() {

@@ -180,19 +180,22 @@ public class CommandLines {
     return new ExpandedCommandLines(arguments.build(), paramFiles);
   }
 
-  public void addToFingerprint(ActionKeyContext actionKeyContext, Fingerprint fingerprint)
+  public void addToFingerprint(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fingerprint)
       throws CommandLineExpansionException {
     // Optimize for simple case of single command line
     if (commandLines instanceof CommandLine) {
       CommandLine commandLine = (CommandLine) commandLines;
-      commandLine.addToFingerprint(actionKeyContext, fingerprint);
+      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
       return;
     }
     List<CommandLineAndParamFileInfo> commandLines = getCommandLines();
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
-      commandLine.addToFingerprint(actionKeyContext, fingerprint);
+      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
       if (paramFileInfo != null) {
         addParamFileInfoToFingerprint(paramFileInfo, fingerprint);
       }
@@ -274,7 +277,6 @@ public class CommandLines {
   }
 
   // Helper function to unpack the optimized storage format into a list
-  @SuppressWarnings("unchecked")
   public List<CommandLineAndParamFileInfo> getCommandLines() {
     if (commandLines instanceof CommandLine) {
       return ImmutableList.of(new CommandLineAndParamFileInfo((CommandLine) commandLines, null));

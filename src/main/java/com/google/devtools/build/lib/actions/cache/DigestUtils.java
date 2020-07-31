@@ -33,6 +33,7 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.annotation.Nullable;
 
 /**
  * Utility class for getting digests of files.
@@ -213,26 +214,39 @@ public class DigestUtils {
   }
 
   /**
-   * Get the digest of {@code path}, using a constant-time xattr call if the filesystem supports
+   * Gets the digest of {@code path}, using a constant-time xattr call if the filesystem supports
    * it, and calculating the digest manually otherwise.
    *
+   * <p>If {@link Path#getFastDigest} has already been attempted and was not available, call {@link
+   * #manuallyComputeDigest} to skip an additional attempt to obtain the fast digest.
+   *
    * @param path Path of the file.
-   * @param fileSize size of the file. Used to determine if digest calculation should be done
-   * serially or in parallel. Files larger than a certain threshold will be read serially, in order
-   * to avoid excessive disk seeks.
+   * @param fileSize Size of the file. Used to determine if digest calculation should be done
+   *     serially or in parallel. Files larger than a certain threshold will be read serially, in
+   *     order to avoid excessive disk seeks.
    */
-  public static byte[] getDigestOrFail(Path path, long fileSize)
-      throws IOException {
+  public static byte[] getDigestWithManualFallback(Path path, long fileSize) throws IOException {
     byte[] digest = path.getFastDigest();
-    if (digest != null) {
-      return digest;
-    }
+    return digest != null ? digest : manuallyComputeDigest(path, fileSize);
+  }
+
+  /**
+   * Calculates the digest manually.
+   *
+   * @param path Path of the file.
+   * @param fileSize Size of the file. Used to determine if digest calculation should be done
+   *     serially or in parallel. Files larger than a certain threshold will be read serially, in
+   *     order to avoid excessive disk seeks.
+   */
+  public static byte[] manuallyComputeDigest(Path path, long fileSize) throws IOException {
+    byte[] digest;
 
     // Attempt a cache lookup if the cache is enabled.
     Cache<CacheKey, byte[]> cache = globalCache;
     CacheKey key = null;
     if (cache != null) {
-      key = new CacheKey(path, path.stat());
+      Path canonicalPath = path.resolveSymbolicLinks();
+      key = new CacheKey(canonicalPath, canonicalPath.stat());
       digest = cache.getIfPresent(key);
       if (digest != null) {
         return digest;
@@ -250,7 +264,7 @@ public class DigestUtils {
       digest = getDigestInternal(path);
     }
 
-    Preconditions.checkNotNull(digest);
+    Preconditions.checkNotNull(digest, "Missing digest for %s (size %s)", path, fileSize);
     if (cache != null) {
       cache.put(key, digest);
     }
@@ -305,17 +319,10 @@ public class DigestUtils {
     return result;
   }
 
-  private static byte[] getDigest(Fingerprint fp, String execPath, FileArtifactValue md) {
+  private static byte[] getDigest(Fingerprint fp, String execPath, @Nullable FileArtifactValue md) {
     fp.addString(execPath);
-
-    if (md == null) {
-      // Move along, nothing to see here.
-    } else if (md.getDigest() != null) {
-      fp.addBytes(md.getDigest());
-    } else {
-      // Use the timestamp if the digest is not present, but not both. Modifying a timestamp while
-      // keeping the contents of a file the same should not cause rebuilds.
-      fp.addLong(md.getModifiedTime());
+    if (md != null) {
+      md.addTo(fp);
     }
     return fp.digestAndReset();
   }

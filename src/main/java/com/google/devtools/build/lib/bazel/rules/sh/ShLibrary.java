@@ -22,8 +22,10 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitionMode;
+import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 
 /**
  * Implementation for the sh_library rule.
@@ -39,13 +41,21 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
             .addAll(ruleContext.getPrerequisiteArtifacts("deps", TransitionMode.TARGET).list())
             .addAll(ruleContext.getPrerequisiteArtifacts("data", TransitionMode.DONT_CHECK).list())
             .build();
-    Runfiles runfiles = new Runfiles.Builder(
-        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
-        .addTransitiveArtifacts(filesToBuild)
-        .build();
+    Runfiles runfiles =
+        new Runfiles.Builder(
+                ruleContext.getWorkspaceName(),
+                ruleContext.getConfiguration().legacyExternalRunfiles())
+            .addTransitiveArtifacts(filesToBuild)
+            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
+            .build();
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .addProvider(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .addNativeDeclaredProvider(
+            InstrumentedFilesCollector.collectTransitive(
+                ruleContext,
+                ShCoverage.INSTRUMENTATION_SPEC,
+                /* reportedToActualSources= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER)))
         .build();
   }
 }

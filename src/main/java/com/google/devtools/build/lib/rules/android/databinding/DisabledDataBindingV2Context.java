@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
+import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi.LabelJavaPackagePair;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 

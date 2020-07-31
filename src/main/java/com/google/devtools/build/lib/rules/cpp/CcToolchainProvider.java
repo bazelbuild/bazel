@@ -103,7 +103,8 @@ public final class CcToolchainProvider extends ToolchainInfo
           /* targetSystemName= */ "",
           /* additionalMakeVariables= */ ImmutableMap.of(),
           /* legacyCcFlagsMakeVariable= */ "",
-          /* whitelistForLayeringCheck= */ null);
+          /* allowlistForLayeringCheck= */ null,
+          /* allowListForLooseHeaderCheck= */ null);
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final PathFragment crosstoolTopPathFragment;
@@ -165,7 +166,8 @@ public final class CcToolchainProvider extends ToolchainInfo
   private final FdoContext fdoContext;
 
   private final LicensesProvider licensesProvider;
-  private final PackageSpecificationProvider whitelistForLayeringCheck;
+  private final PackageSpecificationProvider allowlistForLayeringCheck;
+  private final PackageSpecificationProvider allowListForLooseHeaderCheck;
 
   public CcToolchainProvider(
       ImmutableMap<String, Object> values,
@@ -221,7 +223,8 @@ public final class CcToolchainProvider extends ToolchainInfo
       String targetSystemName,
       ImmutableMap<String, String> additionalMakeVariables,
       String legacyCcFlagsMakeVariable,
-      PackageSpecificationProvider whitelistForLayeringCheck) {
+      PackageSpecificationProvider allowlistForLayeringCheck,
+      PackageSpecificationProvider allowListForLooseHeaderCheck) {
     super(values, Location.BUILTIN);
     this.cppConfiguration = cppConfiguration;
     this.crosstoolTopPathFragment = crosstoolTopPathFragment;
@@ -278,7 +281,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     this.targetSystemName = targetSystemName;
     this.additionalMakeVariables = additionalMakeVariables;
     this.legacyCcFlagsMakeVariable = legacyCcFlagsMakeVariable;
-    this.whitelistForLayeringCheck = whitelistForLayeringCheck;
+    this.allowlistForLayeringCheck = allowlistForLayeringCheck;
+    this.allowListForLooseHeaderCheck = allowListForLooseHeaderCheck;
   }
 
   /**
@@ -646,6 +650,7 @@ public final class CcToolchainProvider extends ToolchainInfo
     return toolchainFeatures;
   }
 
+  @Override
   public Label getCcToolchainLabel() {
     return ccToolchainLabel;
   }
@@ -910,8 +915,12 @@ public final class CcToolchainProvider extends ToolchainInfo
     return dynamicRuntimeLinkInputs;
   }
 
-  public PackageSpecificationProvider getWhitelistForLayeringCheck() {
-    return whitelistForLayeringCheck;
+  public PackageSpecificationProvider getAllowlistForLayeringCheck() {
+    return allowlistForLayeringCheck;
+  }
+
+  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
+    return allowListForLooseHeaderCheck;
   }
 }
 

@@ -135,7 +135,7 @@ cc_library(
     name = "jni",
     hdrs = [":jni_header"] + select({
         "//src/conditions:linux_aarch64": [":jni_md_header-linux"],
-        "//src/conditions:linux_ppc": [":jni_md_header-linux"],
+        "//src/conditions:linux_ppc64le": [":jni_md_header-linux"],
         "//src/conditions:linux_s390x": [":jni_md_header-linux"],
         "//src/conditions:linux_x86_64": [":jni_md_header-linux"],
         "//src/conditions:darwin": [":jni_md_header-darwin"],
@@ -146,7 +146,7 @@ cc_library(
     }),
     includes = ["include"] + select({
         "//src/conditions:linux_aarch64": ["include/linux"],
-        "//src/conditions:linux_ppc": ["include/linux"],
+        "//src/conditions:linux_ppc64le": ["include/linux"],
         "//src/conditions:linux_s390x": ["include/linux"],
         "//src/conditions:linux_x86_64": ["include/linux"],
         "//src/conditions:darwin": ["include/darwin"],
@@ -434,6 +434,7 @@ filegroup(
         "DumpPlatformClassPath.java",
         "default_java_toolchain.bzl",
         "java_toolchain_alias.bzl",
+        "nosystemjdk/README",
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.pgcfg",

@@ -125,8 +125,8 @@ class NamedArtifactGroup implements BuildEvent {
 
   /**
    * Given a set whose leaf successors are {@link Artifact} and {@link ExpandedArtifact}, returns a
-   * weird Frankenstein object with each leaf successor replaced by ExpandedArtifact. Non-leaf
-   * successors are unaltered.
+   * new NestedSet whose leaf successors are all ExpandedArtifact. Non-leaf successors are
+   * unaltered.
    */
   static NestedSet<?> expandSet(CompletionContext ctx, NestedSet<?> artifacts) {
     NestedSetBuilder<Object> res = new NestedSetBuilder<>(Order.STABLE_ORDER);

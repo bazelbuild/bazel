@@ -122,7 +122,7 @@ final class RemoteSpawnCache implements SpawnCache {
     NetworkTime networkTime = new NetworkTime();
     Stopwatch totalTime = Stopwatch.createStarted();
 
-    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping(true);
+    SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
     MerkleTree merkleTree =
         MerkleTree.build(inputMap, context.getMetadataProvider(), execRoot, digestUtil);
     SpawnMetrics.Builder spawnMetrics =

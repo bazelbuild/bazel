@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.rules.python.PythonSemantics;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import java.io.IOException;
 import java.util.List;
@@ -36,6 +37,8 @@ public abstract class MockPythonSupport {
    */
   public abstract String createPythonTopEntryPoint(MockToolsConfig config, String pyRuntimeLabel)
       throws IOException;
+
+  public abstract PythonSemantics getPythonSemantics();
 
   /**
    * Defines a file simulating the part of @rules_python//python:defs.bzl that defines macros for

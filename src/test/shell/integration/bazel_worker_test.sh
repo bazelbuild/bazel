@@ -126,13 +126,17 @@ def _impl(ctx):
     argfile_inputs.append(argfile)
     argfile_arguments.append("@" + argfile.path)
 
+  execution_requirements = {"supports-workers": "1"}
+  if ctx.attr.worker_key_mnemonic:
+    execution_requirements["worker-key-mnemonic"] = ctx.attr.worker_key_mnemonic
+
   ctx.actions.run(
       inputs=argfile_inputs + ctx.files.srcs,
       outputs=[output],
       executable=worker,
       progress_message="Working on %s" % ctx.label.name,
-      mnemonic="Work",
-      execution_requirements={"supports-workers": "1"},
+      mnemonic=ctx.attr.action_mnemonic,
+      execution_requirements=execution_requirements,
       arguments=ctx.attr.worker_args + argfile_arguments,
   )
 
@@ -141,6 +145,8 @@ work = rule(
     attrs={
         "worker": attr.label(cfg="host", mandatory=True, allow_files=True, executable=True),
         "worker_args": attr.string_list(),
+        "worker_key_mnemonic": attr.string(),
+        "action_mnemonic": attr.string(default = "Work"),
         "args": attr.string_list(),
         "srcs": attr.label_list(allow_files=True),
         "multiflagfiles": attr.bool(default=False),
@@ -195,6 +201,33 @@ EOF
   assert_equals "HELLO WORLD" "$(cat $BINS/hello_world_uppercase.out)"
 }
 
+function test_shared_worker() {
+  prepare_example_worker
+  cat >>BUILD <<EOF
+work(
+  name = "hello_world",
+  worker = ":worker",
+  action_mnemonic = "Hello",
+  worker_key_mnemonic = "SharedWorker",
+  args = ["--write_uuid"],
+)
+
+work(
+  name = "goodbye_world",
+  worker = ":worker",
+  action_mnemonic = "Goodbye",
+  worker_key_mnemonic = "SharedWorker",
+  args = ["--write_uuid"],
+)
+EOF
+
+  bazel build :hello_world :goodbye_world &> $TEST_log \
+    || fail "build failed"
+  worker_uuid_1=$(cat $BINS/hello_world.out | grep UUID | cut -d' ' -f2)
+  worker_uuid_2=$(cat $BINS/goodbye_world.out | grep UUID | cut -d' ' -f2)
+  assert_equals "$worker_uuid_1" "$worker_uuid_2"
+}
+
 function test_multiple_flagfiles() {
   prepare_example_worker
   cat >>BUILD <<EOF
@@ -233,7 +266,7 @@ EOF
   assert_equals "1" $work_count
 }
 
-function test_build_fails_when_worker_exits() {
+function test_build_succeeds_even_if_worker_exits() {
   prepare_example_worker
   cat >>BUILD <<'EOF'
 [work(
@@ -243,14 +276,32 @@ function test_build_fails_when_worker_exits() {
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
-
-  bazel build :hello_world_1 &> $TEST_log \
+  # The worker dies after finishing the action, so the build succeeds.
+  bazel build --worker_verbose :hello_world_1 &> $TEST_log \
     || fail "build failed"
 
-  bazel build :hello_world_2 &> $TEST_log \
-    && fail "expected build to failed" || true
+  # This time, the worker is dead before the build starts, so a new one is made.
+  bazel build --worker_verbose :hello_world_2 &> $TEST_log \
+    || fail "build failed"
 
-  expect_log "Worker process quit or closed its stdin stream when we tried to send a WorkRequest"
+  expect_log "Work worker (id 2) has unexpectedly died with exit code 0."
+}
+
+function test_build_fails_if_worker_dies_during_action() {
+  prepare_example_worker
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  worker_args = ["--exit_during=1"],
+  args = ["--write_uuid", "--write_counter"],
+) for idx in range(10)]
+EOF
+
+  bazel build --worker_verbose :hello_world_1 &> $TEST_log \
+    && fail "expected build to fail" || true
+
+  expect_log "Worker process did not return a WorkResponse:"
 }
 
 function test_worker_restarts_when_worker_binary_changes() {
@@ -456,7 +507,7 @@ work(
 )
 EOF
 
-  sed -i.bak '/execution_requirements/d' work.bzl
+  sed -i.bak '/execution_requirements=execution_requirements/d' work.bzl
   rm -f work.bzl.bak
 
   bazel build --worker_quit_after_build :hello_world &> $TEST_log \

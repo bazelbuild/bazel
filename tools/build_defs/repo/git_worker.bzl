@@ -75,7 +75,7 @@ def git_repo(ctx, directory):
         shallow = shallow,
         reset_ref = reset_ref,
         fetch_ref = fetch_ref,
-        remote = ctx.attr.remote,
+        remote = str(ctx.attr.remote),
         init_submodules = ctx.attr.init_submodules,
     )
 
@@ -178,4 +178,5 @@ def _execute(ctx, git_repo, args):
     )
 
 def _error(name, command, stderr):
-    fail("error running '%s' while working with @%s:\n%s" % (" ".join(command).strip(), name, stderr))
+    command_text = " ".join([str(item).strip() for item in command])
+    fail("error running '%s' while working with @%s:\n%s" % (command_text, name, stderr))

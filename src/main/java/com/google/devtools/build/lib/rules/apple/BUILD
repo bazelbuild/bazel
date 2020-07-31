@@ -19,6 +19,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib:syntax",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_option_converters",
@@ -42,7 +43,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules:alias",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/apple",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/apple",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:xcode_java_proto",
         "//third_party:flogger",

@@ -336,7 +336,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(1)
-            .setEventHander(new Reporter(new EventBus(), reporter))
+            .setEventHandler(new Reporter(new EventBus(), reporter))
             .build();
     return buildDriver.evaluate(ImmutableList.of(key), evaluationContext);
   }

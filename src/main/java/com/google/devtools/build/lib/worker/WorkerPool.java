@@ -32,7 +32,12 @@ import javax.annotation.concurrent.ThreadSafe;
 final class WorkerPool {
   private final AtomicInteger highPriorityWorkersInUse = new AtomicInteger(0);
   private final ImmutableSet<String> highPriorityWorkerMnemonics;
+  /** Map from mnemonics to the max number of workers for that mnemonic. */
   private final ImmutableMap<String, Integer> config;
+  /**
+   * Map of worker pools. The key is the maximum number of workers to have per key. A pool can be
+   * used by several mnemonics that have the same maximum number of workers.
+   */
   private final ImmutableMap<Integer, SimpleWorkerPool> pools;
 
   /**

@@ -17,11 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkConfig;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkConfig;
 import com.google.devtools.build.lib.rules.config.ConfigFeatureFlagTaggedTrimmingTransitionFactory.ConfigFeatureFlagTaggedTrimmingTransition;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
 
 /**
  * Set of rules to specify or manipulate configuration settings.

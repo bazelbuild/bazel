@@ -15,8 +15,8 @@
 package com.google.devtools.build.skydoc.fakebuildapi;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.skylarkbuildapi.StarlarkAttrModuleApi;
-import com.google.devtools.build.lib.skylarkbuildapi.core.ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Module;
@@ -71,7 +71,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Boolean mandatory,
       Sequence<?> providers,
       Object allowRules,
-      Boolean singleFile,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -86,7 +85,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   @Override
   public Descriptor stringListAttribute(
       Boolean mandatory,
-      Boolean nonEmpty,
       Boolean allowEmpty,
       Sequence<?> defaultList,
       String doc,
@@ -99,7 +97,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   @Override
   public Descriptor intListAttribute(
       Boolean mandatory,
-      Boolean nonEmpty,
       Boolean allowEmpty,
       Sequence<?> defaultList,
       String doc,
@@ -119,7 +116,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Sequence<?> providers,
       Sequence<?> flags,
       Boolean mandatory,
-      Boolean nonEmpty,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -141,7 +137,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Sequence<?> providers,
       Sequence<?> flags,
       Boolean mandatory,
-      Boolean nonEmpty,
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
@@ -176,7 +171,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Boolean allowEmpty,
       String doc,
       Boolean mandatory,
-      Boolean nonEmpty,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(AttributeType.OUTPUT_LIST, doc, mandatory, ImmutableList.of(), "");
@@ -188,7 +182,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
-      Boolean nonEmpty,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(
@@ -201,7 +194,6 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
       Dict<?, ?> defaultO,
       String doc,
       Boolean mandatory,
-      Boolean nonEmpty,
       StarlarkThread thread)
       throws EvalException {
     return new FakeDescriptor(

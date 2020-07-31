@@ -409,6 +409,32 @@ EOF
   assert_not_contains "//$pkg:cclib_with_py_dep .*PythonConfiguration" output
 }
 
+function test_show_direct_host_only_config_fragments() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<'EOF'
+genrule(
+    name = "gen",
+    outs = ["gen.out"],
+    cmd = "$(location :tool) > $@",
+    tools = [":tool"],
+)
+
+genrule(
+    name = "tool",
+    outs = ["tool.sh"],
+    cmd = 'echo "echo built by TOOL" > $@',
+)
+EOF
+
+  bazel cquery "deps(//$pkg:gen)" --show_config_fragments=direct_host_only \
+    > output 2>"$TEST_log" || fail "Expected success"
+
+  assert_contains "//$pkg:gen" output
+  assert_not_contains "//$pkg:gen .*CoreOptions" output
+  assert_contains "//$pkg:tool .*CoreOptions" output
+}
+
 function test_show_direct_config_fragments_select() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg

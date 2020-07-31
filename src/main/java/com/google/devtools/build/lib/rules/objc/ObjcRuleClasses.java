@@ -330,6 +330,7 @@ public class ObjcRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$objc_crosstool_rule")
+          .ancestors(CppRuleClasses.CcLinkingRule.class)
           .type(RuleClassType.ABSTRACT)
           .build();
     }

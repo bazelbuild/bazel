@@ -15,13 +15,13 @@ package com.google.devtools.build.lib.bazel.commands;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
@@ -110,11 +110,10 @@ public final class FetchCommand implements BlazeCommand {
             env,
             options.getOptions(KeepGoingOption.class).keepGoing,
             false,
-            Lists.<String>newArrayList(),
+            UniverseScope.EMPTY,
             threadsOption.threads,
             EnumSet.noneOf(Setting.class),
-            // TODO(ulfjack): flip this flag for improved performance.
-            /* useGraphlessQuery= */ false);
+            /* useGraphlessQuery= */ true);
 
     // 1. Parse query:
     QueryExpression expr;

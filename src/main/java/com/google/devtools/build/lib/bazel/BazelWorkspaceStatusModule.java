@@ -55,6 +55,7 @@ import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.NetUtil;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -63,6 +64,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 
 /**
  * Provides information about the workspace (e.g. source control context, current machine, current
@@ -164,7 +166,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
-    public void prepare(Path execRoot) throws IOException {
+    public void prepare(Path execRoot, @Nullable BulkDeleter bulkDeleter) throws IOException {
       // The default implementation of this method deletes all output files; override it to keep
       // the old stableStatus around. This way we can reuse the existing file (preserving its mtime)
       // if the contents haven't changed.
@@ -215,13 +217,12 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         FileSystemUtils.writeContent(
             actionExecutionContext.getInputPath(volatileStatus), printStatusMap(volatileMap));
       } catch (IOException e) {
-        throw new ActionExecutionException(
+        String message =
             String.format(
                 "Failed to run workspace status command %s: %s",
-                options.workspaceStatusCommand, e.getMessage()),
-            e,
-            this,
-            true);
+                options.workspaceStatusCommand, e.getMessage());
+        DetailedExitCode code = createDetailedCode(message, Code.CONTENT_UPDATE_IO_EXCEPTION);
+        throw new ActionExecutionException(message, e, this, true, code);
       }
       return ActionResult.EMPTY;
     }
@@ -250,7 +251,10 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     }
 
     @Override
-    protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {}
+    protected void computeKey(
+        ActionKeyContext actionKeyContext,
+        @Nullable Artifact.ArtifactExpander artifactExpander,
+        Fingerprint fp) {}
 
     @Override
     public boolean executeUnconditionally() {

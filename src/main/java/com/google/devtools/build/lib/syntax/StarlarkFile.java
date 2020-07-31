@@ -32,7 +32,7 @@ public final class StarlarkFile extends Node {
   final List<SyntaxError> errors; // appended to by Resolver
 
   // set by resolver
-  @Nullable Resolver.Function resolved;
+  @Nullable private Resolver.Function resolved;
 
   @Override
   public int getStartOffset() {
@@ -108,6 +108,19 @@ public final class StarlarkFile extends Node {
   @Override
   public void accept(NodeVisitor visitor) {
     visitor.visit(this);
+  }
+
+  void setResolvedFunction(Resolver.Function resolved) {
+    this.resolved = resolved;
+  }
+
+  /**
+   * Returns informtion about the implicit function containing the top-level statements of the file.
+   * Set by the resolver.
+   */
+  @Nullable
+  public Resolver.Function getResolvedFunction() {
+    return resolved;
   }
 
   /**

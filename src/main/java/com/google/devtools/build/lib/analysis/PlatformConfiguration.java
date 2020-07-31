@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformConfigurationApi;
 import com.google.devtools.build.lib.util.RegexFilter;
 import java.util.List;
 import java.util.Map;

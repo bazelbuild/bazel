@@ -75,7 +75,7 @@ public final class DebuggerSerializationTest {
         .isEqualTo(
             Value.newBuilder()
                 .setLabel("order")
-                .setType("Traversal order")
+                .setType("string")
                 .setDescription("default")
                 .build());
     assertEqualIgnoringTypeDescriptionAndId(childValues.get(1), getValueProto("directs", children));
@@ -105,7 +105,7 @@ public final class DebuggerSerializationTest {
         .isEqualTo(
             Value.newBuilder()
                 .setLabel("order")
-                .setType("Traversal order")
+                .setType("string")
                 .setDescription("topological")
                 .build());
     assertEqualIgnoringTypeDescriptionAndId(

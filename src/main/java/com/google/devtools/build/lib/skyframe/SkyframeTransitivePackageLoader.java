@@ -48,7 +48,7 @@ class SkyframeTransitivePackageLoader {
         EvaluationContext.newBuilder()
             .setKeepGoing(keepGoing)
             .setNumThreads(parallelThreads)
-            .setEventHander(eventHandler)
+            .setEventHandler(eventHandler)
             .setUseForkJoinPool(true)
             .build();
     return buildDriverSupplier.get().evaluate(valueNames, evaluationContext);

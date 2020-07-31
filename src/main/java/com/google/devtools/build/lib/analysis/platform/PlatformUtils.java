@@ -22,6 +22,9 @@ import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 import java.util.Comparator;
@@ -84,11 +87,12 @@ public final class PlatformUtils {
         TextFormat.getParser()
             .merge(spawn.getExecutionPlatform().remoteExecutionProperties(), platformBuilder);
       } catch (ParseException e) {
-        throw new UserExecException(
+        String message =
             String.format(
                 "Failed to parse remote_execution_properties from platform %s",
-                spawn.getExecutionPlatform().label()),
-            e);
+                spawn.getExecutionPlatform().label());
+        throw new UserExecException(
+            e, createFailureDetail(message, Code.INVALID_REMOTE_EXECUTION_PROPERTIES));
       }
     } else {
       for (Map.Entry<String, String> property : defaultExecProperties.entrySet()) {
@@ -99,5 +103,12 @@ public final class PlatformUtils {
 
     sortPlatformProperties(platformBuilder);
     return platformBuilder.build();
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setSpawn(FailureDetails.Spawn.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

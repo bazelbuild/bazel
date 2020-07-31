@@ -26,8 +26,6 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
@@ -291,20 +289,7 @@ class MethodLibrary {
               + "str(8) == \"8\"</pre>",
       parameters = {@Param(name = "x", doc = "The object to convert.", noneable = true)})
   public String str(Object x) throws EvalException {
-    try {
-      return Starlark.str(x);
-    } catch (RuntimeException ex) {
-      // TODO(adonovan): get rid of this somehow.
-      if (ex.getClass().getSimpleName().equals("NestedSetDepthException")) {
-        throw Starlark.errorf(
-            "depset exceeded maximum depth"
-                + ". This was only discovered when attempting to flatten the depset for str(), as "
-                + "the size of depsets is unknown until flattening. "
-                + "See https://github.com/bazelbuild/bazel/issues/9180 for details and possible "
-                + "solutions.");
-      }
-      throw ex;
-    }
+    return Starlark.str(x);
   }
 
   @StarlarkMethod(
@@ -616,13 +601,7 @@ class MethodLibrary {
       },
       useStarlarkThread = true)
   public Boolean hasattr(Object obj, String name, StarlarkThread thread) throws EvalException {
-    // TODO(adonovan): factor the core logic of hasattr, getattr, and dir into three adjacent
-    // functions so that we can convince ourselves of their ongoing consistency.
-    // Are we certain that getValue doesn't sometimes return None to mean 'no field'?
-    if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
-      return true;
-    }
-    return CallUtils.getMethodNames(thread.getSemantics(), obj.getClass()).contains(name);
+    return Starlark.hasattr(thread.getSemantics(), obj, name);
   }
 
   @StarlarkMethod(
@@ -647,14 +626,12 @@ class MethodLibrary {
       useStarlarkThread = true)
   public Object getattr(Object obj, String name, Object defaultValue, StarlarkThread thread)
       throws EvalException, InterruptedException {
-    Object result = EvalUtils.getAttr(thread, obj, name);
-    if (result == null) {
-      if (defaultValue != Starlark.UNBOUND) {
-        return defaultValue;
-      }
-      throw EvalUtils.getMissingAttrException(obj, name, thread.getSemantics());
-    }
-    return result;
+    return Starlark.getattr(
+        thread.mutability(),
+        thread.getSemantics(),
+        obj,
+        name,
+        defaultValue == Starlark.UNBOUND ? null : defaultValue);
   }
 
   @StarlarkMethod(
@@ -665,13 +642,7 @@ class MethodLibrary {
       parameters = {@Param(name = "x", doc = "The object to check.", noneable = true)},
       useStarlarkThread = true)
   public StarlarkList<?> dir(Object object, StarlarkThread thread) throws EvalException {
-    // Order the fields alphabetically.
-    Set<String> fields = new TreeSet<>();
-    if (object instanceof ClassObject) {
-      fields.addAll(((ClassObject) object).getFieldNames());
-    }
-    fields.addAll(CallUtils.getMethodNames(thread.getSemantics(), object.getClass()));
-    return StarlarkList.copyOf(thread.mutability(), fields);
+    return Starlark.dir(thread.mutability(), thread.getSemantics(), object);
   }
 
   @StarlarkMethod(
@@ -734,19 +705,7 @@ class MethodLibrary {
     String separator = "";
     for (Object x : args) {
       p.append(separator);
-      try {
-        p.debugPrint(x);
-      } catch (RuntimeException ex) {
-        // TODO(adonovan): get rid of this somehow.
-        if (ex.getClass().getSimpleName().equals("NestedSetDepthException")) {
-          throw Starlark.errorf(
-              "depset exceeded maximum depth. This was only discovered when attempting to"
-                  + " flatten the depset for print(), as the size of depsets is unknown until"
-                  + " flattening. See https://github.com/bazelbuild/bazel/issues/9180 for details"
-                  + " and possible solutions.");
-        }
-        throw ex;
-      }
+      p.debugPrint(x);
       separator = sep;
     }
     // As part of the integration test "starlark_flag_test.sh", if the

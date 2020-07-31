@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
@@ -33,6 +34,7 @@ import java.util.Collection;
 
 /** Event reporting about the configurations associated with a given target */
 public class TargetConfiguredEvent implements BuildEventWithConfiguration {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final Target target;
   private final Collection<BuildConfiguration> configurations;
 
@@ -75,19 +77,21 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
     return childrenBuilder.build();
   }
 
-  static BuildEventStreamProtos.TestSize bepTestSize(TestSize size) {
-    switch (size) {
-      case SMALL:
-        return BuildEventStreamProtos.TestSize.SMALL;
-      case MEDIUM:
-        return BuildEventStreamProtos.TestSize.MEDIUM;
-      case LARGE:
-        return BuildEventStreamProtos.TestSize.LARGE;
-      case ENORMOUS:
-        return BuildEventStreamProtos.TestSize.ENORMOUS;
-      default:
-        return BuildEventStreamProtos.TestSize.UNKNOWN;
+  private static BuildEventStreamProtos.TestSize bepTestSize(String targetName, TestSize size) {
+    if (size != null) {
+      switch (size) {
+        case SMALL:
+          return BuildEventStreamProtos.TestSize.SMALL;
+        case MEDIUM:
+          return BuildEventStreamProtos.TestSize.MEDIUM;
+        case LARGE:
+          return BuildEventStreamProtos.TestSize.LARGE;
+        case ENORMOUS:
+          return BuildEventStreamProtos.TestSize.ENORMOUS;
+      }
     }
+    logger.atInfo().log("Target %s has a test size of: %s", targetName, size);
+    return BuildEventStreamProtos.TestSize.UNKNOWN;
   }
 
   @Override
@@ -101,7 +105,8 @@ public class TargetConfiguredEvent implements BuildEventWithConfiguration {
       builder.addAllTag(RawAttributeMapper.of(rule).getMergedValues("tags", Type.STRING_LIST));
     }
     if (TargetUtils.isTestRule(target)) {
-      builder.setTestSize(bepTestSize(TestSize.getTestSize(target.getAssociatedRule())));
+      builder.setTestSize(
+          bepTestSize(target.getName(), TestSize.getTestSize(target.getAssociatedRule())));
     }
     return GenericBuildEvent.protoChaining(this).setConfigured(builder.build()).build();
   }

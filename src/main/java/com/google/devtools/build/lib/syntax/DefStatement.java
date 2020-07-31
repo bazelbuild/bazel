@@ -26,7 +26,7 @@ public final class DefStatement extends Statement {
   private final ImmutableList<Parameter> parameters;
 
   // set by resolver
-  @Nullable Resolver.Function resolved;
+  @Nullable private Resolver.Function resolved;
 
   DefStatement(
       FileLocations locs,
@@ -60,6 +60,16 @@ public final class DefStatement extends Statement {
 
   public ImmutableList<Parameter> getParameters() {
     return parameters;
+  }
+
+  void setResolvedFunction(Resolver.Function resolved) {
+    this.resolved = resolved;
+  }
+
+  /** Returns information about the resolved function. Set by the resolver. */
+  @Nullable
+  public Resolver.Function getResolvedFunction() {
+    return resolved;
   }
 
   @Override

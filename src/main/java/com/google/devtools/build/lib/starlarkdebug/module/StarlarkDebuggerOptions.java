@@ -21,9 +21,11 @@ import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 
 /** Configuration options for Starlark debugging. */
+// TODO(laurentlb): Rename the flags (remove 'experimental' and replace 'skylark' with 'starlark')
+// when the interpreter code is more stable.
 public final class StarlarkDebuggerOptions extends OptionsBase {
   @Option(
-      name = "experimental_starlark_debug",
+      name = "experimental_skylark_debug",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -34,7 +36,7 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
   public boolean debugStarlark;
 
   @Option(
-      name = "experimental_starlark_debug_server_port",
+      name = "experimental_skylark_debug_server_port",
       defaultValue = "7300",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.EXECUTION},
@@ -43,7 +45,7 @@ public final class StarlarkDebuggerOptions extends OptionsBase {
   public int debugServerPort;
 
   @Option(
-      name = "experimental_starlark_debug_verbose_logging",
+      name = "experimental_skylark_debug_verbose_logging",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},

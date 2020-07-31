@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.Nullable;
 
 /**
  * Lazily writes the content of a nested set of pairsToWrite to an output file.
@@ -34,7 +36,6 @@ import java.io.OutputStream;
  * <p>For each pair <string1, string2> it writes a line string1:string2 to the output file.
  */
 public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteAction {
-  private static final String GUID = "cd68d80a-16fc-41dc-a3dd-ded5aa5f601f";
 
   private final NestedSet<Pair<String, String>> pairsToWrite;
   private String fileContents;
@@ -58,7 +59,10 @@ public final class LazyWriteNestedSetOfPairAction extends AbstractFileWriteActio
 
   /** Computes the Action key for this action by computing the fingerprint for the file contents. */
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     actionKeyContext.addNestedSetToFingerprint(fp, pairsToWrite);
   }
 

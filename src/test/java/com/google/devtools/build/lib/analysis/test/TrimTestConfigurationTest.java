@@ -39,11 +39,16 @@ import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.syntax.Starlark;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -773,5 +778,24 @@ public final class TrimTestConfigurationTest extends AnalysisTestCase {
     useConfiguration("--trim_test_configuration", "--noexpand_test_suites", "--test_arg=TypeA");
     update("//test:suite", "//test:suite_2");
     assertThat(getAnalysisResult().getTargetsToBuild()).hasSize(2);
+  }
+
+  // Test Starlark API of AnalysisFailure{,Info}.
+  @Test
+  public void testAnalysisFailureInfo() throws Exception {
+    Label label = Label.create("test", "test");
+    AnalysisFailure failure = new AnalysisFailure(label, "ErrorMessage");
+    assertThat(getattr(failure, "label")).isSameInstanceAs(label);
+    assertThat(getattr(failure, "message")).isEqualTo("ErrorMessage");
+
+    AnalysisFailureInfo info = AnalysisFailureInfo.forAnalysisFailures(Arrays.asList(failure));
+    // info.causes.to_list()[0] == failure
+    NestedSet<AnalysisFailure> causes =
+        Depset.cast(getattr(info, "causes"), AnalysisFailure.class, "causes");
+    assertThat(causes.toList().get(0)).isSameInstanceAs(failure);
+  }
+
+  private static Object getattr(Object x, String name) throws Exception {
+    return Starlark.getattr(/*mu=*/ null, StarlarkSemantics.DEFAULT, x, name, null);
   }
 }

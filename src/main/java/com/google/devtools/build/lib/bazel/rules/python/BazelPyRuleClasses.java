@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.util.FileType;
  * Bazel-specific rule definitions for Python rules.
  */
 public final class BazelPyRuleClasses {
-  public static final FileType PYTHON_SOURCE = FileType.of(".py");
+  public static final FileType PYTHON_SOURCE = FileType.of(".py", ".py3");
 
   public static final LabelLateBoundDefault<?> PY_INTERPRETER =
       LabelLateBoundDefault.fromTargetConfiguration(
@@ -105,13 +105,13 @@ public final class BazelPyRuleClasses {
           reasons, but they are essentially the same as <code>"PY2"</code> and <code>"PY3"</code>
           and should be avoided.
 
-          <p>Note that only the executable rules ({@code py_binary} and {@code py_library}) actually
-          verify the current Python version against the value of this attribute. (This is a feature;
-          since {@code py_library} does not change the current Python version, if it did the
-          validation, it'd be impossible to build both {@code PY2ONLY} and {@code PY3ONLY} libraries
-          in the same invocation.) Furthermore, if there is a version mismatch, the error is only
-          reported in the execution phase. In particular, the error will not appear in a {@code
-          bazel build --nobuild} invocation.)
+          <p>Note that only the executable rules (<code>py_binary</code> and <code>py_library
+          </code>) actually verify the current Python version against the value of this attribute.
+          (This is a feature; since <code>py_library</code> does not change the current Python
+          version, if it did the validation, it'd be impossible to build both <code>PY2ONLY</code>
+          and <code>PY3ONLY</code> libraries in the same invocation.) Furthermore, if there is a
+          version mismatch, the error is only reported in the execution phase. In particular, the
+          error will not appear in a <code>bazel build --nobuild</code> invocation.)
 
           <p>To get diagnostic information about which dependencies introduce version requirements,
           you can run the <code>find_requirements</code> aspect on your target:

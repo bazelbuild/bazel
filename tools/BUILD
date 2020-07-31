@@ -15,6 +15,7 @@ filegroup(
         "//tools/build_rules:srcs",
         "//tools/config:srcs",
         "//tools/coverage:srcs",
+        "//tools/ctexplain:srcs",
         "//tools/distributions:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
@@ -33,7 +34,7 @@ filegroup(
         "//tools/python:srcs",
         "//tools/runfiles:srcs",
         "//tools/sh:srcs",
-        "//tools/whitelists:srcs",
+        "//tools/allowlists:srcs",
         "//tools/zip:srcs",
     ],
 )
@@ -66,7 +67,7 @@ filegroup(
         "//tools/osx/crosstool:srcs",
         "//tools/osx:srcs",
         "//tools/sh:embedded_tools",
-        "//tools/whitelists:srcs",
+        "//tools/allowlists:srcs",
         "//tools/zip:srcs",
     ],
 )

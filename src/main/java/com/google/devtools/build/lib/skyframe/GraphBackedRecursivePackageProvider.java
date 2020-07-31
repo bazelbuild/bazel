@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
+import com.google.devtools.build.lib.concurrent.BatchCallback;
 import com.google.devtools.build.lib.concurrent.ParallelVisitor.UnusedException;
-import com.google.devtools.build.lib.concurrent.ThreadSafeBatchCallback;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -161,11 +161,10 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
   private List<Root> checkValidDirectoryAndGetRoots(
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
-    if (blacklistedSubdirectories.contains(directory)
-        || excludedSubdirectories.contains(directory)) {
+    if (ignoredSubdirectories.contains(directory) || excludedSubdirectories.contains(directory)) {
       return ImmutableList.of();
     }
 
@@ -202,16 +201,16 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
 
   @Override
   public void streamPackagesUnderDirectory(
-      ThreadSafeBatchCallback<PackageIdentifier, UnusedException> results,
+      BatchCallback<PackageIdentifier, UnusedException> results,
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> blacklistedSubdirectories,
+      ImmutableSet<PathFragment> ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException {
     List<Root> roots =
         checkValidDirectoryAndGetRoots(
-            repository, directory, blacklistedSubdirectories, excludedSubdirectories);
+            repository, directory, ignoredSubdirectories, excludedSubdirectories);
 
     rootPackageExtractor.streamPackagesFromRoots(
         results,
@@ -220,7 +219,7 @@ public final class GraphBackedRecursivePackageProvider extends AbstractRecursive
         eventHandler,
         repository,
         directory,
-        blacklistedSubdirectories,
+        ignoredSubdirectories,
         excludedSubdirectories);
   }
 }

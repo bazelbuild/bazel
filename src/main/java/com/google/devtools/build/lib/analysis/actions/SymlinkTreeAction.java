@@ -165,7 +165,10 @@ public final class SymlinkTreeAction extends AbstractAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addNullableString(filesetRoot);
     fp.addBoolean(enableRunfiles);

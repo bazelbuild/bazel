@@ -66,7 +66,7 @@ For project-specific options, use the configuration file your
 If you want to support per-user options for your project that you **do not** want to check
 into source control, include the line
 ```
-try-import user.bazelrc
+try-import %workspace%/user.bazelrc
 ```
 (or any other file name) in your `<workspace>/.bazelrc` and
 add `user.bazelrc` to your `.gitignore`.

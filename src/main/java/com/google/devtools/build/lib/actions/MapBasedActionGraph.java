@@ -45,7 +45,8 @@ public final class MapBasedActionGraph implements MutableActionGraph {
       ActionAnalysisMetadata previousAction = generatingActionMap.putAndGet(wrapper, action);
       if (previousAction != null
           && previousAction != action
-          && !Actions.canBeShared(actionKeyContext, action, previousAction)) {
+          && !Actions.canBeSharedLogForPotentialFalsePositives(
+              actionKeyContext, action, previousAction)) {
         generatingActionMap.remove(wrapper, action);
         throw new ActionConflictException(actionKeyContext, artifact, previousAction, action);
       }

@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import javax.annotation.Nullable;
 
@@ -61,15 +59,4 @@ public interface ActionLookupValue extends SkyValue {
     return null;
   }
 
-  /**
-   * All subclasses of ActionLookupValue "own" artifacts with {@link ArtifactOwner}s that are
-   * subclasses of ActionLookupKey. This allows callers to easily find the value key, while
-   * remaining agnostic to what ActionLookupValues actually exist.
-   */
-  abstract class ActionLookupKey implements ArtifactOwner, SkyKey {
-    @Override
-    public Label getLabel() {
-      return null;
-    }
-  }
 }

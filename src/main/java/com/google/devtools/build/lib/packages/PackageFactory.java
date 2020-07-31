@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
@@ -31,12 +32,15 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
+import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.CallExpression;
 import com.google.devtools.build.lib.syntax.DefStatement;
@@ -66,6 +70,8 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
 import com.google.devtools.build.lib.syntax.StringLiteral;
 import com.google.devtools.build.lib.syntax.Tuple;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -124,7 +130,7 @@ public final class PackageFactory {
   private final ImmutableMap<String, Object> nativeModuleBindingsForBuild;
   private final ImmutableMap<String, Object> nativeModuleBindingsForWorkspace;
 
-  private final Package.Builder.Helper packageBuilderHelper;
+  private final PackageSettings packageSettings;
   private final PackageValidator packageValidator;
   private final PackageLoadingListener packageLoadingListener;
 
@@ -156,8 +162,8 @@ public final class PackageFactory {
   }
 
   @VisibleForTesting
-  public Package.Builder.Helper getPackageBuilderHelperForTesting() {
-    return packageBuilderHelper;
+  public PackageSettings getPackageSettingsForTesting() {
+    return packageSettings;
   }
 
   /**
@@ -176,7 +182,7 @@ public final class PackageFactory {
       RuleClassProvider ruleClassProvider,
       Iterable<EnvironmentExtension> environmentExtensions,
       String version,
-      Package.Builder.Helper packageBuilderHelper,
+      PackageSettings packageSettings,
       PackageValidator packageValidator,
       PackageLoadingListener packageLoadingListener) {
     this.ruleFactory = new RuleFactory(ruleClassProvider);
@@ -190,7 +196,7 @@ public final class PackageFactory {
             ruleFunctions, packageArguments, this.environmentExtensions);
     this.nativeModuleBindingsForWorkspace =
         createNativeModuleBindingsForWorkspace(ruleClassProvider, version);
-    this.packageBuilderHelper = packageBuilderHelper;
+    this.packageSettings = packageSettings;
     this.packageValidator = packageValidator;
     this.packageLoadingListener = packageLoadingListener;
   }
@@ -386,8 +392,7 @@ public final class PackageFactory {
             ruleClass,
             new BuildLangTypedAttributeValuesMap(kwargs),
             thread.getSemantics(),
-            thread.getCallStack(),
-            new AttributeContainer(ruleClass));
+            thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
         throw new EvalException(null, e.getMessage());
       }
@@ -427,8 +432,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       RootedPath buildFile,
       StarlarkFile file,
-      Map<String, Module> loadedModules,
-      ImmutableList<Label> starlarkFileDependencies,
+      ImmutableMap<String, Module> loadedModules,
       RuleVisibility defaultVisibility,
       StarlarkSemantics starlarkSemantics,
       Globber globber)
@@ -445,7 +449,6 @@ public final class PackageFactory {
           defaultVisibility,
           starlarkSemantics,
           loadedModules,
-          starlarkFileDependencies,
           repositoryMapping);
     } catch (InterruptedException e) {
       globber.onInterrupt();
@@ -459,14 +462,14 @@ public final class PackageFactory {
   public Package.Builder newExternalPackageBuilder(
       RootedPath workspacePath, String runfilesPrefix, StarlarkSemantics starlarkSemantics) {
     return Package.newExternalPackageBuilder(
-        packageBuilderHelper, workspacePath, runfilesPrefix, starlarkSemantics);
+        packageSettings, workspacePath, runfilesPrefix, starlarkSemantics);
   }
 
   @VisibleForTesting
   public Package.Builder newPackageBuilder(
       PackageIdentifier packageId, String runfilesPrefix, StarlarkSemantics starlarkSemantics) {
     return new Package.Builder(
-        packageBuilderHelper,
+        packageSettings,
         packageId,
         runfilesPrefix,
         starlarkSemantics.incompatibleNoImplicitFileExport(),
@@ -521,9 +524,7 @@ public final class PackageFactory {
     Globber globber =
         createLegacyGlobber(
             buildFile.asPath().getParentDirectory(), packageId, ImmutableSet.of(), locator);
-    ParserInput input =
-        ParserInput.create(
-            FileSystemUtils.convertFromLatin1(buildFileBytes), buildFile.asPath().toString());
+    ParserInput input = ParserInput.fromLatin1(buildFileBytes, buildFile.asPath().toString());
     // Options for processing BUILD files. (No prelude, so recordScope(true) is safe.)
     FileOptions options =
         FileOptions.builder()
@@ -532,23 +533,24 @@ public final class PackageFactory {
             .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
             .build();
     StarlarkFile file = StarlarkFile.parse(input, options);
-    Package result =
+    Package.Builder packageBuilder =
         createPackageFromAst(
-                externalPkg.getWorkspaceName(),
-                /*repositoryMapping=*/ ImmutableMap.of(),
-                packageId,
-                buildFile,
-                file,
-                /*loadedModules=*/ ImmutableMap.<String, Module>of(),
-                /*starlarkFileDependencies=*/ ImmutableList.<Label>of(),
-                /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
-                semantics,
-                globber)
-            .build();
-    for (Postable post : result.getPosts()) {
+            externalPkg.getWorkspaceName(),
+            /*repositoryMapping=*/ ImmutableMap.of(),
+            packageId,
+            buildFile,
+            file,
+            /*loadedModules=*/ ImmutableMap.<String, Module>of(),
+            /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
+            semantics,
+            globber);
+    Package result = packageBuilder.build();
+
+    for (Postable post : packageBuilder.getPosts()) {
       eventHandler.post(post);
     }
-    Event.replayEventsOn(eventHandler, result.getEvents());
+    Event.replayEventsOn(eventHandler, packageBuilder.getEvents());
+
     return result;
   }
 
@@ -556,13 +558,13 @@ public final class PackageFactory {
   public LegacyGlobber createLegacyGlobber(
       Path packageDirectory,
       PackageIdentifier packageId,
-      ImmutableSet<PathFragment> blacklistedGlobPrefixes,
+      ImmutableSet<PathFragment> ignoredGlobPrefixes,
       CachingPackageLocator locator) {
     return createLegacyGlobber(
         new GlobCache(
             packageDirectory,
             packageId,
-            blacklistedGlobPrefixes,
+            ignoredGlobPrefixes,
             locator,
             syscalls,
             executor,
@@ -671,11 +673,22 @@ public final class PackageFactory {
     long maxSteps = starlarkSemantics.maxComputationSteps();
     long steps = pkg.getComputationSteps();
     if (maxSteps > 0 && steps > maxSteps) {
-      throw new InvalidPackageException(
-          pkg.getPackageIdentifier(),
+      String message =
           String.format(
               "BUILD file computation took %d steps, but --max_computation_steps=%d",
-              steps, maxSteps));
+              steps, maxSteps);
+      throw new InvalidPackageException(
+          pkg.getPackageIdentifier(),
+          message,
+          DetailedExitCode.of(
+              ExitCode.BUILD_FAILURE,
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setPackageLoading(
+                      PackageLoading.newBuilder()
+                          .setCode(PackageLoading.Code.MAX_COMPUTATION_STEPS_EXCEEDED)
+                          .build())
+                  .build()));
     }
 
     packageLoadingListener.onLoadingCompleteAndSuccessful(pkg, starlarkSemantics, loadTimeNanos);
@@ -705,13 +718,12 @@ public final class PackageFactory {
       Globber globber,
       RuleVisibility defaultVisibility,
       StarlarkSemantics semantics,
-      Map<String, Module> loadedModules,
-      ImmutableList<Label> starlarkFileDependencies,
+      ImmutableMap<String, Module> loadedModules,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
     Package.Builder pkgBuilder =
         new Package.Builder(
-                packageBuilderHelper,
+                packageSettings,
                 packageId,
                 ruleClassProvider.getRunfilesPrefix(),
                 semantics.incompatibleNoImplicitFileExport(),
@@ -722,10 +734,16 @@ public final class PackageFactory {
             // Let's give the BUILD file a chance to set default_visibility once,
             // by resetting the PackageBuilder.defaultVisibilitySet flag.
             .setDefaultVisibilitySet(false)
-            .setStarlarkFileDependencies(starlarkFileDependencies)
+            // TODO(adonovan): opt: don't precompute this value, which is rarely needed
+            // and can be derived from Package.loads (if available) on demand.
+            .setStarlarkFileDependencies(transitiveClosureOfLabels(loadedModules))
             .setWorkspaceName(workspaceName)
             .setThirdPartyLicenceExistencePolicy(
                 ruleClassProvider.getThirdPartyLicenseExistencePolicy());
+    if (packageSettings.recordLoadedModules()) {
+      pkgBuilder.setLoads(loadedModules);
+    }
+
     StoredEventHandler eventHandler = new StoredEventHandler();
     if (!buildPackage(
         pkgBuilder,
@@ -741,6 +759,23 @@ public final class PackageFactory {
     return pkgBuilder;
   }
 
+  private static ImmutableList<Label> transitiveClosureOfLabels(
+      ImmutableMap<String, Module> loads) {
+    Set<Label> set = Sets.newLinkedHashSet();
+    transitiveClosureOfLabelsRec(set, loads);
+    return ImmutableList.copyOf(set);
+  }
+
+  private static void transitiveClosureOfLabelsRec(
+      Set<Label> set, ImmutableMap<String, Module> loads) {
+    for (Module m : loads.values()) {
+      BazelModuleContext ctx = BazelModuleContext.of(m);
+      if (set.add(ctx.label())) {
+        transitiveClosureOfLabelsRec(set, ctx.loads());
+      }
+    }
+  }
+
   // Validates and executes a parsed BUILD file, returning true on success,
   // or reporting errors to pkgContext.eventHandler on failure.
   private boolean buildPackage(
@@ -748,7 +783,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       StarlarkFile file,
       StarlarkSemantics semantics,
-      Map<String, Module> loadedModules,
+      ImmutableMap<String, Module> loadedModules,
       PackageContext pkgContext)
       throws InterruptedException {
 

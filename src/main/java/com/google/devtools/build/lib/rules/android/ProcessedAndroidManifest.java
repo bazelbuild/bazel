@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidManifestApi;
 import javax.annotation.Nullable;
 
 /**

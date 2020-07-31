@@ -26,7 +26,7 @@ final class DownloadCommand {
   private final Digest digest;
   private final OutputStream out;
 
-  protected DownloadCommand(URI uri, boolean casDownload, Digest digest, OutputStream out) {
+  DownloadCommand(URI uri, boolean casDownload, Digest digest, OutputStream out) {
     this.uri = Preconditions.checkNotNull(uri);
     this.casDownload = casDownload;
     this.digest = Preconditions.checkNotNull(digest);

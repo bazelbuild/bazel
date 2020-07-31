@@ -208,18 +208,21 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
               keepGoing,
               loadingPhaseThreads,
               maxDepth,
-              errorObserver,
               new TargetEdgeObserver() {
                 @Override
-                public void edge(Target from, Attribute attribute, Target to) {}
+                public void edge(Target from, Attribute attribute, Target to) {
+                  errorObserver.edge(from, attribute, to);
+                }
 
                 @Override
-                public void missingEdge(
-                    @Nullable Target target, Label to, NoSuchThingException e) {}
+                public void missingEdge(@Nullable Target target, Label to, NoSuchThingException e) {
+                  errorObserver.missingEdge(target, to, e);
+                }
 
                 @Override
                 public void node(Target node) {
                   result.add(node);
+                  errorObserver.node(node);
                 }
               });
     }
@@ -237,7 +240,8 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       callback.process(
           new PathLabelVisitor(targetProvider, dependencyFilter).somePath(eventHandler, from, to));
     } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage());
+      throw new QueryException(
+          caller, e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
     }
   }
 
@@ -249,7 +253,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
       callback.process(
           new PathLabelVisitor(targetProvider, dependencyFilter).allPaths(eventHandler, from, to));
     } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage());
+      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
     }
   }
 
@@ -262,7 +266,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
           new PathLabelVisitor(targetProvider, dependencyFilter)
               .samePkgDirectRdeps(eventHandler, from));
     } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage());
+      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
     }
   }
 
@@ -279,7 +283,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
           new PathLabelVisitor(targetProvider, dependencyFilter)
               .rdeps(eventHandler, from, universe, maxDepth));
     } catch (NoSuchThingException e) {
-      throw new QueryException(caller, e.getMessage());
+      throw new QueryException(caller, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
     }
   }
 

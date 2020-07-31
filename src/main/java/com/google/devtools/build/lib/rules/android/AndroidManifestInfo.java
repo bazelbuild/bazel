@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidManifestInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidManifestInfoApi;
 
 /** A provider of information about this target's manifest. */
 public class AndroidManifestInfo extends NativeInfo implements AndroidManifestInfoApi<Artifact> {

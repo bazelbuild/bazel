@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi;
 
-import com.google.devtools.build.lib.skylarkbuildapi.ActionsInfoProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.ActionsInfoProviderApi;
 import com.google.devtools.build.lib.syntax.Printer;
 
 /**

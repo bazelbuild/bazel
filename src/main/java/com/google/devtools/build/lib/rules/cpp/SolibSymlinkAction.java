@@ -33,12 +33,17 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction;
+import com.google.devtools.build.lib.server.FailureDetails.SymlinkAction.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import javax.annotation.Nullable;
 
 /**
  * Creates mangled symlinks in the solib directory for all shared libraries. Libraries that have a
@@ -71,22 +76,27 @@ public final class SolibSymlinkAction extends AbstractAction {
     try {
       mangledPath.createSymbolicLink(actionExecutionContext.getInputPath(getPrimaryInput()));
     } catch (IOException e) {
-      throw new ActionExecutionException(
-          "failed to create _solib symbolic link '"
-              + symlink.prettyPrint()
-              + "' to target '"
-              + getPrimaryInput()
-              + "': "
-              + e.getMessage(),
-          e,
-          this,
-          false);
+      String message =
+          String.format(
+              "failed to create _solib symbolic link '%s' to target '%s': %s",
+              symlink.prettyPrint(), getPrimaryInput(), e.getMessage());
+      DetailedExitCode code =
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setSymlinkAction(
+                      SymlinkAction.newBuilder().setCode(Code.LINK_CREATION_IO_EXCEPTION))
+                  .build());
+      throw new ActionExecutionException(message, e, this, false, code);
     }
     return ActionResult.EMPTY;
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addPath(symlink.getExecPath());
     fp.addPath(getPrimaryInput().getExecPath());
   }

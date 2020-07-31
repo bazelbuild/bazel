@@ -29,6 +29,7 @@ py_library(
         "//third_party/def_parser:__pkg__",
         "//tools/android:__pkg__",
         "//tools/build_rules:__pkg__",
+        "//tools/ctexplain:__pkg__",
         "//tools/python:__pkg__",
     ],
 )

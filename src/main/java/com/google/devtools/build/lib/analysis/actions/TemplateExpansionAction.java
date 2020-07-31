@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.SpawnContinuation;
@@ -169,10 +170,9 @@ public final class TemplateExpansionAction extends AbstractAction {
             return this;
           }
         } catch (ExecException e) {
-          Label label = getOwner().getLabel();
           throw e.toActionExecutionException(
-              "Error expanding template '" + Label.print(label) + "'",
-              actionExecutionContext.showVerboseFailures(label),
+              "Error expanding template '" + Label.print(getOwner().getLabel()) + "'",
+              actionExecutionContext.getVerboseFailures(),
               TemplateExpansionAction.this);
         }
         return ActionContinuationOrResult.of(ActionResult.create(nextContinuation.get()));
@@ -181,7 +181,10 @@ public final class TemplateExpansionAction extends AbstractAction {
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp) {
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp) {
     fp.addString(GUID);
     fp.addString(String.valueOf(makeExecutable));
     fp.addString(template.getKey());

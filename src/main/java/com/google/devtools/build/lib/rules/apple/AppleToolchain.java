@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleToolchainApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleToolchainApi;
 import java.io.Serializable;
 
 /**

@@ -104,10 +104,10 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
   }
 
   /**
-   * Returns a map of {@code RepositoryName}s where the keys are repository names that are
-   * written in the BUILD files and the values are new repository names chosen by the main
-   * repository.
+   * Returns a map of {@code RepositoryName}s where the keys are repository names that are written
+   * in the BUILD files and the values are new repository names chosen by the main repository.
    */
+  @Override
   public ImmutableMap<RepositoryName, RepositoryName> getRepoMapping() {
     return repoMapping;
   }
@@ -146,6 +146,18 @@ public final class BazelStarlarkContext implements RuleDefinitionContext, Label.
     if (phase != Phase.LOADING) {
       throw new EvalException(
           null, "'" + function + "' can only be called during the loading phase");
+    }
+  }
+
+  /**
+   * Checks that the current StarlarkThread is in the workspace phase.
+   *
+   * @param function name of a function that requires this check
+   */
+  public void checkWorkspacePhase(String function) throws EvalException {
+    if (phase != Phase.WORKSPACE) {
+      throw new EvalException(
+          null, "'" + function + "' can only be called during workspace loading");
     }
   }
 }

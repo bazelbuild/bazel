@@ -18,19 +18,19 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.docgen.starlark.StarlarkBuiltinDoc;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.TopLevelBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.AppleBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigBootstrap;
 import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.java.JavaBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.platform.PlatformBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.proto.ProtoBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.python.PyBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.repository.RepositoryBootstrap;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.ProviderStub;
-import com.google.devtools.build.lib.skylarkbuildapi.stubs.StarlarkAspectStub;
-import com.google.devtools.build.lib.skylarkbuildapi.test.TestingBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.TopLevelBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.proto.ProtoBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.python.PyBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.ProviderStub;
+import com.google.devtools.build.lib.starlarkbuildapi.stubs.StarlarkAspectStub;
+import com.google.devtools.build.lib.starlarkbuildapi.test.TestingBootstrap;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.Classpath;
 import com.google.devtools.build.lib.util.Classpath.ClassPathException;
@@ -75,6 +75,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.repository.FakeRepositoryMo
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisFailureInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeAnalysisTestResultInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeCoverageCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.test.FakeInstrumentedFilesInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.test.FakeTestingModule;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -223,6 +224,7 @@ public class SymbolFamilies {
         new TestingBootstrap(
             new FakeTestingModule(),
             new FakeCoverageCommon(),
+            new FakeInstrumentedFilesInfoProvider(),
             new FakeAnalysisFailureInfoProvider(),
             new FakeAnalysisTestResultInfoProvider());
 

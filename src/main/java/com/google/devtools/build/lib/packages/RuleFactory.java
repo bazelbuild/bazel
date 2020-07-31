@@ -78,8 +78,7 @@ public class RuleFactory {
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
       StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack,
-      AttributeContainer attributeContainer)
+      ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, InterruptedException {
     Preconditions.checkNotNull(ruleClass);
     String ruleClassName = ruleClass.getName();
@@ -133,7 +132,6 @@ public class RuleFactory {
           eventHandler,
           generator.location, // see b/23974287 for rationale
           callstack,
-          attributeContainer,
           checkThirdPartyLicenses);
     } catch (LabelSyntaxException | CannotPrecomputeDefaultsException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
@@ -154,31 +152,22 @@ public class RuleFactory {
    *     creation
    * @param semantics the Starlark semantics
    * @param callstack the stack of active calls in the Starlark thread
-   * @param attributeContainer the {@link AttributeContainer} the rule will contain
    * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
    *     {@code name} attribute is defined)
    * @throws NameConflictException if the rule's name or output files conflict with others in this
    *     package
    * @throws InterruptedException if interrupted
    */
-  static Rule createAndAddRule(
+  static Rule createAndAddRuleImpl(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
       StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack,
-      AttributeContainer attributeContainer)
+      ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     Rule rule =
-        createRule(
-            pkgBuilder,
-            ruleClass,
-            attributeValues,
-            eventHandler,
-            semantics,
-            callstack,
-            attributeContainer);
+        createRule(pkgBuilder, ruleClass, attributeValues, eventHandler, semantics, callstack);
     pkgBuilder.addRule(rule);
     return rule;
   }
@@ -195,7 +184,6 @@ public class RuleFactory {
    *     a map entry for each non-optional attribute of this class of rule.
    * @param loc the location of the rule expression
    * @param thread the lexical environment of the function call which declared this rule (optional)
-   * @param attributeContainer the {@link AttributeContainer} the rule will contain
    * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
    *     {@code name} attribute is defined)
    * @throws NameConflictException if the rule's name or output files conflict with others in this
@@ -207,17 +195,10 @@ public class RuleFactory {
       RuleClass ruleClass,
       BuildLangTypedAttributeValuesMap attributeValues,
       StarlarkSemantics semantics,
-      ImmutableList<StarlarkThread.CallStackEntry> callstack,
-      AttributeContainer attributeContainer)
+      ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws InvalidRuleException, NameConflictException, InterruptedException {
-    return createAndAddRule(
-        context.pkgBuilder,
-        ruleClass,
-        attributeValues,
-        context.eventHandler,
-        semantics,
-        callstack,
-        attributeContainer);
+    return createAndAddRuleImpl(
+        context.pkgBuilder, ruleClass, attributeValues, context.eventHandler, semantics, callstack);
   }
 
   /**

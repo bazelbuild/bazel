@@ -18,9 +18,11 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.analysis.ToolchainCollection.DEFAULT_EXEC_GROUP_NAME;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -361,5 +363,32 @@ public class StarlarkExecGroupTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:papaya");
     assertContainsEvent("errors encountered while analyzing target '//test:papaya'");
+  }
+
+  @Test
+  public void testEmptyExecGroupInherits() throws Exception {
+    createToolchainsAndPlatforms();
+    scratch.file(
+        "test/defs.bzl",
+        "MyInfo = provider()",
+        "def _impl(ctx):",
+        "  return []",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  exec_groups = {",
+        "    'watermelon': exec_group(),",
+        "  },",
+        "  exec_compatible_with = ['//platform:constraint_1'],",
+        "  toolchains = ['//rule:toolchain_type_1'],",
+        ")");
+    scratch.file("test/BUILD", "load('//test:defs.bzl', 'my_rule')", "my_rule(name = 'papaya')");
+
+    ConfiguredTarget ct = getConfiguredTarget("//test:papaya");
+    assertThat(getRuleContext(ct).getRule().getRuleClassObject().getExecGroups())
+        .containsExactly(
+            "watermelon",
+            ExecGroup.create(
+                ImmutableSet.of(Label.parseAbsoluteUnchecked("//rule:toolchain_type_1")),
+                ImmutableSet.of(Label.parseAbsoluteUnchecked("//platform:constraint_1"))));
   }
 }

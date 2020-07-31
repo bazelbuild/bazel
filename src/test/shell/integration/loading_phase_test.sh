@@ -460,7 +460,7 @@ function test_bazel_bin_is_not_a_package() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "Could not mkdir $pkg"
   echo "filegroup(name = '$pkg')" > "$pkg/BUILD"
-
+  setup_skylib_support
   # Ensure bazel-<pkg> is created.
   bazel build --symlink_prefix="foo_prefix-" "//$pkg" || fail "build failed"
   [[ -d "foo_prefix-bin" ]] || fail "bazel-bin was not created"
@@ -496,6 +496,98 @@ EOF
     grep -q sorted "${TEST_TMPDIR}/pprof" ||
       fail "string '$str' not found in profiler output"
   done
+}
+
+# Test that actions.write correctly emits a UTF-8 encoded attribute value as
+# UTF-8.
+function test_actions_write_utf8_attribute() {
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+
+  cat >"${pkg}/def.bzl" <<'EOF'
+def _write_attribute_impl(ctx):
+    ctx.actions.write(
+        output = ctx.outputs.out,
+        # adding a NL at the end to make the diff below easier
+        content = ctx.attr.text + '\n',
+    )
+    return []
+
+write_attribute = rule(
+    implementation = _write_attribute_impl,
+    attrs = {
+        "text": attr.string(),
+        "out": attr.output(),
+    },
+)
+EOF
+
+  cat >"${pkg}/BUILD" <<'EOF'
+load(":def.bzl", "write_attribute")
+write_attribute(
+    name = "text_with_non_latin1_chars",
+    # U+41, U+2117, U+4E16, U+1F63F  (1,2,3,4-byte UTF-8 encodings), 10 bytes.
+    text = "A©世😿",
+    out = "out",
+)
+EOF
+  bazel build "${pkg}:text_with_non_latin1_chars" || fail "Expected build to succeed"
+  diff $(bazel info "${PRODUCT_NAME}-bin")/$pkg/out <(echo 'A©世😿') || fail 'diff failed'
+}
+
+# Test that actions.write emits a file name containing non-Latin1 characters as
+# a UTF-8 encoded string.
+function test_actions_write_not_latin1_path() {
+  # TODO(https://github.com/bazelbuild/bazel/issues/11602): Enable after that is fixed.
+  if $is_windows ; then
+    echo 'Skipping test_actions_write_not_latin1_path on Windows. See #11602'
+    return
+  fi
+
+  local -r pkg="${FUNCNAME}"
+  mkdir -p "$pkg" || fail "could not create \"$pkg\""
+
+  filename='A©世😿.file'  # see above for an explanation.
+  echo hello >"${pkg}/${filename}"
+
+  cat >"${pkg}/def.bzl" <<'EOF'
+def _write_paths_impl(ctx):
+    # srcs is a list, but we only expect one entry.
+    if len(ctx.attr.srcs) != 1:
+        fail('expected exactly 1 file for srcs. got %d' % len(ctx.attr.srcs))
+    file_name = ctx.attr.srcs[0].label.name
+    ctx.actions.write(
+        output = ctx.outputs.out,
+        content = file_name,
+    )
+    return []
+
+write_paths = rule(
+    implementation = _write_paths_impl,
+    attrs = {
+        "srcs": attr.label_list(allow_files=True),
+        "out": attr.output(),
+    },
+)
+EOF
+
+  cat >"${pkg}/BUILD" <<'EOF'
+load(":def.bzl", "write_paths")
+write_paths(
+    name = "path_with_non_latin1",
+    # Use a glob to ensure that the value is read from the file system and not
+    # out of BUILD.
+    srcs = glob(["*.file"]),
+    out = "paths.txt",
+)
+EOF
+
+  bazel build "${pkg}:path_with_non_latin1" >output 2>&1 || (
+    echo '== build output'
+    cat output
+    fail "Expected build to succeed"
+  )
+  assert_contains "^${filename}$" $(bazel info "${PRODUCT_NAME}-bin")/$pkg/paths.txt
 }
 
 run_suite "Integration tests of ${PRODUCT_NAME} using loading/analysis phases."

@@ -11,11 +11,11 @@ filegroup(
 
 java_import(
     name = "checker_framework_javacutil",
-    jars = ["javacutil-2.5.3.jar"],
-    srcjar = "javacutil-2.5.3-sources.jar",
+    jars = ["javacutil-3.2.0.jar"],
+    srcjar = "javacutil-3.2.0-sources.jar",
 )
 
 filegroup(
     name = "bootstrap",
-    srcs = ["javacutil-2.5.3.jar"],
+    srcs = ["javacutil-3.2.0.jar"],
 )

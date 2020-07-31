@@ -231,7 +231,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try {
       return getNode(getTargetOrThrow(label)).getLabel();
     } catch (NoSuchThingException e) {
-      throw new TargetNotFoundException(e);
+      throw new TargetNotFoundException(e, e.getDetailedExitCode().getFailureDetail());
     }
   }
 
@@ -313,7 +313,6 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           keepGoing,
           loadingPhaseThreads,
           maxDepth,
-          errorObserver,
           new GraphBuildingObserver());
     }
 
@@ -379,16 +378,18 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
           dependencyFilter.apply(((Rule) from), attribute),
           "Disallowed edge from LabelVisitor: %s --> %s", from, to);
       makeEdge(from, to);
+      errorObserver.edge(from, attribute, to);
     }
 
     @Override
     public void node(Target node) {
       graph.createNode(node);
+      errorObserver.node(node);
     }
 
     @Override
     public void missingEdge(Target target, Label to, NoSuchThingException e) {
-      // No - op.
+      errorObserver.missingEdge(target, to, e);
     }
   }
 

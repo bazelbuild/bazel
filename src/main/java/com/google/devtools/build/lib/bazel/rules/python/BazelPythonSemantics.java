@@ -49,25 +49,37 @@ import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyRuntimeInfo;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.python.PythonSemantics;
+import com.google.devtools.build.lib.rules.python.PythonUtils;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /** Functionality specific to the Python rules in Bazel. */
 public class BazelPythonSemantics implements PythonSemantics {
 
+  public static final Runfiles.EmptyFilesSupplier GET_INIT_PY_FILES =
+      new PythonUtils.GetInitPyFiles((Predicate<PathFragment> & Serializable) source -> false);
   private static final Template STUB_TEMPLATE =
       Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
-  public static final InstrumentationSpec PYTHON_COLLECTION_SPEC = new InstrumentationSpec(
-      FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE),
-      "srcs", "deps", "data");
+  public static final InstrumentationSpec PYTHON_COLLECTION_SPEC =
+      new InstrumentationSpec(FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE))
+          .withDeprecatedSourceOrDependencyAttributes("srcs", "deps", "data")
+          .withSourceAttributes("srcs")
+          .withDependencyAttributes("deps", "data");
 
   public static final PathFragment ZIP_RUNFILES_DIRECTORY_NAME = PathFragment.create("runfiles");
+
+  @Override
+  public Runfiles.EmptyFilesSupplier getEmptyRunfilesSupplier() {
+    return GET_INIT_PY_FILES;
+  }
 
   @Override
   public String getSrcsVersionDocURL() {
@@ -238,14 +250,16 @@ public class BazelPythonSemantics implements PythonSemantics {
         // TODO(#8685): Remove this special-case handling as part of making the proper shebang a
         // property of the Python toolchain configuration.
         String pythonExecutableName = OS.getCurrent() == OS.OPENBSD ? "python3" : "python";
+        // NOTE: keep the following line intact to support nix builds
+        String pythonShebang = "#!/usr/bin/env " + pythonExecutableName;
         ruleContext.registerAction(
             new SpawnAction.Builder()
                 .addInput(zipFile)
                 .addOutput(executable)
                 .setShellCommand(
                     shExecutable,
-                    "echo '#!/usr/bin/env "
-                        + pythonExecutableName
+                    "echo '"
+                        + pythonShebang
                         + "' | cat - "
                         + zipFile.getExecPathString()
                         + " > "

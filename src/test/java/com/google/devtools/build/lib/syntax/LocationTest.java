@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -31,15 +30,5 @@ public final class LocationTest {
     assertThat(location.line()).isEqualTo(0);
     assertThat(location.column()).isEqualTo(0);
     assertThat(location.toString()).isEqualTo(file);
-  }
-
-  @Test
-  public void testCodec() throws Exception {
-    String file = "this is a filename";
-    new SerializationTester(
-            Location.fromFile(file), //
-            Location.fromFileLineColumn(file, 20, 25),
-            Location.BUILTIN)
-        .runTests();
   }
 }

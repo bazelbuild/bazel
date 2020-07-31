@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkModules; // a bad dependency
+import com.google.devtools.build.lib.analysis.starlark.StarlarkModules; // a bad dependency
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;

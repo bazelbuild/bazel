@@ -34,21 +34,13 @@ import java.util.Objects;
  */
 public class BzlLoadValue implements SkyValue {
 
-  private final Module module; // .bzl module
+  private final Module module; // .bzl module (and indirectly, the entire load DAG)
   private final byte[] transitiveDigest; // of .bzl file and load dependencies
 
-  /**
-   * The immediate Starlark file dependency descriptor class corresponding to this value. Using this
-   * reference it's possible to reach the transitive closure of Starlark files on which this
-   * Starlark file depends.
-   */
-  private final StarlarkFileDependency dependency;
-
   @VisibleForTesting
-  public BzlLoadValue(Module module, byte[] transitiveDigest, StarlarkFileDependency dependency) {
+  public BzlLoadValue(Module module, byte[] transitiveDigest) {
     this.module = Preconditions.checkNotNull(module);
     this.transitiveDigest = Preconditions.checkNotNull(transitiveDigest);
-    this.dependency = Preconditions.checkNotNull(dependency);
   }
 
   /** Returns the .bzl module. */
@@ -59,11 +51,6 @@ public class BzlLoadValue implements SkyValue {
   /** Returns the digest of the .bzl module and its transitive load dependencies. */
   public byte[] getTransitiveDigest() {
     return transitiveDigest;
-  }
-
-  /** Returns the root of a DAG whose structure mirrors the transitive loads of this file. */
-  public StarlarkFileDependency getDependency() {
-    return dependency;
   }
 
   private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();

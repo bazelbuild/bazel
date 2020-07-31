@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -99,7 +99,8 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
   private final Label ccToolchainLabel;
   private final TransitiveInfoCollection staticRuntimeLib;
   private final TransitiveInfoCollection dynamicRuntimeLib;
-  private final PackageSpecificationProvider whitelistForLayeringCheck;
+  private final PackageSpecificationProvider allowlistForLayeringCheck;
+  private final PackageSpecificationProvider allowlistForLooseHeaderCheck;
 
   public CcToolchainAttributesProvider(
       RuleContext ruleContext,
@@ -233,9 +234,12 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
       this.toolchainType = null;
     }
     this.additionalBuildVariablesComputer = additionalBuildVariablesComputer;
-    this.whitelistForLayeringCheck =
-        Whitelist.fetchPackageSpecificationProvider(
-            ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_WHITELIST);
+    this.allowlistForLayeringCheck =
+        Allowlist.fetchPackageSpecificationProvider(
+            ruleContext, CcToolchain.ALLOWED_LAYERING_CHECK_FEATURES_ALLOWLIST);
+    this.allowlistForLooseHeaderCheck =
+        Allowlist.fetchPackageSpecificationProvider(
+            ruleContext, CcToolchain.LOOSE_HEADER_CHECK_ALLOWLIST);
   }
 
   public String getCpu() {
@@ -423,8 +427,12 @@ public class CcToolchainAttributesProvider extends ToolchainInfo implements HasC
     return ifsoBuilder;
   }
 
-  public PackageSpecificationProvider getWhitelistForLayeringCheck() {
-    return whitelistForLayeringCheck;
+  public PackageSpecificationProvider getAllowlistForLayeringCheck() {
+    return allowlistForLayeringCheck;
+  }
+
+  public PackageSpecificationProvider getAllowlistForLooseHeaderCheck() {
+    return allowlistForLooseHeaderCheck;
   }
 
   private static NestedSet<Artifact> getMiddlemanOrFiles(RuleContext context, String attribute) {

@@ -61,6 +61,11 @@ public final class BlazeOptionHandler {
           "client_env",
           "client_cwd");
 
+  // Marks an event to indicate a parsing error.
+  static final String BAD_OPTION_TAG = "invalidOption";
+  // Separates the invalid tag from the full error message for easier parsing.
+  static final String ERROR_SEPARATOR = " :: ";
+
   private final BlazeRuntime runtime;
   private final OptionsParser optionsParser;
   private final BlazeWorkspace workspace;
@@ -247,10 +252,10 @@ public final class BlazeOptionHandler {
     try {
       StarlarkOptionsParser.newStarlarkOptionsParser(env, optionsParser).parse(eventHandler);
     } catch (OptionsParsingException e) {
-      env.getReporter().handle(Event.error(e.getMessage()));
-      logger.atInfo().withCause(e).log("Error parsing Starlark options");
-      return createDetailedExitCode(
-          "Error parsing Starlark options: " + e.getMessage(), Code.STARLARK_OPTIONS_PARSE_FAILURE);
+      String logMessage = "Error parsing Starlark options";
+      logger.atInfo().withCause(e).log(logMessage);
+      return processOptionsParsingException(
+          eventHandler, e, logMessage, Code.STARLARK_OPTIONS_PARSE_FAILURE);
     }
     return DetailedExitCode.success();
   }
@@ -311,10 +316,10 @@ public final class BlazeOptionHandler {
         eventHandler.handle(Event.warn(warning));
       }
     } catch (OptionsParsingException e) {
-      eventHandler.handle(Event.error(e.getMessage()));
-      logger.atInfo().withCause(e).log("Error parsing options");
-      return createDetailedExitCode(
-          "Error parsing options" + e.getMessage(), Code.OPTIONS_PARSE_FAILURE);
+      String logMessage = "Error parsing options";
+      logger.atInfo().withCause(e).log(logMessage);
+      return processOptionsParsingException(
+          eventHandler, e, logMessage, Code.OPTIONS_PARSE_FAILURE);
     }
     return DetailedExitCode.success();
   }
@@ -347,6 +352,25 @@ public final class BlazeOptionHandler {
       getCommandNamesToParseHelper(base.getAnnotation(Command.class), accumulator);
     }
     accumulator.add(commandAnnotation.name());
+  }
+
+  private static DetailedExitCode processOptionsParsingException(
+      ExtendedEventHandler eventHandler,
+      OptionsParsingException e,
+      String logMessage,
+      Code failureCode) {
+    Event error;
+    // Differentiates errors stemming from an invalid argument and errors from different parts of
+    // the codebase.
+    if (e.getInvalidArgument() != null) {
+      error =
+          Event.error(e.getInvalidArgument() + ERROR_SEPARATOR + e.getMessage())
+              .withTag(BAD_OPTION_TAG);
+    } else {
+      error = Event.error(e.getMessage());
+    }
+    eventHandler.handle(error);
+    return createDetailedExitCode(logMessage + ": " + e.getMessage(), failureCode);
   }
 
   private String getNotInRealWorkspaceError(Path doNotBuildFile) {

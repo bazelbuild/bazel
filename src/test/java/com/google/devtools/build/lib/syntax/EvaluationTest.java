@@ -406,17 +406,10 @@ public final class EvaluationTest {
 
   @Test
   public void testSequenceAssignment() throws Exception {
-    // assignment to empty list/tuple
-    // See https://github.com/bazelbuild/starlark/issues/93 for discussion
-    ev.checkEvalError(
-        "can't assign to ()", //
-        "() = ()");
-    ev.checkEvalError(
-        "can't assign to ()", //
-        "() = 1");
-    ev.checkEvalError(
-        "can't assign to []", //
-        "[] = ()");
+    // Assignment to empty list/tuple is permitted.
+    // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
+    ev.exec("() = ()");
+    ev.exec("[] = ()");
 
     // RHS not iterable
     ev.checkEvalError(
@@ -443,6 +436,12 @@ public final class EvaluationTest {
     ev.exec("(x,) = [1]");
 
     // too many
+    ev.checkEvalError(
+        "got 'int' in sequence assignment", //
+        "() = 1");
+    ev.checkEvalError(
+        "too many values to unpack (got 1, want 0)", //
+        "() = (1,)");
     ev.checkEvalError(
         "too many values to unpack (got 3, want 2)", //
         "x, y = 1, 2, 3");
@@ -483,12 +482,9 @@ public final class EvaluationTest {
             "got 'int' in sequence assignment", //
             "[x2 + y2 for x2, y2 in (1, 2)]");
 
-    ev.new Scenario()
-        // Behavior varies across Python2 and 3 and Starlark in {Go,Java}.
-        // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
-        .testIfErrorContains(
-            "can't assign to []", //
-            "[2 for [] in [()]]");
+    // Assignment to empty tuple is permitted.
+    // See https://github.com/bazelbuild/starlark/issues/93 for discussion.
+    ev.new Scenario().testEval("[1 for [] in [(), []]]", "[1, 1]");
   }
 
   @Test

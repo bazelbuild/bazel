@@ -239,9 +239,11 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     return pathResolver;
   }
 
-  /** Returns whether failures for {@code failedLabel} should have verbose error messages. */
-  public boolean showVerboseFailures(Label failedLabel) {
-    return executor.getVerboseFailuresPredicate().test(failedLabel);
+  /**
+   * Returns whether failures should have verbose error messages.
+   */
+  public boolean getVerboseFailures() {
+    return executor.getVerboseFailures();
   }
 
   /**
@@ -351,9 +353,13 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
 
   @Override
   public void close() throws IOException {
-    fileOutErr.close();
-    if (actionFileSystem instanceof Closeable) {
-      ((Closeable) actionFileSystem).close();
+    // Ensure that we close both fileOutErr and actionFileSystem even if one throws.
+    try {
+      fileOutErr.close();
+    } finally {
+      if (actionFileSystem instanceof Closeable) {
+        ((Closeable) actionFileSystem).close();
+      }
     }
   }
 

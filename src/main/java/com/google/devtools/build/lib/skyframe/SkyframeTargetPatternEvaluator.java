@@ -236,7 +236,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
       targetPattern.eval(
           resolver,
-          /*blacklistedSubdirectories=*/ ImmutableSet.<PathFragment>of(),
+          /*ignoredSubdirectories=*/ ImmutableSet.<PathFragment>of(),
           /*excludedSubdirectories=*/ ImmutableSet.<PathFragment>of(),
           partialResult ->
               result.set(

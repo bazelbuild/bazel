@@ -31,6 +31,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CrashFailureDetailsTest {
 
+  private static final String TEST_EXCEPTION_NAME =
+      "com.google.devtools.build.lib.util.CrashFailureDetailsTest$TestException";
+
   @Test
   public void nestedThrowables() {
     // This test confirms that throwables' details are recorded: their messages, types, stack
@@ -40,7 +43,11 @@ public class CrashFailureDetailsTest {
         CrashFailureDetails.forThrowable(
             functionForStackFrameTests_A(functionForStackFrameTests_B()));
 
-    assertThat(failureDetail.getMessage()).isEqualTo("Crashed: myMessage_A, myMessage_B");
+    assertThat(failureDetail.getMessage())
+        .isEqualTo(
+            String.format(
+                "Crashed: (%s) myMessage_A, (%s) myMessage_B",
+                TEST_EXCEPTION_NAME, TEST_EXCEPTION_NAME));
     assertThat(failureDetail.hasCrash()).isTrue();
     Crash crash = failureDetail.getCrash();
     assertThat(crash.getCode()).isEqualTo(Code.CRASH_UNKNOWN);
@@ -49,8 +56,7 @@ public class CrashFailureDetailsTest {
 
     FailureDetails.Throwable outerCause = crash.getCauses(0);
     assertThat(outerCause.getMessage()).isEqualTo("myMessage_A");
-    assertThat(outerCause.getThrowableClass())
-        .isEqualTo("com.google.devtools.build.lib.util.CrashFailureDetailsTest$TestException");
+    assertThat(outerCause.getThrowableClass()).isEqualTo(TEST_EXCEPTION_NAME);
     assertThat(outerCause.getStackTraceCount()).isAtLeast(2);
     assertThat(outerCause.getStackTrace(0))
         .contains(
@@ -61,8 +67,7 @@ public class CrashFailureDetailsTest {
 
     FailureDetails.Throwable innerCause = crash.getCauses(1);
     assertThat(innerCause.getMessage()).isEqualTo("myMessage_B");
-    assertThat(innerCause.getThrowableClass())
-        .isEqualTo("com.google.devtools.build.lib.util.CrashFailureDetailsTest$TestException");
+    assertThat(innerCause.getThrowableClass()).isEqualTo(TEST_EXCEPTION_NAME);
     assertThat(innerCause.getStackTraceCount()).isAtLeast(2);
     assertThat(innerCause.getStackTrace(0))
         .contains(

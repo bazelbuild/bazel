@@ -112,6 +112,7 @@ public final class ConfigMatchingProvider implements TransitiveInfoProvider {
   }
 
   /** Format this provider as its label. */
+  @Override
   public String toString() {
     return label.toString();
   }

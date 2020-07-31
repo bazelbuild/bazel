@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.skyframe.SkyFunction;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -131,6 +132,15 @@ final class ActionExecutionState {
         // a non-null value, or it registers a dependency with Skyframe and returns null; it must
         // not return null without registering a dependency, i.e., if {@code !env.valuesMissing()}.
         if (env.valuesMissing()) {
+          if (current.isDone()) {
+            // This can happen if there was an error in a dep, but another dep was missing. The
+            // Skyframe contract is that this SkyFunction should eagerly process that exception, so
+            // that errors can be transformed in --nokeep_going mode.
+            ActionExecutionValue value = current.get();
+            BugReport.sendBugReport(
+                new IllegalStateException(
+                    actionLookupData + " returned " + value + " with values missing"));
+          }
           return null;
         }
       }

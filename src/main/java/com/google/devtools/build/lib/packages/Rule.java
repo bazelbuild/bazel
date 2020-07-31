@@ -127,10 +127,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     attributes.setAttributeValue(attribute, value, explicit);
   }
 
-  void setAttributeValueByName(String attrName, Object value) {
-    attributes.setAttributeValueByName(attrName, value);
-  }
-
   void setContainsErrors() {
     this.containsErrors = true;
   }

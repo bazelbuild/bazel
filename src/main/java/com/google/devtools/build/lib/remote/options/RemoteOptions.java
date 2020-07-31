@@ -19,6 +19,9 @@ import build.bazel.remote.execution.v2.Platform.Property;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.actions.UserExecException;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution.Code;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converters;
@@ -67,9 +70,10 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "HOST or HOST:PORT of a remote execution endpoint.The supported schemas are grpc and"
-              + " grpcs (grpc with TLS enabled). If no schema is provided bazel'll default to"
-              + " grpcs. Specify grpc:// schema to disable TLS.")
+          "HOST or HOST:PORT of a remote execution endpoint. The supported schemas are grpc, "
+              + "grpcs (grpc with TLS enabled) and unix (local UNIX sockets). If no schema is "
+              + "provided Bazel will default to grpcs. Specify grpc:// or unix: schema to "
+              + "disable TLS.")
   public String remoteExecutor;
 
   @Option(
@@ -79,10 +83,10 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a caching endpoint. The supported schemas are http, https, grpc and grpcs"
-              + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
-              + " Specify grpc:// or http:// schema to disable TLS.See"
-              + " https://docs.bazel.build/versions/master/remote-caching.html")
+          "A URI of a caching endpoint. The supported schemas are http, https, grpc, grpcs "
+              + "(grpc with TLS enabled) and unix (local UNIX sockets). If no schema is provided "
+              + "Bazel will default to grpcs. Specify grpc://, http:// or unix: schema to disable "
+              + "TLS. See https://docs.bazel.build/versions/master/remote-caching.html")
   public String remoteCache;
 
   @Option(
@@ -91,9 +95,10 @@ public final class RemoteOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "A URI of a remote downloader endpoint. The supported schemas are grpc and grpcs"
-              + " (grpc with TLS enabled). If no schema is provided bazel will default to grpcs."
-              + " Specify grpc:// schema to disable TLS.")
+          "A Remote Asset API endpoint URI, to be used as a remote download proxy. The supported"
+              + " schemas are grpc, grpcs (grpc with TLS enabled) and unix (local UNIX sockets)."
+              + " If no schema is provided Bazel will default to grpcs. See: "
+              + "https://github.com/bazelbuild/remote-apis/blob/master/build/bazel/remote/asset/v1/remote_asset.proto")
   public String remoteDownloader;
 
   @Option(
@@ -341,7 +346,7 @@ public final class RemoteOptions extends OptionsBase {
         "--nobuild_runfile_links",
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
-        "--experimental_remote_download_outputs=minimal"
+        "--remote_download_outputs=minimal"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -350,7 +355,7 @@ public final class RemoteOptions extends OptionsBase {
           "Does not download any remote build outputs to the local machine. This flag is a "
               + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
               + "--experimental_inmemory_dotd_files and "
-              + "--experimental_remote_download_outputs=minimal.")
+              + "--remote_download_outputs=minimal.")
   public Void remoteOutputsMinimal;
 
   @Option(
@@ -360,7 +365,7 @@ public final class RemoteOptions extends OptionsBase {
       expansion = {
         "--experimental_inmemory_jdeps_files",
         "--experimental_inmemory_dotd_files",
-        "--experimental_remote_download_outputs=toplevel"
+        "--remote_download_outputs=toplevel"
       },
       category = "remote",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
@@ -369,7 +374,7 @@ public final class RemoteOptions extends OptionsBase {
           "Only downloads remote outputs of top level targets to the local machine. This flag is a "
               + "shortcut for three flags: --experimental_inmemory_jdeps_files, "
               + "--experimental_inmemory_dotd_files and "
-              + "--experimental_remote_download_outputs=toplevel.")
+              + "--remote_download_outputs=toplevel.")
   public Void remoteOutputsToplevel;
 
   @Option(
@@ -454,9 +459,11 @@ public final class RemoteOptions extends OptionsBase {
 
     if (hasExecProperties && hasPlatformProperties) {
       throw new UserExecException(
-          "Setting both --remote_default_platform_properties and "
-              + "--remote_default_exec_properties is not allowed. Prefer setting "
-              + "--remote_default_exec_properties.");
+          createFailureDetail(
+              "Setting both --remote_default_platform_properties and "
+                  + "--remote_default_exec_properties is not allowed. Prefer setting "
+                  + "--remote_default_exec_properties.",
+              Code.INVALID_EXEC_AND_PLATFORM_PROPERTIES));
     }
 
     if (hasExecProperties) {
@@ -470,10 +477,11 @@ public final class RemoteOptions extends OptionsBase {
         TextFormat.getParser().merge(remoteDefaultPlatformProperties, builder);
         platform = builder.build();
       } catch (ParseException e) {
-        throw new UserExecException(
+        String message =
             "Failed to parse --remote_default_platform_properties "
-                + remoteDefaultPlatformProperties,
-            e);
+                + remoteDefaultPlatformProperties;
+        throw new UserExecException(
+            e, createFailureDetail(message, Code.REMOTE_DEFAULT_PLATFORM_PROPERTIES_PARSE_FAILURE));
       }
 
       ImmutableSortedMap.Builder<String, String> builder = ImmutableSortedMap.naturalOrder();
@@ -484,5 +492,12 @@ public final class RemoteOptions extends OptionsBase {
     }
 
     return ImmutableSortedMap.of();
+  }
+
+  private static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setRemoteExecution(RemoteExecution.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

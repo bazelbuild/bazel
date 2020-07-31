@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.util.FileTypeSet;
  * action graph changes.
  *
  * <p>Important aspect is relation to non-symlinked-under-execroot-directories: {@link
- * com.google.devtools.build.lib.skylarkbuildapi.WorkspaceGlobalsApi#dontSymlinkDirectoriesInExecroot(Sequence,
+ * com.google.devtools.build.lib.starlarkbuildapi.WorkspaceGlobalsApi#dontSymlinkDirectoriesInExecroot(Sequence,
  * StarlarkThread)} All the outputs of Ninja actions are expected to be under the directory,
  * specified in output_root of this rule. All the input files under output_root should be listed in
  * output_root_inputs attribute, this rule will create the SymlinkAction actions to symlink listed

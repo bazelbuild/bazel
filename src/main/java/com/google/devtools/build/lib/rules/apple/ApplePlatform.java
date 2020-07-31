@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformApi;
-import com.google.devtools.build.lib.skylarkbuildapi.apple.ApplePlatformTypeApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformApi;
+import com.google.devtools.build.lib.starlarkbuildapi.apple.ApplePlatformTypeApi;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import java.util.HashMap;
@@ -56,7 +56,7 @@ public enum ApplePlatform implements ApplePlatformApi {
   // migrating it would be a breaking change more details:
   // https://github.com/bazelbuild/bazel/pull/7062
   private static final ImmutableSet<String> MACOS_TARGET_CPUS =
-      ImmutableSet.of("darwin_x86_64", "darwin");
+      ImmutableSet.of("darwin_x86_64", "darwin_arm64", "darwin_arm64e", "darwin");
 
   private static final ImmutableSet<String> BIT_32_TARGET_CPUS =
       ImmutableSet.of("ios_i386", "ios_armv7", "ios_armv7s", "watchos_i386", "watchos_armv7k");

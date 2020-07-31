@@ -895,4 +895,30 @@ public class AspectTest extends AnalysisTestCase {
         aspect.getProvider(AspectApplyingToFiles.Provider.class);
     assertThat(provider.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//a:x_deploy.jar"));
   }
+
+  @Test
+  public void sameConfiguredAttributeOnAspectAndRule() throws Exception {
+    scratch.file(
+        "a/a.bzl",
+        "def _a_impl(t, ctx):",
+        "  return [DefaultInfo()]",
+        "def _r_impl(ctx):",
+        "  return [DefaultInfo()]",
+        "a = aspect(",
+        "  implementation = _a_impl,",
+        "  attrs = {'_f': attr.label(",
+        "                   default = configuration_field(",
+        "                     fragment = 'cpp', name = 'cc_toolchain'))})",
+        "r = rule(",
+        "  implementation = _r_impl,",
+        "  attrs = {'_f': attr.label(",
+        "                   default = configuration_field(",
+        "                     fragment = 'cpp', name = 'cc_toolchain')),",
+        "           'dep': attr.label(aspects=[a])})");
+
+    scratch.file("a/BUILD", "load(':a.bzl', 'r')", "r(name='r')");
+
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(), ImmutableList.of());
+    getConfiguredTarget("//a:r");
+  }
 }

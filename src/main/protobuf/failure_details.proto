@@ -139,6 +139,10 @@ message FailureDetail {
     SymlinkAction symlink_action = 167;
     CppLink cpp_link = 168;
     LtoAction lto_action = 169;
+    TestAction test_action = 172;
+    Worker worker = 173;
+    Analysis analysis = 174;
+    PackageLoading package_loading = 175;
   }
 
   reserved 102; // For internal use
@@ -154,6 +158,7 @@ message FailureDetail {
   reserved 149; // For internal use
   reserved 155 to 157; // For internal use
   reserved 165; // For internal use
+  reserved 170 to 171; // For internal use
 }
 
 message Interrupted {
@@ -198,6 +203,12 @@ message Spawn {
     REMOTE_CACHE_FAILED = 6 [(metadata) = { exit_code: 34 }];
     COMMAND_LINE_EXPANSION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
     EXEC_IO_EXCEPTION = 8 [(metadata) = { exit_code: 36 }];
+    INVALID_TIMEOUT = 9 [(metadata) = { exit_code: 1 }];
+    INVALID_REMOTE_EXECUTION_PROPERTIES = 10 [(metadata) = { exit_code: 1 }];
+    NO_USABLE_STRATEGY_FOUND = 11 [(metadata) = { exit_code: 1 }];
+    // TODO(b/138456686): this code should be deprecated when SpawnResult is
+    //   refactored to prohibit undetailed failures
+    UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
   }
   Code code = 1;
 
@@ -344,6 +355,10 @@ message RemoteExecution {
         [(metadata) = { exit_code: 2 }];
     INCOMPLETE_OUTPUT_DOWNLOAD_CLEANUP_FAILURE = 13
         [(metadata) = { exit_code: 36 }];
+    REMOTE_DEFAULT_PLATFORM_PROPERTIES_PARSE_FAILURE = 14
+        [(metadata) = { exit_code: 1 }];
+    ILLEGAL_OUTPUT = 15 [(metadata) = { exit_code: 1 }];
+    INVALID_EXEC_AND_PLATFORM_PROPERTIES = 16 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -355,9 +370,9 @@ message Execution {
     EXECUTION_LOG_INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
     EXECUTION_LOG_WRITE_FAILURE = 2 [(metadata) = { exit_code: 36 }];
     EXECROOT_CREATION_FAILURE = 3 [(metadata) = { exit_code: 36 }];
-    ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE = 4
+    TEMP_ACTION_OUTPUT_DIRECTORY_DELETION_FAILURE = 4
         [(metadata) = { exit_code: 36 }];
-    ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 5
+    TEMP_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 5
         [(metadata) = { exit_code: 36 }];
     PERSISTENT_ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 6
         [(metadata) = { exit_code: 36 }];
@@ -383,6 +398,22 @@ message Execution {
     ACTION_OUTPUTS_DELETION_FAILURE = 23 [(metadata) = { exit_code: 1 }];
     ACTION_OUTPUTS_NOT_CREATED = 24 [(metadata) = { exit_code: 1 }];
     ACTION_FINALIZATION_FAILURE = 25 [(metadata) = { exit_code: 1 }];
+    ACTION_INPUT_LOST = 26 [(metadata) = { exit_code: 1 }];
+    FILESYSTEM_CONTEXT_UPDATE_FAILURE = 27 [(metadata) = { exit_code: 1 }];
+    ACTION_OUTPUT_CLOSE_FAILURE = 28 [(metadata) = { exit_code: 1 }];
+    INPUT_DISCOVERY_IO_EXCEPTION = 29 [(metadata) = { exit_code: 1 }];
+    TREE_ARTIFACT_DIRECTORY_CREATION_FAILURE = 30
+        [(metadata) = { exit_code: 1 }];
+    ACTION_OUTPUT_DIRECTORY_CREATION_FAILURE = 31
+        [(metadata) = { exit_code: 1 }];
+    ACTION_FS_OUTPUT_DIRECTORY_CREATION_FAILURE = 32
+        [(metadata) = { exit_code: 1 }];
+    ACTION_FS_OUT_ERR_DIRECTORY_CREATION_FAILURE = 33
+        [(metadata) = { exit_code: 1 }];
+    NON_ACTION_EXECUTION_FAILURE = 34 [(metadata) = { exit_code: 1 }];
+    CYCLE = 35 [(metadata) = { exit_code: 1 }];
+    SOURCE_INPUT_MISSING = 36 [(metadata) = { exit_code: 1 }];
+    UNEXPECTED_EXCEPTION = 37 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -517,6 +548,10 @@ message BuildConfiguration {
   enum Code {
     BUILD_CONFIGURATION_UNKNOWN = 0 [(metadata) = { exit_code: 2 }];
     PLATFORM_MAPPING_EVALUATION_FAILURE = 1 [(metadata) = { exit_code: 2 }];
+    PLATFORM_MAPPINGS_FILE_IS_DIRECTORY = 2 [(metadata) = { exit_code: 1 }];
+    PLATFORM_MAPPINGS_FILE_NOT_FOUND = 3 [(metadata) = { exit_code: 1 }];
+    TOP_LEVEL_CONFIGURATION_CREATION_FAILURE = 4
+        [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -561,6 +596,27 @@ message Query {
     QUERY_STDOUT_FLUSH_FAILURE = 13 [(metadata) = { exit_code: 36 }];
     ANALYSIS_QUERY_PREREQ_UNMET = 14 [(metadata) = { exit_code: 2 }];
     QUERY_RESULTS_FLUSH_FAILURE = 15 [(metadata) = { exit_code: 36 }];
+    UNCLOSED_QUOTATION_EXPRESSION_ERROR = 16 [(metadata) = { exit_code: 2 }];
+    VARIABLE_NAME_INVALID = 17 [(metadata) = { exit_code: 7 }];
+    VARIABLE_UNDEFINED = 18 [(metadata) = { exit_code: 7 }];
+    BUILDFILES_AND_LOADFILES_CANNOT_USE_OUTPUT_LOCATION_ERROR = 19
+        [(metadata) = { exit_code: 2 }];
+    BUILD_FILE_ERROR = 20 [(metadata) = { exit_code: 2 }];
+    CYCLE = 21 [(metadata) = { exit_code: 2 }];
+    UNIQUE_SKYKEY_THRESHOLD_EXCEEDED = 22 [(metadata) = { exit_code: 7 }];
+    TARGET_NOT_IN_UNIVERSE_SCOPE = 23 [(metadata) = { exit_code: 2 }];
+    INVALID_FULL_UNIVERSE_EXPRESSION = 24 [(metadata) = { exit_code: 2 }];
+    UNIVERSE_SCOPE_LIMIT_EXCEEDED = 25 [(metadata) = { exit_code: 7 }];
+    INVALIDATION_LIMIT_EXCEEDED = 26 [(metadata) = { exit_code: 7 }];
+    OUTPUT_FORMAT_PREREQ_UNMET = 27 [(metadata) = { exit_code: 2 }];
+    ARGUMENTS_MISSING = 28 [(metadata) = { exit_code: 7 }];
+    RBUILDFILES_FUNCTION_REQUIRES_SKYQUERY = 29 [(metadata) = { exit_code: 7 }];
+    FULL_TARGETS_NOT_SUPPORTED = 30 [(metadata) = { exit_code: 7 }];
+    UNEXPECTED_TOKEN_ERROR = 31 [(metadata) = { exit_code: 2 }];
+    INTEGER_LITERAL_MISSING = 32 [(metadata) = { exit_code: 2 }];
+    INVALID_STARTING_CHARACTER_ERROR = 33 [(metadata) = { exit_code: 2 }];
+    PREMATURE_END_OF_INPUT_ERROR = 34 [(metadata) = { exit_code: 2 }];
+    SYNTAX_ERROR = 35 [(metadata) = { exit_code: 2 }];
 
     reserved 7 to 12; // For internal use
   }
@@ -614,6 +670,15 @@ message Sandbox {
   enum Code {
     SANDBOX_FAILURE_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INITIALIZATION_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+    EXECUTION_IO_EXCEPTION = 2 [(metadata) = { exit_code: 1 }];
+    DOCKER_COMMAND_FAILURE = 3 [(metadata) = { exit_code: 1 }];
+    NO_DOCKER_IMAGE = 4 [(metadata) = { exit_code: 1 }];
+    DOCKER_IMAGE_PREPARATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    BIND_MOUNT_ANALYSIS_FAILURE = 6 [(metadata) = { exit_code: 1 }];
+    MOUNT_SOURCE_DOES_NOT_EXIST = 7 [(metadata) = { exit_code: 1 }];
+    MOUNT_SOURCE_TARGET_TYPE_MISMATCH = 8 [(metadata) = { exit_code: 1 }];
+    MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
+    EXECUTION_FAILED = 10 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -626,6 +691,10 @@ message IncludeScanning {
     SCANNING_IO_EXCEPTION = 2 [(metadata) = { exit_code: 36 }];
     INCLUDE_HINTS_FILE_NOT_IN_PACKAGE = 3 [(metadata) = { exit_code: 36 }];
     INCLUDE_HINTS_READ_FAILURE = 4 [(metadata) = { exit_code: 36 }];
+    ILLEGAL_ABSOLUTE_PATH = 5 [(metadata) = { exit_code: 1 }];
+    // TODO(b/138456686): this code should be deprecated in favor of more finely
+    //   resolved loading-phase codes.
+    PACKAGE_LOAD_FAILURE = 6 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -665,6 +734,11 @@ message ActionQuery {
     INVALID_AQUERY_EXPRESSION = 6 [(metadata) = { exit_code: 1 }];
     SKYFRAME_STATE_PREREQ_UNMET = 7 [(metadata) = { exit_code: 2 }];
     AQUERY_OUTPUT_TOO_BIG = 8 [(metadata) = { exit_code: 7 }];
+    ILLEGAL_PATTERN_SYNTAX = 9 [(metadata) = { exit_code: 2 }];
+    INCORRECT_ARGUMENTS = 10 [(metadata) = { exit_code: 2 }];
+    TOP_LEVEL_TARGETS_WITH_SKYFRAME_STATE_NOT_SUPPORTED = 11
+        [(metadata) = { exit_code: 2 }];
+    SKYFRAME_STATE_AFTER_EXECUTION = 12 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -676,6 +750,7 @@ message TargetPatterns {
     TARGET_PATTERN_FILE_WITH_COMMAND_LINE_PATTERN = 1
         [(metadata) = { exit_code: 2 }];
     TARGET_PATTERN_FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    TARGET_PATTERN_PARSE_FAILURE = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -693,6 +768,7 @@ message CleanCommand {
     EXECROOT_DELETE_FAILURE = 7 [(metadata) = { exit_code: 36 }];
     EXECROOT_TEMP_MOVE_FAILURE = 8 [(metadata) = { exit_code: 36 }];
     ASYNC_EXECROOT_DELETE_FAILURE = 9 [(metadata) = { exit_code: 6 }];
+    ARGUMENTS_NOT_RECOGNIZED = 10 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -713,6 +789,13 @@ message ConfigurableQuery {
     CONFIGURABLE_QUERY_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     COMMAND_LINE_EXPRESSION_MISSING = 1 [(metadata) = { exit_code: 2 }];
     EXPRESSION_PARSE_FAILURE = 2 [(metadata) = { exit_code: 2 }];
+    FILTERS_NOT_SUPPORTED = 3 [(metadata) = { exit_code: 2 }];
+    BUILDFILES_FUNCTION_NOT_SUPPORTED = 4 [(metadata) = { exit_code: 2 }];
+    SIBLINGS_FUNCTION_NOT_SUPPORTED = 5 [(metadata) = { exit_code: 2 }];
+    VISIBLE_FUNCTION_NOT_SUPPORTED = 6 [(metadata) = { exit_code: 2 }];
+    ATTRIBUTE_MISSING = 7 [(metadata) = { exit_code: 2 }];
+    INCORRECT_CONFIG_ARGUMENT_ERROR = 8 [(metadata) = { exit_code: 2 }];
+    TARGET_MISSING = 9 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;
@@ -783,6 +866,7 @@ message RunCommand {
     SCRIPT_WRITE_FAILURE = 12 [(metadata) = { exit_code: 6 }];
     RUNFILES_DIRECTORIES_CREATION_FAILURE = 13 [(metadata) = { exit_code: 36 }];
     RUNFILES_SYMLINKS_CREATION_FAILURE = 14 [(metadata) = { exit_code: 36 }];
+    TEST_ENVIRONMENT_SETUP_INTERRUPTED = 15 [(metadata) = { exit_code: 8 }];
   }
 
   Code code = 1;
@@ -817,6 +901,8 @@ message WorkspaceStatus {
     EXEC_FAILED = 3 [(metadata) = { exit_code: 1 }];
     PARSE_FAILURE = 4 [(metadata) = { exit_code: 36 }];
     VALIDATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    CONTENT_UPDATE_IO_EXCEPTION = 6 [(metadata) = { exit_code: 1 }];
+    STDERR_IO_EXCEPTION = 7 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -856,6 +942,8 @@ message CppCompile {
     INCLUDE_PATH_OUTSIDE_EXEC_ROOT = 6 [(metadata) = { exit_code: 1 }];
     FAKE_COMMAND_GENERATION_FAILURE = 7 [(metadata) = { exit_code: 1 }];
     UNDECLARED_INCLUSIONS = 8 [(metadata) = { exit_code: 1 }];
+    D_FILE_PARSE_FAILURE = 9 [(metadata) = { exit_code: 1 }];
+    COVERAGE_NOTES_CREATION_FAILURE = 10 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -865,6 +953,7 @@ message StarlarkAction {
   enum Code {
     STARLARK_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     UNUSED_INPUT_LIST_READ_FAILURE = 1 [(metadata) = { exit_code: 36 }];
+    UNUSED_INPUT_LIST_FILE_NOT_FOUND = 2 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -884,6 +973,8 @@ message DynamicExecution {
   enum Code {
     DYNAMIC_EXECUTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     XCODE_RELATED_PREREQ_UNMET = 1 [(metadata) = { exit_code: 36 }];
+    ACTION_LOG_MOVE_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+    RUN_FAILURE = 3 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -904,6 +995,8 @@ message SymlinkAction {
     EXECUTABLE_INPUT_NOT_FILE = 1 [(metadata) = { exit_code: 1 }];
     EXECUTABLE_INPUT_IS_NOT = 2 [(metadata) = { exit_code: 1 }];
     EXECUTABLE_INPUT_CHECK_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
+    LINK_CREATION_IO_EXCEPTION = 4 [(metadata) = { exit_code: 1 }];
+    LINK_TOUCH_IO_EXCEPTION = 5 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -924,6 +1017,74 @@ message LtoAction {
     LTO_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
     INVALID_ABSOLUTE_PATH_IN_IMPORTS = 1 [(metadata) = { exit_code: 1 }];
     MISSING_BITCODE_FILES = 2 [(metadata) = { exit_code: 1 }];
+    IMPORTS_READ_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message TestAction {
+  enum Code {
+    TEST_ACTION_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    NO_KEEP_GOING_TEST_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    LOCAL_TEST_PREREQ_UNMET = 2 [(metadata) = { exit_code: 1 }];
+    COMMAND_LINE_EXPANSION_FAILURE = 3 [(metadata) = { exit_code: 1 }];
+    DUPLICATE_CPU_TAGS = 4 [(metadata) = { exit_code: 1 }];
+    INVALID_CPU_TAG = 5 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message Worker {
+  enum Code {
+    WORKER_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    MULTIPLEXER_INSTANCE_REMOVAL_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    MULTIPLEXER_DOES_NOT_EXIST = 2 [(metadata) = { exit_code: 1 }];
+    NO_TOOLS = 3 [(metadata) = { exit_code: 1 }];
+    NO_FLAGFILE = 4 [(metadata) = { exit_code: 1 }];
+    VIRTUAL_INPUT_MATERIALIZATION_FAILURE = 5 [(metadata) = { exit_code: 1 }];
+    BORROW_FAILURE = 6 [(metadata) = { exit_code: 1 }];
+    PREFETCH_FAILURE = 7 [(metadata) = { exit_code: 1 }];
+    PREPARE_FAILURE = 8 [(metadata) = { exit_code: 1 }];
+    REQUEST_FAILURE = 9 [(metadata) = { exit_code: 1 }];
+    PARSE_RESPONSE_FAILURE = 10 [(metadata) = { exit_code: 1 }];
+    NO_RESPONSE = 11 [(metadata) = { exit_code: 1 }];
+    FINISH_FAILURE = 12 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message Analysis {
+  enum Code {
+    ANALYSIS_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    LOAD_FAILURE = 1 [(metadata) = { exit_code: 1 }];
+    // TODO(b/138456686): this code should be deprecated in favor of more finely
+    //   resolved loading-phase codes.
+    GENERIC_LOADING_PHASE_FAILURE = 2 [(metadata) = { exit_code: 1 }];
+    NOT_ALL_TARGETS_ANALYZED = 3 [(metadata) = { exit_code: 1 }];
+  }
+
+  Code code = 1;
+}
+
+message PackageLoading {
+  enum Code {
+    PACKAGE_LOADING_UNKNOWN = 0 [(metadata) = { exit_code: 37 }];
+    WORKSPACE_FILE_ERROR = 1 [(metadata) = { exit_code: 1 }];
+    MAX_COMPUTATION_STEPS_EXCEEDED = 2 [(metadata) = { exit_code: 1 }];
+    BUILD_FILE_MISSING = 3 [(metadata) = { exit_code: 1 }];
+    REPOSITORY_MISSING = 4 [(metadata) = { exit_code: 1 }];
+    PERSISTENT_INCONSISTENT_FILESYSTEM_ERROR = 5
+        [(metadata) = { exit_code: 1 }];
+    TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR = 6 [(metadata) = { exit_code: 1 }];
+    INVALID_NAME = 7 [(metadata) = { exit_code: 1 }];
+    PRELUDE_FILE_READ_ERROR = 8 [(metadata) = { exit_code: 1 }];
+    EVAL_GLOBS_SYMLINK_ERROR = 9 [(metadata) = { exit_code: 1 }];
+    IMPORT_STARLARK_FILE_ERROR = 10 [(metadata) = { exit_code: 1 }];
+    PACKAGE_MISSING = 11 [(metadata) = { exit_code: 1 }];
+    TARGET_MISSING = 12 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

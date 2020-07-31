@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkTransition.TransitionException;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 
 /** Exception class that signals an error during the evaluation of a dependency. */

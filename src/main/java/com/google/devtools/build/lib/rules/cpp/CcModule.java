@@ -28,8 +28,8 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkActionFactory;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -240,6 +240,9 @@ public abstract class CcModule
       Object systemIncludeDirs,
       Object frameworkIncludeDirs,
       Object defines,
+      Object thinLtoIndex,
+      Object thinLtoInputBitcodeFile,
+      Object thinLtoOutputObjectFile,
       boolean usePic,
       boolean addLegacyCxxOptions)
       throws EvalException {
@@ -256,11 +259,13 @@ public abstract class CcModule
         /* isUsingFission= */ false,
         /* dwoFile= */ null,
         /* ltoIndexingFile= */ null,
+        convertFromNoneable(thinLtoIndex, /* defaultValue= */ null),
+        convertFromNoneable(thinLtoInputBitcodeFile, /* defaultValue=*/ null),
+        convertFromNoneable(thinLtoOutputObjectFile, /* defaultValue=*/ null),
         /* includes= */ ImmutableList.of(),
         userFlagsToIterable(userCompileFlags),
         /* cppModuleMap= */ null,
         usePic,
-        /* fakeOutputFile= */ null,
         /* fdoStamp= */ null,
         /* dotdFileExecPath= */ null,
         /* variablesExtensions= */ ImmutableList.of(),
@@ -375,6 +380,20 @@ public abstract class CcModule
     }
   }
 
+  @SuppressWarnings("unchecked")
+  @Nullable
+  protected ImmutableList<Artifact> asArtifactImmutableList(Object o) {
+    if (o == Starlark.UNBOUND) {
+      return null;
+    } else {
+      ImmutableList<Artifact> list = ((Sequence<Artifact>) o).getImmutableList();
+      if (list.isEmpty()) {
+        return null;
+      }
+      return list;
+    }
+  }
+
   /**
    * This method returns a {@link LibraryToLink} object that will be used to contain linking
    * artifacts and information for a single library that will later be used by a linking action.
@@ -388,6 +407,8 @@ public abstract class CcModule
    * @param alwayslink boolean
    * @param dynamicLibraryPath String
    * @param interfaceLibraryPath String
+   * @param picObjectFiles {@code Sequence<Artifact>}
+   * @param objectFiles {@code Sequence<Artifact>}
    * @return
    * @throws EvalException
    * @throws InterruptedException
@@ -401,6 +422,8 @@ public abstract class CcModule
       Object picStaticLibraryObject,
       Object dynamicLibraryObject,
       Object interfaceLibraryObject,
+      Object picObjectFiles, // Sequence<Artifact> expected
+      Object objectFiles, // Sequence<Artifact> expected
       boolean alwayslink,
       String dynamicLibraryPath,
       String interfaceLibraryPath,
@@ -416,6 +439,18 @@ public abstract class CcModule
     Artifact picStaticLibrary = nullIfNone(picStaticLibraryObject, Artifact.class);
     Artifact dynamicLibrary = nullIfNone(dynamicLibraryObject, Artifact.class);
     Artifact interfaceLibrary = nullIfNone(interfaceLibraryObject, Artifact.class);
+
+    if (!starlarkActionFactory
+            .getActionConstructionContext()
+            .getConfiguration()
+            .getFragment(CppConfiguration.class)
+            .experimentalStarlarkCcImport()
+        && (picObjectFiles != Starlark.UNBOUND || objectFiles != Starlark.UNBOUND)) {
+      throw Starlark.errorf(
+          "Cannot use objects/pic_objects without --experimental_starlark_cc_import");
+    }
+    ImmutableList<Artifact> picObjects = asArtifactImmutableList(picObjectFiles);
+    ImmutableList<Artifact> nopicObjects = asArtifactImmutableList(objectFiles);
 
     StringBuilder extensionErrorsBuilder = new StringBuilder();
     String extensionErrorMessage = "does not have any of the allowed extensions";
@@ -489,6 +524,12 @@ public abstract class CcModule
         extensionErrorsBuilder.append(LINE_SEPARATOR.value());
       }
       notNullArtifactForIdentifier = interfaceLibrary;
+    }
+    if (nopicObjects != null && staticLibrary == null) {
+      throw Starlark.errorf("If you pass 'objects' you must also pass a 'static_library'");
+    }
+    if (picObjects != null && picStaticLibrary == null) {
+      throw Starlark.errorf("If you pass 'pic_objects' you must also pass a 'pic_static_library'");
     }
     if (notNullArtifactForIdentifier == null) {
       throw Starlark.errorf("Must pass at least one artifact");
@@ -574,6 +615,8 @@ public abstract class CcModule
         .setResolvedSymlinkDynamicLibrary(resolvedSymlinkDynamicLibrary)
         .setInterfaceLibrary(interfaceLibrary)
         .setResolvedSymlinkInterfaceLibrary(resolvedSymlinkInterfaceLibrary)
+        .setObjectFiles(nopicObjects)
+        .setPicObjectFiles(picObjects)
         .setAlwayslink(alwayslink)
         .build();
   }
@@ -689,6 +732,18 @@ public abstract class CcModule
   public void checkExperimentalCcSharedLibrary(StarlarkThread thread) throws EvalException {
     if (!thread.getSemantics().experimentalCcSharedLibrary()) {
       throw Starlark.errorf("Pass --experimental_cc_shared_library to use cc_shared_library");
+    }
+  }
+
+  @Override
+  public void checkExperimentalStarlarkCcImport(StarlarkActionFactory starlarkActionFactoryApi)
+      throws EvalException {
+    if (!starlarkActionFactoryApi
+        .getActionConstructionContext()
+        .getConfiguration()
+        .getFragment(CppConfiguration.class)
+        .experimentalStarlarkCcImport()) {
+      throw Starlark.errorf("Pass --experimental_starlark_cc_import to use cc_import.bzl");
     }
   }
 
@@ -1726,7 +1781,8 @@ public abstract class CcModule
                 fdoContext,
                 TargetUtils.getExecutionInfo(
                     actions.getRuleContext().getRule(),
-                    actions.getRuleContext().isAllowTagsPropagation()))
+                    actions.getRuleContext().isAllowTagsPropagation()),
+                /* shouldProcessHeaders= */ true)
             .addPublicHeaders(publicHeaders)
             .addPrivateHeaders(privateHeaders)
             .addSources(sources)
@@ -1758,7 +1814,16 @@ public abstract class CcModule
             .addAdditionalCompilationInputs(
                 Sequence.cast(additionalInputs, Artifact.class, "additional_inputs"))
             .addAditionalIncludeScanningRoots(headersForClifDoNotUseThisParam)
-            .setPurpose(common.getPurpose(getSemantics()));
+            .setPurpose(common.getPurpose(getSemantics()))
+            .setHeadersCheckingMode(
+                getSemantics()
+                    .determineStarlarkHeadersCheckingMode(
+                        actions.getRuleContext(),
+                        actions
+                            .getActionConstructionContext()
+                            .getConfiguration()
+                            .getFragment(CppConfiguration.class),
+                        ccToolchainProvider));
     if (disallowNopicOutputs) {
       helper.setGenerateNoPicAction(false);
     }

@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllOutputF
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -94,7 +94,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   private boolean blockUniverseEvaluationErrors;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
-  private final PathFragment blacklistedPackagePrefixesFile = PathFragment.create("blacklist");
+  private final PathFragment ignoredPackagePrefixesFile = PathFragment.create("ignored");
 
   @Override
   public void setUp() throws Exception {
@@ -136,8 +136,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   }
 
   @Override
-  public PathFragment getBlacklistedPackagePrefixesFile() {
-    return blacklistedPackagePrefixesFile;
+  public PathFragment getIgnoredPackagePrefixesFile() {
+    return ignoredPackagePrefixesFile;
   }
 
   @Override
@@ -314,8 +314,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             .setDirectories(directories)
             .setActionKeyContext(actionKeyContext)
             .setDefaultBuildOptions(getDefaultBuildOptions(ruleClassProvider))
-            .setBlacklistedPackagePrefixesFunction(
-                new BlacklistedPackagePrefixesFunction(blacklistedPackagePrefixesFile))
+            .setIgnoredPackagePrefixesFunction(
+                new IgnoredPackagePrefixesFunction(ignoredPackagePrefixesFile))
             .setExtraSkyFunctions(analysisMock.getSkyFunctions(directories))
             .build();
     skyframeExecutor.injectExtraPrecomputedValues(

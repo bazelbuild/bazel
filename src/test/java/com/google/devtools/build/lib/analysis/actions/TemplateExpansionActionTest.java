@@ -250,7 +250,7 @@ public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private String computeKey(TemplateExpansionAction action) {
     Fingerprint fp = new Fingerprint();
-    action.computeKey(actionKeyContext, fp);
+    action.computeKey(actionKeyContext, /*artifactExpander=*/ null, fp);
     return fp.hexDigestAndReset();
   }
 }

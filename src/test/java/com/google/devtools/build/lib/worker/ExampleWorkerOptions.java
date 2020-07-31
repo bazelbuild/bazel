@@ -100,14 +100,21 @@ public class ExampleWorkerOptions extends OptionsBase {
   public int exitAfter;
 
   @Option(
-    name = "poison_after",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.NO_OP},
-    defaultValue = "0",
-    help =
-        "Poisons the worker after processing this many work units, so that it returns a "
-            + "corrupt response instead of a response protobuf from then on (default: disabled)."
-  )
+      name = "exit_during",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "0",
+      help = "The worker exits during processing after this many work units (default: disabled).")
+  public int exitDuring;
+
+  @Option(
+      name = "poison_after",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.NO_OP},
+      defaultValue = "0",
+      help =
+          "Poisons the worker after processing this many work units, so that it returns a "
+              + "corrupt response instead of a response protobuf from then on (default: disabled).")
   public int poisonAfter;
 
   @Option(

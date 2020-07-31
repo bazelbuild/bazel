@@ -47,7 +47,7 @@ import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.DataBindingV2ProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.DataBindingV2ProviderApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 

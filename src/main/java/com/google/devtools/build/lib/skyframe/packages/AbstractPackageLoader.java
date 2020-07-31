@@ -30,12 +30,14 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Package.Builder.DefaultPackageSettings;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.PackageLoadingListener;
@@ -44,7 +46,6 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupFunction;
-import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction;
 import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.skyframe.FileFunction;
 import com.google.devtools.build.lib.skyframe.FileStateFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkCycleUniquenessFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkInfiniteExpansionUniquenessFunction;
+import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesFunction;
 import com.google.devtools.build.lib.skyframe.ManagedDirectoriesKnowledge;
 import com.google.devtools.build.lib.skyframe.PackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
@@ -125,7 +127,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
           return preinjectedDiff;
         }
       };
-  private final Reporter reporter;
+  private final Reporter commonReporter;
   protected final ConfiguredRuleClassProvider ruleClassProvider;
   private final PackageFactory pkgFactory;
   protected StarlarkSemantics starlarkSemantics;
@@ -148,7 +150,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     protected ExternalFilesHelper externalFilesHelper;
     protected ConfiguredRuleClassProvider ruleClassProvider = getDefaultRuleClassProvider();
     protected StarlarkSemantics starlarkSemantics;
-    protected Reporter reporter = new Reporter(new EventBus());
+    protected Reporter commonReporter = new Reporter(new EventBus());
     protected Map<SkyFunctionName, SkyFunction> extraSkyFunctions = new HashMap<>();
     List<PrecomputedValue.Injected> extraPrecomputedValues = new ArrayList<>();
     int legacyGlobbingThreads = 1;
@@ -193,8 +195,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
       return this;
     }
 
-    public Builder setReporter(Reporter reporter) {
-      this.reporter = reporter;
+    /** Sets the reporter used by all skyframe evaluations. */
+    public Builder setCommonReporter(Reporter commonReporter) {
+      this.commonReporter = commonReporter;
       return this;
     }
 
@@ -257,7 +260,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   AbstractPackageLoader(Builder builder) {
     this.ruleClassProvider = builder.ruleClassProvider;
     this.starlarkSemantics = builder.starlarkSemantics;
-    this.reporter = builder.reporter;
+    this.commonReporter = builder.commonReporter;
     this.extraSkyFunctions = ImmutableMap.copyOf(builder.extraSkyFunctions);
     this.pkgLocatorRef = builder.pkgLocatorRef;
     this.legacyGlobbingThreads = builder.legacyGlobbingThreads;
@@ -277,7 +280,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
             ruleClassProvider,
             getEnvironmentExtensions(),
             "PackageLoader",
-            Package.Builder.DefaultHelper.INSTANCE,
+            DefaultPackageSettings.INSTANCE,
             PackageValidator.NOOP_VALIDATOR,
             PackageLoadingListener.NOOP_LISTENER);
   }
@@ -311,22 +314,24 @@ public abstract class AbstractPackageLoader implements PackageLoader {
   @Override
   public Package loadPackage(PackageIdentifier pkgId)
       throws NoSuchPackageException, InterruptedException {
-    return loadPackages(ImmutableList.of(pkgId)).get(pkgId).get();
+    return loadPackages(ImmutableList.of(pkgId)).getLoadedPackages().get(pkgId).get();
   }
 
   @Override
-  public ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> loadPackages(
-      Iterable<? extends PackageIdentifier> pkgIds) throws InterruptedException {
+  public Result loadPackages(Iterable<PackageIdentifier> pkgIds) throws InterruptedException {
     ArrayList<SkyKey> keys = new ArrayList<>();
     for (PackageIdentifier pkgId : ImmutableSet.copyOf(pkgIds)) {
       keys.add(PackageValue.key(pkgId));
     }
 
+    Reporter reporter = new Reporter(commonReporter);
+    StoredEventHandler storedEventHandler = new StoredEventHandler();
+    reporter.addHandler(storedEventHandler);
     EvaluationContext evaluationContext =
         EvaluationContext.newBuilder()
             .setKeepGoing(true)
             .setNumThreads(skyframeThreads)
-            .setEventHander(reporter)
+            .setEventHandler(reporter)
             .build();
     EvaluationResult<PackageValue> evalResult = makeFreshDriver().evaluate(keys, evaluationContext);
 
@@ -344,7 +349,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
               : new PackageOrException(packageValue.getPackage(), null));
     }
 
-    return result.build();
+    return new Result(result.build(), storedEventHandler.getEvents());
   }
 
   public ConfiguredRuleClassProvider getRuleClassProvider() {
@@ -437,9 +442,9 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 getBuildFilesByPriority(),
                 getExternalPackageHelper()))
         .put(
-            SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-            new BlacklistedPackagePrefixesFunction(
-                /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
+            SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+            new IgnoredPackagePrefixesFunction(
+                /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(
             SkyFunctions.AST_FILE_LOOKUP,

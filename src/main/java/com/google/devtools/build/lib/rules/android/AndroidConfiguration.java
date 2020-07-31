@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Whitelist;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.EmptyToNullLabelConverter;
@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.DynamicModeConverter;
 import com.google.devtools.build.lib.rules.cpp.CppOptions.LibcTopLabelConverter;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidConfigurationApi;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -722,6 +722,20 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean disableNativeAndroidRules;
 
     @Option(
+        name = "incompatible_enable_android_toolchain_resolution",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {
+          OptionMetadataTag.INCOMPATIBLE_CHANGE,
+          OptionMetadataTag.TRIGGERED_BY_ALL_INCOMPATIBLE_CHANGES
+        },
+        help =
+            "Use toolchain resolution to select the Android SDK for android rules (Starlark and"
+                + " native)")
+    public boolean incompatibleUseToolchainResolution;
+
+    @Option(
         name = "experimental_filter_r_jars_from_android_test",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -971,6 +985,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   private final boolean useRTxtFromMergedResources;
   private final Label legacyMainDexListGenerator;
   private final boolean disableInstrumentationManifestMerging;
+  private final boolean incompatibleUseToolchainResolution;
 
   private AndroidConfiguration(Options options) throws InvalidConfigurationException {
     this.sdk = options.sdk;
@@ -1026,6 +1041,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     this.useRTxtFromMergedResources = options.useRTxtFromMergedResources;
     this.legacyMainDexListGenerator = options.legacyMainDexListGenerator;
     this.disableInstrumentationManifestMerging = options.disableInstrumentationManifestMerging;
+    this.incompatibleUseToolchainResolution = options.incompatibleUseToolchainResolution;
 
     if (incrementalDexingShardsAfterProguard < 0) {
       throw new InvalidConfigurationException(
@@ -1143,7 +1159,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public boolean allowSrcsLessAndroidLibraryDeps(RuleContext ruleContext) {
     return allowAndroidLibraryDepsWithoutSrcs
-        && Whitelist.isAvailable(ruleContext, "allow_deps_without_srcs");
+        && Allowlist.isAvailable(ruleContext, "allow_deps_without_srcs");
   }
 
   @Override
@@ -1246,6 +1262,11 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @Override
   public boolean persistentBusyboxTools() {
     return persistentBusyboxTools;
+  }
+
+  @Override
+  public boolean incompatibleUseToolchainResolution() {
+    return incompatibleUseToolchainResolution;
   }
 
   @Override

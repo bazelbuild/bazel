@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 
@@ -112,7 +111,10 @@ public final class StarlarkThread {
   static final class Frame implements Debug.Frame {
     final StarlarkThread thread;
     final StarlarkCallable fn; // the called function
-    @Nullable final Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
+
+    @Nullable
+    final Debug.Debugger dbg = Debug.debugger.get(); // the debugger, if active for this frame
+
     int compcount = 0; // number of enclosing comprehensions
 
     Object result = Starlark.NONE; // the operand of a Starlark return statement
@@ -373,6 +375,11 @@ public final class StarlarkThread {
     return ImmutableList.<Debug.Frame>copyOf(callstack);
   }
 
+  /** Returns the size of the callstack. This is needed for the debugger. */
+  int getCallStackSize() {
+    return callstack.size();
+  }
+
   /**
    * A CallStackEntry describes the name and PC location of an active function call. See {@link
    * #getCallStack}.
@@ -405,65 +412,6 @@ public final class StarlarkThread {
       stack.add(new CallStackEntry(fr.fn.getName(), fr.loc));
     }
     return stack.build();
-  }
-
-  /**
-   * Given a requested stepping behavior, returns a predicate over the context that tells the
-   * debugger when to pause. (Debugger API)
-   *
-   * <p>The predicate will return true if we are at the next statement where execution should pause,
-   * and it will return false if we are not yet at that statement. No guarantee is made about the
-   * predicate's return value after we have reached the desired statement.
-   *
-   * <p>A null return value indicates that no further pausing should occur.
-   */
-  // TODO(adonovan): move to Debug.
-  @Nullable
-  public ReadyToPause stepControl(Stepping stepping) {
-    final int depth = callstack.size();
-    switch (stepping) {
-      case NONE:
-        return null;
-      case INTO:
-        // pause at the very next statement
-        return thread -> true;
-      case OVER:
-        return thread -> thread.callstack.size() <= depth;
-      case OUT:
-        // if we're at the outermost frame, same as NONE
-        return depth == 0 ? null : thread -> thread.callstack.size() < depth;
-    }
-    throw new IllegalArgumentException("Unsupported stepping type: " + stepping);
-  }
-
-  /** See stepControl (Debugger API) */
-  // TODO(adonovan): move to Debug.
-  public interface ReadyToPause extends Predicate<StarlarkThread> {}
-
-  /**
-   * Describes the stepping behavior that should occur when execution of a thread is continued.
-   * (Debugger API)
-   */
-  // TODO(adonovan): move to Debug.
-  public enum Stepping {
-    /** Continue execution without stepping. */
-    NONE,
-    /**
-     * If the thread is paused on a statement that contains a function call, step into that
-     * function. Otherwise, this is the same as OVER.
-     */
-    INTO,
-    /**
-     * Step over the current statement and any functions that it may call, stopping at the next
-     * statement in the same frame. If no more statements are available in the current frame, same
-     * as OUT.
-     */
-    OVER,
-    /**
-     * Continue execution until the current frame has been exited and then pause. If we are
-     * currently in the outer-most frame, same as NONE.
-     */
-    OUT,
   }
 
   @Override

@@ -98,11 +98,15 @@ after sending a signal to the test process or any children thereof.</p>
 
 <p id="timeout">The whole test target (not individual methods or tests) is given a
 limited amount of time to run to completion. The time limit for a test is based
-on its timeout attribute according to the following table:</p>
+on its <a href="be/common-definitions.html#test.timeout"><code>timeout</code></a>
+attribute according to the following table:</p>
 
 <table class="table table-bordered table-striped table-condensed">
   <thead>
-    <tr><th>timeout</th><th>Time Limit (sec.)</th></tr>
+    <tr>
+      <th><a href="be/common-definitions.html#test.timeout"><code>timeout</code></a></th>
+      <th>Time Limit (sec.)</th>
+    </tr>
   </thead>
   <tbody>
     <tr><td><code>short</code></td><td>60</td></tr>
@@ -113,11 +117,14 @@ on its timeout attribute according to the following table:</p>
 </table>
 
 <p id="size">Tests which do not explicitly specify a timeout have one implied based on the
-test's <code>size</code> as follows:</p>
+test's <a href="be/common-definitions.html#test.size"><code>size</code></a> as follows:</p>
 
 <table class="table table-bordered table-striped table-condensed">
   <thead>
-    <tr><th>size</th><th>Implied timeout label</th></tr>
+    <tr>
+      <th><a href="be/common-definitions.html#test.size"><code>size</code></a></th>
+      <th>Implied timeout label</th>
+    </tr>
   </thead>
   <tbody>
     <tr><td><code>small</code></td><td>short</td></tr>
@@ -132,7 +139,7 @@ test's <code>size</code> as follows:</p>
 
 <p>Unlike <code>timeout</code>, the <code>size</code> also determines the
 limits for other resources like RAM, as described in
-<a href="be/common-definitions.html?cl=head#common-attributes-tests">Common
+<a href="be/common-definitions.html#common-attributes-tests">Common
 definitions</a>.</p>
 
 <p>All combinations of <code>size</code> and <code>timeout</code> labels are
@@ -142,6 +149,11 @@ Presumably it would do some really horrible things very quickly.</p>
 penalized for an overgenerous timeout, although a warning may be issued: you
 should generally set your timeout as tight as you can without incurring any
 flakiness.</p>
+
+<p>The test timeout can be overridden with the <code>--test_timeout</code>
+bazel flag, e.g. for manually running under conditions which are known to be
+slow. The <code>--test_timeout</code> values are in seconds. For example,
+<code>--test_timeout=120</code> will set the test timeout to two minutes.</p>
 
 <p>There is also a recommended lower bound for test timeouts as follows: </p>
 
@@ -164,8 +176,15 @@ tests whose specified size is too big.</p>
 
 <p>Test sizes and timeouts are specified in the BUILD file according to the specification
 <a href="be/common-definitions.html#common-attributes-tests">here</a>.
-Any test that does not specify a recognized size will default to being a medium
-test.</p>
+If unspecified, a test's size will default to "medium".</p>
+
+<p>If the main process of a test exits, but some of its children are still
+running, the test runner should consider the run complete and count it as a
+success or failure based on the exit code observed from the main process.  The
+test runner may kill any stray processes.  Tests should not leak processes in
+this fashion.</p>
+
+<h2 id="test-sharding">Test sharding</h2>
 
 <p>Tests can be parallelized via test sharding. See
 <a href="user-manual.html#sharding-strategy"><code>--test_sharding_strategy</code></a>
@@ -183,12 +202,6 @@ of the file specified by
 <a href="#initial-conditions"><code>TEST_SHARD_STATUS_FILE</code></a>.
 Otherwise, Bazel assumes it does not support sharding and will not launch
 additional runners.</p>
-
-<p>If the main process of a test exits, but some of its children are still
-running, the test runner should consider the run complete and count it as a
-success or failure based on the exit code observed from the main process.  The
-test runner may kill any stray processes.  Tests should not leak processes in
-this fashion.</p>
 
 <h2 id="initial-conditions">Initial conditions</h2>
 
@@ -240,10 +253,10 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>TEST_TARGET</code></td><td>The name of the target being tested</td><td>optional</td></tr>
     <tr><td><code>TEST_SIZE</code></td><td>The test <a href="#size"><code>size</code></a></td><td>optional</td></tr>
     <tr><td><code>TEST_TIMEOUT</code></td><td>The test <a href="#timeout"><code>timeout</code></a> in seconds</td><td>optional</td></tr>
-    <tr><td><code>TEST_SHARD_INDEX</code></td><td>shard index, if sharding is used</td><td>optional</td></tr>
-    <tr><td><code>TEST_SHARD_STATUS_FILE</code></td><td>path to file to touch to indicate support for sharding</td><td>optional</td></tr>
+    <tr><td><code>TEST_SHARD_INDEX</code></td><td>shard index, if <a href="#test-sharding">sharding</a> is used</td><td>optional</td></tr>
+    <tr><td><code>TEST_SHARD_STATUS_FILE</code></td><td>path to file to touch to indicate support for <a href="#test-sharding">sharding</a></td><td>optional</td></tr>
     <tr><td><code>TEST_SRCDIR</code></td><td>absolute path to the base of the runfiles tree</td><td>required</td></tr>
-    <tr><td><code>TEST_TOTAL_SHARDS</code></td><td>total shard count, if sharding is used</td><td>optional</td></tr>
+    <tr><td><code>TEST_TOTAL_SHARDS</code></td><td>total <a href="be/common-definitions.html#test.shard_count">shard count</a>, if <a href="#test-sharding">sharding</a> is used</td><td>optional</td></tr>
     <tr><td><code>TEST_TMPDIR</code></td><td>absolute path to a private writable directory</td><td>required</td></tr>
 
     <tr><td><code>TEST_WORKSPACE</code></td><td>the local repository's workspace name</td><td>optional</td></tr>
@@ -376,8 +389,8 @@ is not guaranteed. Other performance aspects of this core are not specified.
 You can increase the reservation to a higher number of CPU cores by adding the
 tag "cpu:n" (where n is a positive number) to a test rule. If a machine has
 less total CPU cores than requested, Bazel will still run the test. If a test
-uses sharding, each individual shard will reserve the number of CPU cores
-specified here.</p>
+uses <a href="#test-sharding">sharding</a>, each individual shard will reserve
+the number of CPU cores specified here.</p>
 
 <p>Tests may create subprocesses, but not process groups or sessions.</p>
 

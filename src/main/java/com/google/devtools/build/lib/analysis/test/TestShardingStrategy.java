@@ -13,32 +13,28 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.test;
 
-import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.common.options.EnumConverter;
 
 /** A strategy for running the same tests in many processes. */
 public enum TestShardingStrategy {
   EXPLICIT {
     @Override
-    public int getNumberOfShards(
-        boolean isLocal, int shardCountFromAttr, boolean testShardingCompliant, TestSize testSize) {
+    public int getNumberOfShards(int shardCountFromAttr) {
       return Math.max(shardCountFromAttr, 0);
     }
   },
 
   DISABLED {
     @Override
-    public int getNumberOfShards(
-        boolean isLocal, int shardCountFromAttr, boolean testShardingCompliant, TestSize testSize) {
+    public int getNumberOfShards(int shardCountFromAttr) {
       return 0;
     }
   };
 
-  public abstract int getNumberOfShards(
-      boolean isLocal, int shardCountFromAttr, boolean testShardingCompliant, TestSize testSize);
+  public abstract int getNumberOfShards(int shardCountFromAttr);
 
   /** Converts to {@link TestShardingStrategy}. */
-  public static class ShardingStrategyConverter extends EnumConverter<TestShardingStrategy> {
+  public static final class ShardingStrategyConverter extends EnumConverter<TestShardingStrategy> {
     public ShardingStrategyConverter() {
       super(TestShardingStrategy.class, "test sharding strategy");
     }

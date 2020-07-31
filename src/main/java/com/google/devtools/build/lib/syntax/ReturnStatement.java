@@ -28,12 +28,11 @@ public final class ReturnStatement extends Statement {
   }
 
   /**
-   * Returns a new return statement that returns expr. It has a dummy file offset and line number
-   * table. It is provided only for use by the evaluator, and will be removed when it switches to a
-   * compiled representation.
+   * Returns a new return statement that returns expr. It is provided only for use by the evaluator,
+   * and will be removed when it switches to a compiled representation.
    */
   static ReturnStatement make(Expression expr) {
-    return new ReturnStatement(expr.locs, 0, expr);
+    return new ReturnStatement(expr.locs, expr.getStartOffset(), expr);
   }
 
   @Nullable

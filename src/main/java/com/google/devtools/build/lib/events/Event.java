@@ -137,11 +137,11 @@ public final class Event implements Serializable {
    * output originated from.
    */
   @Nullable
-  public String getStdOut() {
+  public byte[] getStdOut() {
     if (outErr == null) {
       return null;
     }
-    return outErr.outAsLatin1();
+    return outErr.outAsBytes();
   }
 
   /**
@@ -149,11 +149,11 @@ public final class Event implements Serializable {
    * output originated from.
    */
   @Nullable
-  public String getStdErr() {
+  public byte[] getStdErr() {
     if (outErr == null) {
       return null;
     }
-    return outErr.errAsLatin1();
+    return outErr.errAsBytes();
   }
 
   /** Get a reference to the associated output. */

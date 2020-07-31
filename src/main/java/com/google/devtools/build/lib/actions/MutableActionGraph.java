@@ -172,7 +172,9 @@ public interface MutableActionGraph extends ActionGraph {
     }
 
     private static String getKey(ActionKeyContext actionKeyContext, ActionAnalysisMetadata action) {
-      return action instanceof Action ? ((Action) action).getKey(actionKeyContext) : null;
+      return action instanceof Action
+          ? ((Action) action).getKey(actionKeyContext, /*artifactExpander=*/ null)
+          : null;
     }
 
     // See also Actions.canBeShared()

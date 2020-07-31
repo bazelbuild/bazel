@@ -225,8 +225,6 @@ public class WorkspaceFactory {
     this.loadedModules.putAll(loadedModules);
     builder.setWorkspaceName(aPackage.getWorkspaceName());
     // Transmit the content of the parent package to the new package builder.
-    builder.addPosts(aPackage.getPosts());
-    builder.addEvents(aPackage.getEvents());
     if (aPackage.containsErrors()) {
       builder.setContainsErrors();
     }
@@ -373,7 +371,9 @@ public class WorkspaceFactory {
 
   private String getDefaultSystemJavabase() {
     // --javabase is empty if there's no locally installed JDK
-    return defaultSystemJavabaseDir != null ? defaultSystemJavabaseDir.toString() : "";
+    return defaultSystemJavabaseDir != null
+        ? defaultSystemJavabaseDir.toString()
+        : installDir.getRelative("embedded_tools/tools/jdk/nosystemjdk").getPathString();
   }
 
   /** Returns the entries to populate the "native" module with, for WORKSPACE-loaded .bzl files. */

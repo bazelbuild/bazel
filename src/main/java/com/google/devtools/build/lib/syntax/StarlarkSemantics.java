@@ -92,19 +92,23 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_EXEC_GROUPS = "experimental_exec_groups";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
         "incompatible_applicable_licenses";
-    public static final String INCOMPATIBLE_DISABLE_DEPSET_INPUTS =
-        "incompatible_disable_depset_inputs";
+    public static final String INCOMPATIBLE_DISABLE_DEPSET_ITEMS =
+        "incompatible_disable_depset_items";
     public static final String INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM =
         "incompatible_no_rule_outputs_param";
     public static final String INCOMPATIBLE_NO_ATTR_LICENSE = "incompatible_no_attr_license";
     public static final String INCOMPATIBLE_ALLOW_TAGS_PROPAGATION =
         "incompatible_allow_tags_propagation";
+    public static final String INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO =
+        "incompatible_objc_provider_remove_compile_info";
     public static final String INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API =
         "incompatible_require_linker_input_cc_api";
     public static final String INCOMPATIBLE_LINKOPTS_TO_LINKLIBS =
         "incompatible_linkopts_to_linklibs";
     public static final String RECORD_RULE_INSTANTIATION_CALLSTACK =
         "record_rule_instantiation_callstack";
+    public static final String INCOMPATIBLE_JAVA_COMMON_PARAMETERS =
+        "incompatible_java_common_parameters";
   }
 
   // TODO(adonovan): replace the fields of StarlarkSemantics
@@ -139,7 +143,7 @@ public abstract class StarlarkSemantics {
         return experimentalExecGroups();
       case FlagIdentifier.INCOMPATIBLE_APPLICABLE_LICENSES:
         return incompatibleApplicableLicenses();
-      case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_INPUTS:
+      case FlagIdentifier.INCOMPATIBLE_DISABLE_DEPSET_ITEMS:
         return incompatibleDisableDepsetItems();
       case FlagIdentifier.INCOMPATIBLE_NO_RULE_OUTPUTS_PARAM:
         return incompatibleNoRuleOutputsParam();
@@ -147,12 +151,16 @@ public abstract class StarlarkSemantics {
         return incompatibleNoAttrLicense();
       case FlagIdentifier.INCOMPATIBLE_ALLOW_TAGS_PROPAGATION:
         return experimentalAllowTagsPropagation();
+      case FlagIdentifier.INCOMPATIBLE_OBJC_PROVIDER_REMOVE_COMPILE_INFO:
+        return incompatibleObjcProviderRemoveCompileInfo();
       case FlagIdentifier.INCOMPATIBLE_REQUIRE_LINKER_INPUT_CC_API:
         return incompatibleRequireLinkerInputCcApi();
       case FlagIdentifier.INCOMPATIBLE_LINKOPTS_TO_LINKLIBS:
         return incompatibleLinkoptsToLinkLibs();
       case FlagIdentifier.RECORD_RULE_INSTANTIATION_CALLSTACK:
         return recordRuleInstantiationCallstack();
+      case FlagIdentifier.INCOMPATIBLE_JAVA_COMMON_PARAMETERS:
+        return incompatibleJavaCommonParameters();
       default:
         throw new IllegalArgumentException(flag);
     }
@@ -194,8 +202,6 @@ public abstract class StarlarkSemantics {
       AutoValue_StarlarkSemantics.class;
 
   // <== Add new options here in alphabetic order ==>
-  public abstract boolean debugDepsetDepth();
-
   public abstract boolean experimentalActionArgs();
 
   public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
@@ -234,13 +240,13 @@ public abstract class StarlarkSemantics {
 
   public abstract boolean incompatibleDisableThirdPartyLicenseChecking();
 
-  public abstract boolean incompatibleDisableDeprecatedAttrParams();
-
   public abstract boolean incompatibleDisableDepsetItems();
 
   public abstract boolean incompatibleDisallowEmptyGlob();
 
   public abstract boolean incompatibleDisallowStructProviderSyntax();
+
+  public abstract boolean incompatibleJavaCommonParameters();
 
   public abstract boolean incompatibleNewActionsApi();
 
@@ -263,6 +269,8 @@ public abstract class StarlarkSemantics {
   public abstract boolean incompatibleDoNotSplitLinkingCmdline();
 
   public abstract boolean incompatibleDepsetForLibrariesToLinkGetter();
+
+  public abstract boolean incompatibleObjcProviderRemoveCompileInfo();
 
   public abstract boolean incompatibleRequireLinkerInputCcApi();
 
@@ -311,7 +319,6 @@ public abstract class StarlarkSemantics {
   public static final StarlarkSemantics DEFAULT =
       builder()
           // <== Add new options here in alphabetic order ==>
-          .debugDepsetDepth(false)
           .experimentalActionArgs(true)
           .experimentalAllowTagsPropagation(false)
           .experimentalBuiltinsBzlPath("")
@@ -332,10 +339,10 @@ public abstract class StarlarkSemantics {
           .incompatibleApplicableLicenses(false)
           .incompatibleDisableTargetProviderFields(false)
           .incompatibleDisableThirdPartyLicenseChecking(true)
-          .incompatibleDisableDeprecatedAttrParams(true)
           .incompatibleDisableDepsetItems(false)
           .incompatibleDisallowEmptyGlob(false)
           .incompatibleDisallowStructProviderSyntax(false)
+          .incompatibleJavaCommonParameters(false)
           .incompatibleNewActionsApi(true)
           .incompatibleNoAttrLicense(true)
           .incompatibleNoImplicitFileExport(false)
@@ -347,6 +354,7 @@ public abstract class StarlarkSemantics {
           .internalStarlarkFlagTestCanary(false)
           .incompatibleDoNotSplitLinkingCmdline(true)
           .incompatibleDepsetForLibrariesToLinkGetter(true)
+          .incompatibleObjcProviderRemoveCompileInfo(false)
           .incompatibleRequireLinkerInputCcApi(false)
           .incompatibleRestrictStringEscapes(false)
           .incompatibleUseCcConfigureFromRulesCc(false)
@@ -360,8 +368,6 @@ public abstract class StarlarkSemantics {
   public abstract static class Builder {
 
     // <== Add new options here in alphabetic order ==>
-    public abstract Builder debugDepsetDepth(boolean value);
-
     public abstract Builder experimentalActionArgs(boolean value);
 
     public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
@@ -402,13 +408,13 @@ public abstract class StarlarkSemantics {
 
     public abstract Builder incompatibleDisableThirdPartyLicenseChecking(boolean value);
 
-    public abstract Builder incompatibleDisableDeprecatedAttrParams(boolean value);
-
     public abstract Builder incompatibleDisableDepsetItems(boolean value);
 
     public abstract Builder incompatibleDisallowEmptyGlob(boolean value);
 
     public abstract Builder incompatibleDisallowStructProviderSyntax(boolean value);
+
+    public abstract Builder incompatibleJavaCommonParameters(boolean value);
 
     public abstract Builder incompatibleNewActionsApi(boolean value);
 
@@ -431,6 +437,8 @@ public abstract class StarlarkSemantics {
     public abstract Builder incompatibleDoNotSplitLinkingCmdline(boolean value);
 
     public abstract Builder incompatibleDepsetForLibrariesToLinkGetter(boolean value);
+
+    public abstract Builder incompatibleObjcProviderRemoveCompileInfo(boolean value);
 
     public abstract Builder incompatibleRequireLinkerInputCcApi(boolean value);
 

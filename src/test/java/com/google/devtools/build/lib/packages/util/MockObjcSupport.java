@@ -210,7 +210,7 @@ public final class MockObjcSupport {
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(toolchainConfigBuilder.build())
-          .setSupportsHeaderParsing(false)
+          .setSupportsHeaderParsing(true)
           .writeOSX();
     }
   }
@@ -226,7 +226,7 @@ public final class MockObjcSupport {
           .setCcToolchainFile(readCcToolchainConfigFile())
           .setSupportedArchs(OSX_ARCHS)
           .setToolchainConfigs(getDefaultCcToolchainConfigs())
-          .setSupportsHeaderParsing(false)
+          .setSupportsHeaderParsing(true)
           .writeOSX();
     }
   }

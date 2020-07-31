@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.rules.config;
 
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.skylarkbuildapi.config.ConfigStarlarkCommonApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigStarlarkCommonApi;
 
 /** Starlark namespace used to interact with Blaze's configurability APIs. */
 public class ConfigStarlarkCommon implements ConfigStarlarkCommonApi {

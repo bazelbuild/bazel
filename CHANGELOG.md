@@ -1,3 +1,145 @@
+## Release 3.4.1 (2020-07-14)
+
+```
+Baseline: 7404d17ac76da876ae0b432d1fccf222a9e991fe
+
+Cherry picks:
+
+   + f31f2d787116120b2b16e9aa9a64fab171c0d954:
+     fixup! Gracefully handle the lack of subreaper support in Linux.
+   + 3a4f221e3c57495c1ed0d1ec8128f92323b13079:
+     Revert "Replace the remaining dependencies for Bazel Debian
+     build (third_party)"
+   + c55ec0f2cb3f5b44e5025bf9d3c5dc91d94db287:
+     Revert "Upgrade gRPC to 1.26.0"
+```
+
+This release contains contributions from many people at Google, as well as Ryan Beasley.
+
+## Release 3.4.0 (2020-07-13)
+
+```
+Baseline: 7404d17ac76da876ae0b432d1fccf222a9e991fe
+
+Cherry picks:
+
+   + a4334be50a206bf8d676a0196af11056c48ac35b:
+     fixup! Gracefully handle the lack of subreaper support in Linux.
+```
+
+Incompatible changes:
+
+  - This removes the short-lived --process_wrapper_extra_flags
+    flag, which was introduced primarily to roll out a bug fix.
+    Unfortunately,
+    this made us inadvertently expose all of the process-wrapper's
+    command line
+    interface to the public, which should not have happened.  Given
+    the corner
+    case of the utility of this flag, the lack of documentation for
+    it, and the
+    fact that it only appeared in a single release, we are treating
+    this as a
+    bug instead of a backwards compatibility breakage.
+
+New features:
+
+  - bazel info: Allow to specify multiple keys.
+  - Support code coverage with GCC 9.
+
+Important changes:
+
+  - Allow InstrumentedFilesInfo fields to be read from Starlark.
+  - The --starlark_cpu_profile=<file> flag writes a profile in
+    pprof format containing a statistical summary of CPU usage
+    by all Starlark execution during the bazel command. Use it
+    to identify slow Starlark functions in loading and analysis.
+  - The --debug_depset_flag has been removed as it is in effect
+    always on at no cost.
+  - Rule authors should use the
+    incompatible_use_toolchain_transition rule attribute to migrate
+    to using
+    the toolchain transition. jcater to udpate notes further.
+  - `apple_binary` rules now accept the `stamp` attribute with the
+    same
+    semantics that it has in `cc_binary` rules.
+  - --incompatible_objc_provider_remove_compile_info turns off
+    the compile info/mege_zip Starlark APIs in ObjcProvider.  See
+    #11359.
+  - The --debug_depset_flag has been removed as it is in effect
+    always on at no cost.
+  - Fix behavior of ctx.actions.write so content is written without
+    an incorrect encoding to UTF-8.
+    See https://github.com/bazelbuild/bazel/issues/10174 for details.
+  - Collect more performance metrics for worker execution.
+  - Add flag --incompatible_force_strict_header_check_from_starlark
+  - Configure coverage and runfiles for sh_library.
+  - Adds --incompatible_blacklisted_protos_requires_proto_info to
+    indicate whether proto_lang_toolchain.blacklisted_protos requires
+    ProtoInfo.
+
+This release contains contributions from many people at Google, as well as Andrzej Guszak, Benjamin Peterson, Benjamin Romano, Carlos Eduardo Seo, Claudio Bley, dannysullivan, David Ostrovsky, George Gensure, Graham Jenson, Grzegorz Lukasik, Gunnar Wagenknecht, Henk van der Laan, Jin, John Millikin, Marin Baron, Nikhil Marathe, Robin Nabel, Ryan Beasley, Samuel Giddins, Sergey Balabanov, utsav-dbx, Vo Van Nghia, Yannic Bonenberger.
+
+## Release 3.3.1 (2020-06-30)
+
+```
+Baseline: c063b5caf776dee665497b64c5c17d4ed7e6750a
+
+Cherry picks:
+
+   + cb798a475eb54087e1e83f8aa1dc1c54550877b5:
+     Restore missing Building with Platforms docs.
+   + 9be97678b02bbd45d164c8458c8fd4f7791cb7aa:
+     Release 3.3.0 (2020-06-17)
+   + 3b0439e37247a480e08337a6314d06231bdbafd3:
+     Fix incorrect assumption of desugar persistent worker conditional
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 3.3.0 (2020-06-17)
+
+```
+Baseline: c063b5caf776dee665497b64c5c17d4ed7e6750a
+
+Cherry picks:
+
+   + 23bd69d7499de097b15e6025cc0796bdbc9886b8:
+     Restore missing Building with Platforms docs.
+```
+
+Incompatible changes:
+
+  - The startup option --fatal_event_bus_exceptions is now a no-op
+    and will be removed soon.
+
+New features:
+
+  - Bazel offers basic completion for the fish shell.
+
+Important changes:
+
+  - Add configuration_field for --custom_malloc to cpp config fragment
+  - Flip --incompatible_objc_compile_info_migration to true.  See
+    #10854.
+  - It is now possible to use different action mnemonics while still
+    sharing the same pool of persistent workers. It requires setting
+    a new property
+    on the execution requirements (`worker-key-mnemonic`). The value
+    overrides
+    the action's mnemonic when it comes to reusing worker processes.
+  - linkshared=1 in cc_binary no longer requires '.so' or '.dll' in
+    the target name
+  - Revert --incompatible_objc_compile_info_migration to false.  See
+    #10854.
+  - Invoke clang with the correct -target flag when building for
+    watchOS.
+  - NA
+  - Add experiment flag to forward InstrumentedFilesInfo from
+    non-tool deps by default.
+
+This release contains contributions from many people at Google, as well as Abhishek Kumar, Adam Azarchs, Akira Baruah, Daniel Wagner-Hall, Derek Argueta, glukasiknuro, Greg Estren, Greg, Jason Furmanek, Jiri Dank, Keith Smiley, Kseniia Vasilchuk, Laurent Le Brun, Matt Mackay, Michael Klemm, Nikolay Shelukhin, Patrick Balestra, Rui Chen, Siggi Simonarson, sventiffe, Tobias Werth, Tom de Goede, Vladimir Chebotarev, Yannic Bonenberger.
+
 ## Release 3.2.0 (2020-05-27)
 
 ```

@@ -356,6 +356,167 @@ public class UiEventHandler implements EventHandler {
                         .atZone(ZoneId.systemDefault()))));
   }
 
+  /**
+   * Helper function for {@link #handleInternal} to process events in debug mode, which causes all
+   * events to be dumped to the terminal.
+   */
+  private void handleDebug(Event event) throws IOException {
+    synchronized (this) {
+      // Debugging only: show all events visible to the new UI.
+      clearProgressBar();
+      terminal.flush();
+      OutputStream stream = outErr.getOutputStream();
+      stream.write((event + "\n").getBytes(StandardCharsets.ISO_8859_1));
+      byte[] stdout = event.getStdOut();
+      if (stdout != null) {
+        stream.write("... with STDOUT: ".getBytes(StandardCharsets.ISO_8859_1));
+        stream.write(stdout);
+        stream.write("\n".getBytes(StandardCharsets.ISO_8859_1));
+      }
+      byte[] stderr = event.getStdErr();
+      if (stderr != null) {
+        stream.write("... with STDERR: ".getBytes(StandardCharsets.ISO_8859_1));
+        stream.write(stderr);
+        stream.write("\n".getBytes(StandardCharsets.ISO_8859_1));
+      }
+      stream.flush();
+      addProgressBar();
+      terminal.flush();
+    }
+  }
+
+  /**
+   * Helper function for {@link #handleInternal} to process events in non-debug mode, which
+   * primarily means that they are printed if available terminal capacity permits.
+   */
+  private void handleIfCapacityPermits(Event event, boolean isFollowUp) throws IOException {
+    synchronized (this) {
+      if (!isFollowUp
+          && (remainingCapacity() < CAPACITY_ERRORS_ONLY)
+          && (event.getKind() != EventKind.ERROR)) {
+        droppedEvents++;
+        return;
+      }
+      if (shouldDeduplicate(event)) {
+        return;
+      }
+      maybeAddDate();
+      switch (event.getKind()) {
+        case STDOUT:
+        case STDERR:
+          OutputStream stream =
+              event.getKind() == EventKind.STDOUT
+                  ? outErr.getOutputStream()
+                  : outErr.getErrorStream();
+          if (!buildRunning) {
+            stream.write(event.getMessageBytes());
+            stream.flush();
+          } else {
+            if (remainingCapacity() < 0) {
+              return;
+            }
+            writeToStream(
+                stream,
+                event.getKind(),
+                event.getMessageReference(),
+                /* readdProgressBar= */ showProgress && cursorControl);
+          }
+          break;
+        case ERROR:
+        case FAIL:
+        case WARNING:
+        case CANCELLED:
+        case INFO:
+        case DEBUG:
+        case SUBCOMMAND:
+          boolean incompleteLine;
+          if (showProgress && buildRunning) {
+            clearProgressBar();
+          }
+          incompleteLine = flushStdOutStdErrBuffers();
+          if (incompleteLine) {
+            crlf();
+          }
+          if (remainingCapacity() < 0) {
+            terminal.flush();
+            return;
+          }
+          if (showTimestamp) {
+            terminal.writeString(
+                TIMESTAMP_FORMAT.format(
+                    Instant.ofEpochMilli(clock.currentTimeMillis())
+                        .atZone(ZoneId.systemDefault())));
+          }
+          setEventKindColor(event.getKind());
+          terminal.writeString(event.getKind() + ": ");
+          terminal.resetTerminal();
+          incompleteLine = true;
+          Location location = event.getLocation();
+          if (location != null) {
+            terminal.writeString(locationPrinter.getLocationString(location) + ": ");
+          }
+          if (event.getMessage() != null) {
+            terminal.writeString(event.getMessage());
+            incompleteLine = !event.getMessage().endsWith("\n");
+          }
+          if (incompleteLine) {
+            crlf();
+          }
+          if (showProgress && buildRunning && cursorControl) {
+            addProgressBar();
+          }
+          terminal.flush();
+          break;
+        case PROGRESS:
+          if (stateTracker.progressBarTimeDependent()) {
+            refresh();
+          }
+          break;
+        case START:
+        case FINISH:
+        case PASS:
+        case TIMEOUT:
+        case DEPCHECKER:
+          break;
+      }
+      if (event.hasStdoutStderr()) {
+        clearProgressBar();
+        terminal.flush();
+        writeToStream(
+            outErr.getErrorStream(),
+            EventKind.STDERR,
+            event.getStdErrReference(),
+            /* readdProgressBar= */ false);
+        outErr.getErrorStream().flush();
+        writeToStream(
+            outErr.getOutputStream(),
+            EventKind.STDOUT,
+            event.getStdOutReference(),
+            /* readdProgressBar= */ false);
+        outErr.getOutputStream().flush();
+        if (showProgress && cursorControl) {
+          addProgressBar();
+        }
+        terminal.flush();
+      }
+    }
+  }
+
+  private void handleInternal(Event event, boolean isFollowUp) {
+    if (this.filteredEvents.contains(event.getKind())) {
+      return;
+    }
+    try {
+      if (debugAllEvents) {
+        handleDebug(event);
+      } else {
+        handleIfCapacityPermits(event, isFollowUp);
+      }
+    } catch (IOException e) {
+      logger.atWarning().withCause(e).log("IO Error writing to output stream");
+    }
+  }
+
   @Override
   public void handle(Event event) {
     if (!debugAllEvents
@@ -365,152 +526,10 @@ public class UiEventHandler implements EventHandler {
             || event.getKind() == EventKind.PASS
             || event.getKind() == EventKind.TIMEOUT
             || event.getKind() == EventKind.DEPCHECKER)) {
-      // Keep this in sync with the list of no-op event kinds in handleLocked below.
+      // Keep this in sync with the list of no-op event kinds in handleIfCapacityPermits above.
       return;
     }
-    handleLocked(event, /* isFollowUp= */ false);
-  }
-
-  private synchronized void handleLocked(Event event, boolean isFollowUp) {
-    if (this.filteredEvents.contains(event.getKind())) {
-      return;
-    }
-    try {
-      if (debugAllEvents) {
-        // Debugging only: show all events visible to the new UI.
-        clearProgressBar();
-        terminal.flush();
-        outErr.getOutputStream().write((event + "\n").getBytes(StandardCharsets.UTF_8));
-        if (event.getStdOut() != null) {
-          outErr
-              .getOutputStream()
-              .write(
-                  ("... with STDOUT: " + event.getStdOut() + "\n")
-                      .getBytes(StandardCharsets.UTF_8));
-        }
-        if (event.getStdErr() != null) {
-          outErr
-              .getOutputStream()
-              .write(
-                  ("... with STDERR: " + event.getStdErr() + "\n")
-                      .getBytes(StandardCharsets.UTF_8));
-        }
-        outErr.getOutputStream().flush();
-        addProgressBar();
-        terminal.flush();
-      } else {
-        if (!isFollowUp
-            && (remainingCapacity() < CAPACITY_ERRORS_ONLY)
-            && (event.getKind() != EventKind.ERROR)) {
-          droppedEvents++;
-          return;
-        }
-        if (shouldDeduplicate(event)) {
-          return;
-        }
-        maybeAddDate();
-        switch (event.getKind()) {
-          case STDOUT:
-          case STDERR:
-            OutputStream stream =
-                event.getKind() == EventKind.STDOUT
-                    ? outErr.getOutputStream()
-                    : outErr.getErrorStream();
-            if (!buildRunning) {
-              stream.write(event.getMessageBytes());
-              stream.flush();
-            } else {
-              if (remainingCapacity() < 0) {
-                return;
-              }
-              writeToStream(
-                  stream,
-                  event.getKind(),
-                  event.getMessageReference(),
-                  /* readdProgressBar= */ showProgress && cursorControl);
-            }
-            break;
-          case ERROR:
-          case FAIL:
-          case WARNING:
-          case CANCELLED:
-          case INFO:
-          case DEBUG:
-          case SUBCOMMAND:
-            boolean incompleteLine;
-            if (showProgress && buildRunning) {
-              clearProgressBar();
-            }
-            incompleteLine = flushStdOutStdErrBuffers();
-            if (incompleteLine) {
-              crlf();
-            }
-            if (remainingCapacity() < 0) {
-              terminal.flush();
-              return;
-            }
-            if (showTimestamp) {
-              terminal.writeString(
-                  TIMESTAMP_FORMAT.format(
-                      Instant.ofEpochMilli(clock.currentTimeMillis())
-                          .atZone(ZoneId.systemDefault())));
-            }
-            setEventKindColor(event.getKind());
-            terminal.writeString(event.getKind() + ": ");
-            terminal.resetTerminal();
-            incompleteLine = true;
-            Location location = event.getLocation();
-            if (location != null) {
-              terminal.writeString(locationPrinter.getLocationString(location) + ": ");
-            }
-            if (event.getMessage() != null) {
-              terminal.writeString(event.getMessage());
-              incompleteLine = !event.getMessage().endsWith("\n");
-            }
-            if (incompleteLine) {
-              crlf();
-            }
-            if (showProgress && buildRunning && cursorControl) {
-              addProgressBar();
-            }
-            terminal.flush();
-            break;
-          case PROGRESS:
-            if (stateTracker.progressBarTimeDependent()) {
-              refresh();
-            }
-            break;
-          case START:
-          case FINISH:
-          case PASS:
-          case TIMEOUT:
-          case DEPCHECKER:
-            break;
-        }
-        if (event.hasStdoutStderr()) {
-          clearProgressBar();
-          terminal.flush();
-          writeToStream(
-              outErr.getErrorStream(),
-              EventKind.STDERR,
-              event.getStdErrReference(),
-              /* readdProgressBar= */ false);
-          outErr.getErrorStream().flush();
-          writeToStream(
-              outErr.getOutputStream(),
-              EventKind.STDOUT,
-              event.getStdOutReference(),
-              /* readdProgressBar= */ false);
-          outErr.getOutputStream().flush();
-          if (showProgress && cursorControl) {
-            addProgressBar();
-          }
-          terminal.flush();
-        }
-      }
-    } catch (IOException e) {
-      logger.atWarning().withCause(e).log("IO Error writing to output stream");
-    }
+    handleInternal(event, /* isFollowUp= */ false);
   }
 
   private void writeToStream(
@@ -589,6 +608,9 @@ public class UiEventHandler implements EventHandler {
     }
   }
 
+  // TODO(jmmv): This feature needs to be removed. It has only caused confusion in the past
+  // (see cl/261885840 and https://github.com/bazelbuild/bazel/issues/7184) and would let us
+  // simplify the code here significantly.
   private boolean shouldDeduplicate(Event event) {
     if (!deduplicate) {
       // deduplication disabled
@@ -609,23 +631,27 @@ public class UiEventHandler implements EventHandler {
       // only deduplicate INFO messages
       return false;
     }
-    if (event.getStdOut() == null && event.getStdErr() == null) {
+    byte[] stdout = event.getStdOut();
+    byte[] stderr = event.getStdErr();
+    if (stdout == null && stderr == null) {
       // We deduplicate on the attached output (assuming the event itself only describes
       // the source of the output). If no output is attached it is a different kind of event
       // and should not be deduplicated.
       return false;
     }
     boolean allMessagesSeen = true;
-    if (event.getStdOut() != null) {
-      for (String line : Splitter.on("\n").split(event.getStdOut())) {
+    if (stdout != null) {
+      String stdoutString = new String(stdout, StandardCharsets.ISO_8859_1);
+      for (String line : Splitter.on("\n").split(stdoutString)) {
         if (!messagesSeen.contains(line)) {
           allMessagesSeen = false;
           messagesSeen.add(line);
         }
       }
     }
-    if (event.getStdErr() != null) {
-      for (String line : Splitter.on("\n").split(event.getStdErr())) {
+    if (stderr != null) {
+      String stderrString = new String(stderr, StandardCharsets.ISO_8859_1);
+      for (String line : Splitter.on("\n").split(stderrString)) {
         if (!messagesSeen.contains(line)) {
           allMessagesSeen = false;
           messagesSeen.add(line);
@@ -740,7 +766,7 @@ public class UiEventHandler implements EventHandler {
           handle(Event.info(null, "deduplicated " + deduplicateCount + " events"));
         }
         if (droppedEvents > 0) {
-          handleLocked(
+          handleInternal(
               Event.info(
                   null,
                   "dropped "

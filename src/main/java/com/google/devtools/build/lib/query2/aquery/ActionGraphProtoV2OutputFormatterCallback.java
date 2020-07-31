@@ -75,11 +75,8 @@ public class ActionGraphProtoV2OutputFormatterCallback extends AqueryThreadsafeC
       case JSON:
         return new MonolithicOutputHandler(printStream);
     }
-    throw new IllegalStateException(
-        "Unsupported output format "
-            + outputType.formatName()
-            + ": --incompatible_proto_output_v2 must be used with"
-            + " --output=(proto|textproto|jsonproto).");
+    // The above cases are exhaustive.
+    throw new AssertionError("Wrong output type: " + outputType);
   }
 
   @Override

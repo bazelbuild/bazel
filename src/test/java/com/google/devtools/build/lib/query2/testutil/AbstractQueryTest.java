@@ -1829,7 +1829,7 @@ public abstract class AbstractQueryTest<T> {
 
     Path getRootDirectory();
 
-    PathFragment getBlacklistedPackagePrefixesFile();
+    PathFragment getIgnoredPackagePrefixesFile();
 
     /** Removes all files below the package root. */
     void clearAllFiles() throws IOException;

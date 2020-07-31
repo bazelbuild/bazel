@@ -27,23 +27,27 @@ import javax.annotation.Nullable;
  * be a robust public interface, but rather just an input to {@link AttributeMap} instances. Use
  * those instances for all domain-level attribute access.
  */
+// TODO(adonovan): eliminate this class. 99% of all external calls to its methods are of the form
+// rule.getAttributeContainer().foo(), so it's just needless indirection for the caller, and
+// needless indirection in the representation. Instead, make Rule implement an interface with the
+// two methods getAttr and isAttributeValueExplicitlySpecified; it already has those methods.
+// The only time the AttributeContainer needs to be distinct from the Rule itself is in the
+// WorkspaceFactory.setParent hack. Perhaps we can eliminate that?
 public final class AttributeContainer {
 
   private final RuleClass ruleClass;
 
-  // Attribute values, keyed by attribute index:
+  // Attribute values, keyed by attribute index.
   private final Object[] attributeValues;
 
-  // Holds a list of attribute indices.
+  // Holds a list of attribute indices (+1, to make them nonzero).
   // The first byte gives the length of the list.
   // The list records which attributes were set explicitly in the BUILD file.
   // The list may be padded with zeros at the end.
   private byte[] state;
 
-  /**
-   * Create a container for a rule of the given rule class.
-   */
-  public AttributeContainer(RuleClass ruleClass) {
+  /** Creates a container for a rule of the given rule class. */
+  AttributeContainer(RuleClass ruleClass) {
     int n = ruleClass.getAttributeCount();
     if (n > 254) {
       // We reserve the zero byte as a hole/sentinel inside state[].
@@ -66,10 +70,8 @@ public final class AttributeContainer {
     return idx != null ? attributeValues[idx] : null;
   }
 
-  /**
-   * See {@link #isAttributeValueExplicitlySpecified(String)}.
-   */
-  public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
+  /** See {@link #isAttributeValueExplicitlySpecified(String)}. */
+  boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     return isAttributeValueExplicitlySpecified(attribute.getName());
   }
 
@@ -143,13 +145,5 @@ public final class AttributeContainer {
     if (explicit) {
       setExplicit(index);
     }
-  }
-
-  // This sets the attribute "explicitly" as if it came from the BUILD file.
-  // At present, the sole use of this is for the test_suite.$implicit_tests
-  // attribute, which is synthesized during package loading.  We do want to
-  // consider that "explicitly set" so that it appears in query output.
-  void setAttributeValueByName(String attrName, Object value) {
-    setAttributeValue(ruleClass.getAttributeByName(attrName), value, true);
   }
 }

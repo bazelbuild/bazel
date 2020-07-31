@@ -14,18 +14,39 @@
 
 package com.google.devtools.build.lib.packages;
 
-/**
- * Exception indicating an attempt to access something which is not found or
- * does not exist.
- */
-public class NoSuchThingException extends Exception {
+import com.google.devtools.build.lib.skyframe.DetailedException;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+import javax.annotation.Nullable;
+
+/** Exception indicating an attempt to access something which is not found or does not exist. */
+public class NoSuchThingException extends Exception implements DetailedException {
+
+  // TODO(b/138456686): Remove Nullable and add Precondition#checkNotNull in constructor when all
+  //  subclasses are instantiated with DetailedExitCode.
+  @Nullable private final DetailedExitCode detailedExitCode;
 
   public NoSuchThingException(String message) {
     super(message);
+    this.detailedExitCode = null;
   }
 
   public NoSuchThingException(String message, Throwable cause) {
     super(message, cause);
+    this.detailedExitCode = null;
   }
 
+  public NoSuchThingException(String message, DetailedExitCode detailedExitCode) {
+    super(message);
+    this.detailedExitCode = detailedExitCode;
+  }
+
+  public NoSuchThingException(String message, Throwable cause, DetailedExitCode detailedExitCode) {
+    super(message, cause);
+    this.detailedExitCode = detailedExitCode;
+  }
+
+  @Override
+  public DetailedExitCode getDetailedExitCode() {
+    return detailedExitCode;
+  }
 }

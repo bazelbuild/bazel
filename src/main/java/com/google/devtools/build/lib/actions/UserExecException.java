@@ -14,29 +14,33 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
+
 /**
- * An ExecException that is related to the failure of an Action and therefore
- * very likely the user's fault.
+ * An ExecException that is related to the failure of an Action and therefore very likely the user's
+ * fault.
  */
 public class UserExecException extends ExecException {
 
-  public UserExecException(String message) {
-    super(message);
-  }
-  
-  public UserExecException(Throwable cause) {
-    super(cause);
+  private final FailureDetail failureDetail;
+
+  public UserExecException(FailureDetail failureDetail) {
+    super(failureDetail.getMessage());
+    this.failureDetail = failureDetail;
   }
 
-  public UserExecException(String message, Throwable cause) {
-    super(message, cause);
+  public UserExecException(Throwable cause, FailureDetail failureDetail) {
+    super(failureDetail.getMessage(), cause);
+    this.failureDetail = failureDetail;
   }
 
   @Override
-  public ActionExecutionException toActionExecutionException(String messagePrefix,
-        boolean verboseFailures, Action action) {
-    String message = messagePrefix + " failed";
+  public ActionExecutionException toActionExecutionException(
+      String messagePrefix, boolean verboseFailures, Action action) {
+    String message = String.format("%s failed: %s", messagePrefix, getMessage());
+    FailureDetail failureDetailWithPrefix = failureDetail.toBuilder().setMessage(message).build();
     return new ActionExecutionException(
-        message + ": " + getMessage(), this, action, isCatastrophic());
+        message, this, action, isCatastrophic(), DetailedExitCode.of(failureDetailWithPrefix));
   }
 }

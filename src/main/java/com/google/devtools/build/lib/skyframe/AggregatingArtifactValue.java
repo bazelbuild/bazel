@@ -23,17 +23,17 @@ import java.util.Collection;
 
 /** Value for aggregating artifacts, which must be expanded to a set of other artifacts. */
 class AggregatingArtifactValue implements SkyValue {
-  private final FileArtifactValue selfData;
   private final ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs;
   private final ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs;
+  private final FileArtifactValue metadata;
 
   AggregatingArtifactValue(
       ImmutableList<Pair<Artifact, FileArtifactValue>> fileInputs,
       ImmutableList<Pair<Artifact, TreeArtifactValue>> directoryInputs,
-      FileArtifactValue selfData) {
+      FileArtifactValue metadata) {
     this.fileInputs = Preconditions.checkNotNull(fileInputs);
     this.directoryInputs = Preconditions.checkNotNull(directoryInputs);
-    this.selfData = Preconditions.checkNotNull(selfData);
+    this.metadata = Preconditions.checkNotNull(metadata);
   }
 
   /** Returns the none tree artifacts that this artifact expands to, together with their data. */
@@ -50,8 +50,8 @@ class AggregatingArtifactValue implements SkyValue {
   }
 
   /** Returns the data of the artifact for this value, as computed by the action cache checker. */
-  FileArtifactValue getSelfData() {
-    return selfData;
+  FileArtifactValue getMetadata() {
+    return metadata;
   }
 
   @SuppressWarnings("EqualsGetClass") // RunfilesArtifactValue not equal to Aggregating.
@@ -64,13 +64,13 @@ class AggregatingArtifactValue implements SkyValue {
       return false;
     }
     AggregatingArtifactValue that = (AggregatingArtifactValue) o;
-    return selfData.equals(that.selfData)
+    return metadata.equals(that.metadata)
         && fileInputs.equals(that.fileInputs)
         && directoryInputs.equals(that.directoryInputs);
   }
 
   @Override
   public int hashCode() {
-    return 31 * 31 * directoryInputs.hashCode() + 31 * fileInputs.hashCode() + selfData.hashCode();
+    return 31 * 31 * directoryInputs.hashCode() + 31 * fileInputs.hashCode() + metadata.hashCode();
   }
 }

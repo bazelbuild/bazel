@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.analysis.extra;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
@@ -28,8 +30,12 @@ import com.google.devtools.build.lib.analysis.actions.ProtoDeterministicWriter;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn;
+import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.util.Fingerprint;
+import javax.annotation.Nullable;
 
 /**
  * Requests extra action info from shadowed action and writes it, in protocol buffer format, to an
@@ -62,15 +68,23 @@ public final class ExtraActionInfoFileWriteAction extends AbstractFileWriteActio
       return new ProtoDeterministicWriter(
           shadowedAction.getExtraActionInfo(ctx.getActionKeyContext()).build());
     } catch (CommandLineExpansionException e) {
-      throw new UserExecException(e);
+      throw new UserExecException(
+          e,
+          FailureDetail.newBuilder()
+              .setMessage(Strings.nullToEmpty(e.getMessage()))
+              .setSpawn(Spawn.newBuilder().setCode(Code.COMMAND_LINE_EXPANSION_FAILURE))
+              .build());
     }
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     fp.addString(UUID);
-    fp.addString(shadowedAction.getKey(actionKeyContext));
+    fp.addString(shadowedAction.getKey(actionKeyContext, artifactExpander));
     fp.addBytes(shadowedAction.getExtraActionInfo(actionKeyContext).build().toByteArray());
   }
 }

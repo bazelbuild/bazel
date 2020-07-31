@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidResourcesInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidResourcesInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 
 /** A provider that supplies ResourceContainers from its transitive closure. */

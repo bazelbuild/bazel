@@ -209,11 +209,11 @@ public class StarlarkOptionsParser {
     } catch (InterruptedException | TargetParsingException e) {
       Thread.currentThread().interrupt();
       throw new OptionsParsingException(
-          "Error loading option " + targetToBuild + ": " + e.getMessage(), e);
+          "Error loading option " + targetToBuild + ": " + e.getMessage(), targetToBuild, e);
     }
     Rule associatedRule = buildSetting.getAssociatedRule();
     if (associatedRule == null || associatedRule.getRuleClassObject().getBuildSetting() == null) {
-      throw new OptionsParsingException("Unrecognized option: " + targetToBuild);
+      throw new OptionsParsingException("Unrecognized option: " + targetToBuild, targetToBuild);
     }
     return buildSetting;
   }

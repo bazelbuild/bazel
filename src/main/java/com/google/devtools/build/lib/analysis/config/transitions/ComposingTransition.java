@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Map;
@@ -52,10 +51,16 @@ public class ComposingTransition implements ConfigurationTransition {
   }
 
   @Override
-  public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
-    return ImmutableSet.<Class<? extends FragmentOptions>>builder()
-        .addAll(transition1.requiresOptionFragments())
-        .addAll(transition2.requiresOptionFragments())
+  public ImmutableSet<String> requiresOptionFragments(BuildOptions options) {
+    // At first glance this code looks wrong. A composing transition applies transition2 over
+    // transition1's outputs, not the original options. We don't have to worry about that here
+    // because the reason we pass the options is so Starlark transitions can map individual flags
+    // like "//command_line_option:copts" to the fragments that own them. This doesn't depend on the
+    // flags' values. This is fortunate, because it producers simpler, faster code and cleaner
+    // interfaces.
+    return ImmutableSet.<String>builder()
+        .addAll(transition1.requiresOptionFragments(options))
+        .addAll(transition2.requiresOptionFragments(options))
         .build();
   }
 

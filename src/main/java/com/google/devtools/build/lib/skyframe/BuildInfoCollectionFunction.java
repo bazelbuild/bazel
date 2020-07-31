@@ -91,7 +91,10 @@ public class BuildInfoCollectionFunction implements SkyFunction {
     try {
       generatingActions =
           Actions.assignOwnersAndFilterSharedActionsAndThrowActionConflict(
-              actionKeyContext, collection.getActions(), keyAndConfig, /*outputFiles=*/ null);
+              actionKeyContext,
+              collection.getActions(),
+              keyAndConfig,
+              /*outputFiles=*/ null);
     } catch (ActionConflictException e) {
       throw new IllegalStateException("Action conflicts not expected in build info: " + skyKey, e);
     }

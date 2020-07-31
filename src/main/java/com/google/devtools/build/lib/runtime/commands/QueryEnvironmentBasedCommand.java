@@ -16,11 +16,13 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.common.UniverseScope;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -56,7 +58,6 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -173,7 +174,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
               env,
               options.getOptions(KeepGoingOption.class).keepGoing,
               !streamResults,
-              queryOptions.universeScope,
+              getUniverseScope(queryOptions),
               options.getOptions(LoadingPhaseThreadsOption.class).threads,
               settings,
               useGraphlessQuery)) {
@@ -209,6 +210,15 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
     }
   }
 
+  private static UniverseScope getUniverseScope(QueryOptions queryOptions) {
+    if (!queryOptions.universeScope.isEmpty()) {
+      return UniverseScope.fromUniverseScopeList(ImmutableList.copyOf(queryOptions.universeScope));
+    }
+    return queryOptions.inferUniverseScope
+        ? UniverseScope.INFER_FROM_QUERY_EXPRESSION
+        : UniverseScope.EMPTY;
+  }
+
   protected abstract Either<BlazeCommandResult, QueryEvalResult> doQuery(
       String query,
       CommandEnvironment env,
@@ -222,7 +232,7 @@ public abstract class QueryEnvironmentBasedCommand implements BlazeCommand {
       CommandEnvironment env,
       boolean keepGoing,
       boolean orderedResults,
-      List<String> universeScope,
+      UniverseScope universeScope,
       int loadingPhaseThreads,
       Set<Setting> settings,
       boolean useGraphlessQuery) {

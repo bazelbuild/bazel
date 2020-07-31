@@ -114,9 +114,9 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.PACKAGE, new PackageFunction(null, null, null, null, null, null, null, null));
     skyFunctions.put(
-        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        new BlacklistedPackagePrefixesFunction(
-            /*blacklistedPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+        new IgnoredPackagePrefixesFunction(
+            /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
@@ -189,7 +189,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return driver
         .<ContainingPackageLookupValue>evaluate(ImmutableList.of(key), evaluationContext)
@@ -203,7 +203,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
         EvaluationContext.newBuilder()
             .setKeepGoing(false)
             .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-            .setEventHander(NullEventHandler.INSTANCE)
+            .setEventHandler(NullEventHandler.INSTANCE)
             .build();
     return driver.<PackageLookupValue>evaluate(ImmutableList.of(key), evaluationContext).get(key);
   }

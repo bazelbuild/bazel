@@ -99,7 +99,7 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
           .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-          .setEventHander(NullEventHandler.INSTANCE)
+          .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
   private SequentialBuildDriver driver;

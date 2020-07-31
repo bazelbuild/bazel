@@ -247,6 +247,38 @@ Some of the use cases include:
 Bazel will pick up proxy addresses from the `HTTPS_PROXY` and `HTTP_PROXY`
 environment variables and use these to download HTTP/HTTPS files (if specified).
 
+<a name="support-for-ipv6"></a>
+## Support for IPv6
+On IPv6-only machines, Bazel will be able to download dependencies with
+no changes. On dual-stack IPv4/IPv6 machines, however, Bazel follows the same
+convention as Java: if IPv4 is enabled, IPv4 is preferred. In some situations,
+for example when IPv4 network is unable to resolve/reach external addresses,
+this can cause `Network unreachable` exceptions and build failures.
+In these cases, you can override Bazel's behavior to prefer IPv6
+by using [`java.net.preferIPv6Addresses=true` system property](https://docs.oracle.com/javase/8/docs/api/java/net/doc-files/net-properties.html).
+Specifically:
+
+* Use `--host_jvm_args=-Djava.net.preferIPv6Addresses=true`
+  [startup option](user-manual.html#startup_options),
+  for example by adding the following line in your
+  [`.bazelrc` file](guide.html#bazelrc):
+
+  `startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true`
+
+* If you are running Java build targets that need to connect to the internet
+  as well (integration tests sometimes needs that), also use
+  `--jvmopt=-Djava.net.preferIPv6Addresses=true`
+  [tool flag](user-manual.html#flags-options), for example by having the
+  following line in your [`.bazelrc` file](guide.html#bazelrc):
+
+  `build --jvmopt=-Djava.net.preferIPv6Addresses`
+
+* If you are using
+  [rules_jvm_external](https://github.com/bazelbuild/rules_jvm_external),
+  for example, for dependency version resolution, also add
+  `-Djava.net.preferIPv6Addresses=true` to the `COURSIER_OPTS`
+  environment variable to [provide JVM options for Coursier](https://github.com/bazelbuild/rules_jvm_external#provide-jvm-options-for-coursier-with-coursier_opts)
+
 <a name="transitive-dependencies"></a>
 ## Transitive dependencies
 

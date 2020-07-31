@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.analysis.test;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -41,17 +43,24 @@ public final class TestTrimmingTransitionFactory implements TransitionFactory<Ru
     INSTANCE;
 
     @Override
-    public BuildOptions patch(BuildOptions originalOptions, EventHandler eventHandler) {
+    public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+      return ImmutableSet.of(TestOptions.class);
+    }
+
+    @Override
+    public BuildOptions patch(BuildOptionsView originalOptions, EventHandler eventHandler) {
       if (!originalOptions.contains(TestOptions.class)) {
         // nothing to do, already trimmed this fragment
-        return originalOptions;
+        return originalOptions.underlying();
       }
       TestOptions originalTestOptions = originalOptions.get(TestOptions.class);
       if (!originalTestOptions.trimTestConfiguration) {
         // nothing to do, trimming is disabled
-        return originalOptions;
+        return originalOptions.underlying();
       }
-      return originalOptions.toBuilder().removeFragmentOptions(TestOptions.class).build();
+      return originalOptions.underlying().toBuilder()
+          .removeFragmentOptions(TestOptions.class)
+          .build();
     }
   }
 

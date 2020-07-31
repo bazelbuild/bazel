@@ -32,9 +32,11 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
@@ -241,7 +243,8 @@ public class SpawnIncludeScanner {
     }
 
     @Override
-    public String getKey(ActionKeyContext actionKeyContext) {
+    public String getKey(
+        ActionKeyContext actionKeyContext, @Nullable ArtifactExpander artifactExpander) {
       throw new UnsupportedOperationException();
     }
 

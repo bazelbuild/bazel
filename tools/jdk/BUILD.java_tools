@@ -66,9 +66,9 @@ java_toolchain(
     ],
 )
 
-# A toolchain that targets java JAVA_LANGUAGE_LEVEL.
+# A toolchain that targets java 11.
 java_toolchain(
-    name = "toolchain_jdk_JAVA_LANGUAGE_LEVEL",
+    name = "toolchain_jdk_11",
     bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
     forcibly_disable_header_compilation = 0,
     genclass = [":GenClass"],
@@ -84,6 +84,7 @@ java_toolchain(
         # when using G1 collector and having compact strings enabled.
         "-XX:+UseParallelOldGC",
         "-XX:-CompactStrings",
+
         # Allow JavaBuilder to access internal javac APIs.
         "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -110,12 +111,51 @@ java_toolchain(
         "-parameters",
     ],
     singlejar = [":singlejar"],
-    source_version = "JAVA_LANGUAGE_LEVEL",
-    target_version = "JAVA_LANGUAGE_LEVEL",
+    source_version = "11",
+    target_version = "11",
     tools = [
         ":java_compiler_jar",
         ":jdk_compiler_jar",
     ],
+)
+
+# A toolchain that targets java 14.
+java_toolchain(
+    name = "toolchain_jdk_14",
+    bootclasspath = ["@bazel_tools//tools/jdk:platformclasspath"],
+    forcibly_disable_header_compilation = 0,
+    genclass = [":GenClass"],
+    header_compiler = [":Turbine"],
+    header_compiler_direct = [":TurbineDirect"],
+    ijar = [":ijar"],
+    jacocorunner = ":jacoco_coverage_runner_filegroup",
+    javabuilder = [":JavaBuilder"],
+    javac_supports_workers = 1,
+    jvm_opts = [
+        # Allow JavaBuilder to access internal javac APIs.
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+
+        # quiet warnings from com.google.protobuf.UnsafeUtil,
+        # see: https://github.com/google/protobuf/issues/3781
+        # and: https://github.com/bazelbuild/bazel/issues/5599
+        "--add-opens=java.base/java.nio=ALL-UNNAMED",
+        "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    ],
+    misc = [
+        "-XDskipDuplicateBridges=true",
+        "-g",
+        "-parameters",
+    ],
+    singlejar = [":singlejar"],
+    source_version = "14",
+    target_version = "14",
 )
 
 # The new toolchain is using all the pre-built tools, including
@@ -335,6 +375,12 @@ config_setting(
 config_setting(
     name = "freebsd",
     values = {"cpu": "freebsd"},
+    visibility = ["//visibility:public"],
+)
+
+config_setting(
+    name = "openbsd",
+    values = {"cpu": "openbsd"},
     visibility = ["//visibility:public"],
 )
 
@@ -633,6 +679,7 @@ cc_binary(
     copts = SUPRESSED_WARNINGS,
     linkopts = select({
         ":freebsd": ["-lm"],
+        ":openbsd": ["-lm"],
         "//conditions:default": [],
     }),
     linkstatic = 1,
@@ -655,6 +702,7 @@ cc_binary(
     copts = SUPRESSED_WARNINGS,
     linkopts = select({
         ":freebsd": ["-lm"],
+        ":openbsd": ["-lm"],
         "//conditions:default": [],
     }),
     linkstatic = 1,

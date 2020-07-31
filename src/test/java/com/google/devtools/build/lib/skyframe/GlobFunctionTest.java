@@ -84,7 +84,7 @@ public abstract class GlobFunctionTest {
       EvaluationContext.newBuilder()
           .setKeepGoing(false)
           .setNumThreads(SkyframeExecutor.DEFAULT_THREAD_COUNT)
-          .setEventHander(NullEventHandler.INSTANCE)
+          .setEventHandler(NullEventHandler.INSTANCE)
           .build();
 
   @RunWith(JUnit4.class)
@@ -172,8 +172,8 @@ public abstract class GlobFunctionTest {
             BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY,
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
-        SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
-        BazelSkyframeExecutorConstants.BLACKLISTED_PACKAGE_PREFIXES_FUNCTION);
+        SkyFunctions.IGNORED_PACKAGE_PREFIXES,
+        BazelSkyframeExecutorConstants.IGNORED_PACKAGE_PREFIXES_FUNCTION);
     skyFunctions.put(
         FileStateValue.FILE_STATE,
         new FileStateFunction(
@@ -233,7 +233,7 @@ public abstract class GlobFunctionTest {
   }
 
   @Test
-  public void testBlacklist() throws Exception {
+  public void testIgnoreList() throws Exception {
     FileSystemUtils.writeContentAsLatin1(root.getRelative(".bazelignore"), "pkg/foo/bar");
     assertGlobMatches("foo/**", "foo/barnacle/wiz", "foo/barnacle", "foo");
     differencer.invalidate(

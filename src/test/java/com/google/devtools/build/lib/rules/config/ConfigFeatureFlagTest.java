@@ -21,12 +21,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.skylark.StarlarkRuleContext;
+import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.skylark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import org.junit.Before;
@@ -402,7 +402,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   public void policy_mustContainRulesPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // expecting an error
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name = 'config_feature_flag', packages = ['//some/other'])");
     scratch.file(
         "test/BUILD",
@@ -420,7 +420,7 @@ public final class ConfigFeatureFlagTest extends BuildViewTestCase {
   @Test
   public void policy_doesNotBlockRuleIfInPackageGroup() throws Exception {
     scratch.overwriteFile(
-        "tools/whitelists/config_feature_flag/BUILD",
+        "tools/allowlists/config_feature_flag/BUILD",
         "package_group(name = 'config_feature_flag', packages = ['//test'])");
     scratch.file(
         "test/BUILD",

@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.android;
 
-import com.google.devtools.build.lib.skylarkbuildapi.FileApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidApplicationResourceInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidApplicationResourceInfoApi.AndroidApplicationResourceInfoApiProvider;
-import com.google.devtools.build.lib.skylarkbuildapi.android.AndroidDeviceBrokerInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidApplicationResourceInfoApi.AndroidApplicationResourceInfoApiProvider;
+import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDeviceBrokerInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 

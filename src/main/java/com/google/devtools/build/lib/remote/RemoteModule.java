@@ -683,7 +683,7 @@ public final class RemoteModule extends BlazeModule {
 
   @Override
   public Iterable<Class<? extends OptionsBase>> getCommandOptions(Command command) {
-    return ImmutableList.of("build", "test", "fetch").contains(command.name())
+    return ImmutableList.of("build", "fetch", "query", "sync", "test").contains(command.name())
         ? ImmutableList.of(RemoteOptions.class, AuthAndTLSOptions.class)
         : ImmutableList.of();
   }

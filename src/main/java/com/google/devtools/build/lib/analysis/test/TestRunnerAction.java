@@ -56,9 +56,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
+import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.BulkDeleter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -332,7 +334,10 @@ public class TestRunnerAction extends AbstractAction
   }
 
   @Override
-  protected void computeKey(ActionKeyContext actionKeyContext, Fingerprint fp)
+  protected void computeKey(
+      ActionKeyContext actionKeyContext,
+      @Nullable Artifact.ArtifactExpander artifactExpander,
+      Fingerprint fp)
       throws CommandLineExpansionException {
     // TODO(b/150305897): use addUUID?
     fp.addString(GUID);
@@ -473,8 +478,9 @@ public class TestRunnerAction extends AbstractAction
    * the test log base name with arbitrary prefix and extension.
    */
   @Override
-  protected void deleteOutputs(Path execRoot) throws IOException {
-    super.deleteOutputs(execRoot);
+  protected void deleteOutputs(Path execRoot, @Nullable BulkDeleter bulkDeleter)
+      throws IOException, InterruptedException {
+    super.deleteOutputs(execRoot, bulkDeleter);
 
     // We do not rely on globs, as it causes quadratic behavior in --runs_per_test and test
     // shard count.
@@ -583,7 +589,7 @@ public class TestRunnerAction extends AbstractAction
       env.put("RUNFILES_MANIFEST_ONLY", "1");
     }
 
-    if (testConfiguration.isPersistentTestRunner()) {
+    if (testProperties.isPersistentTestRunner()) {
       // Let the test runner know it runs persistently within a worker.
       env.put("PERSISTENT_TEST_RUNNER", "true");
     }
@@ -1165,7 +1171,8 @@ public class TestRunnerAction extends AbstractAction
       testRunnerSpawn.finalizeTest(result, failedAttempts);
 
       if (!keepGoing && testResult != TestAttemptResult.Result.PASSED) {
-        throw new TestExecException("Test failed: aborting");
+        throw new TestExecException(
+            "Test failed: aborting", TestAction.Code.NO_KEEP_GOING_TEST_FAILURE);
       }
       return ActionContinuationOrResult.of(ActionResult.create(spawnResults));
     }

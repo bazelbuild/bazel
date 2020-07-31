@@ -1310,6 +1310,6 @@ public final class ParserTest {
     for (int i = 0; i < 1000; i++) {
       s.append("{");
     }
-    return ParserInput.create(s.toString(), "foo.star");
+    return ParserInput.fromString(s.toString(), "foo.star");
   }
 }
