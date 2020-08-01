@@ -222,9 +222,6 @@ sh_test(
 
 JAVA_VERSIONS = ("11", "14")
 
-# TODO(davido): Remove this once remote_java_tools_javac14 is released
-JAVA_TOOLS_VERSIONS = ("11",)
-
 [
     sh_test(
         name = "bazel_java_test_jdk" + java_version + "_toolchain_head",
@@ -494,7 +491,7 @@ sh_test(
             "no_windows",
         ],
     )
-    for java_version in JAVA_TOOLS_VERSIONS
+    for java_version in JAVA_VERSIONS
 ]
 
 # Test java coverage with the java_toolchain in the java_tools zip built at head.
