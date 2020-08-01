@@ -122,7 +122,6 @@ public class StarlarkSemanticsConsistencyTest {
         "--experimental_action_args=" + rand.nextBoolean(),
         "--experimental_disable_external_package=" + rand.nextBoolean(),
         "--experimental_sibling_repository_layout=" + rand.nextBoolean(),
-        "--experimental_allow_incremental_repository_updates=" + rand.nextBoolean(),
         "--experimental_builtins_bzl_path=" + rand.nextDouble(),
         "--experimental_cc_skylark_api_enabled_packages="
             + rand.nextDouble()
@@ -133,7 +132,6 @@ public class StarlarkSemanticsConsistencyTest {
         "--experimental_ninja_actions=" + rand.nextBoolean(),
         "--experimental_platforms_api=" + rand.nextBoolean(),
         "--experimental_starlark_config_transitions=" + rand.nextBoolean(),
-        "--experimental_starlark_unused_inputs_list=" + rand.nextBoolean(),
         "--incompatible_allow_tags_propagation=" + rand.nextBoolean(), // flag, Java names differ
         "--experimental_cc_shared_library=" + rand.nextBoolean(),
         "--experimental_repo_remote_exec=" + rand.nextBoolean(),
@@ -176,7 +174,6 @@ public class StarlarkSemanticsConsistencyTest {
         .experimentalActionArgs(rand.nextBoolean())
         .experimentalDisableExternalPackage(rand.nextBoolean())
         .experimentalSiblingRepositoryLayout(rand.nextBoolean())
-        .experimentalAllowIncrementalRepositoryUpdates(rand.nextBoolean())
         .experimentalBuiltinsBzlPath(String.valueOf(rand.nextDouble()))
         .experimentalCcStarlarkApiEnabledPackages(
             ImmutableList.of(String.valueOf(rand.nextDouble()), String.valueOf(rand.nextDouble())))
@@ -185,7 +182,6 @@ public class StarlarkSemanticsConsistencyTest {
         .experimentalNinjaActions(rand.nextBoolean())
         .experimentalPlatformsApi(rand.nextBoolean())
         .experimentalStarlarkConfigTransitions(rand.nextBoolean())
-        .experimentalStarlarkUnusedInputsList(rand.nextBoolean())
         .experimentalAllowTagsPropagation(rand.nextBoolean())
         .experimentalCcSharedLibrary(rand.nextBoolean())
         .experimentalRepoRemoteExec(rand.nextBoolean())

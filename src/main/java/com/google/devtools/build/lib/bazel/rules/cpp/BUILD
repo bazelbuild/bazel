@@ -31,7 +31,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages:build_type",
         "//src/main/java/com/google/devtools/build/lib/packages:type",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi/cpp",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
         "//third_party:guava",

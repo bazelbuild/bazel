@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.cpp;
+package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
@@ -21,17 +21,25 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
-/** A target that provides C++ libraries to be linked into Python targets. */
+/**
+ * Provider returned by go_wrap_cc rules that encapsulates C++ information.
+ *
+ * <p>The provider wrapped is CcInfo. Go SWIG have C++ dependencies that will have to be linked
+ * later, however, we don't want C++ targets to be able to depend on Go SWIG, only Python targets
+ * should be able to do so. Therefore, we wrap the C++ providers in a different provider which C++
+ * rules do not recognize.
+ */
 @StarlarkBuiltin(
-    name = "PyCcLinkParamsProvider",
+    name = "GoWrapCcInfo",
     documented = false,
     category = StarlarkDocumentationCategory.PROVIDER,
-    doc = "Wrapper for every C++ linking provider")
-public interface PyCcLinkParamsProviderApi<FileT extends FileApi> extends StructApi {
-  @StarlarkMethod(name = "cc_info", doc = "", structField = true, documented = false)
+    doc = "")
+public interface GoWrapCcInfoApi<FileT extends FileApi> extends StructApi {
+
+  @StarlarkMethod(name = "cc_info", structField = true, documented = false, doc = "")
   CcInfoApi<FileT> getCcInfo();
 
-  /** Provider for PyCcLinkParamsProvider objects. */
+  /** Provider for GoWrapCcInfo objects. */
   @StarlarkBuiltin(name = "Provider", doc = "", documented = false)
   public interface Provider extends ProviderApi {}
 }

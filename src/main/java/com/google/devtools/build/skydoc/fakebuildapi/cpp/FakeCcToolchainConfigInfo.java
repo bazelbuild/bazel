@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainConfigInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainConfigInfoApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
 

@@ -73,8 +73,6 @@ public abstract class StarlarkSemantics {
     // TODO(adonovan): move these constants up into the relevant packages of
     // Bazel, and make them identical to the strings used in flag declarations.
     public static final String EXPERIMENTAL_ACTION_ARGS = "experimental_action_args";
-    public static final String EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES =
-        "experimental_allow_incremental_repository_updates";
     public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE =
         "experimental_disable_external_package";
     public static final String EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT =
@@ -86,8 +84,6 @@ public abstract class StarlarkSemantics {
     public static final String EXPERIMENTAL_PLATFORM_API = "experimental_platform_api";
     public static final String EXPERIMENTAL_STARLARK_CONFIG_TRANSITION =
         "experimental_starlark_config_transition";
-    public static final String EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST =
-        "experimental_starlark_unused_inputs_list";
     public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "experimental_repo_remote_exec";
     public static final String EXPERIMENTAL_EXEC_GROUPS = "experimental_exec_groups";
     public static final String INCOMPATIBLE_APPLICABLE_LICENSES =
@@ -119,8 +115,6 @@ public abstract class StarlarkSemantics {
     switch (flag) {
       case FlagIdentifier.EXPERIMENTAL_ACTION_ARGS:
         return experimentalActionArgs();
-      case FlagIdentifier.EXPERIMENTAL_ALLOW_INCREMENTAL_REPOSITORY_UPDATES:
-        return experimentalAllowIncrementalRepositoryUpdates();
       case FlagIdentifier.EXPERIMENTAL_DISABLE_EXTERNAL_PACKGE:
         return experimentalDisableExternalPackage();
       case FlagIdentifier.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT:
@@ -135,8 +129,6 @@ public abstract class StarlarkSemantics {
         return experimentalPlatformsApi();
       case FlagIdentifier.EXPERIMENTAL_STARLARK_CONFIG_TRANSITION:
         return experimentalStarlarkConfigTransitions();
-      case FlagIdentifier.EXPERIMENTAL_STARLARK_UNUSED_INPUTS_LIST:
-        return experimentalStarlarkUnusedInputsList();
       case FlagIdentifier.EXPERIMENTAL_REPO_REMOTE_EXEC:
         return experimentalRepoRemoteExec();
       case FlagIdentifier.EXPERIMENTAL_EXEC_GROUPS:
@@ -204,8 +196,6 @@ public abstract class StarlarkSemantics {
   // <== Add new options here in alphabetic order ==>
   public abstract boolean experimentalActionArgs();
 
-  public abstract boolean experimentalAllowIncrementalRepositoryUpdates();
-
   public abstract String experimentalBuiltinsBzlPath();
 
   public abstract ImmutableList<String> experimentalCcStarlarkApiEnabledPackages();
@@ -219,8 +209,6 @@ public abstract class StarlarkSemantics {
   public abstract boolean experimentalPlatformsApi();
 
   public abstract boolean experimentalStarlarkConfigTransitions();
-
-  public abstract boolean experimentalStarlarkUnusedInputsList();
 
   public abstract boolean experimentalCcSharedLibrary();
 
@@ -323,13 +311,11 @@ public abstract class StarlarkSemantics {
           .experimentalAllowTagsPropagation(false)
           .experimentalBuiltinsBzlPath("")
           .experimentalCcStarlarkApiEnabledPackages(ImmutableList.of())
-          .experimentalAllowIncrementalRepositoryUpdates(true)
           .experimentalEnableAndroidMigrationApis(false)
           .experimentalGoogleLegacyApi(false)
           .experimentalNinjaActions(false)
           .experimentalPlatformsApi(false)
           .experimentalStarlarkConfigTransitions(true)
-          .experimentalStarlarkUnusedInputsList(true)
           .experimentalCcSharedLibrary(false)
           .experimentalRepoRemoteExec(false)
           .experimentalDisableExternalPackage(false)
@@ -370,8 +356,6 @@ public abstract class StarlarkSemantics {
     // <== Add new options here in alphabetic order ==>
     public abstract Builder experimentalActionArgs(boolean value);
 
-    public abstract Builder experimentalAllowIncrementalRepositoryUpdates(boolean value);
-
     public abstract Builder experimentalAllowTagsPropagation(boolean value);
 
     public abstract Builder experimentalBuiltinsBzlPath(String value);
@@ -387,8 +371,6 @@ public abstract class StarlarkSemantics {
     public abstract Builder experimentalPlatformsApi(boolean value);
 
     public abstract Builder experimentalStarlarkConfigTransitions(boolean value);
-
-    public abstract Builder experimentalStarlarkUnusedInputsList(boolean value);
 
     public abstract Builder experimentalCcSharedLibrary(boolean value);
 

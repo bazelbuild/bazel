@@ -544,12 +544,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     builder.addOutputs(outputArtifacts);
 
     if (unusedInputsList != Starlark.NONE) {
-      if (!starlarkSemantics.experimentalStarlarkUnusedInputsList()) {
-        throw Starlark.errorf(
-            "'unused_inputs_list' attribute is experimental and disabled by default. "
-                + "This API is in development and subject to change at any time. "
-                + "Use --experimental_starlark_unused_inputs_list to use this experimental API.");
-      }
       if (unusedInputsList instanceof Artifact) {
         builder.setUnusedInputsList(Optional.of((Artifact) unusedInputsList));
       } else {
