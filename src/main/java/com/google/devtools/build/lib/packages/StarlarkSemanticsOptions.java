@@ -75,17 +75,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   public boolean experimentalActionArgs;
 
   @Option(
-      name = "experimental_allow_incremental_repository_updates",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "This flag will be removed in Bazel 1.0. Please do not use it.\n"
-              + "Incremental repository updates feature is now enabled without the flag.")
-  public boolean experimentalAllowIncrementalRepositoryUpdates;
-
-  @Option(
       name = "experimental_build_setting_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -177,15 +166,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
           "If set to true, enables creation of configuration transition objects (the "
               + "`transition()` function) in Starlark.")
   public boolean experimentalStarlarkConfigTransitions;
-
-  @Option(
-      name = "experimental_starlark_unused_inputs_list",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.CHANGES_INPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help = "If set to true, enables use of 'unused_inputs_list' in starlark action.run().")
-  public boolean experimentalStarlarkUnusedInputsList;
 
   @Option(
       name = "experimental_cc_shared_library",
@@ -652,8 +632,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
             .experimentalActionArgs(experimentalActionArgs)
-            .experimentalAllowIncrementalRepositoryUpdates(
-                experimentalAllowIncrementalRepositoryUpdates)
             .experimentalAllowTagsPropagation(experimentalAllowTagsPropagation)
             .experimentalBuiltinsBzlPath(experimentalBuiltinsBzlPath)
             .experimentalCcStarlarkApiEnabledPackages(experimentalCcStarlarkApiEnabledPackages)
@@ -662,7 +640,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
             .experimentalNinjaActions(experimentalNinjaActions)
             .experimentalPlatformsApi(experimentalPlatformsApi)
             .experimentalStarlarkConfigTransitions(experimentalStarlarkConfigTransitions)
-            .experimentalStarlarkUnusedInputsList(experimentalStarlarkUnusedInputsList)
             .experimentalCcSharedLibrary(experimentalCcSharedLibrary)
             .experimentalRepoRemoteExec(experimentalRepoRemoteExec)
             .experimentalDisableExternalPackage(experimentalDisableExternalPackage)

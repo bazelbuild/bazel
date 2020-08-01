@@ -174,7 +174,7 @@ public class ProfilerTest {
                 .filter(
                     traceEvent -> ProfilerTask.VFS_STAT.description.equals(traceEvent.category()))
                 .collect(Collectors.toList()));
-    assertThat(vfsStat.duration().toMillis()).isEqualTo(20);
+    assertThat(vfsStat.duration()).isEqualTo(Duration.ofMillis(20));
 
     assertThat(
             jsonProfile.getTraceEvents().stream()

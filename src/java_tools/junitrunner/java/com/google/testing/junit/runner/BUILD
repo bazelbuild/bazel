@@ -21,7 +21,6 @@ java_library(
         "BazelTestRunner.java",
         ":common_runner_java_files",
     ],
-    data = ["//tools:test_sharding_compliant"],
     deps = [
         ":persistent_test_runner",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner/internal",

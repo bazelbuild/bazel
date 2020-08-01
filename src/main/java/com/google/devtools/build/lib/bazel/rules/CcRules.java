@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.rules.cpp.FdoProfileRule;
 import com.google.devtools.build.lib.rules.cpp.GoogleLegacyStubs;
 import com.google.devtools.build.lib.rules.cpp.GraphNodeAspect;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcBootstrap;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
 

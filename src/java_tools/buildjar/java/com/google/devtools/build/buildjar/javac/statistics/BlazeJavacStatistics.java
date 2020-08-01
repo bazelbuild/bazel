@@ -14,14 +14,14 @@
 package com.google.devtools.build.buildjar.javac.statistics;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.util.Context;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.Optional;
-import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.concurrent.ExecutionException;
 
 /**
  * A class representing statistics for an invocation of {@link
@@ -34,20 +34,20 @@ import java.util.WeakHashMap;
 public abstract class BlazeJavacStatistics {
 
   // Weak refs to contexts we've init'ed into
-  private static final Set<Context> contextsInitialized =
-      Collections.newSetFromMap(new WeakHashMap<>());
+  private static final Cache<Context, Builder> contextsInitialized =
+      CacheBuilder.newBuilder().weakKeys().build();
 
   public static void preRegister(Context context) {
-    if (contextsInitialized.add(context)) {
-      context.<Builder>put(
-          Builder.class,
-          ctx -> {
+    try {
+      contextsInitialized.get(
+          context,
+          () -> {
             Builder instance = newBuilder();
-            ctx.put(Builder.class, instance);
+            context.put(Builder.class, instance);
             return instance;
           });
-    } else {
-      throw new IllegalStateException("Initialize called twice!");
+    } catch (ExecutionException e) {
+      throw new IllegalStateException(e);
     }
   }
 

@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.rules.android.AndroidResourcesInfo;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidToolsDefaultsJarRule;
 import com.google.devtools.build.lib.rules.android.AndroidSdkBaseRule;
+import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
 import com.google.devtools.build.lib.rules.android.DexArchiveAspect;
@@ -349,7 +350,8 @@ public class BazelRuleClassProvider {
                   AndroidDeviceBrokerInfo.PROVIDER,
                   AndroidResourcesInfo.PROVIDER,
                   AndroidNativeLibsInfo.PROVIDER,
-                  AndroidApplicationResourceInfo.PROVIDER);
+                  AndroidApplicationResourceInfo.PROVIDER,
+                  AndroidSdkProvider.PROVIDER);
           builder.addStarlarkBootstrap(bootstrap);
 
           try {

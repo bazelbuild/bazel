@@ -72,7 +72,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         "",
         "py_binary(name = 'notest',",
         "        srcs = ['notest.py'])",
-        "cc_library(name = 'xUnit', data = ['//tools:test_sharding_compliant'])",
+        "cc_library(name = 'xUnit')",
         "",
         "test_suite( name = 'smallTests', tags=['small'])");
 

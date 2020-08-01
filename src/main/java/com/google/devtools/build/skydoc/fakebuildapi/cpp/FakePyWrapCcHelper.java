@@ -15,17 +15,17 @@
 package com.google.devtools.build.skydoc.fakebuildapi.cpp;
 
 import com.google.devtools.build.lib.collect.nestedset.Depset;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcCompilationContextApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CcToolchainProviderApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.CompilationInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.FeatureConfigurationApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcHelperApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.PyWrapCcInfoApi;
-import com.google.devtools.build.lib.skylarkbuildapi.cpp.WrapCcIncludeProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.RunfilesApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcCompilationContextApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.CompilationInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.FeatureConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcHelperApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.PyWrapCcInfoApi;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.WrapCcIncludeProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ConstraintValueInfoApi;
 import com.google.devtools.build.lib.syntax.Sequence;
 
