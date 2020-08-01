@@ -15,7 +15,6 @@
 
 package com.google.devtools.build.lib.bazel;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Strings;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
@@ -88,6 +87,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -110,8 +110,8 @@ public class BazelRepositoryModule extends BlazeModule {
   private final MutableSupplier<Map<String, String>> clientEnvironmentSupplier =
       new MutableSupplier<>();
   private ImmutableMap<RepositoryName, PathFragment> overrides = ImmutableMap.of();
-  private Optional<RootedPath> resolvedFile = Optional.absent();
-  private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.absent();
+  private Optional<RootedPath> resolvedFile = Optional.empty();
+  private Optional<RootedPath> resolvedFileReplacingWorkspace = Optional.empty();
   private Set<String> outputVerificationRules = ImmutableSet.of();
   private FileSystem filesystem;
   // We hold the precomputed value of the managed directories here, so that the dependency
@@ -228,9 +228,9 @@ public class BazelRepositoryModule extends BlazeModule {
     clientEnvironmentSupplier.set(env.getRepoEnv());
     PackageOptions pkgOptions = env.getOptions().getOptions(PackageOptions.class);
     isFetch.set(pkgOptions != null && pkgOptions.fetch);
-    resolvedFile = Optional.<RootedPath>absent();
-    resolvedFileReplacingWorkspace = Optional.<RootedPath>absent();
-    outputVerificationRules = ImmutableSet.<String>of();
+    resolvedFile = Optional.empty();
+    resolvedFileReplacingWorkspace = Optional.empty();
+    outputVerificationRules = ImmutableSet.of();
 
     starlarkRepositoryFunction.setProcessWrapper(ProcessWrapper.fromCommandEnvironment(env));
 

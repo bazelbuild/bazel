@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunct
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.REPOSITORIES;
 import static com.google.devtools.build.lib.rules.repository.ResolvedHashesFunction.RULE_CLASS;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -46,6 +45,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** A SkyFunction to parse WORKSPACE files into a StarlarkFile. */

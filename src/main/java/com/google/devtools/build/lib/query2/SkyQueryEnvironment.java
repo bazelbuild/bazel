@@ -512,14 +512,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     if (!(target instanceof Rule)) {
       return rawFwdDeps;
     }
-    final Set<Label> allowedLabels = getAllowedDeps((Rule) target);
-    return Collections2.filter(rawFwdDeps,
-        new Predicate<Target>() {
-          @Override
-          public boolean apply(Target target) {
-            return allowedLabels.contains(target.getLabel());
-          }
-        });
+    Set<Label> allowedLabels = getAllowedDeps((Rule) target);
+    return Collections2.filter(rawFwdDeps, t -> allowedLabels.contains(t.getLabel()));
   }
 
   @Override
@@ -725,8 +719,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
 
   @Override
   public <T1, T2> QueryTaskFuture<T2> transformAsync(
-      QueryTaskFuture<T1> future,
-      final Function<T1, QueryTaskFuture<T2>> function) {
+      QueryTaskFuture<T1> future, Function<T1, QueryTaskFuture<T2>> function) {
     return QueryTaskFutureImpl.ofDelegate(
         Futures.transformAsync(
             (QueryTaskFutureImpl<T1>) future,
@@ -1135,7 +1128,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       SkyFunctionName.functionIs(Label.TRANSITIVE_TRAVERSAL);
 
   public static final Function<SkyKey, Label> SKYKEY_TO_LABEL =
-      skyKey -> IS_LABEL.apply(skyKey) ? (Label) skyKey.argument() : null;
+      skyKey -> IS_LABEL.test(skyKey) ? (Label) skyKey.argument() : null;
 
   static final Function<SkyKey, PackageIdentifier> PACKAGE_SKYKEY_TO_PACKAGE_IDENTIFIER =
       skyKey -> (PackageIdentifier) skyKey.argument();

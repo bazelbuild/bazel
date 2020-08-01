@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.common;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -46,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Predicate;
 
 /**
  * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much of
@@ -255,7 +255,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
   }
 
   protected boolean validateScope(Label label, boolean strict) throws QueryException {
-    if (!labelFilter.apply(label)) {
+    if (!labelFilter.test(label)) {
       String error = String.format("target '%s' is not within the scope of the query", label);
       if (strict) {
         throw new QueryException(error, Query.Code.TARGET_NOT_IN_UNIVERSE_SCOPE);
