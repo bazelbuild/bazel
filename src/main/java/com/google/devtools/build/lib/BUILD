@@ -80,7 +80,6 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/server:srcs",
         "//src/main/java/com/google/devtools/build/lib/shell:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe:srcs",
-        "//src/main/java/com/google/devtools/build/lib/skylarkbuildapi:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/module:srcs",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:srcs",

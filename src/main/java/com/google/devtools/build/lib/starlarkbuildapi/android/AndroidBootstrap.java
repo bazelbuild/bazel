@@ -37,6 +37,7 @@ public class AndroidBootstrap implements Bootstrap {
   private final AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider;
   private final AndroidApplicationResourceInfoApiProvider<?>
       androidApplicationResourceInfoApiProvider;
+  private final AndroidSdkProviderApi.Provider<?, ?, ?> androidSdkProviderApi;
 
   public AndroidBootstrap(
       AndroidStarlarkCommonApi<?, ?> androidCommon,
@@ -45,7 +46,8 @@ public class AndroidBootstrap implements Bootstrap {
       AndroidDeviceBrokerInfoApiProvider androidDeviceBrokerInfoProvider,
       AndroidResourcesInfoApiProvider<?, ?, ?> androidResourcesInfoProvider,
       AndroidNativeLibsInfoApiProvider androidNativeLibsInfoProvider,
-      AndroidApplicationResourceInfoApiProvider<?> androidApplicationResourceInfoApiProvider) {
+      AndroidApplicationResourceInfoApiProvider<?> androidApplicationResourceInfoApiProvider,
+      AndroidSdkProviderApi.Provider<?, ?, ?> androidSdkProviderApi) {
     this.androidCommon = androidCommon;
     this.apkInfoProvider = apkInfoProvider;
     this.androidInstrumentationInfoProvider = androidInstrumentationInfoProvider;
@@ -53,6 +55,7 @@ public class AndroidBootstrap implements Bootstrap {
     this.androidResourcesInfoProvider = androidResourcesInfoProvider;
     this.androidNativeLibsInfoProvider = androidNativeLibsInfoProvider;
     this.androidApplicationResourceInfoApiProvider = androidApplicationResourceInfoApiProvider;
+    this.androidSdkProviderApi = androidSdkProviderApi;
   }
 
   @Override
@@ -89,5 +92,9 @@ public class AndroidBootstrap implements Bootstrap {
         FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
             FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API,
             androidApplicationResourceInfoApiProvider));
+    builder.put(
+        AndroidSdkProviderApi.NAME,
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, androidSdkProviderApi));
   }
 }

@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.util.concurrent.ForkJoinPool;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -58,7 +59,9 @@ public abstract class AbstractPackageLoaderTest {
 
   protected abstract AbstractPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir);
 
-  private AbstractPackageLoader.Builder newPackageLoaderBuilder() {
+  protected abstract ForkJoinPool extractLegacyGlobbingForkJoinPool(PackageLoader packageLoader);
+
+  protected AbstractPackageLoader.Builder newPackageLoaderBuilder() {
     return newPackageLoaderBuilder(root).useDefaultStarlarkSemantics().setCommonReporter(reporter);
   }
 
@@ -68,10 +71,11 @@ public abstract class AbstractPackageLoaderTest {
 
   @Test
   public void simpleNoPackage() {
-    PackageLoader pkgLoader = newPackageLoader();
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("nope"));
-    NoSuchPackageException expected =
-        assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
+    NoSuchPackageException expected;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      expected = assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
+    }
     assertThat(expected)
         .hasMessageThat()
         .startsWith("no such package 'nope': BUILD file not found");
@@ -80,20 +84,24 @@ public abstract class AbstractPackageLoaderTest {
 
   @Test
   public void simpleBadPackage() throws Exception {
-    PackageLoader pkgLoader = newPackageLoader();
     file("bad/BUILD", "invalidBUILDsyntax");
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("bad"));
-    Package badPkg = pkgLoader.loadPackage(pkgId);
+    Package badPkg;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      badPkg = pkgLoader.loadPackage(pkgId);
+    }
     assertThat(badPkg.containsErrors()).isTrue();
     assertContainsEvent(handler.getEvents(), "invalidBUILDsyntax");
   }
 
   @Test
   public void simpleGoodPackage() throws Exception {
-    PackageLoader pkgLoader = newPackageLoader();
     file("good/BUILD", "sh_library(name = 'good')");
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("good"));
-    Package goodPkg = pkgLoader.loadPackage(pkgId);
+    Package goodPkg;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      goodPkg = pkgLoader.loadPackage(pkgId);
+    }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
@@ -102,12 +110,14 @@ public abstract class AbstractPackageLoaderTest {
 
   @Test
   public void simpleMultipleGoodPackage() throws Exception {
-    PackageLoader pkgLoader = newPackageLoader();
     file("good1/BUILD", "sh_library(name = 'good1')");
     file("good2/BUILD", "sh_library(name = 'good2')");
     PackageIdentifier pkgId1 = PackageIdentifier.createInMainRepo(PathFragment.create("good1"));
     PackageIdentifier pkgId2 = PackageIdentifier.createInMainRepo(PathFragment.create("good2"));
-    PackageLoader.Result result = pkgLoader.loadPackages(ImmutableList.of(pkgId1, pkgId2));
+    PackageLoader.Result result;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      result = pkgLoader.loadPackages(ImmutableList.of(pkgId1, pkgId2));
+    }
     ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> pkgs =
         result.getLoadedPackages();
 
@@ -124,8 +134,6 @@ public abstract class AbstractPackageLoaderTest {
 
   @Test
   public void testGoodAndBadAndMissingPackages() throws Exception {
-    PackageLoader pkgLoader = newPackageLoader();
-
     file("bad/BUILD", "invalidBUILDsyntax");
     PackageIdentifier badPkgId = PackageIdentifier.createInMainRepo(PathFragment.create("bad"));
 
@@ -134,8 +142,10 @@ public abstract class AbstractPackageLoaderTest {
 
     PackageIdentifier missingPkgId = PackageIdentifier.createInMainRepo("missing");
 
-    PackageLoader.Result result =
-        pkgLoader.loadPackages(ImmutableList.of(badPkgId, goodPkgId, missingPkgId));
+    PackageLoader.Result result;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      result = pkgLoader.loadPackages(ImmutableList.of(badPkgId, goodPkgId, missingPkgId));
+    }
 
     Package goodPkg = result.getLoadedPackages().get(goodPkgId).get();
     assertThat(goodPkg.containsErrors()).isFalse();
@@ -152,10 +162,12 @@ public abstract class AbstractPackageLoaderTest {
 
   @Test
   public void loadPackagesToleratesDuplicates() throws Exception {
-    PackageLoader pkgLoader = newPackageLoader();
     file("good1/BUILD", "sh_library(name = 'good1')");
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("good1"));
-    PackageLoader.Result result = pkgLoader.loadPackages(ImmutableList.of(pkgId, pkgId));
+    PackageLoader.Result result;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      result = pkgLoader.loadPackages(ImmutableList.of(pkgId, pkgId));
+    }
     ImmutableMap<PackageIdentifier, PackageLoader.PackageOrException> pkgs =
         result.getLoadedPackages();
     assertThat(pkgs.get(pkgId).get().containsErrors()).isFalse();
@@ -167,11 +179,13 @@ public abstract class AbstractPackageLoaderTest {
 
   @Test
   public void simpleGoodPackage_Starlark() throws Exception {
-    PackageLoader pkgLoader = newPackageLoader();
     file("good/good.bzl", "def f(x):", "  native.sh_library(name = x)");
     file("good/BUILD", "load('//good:good.bzl', 'f')", "f('good')");
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("good"));
-    Package goodPkg = pkgLoader.loadPackage(pkgId);
+    Package goodPkg;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      goodPkg = pkgLoader.loadPackage(pkgId);
+    }
     assertThat(goodPkg.containsErrors()).isFalse();
     assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
         .isEqualTo("sh_library");
@@ -182,11 +196,11 @@ public abstract class AbstractPackageLoaderTest {
   public void externalFile_SupportedByDefault() throws Exception {
     Path externalPath = file(absolutePath("/external/BUILD"), "sh_library(name = 'foo')");
     symlink("foo/BUILD", externalPath);
-
-    PackageLoader pkgLoader = newPackageLoader();
-
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("foo"));
-    Package fooPkg = pkgLoader.loadPackage(pkgId);
+    Package fooPkg;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      fooPkg = pkgLoader.loadPackage(pkgId);
+    }
     assertThat(fooPkg.containsErrors()).isFalse();
     assertThat(fooPkg.getTarget("foo").getTargetKind()).isEqualTo("sh_library rule");
     assertNoEvents(handler.getEvents());
@@ -196,29 +210,38 @@ public abstract class AbstractPackageLoaderTest {
   public void externalFile_AssumeNonExistentAndImmutable() throws Exception {
     Path externalPath = file(absolutePath("/external/BUILD"), "sh_library(name = 'foo')");
     symlink("foo/BUILD", externalPath);
-
-    PackageLoader pkgLoader =
+    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("foo"));
+    NoSuchPackageException expected;
+    try (PackageLoader pkgLoader =
         newPackageLoaderBuilder()
             .setExternalFileAction(
                 ExternalFileAction.ASSUME_NON_EXISTENT_AND_IMMUTABLE_FOR_EXTERNAL_PATHS)
-            .build();
-
-    PackageIdentifier pkgId = PackageIdentifier.createInMainRepo(PathFragment.create("foo"));
-    NoSuchPackageException expected =
-        assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
+            .build()) {
+      expected = assertThrows(NoSuchPackageException.class, () -> pkgLoader.loadPackage(pkgId));
+    }
     assertThat(expected).hasMessageThat().contains("no such package 'foo': BUILD file not found");
   }
 
   @Test
   public void testNonPackageEventsReported() throws Exception {
-    PackageLoader pkgLoader = newPackageLoader();
     path("foo").createDirectoryAndParents();
     symlink("foo/infinitesymlinkpkg", path("foo"));
-
     PackageIdentifier pkgId = PackageIdentifier.createInMainRepo("foo/infinitesymlinkpkg");
-    PackageLoader.Result result = pkgLoader.loadPackages(ImmutableList.of(pkgId));
+    PackageLoader.Result result;
+    try (PackageLoader pkgLoader = newPackageLoader()) {
+      result = pkgLoader.loadPackages(ImmutableList.of(pkgId));
+    }
     assertThrows(NoSuchPackageException.class, () -> result.getLoadedPackages().get(pkgId).get());
     assertContainsEvent(result.getEvents(), "infinite symlink expansion detected");
+  }
+
+  @Test
+  public void testClosesForkJoinPool() throws Exception {
+    PackageLoader pkgLoader = newPackageLoader();
+    ForkJoinPool forkJoinPool = extractLegacyGlobbingForkJoinPool(pkgLoader);
+    assertThat(forkJoinPool.isShutdown()).isFalse();
+    pkgLoader.close();
+    assertThat(forkJoinPool.isShutdown()).isTrue();
   }
 
   protected Path path(String rootRelativePath) {

@@ -269,25 +269,13 @@ function test_invalid_unused() {
   check_unused_content
 }
 
-# Verify that the flag '--experimental_starlark_unused_inputs_list' is required
-# for 'unused_inputs_list' usage. Note: defaults to true.
-function test_experiment_flag_required() {
-  # This should fail.
-  bazel build --noexperimental_starlark_unused_inputs_list \
-      //pkg:output >& $TEST_log && fail "Expected failure"
-  exitcode=$?
-  assert_equals 1 "$exitcode"
-  expect_log "Use --experimental_starlark_unused_inputs_list"
-}
-
 function test_missing_unused_inputs_list() {
   cat > pkg/cat_unused.sh << 'EOF'
 #!/bin/sh
 exit 0
 EOF
   chmod +x pkg/cat_unused.sh
-  bazel build --experimental_starlark_unused_inputs_list \
-      //pkg:output >& $TEST_log && fail "Expected failure"
+  bazel build //pkg:output >& $TEST_log && fail "Expected failure"
   exitcode=$?
   assert_equals 1 "$exitcode"
   expect_log "Action did not create expected output file listing unused inputs"

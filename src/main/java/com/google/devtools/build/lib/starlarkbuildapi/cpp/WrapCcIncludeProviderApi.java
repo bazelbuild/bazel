@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2019 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.skylarkbuildapi.cpp;
+package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
-import com.google.devtools.build.lib.syntax.StarlarkValue;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 
-/** Class used to construct command lines from CROSSTOOL features. */
+/** An info object that provides the included files of a _wrap_cc rule. */
 @StarlarkBuiltin(
-    name = "FeatureConfiguration",
-    category = StarlarkDocumentationCategory.BUILTIN,
-    doc = "Class used to construct command lines from CROSSTOOL features.")
-public interface FeatureConfigurationApi extends StarlarkValue {}
+    name = "WrapCcIncludeProvider",
+    documented = false,
+    category = StarlarkDocumentationCategory.PROVIDER,
+    doc = "")
+public interface WrapCcIncludeProviderApi extends StructApi {}

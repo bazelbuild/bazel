@@ -49,21 +49,25 @@ public class BazelPackageLoadingListenerForTesting implements PackageLoadingList
     sanityCheckBazelPackageLoader(pkg, ruleClassProvider, starlarkSemantics);
   }
 
+  private PackageLoader makeFreshPackageLoader(
+      ConfiguredRuleClassProvider ruleClassProvider, StarlarkSemantics starlarkSemantics) {
+    return BazelPackageLoader.builder(
+            Root.fromPath(directories.getWorkspace()),
+            directories.getInstallBase(),
+            directories.getOutputBase())
+        .setStarlarkSemantics(starlarkSemantics)
+        .setRuleClassProvider(ruleClassProvider)
+        .build();
+  }
+
   private void sanityCheckBazelPackageLoader(
       Package pkg,
       ConfiguredRuleClassProvider ruleClassProvider,
       StarlarkSemantics starlarkSemantics) {
     PackageIdentifier pkgId = pkg.getPackageIdentifier();
-    PackageLoader packageLoader =
-        BazelPackageLoader.builder(
-                Root.fromPath(directories.getWorkspace()),
-                directories.getInstallBase(),
-                directories.getOutputBase())
-            .setStarlarkSemantics(starlarkSemantics)
-            .setRuleClassProvider(ruleClassProvider)
-            .build();
     Package newlyLoadedPkg;
-    try {
+    try (PackageLoader packageLoader =
+        makeFreshPackageLoader(ruleClassProvider, starlarkSemantics)) {
       newlyLoadedPkg = packageLoader.loadPackage(pkg.getPackageIdentifier());
     } catch (InterruptedException e) {
       return;
