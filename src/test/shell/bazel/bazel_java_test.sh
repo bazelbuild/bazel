@@ -85,6 +85,47 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # java_tools versions only used to test Bazel with various JDK toolchains.
 EOF
 
+  cat >>WORKSPACE <<EOF
+http_archive(
+    name = "com_google_protobuf",
+    sha256 = "cf754718b0aa945b00550ed7962ddc167167bd922b842199eeb6505e6f344852",
+    strip_prefix = "protobuf-3.11.3",
+    urls = [
+        "https://mirror.bazel.build/github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+        "https://github.com/protocolbuffers/protobuf/archive/v3.11.3.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "zlib",
+    build_file = "@com_google_protobuf//:third_party/zlib.BUILD",
+    sha256 = "c3e5e9fdd5004dcb542feda5ee4f0ff0744628baf8ed2dd5d66f8ca1197cb1a1",
+    strip_prefix = "zlib-1.2.11",
+    urls = [
+        "https://mirror.bazel.build/zlib.net/zlib-1.2.11.tar.gz",
+        "https://zlib.net/zlib-1.2.11.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "rules_python",
+    url = "https://github.com/bazelbuild/rules_python/releases/download/0.0.2/rules_python-0.0.2.tar.gz",
+    strip_prefix = "rules_python-0.0.2",
+    sha256 = "b5668cde8bb6e3515057ef465a35ad712214962f0b3a314e551204266c7be90c",
+)
+
+http_archive(
+    name = "bazel_skylib",
+    # Commit 2d4c9528e0f453b5950eeaeac11d8d09f5a504d4 of 2020-02-06
+    sha256 = "c00ceec469dbcf7929972e3c79f20c14033824538038a554952f5c31d8832f96",
+    strip_prefix = "bazel-skylib-2d4c9528e0f453b5950eeaeac11d8d09f5a504d4",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/archive/2d4c9528e0f453b5950eeaeac11d8d09f5a504d4.tar.gz",
+    ],
+)
+EOF
+
   if [[ ! -z "${JAVA_TOOLS_ZIP_FILE_URL}" ]]; then
     cat >>WORKSPACE <<EOF
 http_archive(
@@ -1621,9 +1662,89 @@ extern "C" JNIEXPORT void JNICALL Java_foo_App_f(JNIEnv *env, jclass clazz, jint
 EOF
   bazel run //test:app > $TEST_log || {
     find bazel-bin/ | native # helpful for debugging
-    fail "bazel run command failed"
+    fail "bazel run command failed"pb
   }
   expect_log "hello 123"
+}
+
+function create_verification_binary() {
+
+
+  mkdir test/diagnostics_reporter
+  cat > test/diagnostics_reporter/BUILD <<EOF
+java_binary(
+    name = "verify_diagnostics_output",
+    srcs = ["VerifyDiagnosticsOutput.java"],
+    deps = [
+        "@bazel_tools//src/main/protobuf:diagnostics_java_proto",
+    ],
+    main_class = "diagnostics_reporter.VerifyDiagnosticsOutput",
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > test/diagnostics_reporter/VerifyDiagnosticsOutput.java <<EOF
+package diagnostics_reporter;
+
+import com.google.devtools.build.lib.diagnostics.Diagnostics;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
+
+class VerifyDiagnosticsOutput {
+    public static void main(String[] args) throws IOException {
+        String[] diagnosticsArgs = args[1].split(" ");
+        if(args.length != 2 || diagnosticsArgs.length % 5 != 0)
+            throw new IllegalArgumentException("Args: <path_to_diagnostics> [severity start_line start_char end_line end_char], you passed " + Arrays.toString(args));
+        String path = args[0];
+        List<Diagnostics.Diagnostic> diagnostics =
+                Diagnostics.TargetDiagnostics.parseFrom(Files.readAllBytes(Path.of(path)))
+                        .getDiagnosticsList().stream().flatMap(diagnosticList -> diagnosticList.getDiagnosticsList().stream()).collect(Collectors.toList());
+        for(int i = 0; i < args.length; i+=5){
+            Diagnostics.Severity severity;
+            switch (Integer.parseInt(diagnosticsArgs[i])){
+                case 0:
+                    severity = Diagnostics.Severity.UNKNOWN;
+                    break;
+                case 1:
+                    severity = Diagnostics.Severity.ERROR;
+                    break;
+                case 2:
+                    severity = Diagnostics.Severity.WARNING;
+                    break;
+                case 3:
+                    severity = Diagnostics.Severity.INFORMATION;
+                    break;
+                case 4:
+                    severity = Diagnostics.Severity.HINT;
+                    break;
+                default:
+                    throw new IllegalArgumentException("Severity must be a number between 0 and 4!");
+            }
+
+            int startLine = Integer.parseInt(diagnosticsArgs[1]);
+            int startChar = Integer.parseInt(diagnosticsArgs[2]);
+            int endLine = Integer.parseInt(diagnosticsArgs[3]);
+            int endChar = Integer.parseInt(diagnosticsArgs[4]);
+            Diagnostics.Severity finalSeverity = severity;
+            if(diagnostics.stream().noneMatch(diagnosticInfo ->
+                    diagnosticInfo.getRange().getStart().getLine() == startLine &&
+                            diagnosticInfo.getRange().getStart().getCharacter() == startChar &&
+                            diagnosticInfo.getRange().getEnd().getLine() == endLine &&
+                            diagnosticInfo.getRange().getEnd().getCharacter() == endChar &&
+                            diagnosticInfo.getSeverity().equals(finalSeverity)))
+                throw new NoSuchElementException("No diagnostics with severity" + severity + ", starting line" + startLine
+                        + "and character" + startChar + ", ending line " + endLine + " and character " + endChar);
+        }
+
+    }
+}
+EOF
 }
 
 
@@ -1650,37 +1771,22 @@ EOF
 }
 
 function verify_output() {
+  create_verification_binary
   target=$1
-  expected_outputs=$2
-  execution_root=$(bazel info execution_root)
-  output=$($(rlocation "io_bazel/tools/protoc/protoc") --decode_raw <"$execution_root"/bazel-out/darwin-fastbuild/bin/"$target".jar.diagnosticsproto)
-  for expected_output in "${expected_outputs[*]}"; do
-    if [[ "$output" != *"$expected_output"* ]]; then
-      fail "Expected: $expected_output, got: $output"
-    fi
-  done
+  shift
+  expected_outputs=$@
+  execution_root=$(bazel info execution_root)/bazel-out/darwin-fastbuild/bin/"$target".jar.diagnosticsproto
+  bazel run //test/diagnostics_reporter:verify_diagnostics_output "$execution_root" "$expected_outputs"
 }
 
-function test_verify_simple_file() {
-  build_target "SimpleFile" "public class SimpleFile {
+function test_verify_error_file() {
+  build_target "ErrorFile" "public class ErrorFile {
   public static void main(String[] args) {
     System.out.printn(\"Hello!\");
   }
 }"
-  outputs=("2 {
-    1 {
-      1 {
-        1: 2
-        2: 14
-      }
-      2 {
-        1: 3
-      }
-    }
-    2: 1
-    5: \"cannot find symbol\n  symbol:   method printn(java.lang.String)\n  location: variable out of type java.io.PrintStream\"
-  }")
-  verify_output "SimpleFile" "${outputs[@]}"
+  outputs=("1 2 14 3 0")
+  verify_output "ErrorFile" "${outputs[@]}"
 }
 
 function test_verify_two_errors_file() {
@@ -1690,31 +1796,7 @@ function test_verify_two_errors_file() {
     System.out.prin(\"Hello!\");
   }
 }"
-  outputs=("2 {
-    1 {
-      1 {
-        1: 2
-        2: 14
-      }
-      2 {
-        1: 3
-      }
-    }
-    2: 1
-    5: \"cannot find symbol\n  symbol:   method printn(java.lang.String)\n  location: variable out of type java.io.PrintStream\"
-  }" "2 {
-    1 {
-      1 {
-        1: 3
-        2: 14
-      }
-      2 {
-        1: 4
-      }
-    }
-    2: 1
-    5: \"cannot find symbol\n  symbol:   method prin(java.lang.String)\n  location: variable out of type java.io.PrintStream\"
-  }")
+  outputs=("1 2 14 3 0 1 3 14 4 0")
   verify_output "TwoErrorsFile" "${outputs[@]}"
 }
 
@@ -1727,19 +1809,7 @@ function test_verify_warning_file() {
       people.add(\"fred\");
     }
 }" "-Xlint:unchecked"
-  outputs=("2 {
-    1 {
-      1 {
-        1: 5
-        2: 16
-      }
-      2 {
-        1: 6
-      }
-    }
-    2: 2
-    5: \"unchecked call to add(E) as a member of the raw type java.util.Set\"
-  }")
+  outputs=("2 5 16 6 0")
   verify_output "WarningFile" "${outputs[@]}"
 }
 
@@ -1754,31 +1824,7 @@ function test_verify_error_and_warning_file() {
       System.out.prin(people);
     }
 }" "-Xlint:unchecked"
-  outputs=("2 {
-    1 {
-      1 {
-        1: 5
-        2: 16
-      }
-      2 {
-        1: 6
-      }
-    }
-    2: 2
-    5: \"unchecked call to add(E) as a member of the raw type java.util.Set\"
-  }" "2 {
-    1 {
-      1 {
-        1: 6
-        2: 16
-      }
-      2 {
-        1: 7
-      }
-    }
-    2: 1
-    5: \"cannot find symbol\n  symbol:   method prin(java.util.Set)\n  location: variable out of type java.io.PrintStream\"
-  }")
+  outputs=("2 5 16 6 0 1 6 16 7 0")
   verify_output "ErrorAndWarningFile" "${outputs[@]}"
 }
 
