@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
@@ -66,8 +65,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
@@ -115,7 +112,6 @@ public class UiEventHandler implements EventHandler {
   private final boolean showProgress;
   private final boolean progressInTermTitle;
   private final boolean showTimestamp;
-  private final boolean deduplicate;
   private final OutErr outErr;
   private final ImmutableSet<EventKind> filteredEvents;
   private long minimalDelayMillis;
@@ -132,8 +128,6 @@ public class UiEventHandler implements EventHandler {
   private final Lock updateLock;
   private byte[] stdoutBuffer;
   private byte[] stderrBuffer;
-  private final Set<String> messagesSeen;
-  private long deduplicateCount;
 
   private final long outputLimit;
   private long reservedOutputCapacity;
@@ -265,8 +259,6 @@ public class UiEventHandler implements EventHandler {
     this.clock = clock;
     this.uiStartTimeMillis = clock.currentTimeMillis();
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
-    this.deduplicate = options.experimentalUiDeduplicate;
-    this.messagesSeen = new HashSet<>();
     this.locationPrinter =
         new LocationPrinter(options.attemptToPrintRelativePaths, workspacePathFragment);
     // If we have cursor control, we try to fit in the terminal width to avoid having
@@ -395,9 +387,6 @@ public class UiEventHandler implements EventHandler {
           && (remainingCapacity() < CAPACITY_ERRORS_ONLY)
           && (event.getKind() != EventKind.ERROR)) {
         droppedEvents++;
-        return;
-      }
-      if (shouldDeduplicate(event)) {
         return;
       }
       maybeAddDate();
@@ -608,64 +597,6 @@ public class UiEventHandler implements EventHandler {
     }
   }
 
-  // TODO(jmmv): This feature needs to be removed. It has only caused confusion in the past
-  // (see cl/261885840 and https://github.com/bazelbuild/bazel/issues/7184) and would let us
-  // simplify the code here significantly.
-  private boolean shouldDeduplicate(Event event) {
-    if (!deduplicate) {
-      // deduplication disabled
-      return false;
-    }
-    if (event.getKind() == EventKind.DEBUG) {
-      String message = event.getMessage();
-      synchronized (this) {
-        if (messagesSeen.contains(message)) {
-          deduplicateCount++;
-          return true;
-        } else {
-          messagesSeen.add(message);
-        }
-      }
-    }
-    if (event.getKind() != EventKind.INFO) {
-      // only deduplicate INFO messages
-      return false;
-    }
-    byte[] stdout = event.getStdOut();
-    byte[] stderr = event.getStdErr();
-    if (stdout == null && stderr == null) {
-      // We deduplicate on the attached output (assuming the event itself only describes
-      // the source of the output). If no output is attached it is a different kind of event
-      // and should not be deduplicated.
-      return false;
-    }
-    boolean allMessagesSeen = true;
-    if (stdout != null) {
-      String stdoutString = new String(stdout, StandardCharsets.ISO_8859_1);
-      for (String line : Splitter.on("\n").split(stdoutString)) {
-        if (!messagesSeen.contains(line)) {
-          allMessagesSeen = false;
-          messagesSeen.add(line);
-        }
-      }
-    }
-    if (stderr != null) {
-      String stderrString = new String(stderr, StandardCharsets.ISO_8859_1);
-      for (String line : Splitter.on("\n").split(stderrString)) {
-        if (!messagesSeen.contains(line)) {
-          allMessagesSeen = false;
-          messagesSeen.add(line);
-        }
-      }
-    }
-    if (allMessagesSeen) {
-      synchronized (this) {
-        deduplicateCount++;
-      }
-    }
-    return allMessagesSeen;
-  }
-
   @Subscribe
   public void buildStarted(BuildStartingEvent event) {
     synchronized (this) {
@@ -761,9 +692,6 @@ public class UiEventHandler implements EventHandler {
         boolean incompleteLine = flushStdOutStdErrBuffers();
         if (incompleteLine) {
           crlf();
-        }
-        if (deduplicateCount > 0) {
-          handle(Event.info(null, "deduplicated " + deduplicateCount + " events"));
         }
         if (droppedEvents > 0) {
           handleInternal(
