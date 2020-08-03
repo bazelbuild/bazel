@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.CompositeRunfilesSupplier;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.ResourceSet;
@@ -89,7 +88,6 @@ import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -402,7 +400,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     return new ActionSpawn(
         commandLines.allArguments(),
         ImmutableMap.of(),
-        ImmutableMap.of(),
         inputs,
         ImmutableList.of(),
         ImmutableMap.of());
@@ -427,20 +424,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       throws CommandLineExpansionException {
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(artifactExpander, getPrimaryOutput().getExecPath(), commandLineLimits);
-
-    Map<String, String> executionInfo = new HashMap<>();
-    if (this instanceof StarlarkAction) {
-      StarlarkAction starlarkAction = (StarlarkAction) this;
-      if (starlarkAction.getUnusedInputsList().isPresent()) {
-        executionInfo.put(
-            ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS,
-            starlarkAction.getUnusedInputsList().get().getExecPathString());
-      }
-    }
-
     return new ActionSpawn(
         ImmutableList.copyOf(expandedCommandLines.arguments()),
-        ImmutableMap.copyOf(executionInfo),
         clientEnv,
         getInputs(),
         expandedCommandLines.getParamFiles(),
@@ -587,7 +572,6 @@ public class SpawnAction extends AbstractAction implements CommandAction {
      */
     private ActionSpawn(
         ImmutableList<String> arguments,
-        Map<String, String> executionInfo,
         Map<String, String> clientEnv,
         NestedSet<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
