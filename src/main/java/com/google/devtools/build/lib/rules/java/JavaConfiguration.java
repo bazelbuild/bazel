@@ -98,6 +98,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
   private final NamedLabel bytecodeOptimizer;
+  private final boolean splitBytecodeOptimizationPass;
   private final boolean enforceProguardFileExtension;
   private final Label toolchainLabel;
   private final Label runtimeLabel;
@@ -131,6 +132,7 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
     this.fixDepsTool = javaOptions.fixDepsTool;
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
+    this.splitBytecodeOptimizationPass = javaOptions.splitBytecodeOptimizationPass;
     this.enforceProguardFileExtension = javaOptions.enforceProguardFileExtension;
     this.bundleTranslations = javaOptions.bundleTranslations;
     this.toolchainLabel = javaOptions.javaToolchain;
@@ -306,6 +308,14 @@ public final class JavaConfiguration extends Fragment implements JavaConfigurati
   /** Returns all labels provided with --extra_proguard_specs. */
   public ImmutableList<Label> getExtraProguardSpecs() {
     return extraProguardSpecs;
+  }
+
+  /**
+   * Returns whether the OPTIMIZATION stage of the bytecode optimizer will be split across multiple
+   * actions.
+   */
+  public boolean splitBytecodeOptimizationPass() {
+    return splitBytecodeOptimizationPass;
   }
 
   /** Returns whether ProGuard configuration files are required to use a *.pgcfg extension. */
