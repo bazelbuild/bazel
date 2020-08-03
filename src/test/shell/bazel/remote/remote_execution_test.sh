@@ -1924,11 +1924,11 @@ EOF
 
   CACHEDIR=$(mktemp -d)
 
-  bazel build --disk_cache="$CACHEDIR" --remote_download_toplevel :test
+  bazel build --disk_cache="$CACHEDIR" --remote_download_toplevel :test || fail "Failed to build :test"
 
-  bazel clean
+  bazel clean || fail "Failed to clean"
 
-  bazel build --disk_cache="$CACHEDIR" --remote_download_toplevel :test
+  bazel build --disk_cache="$CACHEDIR" --remote_download_toplevel :test >& $TEST_log
 
   expect_log "INFO: Build completed successfully"
 }
