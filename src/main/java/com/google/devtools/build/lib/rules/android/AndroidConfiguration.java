@@ -284,6 +284,18 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "android_binary rules.")
     public List<String> fatApkCpus;
 
+    @Option(
+        name = "fat_apk_hwasan",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+        effectTags = {
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS,
+          OptionEffectTag.LOSES_INCREMENTAL_STATE,
+        },
+        help = "Whether to create HWASAN splits.")
+    public boolean fatApkHwasan;
+
     // For desugaring lambdas when compiling Java 8 sources. Do not use on the command line.
     // The idea is that once this option works, we'll flip the default value in a config file, then
     // once it is proven that it works, remove it from Bazel and said config file.

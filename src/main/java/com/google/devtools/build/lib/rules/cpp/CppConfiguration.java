@@ -169,6 +169,8 @@ public final class CppConfiguration extends Fragment
 
   private final boolean appleGenerateDsym;
 
+  private final CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer;
+
   static CppConfiguration create(CpuTransformer cpuTransformer, BuildOptions options)
       throws InvalidConfigurationException {
     CppOptions cppOptions = options.get(CppOptions.class);
@@ -240,7 +242,8 @@ public final class CppConfiguration extends Fragment
         commonOptions.collectCodeCoverage,
         commonOptions.isHost || commonOptions.isExec,
         (cppOptions.appleGenerateDsym
-            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG)));
+            || (cppOptions.appleEnableAutoDsymDbg && compilationMode == CompilationMode.DBG)),
+        commonOptions.fatApkSplitSanitizer);
   }
 
   private CppConfiguration(
@@ -260,7 +263,8 @@ public final class CppConfiguration extends Fragment
       CompilationMode compilationMode,
       boolean collectCodeCoverage,
       boolean isToolConfiguration,
-      boolean appleGenerateDsym) {
+      boolean appleGenerateDsym,
+      CoreOptions.FatApkSplitSanitizer fatApkSplitSanitizer) {
     this.transformedCpuFromOptions = transformedCpuFromOptions;
     this.desiredCpu = desiredCpu;
     this.fdoPath = fdoPath;
@@ -278,6 +282,7 @@ public final class CppConfiguration extends Fragment
     this.collectCodeCoverage = collectCodeCoverage;
     this.isToolConfigurationDoNotUseWillBeRemovedFor129045294 = isToolConfiguration;
     this.appleGenerateDsym = appleGenerateDsym;
+    this.fatApkSplitSanitizer = fatApkSplitSanitizer;
   }
 
   /** Returns the label of the <code>cc_compiler</code> rule for the C++ configuration. */
@@ -528,6 +533,9 @@ public final class CppConfiguration extends Fragment
   @Override
   public String getOutputDirectoryName() {
     String toolchainPrefix = desiredCpu;
+    if (fatApkSplitSanitizer.feature != null) {
+      toolchainPrefix += "-" + fatApkSplitSanitizer.feature;
+    }
     if (!cppOptions.outputDirectoryTag.isEmpty()) {
       toolchainPrefix += "-" + cppOptions.outputDirectoryTag;
     }
