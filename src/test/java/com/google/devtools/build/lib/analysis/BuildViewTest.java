@@ -549,7 +549,7 @@ public class BuildViewTest extends BuildViewTestBase {
     Iterable<DependencyKey> targets =
         getView()
             .getDirectPrerequisiteDependenciesForTesting(
-                reporter, top, getBuildConfigurationCollection(), /*toolchainContext=*/ null)
+                reporter, top, getBuildConfigurationCollection(), /* toolchainContexts= */ null)
             .values();
 
     DependencyKey innerDependency =
