@@ -210,10 +210,6 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
 
   private static BlazeCommandResult finalizeBlazeCommandResult(
       ExitCode exitCode, QueryException e) {
-    if (e.getFailureDetail().isPresent()) {
-      return BlazeCommandResult.detailedExitCode(
-          DetailedExitCode.of(exitCode, e.getFailureDetail().get()));
-    }
-    return BlazeCommandResult.exitCode(exitCode);
+    return BlazeCommandResult.detailedExitCode(DetailedExitCode.of(exitCode, e.getFailureDetail()));
   }
 }

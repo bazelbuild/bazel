@@ -141,7 +141,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> extends AbstractQueryEnvi
       preloadOrThrow(expr, targetPatternSet);
     } catch (TargetParsingException e) {
       // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
-      throw new QueryException(expr, e.getMessage());
+      throw new QueryException(expr, e.getMessage(), e.getDetailedExitCode().getFailureDetail());
     }
     IOException ioExn = null;
     boolean failFast = true;

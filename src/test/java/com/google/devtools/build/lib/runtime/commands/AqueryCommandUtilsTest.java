@@ -67,7 +67,7 @@ public class AqueryCommandUtilsTest {
     assertThat(exception)
         .hasMessageThat()
         .contains("with --skyframe_state is currently not supported");
-    assertThat(exception.getFailureDetail().get().getActionQuery().getCode())
+    assertThat(exception.getFailureDetail().getActionQuery().getCode())
         .isEqualTo(ActionQuery.Code.TOP_LEVEL_TARGETS_WITH_SKYFRAME_STATE_NOT_SUPPORTED);
   }
 }
