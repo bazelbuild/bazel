@@ -64,9 +64,6 @@ public final class ProcessWrapper {
       if (options.processWrapperGracefulSigterm) {
         extraFlags.add("--graceful_sigterm");
       }
-      if (options.processWrapperWaitFix) {
-        extraFlags.add("--wait_fix");
-      }
     }
 
     Path path = cmdEnv.getBlazeWorkspace().getBinTools().getEmbeddedPath(BIN_BASENAME);
