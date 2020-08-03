@@ -69,8 +69,9 @@ public class NoSuchPackageException extends NoSuchThingException {
 
   @Override
   public DetailedExitCode getDetailedExitCode() {
-    return super.getDetailedExitCode() != null
-        ? super.getDetailedExitCode()
+    DetailedExitCode uncheckedDetailedExitCode = getUncheckedDetailedExitCode();
+    return uncheckedDetailedExitCode != null
+        ? uncheckedDetailedExitCode
         : defaultDetailedExitCode();
   }
 
