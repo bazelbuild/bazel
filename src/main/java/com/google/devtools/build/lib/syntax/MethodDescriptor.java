@@ -129,8 +129,24 @@ final class MethodDescriptor {
     try {
       result = method.invoke(obj, args);
     } catch (IllegalAccessException ex) {
-      // The annotated processor ensures that annotated methods are accessible.
+      // "Can't happen": the annotated processor ensures that annotated methods are accessible.
       throw new IllegalStateException(ex);
+
+    } catch (IllegalArgumentException ex) {
+      // "Can't happen": unexpected type mismatch.
+      // Show details to aid debugging (see e.g. b/162444744).
+      StringBuilder buf = new StringBuilder();
+      buf.append(
+          String.format(
+              "IllegalArgumentException (%s) in Starlark call of %s, obj=%s (%s), args=[",
+              ex.getMessage(), method, Starlark.repr(obj), Starlark.type(obj)));
+      String sep = "";
+      for (Object arg : args) {
+        buf.append(String.format("%s%s (%s)", sep, Starlark.repr(arg), Starlark.type(arg)));
+        sep = ", ";
+      }
+      buf.append(']');
+      throw new IllegalArgumentException(buf.toString());
 
     } catch (InvocationTargetException ex) {
       Throwable e = ex.getCause();
