@@ -304,6 +304,10 @@ public abstract class BuildIntegrationTestCase {
     AnalysisMock.get().setupMockClient(mockToolsConfig);
   }
 
+  protected FileSystem getFileSystem() {
+    return fileSystem;
+  }
+
   protected BlazeModule getBuildInfoModule() {
     return new BlazeModule() {
       @Override
