@@ -99,15 +99,17 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
       return;
     }
     partialResult.forEach(
-        ct -> partialResultMap.put(ct.getLabel(), accessor.getTargetFromConfiguredTarget(ct)));
+        ct ->
+            partialResultMap.put(
+                ct.getOriginalLabel(), accessor.getTargetFromConfiguredTarget(ct)));
     for (ConfiguredTarget configuredTarget : partialResult) {
-      Target target = partialResultMap.get(configuredTarget.getLabel());
+      Target target = partialResultMap.get(configuredTarget.getOriginalLabel());
       BuildConfiguration config =
           skyframeExecutor.getConfiguration(
               eventHandler, configuredTarget.getConfigurationKey());
       addResult(
           getRuleClassTransition(configuredTarget, target)
-              + configuredTarget.getLabel()
+              + configuredTarget.getOriginalLabel()
               + " ("
               + (config != null && config.isHostConfiguration() ? "HOST" : config)
               + ")");

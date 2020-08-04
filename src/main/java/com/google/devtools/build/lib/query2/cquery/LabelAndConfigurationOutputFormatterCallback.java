@@ -55,7 +55,7 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       }
       output =
           output
-              .append(configuredTarget.getLabel())
+              .append(configuredTarget.getOriginalLabel())
               .append(" (")
               .append(config != null && config.isHostConfiguration() ? "HOST" : config)
               .append(")");

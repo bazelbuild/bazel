@@ -778,4 +778,34 @@ EOF
   assert_contains "//$pkg:my_test" output
 }
 
+function test_label_output_shows_alias_labels() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+filegroup(name = "fg", srcs = [":the_alias"])
+alias(name = "the_alias", actual = "some_file")
+EOF
+
+  bazel cquery "deps(//$pkg:fg)" > output 2>"$TEST_log" || fail "Expected
+  success"
+  assert_contains "//$pkg:the_alias" output
+  assert_contains "//$pkg:some_file (null)" output
+  assert_equals "$(grep some_file output | wc -l | egrep -o '[0-9]+')" "1"
+}
+
+function test_transitions_output_shows_alias_labels() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+filegroup(name = "fg", srcs = [":the_alias"])
+alias(name = "the_alias", actual = "some_file")
+EOF
+
+  bazel cquery "deps(//$pkg:fg)" --transitions=lite > output 2>"$TEST_log" || fail "Expected
+  success"
+  assert_contains "//$pkg:the_alias" output
+  assert_contains "//$pkg:some_file (null)" output
+  assert_equals "$(grep some_file output | wc -l | egrep -o '[0-9]+')" "1"
+}
+
 run_suite "${PRODUCT_NAME} configured query tests"
