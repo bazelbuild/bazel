@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -407,12 +408,11 @@ public final class Starlark {
   /**
    * Calls the function-like value {@code fn} in the specified thread, passing it the given
    * positional and named arguments, as if by the Starlark expression {@code fn(*args, **kwargs)}.
+   *
+   * <p>See also {@link #fastcall}.
    */
   public static Object call(
-      StarlarkThread thread,
-      Object fn,
-      List<Object> args,
-      Map<String, Object> kwargs)
+      StarlarkThread thread, Object fn, List<Object> args, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
     Object[] named = new Object[2 * kwargs.size()];
     int i = 0;
@@ -428,6 +428,12 @@ public final class Starlark {
    * positional and named arguments in the "fastcall" array representation.
    *
    * <p>The caller must not subsequently modify or even inspect the two arrays.
+   *
+   * <p>If the call throws a StackOverflowError or any instance of RuntimeException (other than
+   * UncheckedEvalException), regardless of whether it originates in a user-defined built-in
+   * function or a bug in the interpreter itself, the exception is wrapped by an
+   * UncheckedEvalException whose message includes the Starlark stack. The original exception may be
+   * retrieved using {@code getCause}.
    */
   public static Object fastcall(
       StarlarkThread thread, Object fn, Object[] positional, Object[] named)
@@ -448,8 +454,37 @@ public final class Starlark {
     thread.push(callable);
     try {
       return callable.fastcall(thread, positional, named);
+    } catch (UncheckedEvalException ex) {
+      throw ex; // already wrapped
+    } catch (RuntimeException | StackOverflowError ex) {
+      throw new UncheckedEvalException(ex, thread.getCallStack());
     } finally {
       thread.pop();
+    }
+  }
+
+  /**
+   * An UncheckedEvalException decorates an unchecked exception with its Starlark stack, to help
+   * maintainers locate problematic source expressions. The original exception can be retrieved
+   * using {@code getCause}.
+   */
+  public static final class UncheckedEvalException extends RuntimeException {
+    private final ImmutableList<StarlarkThread.CallStackEntry> stack;
+
+    private UncheckedEvalException(
+        Throwable cause, ImmutableList<StarlarkThread.CallStackEntry> stack) {
+      super(cause);
+      this.stack = stack;
+    }
+
+    /** Returns the stack of Starlark calls active at the moment of the error. */
+    public ImmutableList<StarlarkThread.CallStackEntry> getCallStack() {
+      return stack;
+    }
+
+    @Override
+    public String getMessage() {
+      return String.format("%s (Starlark stack: %s)", super.getMessage(), stack);
     }
   }
 

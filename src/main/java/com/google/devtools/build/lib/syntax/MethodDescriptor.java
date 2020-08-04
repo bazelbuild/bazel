@@ -175,7 +175,7 @@ final class MethodDescriptor {
         return Starlark.NONE;
       } else {
         throw new IllegalStateException(
-            "method invocation returned None: " + getName() + Tuple.copyOf(Arrays.asList(args)));
+            "method invocation returned null: " + getName() + Tuple.copyOf(Arrays.asList(args)));
       }
     }
 
