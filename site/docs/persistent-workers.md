@@ -124,8 +124,14 @@ The
 flag is mainly useful for debugging and profiling. This flag forces all workers
 to quit once a build is done. You can also pass
 [`--worker_verbose`](command-line-reference.html#flag--worker_verbose) to get
-more output about what the workers are doing. Workers store their logs in the
-`<outputBase>/bazel-workers` directory.
+more output about what the workers are doing.
+
+Workers store their logs in the `<outputBase>/bazel-workers` directory, for
+example
+`/tmp/_bazel_larsrc/191013354bebe14fdddae77f2679c3ef/bazel-workers/worker-1-Javac.log`.
+The file name includes the worker id and the mnemonic. Since there can be more
+than one `WorkerKey` per mnemonic, you may see more than `worker_max_instances`
+log files for a given mnemonic.
 
 For Android builds, see details at the
 [Android Build Performance page](android-build-performance.html).
