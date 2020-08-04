@@ -17,7 +17,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Timing, size, and memory statistics for a Spawn execution. */
 public final class SpawnMetrics {
@@ -60,9 +62,9 @@ public final class SpawnMetrics {
   private final Duration uploadTime;
   private final Duration setupTime;
   private final Duration executionWallTime;
-  private final Duration retryTime;
   private final Duration processOutputsTime;
   private final Duration networkTime;
+  private final Map<Integer, Duration> retryTime;
   private final long inputBytes;
   private final long inputFiles;
   private final long memoryEstimateBytes;
@@ -150,8 +152,14 @@ public final class SpawnMetrics {
 
   /** Time spent in previous failed attempts. Does not include queue time. */
   public Duration retryTime() {
+    return retryTime.values().stream().reduce(Duration.ZERO, Duration::plus);
+  }
+
+  /** Time spent in previous failed attempts, keyed by error code. Does not include queue time. */
+  public Map<Integer, Duration> retryTimeByError() {
     return retryTime;
   }
+
 
   /** Time spend by the execution framework on processing outputs. */
   public Duration processOutputsTime() {
@@ -168,7 +176,7 @@ public final class SpawnMetrics {
         .minus(setupTime)
         .minus(executionWallTime)
         .minus(fetchTime)
-        .minus(retryTime)
+        .minus(retryTime())
         .minus(processOutputsTime);
   }
 
@@ -206,7 +214,7 @@ public final class SpawnMetrics {
     addStatToString(stats, "setup", true, setupTime, total);
     addStatToString(stats, "process", true, executionWallTime, total);
     addStatToString(stats, "fetch", !summary, fetchTime, total);
-    addStatToString(stats, "retry", !summary, retryTime, total);
+    addStatToString(stats, "retry", !summary, retryTime(), total);
     addStatToString(stats, "processOutputs", !summary, processOutputsTime, total);
     addStatToString(stats, "other", !summary, otherTime(), total);
     if (!summary) {
@@ -260,8 +268,8 @@ public final class SpawnMetrics {
     private Duration setupTime = Duration.ZERO;
     private Duration uploadTime = Duration.ZERO;
     private Duration executionWallTime = Duration.ZERO;
-    private Duration retryTime = Duration.ZERO;
     private Duration processOutputsTime = Duration.ZERO;
+    private Map<Integer, Duration> retryTime = new HashMap<>();
     private long inputBytes = 0;
     private long inputFiles = 0;
     private long memoryEstimateBytes = 0;
@@ -341,8 +349,14 @@ public final class SpawnMetrics {
       return this;
     }
 
-    public Builder setRetryTime(Duration retryTime) {
-      this.retryTime = retryTime;
+    public Builder addRetryTime(int errorCode, Duration retryTime) {
+      Duration d = this.retryTime.getOrDefault(errorCode, Duration.ZERO);
+      this.retryTime.put(errorCode, d.plus(retryTime));
+      return this;
+    }
+
+    public Builder setRetryTime(Map<Integer, Duration> retryTime) {
+      this.retryTime = new HashMap<>(retryTime);
       return this;
     }
 
@@ -375,7 +389,9 @@ public final class SpawnMetrics {
       uploadTime = uploadTime.plus(metric.uploadTime());
       setupTime = setupTime.plus(metric.setupTime());
       executionWallTime = executionWallTime.plus(metric.executionWallTime());
-      retryTime = retryTime.plus(metric.retryTime());
+      for (Map.Entry<Integer, Duration> entry : metric.retryTime.entrySet()) {
+        addRetryTime(entry.getKey().intValue(), entry.getValue());
+      }
       processOutputsTime = processOutputsTime.plus(metric.processOutputsTime());
       return this;
     }
