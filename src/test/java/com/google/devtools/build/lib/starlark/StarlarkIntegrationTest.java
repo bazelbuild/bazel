@@ -341,7 +341,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
             OutputGroupInfo.HIDDEN_TOP_LEVEL,
             OutputGroupInfo.COMPILATION_PREREQUISITES,
             OutputGroupInfo.FILES_TO_COMPILE,
-            OutputGroupInfo.TEMP_FILES);
+            OutputGroupInfo.TEMP_FILES,
+            OutputGroupInfo.VALIDATION);
   }
 
   @Test
