@@ -106,9 +106,9 @@ class LcovPrinter {
 
   // FNDA:<execution count>,<function name>
   private void printFNDALines(SourceFileCoverage sourceFile) throws IOException {
-    for (Entry<String, Integer> entry : sourceFile.getAllExecutionCount()) {
+    for (Entry<String, Long> entry : sourceFile.getAllExecutionCount()) {
       bufferedWriter.write(Constants.FNDA_MARKER);
-      bufferedWriter.write(Integer.toString(entry.getValue())); // execution count
+      bufferedWriter.write(Long.toString(entry.getValue())); // execution count
       bufferedWriter.write(Constants.DELIMITER);
       bufferedWriter.write(entry.getKey()); // function name
       bufferedWriter.newLine();
@@ -144,7 +144,7 @@ class LcovPrinter {
       bufferedWriter.write(branch.branchNumber());
       bufferedWriter.write(Constants.DELIMITER);
       if (branch.wasExecuted()) {
-        bufferedWriter.write(Integer.toString(branch.nrOfExecutions()));
+        bufferedWriter.write(Long.toString(branch.nrOfExecutions()));
       } else {
         bufferedWriter.write(Constants.TAKEN);
       }
@@ -195,7 +195,7 @@ class LcovPrinter {
       bufferedWriter.write(Constants.DA_MARKER);
       bufferedWriter.write(Integer.toString(lineExecution.lineNumber()));
       bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(Integer.toString(lineExecution.executionCount()));
+      bufferedWriter.write(Long.toString(lineExecution.executionCount()));
       if (lineExecution.checksum() != null) {
         bufferedWriter.write(Constants.DELIMITER);
         bufferedWriter.write(lineExecution.checksum());

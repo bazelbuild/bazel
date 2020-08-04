@@ -142,7 +142,7 @@ public class GcovParser {
     try {
       // Ignore end_line_number since it's redundant information.
       int startLine = Integer.parseInt(items[0]);
-      int execCount = items.length == 4 ? Integer.parseInt(items[2]) : Integer.parseInt(items[1]);
+      long execCount = items.length == 4 ? Long.parseLong(items[2]) : Long.parseLong(items[1]);
       String functionName = items.length == 4 ? items[3] : items[2];
       currentSourceFileCoverage.addLineNumber(functionName, startLine);
       currentSourceFileCoverage.addFunctionExecution(functionName, execCount);
@@ -167,7 +167,7 @@ public class GcovParser {
     try {
       // Ignore has_unexecuted_block since it's not used.
       int lineNr = Integer.parseInt(items[0]);
-      int execCount = Integer.parseInt(items[1]);
+      long execCount = Long.parseLong(items[1]);
       currentSourceFileCoverage.addLine(lineNr, LineCoverage.create(lineNr, execCount, null));
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);

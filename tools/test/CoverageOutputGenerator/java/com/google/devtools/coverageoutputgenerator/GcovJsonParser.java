@@ -104,7 +104,7 @@ public class GcovJsonParser {
     int start_line;
     String name;
     int blocks_executed;
-    int execution_count;
+    long execution_count;
     String demangled_name;
     int start_column;
     int end_line;
@@ -112,7 +112,7 @@ public class GcovJsonParser {
 
   static class GcovJsonLine {
     GcovJsonBranch[] branches;
-    int count;
+    long count;
     int line_number;
     boolean unexecuted_block;
     String function_name;
@@ -120,7 +120,7 @@ public class GcovJsonParser {
 
   static class GcovJsonBranch {
     boolean fallthrough;
-    int count;
+    long count;
 
     @SerializedName("throw")
     boolean _throw;
