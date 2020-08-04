@@ -155,9 +155,8 @@ public final class ProguardHelper {
    * on this method returning an empty list if the given rule doesn't declare specs in
    * --java_optimization_mode=legacy.
    *
-   * <p>If Proguard shouldn't be applied, or the legacy link mode is used and there are no
-   * proguard_specs on this rule, an empty list will be returned, regardless of any given specs or
-   * specs from dependencies. {@link
+   * <p>If there are no proguard_specs on this rule, an empty list will be returned, regardless of
+   * any given specs or specs from dependencies. {@link
    * com.google.devtools.build.lib.rules.android.AndroidBinary#createAndroidBinary} relies on that
    * behavior.
    */
@@ -183,9 +182,8 @@ public final class ProguardHelper {
    * <p>Unlike {@link #collectTransitiveProguardSpecs(RuleContext, Iterable)}, this method requires
    * values to be passed in explicitly, and does not extract them from rule attributes.
    *
-   * <p>If Proguard shouldn't be applied, or the legacy link mode is used and there are no
-   * proguard_specs on this rule, an empty list will be returned, regardless of any given specs or
-   * specs from dependencies. {@link
+   * <p>If there are no proguard_specs on this rule, an empty list will be returned, regardless of
+   * any given specs or specs from dependencies. {@link
    * com.google.devtools.build.lib.rules.android.AndroidBinary#createAndroidBinary} relies on that
    * behavior.
    */
@@ -204,9 +202,8 @@ public final class ProguardHelper {
    * <p>Unlike {@link #collectTransitiveProguardSpecs(RuleContext, Iterable)}, this method requires
    * values to be passed in explicitly, and does not extract them from rule attributes.
    *
-   * <p>If Proguard shouldn't be applied, or the legacy link mode is used and there are no
-   * proguard_specs on this rule, an empty list will be returned, regardless of any given specs or
-   * specs from dependencies. {@link
+   * <p>If there are no proguard_specs on this rule, an empty list will be returned, regardless of
+   * any given specs or specs from dependencies. {@link
    * com.google.devtools.build.lib.rules.android.AndroidBinary#createAndroidBinary} relies on that
    * behavior.
    */
