@@ -764,21 +764,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public TriState useGraphlessQuery;
 
   @Option(
-      name = "experimental_inmemory_unused_inputs_list",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.AFFECTS_OUTPUTS
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If enabled, the optional 'unused_inputs_list' file will be passed through in memory "
-              + "directly from the remote build nodes instead of being written to disk.")
-  public boolean inmemoryUnusedInputsList;
-
-  @Option(
       name = "include_config_fragments_provider",
       defaultValue = "off",
       converter = IncludeConfigFragmentsEnumConverter.class,
@@ -881,7 +866,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.enforceConstraints = enforceConstraints;
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.cpu = hostCpu;
-    host.inmemoryUnusedInputsList = inmemoryUnusedInputsList;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.enableAggregatingMiddleman = enableAggregatingMiddleman;
 

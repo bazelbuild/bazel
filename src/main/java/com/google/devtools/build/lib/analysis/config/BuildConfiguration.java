@@ -708,10 +708,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.actionListeners;
   }
 
-  public boolean inmemoryUnusedInputsList() {
-    return options.inmemoryUnusedInputsList;
-  }
-
   /**
    * Returns whether FileWriteAction may transparently compress its contents in the analysis phase
    * to save memory. Semantics are not affected.
