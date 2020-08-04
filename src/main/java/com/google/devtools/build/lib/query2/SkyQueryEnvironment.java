@@ -967,7 +967,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       Package pkg = getPackage(label.getPackageIdentifier());
       return pkg.getTarget(label.getName());
     } catch (NoSuchThingException e) {
-      throw new TargetNotFoundException(e);
+      throw new TargetNotFoundException(e, e.getDetailedExitCode());
     }
   }
 

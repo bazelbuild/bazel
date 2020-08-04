@@ -188,7 +188,7 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
           .getPackage()
           .getTarget(label.getName());
     } catch (NoSuchTargetException e) {
-      throw new TargetNotFoundException(e);
+      throw new TargetNotFoundException(e, e.getDetailedExitCode());
     }
   }
 

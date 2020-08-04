@@ -163,7 +163,7 @@ public class GraphlessBlazeQueryEnvironment extends AbstractBlazeQueryEnvironmen
     try {
       return getTargetOrThrow(label);
     } catch (NoSuchThingException e) {
-      throw new TargetNotFoundException(e);
+      throw new TargetNotFoundException(e, e.getDetailedExitCode());
     }
   }
 

@@ -17,7 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -163,25 +163,15 @@ public interface QueryEnvironment<T> {
    * whatever exception is internally thrown.
    */
   final class TargetNotFoundException extends Exception {
-    @Nullable private final FailureDetail failureDetail;
+    private final DetailedExitCode detailedExitCode;
 
-    public TargetNotFoundException(String msg) {
-      super(msg);
-      this.failureDetail = null;
-    }
-
-    public TargetNotFoundException(Throwable cause) {
-      this(cause, null);
-    }
-
-    public TargetNotFoundException(Throwable cause, FailureDetail failureDetail) {
+    public TargetNotFoundException(Throwable cause, DetailedExitCode detailedExitCode) {
       super(cause.getMessage(), cause);
-      this.failureDetail = failureDetail;
+      this.detailedExitCode = Preconditions.checkNotNull(detailedExitCode);
     }
 
-    @Nullable
-    public FailureDetail getFailureDetail() {
-      return failureDetail;
+    public DetailedExitCode getDetailedExitCode() {
+      return detailedExitCode;
     }
   }
 
