@@ -1085,7 +1085,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> headerTokens =
         CcCompilationHelper.collectHeaderTokens(
-            ruleContext, cppConfiguration, ccCompilationOutputs);
+            ruleContext, cppConfiguration, ccCompilationOutputs, /* addSelfTokens= */ true);
 
     Map<String, NestedSet<Artifact>> outputGroups =
         CcCompilationHelper.buildOutputGroupsForEmittingCompileProviders(
@@ -1094,7 +1094,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             cppConfiguration,
             toolchain,
             featureConfiguration,
-            ruleContext);
+            ruleContext,
+            /* generateHeaderTokensGroup= */ false,
+            /* addSelfHeaderTokens= */ false);
 
     builder
         .setFilesToBuild(filesToBuild)
