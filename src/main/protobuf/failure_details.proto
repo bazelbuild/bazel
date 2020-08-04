@@ -617,6 +617,7 @@ message Query {
     INVALID_STARTING_CHARACTER_ERROR = 33 [(metadata) = { exit_code: 2 }];
     PREMATURE_END_OF_INPUT_ERROR = 34 [(metadata) = { exit_code: 2 }];
     SYNTAX_ERROR = 35 [(metadata) = { exit_code: 2 }];
+    OUTPUT_FORMATTER_IO_EXCEPTION = 36 [(metadata) = { exit_code: 36 }];
 
     reserved 7 to 12; // For internal use
   }
