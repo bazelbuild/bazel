@@ -14,12 +14,47 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# --- begin runfiles.bash initialization ---
+# Copy-pasted from Bazel's Bash runfiles library (tools/bash/runfiles/runfiles.bash).
 set -euo pipefail
-# Load the test setup defined in the parent directory
-CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${CURRENT_DIR}/../integration_test_setup.sh" \
+if [[ ! -d "${RUNFILES_DIR:-/dev/null}" && ! -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  if [[ -f "$0.runfiles_manifest" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles_manifest"
+  elif [[ -f "$0.runfiles/MANIFEST" ]]; then
+    export RUNFILES_MANIFEST_FILE="$0.runfiles/MANIFEST"
+  elif [[ -f "$0.runfiles/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+    export RUNFILES_DIR="$0.runfiles"
+  fi
+fi
+if [[ -f "${RUNFILES_DIR:-/dev/null}/bazel_tools/tools/bash/runfiles/runfiles.bash" ]]; then
+  source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
+elif [[ -f "${RUNFILES_MANIFEST_FILE:-/dev/null}" ]]; then
+  source "$(grep -m1 "^bazel_tools/tools/bash/runfiles/runfiles.bash " \
+            "$RUNFILES_MANIFEST_FILE" | cut -d ' ' -f 2-)"
+else
+  echo >&2 "ERROR: cannot find @bazel_tools//tools/bash/runfiles:runfiles.bash"
+  exit 1
+fi
+# --- end runfiles.bash initialization ---
+
+source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
+case "$(uname -s | tr [:upper:] [:lower:])" in
+msys*|mingw*|cygwin*)
+  declare -r is_windows=true
+  ;;
+*)
+  declare -r is_windows=false
+  ;;
+esac
+
+if "$is_windows"; then
+  export MSYS_NO_PATHCONV=1
+  export MSYS2_ARG_CONV_EXCL="*"
+fi
+
+add_to_bazelrc "build --package_path=%workspace%"
 
 #### HELPER FUNCTIONS ##################################################
 
@@ -109,16 +144,22 @@ output=""
 unused=""
 for input in "$@"; do
   if grep -q "invalidUnused" "${input}"; then
-    unused+="${input}_invalid\n"
+    if [[ ! -z "${unused}" ]]; then
+      unused="${unused}\n"
+    fi
+    unused="${unused}${input}_invalid"
   elif grep -q "unused" "${input}"; then
-    unused+="${input}\n"
+    if [[ ! -z "${unused}" ]]; then
+      unused="${unused}\n"
+    fi
+    unused="${unused}${input}"
   else
-    output+="$(cat "${input}") "
+    output="${output}$(cat "${input}") "
   fi
 done
 
-echo -n -e "${output}" > "${output_file}"
-echo -n -e "${unused}" > "${unused_file}"
+echo "${output}" > "${output_file}"
+echo "${unused}" > "${unused_file}"
 EOF
 
   chmod +x pkg/cat_unused.sh
