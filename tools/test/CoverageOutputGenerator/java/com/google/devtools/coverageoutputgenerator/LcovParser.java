@@ -184,7 +184,7 @@ class LcovParser {
       return false;
     }
     try {
-      int executionCount = Integer.parseInt(funcData[0]);
+      long executionCount = Long.parseLong(funcData[0]);
       String functionName = funcData[1];
       currentSourceFileCoverage.addFunctionExecution(functionName, executionCount);
     } catch (NumberFormatException e) {
@@ -246,7 +246,7 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int taken = Integer.parseInt(lineData[1]);
+      long taken = Long.parseLong(lineData[1]);
 
       BranchCoverage branchCoverage = BranchCoverage.create(lineNumber, taken);
 
@@ -278,11 +278,9 @@ class LcovParser {
       String branchNumber = lineData[2];
       String taken = lineData[3];
 
-      boolean wasExecuted = false;
-      int executionCount = 0;
+      long executionCount = 0;
       if (taken.equals(TAKEN)) {
-        executionCount = Integer.parseInt(taken);
-        wasExecuted = true;
+        executionCount = Long.parseLong(taken);
       }
       BranchCoverage branchCoverage =
           BranchCoverage.createWithBlockAndBranch(
@@ -348,7 +346,7 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int executionCount = Integer.parseInt(lineData[1]);
+      long executionCount = Long.parseLong(lineData[1]);
       String checkSum = null;
       if (lineData.length == 3) {
         checkSum = lineData[2];

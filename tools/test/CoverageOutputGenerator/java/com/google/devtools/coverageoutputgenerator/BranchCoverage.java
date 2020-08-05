@@ -20,13 +20,13 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 abstract class BranchCoverage {
 
-  static BranchCoverage create(int lineNumber, int nrOfExecutions) {
+  static BranchCoverage create(int lineNumber, long nrOfExecutions) {
     return new AutoValue_BranchCoverage(
         lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", nrOfExecutions);
   }
 
   static BranchCoverage createWithBlockAndBranch(
-      int lineNumber, String blockNumber, String branchNumber, int nrOfExecutions) {
+      int lineNumber, String blockNumber, String branchNumber, long nrOfExecutions) {
     return new AutoValue_BranchCoverage(lineNumber, blockNumber, branchNumber, nrOfExecutions);
   }
 
@@ -54,7 +54,7 @@ abstract class BranchCoverage {
 
   abstract String branchNumber(); // internal gcc internal ID for the branch
 
-  abstract int nrOfExecutions();
+  abstract long nrOfExecutions();
 
   boolean wasExecuted() {
     return nrOfExecutions() > 0;

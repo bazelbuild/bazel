@@ -30,7 +30,7 @@ class SourceFileCoverage {
 
   private String sourceFileName;
   private final TreeMap<String, Integer> lineNumbers; // function name to line numbers
-  private final TreeMap<String, Integer> functionsExecution; // function name to execution count
+  private final TreeMap<String, Long> functionsExecution; // function name to execution count
   private final TreeMap<Integer, BranchCoverage> branches; // line number to branch
   private final TreeMap<Integer, LineCoverage> lines; // line number to line execution
 
@@ -76,13 +76,12 @@ class SourceFileCoverage {
    * Returns the merged execution count found in the two given {@code SourceFileCoverage}s.
    */
   @VisibleForTesting
-  static TreeMap<String, Integer> mergeFunctionsExecution(
+  static TreeMap<String, Long> mergeFunctionsExecution(
       SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(s1.functionsExecution, s2.functionsExecution)
         .map(Map::entrySet)
         .flatMap(Collection::stream)
-        .collect(
-            Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Integer::sum, TreeMap::new));
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum, TreeMap::new));
   }
 
   /*
@@ -190,11 +189,11 @@ class SourceFileCoverage {
   }
 
   @VisibleForTesting
-  TreeMap<String, Integer> getFunctionsExecution() {
+  TreeMap<String, Long> getFunctionsExecution() {
     return functionsExecution;
   }
 
-  Set<Entry<String, Integer>> getAllExecutionCount() {
+  Set<Entry<String, Long>> getAllExecutionCount() {
     return functionsExecution.entrySet();
   }
 
@@ -215,11 +214,11 @@ class SourceFileCoverage {
     this.lineNumbers.putAll(lineNumber);
   }
 
-  void addFunctionExecution(String functionName, Integer executionCount) {
+  void addFunctionExecution(String functionName, Long executionCount) {
     this.functionsExecution.put(functionName, executionCount);
   }
 
-  void addAllFunctionsExecution(TreeMap<String, Integer> functionsExecution) {
+  void addAllFunctionsExecution(TreeMap<String, Long> functionsExecution) {
     this.functionsExecution.putAll(functionsExecution);
   }
 
