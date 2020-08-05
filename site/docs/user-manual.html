@@ -1194,13 +1194,37 @@ memory-saving mode</a>.
   setting is high enough.
 </p>
 
-<h4 id='flag--build_tag_filters'><code class='flag'>--build_tag_filters=<var>tag[,tag]*</var></code></h4>
+<h4 id='flag--build_tag_filters'><code class='flag'>--build_tag_filters <var>tag[,tag]*</var> | <var>boolean expression</var></code></h4>
 <p>
-  If specified, Bazel will build only targets that have at least one required tag
-  (if any of them are specified) and does not have any excluded tags. Build tag
-  filter is specified as comma delimited list of tag keywords, optionally
-  preceded with '-' sign used to denote excluded tags. Required tags may also
-  have a preceding '+' sign.
+  If specified, Bazel will build only targets with matching tags. The
+  value is either a comma-separated list, or a boolean expression.
+</p>
+<p>
+  A comma-separated list matches if the target has any of the tags,
+  and none of the excluded tags. Excluded tags are preceded with '-'
+  signs. Required tags may also have a preceding '+' sign.
+</p>
+<p>
+  For example,
+</p>
+<pre>
+  % bazel build --build_tag_filters=product,stub,-prototype //myproject:all
+</pre>
+  will build targets that are tagged with either <code>product</code> or <code>stub</code> but are
+  <b>not</b> tagged with the <code>prototype</code> tag.
+</p>
+<p>
+  Boolean expressions have the form
+  <code>expr = IDENT | expr 'or' expr | expr 'and' expr | 'not' expr | '(' expr ')'.</code>
+  <code>IDENT</code> is defined as a Starlark identifier, with the same reserved words.
+<p>
+<pre>
+  % bazel build --build_tag_filters='(product or stub) and not prototype' //myproject:all
+</pre>
+  is equivalent to
+<pre>
+  % bazel build --build_tag_filters=product,stub,-prototype //myproject:all
+</pre>
 </p>
 <p>
   When running tests, Bazel ignores <code class='flag'>--build_tag_filters</code> for test targets,
@@ -1244,26 +1268,41 @@ memory-saving mode</a>.
 </p>
 
 
-<h4 id='flag--test_tag_filters'><code class='flag'>--test_tag_filters=<var>tag[,tag]*</var></code></h4>
+<h4 id='flag--test_tag_filters'><code class='flag'>--test_tag_filters <var>tag[,tag]</var> | <var>boolean expression</var></code></h4>
 <p>
   If specified, Bazel will test (or build if <code class='flag'>--build_tests_only</code>
-  is also specified) only test targets that have at least one required tag
-  (if any of them are specified) and does not have any excluded tags. Test tag
-  filter is specified as comma delimited list of tag keywords, optionally
-  preceded with '-' sign used to denote excluded tags. Required tags may also
-  have a preceding '+' sign.
+  is also specified) only targets with matching tags. The value is either a comma-separated
+  list, or a boolean expression.
+</p>
+<p>
+  A comma-separated list matches if the target has any of the tags,
+  and none of the excluded tags. Excluded tags are preceded with '-'
+  signs. Required tags may also have a preceding '+' sign.
 </p>
 <p>
   For example,
+</p>
 <pre>
-  % bazel test --test_tag_filters=performance,stress,-flaky //myproject:all
+  % bazel test --test_tag_filters=release,smoke,-flaky //myproject:all
 </pre>
-<p>
-  will test targets that are tagged with either <code>performance</code> or
-  <code>stress</code> tag but are <b>not</b> tagged with the <code>flaky</code>
-  tag.
+  will test targets that are tagged with either <code>release</code> or <code>smoke</code> but are
+  <b>not</b> tagged with the <code>flaky</code> tag.
 </p>
 <p>
+  Boolean expressions have the form
+  <code>expr = IDENT | expr 'or' expr | expr 'and' expr | 'not' expr | '(' expr ')'.</code>
+  <code>IDENT</code> is defined as a Starlark identifier, with the same reserved words.
+<p>
+<pre>
+  % bazel test --test_tag_filters='(release or smoke) and not flaky' //myproject:all
+</pre>
+  is equivalent to
+<pre>
+  % bazel test --test_tag_filters=release,smoke,-flaky //myproject:all
+</pre>
+</p>
+<p>
+  By default, test tag filtering is not applied.
   By default, test tag filtering is not applied. Note that you can also filter
   on test's <code>size</code> and <code>local</code> tags in
   this manner.

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -25,21 +26,25 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
+import com.google.devtools.build.lib.pkgcache.TagFilter;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.skyframe.TestsForTargetPatternValue;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.Collection;
-import java.util.EnumSet;
-import java.util.function.Predicate;
 import net.starlark.java.syntax.Location;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
+
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.function.Predicate;
+
+import static com.google.common.truth.Truth.assertThat;
 
 @RunWith(JUnit4.class)
 public class TestTargetUtilsTest extends PackageLoadingTestCase {
@@ -102,7 +107,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     options.testLangFilterList = ImmutableList.of("nonexistent", "existent", "-noexist", "-exist");
     options.testSizeFilterSet = ImmutableSet.of();
     options.testTimeoutFilterSet = ImmutableSet.of();
-    options.testTagFilterList = ImmutableList.of();
+    options.testTagFilter = new TagFilter("");
     TestFilter filter =
         TestFilter.forOptions(
             options, eventHandler, ImmutableSet.of("existent_test", "exist_test"));

@@ -870,4 +870,88 @@ EOF
   expect_log "<testcase name=\"x\""
 }
 
+function test_test_tag_filters_with_legacy_syntax() {
+  mkdir -p dir
+
+  touch dir/test.sh
+  chmod u+x dir/test.sh
+  cat <<'EOF' > dir/BUILD
+sh_test(
+    name = 'test1',
+    srcs = ['test.sh'],
+    tags = ['tag1']
+)
+sh_test(
+    name = 'test2',
+    srcs = ['test.sh'],
+    tags = ['tag2']
+)
+sh_test(
+    name = 'test3',
+    srcs = ['test.sh'],
+    tags = ['tag3']
+)
+EOF
+  bazel test //dir/... --test_tag_filters="tag1, tag2" >& $TEST_log
+  expect_log ^//dir:test1
+  expect_log ^//dir:test2
+  expect_not_log ^//dir:test3
+}
+
+function test_test_tag_filters_with_boolean_formula() {
+  mkdir -p dir
+
+  touch dir/test.sh
+  chmod u+x dir/test.sh
+  cat <<'EOF' > dir/BUILD
+sh_test(
+    name = 'test1',
+    srcs = ['test.sh'],
+    tags = ['tag1']
+)
+sh_test(
+    name = 'test2',
+    srcs = ['test.sh'],
+    tags = ['tag2']
+)
+sh_test(
+    name = 'test3',
+    srcs = ['test.sh'],
+    tags = ['tag3']
+)
+EOF
+  bazel test //dir/... --test_tag_filters="tag1 or tag2" >& $TEST_log
+  expect_log ^//dir:test1
+  expect_log ^//dir:test2
+  expect_not_log ^//dir:test3
+}
+
+function test_test_tag_filters_with_legacy_syntax_negative() {
+  mkdir -p dir
+
+  touch dir/test.sh
+  chmod u+x dir/test.sh
+  cat <<'EOF' > dir/BUILD
+sh_test(
+    name = 'test1',
+    srcs = ['test.sh'],
+    tags = ['tag1']
+)
+sh_test(
+    name = 'test2',
+    srcs = ['test.sh'],
+    tags = ['tag1','tag2']
+)
+sh_test(
+    name = 'test3',
+    srcs = ['test.sh'],
+    tags = ['tag3']
+)
+EOF
+  bazel test //dir/... --test_tag_filters="tag1,-tag2" >& $TEST_log
+  expect_log ^//dir:test1
+  expect_not_log ^//dir:test2
+  expect_not_log ^//dir:test3
+}
+
 run_suite "bazel test tests"
