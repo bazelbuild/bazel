@@ -20,11 +20,13 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.Objects;
 
+// TODO(adonovan): Ensure the result is always resolved and update the docstring.
 /**
  * A value that represents an AST file lookup result. There are two subclasses: one for the case
  * where the file is found, and another for the case where the file is missing (but there are no
@@ -130,28 +132,51 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
     return new ASTLookupWithFile(ast, digest);
   }
 
-  public static Key key(Label label) {
-    return ASTFileLookupValue.Key.create(label);
-  }
+  private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class Key extends AbstractSkyKey<Label> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+  /** SkyKey for retrieving a .bzl AST. */
+  static class Key implements SkyKey {
 
-    private Key(Label arg) {
-      super(arg);
-    }
+    /** The label of the .bzl to be retrieved. */
+    final Label label;
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(Label arg) {
-      return interner.intern(new Key(arg));
+    /**
+     * True if this is the special prelude file, whose declarations are implicitly loaded by all
+     * BUILD files.
+     */
+    final boolean isBuildPrelude;
+
+    private Key(Label label, boolean isBuildPrelude) {
+      this.label = Preconditions.checkNotNull(label);
+      this.isBuildPrelude = isBuildPrelude;
     }
 
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.AST_FILE_LOOKUP;
     }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(Key.class, label, isBuildPrelude);
+    }
+
+    @Override
+    public boolean equals(Object that) {
+      return this == that
+          || (that instanceof Key
+              && this.label.equals(((Key) that).label)
+              && this.isBuildPrelude == ((Key) that).isBuildPrelude);
+    }
+  }
+
+  /** Constructs a key for loading a regular (non-prelude) .bzl. */
+  public static Key key(Label label) {
+    return keyInterner.intern(new Key(label, /*isBuildPrelude=*/ false));
+  }
+
+  /** Constructs a key for loading the prelude .bzl. */
+  static Key keyForPrelude(Label label) {
+    return keyInterner.intern(new Key(label, /*isBuildPrelude=*/ true));
   }
 }

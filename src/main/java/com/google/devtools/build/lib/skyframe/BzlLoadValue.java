@@ -28,9 +28,10 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * A value that represents a Starlark load result. The lookup value corresponds to exactly one
- * Starlark file, identified by an absolute {@link Label} {@link SkyKey} argument. The Label should
- * not reference the special {@code external} package.
+ * A value that represents the .bzl module loaded by a Starlark {@code load()} statement.
+ *
+ * <p>The key consists of an absolute {@link Label} and the context in which the load occurs. The
+ * Label should not reference the special {@code external} package.
  */
 public class BzlLoadValue implements SkyValue {
 
@@ -77,6 +78,11 @@ public class BzlLoadValue implements SkyValue {
      */
     abstract Key getKeyForLoad(Label loadLabel);
 
+    /**
+     * Constructs an ASTFileLookupValue key suitable for retrieving the Starlark code for this .bzl.
+     */
+    abstract ASTFileLookupValue.Key getASTKey();
+
     @Override
     public SkyFunctionName functionName() {
       return SkyFunctions.BZL_LOAD;
@@ -90,8 +96,15 @@ public class BzlLoadValue implements SkyValue {
 
     private final Label label;
 
-    private KeyForBuild(Label label) {
+    /**
+     * True if this is the special prelude file, whose declarations are implicitly loaded by all
+     * BUILD files.
+     */
+    private final boolean isBuildPrelude;
+
+    private KeyForBuild(Label label, boolean isBuildPrelude) {
       this.label = Preconditions.checkNotNull(label);
+      this.isBuildPrelude = isBuildPrelude;
     }
 
     @Override
@@ -101,7 +114,21 @@ public class BzlLoadValue implements SkyValue {
 
     @Override
     Key getKeyForLoad(Label loadLabel) {
+      // Note that the returned key always has !isBuildPrelude. I.e., if the prelude file loads
+      // another .bzl, the loaded .bzl is processed as normal with no special prelude magic. This is
+      // because 1) only the prelude file, not its dependencies, should automatically re-export its
+      // loaded symbols; and 2) we don't want prelude-loaded modules to end up cloned if they're
+      // also loaded through normal means.
       return keyForBuild(loadLabel);
+    }
+
+    @Override
+    ASTFileLookupValue.Key getASTKey() {
+      if (isBuildPrelude) {
+        return ASTFileLookupValue.keyForPrelude(label);
+      } else {
+        return ASTFileLookupValue.key(label);
+      }
     }
 
     @Override
@@ -117,12 +144,13 @@ public class BzlLoadValue implements SkyValue {
       if (!(obj instanceof KeyForBuild)) {
         return false;
       }
-      return this.label.equals(((KeyForBuild) obj).label);
+      KeyForBuild other = (KeyForBuild) obj;
+      return this.label.equals(other.label) && this.isBuildPrelude == other.isBuildPrelude;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(KeyForBuild.class, label);
+      return Objects.hash(KeyForBuild.class, label, isBuildPrelude);
     }
   }
 
@@ -168,6 +196,11 @@ public class BzlLoadValue implements SkyValue {
     @Override
     Key getKeyForLoad(Label loadLabel) {
       return keyForWorkspace(loadLabel, workspaceChunk, workspacePath);
+    }
+
+    @Override
+    ASTFileLookupValue.Key getASTKey() {
+      return ASTFileLookupValue.key(label);
     }
 
     @Override
@@ -225,6 +258,11 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
+    ASTFileLookupValue.Key getASTKey() {
+      return ASTFileLookupValue.key(label);
+    }
+
+    @Override
     public String toString() {
       return label + " (in builtins)";
     }
@@ -248,7 +286,7 @@ public class BzlLoadValue implements SkyValue {
 
   /** Constructs a key for loading a regular (non-workspace) .bzl file, from the .bzl's label. */
   static Key keyForBuild(Label label) {
-    return keyInterner.intern(new KeyForBuild(label));
+    return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ false));
   }
 
   /**
@@ -266,5 +304,10 @@ public class BzlLoadValue implements SkyValue {
   /** Constructs a key for loading a .bzl file within the {@code @builtins} pseudo-repository. */
   static Key keyForBuiltins(Label label) {
     return keyInterner.intern(new KeyForBuiltins(label));
+  }
+
+  /** Constructs a key for loading the special prelude .bzl. */
+  static Key keyForBuildPrelude(Label label) {
+    return keyInterner.intern(new KeyForBuild(label, /*isBuildPrelude=*/ true));
   }
 }

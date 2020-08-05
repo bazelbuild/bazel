@@ -47,6 +47,7 @@ import javax.annotation.Nullable;
  * package. If the file (or the package containing it) doesn't exist, the function doesn't fail, but
  * instead returns a specific {@code NO_FILE} {@link ASTFileLookupValue}.
  */
+// TODO(adonovan): rename to BzlParseAndResolveFunction or (later) BzlCompileFunction.
 public class ASTFileLookupFunction implements SkyFunction {
 
   private final RuleClassProvider ruleClassProvider;
@@ -59,10 +60,11 @@ public class ASTFileLookupFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException,
-      InterruptedException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws SkyFunctionException, InterruptedException {
     try {
-      return computeInline(skyKey, env, ruleClassProvider, digestHashFunction);
+      return computeInline(
+          (ASTFileLookupValue.Key) skyKey.argument(), env, ruleClassProvider, digestHashFunction);
     } catch (ErrorReadingStarlarkExtensionException e) {
       throw new ASTLookupFunctionException(e, e.getTransience());
     } catch (InconsistentFilesystemException e) {
@@ -71,23 +73,25 @@ public class ASTFileLookupFunction implements SkyFunction {
   }
 
   static ASTFileLookupValue computeInline(
-      SkyKey skyKey,
+      ASTFileLookupValue.Key key,
       Environment env,
       RuleClassProvider ruleClassProvider,
       DigestHashFunction digestHashFunction)
       throws ErrorReadingStarlarkExtensionException, InconsistentFilesystemException,
           InterruptedException {
-    Label fileLabel = (Label) skyKey.argument();
-
-    // Determine whether the package designated by fileLabel exists.
+    // Determine whether the package designated by key.label exists.
     // TODO(bazel-team): After --incompatible_disallow_load_labels_to_cross_package_boundaries is
     // removed and the new behavior is unconditional, we can instead safely assume the package
     // exists and pass in the Root in the SkyKey and therefore this dep can be removed.
-    SkyKey pkgSkyKey = PackageLookupValue.key(fileLabel.getPackageIdentifier());
+    SkyKey pkgSkyKey = PackageLookupValue.key(key.label.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = null;
     try {
-      pkgLookupValue = (PackageLookupValue) env.getValueOrThrow(
-          pkgSkyKey, BuildFileNotFoundException.class, InconsistentFilesystemException.class);
+      pkgLookupValue =
+          (PackageLookupValue)
+              env.getValueOrThrow(
+                  pkgSkyKey,
+                  BuildFileNotFoundException.class,
+                  InconsistentFilesystemException.class);
     } catch (BuildFileNotFoundException e) {
       throw new ErrorReadingStarlarkExtensionException(e);
     }
@@ -96,12 +100,12 @@ public class ASTFileLookupFunction implements SkyFunction {
     }
     if (!pkgLookupValue.packageExists()) {
       return ASTFileLookupValue.noFile(
-          "cannot load '%s': %s", fileLabel, pkgLookupValue.getErrorMsg());
+          "cannot load '%s': %s", key.label, pkgLookupValue.getErrorMsg());
     }
 
-    // Determine whether the file designated by fileLabel exists.
+    // Determine whether the file designated by key.label exists.
     Root packageRoot = pkgLookupValue.getRoot();
-    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, fileLabel.toPathFragment());
+    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, key.label.toPathFragment());
     SkyKey fileSkyKey = FileValue.key(rootedPath);
     FileValue fileValue = null;
     try {
@@ -113,13 +117,13 @@ public class ASTFileLookupFunction implements SkyFunction {
       return null;
     }
     if (!fileValue.exists()) {
-      return ASTFileLookupValue.noFile("cannot load '%s': no such file", fileLabel);
+      return ASTFileLookupValue.noFile("cannot load '%s': no such file", key.label);
     }
     if (!fileValue.isFile()) {
       return fileValue.isDirectory()
-          ? ASTFileLookupValue.noFile("cannot load '%s': is a directory", fileLabel)
+          ? ASTFileLookupValue.noFile("cannot load '%s': is a directory", key.label)
           : ASTFileLookupValue.noFile(
-              "cannot load '%s': not a regular file (dangling link?)", fileLabel);
+              "cannot load '%s': not a regular file (dangling link?)", key.label);
     }
     StarlarkSemantics semantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (semantics == null) {
@@ -129,6 +133,8 @@ public class ASTFileLookupFunction implements SkyFunction {
     // Options for scanning, parsing, and resolving a .bzl file (including the prelude).
     FileOptions options =
         FileOptions.builder()
+            // TODO(adonovan): add this, so that loads can normally be truly local.
+            // .loadBindsGlobally(key.isBUILDPrelude)
             .restrictStringEscapes(semantics.incompatibleRestrictStringEscapes())
             .build();
 

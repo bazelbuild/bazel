@@ -2343,6 +2343,7 @@ java_library(
     name = "bzl_load_value",
     srcs = ["BzlLoadValue.java"],
     deps = [
+        ":ast_file_lookup_value",
         ":sky_functions",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",

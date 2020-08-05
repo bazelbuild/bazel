@@ -279,7 +279,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
 
   // Cache of parsed bzl files, for use when we're inlining ASTFileLookupFunction in
   // BzlLoadFunction. See the comments in BzlLoadFunction for motivations and details.
-  private final Cache<Label, ASTFileLookupValue> astFileLookupValueCache =
+  private final Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache =
       CacheBuilder.newBuilder().build();
 
   private final AtomicInteger numPackagesLoaded = new AtomicInteger(0);
