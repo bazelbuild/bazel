@@ -93,7 +93,6 @@ platform(
 Note that it is an error for a platform to specify more than one value of the
 same constraint setting, such as `@platforms//cpu:x86_64` and
 `@platforms//cpu:arm` for `@platforms//cpu:cpu`.
--->
 
 
 ## Generally useful constraints and platforms
@@ -114,4 +113,3 @@ command-line flags:
 
 *  `--host_platform` - defaults to `@bazel_tools//platforms:host_platform`
 *  `--platforms` - defaults to `@bazel_tools//platforms:target_platform`
-
