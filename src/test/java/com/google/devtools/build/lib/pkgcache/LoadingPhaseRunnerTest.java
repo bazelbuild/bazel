@@ -660,6 +660,20 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getLabels("//cc:my_test"));
   }
 
+  @Test
+  public void testBuildFilterDoesNotApplyToTests() throws Exception {
+    tester.addFile(
+        "foo/BUILD",
+        "sh_test(name = 'foo', srcs = ['foo.sh'])",
+        "sh_library(name = 'lib', srcs = ['lib.sh'])",
+        "sh_library(name = 'nofoo', srcs = ['nofoo.sh'], tags = ['nofoo'])");
+    tester.useLoadingOptions("--build_tag_filters=nofoo");
+    TargetPatternPhaseValue result = assertNoErrors(tester.loadTests("//foo:all"));
+    assertThat(result.getTargetLabels())
+        .containsExactlyElementsIn(getLabels("//foo:foo", "//foo:nofoo"));
+    assertThat(result.getTestsToRunLabels()).containsExactlyElementsIn(getLabels("//foo:foo"));
+  }
+
   /**
    * Regression test for bug: "blaze is lying to me about what tests exist (have been specified)"
    */
