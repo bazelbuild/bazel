@@ -1127,6 +1127,11 @@ memory-saving mode</a>.
   preceded with '-' sign used to denote excluded tags. Required tags may also
   have a preceding '+' sign.
 </p>
+<p>
+  When running tests, Bazel ignores <code class='flag'>--build_tag_filters</code> for test targets,
+  which are built and run even if they do not match this filter. To avoid building them, filter
+  test targets using <code class='flag'>--test_tag_filters</code> or by explicitly excluding them.
+</p>
 
 <h4 id='flag--test_size_filters'><code class='flag'>--test_size_filters <var>size[,size]*</var></code></h4>
 <p>
