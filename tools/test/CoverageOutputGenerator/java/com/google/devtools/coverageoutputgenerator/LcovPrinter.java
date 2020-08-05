@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.List;
 import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -131,42 +132,46 @@ class LcovPrinter {
 
   // BRDA:<line number>,<block number>,<branch number>,<taken>
   private void printBRDALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
-      if (branch.blockNumber().isEmpty() || branch.branchNumber().isEmpty()) {
-        // We skip printing this as a BRDA line and print it later as a BA line.
-        continue;
+    for (List<BranchCoverage> branches : sourceFile.getAllBranches()) {
+      for (BranchCoverage branch : branches) {
+        if (branch.blockNumber().isEmpty() || branch.branchNumber().isEmpty()) {
+          // We skip printing this as a BRDA line and print it later as a BA line.
+          continue;
+        }
+        bufferedWriter.write(Constants.BRDA_MARKER);
+        bufferedWriter.write(Integer.toString(branch.lineNumber()));
+        bufferedWriter.write(Constants.DELIMITER);
+        bufferedWriter.write(branch.blockNumber());
+        bufferedWriter.write(Constants.DELIMITER);
+        bufferedWriter.write(branch.branchNumber());
+        bufferedWriter.write(Constants.DELIMITER);
+        if (branch.taken()) {
+          bufferedWriter.write(Long.toString(branch.nrOfExecutions()));
+        } else {
+          bufferedWriter.write(Constants.NOT_TAKEN);
+        }
+        bufferedWriter.newLine();
       }
-      bufferedWriter.write(Constants.BRDA_MARKER);
-      bufferedWriter.write(Integer.toString(branch.lineNumber()));
-      bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(branch.blockNumber());
-      bufferedWriter.write(Constants.DELIMITER);
-      bufferedWriter.write(branch.branchNumber());
-      bufferedWriter.write(Constants.DELIMITER);
-      if (branch.wasExecuted()) {
-        bufferedWriter.write(Long.toString(branch.nrOfExecutions()));
-      } else {
-        bufferedWriter.write(Constants.TAKEN);
-      }
-      bufferedWriter.newLine();
     }
   }
 
   // BA:<line number>,<taken>
   private void printBALines(SourceFileCoverage sourceFile) throws IOException {
-    for (BranchCoverage branch : sourceFile.getAllBranches()) {
-      if (!branch.blockNumber().isEmpty() && !branch.branchNumber().isEmpty()) {
-        // This branch was already printed with more information as a BRDA line.
-        continue;
+    for (List<BranchCoverage> branches : sourceFile.getAllBranches()) {
+      for (BranchCoverage branch : branches) {
+        if (!branch.blockNumber().isEmpty() && !branch.branchNumber().isEmpty()) {
+          // This branch was already printed with more information as a BRDA line.
+          continue;
+        }
+        bufferedWriter.write(Constants.BA_MARKER);
+        bufferedWriter.write(Integer.toString(branch.lineNumber()));
+        bufferedWriter.write(Constants.DELIMITER);
+        // 0 = branch was not executed
+        // 1 = branch was executed but not taken
+        // 2 = branch was executed and taken
+        bufferedWriter.write(branch.wasExecuted() ? "2" : "0");
+        bufferedWriter.newLine();
       }
-      bufferedWriter.write(Constants.BA_MARKER);
-      bufferedWriter.write(Integer.toString(branch.lineNumber()));
-      bufferedWriter.write(Constants.DELIMITER);
-      // 0 = branch was not executed
-      // 1 = branch was executed but not taken
-      // 2 = branch was executed and taken
-      bufferedWriter.write(branch.wasExecuted() ? "2" : "0");
-      bufferedWriter.newLine();
     }
   }
 
