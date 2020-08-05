@@ -526,7 +526,10 @@ public interface QueryEnvironment<T> {
     ONLY_TARGET_DEPS,
 
     /** Do not consider nodep attributes when traversing dependency edges. */
-    NO_NODEP_DEPS;
+    NO_NODEP_DEPS,
+
+    /** Include aspect-generated output. No-op for query, which always follows aspects. */
+    INCLUDE_ASPECTS;
   }
 
   /**

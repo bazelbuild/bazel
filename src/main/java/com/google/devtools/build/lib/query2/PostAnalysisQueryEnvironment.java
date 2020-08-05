@@ -66,6 +66,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
 import java.io.IOException;
@@ -89,7 +90,8 @@ import javax.annotation.Nullable;
  * {@link TargetAccessor} field should be initialized on a per-query basis not a per-environment
  * basis.
  *
- * <p>Aspects are also not supported, but probably should be in some fashion.
+ * <p>Aspects are followed if {@link
+ * com.google.devtools.build.lib.query2.common.CommonQueryOptions#useAspects} is on.
  */
 public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQueryEnvironment<T> {
   protected final TopLevelConfigurations topLevelConfigurations;
@@ -393,12 +395,19 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
                         .setConfiguration(getConfiguration(dependency))
                         .build());
         values.add(new ClassifiedDependency<>(dependency, implicit));
-      } else if (key.functionName().equals(SkyFunctions.TOOLCHAIN_RESOLUTION)) {
+      } else if (shouldFollowSkyKey(key)) {
         // Also fetch these dependencies.
         values.addAll(targetifyValues(null, graph.getDirectDeps(key)));
       }
     }
     return values.build();
+  }
+
+  private boolean shouldFollowSkyKey(SkyKey key) {
+    SkyFunctionName skyFunction = key.functionName();
+    return skyFunction.equals(SkyFunctions.CONFIGURED_TARGET)
+        || skyFunction.equals(SkyFunctions.TOOLCHAIN_RESOLUTION)
+        || (settings.contains(Setting.INCLUDE_ASPECTS) && skyFunction.equals(SkyFunctions.ASPECT));
   }
 
   private Map<SkyKey, ImmutableList<ClassifiedDependency<T>>> targetifyValues(
