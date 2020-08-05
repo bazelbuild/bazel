@@ -15,11 +15,21 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
+import net.starlark.java.syntax.BinaryOperatorExpression;
+import net.starlark.java.syntax.Expression;
+import net.starlark.java.syntax.ParserInput;
+import net.starlark.java.syntax.SyntaxError;
+import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.UnaryOperatorExpression;
+
+import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Set;
 
@@ -56,32 +66,52 @@ public class LoadingOptions extends OptionsBase {
 
   @Option(
     name = "build_tag_filters",
-    converter = CommaSeparatedOptionListConverter.class,
+    converter = TagFilterConverter.class,
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "Specifies a comma-separated list of tags. Each tag can be optionally "
-            + "preceded with '-' to specify excluded tags. Only those targets will be built that "
-            + "contain at least one included tag and do not contain any excluded tags. This option "
+        "A boolean formula over rule tags that selects the targets to build. "
+            + "Example: '(server or client) and not experimental'. "
+            + "See --test_tag_filters for details. This option "
             + "does not affect the set of tests executed with the 'test' command; those are be "
             + "governed by the test filtering options, for example '--test_tag_filters'"
   )
-  public List<String> buildTagFilterList;
+  public TagFilter buildTagFilter;
 
   @Option(
     name = "test_tag_filters",
-    converter = CommaSeparatedOptionListConverter.class,
+    converter = TagFilterConverter.class,
     defaultValue = "",
     documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
     effectTags = {OptionEffectTag.UNKNOWN},
     help =
-        "Specifies a comma-separated list of test tags. Each tag can be optionally "
-            + "preceded with '-' to specify excluded tags. Only those test targets will be "
-            + "found that contain at least one included tag and do not contain any excluded "
-            + "tags. This option affects --build_tests_only behavior and the test command."
+        "A boolean formula over test tags that selects the tests to run. "
+            + "Example: '(release or smoke) and not flaky'. Formulas have the form: "
+            + "expr = IDENT | expr 'or' expr | expr 'and' expr | 'not' expr | '(' expr ')'. "
+            + "IDENT is defined as a Starlark identifier, with the same reserved words. "
+            + "Comma-separated list of tags are also supported: tag[,tag]*. Each tag can be optionally "
+            + "preceded with '-' to specify excluded tags."
   )
-  public List<String> testTagFilterList;
+  public TagFilter testTagFilter;
+
+  /**
+   * TagFilterConverter parses a tag filter, which can either be a boolean expression or a comma-separated list.
+   *
+   * Declared public to make it accessible to reflection.
+   */
+  public static class TagFilterConverter implements Converter<TagFilter> {
+    @Override
+    @Nullable
+    public TagFilter convert(String input) throws OptionsParsingException {
+      return new TagFilter(input);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "A boolean formula over test tags (e.g. '(release or smoke) and not flaky')";
+    }
+  }
 
   @Option(
     name = "test_size_filters",
@@ -163,4 +193,73 @@ public class LoadingOptions extends OptionsBase {
         + "then they can analyze test_suite targets."
   )
   public boolean expandTestSuites;
+
+  /** BooleanFormulaConverter parses a boolean formula to an Expression.
+   * Declared public to make it accessible to reflection. */
+  public static class BooleanFormulaConverter implements Converter<Expression> {
+    @Override
+    @Nullable public Expression convert(String input) throws OptionsParsingException {
+      if (input.isEmpty()) {
+        return null;
+      }
+      if (isLegacySyntax(input)) {
+        input = convertLegacySyntaxToBooleanFormula(input);
+      }
+      try {
+        Expression result = Expression.parse(ParserInput.fromLines(input));
+        validate(result);
+        return result;
+      } catch (SyntaxError.Exception e) {
+        throw new OptionsParsingException("Failed to parse expression: " + e.getMessage() + " input: " + input, e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "A Boolean formula over test tags (e.g. '(release or smoke) and not flaky')";
+    }
+
+    private static boolean isLegacySyntax(String input) {
+      return input.contains(",") || input.contains("-");
+    }
+
+    /**
+     * Converts a string containing tags separated by comma to a boolean formula.
+     */
+    private String convertLegacySyntaxToBooleanFormula(String input) throws OptionsParsingException {
+      return input.replaceAll(" *, *-", " and not ")
+              .replaceAll(" *, *", " or ")
+              .replace("-", " not ").trim();
+    }
+
+    /**
+     * Throws an OptionsParsingException when the given boolean formula does not follow the grammar:
+     * expr = IDENT | expr 'or' expr | expr 'and' expr | 'not' expr | '(' expr ')'
+     */
+    private void validate(Expression expression) throws OptionsParsingException {
+      switch (expression.kind()) {
+        case IDENTIFIER:
+          break;
+        case BINARY_OPERATOR:
+          BinaryOperatorExpression boe = (BinaryOperatorExpression) expression;
+          if (boe.getOperator() != TokenKind.OR && boe.getOperator() != TokenKind.AND) {
+            throw new OptionsParsingException(String.format("invalid Boolean operator: %s (want 'and' or 'or')",
+                boe.getOperator()));
+          }
+          validate(boe.getX());
+          validate(boe.getY());
+          break;
+        case UNARY_OPERATOR:
+          UnaryOperatorExpression uoe = (UnaryOperatorExpression) expression;
+          if (uoe.getOperator() != TokenKind.NOT) {
+            throw new OptionsParsingException(String.format("invalid Boolean operator: %s (want 'not')",
+                uoe.getOperator()));
+          }
+          validate(uoe.getX());
+          break;
+        default:
+          throw new OptionsParsingException("invalid Boolean operator");
+      }
+    }
+  }
 }

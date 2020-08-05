@@ -13,17 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.common.base.Predicate;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import java.util.Map;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.syntax.Expression;
+import net.starlark.java.syntax.ParserInput;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+
+import java.util.Map;
+
+import static com.google.common.truth.Truth.assertThat;
 
 /**
  * Test for {@link TargetUtils}
@@ -39,44 +41,127 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testFilterByTag() throws Exception {
+  public void testFilterWithNotExpression() throws Exception {
     scratch.file(
         "tests/BUILD",
         "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['tag1'])",
         "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['tag2'])",
-        "sh_binary(name = 'tag1b', srcs=['sh.sh'], tags=['tag1'])");
+        "sh_binary(name = 'tag1_and_tag2', srcs=['sh.sh'], tags=['tag1', 'tag2'])");
 
     Target tag1 = getTarget("//tests:tag1");
     Target tag2 = getTarget("//tests:tag2");
-    Target  tag1b = getTarget("//tests:tag1b");
+    Target tag1AndTag2 = getTarget("//tests:tag1_and_tag2");
 
-    Predicate<Target> tagFilter = TargetUtils.tagFilter(Lists.<String>newArrayList());
-    assertThat(tagFilter.apply(tag1)).isTrue();
-    assertThat(tagFilter.apply(tag2)).isTrue();
-    assertThat(tagFilter.apply(tag1b)).isTrue();
-    tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag1", "tag2"));
-    assertThat(tagFilter.apply(tag1)).isTrue();
-    assertThat(tagFilter.apply(tag2)).isTrue();
-    assertThat(tagFilter.apply(tag1b)).isTrue();
-    tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag1"));
-    assertThat(tagFilter.apply(tag1)).isTrue();
-    assertThat(tagFilter.apply(tag2)).isFalse();
-    assertThat(tagFilter.apply(tag1b)).isTrue();
-    tagFilter = TargetUtils.tagFilter(Lists.newArrayList("-tag2"));
-    assertThat(tagFilter.apply(tag1)).isTrue();
-    assertThat(tagFilter.apply(tag2)).isFalse();
-    assertThat(tagFilter.apply(tag1b)).isTrue();
-    // Applying same tag as positive and negative filter produces an empty
-    // result because the negative filter is applied first and positive filter will
-    // not match anything.
-    tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag2", "-tag2"));
-    assertThat(tagFilter.apply(tag1)).isFalse();
-    assertThat(tagFilter.apply(tag2)).isFalse();
-    assertThat(tagFilter.apply(tag1b)).isFalse();
-    tagFilter = TargetUtils.tagFilter(Lists.newArrayList("tag2", "-tag1"));
-    assertThat(tagFilter.apply(tag1)).isFalse();
-    assertThat(tagFilter.apply(tag2)).isTrue();
-    assertThat(tagFilter.apply(tag1b)).isFalse();
+    Predicate<Target> tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("not tag1")));
+    assertEvaluatesToTrue(tagFilter, tag2);
+    assertEvaluatesToFalse(tagFilter, tag1, tag1AndTag2);
+  }
+
+  @Test
+  public void testFilterWithOrExpression() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['tag1'])",
+        "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['tag2'])",
+        "sh_binary(name = 'tag3', srcs=['sh.sh'], tags=['tag3'])",
+        "sh_binary(name = 'tag1_and_tag2', srcs=['sh.sh'], tags=['tag1', 'tag2'])",
+        "sh_binary(name = 'tag1_and_tag3', srcs=['sh.sh'], tags=['tag1', 'tag3'])",
+        "sh_binary(name = 'tag2_and_tag3', srcs=['sh.sh'], tags=['tag2', 'tag3'])",
+        "sh_binary(name = 'all_tags', srcs=['sh.sh'], tags=['tag1', 'tag2', 'tag3'])");
+
+    Target tag1 = getTarget("//tests:tag1");
+    Target tag2 = getTarget("//tests:tag2");
+    Target tag3 = getTarget("//tests:tag3");
+    Target tag1AndTag2 = getTarget("//tests:tag1_and_tag2");
+    Target tag1AndTag3 = getTarget("//tests:tag1_and_tag3");
+    Target tag2AndTag3 = getTarget("//tests:tag2_and_tag3");
+    Target allTags = getTarget("//tests:all_tags");
+
+    Predicate<Target> tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("tag1 or tag2")));
+    assertEvaluatesToTrue(tagFilter, tag1, tag2, tag1AndTag2, tag1AndTag3, tag2AndTag3, allTags);
+    assertEvaluatesToFalse(tagFilter, tag3);
+  }
+
+  @Test
+  public void testFilterWithAndExpression() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['tag1'])",
+        "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['tag2'])",
+        "sh_binary(name = 'tag3', srcs=['sh.sh'], tags=['tag3'])",
+        "sh_binary(name = 'tag1_and_tag2', srcs=['sh.sh'], tags=['tag1', 'tag2'])",
+        "sh_binary(name = 'tag1_and_tag3', srcs=['sh.sh'], tags=['tag1', 'tag3'])",
+        "sh_binary(name = 'tag2_and_tag3', srcs=['sh.sh'], tags=['tag2', 'tag3'])",
+        "sh_binary(name = 'all_tags', srcs=['sh.sh'], tags=['tag1', 'tag2', 'tag3'])");
+
+    Target tag1 = getTarget("//tests:tag1");
+    Target tag2 = getTarget("//tests:tag2");
+    Target tag3 = getTarget("//tests:tag3");
+    Target tag1AndTag2 = getTarget("//tests:tag1_and_tag2");
+    Target tag1AndTag3 = getTarget("//tests:tag1_and_tag3");
+    Target tag2AndTag3 = getTarget("//tests:tag2_and_tag3");
+    Target allTags = getTarget("//tests:all_tags");
+
+    Predicate<Target> tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("tag1 and tag2")));
+    assertEvaluatesToTrue(tagFilter, tag1AndTag2, allTags);
+    assertEvaluatesToFalse(tagFilter, tag1, tag2, tag3, tag1AndTag3, tag2AndTag3);
+  }
+
+  @Test
+  public void testFilterWithComplexExpression() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['tag1'])",
+        "sh_binary(name = 'tag2', srcs=['sh.sh'], tags=['tag2'])",
+        "sh_binary(name = 'tag3', srcs=['sh.sh'], tags=['tag3'])",
+        "sh_binary(name = 'tag1_and_tag2', srcs=['sh.sh'], tags=['tag1', 'tag2'])",
+        "sh_binary(name = 'tag1_and_tag3', srcs=['sh.sh'], tags=['tag1', 'tag3'])",
+        "sh_binary(name = 'tag2_and_tag3', srcs=['sh.sh'], tags=['tag2', 'tag3'])",
+        "sh_binary(name = 'all_tags', srcs=['sh.sh'], tags=['tag1', 'tag2', 'tag3'])");
+
+    Target tag1 = getTarget("//tests:tag1");
+    Target tag2 = getTarget("//tests:tag2");
+    Target tag3 = getTarget("//tests:tag3");
+    Target tag1AndTag2 = getTarget("//tests:tag1_and_tag2");
+    Target tag1AndTag3 = getTarget("//tests:tag1_and_tag3");
+    Target tag2AndTag3 = getTarget("//tests:tag2_and_tag3");
+    Target allTags = getTarget("//tests:all_tags");
+
+    Predicate<Target> tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("tag1 and tag2 or tag3")));
+    assertEvaluatesToTrue(tagFilter, tag3, tag1AndTag2, tag1AndTag3, tag2AndTag3, allTags);
+    assertEvaluatesToFalse(tagFilter, tag1, tag2);
+
+    tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("tag1 and not tag2 or tag3")));
+    assertEvaluatesToTrue(tagFilter, tag1, tag3, tag1AndTag3, tag2AndTag3, allTags);
+    assertEvaluatesToFalse(tagFilter, tag2, tag1AndTag2);
+
+    tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("tag1 and (tag2 or tag3)")));
+    assertEvaluatesToTrue(tagFilter, tag1AndTag2, tag1AndTag3, allTags);
+    assertEvaluatesToFalse(tagFilter, tag1, tag2, tag3, tag2AndTag3);
+
+    tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("tag1 and (tag2 or not tag3)")));
+    assertEvaluatesToTrue(tagFilter, tag1, tag1AndTag2, allTags);
+    assertEvaluatesToFalse(tagFilter, tag2, tag3, tag1AndTag3, tag2AndTag3);
+
+    tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("tag1 and not (tag2 or tag3)")));
+    assertEvaluatesToTrue(tagFilter, tag1);
+    assertEvaluatesToFalse(tagFilter, tag2, tag3, tag1AndTag2, tag1AndTag3, tag2AndTag3, allTags);
+
+    tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("not tag1 and (not tag2 or tag3)")));
+    assertEvaluatesToTrue(tagFilter, tag3, tag2AndTag3);
+    assertEvaluatesToFalse(tagFilter, tag1, tag2, tag1AndTag2, tag1AndTag3, allTags);
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void testForbiddenOperatorInFilter_FilterEvaluationExceptionIsThrown() throws Exception {
+    scratch.file(
+        "tests/BUILD",
+        "sh_binary(name = 'tag1', srcs=['sh.sh'], tags=['tag1'])");
+
+    Target tag1 = getTarget("//tests:tag1");
+
+    Predicate<Target> tagFilter = TargetUtils.tagFilter(Expression.parse(ParserInput.fromLines("tag1 > tag2")));
+    tagFilter.apply(tag1);
   }
 
   @Test
@@ -295,5 +380,17 @@ public class TargetUtilsTest extends PackageLoadingTestCase {
             executionRequirementsUnchecked, tag1, /* allowTagsPropagation */ false);
 
     assertThat(execInfo).containsExactly("no-remote", "1");
+  }
+
+  private void assertEvaluatesToTrue(Predicate<Target> tagFilter, Target ... targets) {
+    for (Target target : targets) {
+      assertThat(tagFilter.apply(target)).isTrue();
+    }
+  }
+
+  private void assertEvaluatesToFalse(Predicate<Target> tagFilter, Target ... targets) {
+    for (Target target : targets) {
+      assertThat(tagFilter.apply(target)).isFalse();
+    }
   }
 }

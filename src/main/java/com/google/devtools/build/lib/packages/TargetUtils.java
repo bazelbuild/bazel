@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
-import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
@@ -24,16 +21,24 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.util.Pair;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.EvalException;
+import net.starlark.java.syntax.BinaryOperatorExpression;
+import net.starlark.java.syntax.Expression;
+import net.starlark.java.syntax.Identifier;
+import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.TokenKind;
+import net.starlark.java.syntax.UnaryOperatorExpression;
+
+import javax.annotation.Nullable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
-import net.starlark.java.eval.Dict;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.syntax.Location;
+import java.util.Set;
+
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 
 /**
  * Utility functions over Targets that don't really belong in the base {@link
@@ -348,29 +353,11 @@ public final class TargetUtils {
   }
 
   /**
-   * Returns a predicate to be used for test tag filtering, i.e., that only accepts tests that match
-   * all of the required tags and none of the excluded tags.
+   * Returns a predicate to be used for test tag filtering based on an expression.
    */
-  public static Predicate<Target> tagFilter(List<String> tagFilterList) {
-    Pair<Collection<String>, Collection<String>> tagLists =
-        TestTargetUtils.sortTagsBySense(tagFilterList);
-    final Collection<String> requiredTags = tagLists.first;
-    final Collection<String> excludedTags = tagLists.second;
-    return input -> {
-      if (requiredTags.isEmpty() && excludedTags.isEmpty()) {
-        return true;
-      }
-
-      if (!(input instanceof Rule)) {
-        return requiredTags.isEmpty();
-      }
-      // Note that test_tags are those originating from the XX_test rule, whereas the requiredTags
-      // and excludedTags originate from the command line or test_suite rule.
-      // TODO(ulfjack): getRuleTags is inconsistent with TestFunction and other places that use
-      // tags + size, but consistent with TestSuite.
-      return TestTargetUtils.testMatchesFilters(
-          ((Rule) input).getRuleTags(), requiredTags, excludedTags, false);
-    };
+  public static Predicate<Target> tagFilter(@Nullable Expression tagFilter) {
+    return input -> tagFilter == null ||
+        input instanceof Rule && evalExpression(tagFilter, ((Rule) input).getRuleTags());
   }
 
   /**
@@ -422,5 +409,40 @@ public final class TargetUtils {
   public static String formatMissingEdge(
       @Nullable Target target, Label label, NoSuchThingException e) {
     return formatMissingEdge(target, label, e, null);
+  }
+
+  /**
+   * Evaluates a boolean formula given by this grammar:
+   * expr = IDENT | expr 'or' expr | expr 'and' expr | 'not' expr | '(' expr ')'
+   * Identifiers follow the Starlark definition (and exclude Starlark reserved words).
+   * If the given expression is invalid an IllegalStateException is thrown.
+   * This should never happen since the input has been controlled in ExpressionConverter.
+   */
+  private static boolean evalExpression(Expression expression, Set<String> tags) {
+    switch (expression.kind()) {
+      case IDENTIFIER:
+        Identifier ident = (Identifier) expression;
+        return tags.contains(ident.getName());
+      case BINARY_OPERATOR:
+        BinaryOperatorExpression boe = (BinaryOperatorExpression) expression;
+        switch (boe.getOperator()) {
+          case OR:
+            return evalExpression(boe.getX(), tags) || evalExpression(boe.getY(), tags);
+          case AND:
+            return evalExpression(boe.getX(), tags) && evalExpression(boe.getY(), tags);
+          default:
+            throw new IllegalStateException(
+                String.format("Got %s but expected 'and' or 'or'", boe.getOperator()));
+        }
+      case UNARY_OPERATOR:
+        UnaryOperatorExpression uoe = (UnaryOperatorExpression) expression;
+        if (uoe.getOperator() == TokenKind.NOT) {
+          return !evalExpression(uoe.getX(), tags);
+        } else {
+          throw new IllegalStateException(String.format("Got %s but expected 'not'", uoe.getOperator()));
+        }
+      default:
+        throw new IllegalStateException(String.format("Unsupported expression kind: %s", expression.kind()));
+    }
   }
 }
