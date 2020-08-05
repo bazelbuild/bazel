@@ -23,20 +23,20 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
-import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import net.starlark.java.syntax.Expression;
+
+import javax.annotation.Nullable;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 
 /**
  * Predicate that implements test filtering using the command-line options in {@link
  * LoadingOptions}. Implements {@link #hashCode} and {@link #equals} so it can be used as a Skyframe
  * key.
  */
-@AutoCodec
 public final class TestFilter implements com.google.common.base.Predicate<Target> {
   private static final Predicate<Target> ALWAYS_TRUE = (t) -> true;
 
@@ -49,25 +49,24 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
     return new TestFilter(
         ImmutableSet.copyOf(options.testSizeFilterSet),
         ImmutableSet.copyOf(options.testTimeoutFilterSet),
-        ImmutableList.copyOf(options.testTagFilterList),
+        options.testTagFilter.getExpression(),
         ImmutableList.copyOf(options.testLangFilterList));
   }
 
   private final ImmutableSet<TestSize> testSizeFilterSet;
   private final ImmutableSet<TestTimeout> testTimeoutFilterSet;
-  private final ImmutableList<String> testTagFilterList;
+  @Nullable private final Expression testTagFilter;
   private final ImmutableList<String> testLangFilterList;
   private final Predicate<Target> impl;
 
-  @AutoCodec.VisibleForSerialization
   TestFilter(
       ImmutableSet<TestSize> testSizeFilterSet,
       ImmutableSet<TestTimeout> testTimeoutFilterSet,
-      ImmutableList<String> testTagFilterList,
+      @Nullable Expression testTagFilter,
       ImmutableList<String> testLangFilterList) {
     this.testSizeFilterSet = testSizeFilterSet;
     this.testTimeoutFilterSet = testTimeoutFilterSet;
-    this.testTagFilterList = testTagFilterList;
+    this.testTagFilter = testTagFilter;
     this.testLangFilterList = testLangFilterList;
     Predicate<Target> testFilter = ALWAYS_TRUE;
     if (!testSizeFilterSet.isEmpty()) {
@@ -76,8 +75,8 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
     if (!testTimeoutFilterSet.isEmpty()) {
       testFilter = testFilter.and(testTimeoutFilter(testTimeoutFilterSet));
     }
-    if (!testTagFilterList.isEmpty()) {
-      testFilter = testFilter.and(TargetUtils.tagFilter(testTagFilterList));
+    if (testTagFilter != null) {
+      testFilter = testFilter.and(TargetUtils.tagFilter(testTagFilter));
     }
     if (!testLangFilterList.isEmpty()) {
       testFilter = testFilter.and(testLangFilter(testLangFilterList));
@@ -92,7 +91,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
 
   @Override
   public int hashCode() {
-    return Objects.hash(testSizeFilterSet, testTimeoutFilterSet, testTagFilterList,
+    return Objects.hash(testSizeFilterSet, testTimeoutFilterSet, testTagFilter,
         testLangFilterList);
   }
 
@@ -107,7 +106,7 @@ public final class TestFilter implements com.google.common.base.Predicate<Target
     TestFilter f = (TestFilter) o;
     return f.testSizeFilterSet.equals(testSizeFilterSet)
         && f.testTimeoutFilterSet.equals(testTimeoutFilterSet)
-        && f.testTagFilterList.equals(testTagFilterList)
+        && Objects.equals(f.testTagFilter, testTagFilter)
         && f.testLangFilterList.equals(testLangFilterList);
   }
 
