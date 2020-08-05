@@ -194,7 +194,7 @@ public class WorkspaceFactory {
       try {
         EvalUtils.exec(file, module, thread);
       } catch (EvalException ex) {
-        localReporter.handle(Event.error(ex.getLocation(), ex.getMessage()));
+        localReporter.handle(Event.error(null, ex.getMessageWithStack()));
       }
     }
 

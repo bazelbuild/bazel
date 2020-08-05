@@ -138,6 +138,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     DependencyResolver.shouldUseToolchainTransition(config, target),
                     trimmingTransitionFactory);
       } catch (EvalException | InconsistentAspectOrderException e) {
+        // This is an abuse of InterruptedException.
         throw new InterruptedException(e.getMessage());
       }
       for (Map.Entry<DependencyKind, DependencyKey> attributeAndDep : deps.entries()) {
@@ -223,4 +224,3 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     }
   }
 }
-

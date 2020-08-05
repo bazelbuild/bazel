@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -458,6 +459,9 @@ public final class Starlark {
       throw ex; // already wrapped
     } catch (RuntimeException | StackOverflowError ex) {
       throw new UncheckedEvalException(ex, thread.getCallStack());
+    } catch (EvalException ex) {
+      // If this exception was newly thrown, set its stack.
+      throw ex.ensureStack(thread);
     } finally {
       thread.pop();
     }
@@ -702,6 +706,7 @@ public final class Starlark {
    * Parse the input as a file, validate it in the specified predeclared environment, compile it,
    * and execute it. On success, the module is returned; on failure, it throws an exception.
    */
+  @DoNotCall
   public static Module exec(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
       throws SyntaxError.Exception, EvalException, InterruptedException {
@@ -721,6 +726,7 @@ public final class Starlark {
    * evaluate it. On success, the expression's value is returned; on failure, it throws an
    * exception.
    */
+  @DoNotCall
   public static Object eval(StarlarkThread thread, ParserInput input, Map<String, Object> env)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     // Pseudocode:
@@ -754,6 +760,7 @@ public final class Starlark {
    * <p>A REPL will typically set the legacy "load binds globally" semantics flag, otherwise the
    * names bound by a load statement will not be visible in the next REPL chunk.
    */
+  @DoNotCall
   public static ModuleAndValue execAndEval(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
       throws SyntaxError.Exception {
@@ -791,6 +798,7 @@ public final class Starlark {
    * <p>In addition to the program, it returns the validated syntax tree. This permits clients such
    * as Bazel to inspect the syntax (for BUILD dialect checks, glob prefetching, etc.)
    */
+  @DoNotCall
   public static Object /*Pair<Program, StarlarkFile>*/ compileFile(
       ParserInput input, //
       Set<String> predeclared,

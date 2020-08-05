@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -78,6 +79,7 @@ import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.shell.JavaSubprocessFactory;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.SubprocessFactory;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -96,6 +98,7 @@ import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction.DefaultHashFunctionNotSetException;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1261,6 +1264,22 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     Thread.setDefaultUncaughtExceptionHandler(
         (thread, throwable) -> subscriberExceptionHandler.handleException(throwable, null));
     Path.setFileSystemForSerialization(fs);
+
+    // Set the hook used to display Starlark source lines in a stack trace.
+    final FileSystem finalFS = fs;
+    EvalException.setSourceReaderSupplier(
+        () ->
+            loc -> {
+              try {
+                // TODO(adonovan): opt: cache seen files, as the stack often repeats the same files.
+                Path path = finalFS.getPath(PathFragment.create(loc.file()));
+                return Iterables.get(FileSystemUtils.readLines(path, UTF_8), loc.line() - 1, null);
+              } catch (Throwable unused) {
+                // ignore any failure (e.g. ENOENT, security manager rejecting I/O)
+              }
+              return null;
+            });
+
     SubprocessBuilder.setDefaultSubprocessFactory(subprocessFactoryImplementation());
 
     Path outputUserRootPath = fs.getPath(outputUserRoot);

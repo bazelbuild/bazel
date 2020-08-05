@@ -526,7 +526,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
         addOutputFile(label, eventHandler, outputFilesBuilder);
       }
     } catch (EvalException e) {
-      reportError(String.format("In rule %s: %s", getLabel(), e.print()), eventHandler);
+      reportError(
+          String.format("In rule %s: %s", getLabel(), e.getMessageWithStack()), eventHandler);
     }
   }
 

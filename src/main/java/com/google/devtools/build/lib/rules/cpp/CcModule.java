@@ -296,7 +296,7 @@ public abstract class CcModule
       boolean isStaticLinkingMode)
       throws EvalException {
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      throw new EvalException("FDO instrumentation not supported");
+      throw Starlark.errorf("FDO instrumentation not supported");
     }
     return LinkBuildVariables.setupVariables(
         isUsingLinkerNotArchiver,

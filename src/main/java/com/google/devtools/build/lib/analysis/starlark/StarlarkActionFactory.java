@@ -147,18 +147,15 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
-      throw new EvalException(
-          String.format(
-              "the output directory '%s' is not under package directory '%s' for target '%s'",
-              fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel()));
+      throw Starlark.errorf(
+          "the output directory '%s' is not under package directory '%s' for target '%s'",
+          fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
     }
 
     Artifact result = ruleContext.getTreeArtifact(fragment, newFileRoot());
     if (!result.isTreeArtifact()) {
-      throw new EvalException(
-          null,
-          String.format(
-              "'%s' has already been declared as a regular file, not directory.", filename));
+      throw Starlark.errorf(
+          "'%s' has already been declared as a regular file, not directory.", filename);
     }
     return result;
   }

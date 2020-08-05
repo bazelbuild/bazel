@@ -212,7 +212,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         result =
             evalFunction(impl, ImmutableList.of(previousSettings, attributeMapper), eventHandler);
       } catch (EvalException e) {
-        throw new EvalException(impl.getLocation(), e.getMessage());
+        // TODO(adonovan): this doesn't look right. Consider interposing a call to a delegating
+        // wrapper just to establish a fake frame for impl, then remove the catch.
+        throw new EvalException(impl.getLocation(), e.getMessageWithStack());
       }
 
       if (result instanceof Dict) {

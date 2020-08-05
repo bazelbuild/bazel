@@ -91,7 +91,7 @@ public class ResolvedFileFunction implements SkyFunction {
           StarlarkThread thread = new StarlarkThread(mu, starlarkSemantics);
           EvalUtils.exec(file, module, thread);
         } catch (EvalException ex) {
-          env.getListener().handle(Event.error(ex.getLocation(), ex.getMessage()));
+          env.getListener().handle(Event.error(null, ex.getMessageWithStack()));
           throw resolvedValueError("Failed to evaluate resolved file " + key.getPath());
         }
         Object resolved = module.getGlobal("resolved");

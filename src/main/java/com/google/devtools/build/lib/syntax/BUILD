@@ -90,7 +90,6 @@ java_library(
         "Dict.java",
         "Eval.java",
         "EvalException.java",
-        "EvalExceptionWithStackTrace.java",
         "EvalUtils.java",
         "FlagGuardedValue.java",
         "FormatParser.java",

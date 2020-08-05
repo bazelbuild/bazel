@@ -939,7 +939,7 @@ public class BzlLoadFunction implements SkyFunction {
               try {
                 exp.export(label, name);
               } catch (EvalException ex) {
-                handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+                handler.handle(Event.error(null, ex.getMessageWithStack()));
               }
             }
           }
@@ -948,7 +948,7 @@ public class BzlLoadFunction implements SkyFunction {
     try {
       EvalUtils.exec(file, module, thread);
     } catch (EvalException ex) {
-      handler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+      handler.handle(Event.error(null, ex.getMessageWithStack()));
     }
   }
 

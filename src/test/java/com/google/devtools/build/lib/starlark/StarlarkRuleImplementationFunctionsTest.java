@@ -1911,28 +1911,6 @@ public class StarlarkRuleImplementationFunctionsTest extends BuildViewTestCase {
     }
   }
 
-  @StarlarkMethod(name = "throw1", documented = false)
-  public Object throw1() throws Exception {
-    class ThereIsNoMessageException extends EvalException {
-      ThereIsNoMessageException() {
-        super(null, "This is not the message you are looking for."); // Unused dummy message
-      }
-
-      @Override
-      public String getMessage() {
-        return "";
-      }
-    }
-    throw new ThereIsNoMessageException();
-  }
-
-  @Test
-  public void testStackTraceWithoutOriginalMessage() throws Exception {
-    defineTestMethods();
-    ev.checkEvalErrorContains(
-        "There Is No Message: StarlarkRuleImplementationFunctionsTest", "throw1()");
-  }
-
   @StarlarkMethod(name = "throw2", documented = false)
   public Object throw2() throws Exception {
     throw new InterruptedException();

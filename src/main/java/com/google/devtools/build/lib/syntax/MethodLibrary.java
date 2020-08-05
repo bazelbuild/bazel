@@ -449,10 +449,8 @@ class MethodLibrary {
       String parseable = isNegative ? "-" + digits : digits;
       return Integer.parseInt(parseable, base);
     } catch (NumberFormatException | ArithmeticException e) {
-      throw new EvalException(
-          null,
-          Starlark.format("invalid literal for int() with base %d: %r", base, stringForErrors),
-          e);
+      throw Starlark.errorf(
+          "invalid literal for int() with base %d: %s", base, Starlark.repr(stringForErrors));
     }
   }
 

@@ -840,10 +840,9 @@ public class BuildViewTest extends BuildViewTestBase {
     Path badpkg2BuildFile =
         scratch.file("badpkg2/BUILD", "sh_library(name = 'bad-target')", "fail()");
     update(defaultFlags().with(Flag.KEEP_GOING), "//parent:foo");
-    assertThat(getFrequencyOfErrorsWithLocation(badpkg1BuildFile.asFragment(), eventCollector))
-        .isEqualTo(1);
-    assertThat(getFrequencyOfErrorsWithLocation(badpkg2BuildFile.asFragment(), eventCollector))
-        .isEqualTo(1);
+    // Each event string may contain stack traces and error messages with multiple file names.
+    assertContainsEventWithFrequency(badpkg1BuildFile.asFragment().getPathString(), 1);
+    assertContainsEventWithFrequency(badpkg2BuildFile.asFragment().getPathString(), 1);
   }
 
   @Test

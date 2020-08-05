@@ -137,11 +137,6 @@ public abstract class RepositoryFunction {
     RepositoryMissingDependencyException() {
       super(Location.BUILTIN, "Internal exception");
     }
-
-    @Override
-    protected boolean canBeAddedToStackTrace() {
-      return false; // to avoid polluting the log with internal cause information
-    }
   }
 
   /**

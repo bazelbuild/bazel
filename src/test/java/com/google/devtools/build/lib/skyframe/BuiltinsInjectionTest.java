@@ -133,7 +133,8 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
 
     buildDummyWithoutAssertingSuccess();
     assertContainsEvent(
-        "/workspace/tools/builtins_staging/helper.bzl:1:36: integer division by zero");
+        "File \"/workspace/tools/builtins_staging/helper.bzl\", line 1, column 37, in <toplevel>");
+    assertContainsEvent("Error: integer division by zero");
     assertContainsEvent(
         "error loading package 'pkg': Internal error while loading Starlark builtins for "
             + "//pkg:dummy.bzl: Failed to load builtins sources: in "

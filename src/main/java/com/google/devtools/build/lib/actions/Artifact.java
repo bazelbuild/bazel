@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.Path;
@@ -607,7 +608,7 @@ public abstract class Artifact
 
   @Override
   public String getTreeRelativePathString() throws EvalException {
-    throw new EvalException(
+    throw Starlark.errorf(
         "tree_relative_path not allowed for files that are not tree artifact files.");
   }
 

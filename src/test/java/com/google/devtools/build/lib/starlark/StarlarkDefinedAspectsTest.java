@@ -61,8 +61,6 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     return false;
   }
 
-  private static final String LINE_SEPARATOR = System.lineSeparator();
-
   @Before
   public final void initializeToolsConfigMock() throws Exception {
     // Required for tests including the objc_library rule.
@@ -530,7 +528,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   return aspect(implementation=_aspect_impl)",
         "my_rule = rule(",
         "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : attr.label_list(aspects = [mk_aspect()]) },",
+        "   attrs = { 'attr' : attr.label_list(aspects = [mk_aspect()]) },", // line 11
         ")");
 
     scratch.file(
@@ -553,8 +551,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       // expected
     }
 
-    assertContainsEvent("ERROR /workspace/test/aspect.bzl:11:38");
-    assertContainsEvent("Aspects should be top-level values in extension files that define them.");
+    // attr.label_list() fails, stack=[<toplevel>@rules.bzl:11:38, label_list:<builtin>]
+    assertContainsEvent("File \"/workspace/test/aspect.bzl\", line 11, column 38, in <toplevel>");
+    assertContainsEvent(
+        "Error in label_list: Aspects should be top-level values in extension files that define"
+            + " them.");
   }
 
   @Test
@@ -567,7 +568,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         "   pass",
         "my_rule = rule(",
         "   implementation=_rule_impl,",
-        "   attrs = { 'attr' : attr.label_list(providers = [mk_provider()]) },",
+        "   attrs = { 'attr' : attr.label_list(providers = [mk_provider()]) },", // line 7
         ")");
 
     scratch.file(
@@ -590,9 +591,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
       // expected
     }
 
-    assertContainsEvent("ERROR /workspace/test/rule.bzl:7:38");
+    // attr.label_list() fails, stack=[<toplevel>@rules.bzl:7:38, label_list:<builtin>]
+    assertContainsEvent("File \"/workspace/test/rule.bzl\", line 7, column 38, in <toplevel>");
     assertContainsEvent(
-        "Providers should be top-level values in extension files that define them.");
+        "Error in label_list: Providers should be top-level values in extension files that define"
+            + " them.");
   }
 
   @Test
@@ -747,20 +750,15 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
+    // Stack doesn't include source lines because we haven't told EvalException
+    // how to read from scratch.
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:1:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
-            + "Traceback (most recent call last):"
-            + LINE_SEPARATOR
-            + "\tFile \"/workspace/test/BUILD\", line 1"
-            + LINE_SEPARATOR
-            + "\t\t//test:aspect.bzl%MyAspect(...)"
-            + LINE_SEPARATOR
-            + "\tFile \"/workspace/test/aspect.bzl\", line 2, in _impl"
-            + LINE_SEPARATOR
-            + "\t\t1 // 0"
-            + LINE_SEPARATOR
-            + "integer division by zero");
+            + "Traceback (most recent call last):\n"
+            + "\tFile \"/workspace/test/BUILD\", line 1, column 13, in //test:aspect.bzl%MyAspect\n"
+            + "\tFile \"/workspace/test/aspect.bzl\", line 2, column 13, in _impl\n"
+            + "Error: integer division by zero");
   }
 
   @Test
@@ -808,10 +806,8 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:1:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
-            + "\n"
-            + "\n"
             + "The following files have no generating action:\n"
-            + "test/missing_in_action.txt\n");
+            + "test/missing_in_action.txt");
   }
 
   @Test
@@ -1279,7 +1275,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         ")",
         "my_rule = rule(",
         "    implementation=_rule_impl,",
-        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadDefault]) },",
+        "    attrs = { 'deps' : attr.label_list(aspects=[MyAspectBadDefault]) },", // line 11
         ")");
     scratch.file("test/BUILD", "load('//test:aspect.bzl', 'my_rule')", "my_rule(name = 'xxx')");
 
@@ -1291,10 +1287,12 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
     } catch (Exception e) {
       // expect to fail.
     }
+
+    // aspect fails, stack = [<toplevel>@:5:28, aspect@<builtin>]
+    assertContainsEvent("File \"/workspace/test/aspect.bzl\", line 5, column 28, in <toplevel>");
     assertContainsEvent(
-        "ERROR /workspace/test/aspect.bzl:5:28: "
-            + "Aspect parameter attribute 'my_attr' has a bad default value: has to be one of 'a' "
-            + "instead of 'b'");
+        "Error in aspect: Aspect parameter attribute 'my_attr' has a bad default value: has to be"
+            + " one of 'a' instead of 'b'");
   }
 
   @Test

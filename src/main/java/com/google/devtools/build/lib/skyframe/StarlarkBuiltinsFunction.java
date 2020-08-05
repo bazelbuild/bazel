@@ -202,7 +202,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
               ruleClassProvider, packageFactory, exportedToplevels, exportedRules);
       return new StarlarkBuiltinsValue(predeclared, exportedToJava, transitiveDigest);
     } catch (EvalException ex) {
-      ex.ensureLocation(EXPORTS_ENTRYPOINT_LOC);
+      ex = new EvalException(EXPORTS_ENTRYPOINT_LOC, ex.getMessage());
       throw BuiltinsFailedException.errorApplyingExports(ex);
     }
   }

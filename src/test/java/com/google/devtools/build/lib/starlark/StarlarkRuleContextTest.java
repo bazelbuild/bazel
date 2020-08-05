@@ -2251,11 +2251,25 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             "Should be an error expanding action.content",
             EvalException.class,
             () -> ev.eval("action.content"));
+
+    // e has a trivial stack (just <expr>, aka action.content), but its message
+    // contains a stack that has evidently been flattened into a string and passed
+    // through an event reporter as an ERROR at :7:15 (?).
+    // Ideally we would remove some of this cruft.
+    // ```
+    // Error expanding command line:
+    //
+    //     /workspace/test/rules.bzl:7:15: Traceback (most recent call last):
+    //          File "/workspace/test/rules.bzl", line 2, column 9, in fail_with_message
+    //     Error in fail: args expansion error message
+    // ```
+
+    // stack=[fail_with_message@rules.bzl:2, fail@<builtin>]
+    assertThat(e).hasMessageThat().contains("Error expanding command line:");
     assertThat(e)
         .hasMessageThat()
-        .matches(
-            "Error expanding command line: \n\n/workspace/test/rules\\.bzl:\\d+:\\d+: args "
-                + "expansion error message");
+        .contains("File \"/workspace/test/rules.bzl\", line 2, column 9, in fail_with_message");
+    assertThat(e).hasMessageThat().contains("Error in fail: args expansion error message");
   }
 
   @Test
@@ -2458,7 +2472,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
   @Test
   public void testFrozenRuleContextForAspectsHasInaccessibleAttributes() throws Exception {
-    setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
     List<String> attributes = new ArrayList<>();
     attributes.addAll(ctxAttributes);
     attributes.addAll(
@@ -2488,12 +2501,24 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
           "    'deps': attr.label_list(aspects = [MyAspect])",
           "  },",
           ")");
+      setStarlarkSemanticsOptions("--incompatible_new_actions_api=false");
       invalidatePackages();
+
       AssertionError e =
           assertThrows(
               "Should have been unable to access dep." + attribute,
               AssertionError.class,
               () -> getConfiguredTarget("//test:main"));
+
+      // Typical value of e.getMessage():
+      //
+      // ERROR /workspace/test/BUILD:3:8: \
+      //   in //test:rules.bzl%MyAspect aspect on my_rule rule //test:mid:
+      // Traceback (most recent call last):
+      //        File "/workspace/test/BUILD", line 3, column 8, in //test:rules.bzl%MyAspect
+      //        File "/workspace/test/rules.bzl", line 7, column 18, in _aspect_impl
+      // Error: cannot access field or method 'attr' of rule context for '//test:dep' \
+      // outside of its own rule implementation function
       assertThat(e)
           .hasMessageThat()
           .contains(

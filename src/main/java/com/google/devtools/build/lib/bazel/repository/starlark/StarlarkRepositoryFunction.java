@@ -253,7 +253,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
                   "An error occurred during the fetch of repository '"
                       + rule.getName()
                       + "':\n   "
-                      + e.getMessage()));
+                      + e.getMessageWithStack()));
       env.getListener()
           .handle(Event.info(RepositoryResolvedEvent.getRuleDefinitionInformation(rule)));
 

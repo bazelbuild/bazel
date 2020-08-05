@@ -14,11 +14,16 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
+
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import java.util.List;
 import net.starlark.java.annot.StarlarkBuiltin;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,114 +34,155 @@ public final class MethodLibraryTest {
 
   private final EvaluationTestCase ev = new EvaluationTestCase();
 
-  private static final String LINE_SEPARATOR = System.lineSeparator();
+  // Asserts that evaluation of src fails with the specified stack.
+  private void checkEvalErrorStack(String src, String stack) {
+    EvalException ex = assertThrows(EvalException.class, () -> ev.exec(src));
+    EvalException.SourceReader reader =
+        loc -> {
+          // ignore filename
+          List<String> lines = Splitter.on('\n').splitToList(src);
+          return loc.line() > 0 && loc.line() <= lines.size() ? lines.get(loc.line() - 1) : null;
+        };
+    assertThat(ex.getMessageWithStack(reader)).isEqualTo(stack);
+  }
 
-  @Before
-  public final void setFailFast() throws Exception {
-    ev.setFailFast(true);
+  private static String join(String... lines) {
+    return Joiner.on("\n").join(lines);
   }
 
   @Test
-  public void testStackTraceLocation() throws Exception {
-    ev.new Scenario()
-        .testIfErrorContains(
-            "Traceback (most recent call last):"
-                + LINE_SEPARATOR
-                + "\tFile \"\", line 8"
-                + LINE_SEPARATOR
-                + "\t\tfoo()"
-                + LINE_SEPARATOR
-                + "\tFile \"\", line 2, in foo"
-                + LINE_SEPARATOR
-                + "\t\tbar(1)"
-                + LINE_SEPARATOR
-                + "\tFile \"\", line 7, in bar"
-                + LINE_SEPARATOR
-                + "\t\t\"test\".index(x)",
-            "def foo():",
+  public void testStackTrace() throws Exception {
+    checkEvalErrorStack(
+        join(
+            "def foo():", //
             "  bar(1)",
             "def bar(x):",
             "  if x == 1:",
             "    a = x",
             "    b = 2",
-            "    'test'.index(x)",
-            "foo()");
+            "    'test'.index(x) # hello",
+            "foo()"),
+        join(
+            "Traceback (most recent call last):", //
+            "\tFile \"\", line 8, column 4, in <toplevel>",
+            "\t\tfoo()",
+            "\tFile \"\", line 2, column 6, in foo",
+            "\t\tbar(1)",
+            "\tFile \"\", line 7, column 17, in bar",
+            "\t\t'test'.index(x) # hello",
+            "Error in index: in call to index(), parameter 'sub' got value of type 'int', want"
+                + " 'string'"));
   }
 
   @Test
   public void testStackTraceWithIf() throws Exception {
-    ev.new Scenario()
-        .testIfErrorContains(
-            "File \"\", line 5"
-                + LINE_SEPARATOR
-                + "\t\tfoo()"
-                + LINE_SEPARATOR
-                + "\tFile \"\", line 3, in foo"
-                + LINE_SEPARATOR
-                + "\t\ts[0]",
-            "def foo():",
+    checkEvalErrorStack(
+        join(
+            "def foo():", //
             "  s = []",
             "  if s[0] == 1:",
             "    x = 1",
-            "foo()");
+            "foo()"),
+        join(
+            "Traceback (most recent call last):",
+            "\tFile \"\", line 5, column 4, in <toplevel>",
+            "\t\tfoo()",
+            "\tFile \"\", line 3, column 7, in foo",
+            "\t\tif s[0] == 1:",
+            "Error: index out of range (index is 0, but sequence has 0 elements)"));
   }
 
   @Test
   public void testStackTraceWithAugmentedAssignment() throws Exception {
-    ev.new Scenario()
-        .testIfErrorContains(
-            "File \"\", line 4"
-                + LINE_SEPARATOR
-                + "\t\tfoo()"
-                + LINE_SEPARATOR
-                + "\tFile \"\", line 3, in foo"
-                + LINE_SEPARATOR
-                + "\t\ts += \"2\""
-                + LINE_SEPARATOR
-                + "unsupported binary operation: int + string",
-            "def foo():",
+    // Each time the current tree-walking evaluator catches an exception, it computes and sets the
+    // frame's error location. Only the first (innermost) such 'set' has any effect. When the frame
+    // is popped, its error location is accurate. (In our bytecode future, we'll be able to
+    // preemptively set fr.pc cheaply, before every instruction and error, as it's just an int, and
+    // thus do away with this.)
+    //
+    // Assignment statements x=y are special in the evaluator because there's no guarantee that
+    // failed evaluation of the subexpressions x or y sets the frame's error location, so
+    // Eval(assign) sets the error location to '=', possibly redundantly, to ensure that some
+    // location is reported. test exercises that special case.
+    checkEvalErrorStack(
+        join(
+            "def foo():", //
             "  s = 1",
             "  s += '2'",
-            "foo()");
+            "foo()"),
+        join(
+            "Traceback (most recent call last):", //
+            "\tFile \"\", line 4, column 4, in <toplevel>",
+            "\t\tfoo()",
+            "\tFile \"\", line 3, column 5, in foo",
+            "\t\ts += '2'",
+            "Error: unsupported binary operation: int + string"));
   }
 
   @Test
-  public void testStackTraceSkipBuiltInOnly() throws Exception {
-    // The error message should not include the stack trace when there is
-    // only one built-in function.
-    ev.new Scenario()
-        .testIfExactError(
-            "in call to index(), parameter 'sub' got value of type 'int', want 'string'",
-            "'test'.index(1)");
+  public void testStackErrorInBuiltinFunction() throws Exception {
+    // at top level
+    checkEvalErrorStack(
+        "len(1)",
+        join(
+            "Traceback (most recent call last):", //
+            "\tFile \"\", line 1, column 4, in <toplevel>",
+            "\t\tlen(1)",
+            "Error in len: int is not iterable"));
+
+    // in a function
+    checkEvalErrorStack(
+        join(
+            "def f():", //
+            "  len(1)",
+            "f()"),
+        join(
+            "Traceback (most recent call last):", //
+            "\tFile \"\", line 3, column 2, in <toplevel>",
+            "\t\tf()",
+            "\tFile \"\", line 2, column 6, in f",
+            "\t\tlen(1)",
+            "Error in len: int is not iterable"));
   }
 
   @Test
-  public void testStackTrace() throws Exception {
-    // Unlike SkylarintegrationTests#testStackTraceErrorInFunction(), this test
-    // has neither a BUILD nor a bzl file.
-    ev.new Scenario()
-        .testIfExactError(
-            "Traceback (most recent call last):"
-                + LINE_SEPARATOR
-                + "\tFile \"\", line 6"
-                + LINE_SEPARATOR
-                + "\t\tfoo()"
-                + LINE_SEPARATOR
-                + "\tFile \"\", line 2, in foo"
-                + LINE_SEPARATOR
-                + "\t\tbar(1)"
-                + LINE_SEPARATOR
-                + "\tFile \"\", line 5, in bar"
-                + LINE_SEPARATOR
-                + "\t\t\"test\".index(x)"
-                + LINE_SEPARATOR
-                + "in call to index(), parameter 'sub' got value of type 'int', want 'string'",
-            "def foo():",
-            "  bar(1)",
-            "def bar(x):",
-            "  if 1 == 1:",
-            "    'test'.index(x)",
-            "foo()");
+  public void testStackErrorInOperator() throws Exception {
+    // at top level
+    checkEvalErrorStack(
+        "1//0",
+        join(
+            "Traceback (most recent call last):", //
+            "\tFile \"\", line 1, column 2, in <toplevel>",
+            "\t\t1//0",
+            "Error: integer division by zero"));
+
+    // in a function
+    checkEvalErrorStack(
+        join(
+            "def f():", //
+            "  1//0",
+            "f()"),
+        join(
+            "Traceback (most recent call last):", //
+            "\tFile \"\", line 3, column 2, in <toplevel>",
+            "\t\tf()",
+            "\tFile \"\", line 2, column 4, in f",
+            "\t\t1//0",
+            "Error: integer division by zero"));
+
+    // in a function callback
+    checkEvalErrorStack(
+        join(
+            "def id(x): return 1//x", //
+            "sorted([2, 1, 0], key=id)"),
+        join(
+            "Traceback (most recent call last):", //
+            "\tFile \"\", line 2, column 7, in <toplevel>",
+            "\t\tsorted([2, 1, 0], key=id)",
+            "\tFile \"<builtin>\", in sorted",
+            "\tFile \"\", line 1, column 20, in id",
+            "\t\tdef id(x): return 1//x",
+            "Error: integer division by zero"));
   }
 
   @Test

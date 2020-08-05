@@ -893,7 +893,7 @@ public final class PackageFactory {
       try {
         EvalUtils.exec(file, module, thread);
       } catch (EvalException ex) {
-        pkgContext.eventHandler.handle(Event.error(ex.getLocation(), ex.getMessage()));
+        pkgContext.eventHandler.handle(Event.error(null, ex.getMessageWithStack()));
         return false;
       }
 
