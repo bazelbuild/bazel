@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -42,7 +43,8 @@ public class WorkerKeyTest {
           /* workerFilesCombinedHash= */ HashCode.fromInt(0),
           /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
           /* mustBeSandboxed= */ true,
-          /* proxied= */ true);
+          /* proxied= */ true,
+          WorkerProtocolFormat.PROTO);
 
   @Test
   public void testWorkerKeyGetter() {
@@ -52,5 +54,6 @@ public class WorkerKeyTest {
     assertThat(WorkerKey.makeWorkerTypeName(true)).isEqualTo("multiplex-worker");
     // Hash code contains args, env, execRoot, and mnemonic.
     assertThat(workerKey.hashCode()).isEqualTo(322455166);
+    assertThat(workerKey.getProtocolFormat()).isEqualTo(WorkerProtocolFormat.PROTO);
   }
 }

@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -43,6 +44,8 @@ final class WorkerKey {
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean proxied;
 
+  private final WorkerProtocolFormat protocolFormat;
+
   WorkerKey(
       ImmutableList<String> args,
       ImmutableMap<String, String> env,
@@ -51,7 +54,8 @@ final class WorkerKey {
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, HashCode> workerFilesWithHashes,
       boolean mustBeSandboxed,
-      boolean proxied) {
+      boolean proxied,
+      WorkerProtocolFormat protocolFormat) {
     /** Build options. */
     this.args = Preconditions.checkNotNull(args);
     /** Environment variables. */
@@ -68,6 +72,8 @@ final class WorkerKey {
     this.mustBeSandboxed = mustBeSandboxed;
     /** Set it to true if this job should be run with WorkerProxy. */
     this.proxied = proxied;
+    /** The format of the worker protocol sent to and read from the worker. */
+    this.protocolFormat = protocolFormat;
   }
 
   /** Getter function for variable args. */
@@ -108,6 +114,11 @@ final class WorkerKey {
   /** Getter function for variable proxied. */
   public boolean getProxied() {
     return proxied;
+  }
+
+  /** Returns the format of the worker protocol. */
+  public WorkerProtocolFormat getProtocolFormat() {
+    return protocolFormat;
   }
 
   /** Returns a user-friendly name for this worker type. */

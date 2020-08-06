@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.shell.Subprocess;
@@ -58,7 +59,8 @@ public final class WorkerTest {
           /* workerFilesCombinedHash= */ HashCode.fromInt(0),
           /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
           /* mustBeSandboxed= */ true,
-          /* proxied= */ true);
+          /* proxied= */ true,
+          WorkerProtocolFormat.PROTO);
 
   int workerId = 1;
   String workTypeName = WorkerKey.makeWorkerTypeName(key.getProxied());

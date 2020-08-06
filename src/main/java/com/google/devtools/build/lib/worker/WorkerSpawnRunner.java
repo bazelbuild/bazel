@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
@@ -192,6 +193,9 @@ final class WorkerSpawnRunner implements SpawnRunner {
             context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
+    /** TODO(karlgray): Determine protocolFormat from Spawn. */
+    WorkerProtocolFormat protocolFormat = WorkerProtocolFormat.PROTO;
+
     WorkerKey key =
         new WorkerKey(
             workerArgs,
@@ -201,7 +205,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
             workerFilesCombinedHash,
             workerFiles,
             context.speculating(),
-            Spawns.supportsMultiplexWorkers(spawn));
+            Spawns.supportsMultiplexWorkers(spawn),
+            protocolFormat);
 
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forWorkerExec()

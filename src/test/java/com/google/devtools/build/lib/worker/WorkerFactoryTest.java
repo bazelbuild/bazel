@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -49,7 +50,8 @@ public class WorkerFactoryTest {
             /* workerFilesCombinedHash= */ HashCode.fromInt(0),
             /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
             /* mustBeSandboxed= */ true,
-            /* proxied= */ false);
+            /* proxied= */ false,
+            WorkerProtocolFormat.PROTO);
     Path sandboxedWorkerPath = workerFactory.getSandboxedWorkerPath(workerKey, 1);
 
     assertThat(sandboxedWorkerPath.getBaseName()).isEqualTo("workspace");
@@ -69,7 +71,8 @@ public class WorkerFactoryTest {
             /* workerFilesCombinedHash= */ HashCode.fromInt(0),
             /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
             /* mustBeSandboxed= */ true,
-            /* proxied= */ false);
+            /* proxied= */ false,
+            WorkerProtocolFormat.PROTO);
     Worker sandboxedWorker = workerFactory.create(sandboxedWorkerKey);
     assertThat(sandboxedWorker.getClass()).isEqualTo(SandboxedWorker.class);
 
@@ -82,7 +85,8 @@ public class WorkerFactoryTest {
             /* workerFilesCombinedHash= */ HashCode.fromInt(0),
             /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
             /* mustBeSandboxed= */ false,
-            /* proxied= */ false);
+            /* proxied= */ false,
+            WorkerProtocolFormat.PROTO);
     Worker nonProxiedWorker = workerFactory.create(nonProxiedWorkerKey);
     assertThat(nonProxiedWorker.getClass()).isEqualTo(Worker.class);
 
@@ -95,7 +99,8 @@ public class WorkerFactoryTest {
             /* workerFilesCombinedHash= */ HashCode.fromInt(0),
             /* workerFilesWithHashes= */ ImmutableSortedMap.of(),
             /* mustBeSandboxed= */ false,
-            /* proxied= */ true);
+            /* proxied= */ true,
+            WorkerProtocolFormat.PROTO);
     Worker proxiedWorker = workerFactory.create(proxiedWorkerKey);
     // If proxied = true, WorkerProxy is created along with a WorkerMultiplexer.
     // Destroy WorkerMultiplexer to avoid unexpected behavior in WorkerMultiplexerManagerTest.
