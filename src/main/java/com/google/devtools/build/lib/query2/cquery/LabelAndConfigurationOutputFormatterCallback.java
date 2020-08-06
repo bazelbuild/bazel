@@ -63,12 +63,11 @@ public class LabelAndConfigurationOutputFormatterCallback extends CqueryThreadsa
       if (options.showRequiredConfigFragments != IncludeConfigFragmentsEnum.OFF) {
         RequiredConfigFragmentsProvider configFragmentsProvider =
             configuredTarget.getProvider(RequiredConfigFragmentsProvider.class);
-        if (configFragmentsProvider != null) {
-          output
-              .append(" [")
-              .append(String.join(", ", configFragmentsProvider.getRequiredConfigFragments()))
-              .append("]");
-        }
+        String requiredFragmentsOutput =
+            configFragmentsProvider != null
+                ? String.join(", ", configFragmentsProvider.getRequiredConfigFragments())
+                : "";
+        output.append(" [").append(requiredFragmentsOutput).append("]");
       }
 
       addResult(output.toString());

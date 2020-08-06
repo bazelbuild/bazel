@@ -244,7 +244,7 @@ py_library(
 )
 EOF
 
-  bazel cquery "//$pkg:all" --show_config_fragments=transitive > output \
+  bazel cquery "//$pkg:*" --show_config_fragments=transitive > output \
     2>"$TEST_log" || fail "Expected success"
 
   assert_contains "//$pkg:cclib .*CppConfiguration" output
@@ -255,6 +255,8 @@ EOF
 
   assert_not_contains "//$pkg:pylib .*CppConfiguration" output
   assert_contains "//$pkg:pylib .*PythonConfiguration" output
+
+  assert_contains "//$pkg:mylib.cc (null) \[\]" output
 }
 
 function test_show_transitive_config_fragments_select() {
