@@ -16,7 +16,24 @@ package com.google.devtools.coverageoutputgenerator;
 
 import com.google.auto.value.AutoValue;
 
-/** Stores branch coverage information. */
+/**
+ * Stores branch coverage information.
+ *
+ * Corresponds to either a BRDA or BA (Google only) line in an lcov report.
+ * <p>BA lines correspond to instances where blockNumber and branchNumber are set to empty Strings and have the form:
+ * <pre>BA:[line_number],[taken]</pre>
+ * In this case, nrOfExecutions() actually refers to the "taken" value where:
+ * <ul>
+ * <li>0 = Branch was never evaluated (evaluated() == false)</li>
+ * <li>1 = Branch was evaluated but never taken</li>
+ * <li>2 = Branch was taken</li>
+ * </ul>
+ *
+ * BRDA lines set have the form
+ * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
+ * where the block and branch numbers are internal identifiers, and taken is either "-" if the branch was never
+ * executed or a number indicating how often the branch was taken (which may be 0).
+ */
 @AutoValue
 abstract class BranchCoverage {
 
