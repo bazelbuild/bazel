@@ -148,7 +148,7 @@ class LcovPrinter {
         if (branch.taken()) {
           bufferedWriter.write(Long.toString(branch.nrOfExecutions()));
         } else {
-          bufferedWriter.write(Constants.NOT_TAKEN);
+          bufferedWriter.write(Constants.NEVER_EVALUATED);
         }
         bufferedWriter.newLine();
       }

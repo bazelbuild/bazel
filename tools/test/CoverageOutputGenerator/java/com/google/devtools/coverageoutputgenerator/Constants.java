@@ -36,7 +36,7 @@ class Constants {
   static final String LH_MARKER = "LH:";
   static final String LF_MARKER = "LF:";
   static final String END_OF_RECORD_MARKER = "end_of_record";
-  static final String NOT_TAKEN = "-";
+  static final String NEVER_EVALUATED = "-";
   static final String TRACEFILE_EXTENSION = ".dat";
   static final String GCOV_EXTENSION = ".gcov";
   static final String GCOV_JSON_EXTENSION = ".gcov.json.gz";

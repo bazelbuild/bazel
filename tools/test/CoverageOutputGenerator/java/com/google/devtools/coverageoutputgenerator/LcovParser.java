@@ -28,7 +28,7 @@ import static com.google.devtools.coverageoutputgenerator.Constants.FN_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.LF_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.LH_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.SF_MARKER;
-import static com.google.devtools.coverageoutputgenerator.Constants.NOT_TAKEN;
+import static com.google.devtools.coverageoutputgenerator.Constants.NEVER_EVALUATED;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.BufferedReader;
@@ -280,7 +280,7 @@ class LcovParser {
 
       long executionCount = 0;
       boolean wasExecuted = false;
-      if (!taken.equals(NOT_TAKEN)) {
+      if (!taken.equals(NEVER_EVALUATED)) {
         executionCount = Long.parseLong(taken);
         wasExecuted = true;
       }
