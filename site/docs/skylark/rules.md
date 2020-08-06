@@ -792,10 +792,14 @@ def _rule_implementation(ctx):
       # added to instrumented files, if an empty list is provided, then
       # no files from source attributes will be added.
       extensions = ["ext1", "ext2"],
-      # Optional: Attributes that contain source files for this rule.
+      # Optional: Attributes that provide source files processed by this rule.
+      # Attributes which provide files that are forwarded to another rule for
+      # processing (e.g. via DefaultInfo.files) should be listed under
+      # dependency_attributes instead.
       source_attributes = ["srcs"],
-      # Optional: Attributes for dependencies that could include instrumented
-      # files.
+      # Optional: Attributes which may provide instrumented runtime dependencies
+      # (either source code dependencies or binaries which might end up in
+      # this rule's or its consumers' runfiles).
       dependency_attributes = ["data", "deps"])
   return [..., instrumented_files_info]
 ```
@@ -803,8 +807,10 @@ def _rule_implementation(ctx):
 [ctx.configuration.coverage_enabled](lib/configuration.html#coverage_enabled) notes
 whether coverage data collection is enabled for the current run in general
 (but says nothing about which files specifically should be instrumented).
-If a rule implementation needs to add coverage instrumentation at
-compile-time, it can determine if its sources should be instrumented with
+If a rule implementation adds coverage instrumentation at compile-time, it needs
+to instrument its sources if the target's name is matched by
+[`--instrumentation_filter`](../command-line-reference.html#flag--instrumentation_filter),
+which is revealed by
 [ctx.coverage_instrumented](lib/ctx.html#coverage_instrumented):
 
 ```python
@@ -813,8 +819,10 @@ if ctx.coverage_instrumented():
   # Do something to turn on coverage for this compile action
 ```
 
-Note that function will always return false if `ctx.configuration.coverage_enabled` is
-false, so you don't need to check both.
+That same logic governs whether files provided to that target via attributes
+listed in `source_attributes` are included in coverage data output. Note that
+`ctx.coverage_instrumented` will always return false if
+`ctx.configuration.coverage_enabled` is false, so you don't need to check both.
 
 If the rule directly includes sources from its dependencies before compilation
 (e.g. header files), it may also need to turn on compile-time instrumentation
