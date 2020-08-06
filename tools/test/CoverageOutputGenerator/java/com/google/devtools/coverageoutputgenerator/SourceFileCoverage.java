@@ -23,7 +23,7 @@ import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/*
+/**
  * Stores coverage information for a specific source file.
  */
 class SourceFileCoverage {
@@ -60,9 +60,7 @@ class SourceFileCoverage {
     this.sourceFileName = newSourcefileName;
   }
 
-  /*
-   * Returns the merged functions found in the two given {@code SourceFileCoverage}s.
-   */
+  /** Returns the merged functions found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static TreeMap<String, Integer> mergeLineNumbers(SourceFileCoverage s1, SourceFileCoverage s2) {
     TreeMap<String, Integer> merged = new TreeMap<>();
@@ -71,10 +69,7 @@ class SourceFileCoverage {
     return merged;
   }
 
-  /*
-   *
-   * Returns the merged execution count found in the two given {@code SourceFileCoverage}s.
-   */
+  /** Returns the merged execution count found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static TreeMap<String, Long> mergeFunctionsExecution(
       SourceFileCoverage s1, SourceFileCoverage s2) {
@@ -84,10 +79,7 @@ class SourceFileCoverage {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum, TreeMap::new));
   }
 
-  /*
-   *
-   * Returns the merged branches found in the two given {@code SourceFileCoverage}s.
-   */
+  /** Returns the merged branches found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static TreeMap<Integer, BranchCoverage> mergeBranches(
       SourceFileCoverage s1, SourceFileCoverage s2) {
@@ -106,9 +98,7 @@ class SourceFileCoverage {
             .count();
   }
 
-  /*
-   * Returns the merged line execution found in the two given {@code SourceFileCoverage}s.
-   */
+  /** Returns the merged line execution found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static TreeMap<Integer, LineCoverage> mergeLines(SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(s1.lines, s2.lines)
