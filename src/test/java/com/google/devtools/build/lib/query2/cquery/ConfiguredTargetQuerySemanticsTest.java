@@ -177,6 +177,28 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
     assertThat(eval("labels('string_dep', //test:my_rule)")).isEmpty();
   }
 
+  /**
+   * Regression test for b/162431514. the {@code labels} query operator uses {@link
+   * ConfiguredTargetAccessor#getPrerequisites} which is the actual logic being tested here.
+   */
+  @Test
+  public void testGetPrerequisitesFromAliasReturnsActualPrerequisites() throws Exception {
+    MockRule ruleWithDep =
+        () ->
+            MockRule.define(
+                "rule_with_dep", attr("dep", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE));
+
+    helper.useRuleClassProvider(setRuleClassProviders(ruleWithDep).build());
+    writeFile(
+        "test/BUILD",
+        "alias(name = 'alias', actual = ':actual')",
+        "rule_with_dep(name = 'actual', dep = ':dep')",
+        "rule_with_dep(name = 'dep')");
+
+    ConfiguredTarget dep = Iterables.getOnlyElement(eval("labels('dep', '//test:alias')"));
+    assertThat(dep.getLabel()).isEqualTo(Label.parseAbsoluteUnchecked("//test:dep"));
+  }
+
   @Test
   public void testAlias_filtering() throws Exception {
     MockRule ruleWithHostDep =
