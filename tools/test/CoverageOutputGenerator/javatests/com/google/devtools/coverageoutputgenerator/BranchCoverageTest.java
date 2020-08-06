@@ -80,7 +80,7 @@ public class BranchCoverageTest {
     BranchCoverage m1 = BranchCoverage.merge(b1, b2);
     BranchCoverage m2 = BranchCoverage.merge(m1, b3);
 
-    assertThat(m2.lineNumber()).isEqualTo(1);
+    assertThat(m2.lineNumber()).isEqualTo(3);
     assertThat(m2.blockNumber()).isEqualTo("");
     assertThat(m2.branchNumber()).isEqualTo("");
     assertThat(m1.nrOfExecutions()).isEqualTo(3);
