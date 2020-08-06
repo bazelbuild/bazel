@@ -937,7 +937,7 @@ public final class ActionsTestUtil {
     }
 
     @Override
-    public void resetOutputs(Iterable<Artifact> outputs) {
+    public void resetOutputs(Iterable<? extends Artifact> outputs) {
       throw new UnsupportedOperationException();
     }
   }
