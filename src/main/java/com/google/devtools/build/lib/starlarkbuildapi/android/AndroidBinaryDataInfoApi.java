@@ -14,8 +14,12 @@
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkBuiltin;
+import net.starlark.java.annot.StarlarkConstructor;
 import net.starlark.java.annot.StarlarkDocumentationCategory;
 import net.starlark.java.annot.StarlarkMethod;
 
@@ -49,4 +53,65 @@ public interface AndroidBinaryDataInfoApi<FileT extends FileApi> extends StructA
       doc = "Proguard config generated for the resources.",
       documented = false)
   FileT getResourceProguardConfig();
+
+  /** The provider implementing this can construct the AndroidBinaryDataInfoApi provider. */
+  @StarlarkBuiltin(
+      name = "Provider",
+      doc =
+          "Do not use this module. It is intended for migration purposes only. If you depend on "
+              + "it, you will be broken when it is removed.",
+      documented = false)
+  interface Provider<
+          FileT extends FileApi,
+          AndroidResourcesInfoApiT,
+          AndroidAssetsInfoApiT,
+          AndroidManifestInfoApiT>
+      extends ProviderApi {
+
+    @StarlarkMethod(
+        name = NAME,
+        doc = "The <code>AndroidBinaryDataInfoApi</code> constructor.",
+        documented = false,
+        parameters = {
+          @Param(
+              name = "resource_apk",
+              doc = "resource_apk",
+              positional = false,
+              named = true,
+              type = FileApi.class),
+          @Param(
+              name = "resource_proguard_config",
+              doc = "resource_proguard_config",
+              positional = false,
+              named = true,
+              type = FileApi.class),
+          @Param(
+              name = "resources_info",
+              doc = "resources_info",
+              positional = false,
+              named = true,
+              type = AndroidResourcesInfoApi.class),
+          @Param(
+              name = "assets_info",
+              doc = "assets_info",
+              positional = false,
+              named = true,
+              type = AndroidAssetsInfoApi.class),
+          @Param(
+              name = "manifest_info",
+              doc = "manifest_info",
+              positional = false,
+              named = true,
+              type = AndroidManifestInfoApi.class),
+        },
+        selfCall = true)
+    @StarlarkConstructor(objectType = AndroidBinaryDataInfoApi.class, receiverNameForDoc = NAME)
+    AndroidBinaryDataInfoApi<FileT> create(
+        FileT resourceApk,
+        FileT resourceProguardConfig,
+        AndroidResourcesInfoApiT resourcesInfo,
+        AndroidAssetsInfoApiT assetsInfo,
+        AndroidManifestInfoApiT manifestInfo)
+        throws EvalException;
+  }
 }
