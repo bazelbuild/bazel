@@ -104,7 +104,7 @@ public class WorkerFactoryTest {
     Worker proxiedWorker = workerFactory.create(proxiedWorkerKey);
     // If proxied = true, WorkerProxy is created along with a WorkerMultiplexer.
     // Destroy WorkerMultiplexer to avoid unexpected behavior in WorkerMultiplexerManagerTest.
-    WorkerMultiplexerManager.removeInstance(proxiedWorkerKey.hashCode());
+    WorkerMultiplexerManager.removeInstance(proxiedWorkerKey);
     assertThat(proxiedWorker.getClass()).isEqualTo(WorkerProxy.class);
   }
 }

@@ -26,6 +26,9 @@ import java.util.SortedMap;
 /**
  * Data container that uniquely identifies a kind of worker process and is used as the key for the
  * {@link WorkerPool}.
+ *
+ * <p>We expect a small number of WorkerKeys per mnemonic. Unbounded creation of WorkerKeys will
+ * break various things as well as render the workers less useful.
  */
 final class WorkerKey {
   private final ImmutableList<String> args;
@@ -43,6 +46,11 @@ final class WorkerKey {
   private final boolean mustBeSandboxed;
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean proxied;
+  /**
+   * Cached value for the hash of this key, because the value is expensive to calculate
+   * (ImmutableMap and ImmutableList do not cache their hashcodes.
+   */
+  private final int hash;
 
   private final WorkerProtocolFormat protocolFormat;
 
@@ -74,6 +82,8 @@ final class WorkerKey {
     this.proxied = proxied;
     /** The format of the worker protocol sent to and read from the worker. */
     this.protocolFormat = protocolFormat;
+
+    hash = calculateHashCode();
   }
 
   /** Getter function for variable args. */
@@ -154,8 +164,13 @@ final class WorkerKey {
 
   }
 
+  /** Since all fields involved in the {@code hashCode} are final, we cache the result. */
   @Override
   public int hashCode() {
+    return hash;
+  }
+
+  private int calculateHashCode() {
     int result = args.hashCode();
     result = 31 * result + env.hashCode();
     result = 31 * result + execRoot.hashCode();
