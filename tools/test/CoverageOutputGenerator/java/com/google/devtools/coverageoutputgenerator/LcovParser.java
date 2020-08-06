@@ -86,7 +86,7 @@ class LcovParser {
     currentSourceFileCoverage = null;
   }
 
-  /*
+  /**
    * Reads the line and redirects the parsing to the corresponding {@code parseXLine} method. Every
    * {@code parseXLine} methods fills in data to {@code currentSourceFileCoverage} accordingly.
    */
