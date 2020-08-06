@@ -1541,6 +1541,12 @@ EOF
   assert_contains "test_case succeeded" "$TESTXML"
 }
 
+# Regression test that Bazel does not crash if remote execution is disabled,
+# but --remote_download_toplevel is enabled.
+function test_download_toplevel_no_remote_execution() {
+  bazel build --remote_download_toplevel \
+      || fail "Failed to run bazel build --remote_download_toplevel"
+}
 
 function test_tag_no_remote_cache() {
   mkdir -p a
