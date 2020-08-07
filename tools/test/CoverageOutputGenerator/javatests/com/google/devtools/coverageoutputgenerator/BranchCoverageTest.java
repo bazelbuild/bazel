@@ -15,7 +15,7 @@
 package com.google.devtools.coverageoutputgenerator;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertThrows;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,80 +25,86 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BranchCoverageTest {
 
-  private static final int BRANCH1_LINE_NR = 10;
-  private static final String BRANCH1_BLOCK_NR = "3";
-  private static final String BRANCH1_BRANCH_NR = "2";
-  private static final int BRANCH1_NR_EXECUTIONS = 0;
+  @Test
+  public void testMergesBranchesWithBlockBranchEvaluated() {
+    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 3);
+    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 0);
+    BranchCoverage b3 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 2);
 
-  private static final int BRANCH1_OTHER_TRACEFILE_NR_EXECUTIONS = 5;
+    BranchCoverage m1 = BranchCoverage.merge(b1, b2);
+    BranchCoverage m2 = BranchCoverage.merge(m1, b3);
 
-  private static final int BRANCH2_LINE_NR = 20;
-  private static final String BRANCH2_BLOCK_NR = "7";
-  private static final String BRANCH2_BRANCH_NR = "2";
-  private static final int BRANCH2_NR_EXECUTIONS = 0;
-
-  private static final int BRANCH2_OTHER_TRACEFILE_NR_EXECUTIONS = 0;
-
-  static final BranchCoverage getBranch1CoverageData() {
-    return BranchCoverage.createWithBlockAndBranch(
-        BRANCH1_LINE_NR, BRANCH1_BLOCK_NR, BRANCH1_BRANCH_NR, BRANCH1_NR_EXECUTIONS);
-  }
-
-  static final BranchCoverage getBranch2CoverageData() {
-    return BranchCoverage.createWithBlockAndBranch(
-        BRANCH2_LINE_NR, BRANCH2_BLOCK_NR, BRANCH2_BRANCH_NR, BRANCH2_NR_EXECUTIONS);
-  }
-
-  static final BranchCoverage getBranch1OtherTracefileCoverageData() {
-    return BranchCoverage.createWithBlockAndBranch(
-        BRANCH1_LINE_NR,
-        BRANCH1_BLOCK_NR,
-        BRANCH1_BRANCH_NR,
-        BRANCH1_OTHER_TRACEFILE_NR_EXECUTIONS);
-  }
-
-  static final BranchCoverage getBranch2OtherTracefileCoverageData() {
-    return BranchCoverage.createWithBlockAndBranch(
-        BRANCH2_LINE_NR,
-        BRANCH2_BLOCK_NR,
-        BRANCH2_BRANCH_NR,
-        BRANCH2_OTHER_TRACEFILE_NR_EXECUTIONS);
+    assertThat(m1.lineNumber()).isEqualTo(1);
+    assertThat(m1.blockNumber()).isEqualTo("3");
+    assertThat(m1.branchNumber()).isEqualTo("2");
+    assertThat(m1.evaluated()).isTrue();
+    assertThat(m1.nrOfExecutions()).isEqualTo(3);
+    assertThat(m2.evaluated()).isTrue();
+    assertThat(m2.nrOfExecutions()).isEqualTo(5);
   }
 
   @Test
-  public void testMergeBranch1() {
-    BranchCoverage branch1 = getBranch1CoverageData();
-    BranchCoverage branch1OtherTracefile = getBranch1OtherTracefileCoverageData();
-    BranchCoverage merged = BranchCoverage.merge(branch1, branch1OtherTracefile);
-    assertThat(merged.lineNumber()).isEqualTo(branch1.lineNumber());
-    assertThat(merged.blockNumber()).isEqualTo(branch1.blockNumber());
-    assertThat(merged.branchNumber()).isEqualTo(branch1.branchNumber());
-    assertThat(merged.wasExecuted()).isTrue();
-    assertThat(merged.nrOfExecutions())
-        .isEqualTo(branch1.nrOfExecutions() + branch1OtherTracefile.nrOfExecutions());
-  }
+  public void testMergeBranchesWithBlockBranchNotEvaluated() {
+    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "2", "0", false, 0);
+    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "2", "0", false, 0);
 
-  @Test
-  public void testMergeBranch2() {
-    BranchCoverage branch2 = getBranch2CoverageData();
-    BranchCoverage branch2OtherTracefile = getBranch2OtherTracefileCoverageData();
-    BranchCoverage merged = BranchCoverage.merge(branch2, branch2OtherTracefile);
-    assertThat(merged.lineNumber()).isEqualTo(branch2.lineNumber());
-    assertThat(merged.blockNumber()).isEqualTo(branch2.blockNumber());
-    assertThat(merged.branchNumber()).isEqualTo(branch2.branchNumber());
-    assertThat(merged.wasExecuted()).isFalse();
+    BranchCoverage merged = BranchCoverage.merge(b1, b2);
+
+    assertThat(merged.lineNumber()).isEqualTo(1);
+    assertThat(merged.blockNumber()).isEqualTo("2");
+    assertThat(merged.branchNumber()).isEqualTo("0");
+    assertThat(merged.evaluated()).isFalse();
     assertThat(merged.nrOfExecutions()).isEqualTo(0);
   }
 
   @Test
-  public void testMergeBranch1Branch2AssertationError() {
-    BranchCoverage branch1 = getBranch1CoverageData();
-    BranchCoverage branch2 = getBranch2CoverageData();
-    try {
-      BranchCoverage.merge(branch1, branch2);
-    } catch (AssertionError er) {
-      return;
-    }
-    fail();
+  public void testMergeBranchesWithBlockBranchMixedEvaluated() {
+    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "2", "0", false, 0);
+    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "2", "0", true, 0);
+
+    BranchCoverage merged = BranchCoverage.merge(b1, b2);
+
+    assertThat(merged.lineNumber()).isEqualTo(1);
+    assertThat(merged.blockNumber()).isEqualTo("2");
+    assertThat(merged.branchNumber()).isEqualTo("0");
+    assertThat(merged.evaluated()).isTrue();
+    assertThat(merged.nrOfExecutions()).isEqualTo(0);
+  }
+
+  @Test
+  public void testMergesWithNoBlockBranch() {
+    BranchCoverage b1 = BranchCoverage.create(3, 3);
+    BranchCoverage b2 = BranchCoverage.create(3, 0);
+    BranchCoverage b3 = BranchCoverage.create(3, 5);
+
+    BranchCoverage m1 = BranchCoverage.merge(b1, b2);
+    BranchCoverage m2 = BranchCoverage.merge(m1, b3);
+
+    assertThat(m2.lineNumber()).isEqualTo(3);
+    assertThat(m2.blockNumber()).isEmpty();
+    assertThat(m2.branchNumber()).isEmpty();
+    assertThat(m1.nrOfExecutions()).isEqualTo(3);
+    assertThat(m2.nrOfExecutions()).isEqualTo(8);
+  }
+
+  @Test
+  public void testDifferentLineNumbersFail() {
+    BranchCoverage b1 = BranchCoverage.create(2, 1);
+    BranchCoverage b2 = BranchCoverage.create(3, 2);
+    assertThrows(AssertionError.class, () -> BranchCoverage.merge(b1, b2));
+  }
+
+  @Test
+  public void testDifferentBlockNumbersFail() {
+    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 1);
+    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "2", "2", true, 1);
+    assertThrows(AssertionError.class, () -> BranchCoverage.merge(b1, b2));
+  }
+
+  @Test
+  public void testDifferentBranchNumbersFail() {
+    BranchCoverage b1 = BranchCoverage.createWithBlockAndBranch(1, "3", "2", true, 1);
+    BranchCoverage b2 = BranchCoverage.createWithBlockAndBranch(1, "3", "3", true, 1);
+    assertThrows(AssertionError.class, () -> BranchCoverage.merge(b1, b2));
   }
 }

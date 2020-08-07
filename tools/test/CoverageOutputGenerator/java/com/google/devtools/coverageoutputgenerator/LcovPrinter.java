@@ -143,10 +143,10 @@ class LcovPrinter {
       bufferedWriter.write(Constants.DELIMITER);
       bufferedWriter.write(branch.branchNumber());
       bufferedWriter.write(Constants.DELIMITER);
-      if (branch.wasExecuted()) {
+      if (branch.evaluated()) {
         bufferedWriter.write(Long.toString(branch.nrOfExecutions()));
       } else {
-        bufferedWriter.write(Constants.TAKEN);
+        bufferedWriter.write(Constants.NEVER_EVALUATED);
       }
       bufferedWriter.newLine();
     }

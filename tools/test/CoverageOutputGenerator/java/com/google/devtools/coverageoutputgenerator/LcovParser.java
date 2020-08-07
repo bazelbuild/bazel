@@ -27,8 +27,8 @@ import static com.google.devtools.coverageoutputgenerator.Constants.FNH_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.FN_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.LF_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.LH_MARKER;
+import static com.google.devtools.coverageoutputgenerator.Constants.NEVER_EVALUATED;
 import static com.google.devtools.coverageoutputgenerator.Constants.SF_MARKER;
-import static com.google.devtools.coverageoutputgenerator.Constants.TAKEN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.BufferedReader;
@@ -279,12 +279,14 @@ class LcovParser {
       String taken = lineData[3];
 
       long executionCount = 0;
-      if (taken.equals(TAKEN)) {
+      boolean wasEvaluated = false;
+      if (!taken.equals(NEVER_EVALUATED)) {
         executionCount = Long.parseLong(taken);
+        wasEvaluated = true;
       }
       BranchCoverage branchCoverage =
           BranchCoverage.createWithBlockAndBranch(
-              lineNumber, blockNumber, branchNumber, executionCount);
+              lineNumber, blockNumber, branchNumber, wasEvaluated, executionCount);
 
       currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
     } catch (NumberFormatException e) {

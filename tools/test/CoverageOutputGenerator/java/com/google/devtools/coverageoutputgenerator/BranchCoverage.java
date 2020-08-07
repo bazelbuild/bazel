@@ -22,12 +22,17 @@ abstract class BranchCoverage {
 
   static BranchCoverage create(int lineNumber, long nrOfExecutions) {
     return new AutoValue_BranchCoverage(
-        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", nrOfExecutions);
+        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", nrOfExecutions > 0, nrOfExecutions);
   }
 
   static BranchCoverage createWithBlockAndBranch(
-      int lineNumber, String blockNumber, String branchNumber, long nrOfExecutions) {
-    return new AutoValue_BranchCoverage(lineNumber, blockNumber, branchNumber, nrOfExecutions);
+      int lineNumber,
+      String blockNumber,
+      String branchNumber,
+      boolean evaluated,
+      long nrOfExecutions) {
+    return new AutoValue_BranchCoverage(
+        lineNumber, blockNumber, branchNumber, evaluated, nrOfExecutions);
   }
 
   /**
@@ -45,14 +50,17 @@ abstract class BranchCoverage {
         first.lineNumber(),
         first.blockNumber(),
         first.branchNumber(),
+        first.evaluated() || second.evaluated(),
         first.nrOfExecutions() + second.nrOfExecutions());
   }
 
   abstract int lineNumber();
   // The two numbers below should be -1 for non-gcc emitted coverage (e.g. Java).
-  abstract String blockNumber(); // internal gcc internal ID for the branch
+  abstract String blockNumber(); // internal gcc ID for the branch
 
-  abstract String branchNumber(); // internal gcc internal ID for the branch
+  abstract String branchNumber(); // internal gcc ID for the branch
+
+  abstract boolean evaluated();
 
   abstract long nrOfExecutions();
 
