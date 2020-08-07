@@ -842,6 +842,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to enable the use of AggregatingMiddleman in rules.")
   public boolean enableAggregatingMiddleman;
 
+  // TODO(b/132346407): Remove when all usages are gone.
+  @Option(
+      name = "experimental_enable_shorthand_aliases",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "When enabled, alternate names can be assigned to Starlark-defined flags.")
+  public boolean enableShorthandAliases;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
