@@ -1063,7 +1063,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     /** Return an EvalException for having a bad key in the direct dependency provider. */
     private static <E> EvalException badDirectDependencyKeyError(Key<E> key) {
       return new EvalException(
-          null,
           String.format(
               AppleStarlarkCommon.BAD_DIRECT_DEPENDENCY_KEY_ERROR, key.getStarlarkKeyName()));
     }
@@ -1196,7 +1195,6 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
         if (getStarlarkSemantics().incompatibleObjcProviderRemoveCompileInfo()) {
           if (!KEYS_FOR_DIRECT.contains(key)) {
             throw new EvalException(
-                null,
                 String.format(AppleStarlarkCommon.DEPRECATED_KEY_ERROR, key.getStarlarkKeyName()));
           }
         } else {
@@ -1237,7 +1235,7 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
         for (PathFragment framework : frameworks) {
           if (!framework.getSafePathString().endsWith(FRAMEWORK_SUFFIX)) {
             throw new EvalException(
-                null, String.format(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework));
+                String.format(AppleStarlarkCommon.BAD_FRAMEWORK_PATH_ERROR, framework));
           }
           frameworkSearchPaths.add(framework.getParentDirectory());
         }
@@ -1279,14 +1277,12 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     void addProvidersFromStarlark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
         throw new EvalException(
-            null,
             String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
             throw new EvalException(
-                null,
                 String.format(
                     AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
           } else {
@@ -1307,14 +1303,12 @@ public final class ObjcProvider implements Info, ObjcProviderApi<Artifact> {
     void addDirectDepProvidersFromStarlark(Object toAdd) throws EvalException {
       if (!(toAdd instanceof Iterable)) {
         throw new EvalException(
-            null,
             String.format(AppleStarlarkCommon.BAD_PROVIDERS_ITER_ERROR, Starlark.type(toAdd)));
       } else {
         Iterable<Object> toAddIterable = (Iterable<Object>) toAdd;
         for (Object toAddObject : toAddIterable) {
           if (!(toAddObject instanceof ObjcProvider)) {
             throw new EvalException(
-                null,
                 String.format(
                     AppleStarlarkCommon.BAD_PROVIDERS_ELEM_ERROR, Starlark.type(toAddObject)));
           } else {

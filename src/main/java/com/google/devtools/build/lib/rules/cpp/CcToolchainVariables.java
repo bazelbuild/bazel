@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainVariablesApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -269,7 +268,6 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
      */
     private void abort(String error) throws EvalException {
       throw new EvalException(
-          Location.BUILTIN,
           "Invalid toolchain configuration: "
               + error
               + " at position "

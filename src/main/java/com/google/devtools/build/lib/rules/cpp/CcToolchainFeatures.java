@@ -1073,8 +1073,7 @@ public class CcToolchainFeatures {
       ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : actionConfig.getFlagSetList()) {
         if (!flagSet.getActionList().isEmpty()) {
-          throw new EvalException(
-              Location.BUILTIN, String.format(FLAG_SET_WITH_ACTION_ERROR, configName));
+          throw new EvalException(String.format(FLAG_SET_WITH_ACTION_ERROR, configName));
         }
 
         flagSetBuilder.add(new FlagSet(flagSet, ImmutableSet.of(actionName)));
@@ -1217,7 +1216,6 @@ public class CcToolchainFeatures {
       }
       if (foundCategory == null) {
         throw new EvalException(
-            Location.BUILTIN,
             String.format(
                 "Invalid toolchain configuration: Artifact category %s not recognized",
                 artifactNamePattern.getCategoryName()));
@@ -1226,7 +1224,6 @@ public class CcToolchainFeatures {
       String extension = artifactNamePattern.getExtension();
       if (!foundCategory.getAllowedExtensions().contains(extension)) {
         throw new EvalException(
-            Location.BUILTIN,
             String.format(
                 "Unrecognized file extension '%s', allowed extensions are %s,"
                     + " please check artifact_name_pattern configuration for %s in your CROSSTOOL.",
@@ -1640,7 +1637,6 @@ public class CcToolchainFeatures {
     for (CrosstoolSelectable selectable : selectables) {
       if (!names.add(selectable.getName())) {
         throw new EvalException(
-            Location.BUILTIN,
             "Invalid toolchain configuration: feature or "
                 + "action config '"
                 + selectable.getName()
@@ -1655,7 +1651,6 @@ public class CcToolchainFeatures {
     for (ActionConfig actionConfig : actionConfigs) {
       if (!actionNames.add(actionConfig.getActionName())) {
         throw new EvalException(
-            Location.BUILTIN,
             "Invalid toolchain configuration: multiple action "
                 + "configs for action '"
                 + actionConfig.getActionName()
@@ -1746,7 +1741,6 @@ public class CcToolchainFeatures {
       throws EvalException {
     if (!selectablesByName.containsKey(name)) {
       throw new EvalException(
-          Location.BUILTIN,
           "Invalid toolchain configuration: feature '"
               + name
               + "', which is referenced from feature '"
@@ -1778,7 +1772,6 @@ public class CcToolchainFeatures {
     }
     if (patternForCategory == null) {
       throw new EvalException(
-          Location.BUILTIN,
           String.format(
               MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
     }
@@ -1802,7 +1795,6 @@ public class CcToolchainFeatures {
     }
     if (patternForCategory == null) {
       throw new EvalException(
-          Location.BUILTIN,
           String.format(
               MISSING_ARTIFACT_NAME_PATTERN_ERROR_TEMPLATE, artifactCategory.getCategoryName()));
     }

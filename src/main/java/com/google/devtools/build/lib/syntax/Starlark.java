@@ -500,7 +500,7 @@ public final class Starlark {
   @FormatMethod
   @CheckReturnValue // don't forget to throw it
   public static EvalException errorf(String format, Object... args) {
-    return new EvalException(null, String.format(format, args));
+    return new EvalException(String.format(format, args));
   }
 
   // --- methods related to attributes (fields and methods) ---

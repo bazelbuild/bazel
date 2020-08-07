@@ -453,7 +453,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       builder.setShellCommand(command);
     } else {
       throw new EvalException(
-          null,
           "expected string or list of strings for command instead of "
               + Starlark.type(commandUnchecked));
     }
@@ -495,7 +494,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         builder.addCommandLine(args.build(), paramFileInfo);
       } else {
         throw new EvalException(
-            null,
             "expected list of strings or ctx.actions.args() for arguments instead of "
                 + Starlark.type(value));
       }
@@ -569,7 +567,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else {
           throw new EvalException(
-              null,
               "expected value of type 'File or FilesToRunProvider' for "
                   + "a member of parameter 'tools' but got "
                   + Starlark.type(toolUnchecked)

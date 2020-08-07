@@ -81,7 +81,6 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -296,7 +295,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
           "Cannot add outputs to immutable Outputs object");
       if (outputs.containsKey(key)
           || (context.isExecutable() && EXECUTABLE_OUTPUT_NAME.equals(key))) {
-        throw new EvalException(null, "Multiple outputs with the same key: " + key);
+        throw new EvalException("Multiple outputs with the same key: " + key);
       }
       outputs.put(key, value);
     }
@@ -367,7 +366,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     private void checkMutable() throws EvalException {
       if (isImmutable()) {
         throw new EvalException(
-            null,
             String.format(
                 "cannot access outputs of rule '%s' outside of its own "
                     + "rule implementation function",
@@ -407,9 +405,11 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
 
   public void checkMutable(String attrName) throws EvalException {
     if (isImmutable()) {
-      throw new EvalException(null, String.format(
-          "cannot access field or method '%s' of rule context for '%s' outside of its own rule " 
-              + "implementation function", attrName, ruleLabelCanonicalName));
+      throw new EvalException(
+          String.format(
+              "cannot access field or method '%s' of rule context for '%s' outside of its own rule "
+                  + "implementation function",
+              attrName, ruleLabelCanonicalName));
     }
   }
 
@@ -527,8 +527,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public StructImpl getSplitAttr() throws EvalException {
     checkMutable("split_attr");
     if (splitAttributes == null) {
-      throw new EvalException(
-          Location.BUILTIN, "'split_attr' is available only in rule implementations");
+      throw new EvalException("'split_attr' is available only in rule implementations");
     }
     return splitAttributes;
   }
@@ -595,7 +594,6 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public Object getBuildSettingValue() throws EvalException {
     if (ruleContext.getRule().getRuleClassObject().getBuildSetting() == null) {
       throw new EvalException(
-          Location.BUILTIN,
           String.format(
               "attempting to access 'build_setting_value' of non-build setting %s",
               ruleLabelCanonicalName));
@@ -658,7 +656,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public ClassObject outputs() throws EvalException {
     checkMutable("outputs");
     if (outputsObject == null) {
-      throw new EvalException(Location.BUILTIN, "'outputs' is not defined");
+      throw new EvalException("'outputs' is not defined");
     }
     return outputsObject;
   }
@@ -667,8 +665,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public StarlarkAttributesCollection rule() throws EvalException {
     checkMutable("rule");
     if (!isForAspect) {
-      throw new EvalException(
-          Location.BUILTIN, "'rule' is only available in aspect implementations");
+      throw new EvalException("'rule' is only available in aspect implementations");
     }
     return ruleAttributesCollection;
   }
@@ -677,8 +674,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
   public ImmutableList<String> aspectIds() throws EvalException {
     checkMutable("aspect_ids");
     if (!isForAspect) {
-      throw new EvalException(
-          Location.BUILTIN, "'aspect_ids' is only available in aspect implementations");
+      throw new EvalException("'aspect_ids' is only available in aspect implementations");
     }
 
     ImmutableList.Builder<String> result = ImmutableList.builder();
@@ -723,7 +719,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     try {
       ShellUtils.tokenize(options, optionString);
     } catch (TokenizationException e) {
-      throw new EvalException(null, e.getMessage() + " while tokenizing '" + optionString + "'");
+      throw new EvalException(e.getMessage() + " while tokenizing '" + optionString + "'");
     }
     return StarlarkList.immutableCopyOf(options);
   }
@@ -742,7 +738,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
       }
       return LabelExpander.expand(expression, labelMap, labelResolver);
     } catch (NotUniqueExpansionException e) {
-      throw new EvalException(null, e.getMessage() + " while expanding '" + expression + "'");
+      throw new EvalException(e.getMessage() + " while expanding '" + expression + "'");
     }
   }
 
@@ -798,7 +794,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
     if (type.isInstance(obj)) {
       return type.cast(obj);
     } else {
-      throw new EvalException(null, errorMessage);
+      throw new EvalException(errorMessage);
     }
   }
 
@@ -882,7 +878,7 @@ public final class StarlarkRuleContext implements StarlarkRuleContextApi<Constra
               makeLabelMap(Sequence.cast(targets, TransitiveInfoCollection.class, "targets")))
           .expand(input);
     } catch (IllegalStateException ise) {
-      throw new EvalException(null, ise);
+      throw new EvalException(ise);
     }
   }
 

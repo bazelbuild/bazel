@@ -86,9 +86,9 @@ public class ConstantRuleVisibility implements RuleVisibility, Serializable {
     for (Label label : labels) {
       visibility = tryParse(label);
       if (visibility != null) {
-        throw new EvalException(null,
-            "Public or private visibility labels (e.g. //visibility:public or" +
-            " //visibility:private) cannot be used in combination with other labels");
+        throw new EvalException(
+            "Public or private visibility labels (e.g. //visibility:public or"
+                + " //visibility:private) cannot be used in combination with other labels");
       }
     }
     return null;

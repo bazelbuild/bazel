@@ -337,27 +337,26 @@ public final class PackageFactory {
       public Object call(StarlarkThread thread, Tuple<Object> args, Dict<String, Object> kwargs)
           throws EvalException {
         if (!args.isEmpty()) {
-          throw new EvalException(null, "unexpected positional arguments");
+          throw new EvalException("unexpected positional arguments");
         }
         Package.Builder pkgBuilder = getContext(thread).pkgBuilder;
 
         // Validate parameter list
         if (pkgBuilder.isPackageFunctionUsed()) {
-          throw new EvalException(null, "'package' can only be used once per BUILD file");
+          throw new EvalException("'package' can only be used once per BUILD file");
         }
         pkgBuilder.setPackageFunctionUsed();
 
         // Each supplied argument must name a PackageArgument.
         if (kwargs.isEmpty()) {
-          throw new EvalException(
-              null, "at least one argument must be given to the 'package' function");
+          throw new EvalException("at least one argument must be given to the 'package' function");
         }
         Location loc = thread.getCallerLocation();
         for (Map.Entry<String, Object> kwarg : kwargs.entrySet()) {
           String name = kwarg.getKey();
           PackageArgument<?> pkgarg = packageArguments.get(name);
           if (pkgarg == null) {
-            throw new EvalException(null, "unexpected keyword argument: " + name);
+            throw new EvalException("unexpected keyword argument: " + name);
           }
           pkgarg.convertAndProcess(pkgBuilder, loc, kwarg.getValue());
         }
@@ -417,7 +416,7 @@ public final class PackageFactory {
             thread.getSemantics(),
             thread.getCallStack());
       } catch (RuleFactory.InvalidRuleException | Package.NameConflictException e) {
-        throw new EvalException(null, e.getMessage());
+        throw new EvalException(e);
       }
       return Starlark.NONE;
     }

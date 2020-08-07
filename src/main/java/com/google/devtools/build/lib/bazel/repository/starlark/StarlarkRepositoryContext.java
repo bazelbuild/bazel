@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionR
 import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -480,13 +479,11 @@ public class StarlarkRepositoryContext
       Object arg = arguments.get(i);
       if (isRemotable) {
         if (!(arg instanceof String || arg instanceof Label)) {
-          throw new EvalException(
-              Location.BUILTIN, "Argument " + i + " of execute is neither a label nor a string.");
+          throw new EvalException("Argument " + i + " of execute is neither a label nor a string.");
         }
       } else {
         if (!(arg instanceof String || arg instanceof Label || arg instanceof StarlarkPath)) {
           throw new EvalException(
-              Location.BUILTIN,
               "Argument " + i + " of execute is neither a path, label, nor string.");
         }
       }
@@ -996,7 +993,6 @@ public class StarlarkRepositoryContext
     for (Object o : urlList) {
       if (!(o instanceof String)) {
         throw new EvalException(
-            null,
             String.format(
                 "Expected a string or sequence of strings for 'url' argument, "
                     + "but got '%s' item in the sequence",
@@ -1153,7 +1149,6 @@ public class StarlarkRepositoryContext
           if ("basic".equals(authMap.get("type"))) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
               throw new EvalException(
-                  null,
                   "Found request to do basic auth for "
                       + entry.getKey()
                       + " without 'login' and 'password' being provided.");
@@ -1169,7 +1164,6 @@ public class StarlarkRepositoryContext
           } else if ("pattern".equals(authMap.get("type"))) {
             if (!authMap.containsKey("pattern")) {
               throw new EvalException(
-                  null,
                   "Found request to do pattern auth for "
                       + entry.getKey()
                       + " without a pattern being provided");
@@ -1183,7 +1177,6 @@ public class StarlarkRepositoryContext
               if (result.contains(demarcatedComponent)) {
                 if (!authMap.containsKey(component)) {
                   throw new EvalException(
-                      null,
                       "Auth pattern contains "
                           + demarcatedComponent
                           + " but it was not provided in auth dict.");
@@ -1202,7 +1195,7 @@ public class StarlarkRepositoryContext
       } catch (MalformedURLException e) {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       } catch (URISyntaxException e) {
-        throw new EvalException(null, e.getMessage());
+        throw new EvalException(e);
       }
     }
     return headers.build();

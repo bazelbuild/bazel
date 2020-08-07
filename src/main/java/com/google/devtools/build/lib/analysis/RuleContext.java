@@ -527,7 +527,7 @@ public final class RuleContext extends TargetContext
               transition.isHostTransition() ? "host_" : "", name),
           transition);
     } catch (IllegalArgumentException ex) { // fishy
-      throw new EvalException(null, ex.getMessage());
+      throw new EvalException(ex.getMessage());
     }
   }
 

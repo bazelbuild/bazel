@@ -87,8 +87,7 @@ public class PyStructUtils {
     if (fieldValue == null) {
       fieldValue = DEFAULTS.get(fieldName);
       if (fieldValue == null) {
-        throw new EvalException(
-            /*location=*/ null, String.format("'py' provider missing '%s' field", fieldName));
+        throw new EvalException(String.format("'py' provider missing '%s' field", fieldName));
       }
     }
     return fieldValue;

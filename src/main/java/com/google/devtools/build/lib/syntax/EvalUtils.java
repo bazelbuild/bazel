@@ -408,7 +408,7 @@ public final class EvalUtils {
               return Starlark.format(xs, y);
             }
           } catch (IllegalFormatException ex) {
-            throw new EvalException(null, ex.getMessage());
+            throw new EvalException(ex);
           }
         }
         break;
@@ -477,7 +477,7 @@ public final class EvalUtils {
     try {
       return STARLARK_COMPARATOR.compare(x, y);
     } catch (ComparisonException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
   }
 

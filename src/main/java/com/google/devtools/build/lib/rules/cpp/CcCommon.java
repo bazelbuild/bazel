@@ -940,7 +940,6 @@ public final class CcCommon {
       for (String feature : unsupportedFeatures) {
         if (featureConfiguration.isEnabled(feature)) {
           throw new EvalException(
-              /* location= */ null,
               "The C++ toolchain '"
                   + toolchain.getCcToolchainLabel()
                   + "' unconditionally implies feature '"

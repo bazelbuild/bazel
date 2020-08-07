@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -1318,8 +1317,7 @@ public abstract class CcModule
     // action to its flag_set.action_names
     if (actionName != null) {
       if (!actions.isEmpty()) {
-        throw new EvalException(
-            Location.BUILTIN, String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, actionName));
+        throw new EvalException(String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, actionName));
       }
       actions = ImmutableSet.of(actionName);
     }

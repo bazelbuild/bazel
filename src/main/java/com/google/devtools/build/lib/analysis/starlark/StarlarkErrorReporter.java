@@ -43,7 +43,7 @@ public class StarlarkErrorReporter implements AutoCloseable, RuleErrorConsumer {
     try {
       assertNoErrors();
     } catch (RuleErrorException e) {
-      throw new EvalException(null, "error occurred while evaluating builtin function", e);
+      throw new EvalException("error occurred while evaluating builtin function", e);
     }
   }
 

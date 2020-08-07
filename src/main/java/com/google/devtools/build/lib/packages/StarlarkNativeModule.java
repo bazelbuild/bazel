@@ -113,7 +113,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       context.pkgBuilder.setIOExceptionAndMessage(e, errorMessage);
       matches = ImmutableList.of();
     } catch (BadGlobException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
 
     ArrayList<String> result = new ArrayList<>(matches.size());
@@ -185,7 +185,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("package group has invalid name: %s: %s", name, e.getMessage());
     } catch (Package.NameConflictException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
   }
 

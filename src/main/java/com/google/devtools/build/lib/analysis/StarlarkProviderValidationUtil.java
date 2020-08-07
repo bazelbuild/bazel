@@ -26,7 +26,6 @@ public class StarlarkProviderValidationUtil {
         ruleContext.getAnalysisEnvironment().getTreeArtifactsConflictingWithFiles();
     if (!treeArtifactsConflictingWithFiles.isEmpty()) {
       throw new EvalException(
-          null,
           "The following directories were also declared as files:\n"
               + artifactsDescription(treeArtifactsConflictingWithFiles));
     }
@@ -35,7 +34,6 @@ public class StarlarkProviderValidationUtil {
         ruleContext.getAnalysisEnvironment().getOrphanArtifacts();
     if (!orphanArtifacts.isEmpty()) {
       throw new EvalException(
-          null,
           "The following files have no generating action:\n"
               + artifactsDescription(orphanArtifacts));
     }

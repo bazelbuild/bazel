@@ -556,7 +556,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (staticRuntimeLinkInputs == null) {
         throw new EvalException(
-            Location.BUILTIN,
             "Toolchain supports embedded runtimes, but didn't "
                 + "provide static_runtime_lib attribute.");
       }
@@ -589,7 +588,6 @@ public final class CcToolchainProvider extends ToolchainInfo
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (dynamicRuntimeLinkInputs == null) {
         throw new EvalException(
-            Location.BUILTIN,
             "Toolchain supports embedded runtimes, but didn't "
                 + "provide dynamic_runtime_lib attribute.");
       }

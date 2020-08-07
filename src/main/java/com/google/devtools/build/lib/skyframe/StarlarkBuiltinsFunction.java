@@ -309,8 +309,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       throws EvalException {
     Object value = module.get(dictName);
     if (value == null) {
-      throw new EvalException(
-          /*location=*/ null, String.format("expected a '%s' dictionary to be defined", dictName));
+      throw new EvalException(String.format("expected a '%s' dictionary to be defined", dictName));
     }
     return ImmutableMap.copyOf(Dict.cast(value, String.class, Object.class, dictName + " dict"));
   }

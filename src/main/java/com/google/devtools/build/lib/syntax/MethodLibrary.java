@@ -50,7 +50,7 @@ class MethodLibrary {
     try {
       return findExtreme(args, EvalUtils.STARLARK_COMPARATOR.reverse());
     } catch (ComparisonException e) {
-      throw new EvalException(null, e);
+      throw new EvalException(e);
     }
   }
 
@@ -67,7 +67,7 @@ class MethodLibrary {
     try {
       return findExtreme(args, EvalUtils.STARLARK_COMPARATOR);
     } catch (ComparisonException e) {
-      throw new EvalException(null, e);
+      throw new EvalException(e);
     }
   }
 
@@ -80,7 +80,7 @@ class MethodLibrary {
       Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
-      throw new EvalException(null, "expected at least one item", ex);
+      throw new EvalException("expected at least one item", ex);
     }
   }
 

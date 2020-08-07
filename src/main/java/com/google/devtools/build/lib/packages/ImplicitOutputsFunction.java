@@ -162,7 +162,6 @@ public abstract class ImplicitOutputsFunction {
         Iterable<String> substitutions = outputsFunction.getImplicitOutputs(eventHandler, map);
         if (Iterables.isEmpty(substitutions)) {
           throw new EvalException(
-              null,
               String.format(
                   "For attribute '%s' in outputs: %s",
                   entry.getKey(), "Invalid placeholder(s) in template"));
@@ -544,7 +543,6 @@ public abstract class ImplicitOutputsFunction {
     for (String placeholder : parsedTemplate.attributeNames()) {
       if (rule.isConfigurable(placeholder)) {
         throw new EvalException(
-            /*location=*/ null,
             String.format(
                 "Attribute %s is configurable and cannot be used in outputs", placeholder));
       }

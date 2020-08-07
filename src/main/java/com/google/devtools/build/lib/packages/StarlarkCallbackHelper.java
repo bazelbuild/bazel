@@ -79,7 +79,7 @@ public class StarlarkCallbackHelper {
           buildArgumentList(ctx, arguments),
           /*kwargs=*/ ImmutableMap.of());
     } catch (ClassCastException | IllegalArgumentException e) { // TODO(adonovan): investigate
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
   }
 

@@ -50,20 +50,23 @@ public class EvalException extends Exception {
 
   /** Constructs an EvalException. Use {@link Starlak#errorf} if you want string formatting. */
   public EvalException(String message) {
-    this(null, message);
+    this((Location) null, message);
   }
 
-  // TODO(adonovan): add this constructor once the ambiguous overloads are deleted:
-  //
-  // /**
-  //  * Constructs an EvalException with a message and cause.
-  //  *
-  //  * <p>The cause does not affect the error message, so callers should incorporate
-  //  * {@code cause.getMessage()} into {@code message} if desired.
-  //  */
-  // public EvalException(String message, Throwable cause) {
-  //   super(Preconditions.checkNotNull(message), Preconditions.checkNotNull(cause()));
-  // }
+  /**
+   * Constructs an EvalException with a message and cause.
+   *
+   * <p>The cause does not affect the error message, so callers should incorporate {@code
+   * cause.getMessage()} into {@code message} if desired, or call {@code EvalException(Throwable)}.
+   */
+  public EvalException(String message, Throwable cause) {
+    this((Location) null, message, Preconditions.checkNotNull(cause));
+  }
+
+  /** Constructs an EvalException using the same message as the cause exception. */
+  public EvalException(Throwable cause) {
+    this((Location) null, cause);
+  }
 
   // TODO(adonovan): delete all constructors below. Stop using Location.
 
@@ -76,7 +79,8 @@ public class EvalException extends Exception {
    */
   // TODO(adonovan): eliminate.
   public EvalException(@Nullable Location location, String message) {
-    this(location, message, /*cause=*/ null);
+    super(Preconditions.checkNotNull(message));
+    this.location = location;
   }
 
   /**
@@ -93,13 +97,20 @@ public class EvalException extends Exception {
   }
 
   /**
-   * Constructs an EvalException using the same message as the cause exception.
+   * Constructs an EvalException with an optional location (deprecated) using the same message as
+   * the cause exception.
    *
    * <p>See notes at {@link #EvalException(Location, String)}.
    */
   // TODO(adonovan): eliminate.
   public EvalException(@Nullable Location location, Throwable cause) {
-    this(location, cause.getMessage(), cause);
+    super(getCauseMessage(cause), cause);
+    this.location = location;
+  }
+
+  private static String getCauseMessage(Throwable cause) {
+    String msg = cause.getMessage();
+    return msg != null ? msg : cause.toString();
   }
 
   /** Returns the error message. Does not include location (deprecated), call stack, or cause. */
