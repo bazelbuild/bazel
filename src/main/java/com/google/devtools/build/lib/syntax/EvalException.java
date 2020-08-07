@@ -54,13 +54,13 @@ public class EvalException extends Exception {
   }
 
   /**
-   * Constructs an EvalException with a message and cause.
+   * Constructs an EvalException with a message and optional cause.
    *
    * <p>The cause does not affect the error message, so callers should incorporate {@code
    * cause.getMessage()} into {@code message} if desired, or call {@code EvalException(Throwable)}.
    */
-  public EvalException(String message, Throwable cause) {
-    this((Location) null, message, Preconditions.checkNotNull(cause));
+  public EvalException(String message, @Nullable Throwable cause) {
+    this((Location) null, message, cause);
   }
 
   /** Constructs an EvalException using the same message as the cause exception. */
