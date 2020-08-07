@@ -677,6 +677,15 @@ sh_test(
 )
 
 sh_test(
+    name = "starlark_dependency_pruning_test",
+    timeout = "long",
+    srcs = ["starlark_dependency_pruning_test.sh"],
+    data = [":test-deps"],
+    shard_count = 2,
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_test(
     name = "validation_actions_test",
     srcs = ["validation_actions_test.sh"],
     data = [":test-deps"],
