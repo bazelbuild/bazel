@@ -193,8 +193,14 @@ final class WorkerSpawnRunner implements SpawnRunner {
             context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
-    /** TODO(karlgray): Determine protocolFormat from Spawn. */
-    WorkerProtocolFormat protocolFormat = WorkerProtocolFormat.PROTO;
+    WorkerProtocolFormat protocolFormat = Spawns.getWorkerProtocolFormat(spawn);
+    if (!workerOptions.experimentalJsonWorkerProtocol) {
+      if (protocolFormat == WorkerProtocolFormat.JSON) {
+        throw new IOException(
+            "Persistent worker protocol format must be set to proto unless"
+                + " --experimentalJsonWorkerProtocol is used");
+      }
+    }
 
     WorkerKey key =
         new WorkerKey(

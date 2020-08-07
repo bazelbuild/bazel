@@ -40,6 +40,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/binary_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/compression",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
