@@ -38,8 +38,10 @@ java_library(
         "//third_party:apache_commons_pool2",
         "//third_party:auto_value",
         "//third_party:flogger",
+        "//third_party:gson",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+        "//third_party/protobuf:protobuf_java_util",
     ],
 )
