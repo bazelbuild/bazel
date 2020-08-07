@@ -14,18 +14,16 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
+
 import java.util.Collection;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
-import java.util.Set;
 import java.util.TreeMap;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -83,14 +81,24 @@ class SourceFileCoverage {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum, TreeMap::new));
   }
 
+
   /** Returns the merged branches found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static ListMultimap<Integer, BranchCoverage> mergeBranches(
       SourceFileCoverage s1, SourceFileCoverage s2) {
+
     ListMultimap<Integer, BranchCoverage> merged =
         MultimapBuilder.treeKeys().arrayListValues().build();
-    merged.putAll(s1.branches);
-    s2.branches.entries().forEach(e -> addBranchToMap(e.getKey(), e.getValue(), merged));
+
+    // TODO(cmita): handle mismatch between the two, raise an error
+    Collection<BranchCoverage> branches1 = s1.branches.values();
+    Collection<BranchCoverage> branches2 = s2.branches.values();
+    Iterator<BranchCoverage> it1 = branches1.iterator();
+    Iterator<BranchCoverage> it2 = branches2.iterator();
+    while (it1.hasNext() && it2.hasNext()) {
+      BranchCoverage branch = BranchCoverage.merge(it1.next(), it2.next());
+      merged.put(branch.lineNumber(), branch);
+    }
     return merged;
   }
 
@@ -214,26 +222,7 @@ class SourceFileCoverage {
   }
 
   void addBranch(Integer lineNumber, BranchCoverage branch) {
-    addBranchToMap(lineNumber, branch, branches);
-  }
-
-  static void addBranchToMap(
-      Integer lineNumber, BranchCoverage branch, ListMultimap<Integer, BranchCoverage> target) {
-    List<BranchCoverage> lineBranches = target.get(lineNumber);
-    Optional<BranchCoverage> match =
-        lineBranches.stream()
-            .filter(
-                b ->
-                    b.blockNumber().equals(branch.blockNumber())
-                        && b.branchNumber().equals(branch.branchNumber()))
-            .collect(toOptional());
-    if (match.isPresent()) {
-      BranchCoverage b = match.get();
-      lineBranches.remove(b);
-      lineBranches.add(BranchCoverage.merge(b, branch));
-    } else {
-      lineBranches.add(branch);
-    }
+    branches.put(lineNumber, branch);
   }
 
   void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {

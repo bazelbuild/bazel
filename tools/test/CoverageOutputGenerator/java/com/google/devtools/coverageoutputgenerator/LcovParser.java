@@ -235,18 +235,22 @@ class LcovParser {
     String lineContent = line.substring(BA_MARKER.length());
     String[] lineData = lineContent.split(DELIMITER, -1);
     if (lineData.length != 2) {
-      logger.log(Level.WARNING, "Tracefile contains invalid BRDA line " + line);
+      logger.log(Level.WARNING, "Tracefile contains invalid BA line " + line);
       return false;
     }
     for (String data : lineData) {
       if (data.isEmpty()) {
-        logger.log(Level.WARNING, "Tracefile contains invalid BRDA line " + line);
+        logger.log(Level.WARNING, "Tracefile contains invalid BA line " + line);
         return false;
       }
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      long taken = Long.parseLong(lineData[1]);
+      int taken = Integer.parseInt(lineData[1]);
+      if (taken < 0 || taken > 2) {
+        logger.log(Level.WARNING, "Tracefile contains invalid BA " + line + " - value not one of {0, 1, 2}");
+        return false;
+      }
 
       BranchCoverage branchCoverage = BranchCoverage.create(lineNumber, taken);
 

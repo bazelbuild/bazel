@@ -188,20 +188,22 @@ public class GcovParser {
       // Ignore has_unexecuted_block since it's not used.
       int lineNr = Integer.parseInt(items[0]);
       String type = items[1];
-      int execCount;
+      int takenValue;
       switch (type) {
         case GCOV_BRANCH_NOTEXEC:
-          execCount = 0;
+          takenValue = 0;
           break;
         case GCOV_BRANCH_NOTTAKEN:
+          takenValue = 1;
+          break;
         case GCOV_BRANCH_TAKEN:
-          execCount = 1;
+          takenValue = 2;
           break;
         default:
           logger.log(Level.WARNING, "gcov info contains invalid line " + line);
           return false;
       }
-      currentSourceFileCoverage.addBranch(lineNr, BranchCoverage.create(lineNr, execCount));
+      currentSourceFileCoverage.addBranch(lineNr, BranchCoverage.create(lineNr, takenValue));
     } catch (NumberFormatException e) {
       logger.log(Level.WARNING, "gcov info contains invalid line " + line);
       return false;

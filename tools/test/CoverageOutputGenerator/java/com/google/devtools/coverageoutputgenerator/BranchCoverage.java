@@ -37,11 +37,29 @@ import com.google.auto.value.AutoValue;
 @AutoValue
 abstract class BranchCoverage {
 
-  static BranchCoverage create(int lineNumber, long nrOfExecutions) {
+  /**
+   * Create a BranchCoverage object corresponding to a BA line
+   * <pre>BA:[line_number],[taken]</pre>
+   * @param lineNumber
+   * @param value the taken value, 0, 1, 2
+   * @return corresponding BranchCoverage
+   */
+  static BranchCoverage create(int lineNumber, long value) {
+    assert value >= 0 && value < 3;
     return new AutoValue_BranchCoverage(
-        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", nrOfExecutions > 0, nrOfExecutions);
+        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", value > 0, value);
   }
 
+  /**
+   * Create a BranchCoverage object corresponding to a BRDA line
+   * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
+   * @param lineNumber
+   * @param blockNumber
+   * @param branchNumber
+   * @param evaluated if this branch was evaluated (taken != "-")
+   * @param nrOfExecutions how many times the branch was taken (the value of taken if taken != "-")
+   * @return corresponding BranchCoverage
+   */
   static BranchCoverage createWithBlockAndBranch(
       int lineNumber,
       String blockNumber,
@@ -62,13 +80,26 @@ abstract class BranchCoverage {
     assert first.lineNumber() == second.lineNumber();
     assert first.blockNumber().equals(second.blockNumber());
     assert first.branchNumber().equals(second.branchNumber());
+    if (first.blockNumber().isEmpty()) {
+      return mergeWithNoBlockAndBranch(first, second);
+    }
+    return mergeWithBlockAndBranch(first, second);
+  }
 
+  private static BranchCoverage mergeWithBlockAndBranch(BranchCoverage first, BranchCoverage second) {
     return createWithBlockAndBranch(
-        first.lineNumber(),
-        first.blockNumber(),
-        first.branchNumber(),
-        first.evaluated() || second.evaluated(),
-        first.nrOfExecutions() + second.nrOfExecutions());
+            first.lineNumber(),
+            first.blockNumber(),
+            first.branchNumber(),
+            first.evaluated() || second.evaluated(),
+            first.nrOfExecutions() + second.nrOfExecutions());
+  }
+
+  private static BranchCoverage mergeWithNoBlockAndBranch(BranchCoverage first, BranchCoverage second) {
+    long value = Math.max(first.nrOfExecutions(), second.nrOfExecutions());
+    assert value <= 2;
+    assert value > 0;
+    return create(first.lineNumber(), value);
   }
 
   abstract int lineNumber();
@@ -82,6 +113,6 @@ abstract class BranchCoverage {
   abstract long nrOfExecutions();
 
   boolean wasExecuted() {
-    return nrOfExecutions() > 0;
+    return blockNumber().isEmpty() ? nrOfExecutions() == 2 : nrOfExecutions() > 0;
   }
 }
