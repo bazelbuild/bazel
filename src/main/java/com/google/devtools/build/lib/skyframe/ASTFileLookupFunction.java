@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.InconsistentFilesystemException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.syntax.FileOptions;
 import com.google.devtools.build.lib.syntax.Module;
@@ -29,7 +28,6 @@ import com.google.devtools.build.lib.syntax.StarlarkSemantics;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -79,33 +77,8 @@ public class ASTFileLookupFunction implements SkyFunction {
       DigestHashFunction digestHashFunction)
       throws ErrorReadingStarlarkExtensionException, InconsistentFilesystemException,
           InterruptedException {
-    // Determine whether the package designated by key.label exists.
-    // TODO(bazel-team): After --incompatible_disallow_load_labels_to_cross_package_boundaries is
-    // removed and the new behavior is unconditional, we can instead safely assume the package
-    // exists and pass in the Root in the SkyKey and therefore this dep can be removed.
-    SkyKey pkgSkyKey = PackageLookupValue.key(key.label.getPackageIdentifier());
-    PackageLookupValue pkgLookupValue = null;
-    try {
-      pkgLookupValue =
-          (PackageLookupValue)
-              env.getValueOrThrow(
-                  pkgSkyKey,
-                  BuildFileNotFoundException.class,
-                  InconsistentFilesystemException.class);
-    } catch (BuildFileNotFoundException e) {
-      throw new ErrorReadingStarlarkExtensionException(e);
-    }
-    if (pkgLookupValue == null) {
-      return null;
-    }
-    if (!pkgLookupValue.packageExists()) {
-      return ASTFileLookupValue.noFile(
-          "cannot load '%s': %s", key.label, pkgLookupValue.getErrorMsg());
-    }
-
     // Determine whether the file designated by key.label exists.
-    Root packageRoot = pkgLookupValue.getRoot();
-    RootedPath rootedPath = RootedPath.toRootedPath(packageRoot, key.label.toPathFragment());
+    RootedPath rootedPath = RootedPath.toRootedPath(key.root, key.label.toPathFragment());
     SkyKey fileSkyKey = FileValue.key(rootedPath);
     FileValue fileValue = null;
     try {

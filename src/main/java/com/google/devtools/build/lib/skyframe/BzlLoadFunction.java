@@ -404,9 +404,16 @@ public class BzlLoadFunction implements SkyFunction {
             packageFactory);
   }
 
+  /**
+   * Returns the ContainingPackageLookupValue for a bzl, or null for a missing Skyframe dep.
+   *
+   * <p>Note that, with the exception of builtins bzls, a bzl is not considered loadable unless its
+   * load label matches its file target label. Before loading the bzl, the caller of this function
+   * should verify that the returned ContainingPackageLookupValue exists and that its package path
+   * matches the label's.
+   */
   @Nullable
-  private static ContainingPackageLookupValue getContainingPackageLookupValue(
-      Environment env, Label label)
+  static ContainingPackageLookupValue getContainingPackageLookupValue(Environment env, Label label)
       throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
     PathFragment dir = Label.getContainingDirectory(label);
     PackageIdentifier dirId =
@@ -425,16 +432,6 @@ public class BzlLoadFunction implements SkyFunction {
     }
     if (containingPackageLookupValue == null) {
       return null;
-    }
-    // Ensure the label doesn't cross package boundaries.
-    if (!containingPackageLookupValue.hasContainingPackage()) {
-      throw BzlLoadFailedException.noBuildFile(
-          label, containingPackageLookupValue.getReasonForNoContainingPackage());
-    }
-    if (!containingPackageLookupValue
-        .getContainingPackageName()
-        .equals(label.getPackageIdentifier())) {
-      throw BzlLoadFailedException.labelCrossesPackageBoundary(label, containingPackageLookupValue);
     }
     return containingPackageLookupValue;
   }
@@ -561,12 +558,22 @@ public class BzlLoadFunction implements SkyFunction {
       return null;
     }
 
-    if (getContainingPackageLookupValue(env, label) == null) {
+    // Determine the package for this bzl.
+    ContainingPackageLookupValue packageLookup = getContainingPackageLookupValue(env, label);
+    if (packageLookup == null) {
       return null;
     }
+    if (!packageLookup.hasContainingPackage()) {
+      throw BzlLoadFailedException.noBuildFile(
+          label, packageLookup.getReasonForNoContainingPackage());
+    }
+    // Ensure the label doesn't cross package boundaries.
+    if (!packageLookup.getContainingPackageName().equals(label.getPackageIdentifier())) {
+      throw BzlLoadFailedException.labelCrossesPackageBoundary(label, packageLookup);
+    }
 
-    // Load the AST corresponding to this file.
-    ASTFileLookupValue.Key astKey = key.getASTKey();
+    // Load the AST corresponding to this bzl.
+    ASTFileLookupValue.Key astKey = key.getASTKey(packageLookup.getContainingPackageRoot());
     ASTFileLookupValue astLookupValue;
     try {
       astLookupValue = astManager.getASTFileLookupValue(astKey, env);

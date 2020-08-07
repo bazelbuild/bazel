@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -137,6 +138,9 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
   /** SkyKey for retrieving a .bzl AST. */
   static class Key implements SkyKey {
 
+    /** The root in which the .bzl file is to be found. */
+    final Root root;
+
     /** The label of the .bzl to be retrieved. */
     final Label label;
 
@@ -146,7 +150,8 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
      */
     final boolean isBuildPrelude;
 
-    private Key(Label label, boolean isBuildPrelude) {
+    private Key(Root root, Label label, boolean isBuildPrelude) {
+      this.root = root;
       this.label = Preconditions.checkNotNull(label);
       this.isBuildPrelude = isBuildPrelude;
     }
@@ -158,25 +163,31 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(Key.class, label, isBuildPrelude);
+      return Objects.hash(Key.class, root, label, isBuildPrelude);
     }
 
     @Override
-    public boolean equals(Object that) {
-      return this == that
-          || (that instanceof Key
-              && this.label.equals(((Key) that).label)
-              && this.isBuildPrelude == ((Key) that).isBuildPrelude);
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof Key)) {
+        return false;
+      }
+      Key that = (Key) other;
+      return this.root.equals(that.root)
+          && this.label.equals(that.label)
+          && this.isBuildPrelude == that.isBuildPrelude;
     }
   }
 
   /** Constructs a key for loading a regular (non-prelude) .bzl. */
-  public static Key key(Label label) {
-    return keyInterner.intern(new Key(label, /*isBuildPrelude=*/ false));
+  public static Key key(Root root, Label label) {
+    return keyInterner.intern(new Key(root, label, /*isBuildPrelude=*/ false));
   }
 
   /** Constructs a key for loading the prelude .bzl. */
-  static Key keyForPrelude(Label label) {
-    return keyInterner.intern(new Key(label, /*isBuildPrelude=*/ true));
+  static Key keyForPrelude(Root root, Label label) {
+    return keyInterner.intern(new Key(root, label, /*isBuildPrelude=*/ true));
   }
 }

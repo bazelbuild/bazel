@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.Module;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -79,9 +80,10 @@ public class BzlLoadValue implements SkyValue {
     abstract Key getKeyForLoad(Label loadLabel);
 
     /**
-     * Constructs an ASTFileLookupValue key suitable for retrieving the Starlark code for this .bzl.
+     * Constructs an ASTFileLookupValue key suitable for retrieving the Starlark code for this .bzl,
+     * given the Root in which to find its file.
      */
-    abstract ASTFileLookupValue.Key getASTKey();
+    abstract ASTFileLookupValue.Key getASTKey(Root root);
 
     @Override
     public SkyFunctionName functionName() {
@@ -123,11 +125,11 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    ASTFileLookupValue.Key getASTKey() {
+    ASTFileLookupValue.Key getASTKey(Root root) {
       if (isBuildPrelude) {
-        return ASTFileLookupValue.keyForPrelude(label);
+        return ASTFileLookupValue.keyForPrelude(root, label);
       } else {
-        return ASTFileLookupValue.key(label);
+        return ASTFileLookupValue.key(root, label);
       }
     }
 
@@ -199,8 +201,8 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    ASTFileLookupValue.Key getASTKey() {
-      return ASTFileLookupValue.key(label);
+    ASTFileLookupValue.Key getASTKey(Root root) {
+      return ASTFileLookupValue.key(root, label);
     }
 
     @Override
@@ -258,8 +260,8 @@ public class BzlLoadValue implements SkyValue {
     }
 
     @Override
-    ASTFileLookupValue.Key getASTKey() {
-      return ASTFileLookupValue.key(label);
+    ASTFileLookupValue.Key getASTKey(Root root) {
+      return ASTFileLookupValue.key(root, label);
     }
 
     @Override
