@@ -169,6 +169,7 @@ java_library(
         "Allowlist.java",
         "AnalysisEnvironment.java",
         "AnalysisFailureEvent.java",
+        "AnalysisIssues.java",
         "AnalysisResult.java",
         "AnalysisRootCauseEvent.java",
         "AnalysisUtils.java",
@@ -205,6 +206,7 @@ java_library(
         "RuleConfiguredTargetFactory.java",
         "RuleContext.java",
         "RuleDefinition.java",
+        "RuleErrorConsumer.java",
         "Runfiles.java",
         "RunfilesProvider.java",
         "RunfilesSupplierImpl.java",
@@ -2110,6 +2112,7 @@ java_library(
     name = "starlark/starlark_error_reporter",
     srcs = ["starlark/StarlarkErrorReporter.java"],
     deps = [
+        ":analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/syntax:evaluator",
     ],

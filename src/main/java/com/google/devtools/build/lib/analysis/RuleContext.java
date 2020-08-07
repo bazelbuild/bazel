@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -1813,7 +1812,7 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
           ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions);
-      validateAttributes(attributes);
+      checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(target.getAssociatedRule(), configConditions);
@@ -1840,11 +1839,25 @@ public final class RuleContext extends TargetContext
           requiredConfigFragments);
     }
 
-    private void validateAttributes(AttributeMap attributes) {
-      target
-          .getAssociatedRule()
-          .getRuleClassObject()
-          .checkAttributesNonEmpty(reporter, attributes);
+    private void checkAttributesNonEmpty(AttributeMap attributes) {
+      for (String attributeName : attributes.getAttributeNames()) {
+        Attribute attr = attributes.getAttributeDefinition(attributeName);
+        if (!attr.isNonEmpty()) {
+          continue;
+        }
+        Object attributeValue = attributes.get(attributeName, attr.getType());
+
+        // TODO(adonovan): define in terms of Starlark.len?
+        boolean isEmpty = false;
+        if (attributeValue instanceof List<?>) {
+          isEmpty = ((List) attributeValue).isEmpty();
+        } else if (attributeValue instanceof Map<?, ?>) {
+          isEmpty = ((Map) attributeValue).isEmpty();
+        }
+        if (isEmpty) {
+          reporter.attributeError(attr.getName(), "attribute must be non empty");
+        }
+      }
     }
 
     public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {

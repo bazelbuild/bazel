@@ -20,10 +20,10 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -180,7 +180,7 @@ public interface ActionConstructionContext {
   PlatformInfo getExecutionPlatform(String execGroup);
 
   /**
-   * Returns the {@link com.google.devtools.build.lib.packages.RuleErrorConsumer} for reporting rule
+   * Returns the {@link com.google.devtools.build.lib.analysis.RuleErrorConsumer} for reporting rule
    * errors.
    */
   RuleErrorConsumer getRuleErrorConsumer();
