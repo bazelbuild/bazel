@@ -49,12 +49,8 @@ final class DefaultPackageArguments {
     @Override
     protected void process(Package.Builder pkgBuilder, Location location,
         List<Label> value) throws EvalException {
-      try {
-        pkgBuilder.setDefaultVisibility(
-            PackageUtils.getVisibility(pkgBuilder.getBuildFileLabel(), value));
-      } catch (EvalException e) {
-        throw new EvalException(location, e.getMessage());
-      }
+      pkgBuilder.setDefaultVisibility(
+          PackageUtils.getVisibility(pkgBuilder.getBuildFileLabel(), value));
     }
   }
 

@@ -315,10 +315,10 @@ public class WorkspaceFactory {
                   thread.getSemantics(),
                   thread.getCallStack());
           if (!WorkspaceGlobals.isLegalWorkspaceName(rule.getName())) {
-            throw new EvalException(
-                rule
-                    + "'s name field must be a legal workspace name;"
-                    + " workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
+            throw Starlark.errorf(
+                "%s's name field must be a legal workspace name; workspace names may contain only"
+                    + " A-Z, a-z, 0-9, '-', '_' and '.'",
+                rule);
           }
         } catch (RuleFactory.InvalidRuleException
             | Package.NameConflictException

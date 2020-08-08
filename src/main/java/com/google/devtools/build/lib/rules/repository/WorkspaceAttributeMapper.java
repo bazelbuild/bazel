@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Starlark;
 import javax.annotation.Nullable;
 
 /**
@@ -49,8 +50,8 @@ public class WorkspaceAttributeMapper {
     Object value = getObject(attributeName);
     try {
       return type.cast(value);
-    } catch (ClassCastException e) {
-      throw new EvalException(rule.getLocation(), e.getMessage());
+    } catch (ClassCastException ex) {
+      throw new EvalException(ex);
     }
   }
 
@@ -61,12 +62,10 @@ public class WorkspaceAttributeMapper {
   public Object getObject(String attributeName) throws EvalException {
     Object value = rule.getAttributeContainer().getAttr(checkNotNull(attributeName));
     if (value instanceof SelectorList) {
-      throw new EvalException(
-          rule.getLocation(),
-          String.format(
-              "got value of type 'select' for attribute '%s' of %s rule '%s'; select may not be "
-                  + "used in repository rules",
-              attributeName, rule.getRuleClass(), rule.getName()));
+      throw Starlark.errorf(
+          "got value of type 'select' for attribute '%s' of %s rule '%s'; select may not be used"
+              + " in repository rules",
+          attributeName, rule.getRuleClass(), rule.getName());
     }
     return value;
   }

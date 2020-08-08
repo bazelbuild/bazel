@@ -356,7 +356,7 @@ public final class PackageFactory {
           String name = kwarg.getKey();
           PackageArgument<?> pkgarg = packageArguments.get(name);
           if (pkgarg == null) {
-            throw new EvalException("unexpected keyword argument: " + name);
+            throw Starlark.errorf("unexpected keyword argument: %s", name);
           }
           pkgarg.convertAndProcess(pkgBuilder, loc, kwarg.getValue());
         }

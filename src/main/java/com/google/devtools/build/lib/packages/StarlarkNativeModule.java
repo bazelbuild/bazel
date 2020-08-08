@@ -424,7 +424,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   private static class NotRepresentableException extends EvalException {
     NotRepresentableException(String msg) {
-      super(null, msg);
+      super(msg);
     }
   }
 }

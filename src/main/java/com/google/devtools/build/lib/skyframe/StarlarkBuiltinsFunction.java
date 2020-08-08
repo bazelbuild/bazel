@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.skyframe.BzlLoadFunction.BzlLoadFailedException;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Module;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -83,11 +83,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
    * SkyKey.
    */
   private static final Label EXPORTS_ENTRYPOINT =
-      Label.parseAbsoluteUnchecked("@builtins//:exports.bzl");
-
-  /** Same as above, as a {@link Location} for errors. */
-  private static final Location EXPORTS_ENTRYPOINT_LOC =
-      new Location(EXPORTS_ENTRYPOINT.getCanonicalForm(), /*line=*/ 0, /*column=*/ 0);
+      Label.parseAbsoluteUnchecked("@builtins//:exports.bzl"); // unused
 
   /**
    * Key for loading exports.bzl. {@code keyForBuiltins} (as opposed to {@code keyForBuild} ensures
@@ -202,7 +198,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
               ruleClassProvider, packageFactory, exportedToplevels, exportedRules);
       return new StarlarkBuiltinsValue(predeclared, exportedToJava, transitiveDigest);
     } catch (EvalException ex) {
-      ex = new EvalException(EXPORTS_ENTRYPOINT_LOC, ex.getMessage());
       throw BuiltinsFailedException.errorApplyingExports(ex);
     }
   }
@@ -309,7 +304,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       throws EvalException {
     Object value = module.get(dictName);
     if (value == null) {
-      throw new EvalException(String.format("expected a '%s' dictionary to be defined", dictName));
+      throw Starlark.errorf("expected a '%s' dictionary to be defined", dictName);
     }
     return ImmutableMap.copyOf(Dict.cast(value, String.class, Object.class, dictName + " dict"));
   }

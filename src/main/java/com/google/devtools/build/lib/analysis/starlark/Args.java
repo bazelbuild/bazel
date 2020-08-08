@@ -466,11 +466,9 @@ public abstract class Args implements CommandLineArgsApi {
         throws EvalException {
       Starlark.checkMutable(this);
       if (!SingleStringArgFormatter.isValid(paramFileArg)) {
-        throw new EvalException(
-            String.format(
-                "Invalid value for parameter \"param_file_arg\": "
-                    + "Expected string with a single \"%s\"",
-                paramFileArg));
+        throw Starlark.errorf(
+            "Invalid value for parameter \"param_file_arg\": Expected string with a single \"%s\"",
+            paramFileArg);
       }
       this.flagFormatString = paramFileArg;
       this.alwaysUseParamFile = useAlways;
@@ -489,7 +487,7 @@ public abstract class Args implements CommandLineArgsApi {
           parameterFileType = ParameterFileType.UNQUOTED;
           break;
         default:
-          throw new EvalException(
+          throw Starlark.errorf(
               "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\"");
       }
       this.parameterFileType = parameterFileType;

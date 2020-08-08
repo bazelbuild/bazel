@@ -98,7 +98,7 @@ final class StringModule implements StarlarkValue {
     } else if (end instanceof Integer) {
       stop = EvalUtils.toIndex((Integer) end, str.length());
     } else {
-      throw new EvalException("expected int for " + what + ", got " + Starlark.type(end));
+      throw Starlark.errorf("expected int for %s, got %s", what, Starlark.type(end));
     }
     if (start >= stop) {
       return "";
