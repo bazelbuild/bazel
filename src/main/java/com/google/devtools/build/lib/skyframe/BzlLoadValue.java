@@ -33,6 +33,9 @@ import java.util.Objects;
  *
  * <p>The key consists of an absolute {@link Label} and the context in which the load occurs. The
  * Label should not reference the special {@code external} package.
+ *
+ * <p>This value is also used to represent the special prelude file that may be implicitly loaded
+ * and sourced by BUILD files. The prelude file need not end in ".bzl".
  */
 public class BzlLoadValue implements SkyValue {
 
@@ -68,6 +71,11 @@ public class BzlLoadValue implements SkyValue {
      * evaluation.
      */
     abstract Label getLabel();
+
+    /** Returns true if this is a request for the special BUILD prelude file. */
+    boolean isBuildPrelude() {
+      return false;
+    }
 
     /**
      * Constructs a new key suitable for evaluating a {@code load()} dependency of this key's .bzl
@@ -112,6 +120,11 @@ public class BzlLoadValue implements SkyValue {
     @Override
     Label getLabel() {
       return label;
+    }
+
+    @Override
+    boolean isBuildPrelude() {
+      return isBuildPrelude;
     }
 
     @Override

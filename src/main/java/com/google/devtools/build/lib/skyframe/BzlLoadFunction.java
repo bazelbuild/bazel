@@ -558,22 +558,33 @@ public class BzlLoadFunction implements SkyFunction {
       return null;
     }
 
-    // Determine the package for this bzl.
+    // Determine the package and ast key for this bzl.
     ContainingPackageLookupValue packageLookup = getContainingPackageLookupValue(env, label);
     if (packageLookup == null) {
       return null;
     }
-    if (!packageLookup.hasContainingPackage()) {
-      throw BzlLoadFailedException.noBuildFile(
-          label, packageLookup.getReasonForNoContainingPackage());
+    ASTFileLookupValue.Key astKey = null;
+    if (key.isBuildPrelude()) {
+      // Ignore the prelude if its package doesn't exist.
+      if (!packageLookup.hasContainingPackage()
+          || !packageLookup.getContainingPackageName().equals(label.getPackageIdentifier())) {
+        astKey = ASTFileLookupValue.EMPTY_PRELUDE_KEY;
+      }
     }
-    // Ensure the label doesn't cross package boundaries.
-    if (!packageLookup.getContainingPackageName().equals(label.getPackageIdentifier())) {
-      throw BzlLoadFailedException.labelCrossesPackageBoundary(label, packageLookup);
+    if (astKey == null) {
+      // Package must exist for all bzls besides the prelude.
+      if (!packageLookup.hasContainingPackage()) {
+        throw BzlLoadFailedException.noBuildFile(
+            label, packageLookup.getReasonForNoContainingPackage());
+      }
+      // Ensure the label doesn't cross package boundaries.
+      if (!packageLookup.getContainingPackageName().equals(label.getPackageIdentifier())) {
+        throw BzlLoadFailedException.labelCrossesPackageBoundary(label, packageLookup);
+      }
+      astKey = key.getASTKey(packageLookup.getContainingPackageRoot());
     }
 
     // Load the AST corresponding to this bzl.
-    ASTFileLookupValue.Key astKey = key.getASTKey(packageLookup.getContainingPackageRoot());
     ASTFileLookupValue astLookupValue;
     try {
       astLookupValue = astManager.getASTFileLookupValue(astKey, env);
@@ -619,7 +630,8 @@ public class BzlLoadFunction implements SkyFunction {
     Label label = key.getLabel();
 
     if (!astLookupValue.lookupSuccessful()) {
-      // Starlark code must exist.
+      // Starlark code must exist. (A missing prelude file still returns a valid but empty
+      // ASTFileLookupValue.)
       throw new BzlLoadFailedException(astLookupValue.getError());
     }
     StarlarkFile file = astLookupValue.getAST();

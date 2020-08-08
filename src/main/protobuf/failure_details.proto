@@ -1097,7 +1097,9 @@ message PackageLoading {
         [(metadata) = { exit_code: 1 }];
     TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR = 6 [(metadata) = { exit_code: 1 }];
     INVALID_NAME = 7 [(metadata) = { exit_code: 1 }];
-    PRELUDE_FILE_READ_ERROR = 8 [(metadata) = { exit_code: 1 }];
+    // was: PRELUDE_FILE_READ_ERROR. Replaced by IMPORT_STARLARK_FILE_ERROR
+    // when the prelude was changed to be loaded as a Starlark module.
+    reserved 8;
     EVAL_GLOBS_SYMLINK_ERROR = 9 [(metadata) = { exit_code: 1 }];
     IMPORT_STARLARK_FILE_ERROR = 10 [(metadata) = { exit_code: 1 }];
     PACKAGE_MISSING = 11 [(metadata) = { exit_code: 1 }];

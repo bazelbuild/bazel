@@ -1453,43 +1453,51 @@ public class PackageFunctionTest extends BuildViewTestCase {
       assertContainsEvent("FOO");
     }
 
-    // TODO(brandjon): Invert this test once the prelude is a module instead of a syntactic
-    // mutation on BUILD files.
     @Test
-    public void testPreludeSymbolCanBeMutated() throws Exception {
+    public void testPreludeSymbolCannotBeMutated() throws Exception {
       scratch.file("tools/build_rules/BUILD");
       scratch.file(
           "tools/build_rules/test_prelude", //
           "foo = ['FOO']");
       scratch.file(
           "pkg/BUILD", //
-          "foo.append('BAR')",
-          "print(foo)");
-
-      getConfiguredTarget("//pkg:BUILD");
-      assertContainsEvent("[\"FOO\", \"BAR\"]");
-    }
-
-    // TODO(brandjon): Invert this test once the prelude is a module instead of a syntactic
-    // mutation on BUILD files.
-    @Test
-    public void testPreludeCannotAccessBzlDialectSymbols() throws Exception {
-      scratch.file("tools/build_rules/BUILD");
-      scratch.file(
-          "tools/build_rules/test_prelude", //
-          "v = native.glob()",
-          "foo = 'FOO'");
-      scratch.file(
-          "pkg/BUILD", //
-          "print(foo)");
+          "foo.append('BAR')");
 
       reporter.removeHandler(failFastHandler);
       getConfiguredTarget("//pkg:BUILD");
-      assertContainsEvent("name 'native' is not defined");
+      assertContainsEvent("trying to mutate a frozen list value");
+    }
+
+    @Test
+    public void testPreludeCanAccessBzlDialectFeatures() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      // Test both bzl symbols and syntax (e.g. function defs).
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "def foo():",
+          "    return native.glob");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(foo())");
+
+      getConfiguredTarget("//pkg:BUILD");
+      // Prelude can access native.glob (though only a BUILD thread can call it).
+      assertContainsEvent("<built-in function glob>");
     }
 
     @Test
     public void testPreludeNeedNotBePresent() throws Exception {
+      scratch.file(
+          "pkg/BUILD", //
+          "print('FOO')");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    @Test
+    public void testPreludeNeedNotBePresent_evenWhenPackageIs() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
       scratch.file(
           "pkg/BUILD", //
           "print('FOO')");
