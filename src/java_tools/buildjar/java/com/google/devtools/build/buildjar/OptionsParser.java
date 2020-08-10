@@ -23,17 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Deque;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
+import java.util.*;
 import javax.annotation.Nullable;
 
 /**
@@ -50,6 +40,8 @@ public final class OptionsParser {
 
   private String outputDepsProtoFile;
   private final Set<String> depsArtifacts = new LinkedHashSet<>();
+  private String diagnosticsFile;
+
 
   /** This modes controls how a probablistic Java classpath reduction is used. */
   public enum ReduceClasspathMode {
@@ -238,6 +230,9 @@ public final class OptionsParser {
           break;
         case "--profile":
           profile = getArgument(argQueue, arg);
+          break;
+        case "--diagnostics_file":
+          diagnosticsFile = getArgument(argQueue, arg);
           break;
         default:
           throw new InvalidCommandLineException("unknown option : '" + arg + "'");
@@ -491,5 +486,9 @@ public final class OptionsParser {
 
   public String getProfile() {
     return profile;
+  }
+
+  public String getDiagnosticsFile() {
+    return diagnosticsFile;
   }
 }

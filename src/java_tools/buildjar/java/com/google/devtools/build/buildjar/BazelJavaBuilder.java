@@ -23,15 +23,22 @@ import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlugin;
+import com.google.devtools.build.lib.diagnostics.Diagnostics;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /** The JavaBuilder main called by bazel. */
 public abstract class BazelJavaBuilder {
@@ -100,6 +107,8 @@ public abstract class BazelJavaBuilder {
         for (FormattedDiagnostic d : result.diagnostics()) {
           err.write(d.getFormatted() + "\n");
         }
+
+        writeStructuredDiagnostics(result.diagnostics(), build.getDiagnosticsFile());
         err.write(result.output());
         return result.isOk() ? 0 : 1;
       }
@@ -110,6 +119,51 @@ public abstract class BazelJavaBuilder {
       e.printStackTrace(err);
       return 1;
     }
+  }
+
+  private static void writeStructuredDiagnostics(ImmutableList<FormattedDiagnostic> diagnostics, String diagnosticsFile) throws IOException {
+    if(diagnosticsFile == null)
+      return;
+    Map<URI, List<Diagnostics.Diagnostic>> targetDiagnosticsMap = new HashMap<>();
+    for(FormattedDiagnostic diagnostic : diagnostics.stream().filter(diagnostic -> diagnostic.getSource() != null).collect(Collectors.toList())) {
+      Diagnostics.Diagnostic converted = Diagnostics.Diagnostic
+              .newBuilder()
+              .setRange(positionToRange(diagnostic))
+              .setSeverity(convertSeverity(diagnostic))
+              .setMessage(diagnostic.getMessage(Locale.ENGLISH))
+              .build();
+      List<Diagnostics.Diagnostic> fileDiagnostics = targetDiagnosticsMap.getOrDefault(diagnostic.getSource().toUri(), new ArrayList<>());
+      fileDiagnostics.add(converted);
+      targetDiagnosticsMap.put(diagnostic.getSource().toUri(), fileDiagnostics);
+    }
+    Diagnostics.TargetDiagnostics.Builder targetDiagnostics = Diagnostics.TargetDiagnostics.newBuilder();
+    for(Map.Entry<URI, List<Diagnostics.Diagnostic>> entry : targetDiagnosticsMap.entrySet())
+      targetDiagnostics.addDiagnostics(Diagnostics.FileDiagnostics.newBuilder().setPath(entry.getKey().toString()).addAllDiagnostics(entry.getValue()));
+    Files.write(Paths.get(diagnosticsFile) , targetDiagnostics.build().toByteArray(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+  }
+
+  private static Diagnostics.Severity convertSeverity(FormattedDiagnostic diagnostic) {
+    switch (diagnostic.getKind()){
+      case WARNING:
+      case MANDATORY_WARNING:
+        return Diagnostics.Severity.WARNING;
+      case NOTE:
+        return Diagnostics.Severity.HINT;
+      case OTHER:
+        return Diagnostics.Severity.INFORMATION;
+      case ERROR:
+      default:
+        return Diagnostics.Severity.ERROR;
+    }
+  }
+
+  private static Diagnostics.Range positionToRange(FormattedDiagnostic diagnostics) {
+    int lineNumber =  (int) diagnostics.getLineNumber();
+    return Diagnostics.Range
+            .newBuilder()
+            .setStart(Diagnostics.Position.newBuilder().setLine(lineNumber - 1).setCharacter(((int) diagnostics.getColumnNumber()) - 1))
+            .setEnd(Diagnostics.Position.newBuilder().setLine(lineNumber))
+            .build();
   }
 
   /**
