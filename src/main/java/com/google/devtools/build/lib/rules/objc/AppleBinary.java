@@ -29,7 +29,6 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBi
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.objc.AppleDebugOutputsInfo.OutputType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
@@ -201,17 +199,6 @@ public class AppleBinary implements RuleConfiguredTargetFactory {
             binariesToLipo,
             outputArtifact,
             platform);
-
-    ImmutableListMultimap<BuildConfiguration, OutputGroupInfo> buildConfigToOutputGroupInfoMap =
-        ruleContext.getPrerequisitesByConfiguration(
-            "deps", TransitionMode.SPLIT, OutputGroupInfo.STARLARK_CONSTRUCTOR);
-    NestedSetBuilder<Artifact> headerTokens = NestedSetBuilder.stableOrder();
-    for (Map.Entry<BuildConfiguration, OutputGroupInfo> entry :
-        buildConfigToOutputGroupInfoMap.entries()) {
-      OutputGroupInfo dep = entry.getValue();
-      headerTokens.addTransitive(dep.getOutputGroup(CcCompilationHelper.HIDDEN_HEADER_TOKENS));
-    }
-    outputGroupCollector.put(OutputGroupInfo.VALIDATION, headerTokens.build());
 
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.NativeBuilder(ruleContext.getAnalysisEnvironment().getStarlarkSemantics());

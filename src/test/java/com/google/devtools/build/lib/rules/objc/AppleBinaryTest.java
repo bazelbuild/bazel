@@ -26,9 +26,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
-import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -41,7 +39,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
-import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.objc.AppleBinary.BinaryType;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.syntax.Dict;
@@ -1863,21 +1860,6 @@ public class AppleBinaryTest extends ObjcRuleTestCase {
     CommandAction linkAction = linkAction("//test:bin");
     assertThat(paramFileArgsForAction(linkAction))
         .contains(execPathEndingWith(linkAction.getInputs().toList(), "some_linkstamp.o"));
-  }
-
-  @Test
-  public void testProcessHeadersInDependencies() throws Exception {
-    MockObjcSupport.setupCcToolchainConfig(
-        mockToolsConfig, MockObjcSupport.darwinX86_64().withFeatures(CppRuleClasses.PARSE_HEADERS));
-    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
-    ConfiguredTarget x =
-        scratchConfiguredTarget(
-            "foo",
-            "x",
-            "apple_binary(name = 'x', platform_type = 'macos', deps = [':y'])",
-            "cc_library(name = 'y', hdrs = ['y.h'])");
-    String validation = ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupInfo.VALIDATION));
-    assertThat(validation).contains("y.h.processed");
   }
 
   protected RuleType getRuleType() {
