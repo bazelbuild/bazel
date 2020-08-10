@@ -1104,7 +1104,10 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             CcNativeLibraryProvider.class,
             new CcNativeLibraryProvider(collectTransitiveCcNativeLibraries(ruleContext, libraries)))
         .addNativeDeclaredProvider(instrumentedFilesProvider)
-        .addOutputGroup(OutputGroupInfo.VALIDATION, headerTokens)
+        // For CcBinary targets, we only want to ensure that we process headers in dependencies and
+        // thus only add header tokens to HIDDEN_TOP_LEVEL. If we add all HIDDEN_TOP_LEVEL artifacts
+        // from dependent CcLibrary targets, we'd be building .pic.o files in nopic builds.
+        .addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, headerTokens)
         .addOutputGroups(outputGroups);
 
     CppHelper.maybeAddStaticLinkMarkerProvider(builder, ruleContext);
