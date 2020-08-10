@@ -16,6 +16,14 @@ filegroup(
 )
 
 filegroup(
+    name = "action_names",
+    srcs = [
+        "action_names.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "action_names_test_files",
     testonly = True,
     srcs = [
