@@ -31,7 +31,7 @@ class Coverage {
     sourceFiles = new TreeMap<>();
   }
 
-  void add(SourceFileCoverage input) {
+  void add(SourceFileCoverage input) throws IncompatibleMergeException {
     String sourceFilename = input.sourceFileName();
     if (sourceFiles.containsKey(sourceFilename)) {
       SourceFileCoverage old = sourceFiles.get(sourceFilename);
@@ -41,7 +41,7 @@ class Coverage {
     }
   }
 
-  static Coverage merge(Coverage... coverages) {
+  static Coverage merge(Coverage... coverages) throws IncompatibleMergeException {
     Coverage merged = new Coverage();
     for (Coverage c : coverages) {
       for (SourceFileCoverage sourceFile : c.getAllSourceFiles()) {
@@ -51,11 +51,19 @@ class Coverage {
     return merged;
   }
 
-  static Coverage create(SourceFileCoverage... sourceFilesCoverage) {
+  static Coverage mergeUnchecked(Coverage... coverages) {
+    try {
+      return merge(coverages);
+    } catch (IncompatibleMergeException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  static Coverage create(SourceFileCoverage... sourceFilesCoverage) throws IncompatibleMergeException {
     return create(Arrays.asList(sourceFilesCoverage));
   }
 
-  static Coverage create(List<SourceFileCoverage> sourceFilesCoverage) {
+  static Coverage create(List<SourceFileCoverage> sourceFilesCoverage) throws IncompatibleMergeException {
     Coverage coverage = new Coverage();
     for (SourceFileCoverage sourceFileCoverage : sourceFilesCoverage) {
       coverage.add(sourceFileCoverage);
@@ -85,7 +93,11 @@ class Coverage {
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
       if (!isCcSourceFile(source.sourceFileName())
           || sourcesToKeep.contains(source.sourceFileName())) {
-        finalCoverage.add(source);
+        try {
+          finalCoverage.add(source);
+        } catch (IncompatibleMergeException e) {
+          throw new AssertionError(e);
+        }
       }
     }
     return finalCoverage;
@@ -128,7 +140,11 @@ class Coverage {
     Coverage filteredCoverage = new Coverage();
     for (SourceFileCoverage source : coverage.getAllSourceFiles()) {
       if (!matchesAnyRegex(source.sourceFileName(), regexes)) {
-        filteredCoverage.add(source);
+        try {
+          filteredCoverage.add(source);
+        } catch (IncompatibleMergeException e) {
+          throw new AssertionError(e);
+        }
       }
     }
     return filteredCoverage;

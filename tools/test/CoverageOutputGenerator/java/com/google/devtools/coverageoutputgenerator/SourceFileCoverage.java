@@ -81,22 +81,35 @@ class SourceFileCoverage {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum, TreeMap::new));
   }
 
-
   /** Returns the merged branches found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static ListMultimap<Integer, BranchCoverage> mergeBranches(
-      SourceFileCoverage s1, SourceFileCoverage s2) {
+      SourceFileCoverage s1, SourceFileCoverage s2) throws IncompatibleMergeException {
 
     ListMultimap<Integer, BranchCoverage> merged =
         MultimapBuilder.treeKeys().arrayListValues().build();
 
-    // TODO(cmita): handle mismatch between the two, raise an error
     Collection<BranchCoverage> branches1 = s1.branches.values();
     Collection<BranchCoverage> branches2 = s2.branches.values();
+    if (branches1.size() != branches2.size()) {
+      throw new IncompatibleMergeException(
+          String.format(
+              "Number of branches for %s do not match", s1.sourceFileName()));
+    }
+
     Iterator<BranchCoverage> it1 = branches1.iterator();
     Iterator<BranchCoverage> it2 = branches2.iterator();
     while (it1.hasNext() && it2.hasNext()) {
-      BranchCoverage branch = BranchCoverage.merge(it1.next(), it2.next());
+      BranchCoverage b1 = it1.next();
+      BranchCoverage b2 = it2.next();
+      if (b1.lineNumber() != b2.lineNumber()
+          || !b1.blockNumber().equals(b2.blockNumber())
+          || !b1.branchNumber().equals(b2.branchNumber())) {
+        throw new IncompatibleMergeException(
+            String.format(
+                "Branches for %s do not align", s1.sourceFileName()));
+      }
+      BranchCoverage branch = BranchCoverage.merge(b1, b2);
       merged.put(branch.lineNumber(), branch);
     }
     return merged;
@@ -134,7 +147,8 @@ class SourceFileCoverage {
    *
    * @return a new {@link SourceFileCoverage} that contains the merged coverage.
    */
-  static SourceFileCoverage merge(SourceFileCoverage source1, SourceFileCoverage source2) {
+  static SourceFileCoverage merge(SourceFileCoverage source1, SourceFileCoverage source2)
+      throws IncompatibleMergeException {
     assert source1.sourceFileName.equals(source2.sourceFileName);
     SourceFileCoverage merged = new SourceFileCoverage(source2.sourceFileName);
 
