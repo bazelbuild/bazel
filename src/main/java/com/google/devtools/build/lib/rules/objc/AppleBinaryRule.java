@@ -44,7 +44,6 @@ public class AppleBinaryRule implements RuleDefinition {
 
   public static final String BINARY_TYPE_ATTR = "binary_type";
   public static final String BUNDLE_LOADER_ATTR_NAME = "bundle_loader";
-  public static final String EXTENSION_SAFE_ATTR_NAME = "extension_safe";
 
   private final ObjcProtoAspect objcProtoAspect;
 
@@ -117,14 +116,6 @@ public class AppleBinaryRule implements RuleDefinition {
             attr(BINARY_TYPE_ATTR, STRING)
                 .value(AppleBinary.BinaryType.EXECUTABLE.toString())
                 .allowedValues(new AllowedValueSet(AppleBinary.BinaryType.getValues())))
-        /* <!-- #BLAZE_RULE(apple_binary).ATTRIBUTE(extension_safe) -->
-        This attribute is deprecated and will be removed soon. It currently has no effect.
-        "Extension-safe" link options may be added using the <code>linkopts</code> attribute.
-        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(
-            attr(EXTENSION_SAFE_ATTR_NAME, BOOLEAN)
-                .value(false)
-                .nonconfigurable("Determines the configuration transition on deps"))
         .add(
             attr(BUNDLE_LOADER_ATTR_NAME, LABEL)
                 .direct_compile_time_input()
