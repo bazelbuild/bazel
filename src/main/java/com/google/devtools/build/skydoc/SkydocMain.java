@@ -110,6 +110,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCcLinkParamsPr
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeProguardSpecProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfo.FakeProtoInfoProvider;
@@ -597,7 +598,8 @@ public class SkydocMain {
             new FakeJavaCommon(),
             new FakeJavaInfoProvider(),
             new FakeJavaProtoCommon(),
-            new FakeJavaCcLinkParamsProvider.Provider());
+            new FakeJavaCcLinkParamsProvider.Provider(),
+            new FakeProguardSpecProvider.FakeProvider());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     ProtoBootstrap protoBootstrap =
         new ProtoBootstrap(
@@ -627,7 +629,6 @@ public class SkydocMain {
     // TODO(adonovan): fix properly ASAP.
     for (String name :
         new String[] {
-          "ProguardSpecProvider",
           "js_common",
           "pkg_common",
         }) {
