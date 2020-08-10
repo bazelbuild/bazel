@@ -387,17 +387,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean experimentalForwardInstrumentedFilesInfoByDefault;
 
   @Option(
-      name = "experimental_ignore_deprecated_instrumentation_spec",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If specified, use a new configuration of InstrumentationSpec which distinguishes "
-              + "between source and dependency attributes for rules which still used a legacy "
-              + "configuration with a single list of coverage-relevant attributes.")
-  public boolean experimentalIgnoreDeprecatedInstrumentationSpec;
-
-  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
