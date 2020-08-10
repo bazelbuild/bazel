@@ -1725,6 +1725,8 @@ public abstract class CcModule
       Sequence<?> frameworkIncludes, // <String> expected
       Sequence<?> defines, // <String> expected
       Sequence<?> localDefines, // <String> expected
+      String includePrefix,
+      String stripIncludePrefix,
       Sequence<?> userCompileFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
       String name,
@@ -1828,6 +1830,12 @@ public abstract class CcModule
     if (disallowPicOutputs) {
       helper.setGeneratePicAction(false);
       helper.setGenerateNoPicAction(true);
+    }
+    if (!Strings.isNullOrEmpty(includePrefix)) {
+      helper.setIncludePrefix(includePrefix);
+    }
+    if (!Strings.isNullOrEmpty(stripIncludePrefix)) {
+      helper.setStripIncludePrefix(stripIncludePrefix);
     }
     try {
       CompilationInfo compilationInfo = helper.compile();
