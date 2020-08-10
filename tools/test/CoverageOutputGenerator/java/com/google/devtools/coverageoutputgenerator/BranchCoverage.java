@@ -64,6 +64,19 @@ abstract class BranchCoverage {
   }
 
   /**
+   * Create a BranchCoverage object corresponding to a BRDA line with a dummy block number
+   * <pre>BRDA:[line_number],[block_number=0],[branch_number],[taken]</pre>
+   * @param lineNumber
+   * @param branchNumber
+   * @param evaluated if this branch was evaluated (taken != "-")
+   * @param nrOfExecutions how many times the branch was taken (the value of taken if taken != "-")
+   * @return corresponding BranchCoverage
+   */
+  static BranchCoverage createWithBranch(int lineNumber, String branchNumber, boolean evaluated, long nrOfExecutions) {
+    return new AutoValue_BranchCoverage(lineNumber, /*blockNumber=*/ "0", branchNumber, evaluated, nrOfExecutions);
+  }
+
+  /**
    * Create a BranchCoverage object corresponding to a BRDA line
    *
    * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
@@ -118,7 +131,7 @@ abstract class BranchCoverage {
   }
 
   abstract int lineNumber();
-  // The two numbers below should be -1 for non-gcc emitted coverage (e.g. Java).
+
   abstract String blockNumber(); // internal gcc ID for the branch
 
   abstract String branchNumber(); // internal gcc ID for the branch

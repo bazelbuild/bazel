@@ -167,21 +167,21 @@ public class GcovParserTest {
 
     assertThat(sourceFileCoverage.getAllBranches())
         .containsExactly(
-            BranchCoverage.create(21, 2),
-            BranchCoverage.create(21, 1),
-            BranchCoverage.create(23, 2),
-            BranchCoverage.create(23, 1),
-            BranchCoverage.create(24, 2),
-            BranchCoverage.create(24, 1),
-            BranchCoverage.create(27, 2),
-            BranchCoverage.create(27, 2),
-            BranchCoverage.create(30, 1),
-            BranchCoverage.create(30, 2),
-            BranchCoverage.create(32, 1),
-            BranchCoverage.create(32, 2),
-            BranchCoverage.create(33, 0),
-            BranchCoverage.create(33, 0),
-            BranchCoverage.create(35, 2),
-            BranchCoverage.create(35, 1));
+            BranchCoverage.createWithBranch(21, "0", true, 1),
+            BranchCoverage.createWithBranch(21, "1", true, 0),
+            BranchCoverage.createWithBranch(23, "0", true, 1),
+            BranchCoverage.createWithBranch(23, "1", true, 0),
+            BranchCoverage.createWithBranch(24, "0", true, 1),
+            BranchCoverage.createWithBranch(24, "1", true, 0),
+            BranchCoverage.createWithBranch(27, "0", true, 1),
+            BranchCoverage.createWithBranch(27, "1", true, 1),
+            BranchCoverage.createWithBranch(30, "0", true, 0),
+            BranchCoverage.createWithBranch(30, "1", true, 1),
+            BranchCoverage.createWithBranch(32, "0", true, 0),
+            BranchCoverage.createWithBranch(32, "1", true, 1),
+            BranchCoverage.createWithBranch(33, "0", false, 0),
+            BranchCoverage.createWithBranch(33, "1", false, 0),
+            BranchCoverage.createWithBranch(35, "0", true, 1),
+            BranchCoverage.createWithBranch(35, "1", true, 0));
   }
 }
