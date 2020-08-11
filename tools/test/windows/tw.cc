@@ -410,8 +410,8 @@ bool UnsetEnv(const wchar_t* name) {
 }
 
 bool AddCurrentDirectoryToPATH() {
-  std::wstring PATH;
-  if (!GetEnv(L"PATH", &PATH) || !SetEnv(L"PATH", L".;" + PATH)) {
+  std::wstring path;
+  if (!GetEnv(L"PATH", &path) || !SetEnv(L"PATH", L".;" + path)) {
     return false;
   }
   return true;
