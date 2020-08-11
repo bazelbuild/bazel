@@ -207,10 +207,18 @@ public class BzlLoadFunction implements SkyFunction {
    * Entry point for computing "inline", without any direct or indirect Skyframe calls back into
    * {@link BzlLoadFunction}. (Other Skyframe calls are permitted.)
    *
-   * <p><b>USAGE NOTE:</b> This function is intended to be called from {@link PackageFunction} and
-   * {@link StarlarkBuiltinsFunction} and probably shouldn't be used anywhere else. If you think you
-   * need inline Starlark computation, consult with the Core subteam and check out cl/305127325 for
-   * an example of correcting a misuse.
+   * <p><b>USAGE NOTES:</b>
+   *
+   * <ul>
+   *   <li>This method is intended to be called from {@link PackageFunction} and {@link
+   *       StarlarkBuiltinsFunction} and probably shouldn't be used anywhere else. If you think you
+   *       need inline Starlark computation, consult with the Core subteam and check out
+   *       cl/305127325 for an example of correcting a misuse.
+   *   <li>If this method is used with --keep_going and if Skyframe evaluation will never be
+   *       interrupted, then this function ensures that the evaluation graph is deterministic, even
+   *       though the error reporting is non-deterministic. In particular, dependencies are always
+   *       run to completion or error, but if errors exist it is unspecified which one is returned.
+   * </ul>
    *
    * <p>Under bzl inlining, there is some calling context that wants to obtain a set of {@link
    * BzlLoadValue}s without Skyframe evaluation. For example, a calling context can be a BUILD file
@@ -851,11 +859,12 @@ public class BzlLoadFunction implements SkyFunction {
     Environment strippedEnv = ((RecordingSkyFunctionEnvironment) env).getDelegate();
 
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
-    // For determinism's sake while inlining, preserve the first exception and continue to run
-    // subsequently listed loads to completion/exception, loading all transitive deps anyway.
-    // TODO(brandjon, adgar): What's the deal with determinism w.r.t. InterruptedException, and
-    // don't null returns mean the first exception seen isn't deterministic? See also cl/263656490
-    // and discussion therein.
+    // For the sake of ensuring the graph structure is deterministic, we need to request all of our
+    // deps, even if some of them yield errors. The first exception that is non-deterministically
+    // seen gets deferred, to be raised after the loop. All other exceptions are swallowed.
+    //
+    // This approach assumes --keep_going, so that any incomplete deps finish on their own. It also
+    // assumes InterruptedException does not occur, since we don't catch and defer it below.
     Exception deferredException = null;
     boolean valuesMissing = false;
     // NOTE: Iterating over loads in the order listed in the file.

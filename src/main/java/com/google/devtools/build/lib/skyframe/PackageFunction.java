@@ -715,6 +715,8 @@ public class PackageFunction implements SkyFunction {
       Environment env, List<BzlLoadValue.Key> keys, BzlLoadFunction bzlLoadFunctionForInlining)
       throws InterruptedException, BzlLoadFailedException, InconsistentFilesystemException {
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
+    // See the comment about the desire for deterministic graph structure in BzlLoadFunction for the
+    // motivation of this approach to exception handling.
     Exception deferredException = null;
     // Compute BzlLoadValue for each key, sharing the same inlining state, i.e. cache of loaded
     // modules. This ensures that each .bzl is loaded only once, regardless of diamond dependencies
@@ -728,8 +730,6 @@ public class PackageFunction implements SkyFunction {
         // of whether it was evaluated successfully, had missing deps, or was found to be in error.
         skyValue = bzlLoadFunctionForInlining.computeInline(key, env, inliningState);
       } catch (BzlLoadFailedException | InconsistentFilesystemException e) {
-        // For determinism's sake while inlining, preserve the first exception and continue to run
-        // subsequently listed loads to completion/exception, loading all transitive deps anyway.
         deferredException = MoreObjects.firstNonNull(deferredException, e);
         continue;
       }
