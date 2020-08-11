@@ -92,17 +92,20 @@ public class BzlLoadFunction implements SkyFunction {
   // and 2) to pass it to ASTFileLookupFunction's inlining code path.
   // TODO(#11437): The second use can probably go away by refactoring ASTFileLookupFunction to
   // instead accept the set of predeclared bindings. Simplify the code path and then this comment.
-  private final RuleClassProvider ruleClassProvider;
+  // Accessed by StarlarkBuiltinsFunction.
+  final RuleClassProvider ruleClassProvider;
 
   // Used for StarlarkBuiltinsFunction's inlining code path.
-  private final PackageFactory packageFactory;
+  // Accessed by StarlarkBuiltinsFunction.
+  final PackageFactory packageFactory;
 
   // Used for BUILD .bzls if injection is disabled.
   // TODO(#11437): Remove once injection is on unconditionally.
   private final StarlarkBuiltinsValue uninjectedStarlarkBuiltins;
 
+  // Predeclareds for workspace .bzls and builtins .bzls are not subject to builtins injection, so
+  // these environments are stored globally.
   private final ImmutableMap<String, Object> predeclaredForWorkspaceBzl;
-
   private final ImmutableMap<String, Object> predeclaredForBuiltinsBzl;
 
   // Handles retrieving ASTFileLookupValues, either by calling Skyframe or by inlining
@@ -396,12 +399,7 @@ public class BzlLoadFunction implements SkyFunction {
         ? (StarlarkBuiltinsValue)
             env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class)
         : StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(),
-            env,
-            inliningState,
-            /*bzlLoadFunction=*/ this,
-            ruleClassProvider,
-            packageFactory);
+            StarlarkBuiltinsValue.key(), env, inliningState, /*bzlLoadFunction=*/ this);
   }
 
   /**
@@ -596,6 +594,8 @@ public class BzlLoadFunction implements SkyFunction {
     }
 
     BzlLoadValue result = null;
+    // Release the AST iff the value gets completely evaluated (to either error or non-null result).
+    boolean completed = true;
     try {
       result =
           computeInternalWithAST(
@@ -606,13 +606,11 @@ public class BzlLoadFunction implements SkyFunction {
               astLookupValue,
               env,
               inliningState);
-    } catch (InconsistentFilesystemException | BzlLoadFailedException | InterruptedException e) {
-      astManager.doneWithASTFileLookupValue(astKey);
-      throw e;
-    }
-    if (result != null) {
-      // Result is final (no Skyframe restart), so no further need for the AST value.
-      astManager.doneWithASTFileLookupValue(astKey);
+      completed = result != null;
+    } finally {
+      if (completed) { // only false on unexceptional null result
+        astManager.doneWithASTFileLookupValue(astKey);
+      }
     }
     return result;
   }
