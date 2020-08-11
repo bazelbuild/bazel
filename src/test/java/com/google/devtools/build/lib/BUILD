@@ -663,7 +663,7 @@ test_suite(
         ":windows_tests",
         "//src/test/java/com/google/devtools/build/lib/analysis/allowlisting:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/analysis/platform:all_windows_tests",
-        "//src/test/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:all_windows_tests",
+        "//src/test/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/bazel:all_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/blackbox/tests:blackbox_windows_tests",
         "//src/test/java/com/google/devtools/build/lib/buildeventservice:all_windows_tests",

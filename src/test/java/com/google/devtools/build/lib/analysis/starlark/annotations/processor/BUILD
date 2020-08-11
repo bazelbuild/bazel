@@ -19,7 +19,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations/processor:annotation_preprocessor",
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations/processor:annotation_preprocessor",
         "//third_party:compile_testing",
         "//third_party:guava",
         "//third_party:junit4",
