@@ -149,4 +149,14 @@ public class WorkerOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "If enabled, workers will be executed in a sandboxed environment.")
   public boolean workerSandboxing;
+
+  @Option(
+      name = "experimental_worker_multiplex",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Currently a no-op. Future: If enabled, workers that support the experimental"
+              + " multiplexing feature will use that feature.")
+  public boolean experimentalWorkerMultiplex;
 }
