@@ -111,6 +111,10 @@ class TestWrapperTest(test_base.TestBase):
         '    name = "xml2_test",',
         '    srcs = ["xml2_test.py"],',
         ')',
+		'py_test(',
+		'	name = "add_cur_dir_to_path_test",',
+		'   srcs = ["add_cur_dir_to_path_test.py"],',
+		')'
     ])
 
     self.CopyFile(
@@ -211,6 +215,15 @@ class TestWrapperTest(test_base.TestBase):
             'import os',
             'with open(os.environ.get("XML_OUTPUT_FILE"), "wt") as f:',
             '  f.write("leave this")'
+        ],
+        executable=True)
+		
+    self.ScratchFile(
+        'foo/add_cur_dir_to_path_test.py', [
+            'import os',
+            'path = os.getenv("PATH")',
+            'if ".;" not in path:',
+            '  exit(1)'
         ],
         executable=True)
 
@@ -656,6 +669,16 @@ class TestWrapperTest(test_base.TestBase):
         self.AssertExitCode(
             exit_code, 0,
             ['flag=%s' % flag, 'target=%s' % target] + stderr)
+			
+
+  def _AssertAddCurrentDirectoryToPathTest(self, flags):
+    exit_code, _, stderr = self.RunBazel([
+        'test',
+        '//foo:add_cur_dir_to_path_test',
+        '--test_output=all',
+    ] + flags)
+    self.AssertExitCode(exit_code, 0, stderr)
+
 
   def testTestExecutionWithTestWrapperExe(self):
     self._CreateMockWorkspace()
@@ -675,7 +698,7 @@ class TestWrapperTest(test_base.TestBase):
     self._AssertXmlGeneration(flags, split_xml=True)
     self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=False)
     self._AssertXmlGeneratedByTestIsRetained(flags, split_xml=True)
-
+    self._AssertAddCurrentDirectoryToPathTest(flags)
 
 if __name__ == '__main__':
   unittest.main()
