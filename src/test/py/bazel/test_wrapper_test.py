@@ -111,10 +111,10 @@ class TestWrapperTest(test_base.TestBase):
         '    name = "xml2_test",',
         '    srcs = ["xml2_test.py"],',
         ')',
-		'py_test(',
-		'	name = "add_cur_dir_to_path_test",',
-		'   srcs = ["add_cur_dir_to_path_test.py"],',
-		')'
+	'py_test(',
+	'	name = "add_cur_dir_to_path_test",',
+	'   srcs = ["add_cur_dir_to_path_test.py"],',
+	')'
     ])
 
     self.CopyFile(
