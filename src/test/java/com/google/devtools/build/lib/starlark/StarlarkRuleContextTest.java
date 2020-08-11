@@ -1542,7 +1542,6 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
                 getConfiguredTargetAndData("@foo//:baz")
                     .getTarget()
                     .getAssociatedRule()
-                    .getAttributeContainer()
                     .getAttr("srcs"))
         .contains(Label.parseAbsolute("@foo//:baz.txt", ImmutableMap.of()));
 

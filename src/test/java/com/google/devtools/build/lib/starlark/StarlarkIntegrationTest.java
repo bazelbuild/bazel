@@ -43,11 +43,11 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildSetting;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.Provider;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Type;
@@ -201,9 +201,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     getConfiguredTarget("//test/starlark:test_target");
   }
 
-  private AttributeContainer getContainerForTarget(String targetName) throws Exception {
+  private Rule getRuleForTarget(String targetName) throws Exception {
     ConfiguredTargetAndData target = getConfiguredTargetAndData("//test/starlark:" + targetName);
-    return target.getTarget().getAssociatedRule().getAttributeContainer();
+    return target.getTarget().getAssociatedRule();
   }
 
   @Test
@@ -230,23 +230,23 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "cc_binary(name = 'cc_target', deps = ['cc_dep'])",
         "cc_library(name = 'cc_dep')");
 
-    AttributeContainer withMacro = getContainerForTarget("macro_target");
+    Rule withMacro = getRuleForTarget("macro_target");
     assertThat(withMacro.getAttr("generator_name")).isEqualTo("macro_target");
     assertThat(withMacro.getAttr("generator_function")).isEqualTo("macro");
     assertThat(withMacro.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:3:11");
 
     // Attributes are only set when the rule was created by a macro
-    AttributeContainer noMacro = getContainerForTarget("no_macro_target");
+    Rule noMacro = getRuleForTarget("no_macro_target");
     assertThat(noMacro.getAttr("generator_name")).isEqualTo("");
     assertThat(noMacro.getAttr("generator_function")).isEqualTo("");
     assertThat(noMacro.getAttr("generator_location")).isEqualTo("");
 
-    AttributeContainer nativeMacro = getContainerForTarget("native_macro_target_suffix");
+    Rule nativeMacro = getRuleForTarget("native_macro_target_suffix");
     assertThat(nativeMacro.getAttr("generator_name")).isEqualTo("native_macro_target");
     assertThat(nativeMacro.getAttr("generator_function")).isEqualTo("native_macro");
     assertThat(nativeMacro.getAttr("generator_location")).isEqualTo("test/starlark/BUILD:5:18");
 
-    AttributeContainer ccTarget = getContainerForTarget("cc_target");
+    Rule ccTarget = getRuleForTarget("cc_target");
     assertThat(ccTarget.getAttr("generator_name")).isEqualTo("");
     assertThat(ccTarget.getAttr("generator_function")).isEqualTo("");
     assertThat(ccTarget.getAttr("generator_location")).isEqualTo("");

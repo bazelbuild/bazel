@@ -137,7 +137,6 @@ public class StarlarkOptionsParser {
       if (!value.equals(
           buildSettingTarget
               .getAssociatedRule()
-              .getAttributeContainer()
               .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
         parsedOptions.put(loadedFlag, value);
       }

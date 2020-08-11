@@ -281,7 +281,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     Dict<String, Object> values = Dict.of(mu);
 
     Rule rule = (Rule) target;
-    AttributeContainer cont = rule.getAttributeContainer();
     for (Attribute attr : rule.getAttributes()) {
       if (!Character.isAlphabetic(attr.getName().charAt(0))) {
         continue;
@@ -294,7 +293,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
 
       try {
-        Object val = starlarkifyValue(mu, cont.getAttr(attr.getName()), target.getPackage());
+        Object val = starlarkifyValue(mu, rule.getAttr(attr.getName()), target.getPackage());
         if (val == null) {
           continue;
         }

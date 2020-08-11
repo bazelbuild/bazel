@@ -394,9 +394,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     preparePackageLoading(rootDirectory);
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     Package pkg = validPackageWithoutErrors(skyKey);
-    assertThat(
-            (Iterable<Label>)
-                pkg.getTarget("foo").getAssociatedRule().getAttributeContainer().getAttr("srcs"))
+    assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
             Label.parseAbsoluteUnchecked("//foo:b.txt"),
             Label.parseAbsoluteUnchecked("//foo:c/c.txt"))
@@ -408,9 +406,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             ModifiedFileSet.builder().modify(PathFragment.create("foo/d.txt")).build(),
             Root.fromPath(rootDirectory));
     pkg = validPackageWithoutErrors(skyKey);
-    assertThat(
-            (Iterable<Label>)
-                pkg.getTarget("foo").getAssociatedRule().getAttributeContainer().getAttr("srcs"))
+    assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
             Label.parseAbsoluteUnchecked("//foo:b.txt"),
             Label.parseAbsoluteUnchecked("//foo:c/c.txt"),
@@ -534,8 +530,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @SuppressWarnings("unchecked")
   private static Iterable<Label> getSrcs(Package pkg, String targetName)
       throws NoSuchTargetException {
-    return (Iterable<Label>)
-        pkg.getTarget(targetName).getAssociatedRule().getAttributeContainer().getAttr("srcs");
+    return (Iterable<Label>) pkg.getTarget(targetName).getAssociatedRule().getAttr("srcs");
   }
 
   @Test

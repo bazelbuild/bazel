@@ -960,7 +960,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("e", RootedPath.toRootedPath(root, buildFile));
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
-    List<?> globList = (List) pkg.getRule("e").getAttributeContainer().getAttr("data");
+    List<?> globList = (List) pkg.getRule("e").getAttr("data");
     assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt", ImmutableMap.of()));
   }
 

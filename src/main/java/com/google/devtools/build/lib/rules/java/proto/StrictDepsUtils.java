@@ -102,6 +102,6 @@ public class StrictDepsUtils {
         || !ruleContext.attributes().has("strict_deps", Type.BOOLEAN)) {
       return true;
     }
-    return (boolean) ruleContext.getRule().getAttributeContainer().getAttr("strict_deps");
+    return (boolean) ruleContext.getRule().getAttr("strict_deps");
   }
 }

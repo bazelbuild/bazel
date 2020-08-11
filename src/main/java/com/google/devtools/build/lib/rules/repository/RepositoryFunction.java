@@ -186,7 +186,7 @@ public abstract class RepositoryFunction {
   @SuppressWarnings("unchecked")
   private static Iterable<String> getEnviron(Rule rule) {
     if (rule.isAttrDefined("$environ", Type.STRING_LIST)) {
-      return (Iterable<String>) rule.getAttributeContainer().getAttr("$environ");
+      return (Iterable<String>) rule.getAttr("$environ");
     }
     return ImmutableList.of();
   }

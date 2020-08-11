@@ -60,7 +60,7 @@ public class WorkspaceAttributeMapper {
    */
   @Nullable
   public Object getObject(String attributeName) throws EvalException {
-    Object value = rule.getAttributeContainer().getAttr(checkNotNull(attributeName));
+    Object value = rule.getAttr(checkNotNull(attributeName));
     if (value instanceof SelectorList) {
       throw Starlark.errorf(
           "got value of type 'select' for attribute '%s' of %s rule '%s'; select may not be used"
@@ -71,7 +71,7 @@ public class WorkspaceAttributeMapper {
   }
 
   public boolean isAttributeValueExplicitlySpecified(String attr) {
-    return rule.getAttributeContainer().isAttributeValueExplicitlySpecified(attr);
+    return rule.isAttributeValueExplicitlySpecified(attr);
   }
 
   public Iterable<String> getAttributeNames() {
