@@ -413,6 +413,9 @@ public class CompactPersistentActionCache implements ActionCache {
       byte[] digest = DigestUtils.read(source);
 
       int count = VarInt.getVarInt(source);
+      if (count != NO_INPUT_DISCOVERY_COUNT && count < 0) {
+        throw new IOException("Negative discovered file count: " + count);
+      }
       ImmutableList<String> files = null;
       if (count != NO_INPUT_DISCOVERY_COUNT) {
         ImmutableList.Builder<String> builder = ImmutableList.builderWithExpectedSize(count);

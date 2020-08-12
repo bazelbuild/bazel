@@ -387,6 +387,18 @@ public class JavaOptions extends FragmentOptions {
       help = "Do not use.")
   public Map<String, Label> bytecodeOptimizers;
 
+  /**
+   * If true, the OPTIMIZATION stage of the bytecode optimizer will be split across multiple
+   * actions.
+   */
+  @Option(
+      name = "split_bytecode_optimization_pass",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help = "Do not use.")
+  public boolean splitBytecodeOptimizationPass;
+
   @Option(
       name = "enforce_proguard_file_extension",
       defaultValue = "false",
@@ -705,6 +717,8 @@ public class JavaOptions extends FragmentOptions {
     host.javaLanguageVersion = hostJavaLanguageVersion;
 
     host.bytecodeOptimizers = bytecodeOptimizers;
+    host.splitBytecodeOptimizationPass = splitBytecodeOptimizationPass;
+
     host.enforceProguardFileExtension = enforceProguardFileExtension;
     host.extraProguardSpecs = extraProguardSpecs;
     host.proguard = proguard;

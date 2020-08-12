@@ -179,7 +179,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
               (Label)
                   buildSettingTarget
                       .getAssociatedRule()
-                      .getAttributeContainer()
                       .getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME));
     }
     return buildSettingTarget;
@@ -334,8 +333,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         } catch (ConversionException e) {
           throw new TransitionException(e);
         }
-        if (convertedValue.equals(
-            rule.getAttributeContainer().getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
+        if (convertedValue.equals(rule.getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME))) {
           if (cleanedOptions == null) {
             cleanedOptions = options.toBuilder();
           }
@@ -418,7 +416,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
                     setting,
                     getActual(buildSettingPackages, setting)
                         .getAssociatedRule()
-                        .getAttributeContainer()
                         .getAttr(STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME));
               }
             });
@@ -492,7 +489,6 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
         Object actualValue =
             buildSettingTarget
                 .getAssociatedRule()
-                .getAttributeContainer()
                 .getAttr(ALIAS_ACTUAL_ATTRIBUTE_NAME);
         if (actualValue instanceof Label) {
           actualSettingBuilder.add((Label) actualValue);

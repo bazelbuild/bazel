@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.ToolchainContextKey;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -376,7 +377,7 @@ public abstract class DependencyResolver {
             if (fromRule != null) {
               throw new EvalException(fromRule.getLocation(), error);
             } else {
-              throw new EvalException(error);
+              throw Starlark.errorf("%s", error);
             }
           }
           if (toolchainContexts.getToolchainContext(execGroup).executionPlatform() != null) {

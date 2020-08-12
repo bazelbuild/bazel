@@ -652,7 +652,7 @@ public class TestAspects {
   private static final Function<Rule, AspectParameters> TEST_ASPECT_PARAMETERS_EXTRACTOR =
       (rule) -> {
         if (rule.isAttrDefined("baz", STRING)) {
-          String value = rule.getAttributeContainer().getAttr("baz").toString();
+          String value = rule.getAttr("baz").toString();
           if (!value.equals("")) {
             return new AspectParameters.Builder().addAttribute("baz", value).build();
           }

@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.query2.query.output.QueryOutputUtils;
 import com.google.devtools.build.lib.query2.query.output.StreamedFormatter;
 import com.google.devtools.build.lib.rules.genquery.GenQueryOutputStream.GenQueryResult;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
@@ -537,10 +538,12 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       TargetPattern.Type type = new TargetPattern.Parser("").parse(pattern).getType();
       if (type == TargetPattern.Type.PATH_AS_TARGET) {
         throw new TargetParsingException(
-            String.format("couldn't determine target from filename '%s'", pattern));
+            String.format("couldn't determine target from filename '%s'", pattern),
+            TargetPatterns.Code.CANNOT_DETERMINE_TARGET_FROM_FILENAME);
       } else if (type == TargetPattern.Type.TARGETS_BELOW_DIRECTORY) {
         throw new TargetParsingException(
-            String.format("recursive target patterns are not permitted: '%s'", pattern));
+            String.format("recursive target patterns are not permitted: '%s'", pattern),
+            TargetPatterns.Code.RECURSIVE_TARGET_PATTERNS_NOT_ALLOWED);
       }
     }
   }

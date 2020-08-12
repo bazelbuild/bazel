@@ -661,10 +661,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
     return options.experimentalForwardInstrumentedFilesInfoByDefault;
   }
 
-  public boolean experimentalIgnoreDeprecatedInstrumentationSpec() {
-    return options.experimentalIgnoreDeprecatedInstrumentationSpec;
-  }
-
   public RunUnder getRunUnder() {
     return options.runUnder;
   }
@@ -710,10 +706,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public List<Label> getActionListeners() {
     return options.actionListeners;
-  }
-
-  public boolean inmemoryUnusedInputsList() {
-    return options.inmemoryUnusedInputsList;
   }
 
   /**
@@ -872,6 +864,10 @@ public class BuildConfiguration implements BuildConfigurationApi {
    */
   public Label getAutoCpuEnvironmentGroup() {
     return options.autoCpuEnvironmentGroup;
+  }
+
+  public CoreOptions.FatApkSplitSanitizer getFatApkSplitSanitizer() {
+    return options.fatApkSplitSanitizer;
   }
 
   public Class<? extends Fragment> getStarlarkFragmentByName(String name) {

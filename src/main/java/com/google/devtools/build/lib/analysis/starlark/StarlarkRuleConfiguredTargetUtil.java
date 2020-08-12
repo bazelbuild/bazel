@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.analysis.starlark;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.Allowlist;
+import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.packages.NativeProvider.WithLegacyStarlarkName;
 import com.google.devtools.build.lib.packages.Provider;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -53,7 +52,6 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
@@ -88,7 +86,7 @@ public final class StarlarkRuleConfiguredTargetUtil {
   public static ConfiguredTarget buildRule(
       RuleContext ruleContext,
       AdvertisedProviderSet advertisedProviders,
-      StarlarkCallable ruleImplementation,
+      StarlarkCallable ruleImplementation, // TODO(adonovan): unused; delete
       Location location,
       StarlarkSemantics starlarkSemantics,
       String toolsRepository)
@@ -127,12 +125,20 @@ public final class StarlarkRuleConfiguredTargetUtil {
         }
       }
 
+      // Add dummy wrapper to show call that instantiated rule.
+      StarlarkCallable fn =
+          newDummyFunction(
+              ruleClass.getConfiguredTargetFunction(),
+              String.format("%s(name = '%s')", ruleClass, ruleContext.getRule().getName()),
+              ruleContext.getRule().getLocation());
+
+      // call rule.implementation(ctx)
       Object target =
-          Starlark.call(
+          Starlark.fastcall(
               thread,
-              ruleImplementation,
-              /*args=*/ ImmutableList.of(starlarkRuleContext),
-              /*kwargs=*/ ImmutableMap.of());
+              fn,
+              /*positional=*/ new Object[] {starlarkRuleContext},
+              /*named=*/ new Object[0]);
 
       if (ruleContext.hasErrors()) {
         return null;
@@ -155,21 +161,66 @@ public final class StarlarkRuleConfiguredTargetUtil {
         checkDeclaredProviders(configuredTarget, advertisedProviders, location);
       }
       return configuredTarget;
-    } catch (EvalException e) {
-      addRuleToStackTrace(e, ruleContext.getRule(), ruleImplementation);
+
+    } catch (Starlark.UncheckedEvalException ex) {
+      // MissingDepException is expected to transit through Starlark execution.
+      throw ex.getCause() instanceof CachingAnalysisEnvironment.MissingDepException
+          ? (CachingAnalysisEnvironment.MissingDepException) ex.getCause()
+          : ex;
+
+    } catch (EvalException ex) {
       // If the error was expected, return an empty target.
-      if (!expectFailure.isEmpty() && getMessageWithoutStackTrace(e).matches(expectFailure)) {
+      if (!expectFailure.isEmpty() && ex.getMessage().matches(expectFailure)) {
         return new RuleConfiguredTargetBuilder(ruleContext)
             .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
             .build();
       }
-      ruleContext.ruleError("\n" + e.print());
+      // TODO(adonovan): rather than interpose a wrapper function to show the call that instantiated
+      // the rule, consider manipulating the stack after the fact, like so:
+      //
+      // Rule rule = ruleContext.getRule();
+      // StarlarkThread.CallStackEntry dummy =
+      //     new StarlarkThread.CallStackEntry(
+      //         String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
+      //         rule.getLocation());
+      // ImmutableList<StarlarkThread.CallStackEntry> stack =
+      //
+      // ImmutableList.<StarlarkThread.CallStackEntry>builder().add(dummy).addAll(ex.getCallStack()).build();
+      // ruleContext.ruleError("\n" + EvalException.formatCallStack(stack, ex.getMessage(),
+      // /*src=*/null));
+      //
+      // However, this causes some tests to fail, and I don't want it to block this change.
+      // (Hypothesis: the dummy function affects only EvalExceptions raised during fastcall(), but
+      // not before.)
+      ruleContext.ruleError("\n" + ex.getMessageWithStack());
       return null;
     } finally {
       if (starlarkRuleContext != null) {
         starlarkRuleContext.nullify();
       }
     }
+  }
+
+  // Returns a dummy Starlark built-in function that simply delegates to fn,
+  // but causes the information name and location to the appear in the call stack.
+  private static StarlarkCallable newDummyFunction(StarlarkCallable fn, String name, Location loc) {
+    return new StarlarkCallable() {
+      @Override
+      public Object fastcall(StarlarkThread thread, Object[] positional, Object[] named)
+          throws EvalException, InterruptedException {
+        return Starlark.fastcall(thread, fn, positional, named);
+      }
+
+      @Override
+      public String getName() {
+        return name;
+      }
+
+      @Override
+      public Location getLocation() {
+        return loc;
+      }
+    };
   }
 
   private static void checkDeclaredProviders(
@@ -184,27 +235,6 @@ public final class StarlarkRuleConfiguredTargetUtil {
                 providerId.toString()));
       }
     }
-  }
-
-  /** Adds the given rule to the stack trace of the exception (if there is one). */
-  private static void addRuleToStackTrace(EvalException ex, Rule rule, StarlarkCallable ruleImpl) {
-    if (ex instanceof EvalExceptionWithStackTrace) {
-      ((EvalExceptionWithStackTrace) ex)
-          .registerPhantomCall(
-              String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
-              rule.getLocation(),
-              ruleImpl);
-    }
-  }
-
-  /**
-   * Returns the message of the given exception after removing the stack trace, if present.
-   */
-  private static String getMessageWithoutStackTrace(EvalException ex) {
-    if (ex instanceof EvalExceptionWithStackTrace) {
-      return ((EvalExceptionWithStackTrace) ex).getOriginalMessage();
-    }
-    return ex.getMessage();
   }
 
   @Nullable
@@ -232,7 +262,10 @@ public final class StarlarkRuleConfiguredTargetUtil {
     try {
       addProviders(context, builder, target, loc);
     } catch (EvalException ex) {
-      if (ex.getLocation() == null) {
+      // TODO(adonovan): this is the only use of the getDeprecatedLocation feature.
+      // Eliminate it, and ensure that the error message strings contain any
+      // relevant non-stack locations.
+      if (ex.getDeprecatedLocation() == null) {
         // Prefer target struct's creation location in error messages.
         if (target instanceof Info) {
           loc = ((Info) target).getCreationLoc();

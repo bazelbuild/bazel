@@ -19,6 +19,7 @@ import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.FilteringQueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryTaskFuture;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -48,13 +49,12 @@ public abstract class RegexFilterExpression extends FilteringQueryFunction {
     try {
       compiledPattern = Pattern.compile(rawPattern);
     } catch (PatternSyntaxException e) {
-      return env.immediateFailedFuture(new QueryException(
-          expression,
-          String.format(
-              "illegal '%s' pattern regexp '%s': %s",
-              getName(),
-              rawPattern,
-              e.getMessage())));
+      return env.immediateFailedFuture(
+          new QueryException(
+              expression,
+              String.format(
+                  "illegal '%s' pattern regexp '%s': %s", getName(), rawPattern, e.getMessage()),
+              Query.Code.SYNTAX_ERROR));
     }
 
     // Note that Patttern#matcher is thread-safe and so this Predicate can safely be used

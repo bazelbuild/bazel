@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
 import com.google.devtools.build.lib.rules.java.JavaToolchainAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
+import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.rules.java.proto.JavaProtoStarlarkCommon;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -94,7 +95,8 @@ public class JavaRules implements RuleSet {
             new JavaStarlarkCommon(BazelJavaSemantics.INSTANCE),
             JavaInfo.PROVIDER,
             new JavaProtoStarlarkCommon(),
-            JavaCcLinkParamsProvider.PROVIDER));
+            JavaCcLinkParamsProvider.PROVIDER,
+            ProguardSpecProvider.PROVIDER));
 
     try {
       builder.addWorkspaceFileSuffix(

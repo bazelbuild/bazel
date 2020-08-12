@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.CommandLineArgsApi;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.StarlarkList;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -484,8 +483,8 @@ public final class CppLinkAction extends AbstractAction implements CommandAction
   public Sequence<String> getStarlarkArgv() throws EvalException {
     try {
       return StarlarkList.immutableCopyOf(getArguments());
-    } catch (CommandLineExpansionException exception) {
-      throw new EvalException(Location.BUILTIN, exception);
+    } catch (CommandLineExpansionException ex) {
+      throw new EvalException(ex);
     }
   }
 

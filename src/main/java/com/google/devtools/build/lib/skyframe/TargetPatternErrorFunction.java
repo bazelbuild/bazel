@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -68,7 +69,8 @@ public class TargetPatternErrorFunction implements SkyFunction {
       throws TargetErrorFunctionException, InterruptedException {
     String errorMessage = (String) skyKey.argument();
     throw new TargetErrorFunctionException(
-        new TargetParsingException(errorMessage), Transience.PERSISTENT);
+        new TargetParsingException(errorMessage, TargetPatterns.Code.TARGET_PATTERN_PARSE_FAILURE),
+        Transience.PERSISTENT);
   }
 
   @Nullable

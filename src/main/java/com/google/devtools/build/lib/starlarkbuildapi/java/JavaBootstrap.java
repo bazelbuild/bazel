@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.starlarkbuildapi.java;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi.JavaInfoProviderApi;
+import com.google.devtools.build.lib.syntax.FlagGuardedValue;
+import com.google.devtools.build.lib.syntax.StarlarkSemantics.FlagIdentifier;
 
 /** {@link Bootstrap} for Starlark objects related to the java language. */
 public class JavaBootstrap implements Bootstrap {
@@ -25,16 +27,19 @@ public class JavaBootstrap implements Bootstrap {
   private final JavaInfoProviderApi javaInfoProviderApi;
   private final JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi;
   private final JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider;
+  private final ProguardSpecProviderApi.Provider<?> proguardSpecProvider;
 
   public JavaBootstrap(
       JavaCommonApi<?, ?, ?, ?, ?, ?, ?> javaCommonApi,
       JavaInfoProviderApi javaInfoProviderApi,
       JavaProtoCommonApi<?, ?, ?, ?> javaProtoCommonApi,
-      JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider) {
+      JavaCcLinkParamsProviderApi.Provider<?, ?> javaCcLinkParamsProviderApiProvider,
+      ProguardSpecProviderApi.Provider<?> proguardSpecProvider) {
     this.javaCommonApi = javaCommonApi;
     this.javaInfoProviderApi = javaInfoProviderApi;
     this.javaProtoCommonApi = javaProtoCommonApi;
     this.javaCcLinkParamsProviderApiProvider = javaCcLinkParamsProviderApiProvider;
+    this.proguardSpecProvider = proguardSpecProvider;
   }
 
   @Override
@@ -43,5 +48,10 @@ public class JavaBootstrap implements Bootstrap {
     builder.put("JavaInfo", javaInfoProviderApi);
     builder.put("java_proto_common", javaProtoCommonApi);
     builder.put("JavaCcLinkParamsInfo", javaCcLinkParamsProviderApiProvider);
+
+    builder.put(
+        ProguardSpecProviderApi.NAME,
+        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
+            FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API, proguardSpecProvider));
   }
 }

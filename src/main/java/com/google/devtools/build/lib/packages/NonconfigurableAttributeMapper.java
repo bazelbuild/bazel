@@ -25,8 +25,7 @@ import com.google.common.base.Preconditions;
  */
 public class NonconfigurableAttributeMapper extends AbstractAttributeMapper {
   private NonconfigurableAttributeMapper(Rule rule) {
-    super(rule.getPackage(), rule.getRuleClassObject(), rule.getLabel(),
-        rule.getAttributeContainer());
+    super(rule);
   }
 
   /**

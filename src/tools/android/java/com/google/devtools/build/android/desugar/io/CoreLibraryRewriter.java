@@ -188,7 +188,14 @@ public class CoreLibraryRewriter {
     }
 
     public byte[] toByteArray() {
-      return writer.toByteArray();
+      // Wires the desugared byte output to a semantically no-op ASM class visitor before output
+      // delivery to ensure byte-level class file idempotency, including the constant pool ordering.
+      // b/162369442.
+      byte[] bytes = writer.toByteArray();
+      ClassReader cr = new ClassReader(bytes);
+      ClassWriter cw = new ClassWriter(0);
+      cr.accept(cw, 0);
+      return cw.toByteArray();
     }
 
     @Override

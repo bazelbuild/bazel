@@ -522,20 +522,19 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
     try {
       order = Order.parse(orderString);
     } catch (IllegalArgumentException ex) {
-      throw new EvalException(null, ex);
+      throw new EvalException(ex);
     }
 
     if (semantics.incompatibleDisableDepsetItems()) {
       if (x != Starlark.NONE) {
         if (direct != Starlark.NONE) {
           throw new EvalException(
-              null, "parameter 'direct' cannot be specified both positionally and by keyword");
+              "parameter 'direct' cannot be specified both positionally and by keyword");
         }
         direct = x;
       }
       if (direct instanceof Depset) {
         throw new EvalException(
-            null,
             "parameter 'direct' must contain a list of elements, and may no longer accept a"
                 + " depset. The deprecated behavior may be temporarily re-enabled by setting"
                 + " --incompatible_disable_depset_items=false");
@@ -550,7 +549,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
       if (x != Starlark.NONE) {
         if (!isEmptyStarlarkList(items)) {
           throw new EvalException(
-              null, "parameter 'items' cannot be specified both positionally and by keyword");
+              "parameter 'items' cannot be specified both positionally and by keyword");
         }
         items = x;
       }
@@ -578,7 +577,7 @@ public final class Depset implements StarlarkValue, Debug.ValueWithDebugAttribut
 
     if (direct != Starlark.NONE && !isEmptyStarlarkList(items)) {
       throw new EvalException(
-          null, "Do not pass both 'direct' and 'items' argument to depset constructor.");
+          "Do not pass both 'direct' and 'items' argument to depset constructor.");
     }
 
     // Non-legacy behavior: either 'transitive' or 'direct' were specified.

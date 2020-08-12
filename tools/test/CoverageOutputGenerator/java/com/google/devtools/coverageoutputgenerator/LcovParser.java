@@ -27,8 +27,8 @@ import static com.google.devtools.coverageoutputgenerator.Constants.FNH_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.FN_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.LF_MARKER;
 import static com.google.devtools.coverageoutputgenerator.Constants.LH_MARKER;
+import static com.google.devtools.coverageoutputgenerator.Constants.NEVER_EVALUATED;
 import static com.google.devtools.coverageoutputgenerator.Constants.SF_MARKER;
-import static com.google.devtools.coverageoutputgenerator.Constants.TAKEN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import java.io.BufferedReader;
@@ -86,7 +86,7 @@ class LcovParser {
     currentSourceFileCoverage = null;
   }
 
-  /*
+  /**
    * Reads the line and redirects the parsing to the corresponding {@code parseXLine} method. Every
    * {@code parseXLine} methods fills in data to {@code currentSourceFileCoverage} accordingly.
    */
@@ -184,7 +184,7 @@ class LcovParser {
       return false;
     }
     try {
-      int executionCount = Integer.parseInt(funcData[0]);
+      long executionCount = Long.parseLong(funcData[0]);
       String functionName = funcData[1];
       currentSourceFileCoverage.addFunctionExecution(functionName, executionCount);
     } catch (NumberFormatException e) {
@@ -246,7 +246,7 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int taken = Integer.parseInt(lineData[1]);
+      long taken = Long.parseLong(lineData[1]);
 
       BranchCoverage branchCoverage = BranchCoverage.create(lineNumber, taken);
 
@@ -278,15 +278,15 @@ class LcovParser {
       String branchNumber = lineData[2];
       String taken = lineData[3];
 
-      boolean wasExecuted = false;
-      int executionCount = 0;
-      if (taken.equals(TAKEN)) {
-        executionCount = Integer.parseInt(taken);
-        wasExecuted = true;
+      long executionCount = 0;
+      boolean wasEvaluated = false;
+      if (!taken.equals(NEVER_EVALUATED)) {
+        executionCount = Long.parseLong(taken);
+        wasEvaluated = true;
       }
       BranchCoverage branchCoverage =
           BranchCoverage.createWithBlockAndBranch(
-              lineNumber, blockNumber, branchNumber, executionCount);
+              lineNumber, blockNumber, branchNumber, wasEvaluated, executionCount);
 
       currentSourceFileCoverage.addBranch(lineNumber, branchCoverage);
     } catch (NumberFormatException e) {
@@ -348,7 +348,7 @@ class LcovParser {
     }
     try {
       int lineNumber = Integer.parseInt(lineData[0]);
-      int executionCount = Integer.parseInt(lineData[1]);
+      long executionCount = Long.parseLong(lineData[1]);
       String checkSum = null;
       if (lineData.length == 3) {
         checkSum = lineData[2];

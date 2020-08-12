@@ -21,13 +21,13 @@ import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileStateValue;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Pair;
@@ -78,6 +79,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -152,8 +154,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     skyframeExecutor.injectExtraPrecomputedValues(
         ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE,
-                Optional.<RootedPath>absent())));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty())));
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             skyframeExecutor, skyKey, /*keepGoing=*/ false, reporter);
@@ -393,9 +394,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     preparePackageLoading(rootDirectory);
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     Package pkg = validPackageWithoutErrors(skyKey);
-    assertThat(
-            (Iterable<Label>)
-                pkg.getTarget("foo").getAssociatedRule().getAttributeContainer().getAttr("srcs"))
+    assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
             Label.parseAbsoluteUnchecked("//foo:b.txt"),
             Label.parseAbsoluteUnchecked("//foo:c/c.txt"))
@@ -407,9 +406,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             ModifiedFileSet.builder().modify(PathFragment.create("foo/d.txt")).build(),
             Root.fromPath(rootDirectory));
     pkg = validPackageWithoutErrors(skyKey);
-    assertThat(
-            (Iterable<Label>)
-                pkg.getTarget("foo").getAssociatedRule().getAttributeContainer().getAttr("srcs"))
+    assertThat((Iterable<Label>) pkg.getTarget("foo").getAssociatedRule().getAttr("srcs"))
         .containsExactly(
             Label.parseAbsoluteUnchecked("//foo:b.txt"),
             Label.parseAbsoluteUnchecked("//foo:c/c.txt"),
@@ -533,8 +530,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @SuppressWarnings("unchecked")
   private static Iterable<Label> getSrcs(Package pkg, String targetName)
       throws NoSuchTargetException {
-    return (Iterable<Label>)
-        pkg.getTarget(targetName).getAssociatedRule().getAttributeContainer().getAttr("srcs");
+    return (Iterable<Label>) pkg.getTarget(targetName).getAssociatedRule().getAttr("srcs");
   }
 
   @Test
@@ -1363,6 +1359,207 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(detailedExitCode.getExitCode()).isEqualTo(ExitCode.BUILD_FAILURE);
     assertThat(detailedExitCode.getFailureDetail().getPackageLoading().getCode())
         .isEqualTo(expectedPackageLoadingCode);
+  }
+
+  /**
+   * Tests of the prelude file functionality.
+   *
+   * <p>This is in a separate BuildViewTestCase because we override the prelude label for the test.
+   * (The prelude label is configured differently between Bazel and Blaze.)
+   */
+  @RunWith(JUnit4.class)
+  public static class PreludeTest extends BuildViewTestCase {
+
+    private final CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
+
+    @Override
+    protected FileSystem createFileSystem() {
+      return fs;
+    }
+
+    @Override
+    protected ConfiguredRuleClassProvider createRuleClassProvider() {
+      ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+      // addStandardRules() may call setPrelude(), so do it first.
+      TestRuleClassProvider.addStandardRules(builder);
+      builder.setPrelude("//tools/build_rules:test_prelude");
+      return builder.build();
+    }
+
+    @Test
+    public void testPreludeDefinedSymbolIsUsable() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "foo = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(foo)");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    @Test
+    public void testPreludeAutomaticallyReexportsLoadedSymbols() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "load('//util:common.bzl', 'foo')");
+      scratch.file("util/BUILD");
+      scratch.file(
+          "util/common.bzl", //
+          "foo = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(foo)");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    // TODO(brandjon): Invert this test once the prelude is a module instead of a syntactic
+    // mutation on BUILD files.
+    @Test
+    public void testPreludeCanExportUnderscoreSymbols() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "_foo = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(_foo)");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    @Test
+    public void testPreludeCanShadowPredeclareds() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "cc_library = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(cc_library)");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    @Test
+    public void testPreludeSymbolCannotBeMutated() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "foo = ['FOO']");
+      scratch.file(
+          "pkg/BUILD", //
+          "foo.append('BAR')");
+
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("trying to mutate a frozen list value");
+    }
+
+    @Test
+    public void testPreludeCanAccessBzlDialectFeatures() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      // Test both bzl symbols and syntax (e.g. function defs).
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "def foo():",
+          "    return native.glob");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(foo())");
+
+      getConfiguredTarget("//pkg:BUILD");
+      // Prelude can access native.glob (though only a BUILD thread can call it).
+      assertContainsEvent("<built-in function glob>");
+    }
+
+    @Test
+    public void testPreludeNeedNotBePresent() throws Exception {
+      scratch.file(
+          "pkg/BUILD", //
+          "print('FOO')");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    @Test
+    public void testPreludeNeedNotBePresent_evenWhenPackageIs() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "pkg/BUILD", //
+          "print('FOO')");
+
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    @Test
+    public void testPreludeFileNotRecognizedWithoutPackage() throws Exception {
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "foo = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(foo)");
+
+      // The prelude file is not found without a corresponding package to contain it. BUILD files
+      // get processed as if no prelude file is present.
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("name 'foo' is not defined");
+    }
+
+    @Test
+    public void testPreludeFailsWhenErrorInPreludeFile() throws Exception {
+      scratch.file("tools/build_rules/BUILD");
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "1//0", // <-- dynamic error
+          "foo = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(foo)");
+
+      reporter.removeHandler(failFastHandler);
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent(
+          "File \"/workspace/tools/build_rules/test_prelude\", line 1, column 2, in <toplevel>");
+      assertContainsEvent("Error: integer division by zero");
+    }
+
+    @Test
+    public void testPreludeWorksEvenWhenPreludePackageInError() throws Exception {
+      scratch.file(
+          "tools/build_rules/BUILD", //
+          "1//0"); // <-- dynamic error
+      scratch.file(
+          "tools/build_rules/test_prelude", //
+          "foo = 'FOO'");
+      scratch.file(
+          "pkg/BUILD", //
+          "print(foo)");
+
+      // Succeeds because prelude loading is only dependent on the prelude package's existence, not
+      // its evaluation.
+      getConfiguredTarget("//pkg:BUILD");
+      assertContainsEvent("FOO");
+    }
+
+    // Another hypothetical test case we could try: Confirm that it's possible to explicitly load
+    // the prelude file as a regular .bzl. We don't bother testing this use case because, aside from
+    // being arguably pathological, it is currently impossible in practice: The prelude label
+    // doesn't end with ".bzl" and isn't configurable by the user. We also want to eliminate the
+    // prelude, so there's no intention of adding such a feature.
+
+    // Another possible test case: Verify how prelude applies to WORKSPACE files.
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {

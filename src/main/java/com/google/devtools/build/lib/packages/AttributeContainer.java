@@ -16,8 +16,7 @@ package com.google.devtools.build.lib.packages;
 import javax.annotation.Nullable;
 
 /**
- * Provides attribute setting and retrieval for a Rule. Encapsulating attribute access here means it
- * can be passed around independently of the Rule itself. In particular, it can be consumed by
+ * Provides attribute setting and retrieval for a Rule. In particular, it can be consumed by
  * independent {@link AttributeMap} instances that can apply varying kinds of logic for determining
  * the "value" of an attribute. For example, a configurable attribute's "value" may be a { config
  * --> value } dictionary or a configuration-bound lookup on that dictionary, depending on the
@@ -27,12 +26,10 @@ import javax.annotation.Nullable;
  * be a robust public interface, but rather just an input to {@link AttributeMap} instances. Use
  * those instances for all domain-level attribute access.
  */
-// TODO(adonovan): eliminate this class. 99% of all external calls to its methods are of the form
-// rule.getAttributeContainer().foo(), so it's just needless indirection for the caller, and
-// needless indirection in the representation. Instead, make Rule implement an interface with the
-// two methods getAttr and isAttributeValueExplicitlySpecified; it already has those methods.
-// The only time the AttributeContainer needs to be distinct from the Rule itself is in the
-// WorkspaceFactory.setParent hack. Perhaps we can eliminate that?
+// TODO(adonovan): eliminate this class.
+// All uses of this calls come from Rule or WorkspaceFactory. Perhaps we can eliminate
+// the WorkspaceFactory.setParent hack (removing the WorkspaceFactory usage) and inline
+// AttributeContainer in Rule?
 public final class AttributeContainer {
 
   private final RuleClass ruleClass;

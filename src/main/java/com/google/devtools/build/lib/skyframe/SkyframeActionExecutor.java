@@ -1434,7 +1434,7 @@ public final class SkyframeActionExecutor {
     boolean reported = reportErrorIfNotAbortingMode(e, outErrBuffer);
 
     ActionExecutionException toThrow = e;
-    if (reported){
+    if (reported) {
       // If we already printed the error for the exception we mark it as already reported
       // so that we do not print it again in upper levels.
       // Note that we need to report it here since we want immediate feedback of the errors

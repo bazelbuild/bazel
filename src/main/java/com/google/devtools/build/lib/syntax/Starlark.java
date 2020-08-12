@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CheckReturnValue;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.FormatMethod;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -407,12 +409,11 @@ public final class Starlark {
   /**
    * Calls the function-like value {@code fn} in the specified thread, passing it the given
    * positional and named arguments, as if by the Starlark expression {@code fn(*args, **kwargs)}.
+   *
+   * <p>See also {@link #fastcall}.
    */
   public static Object call(
-      StarlarkThread thread,
-      Object fn,
-      List<Object> args,
-      Map<String, Object> kwargs)
+      StarlarkThread thread, Object fn, List<Object> args, Map<String, Object> kwargs)
       throws EvalException, InterruptedException {
     Object[] named = new Object[2 * kwargs.size()];
     int i = 0;
@@ -428,6 +429,12 @@ public final class Starlark {
    * positional and named arguments in the "fastcall" array representation.
    *
    * <p>The caller must not subsequently modify or even inspect the two arrays.
+   *
+   * <p>If the call throws a StackOverflowError or any instance of RuntimeException (other than
+   * UncheckedEvalException), regardless of whether it originates in a user-defined built-in
+   * function or a bug in the interpreter itself, the exception is wrapped by an
+   * UncheckedEvalException whose message includes the Starlark stack. The original exception may be
+   * retrieved using {@code getCause}.
    */
   public static Object fastcall(
       StarlarkThread thread, Object fn, Object[] positional, Object[] named)
@@ -448,8 +455,40 @@ public final class Starlark {
     thread.push(callable);
     try {
       return callable.fastcall(thread, positional, named);
+    } catch (UncheckedEvalException ex) {
+      throw ex; // already wrapped
+    } catch (RuntimeException | StackOverflowError ex) {
+      throw new UncheckedEvalException(ex, thread.getCallStack());
+    } catch (EvalException ex) {
+      // If this exception was newly thrown, set its stack.
+      throw ex.ensureStack(thread);
     } finally {
       thread.pop();
+    }
+  }
+
+  /**
+   * An UncheckedEvalException decorates an unchecked exception with its Starlark stack, to help
+   * maintainers locate problematic source expressions. The original exception can be retrieved
+   * using {@code getCause}.
+   */
+  public static final class UncheckedEvalException extends RuntimeException {
+    private final ImmutableList<StarlarkThread.CallStackEntry> stack;
+
+    private UncheckedEvalException(
+        Throwable cause, ImmutableList<StarlarkThread.CallStackEntry> stack) {
+      super(cause);
+      this.stack = stack;
+    }
+
+    /** Returns the stack of Starlark calls active at the moment of the error. */
+    public ImmutableList<StarlarkThread.CallStackEntry> getCallStack() {
+      return stack;
+    }
+
+    @Override
+    public String getMessage() {
+      return String.format("%s (Starlark stack: %s)", super.getMessage(), stack);
     }
   }
 
@@ -461,7 +500,7 @@ public final class Starlark {
   @FormatMethod
   @CheckReturnValue // don't forget to throw it
   public static EvalException errorf(String format, Object... args) {
-    return new EvalException(null, String.format(format, args));
+    return new EvalException(String.format(format, args));
   }
 
   // --- methods related to attributes (fields and methods) ---
@@ -667,6 +706,7 @@ public final class Starlark {
    * Parse the input as a file, validate it in the specified predeclared environment, compile it,
    * and execute it. On success, the module is returned; on failure, it throws an exception.
    */
+  @DoNotCall
   public static Module exec(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
       throws SyntaxError.Exception, EvalException, InterruptedException {
@@ -686,6 +726,7 @@ public final class Starlark {
    * evaluate it. On success, the expression's value is returned; on failure, it throws an
    * exception.
    */
+  @DoNotCall
   public static Object eval(StarlarkThread thread, ParserInput input, Map<String, Object> env)
       throws SyntaxError.Exception, EvalException, InterruptedException {
     // Pseudocode:
@@ -719,6 +760,7 @@ public final class Starlark {
    * <p>A REPL will typically set the legacy "load binds globally" semantics flag, otherwise the
    * names bound by a load statement will not be visible in the next REPL chunk.
    */
+  @DoNotCall
   public static ModuleAndValue execAndEval(
       StarlarkThread thread, ParserInput input, Map<String, Object> predeclared)
       throws SyntaxError.Exception {
@@ -756,6 +798,7 @@ public final class Starlark {
    * <p>In addition to the program, it returns the validated syntax tree. This permits clients such
    * as Bazel to inspect the syntax (for BUILD dialect checks, glob prefetching, etc.)
    */
+  @DoNotCall
   public static Object /*Pair<Program, StarlarkFile>*/ compileFile(
       ParserInput input, //
       Set<String> predeclared,

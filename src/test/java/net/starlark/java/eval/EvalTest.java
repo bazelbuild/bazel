@@ -169,16 +169,9 @@ public final class EvalTest {
           // by at least one expectation. Instead, ensure that errors
           // and expections match exactly. Furthermore, look only at errors
           // whose stack has a frame with a file/line that matches the expectation.
-          // This requires (planned) changes to EvalExceptionWithStackTrace.
+          // This requires inspecting EvalException stack.
           if (!expected(expectations, ex.getMessage())) {
-            String backtrace = ex.print();
-            if (!backtrace.contains(name)) {
-              // TODO(adonovan): for errors at top level, there's no stack at all.
-              // Fix EvalExceptionWithStackTrace so that it uses a proper CallStack.
-              System.err.printf("%s:%d: eval error in this chunk: %s\n", file, linenum, backtrace);
-            } else {
-              System.err.println(backtrace);
-            }
+            System.err.println(ex.getMessageWithStack());
             ok = false;
           }
 

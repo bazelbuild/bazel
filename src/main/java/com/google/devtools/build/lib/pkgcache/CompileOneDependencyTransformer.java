@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
@@ -128,7 +129,8 @@ public final class CompileOneDependencyTransformer {
       throws TargetParsingException, InterruptedException {
     if (!(target instanceof FileTarget)) {
       throw new TargetParsingException(
-          "--compile_one_dependency target '" + target.getLabel() + "' must be a file");
+          "--compile_one_dependency target '" + target.getLabel() + "' must be a file",
+          TargetPatterns.Code.TARGET_MUST_BE_A_FILE);
     }
 
     Rule result = null;
@@ -148,7 +150,8 @@ public final class CompileOneDependencyTransformer {
 
     if (result == null) {
       throw new TargetParsingException(
-          "Couldn't find dependency on target '" + target.getLabel() + "'");
+          "Couldn't find dependency on target '" + target.getLabel() + "'",
+          TargetPatterns.Code.DEPENDENCY_NOT_FOUND);
     }
 
     // TODO(djasper): Check whether parse_headers is disabled and just return if not.

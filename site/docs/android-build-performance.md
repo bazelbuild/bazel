@@ -18,18 +18,10 @@ they can be pasted directly into a `bazelrc` file and invoked with
 
 **Profiling performance**
 
-This set of flags generates a JSON trace profile, `profile.json.gz`, that
-can be viewed using the Chrome Tracing Profiler (`chrome://tracing`). See
-the [JSON Profile documentation](skylark/performance.html#json-profile) for
+Bazel writes a JSON trace profile by default to a file called
+`command.profile.gz` in Bazel's output base.
+See the [JSON Profile documentation](skylark/performance.html#json-profile) for
 how to read and interact with the profile.
-
-```
-build:profile --experimental_generate_json_trace_profile
-build:profile --profile profile.json.gz
-build:profile --experimental_json_trace_compression
-```
-
-These flags can be used by specifying `--config=profile` on the command line.
 
 **Persistent workers for Android build actions**.
 

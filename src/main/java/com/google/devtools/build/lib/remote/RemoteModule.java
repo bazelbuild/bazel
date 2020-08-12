@@ -141,7 +141,7 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions.remoteInstanceName,
             channel,
             credentials,
-            remoteOptions.remoteTimeout,
+            remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     ServerCapabilities capabilities = null;
     try {
@@ -354,7 +354,7 @@ public final class RemoteModule extends BlazeModule {
             remoteOptions.remoteInstanceName,
             cacheChannel.retain(),
             credentials,
-            remoteOptions.remoteTimeout,
+            remoteOptions.remoteTimeout.getSeconds(),
             retrier);
 
     cacheChannel.release();
@@ -497,8 +497,12 @@ public final class RemoteModule extends BlazeModule {
       BuildRequest request,
       BuildOptions buildOptions,
       Iterable<ConfiguredTarget> configuredTargets) {
-    if (remoteOutputsMode != null && remoteOutputsMode.downloadToplevelOutputsOnly()) {
-      Preconditions.checkState(actionContextProvider != null, "actionContextProvider was null");
+    // The actionContextProvider may be null if remote execution is disabled or if there was an
+    // error during
+    // initialization.
+    if (remoteOutputsMode != null
+        && remoteOutputsMode.downloadToplevelOutputsOnly()
+        && actionContextProvider != null) {
       boolean isTestCommand = env.getCommandName().equals("test");
       TopLevelArtifactContext artifactContext = request.getTopLevelArtifactContext();
       ImmutableSet.Builder<ActionInput> filesToDownload = ImmutableSet.builder();

@@ -290,14 +290,6 @@ public class UiOptions extends OptionsBase {
               + "output.")
   public int experimentalUiLimitConsoleOutput;
 
-  @Option(
-      name = "experimental_ui_deduplicate",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.LOGGING,
-      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help = "Make the UI deduplicate messages to have a cleaner scroll-back log.")
-  public boolean experimentalUiDeduplicate;
-
   public boolean useColor() {
     return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
   }

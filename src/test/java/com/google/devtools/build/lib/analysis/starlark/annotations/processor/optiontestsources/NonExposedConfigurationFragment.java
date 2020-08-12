@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.skylark.annotations.processor.optiontestsources;
+package com.google.devtools.build.lib.analysis.starlark.annotations.processor.optiontestsources;
 
 import com.google.devtools.build.lib.analysis.config.Fragment;
-import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
-import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkDocumentationCategory;
 
 /** A test case of StarlarkConfigurationFieldProcessorTest. */
-public class GoldenConfigurationFieldThroughApi extends Fragment implements ApiInterface {
+public class NonExposedConfigurationFragment extends Fragment {
 
   /**
    * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
@@ -35,9 +33,3 @@ public class GoldenConfigurationFieldThroughApi extends Fragment implements ApiI
     return null;
   }
 }
-
-@StarlarkBuiltin(
-    name = "module_name",
-    doc = "A fake configuration fragment for a test.",
-    category = StarlarkDocumentationCategory.CONFIGURATION_FRAGMENT)
-interface ApiInterface {}

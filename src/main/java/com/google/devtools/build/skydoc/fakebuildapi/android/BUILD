@@ -23,6 +23,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/android",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/core",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/cpp",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/java",
         "//third_party:guava",
         "//third_party:jsr305",
