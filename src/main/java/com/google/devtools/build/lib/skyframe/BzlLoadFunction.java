@@ -384,33 +384,6 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Retrieves {@link StarlarkBuiltinsValue}, or uses a dummy value if either 1) the builtins
-   * mechanism is disabled or 2) the current .bzl is not being loaded for a BUILD file
-   *
-   * <p>Returns null if a Skyframe restart/error occurred.
-   */
-  @Nullable
-  private StarlarkBuiltinsValue getStarlarkBuiltinsValue(
-      BzlLoadValue.Key key,
-      Environment env,
-      StarlarkSemantics starlarkSemantics,
-      @Nullable InliningState inliningState)
-      throws BuiltinsFailedException, InconsistentFilesystemException, InterruptedException {
-    // Don't request @builtins if we're in workspace evaluation, or already in @builtins evaluation.
-    if (!(key instanceof BzlLoadValue.KeyForBuild)
-        // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
-        || starlarkSemantics.experimentalBuiltinsBzlPath().equals("")) {
-      return uninjectedStarlarkBuiltins;
-    }
-    // Result may be null.
-    return inliningState == null
-        ? (StarlarkBuiltinsValue)
-            env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class)
-        : StarlarkBuiltinsFunction.computeInline(
-            StarlarkBuiltinsValue.key(), env, inliningState, /*bzlLoadFunction=*/ this);
-  }
-
-  /**
    * An opaque object that holds state for the inlining computation initiated by {@link
    * #computeInline}.
    *
@@ -629,14 +602,9 @@ public class BzlLoadFunction implements SkyFunction {
     if (starlarkSemantics == null) {
       return null;
     }
-
-    StarlarkBuiltinsValue starlarkBuiltinsValue;
-    try {
-      starlarkBuiltinsValue = getStarlarkBuiltinsValue(key, env, starlarkSemantics, inliningState);
-    } catch (BuiltinsFailedException e) {
-      throw BzlLoadFailedException.builtinsFailed(label, e);
-    }
-    if (starlarkBuiltinsValue == null) {
+    ImmutableMap<String, Object> predeclared =
+        getPredeclaredEnvironment(key, env, starlarkSemantics, inliningState);
+    if (predeclared == null) {
       return null;
     }
 
@@ -688,9 +656,7 @@ public class BzlLoadFunction implements SkyFunction {
     }
     byte[] transitiveDigest = fp.digestAndReset();
 
-    Module module =
-        Module.withPredeclared(
-            starlarkSemantics, getPredeclaredEnvironment(key, starlarkBuiltinsValue));
+    Module module = Module.withPredeclared(starlarkSemantics, predeclared);
 
     // Record the module's filename, label, digest, and the set of modules it loads,
     // forming a complete representation of the load DAG.
@@ -898,12 +864,42 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Obtains the predeclared environment for a .bzl file, based on the type of file and (if
+   * Obtains the predeclared environment for a .bzl file, based on the type of .bzl and (if
    * applicable) the injected builtins.
+   *
+   * <p>Returns null if there was a missing Skyframe dep or unspecified exception.
    */
+  @Nullable
   private ImmutableMap<String, Object> getPredeclaredEnvironment(
-      BzlLoadValue.Key key, StarlarkBuiltinsValue starlarkBuiltinsValue) {
+      BzlLoadValue.Key key,
+      Environment env,
+      StarlarkSemantics starlarkSemantics,
+      InliningState inliningState)
+      throws BzlLoadFailedException, InterruptedException {
+    Label label = key.getLabel();
     if (key instanceof BzlLoadValue.KeyForBuild) {
+      StarlarkBuiltinsValue starlarkBuiltinsValue;
+      try {
+        // TODO(#11437): Remove ability to disable injection by setting flag to empty string.
+        if (starlarkSemantics.experimentalBuiltinsBzlPath().isEmpty()) {
+          starlarkBuiltinsValue = uninjectedStarlarkBuiltins;
+        } else {
+          if (inliningState == null) {
+            starlarkBuiltinsValue =
+                (StarlarkBuiltinsValue)
+                    env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+          } else {
+            starlarkBuiltinsValue =
+                StarlarkBuiltinsFunction.computeInline(
+                    StarlarkBuiltinsValue.key(), env, inliningState, /*bzlLoadFunction=*/ this);
+          }
+        }
+      } catch (BuiltinsFailedException e) {
+        throw BzlLoadFailedException.builtinsFailed(label, e);
+      }
+      if (starlarkBuiltinsValue == null) {
+        return null;
+      }
       return starlarkBuiltinsValue.predeclaredForBuildBzl;
     } else if (key instanceof BzlLoadValue.KeyForWorkspace) {
       return predeclaredForWorkspaceBzl;
