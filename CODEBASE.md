@@ -106,7 +106,7 @@ using the `--install_base` command line option.
 
 The "output base" is the place where the Bazel instance attached to a specific
 workspace writes to. Each output base has at most one Bazel server instance
-running at any time. It's usually at `$OUTPUT_USER_ROOT/&lt;checksum of the path
+running at any time. It's usually at `$OUTPUT_USER_ROOT/<checksum of the path
 to the workspace>`. It can be changed using the `--output_base` startup option,
 which is, among other things, useful for getting around the limitation that only
 one Bazel instance can be running in any workspace at any given time.
@@ -116,7 +116,7 @@ The output directory contains, among other things:
 *   The fetched external repositories at `$OUTPUT_BASE/external` .
 *   The exec root, i.e. a directory that contains symlinks to all the source
     code for the current build. It's located at `$OUTPUT_BASE/execroot`. During
-    the build, the working directory is `$EXECROOT/&lt;name of main
+    the build, the working directory is `$EXECROOT/<name of main
     repository>`. We are planning to change this to `$EXECROOT`, although it's a
     long term plan because it's a very incompatible change.
 *   Files built during the build.
@@ -179,7 +179,7 @@ in the execution phase, but that always requires explicit plumbing since
 `BuildConfiguration` is not available then. For more information, see the
 section “Configurations”.
 
-**WARNING: **We like to pretend that `OptionsBase` instances are immutable and
+**WARNING:** We like to pretend that `OptionsBase` instances are immutable and
 use them that way (e.g. as part of `SkyKeys`). This is not the case and
 modifying them is a really good way to break Bazel in subtle ways that are hard
 to debug. Unfortunately, making them actually immutable is a large endeavor.
@@ -627,7 +627,7 @@ necessitates the following additional components:
     to build the symlink tree and the artifact the symlinks point to. In order
     to decrease the number of dependency edges, the runfiles middleman can be
     used to represent all these.
-*   **Command line arguments **for running the binary whose runfiles the
+*   **Command line arguments** for running the binary whose runfiles the
     `RunfilesSupport` object represents.
 
 ### Aspects
@@ -774,11 +774,7 @@ on their way out and they are not available in Bazel, but the source code may
 contain references to it. The attribute that governs this is called
 `constraints=` .
 
-```
-
-
 #### environment_group() and environment()
-```
 
 These rules are a legacy mechanism and are not widely used.
 
@@ -1190,7 +1186,7 @@ intimately familiar with Bazel) and aspects, which add another dimension to the
 space of things that can produce the "same" output file.
 
 The current approach is that the path segment for the configuration is
-`<CPU>-&lt;compilation mode>` with various suffixes added so that configuration
+`<CPU>-<compilation mode>` with various suffixes added so that configuration
 transitions implemented in Java don't result in action conflicts. In addition, a
 checksum of the set of Starlark configuration transitions is added so that users
 can't cause action conflicts. It is far from perfect. This is implemented in
@@ -1469,7 +1465,7 @@ Xth `load()` statement.
 
 Before the code of the repository is available to Bazel, it needs to be
 _fetched_. This results in Bazel creating a directory under
-`$OUTPUT_BASE/external/&lt;repository name>`.
+`$OUTPUT_BASE/external/<repository name>`.
 
 Fetching the repository happens in the following steps:
 
