@@ -17,6 +17,8 @@ package com.google.devtools.coverageoutputgenerator;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Sets;
+
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Map;
@@ -88,28 +90,36 @@ class SourceFileCoverage {
     ListMultimap<Integer, BranchCoverage> merged =
         MultimapBuilder.treeKeys().arrayListValues().build();
 
-    Collection<BranchCoverage> branches1 = s1.branches.values();
-    Collection<BranchCoverage> branches2 = s2.branches.values();
-    if (branches1.size() != branches2.size()) {
-      throw new IncompatibleMergeException(
-          String.format("Number of branches for %s do not match", s1.sourceFileName()));
-    }
+    for (int line : Sets.union(s1.branches.keySet(), s2.branches.keySet())) {
+      Collection<BranchCoverage> s1Branches = s1.branches.get(line);
+      Collection<BranchCoverage> s2Branches = s2.branches.get(line);
 
-    Iterator<BranchCoverage> it1 = branches1.iterator();
-    Iterator<BranchCoverage> it2 = branches2.iterator();
-    while (it1.hasNext() && it2.hasNext()) {
-      BranchCoverage b1 = it1.next();
-      BranchCoverage b2 = it2.next();
-      if (b1.lineNumber() != b2.lineNumber()
-          || !b1.blockNumber().equals(b2.blockNumber())
-          || !b1.branchNumber().equals(b2.branchNumber())) {
+      if (s1Branches.isEmpty()) {
+        merged.putAll(line, s2Branches);
+      } else if (s2Branches.isEmpty()) {
+        merged.putAll(line, s1Branches);
+      } else if (s1Branches.size() != s2Branches.size()) {
         throw new IncompatibleMergeException(
             String.format(
-                "Branches for %s do not align for source lines %d and %d",
-                s1.sourceFileName(), b1.lineNumber(), b2.lineNumber()));
+                "Different number of branches found at line %d for %s", line, s1.sourceFileName));
+      } else {
+        Iterator<BranchCoverage> it1 = s1Branches.iterator();
+        Iterator<BranchCoverage> it2 = s2Branches.iterator();
+        while (it1.hasNext() && it2.hasNext()) {
+          BranchCoverage b1 = it1.next();
+          BranchCoverage b2 = it2.next();
+          if (b1.lineNumber() != b2.lineNumber()
+              || !b1.blockNumber().equals(b2.blockNumber())
+              || !b1.branchNumber().equals(b2.branchNumber())) {
+            throw new IncompatibleMergeException(
+                String.format(
+                    "Branches for %s do not align for source lines %d and %d",
+                    s1.sourceFileName, b1.lineNumber(), b2.lineNumber()));
+          }
+          BranchCoverage branch = BranchCoverage.merge(b1, b2);
+          merged.put(line, branch);
+        }
       }
-      BranchCoverage branch = BranchCoverage.merge(b1, b2);
-      merged.put(branch.lineNumber(), branch);
     }
     return merged;
   }
