@@ -158,11 +158,11 @@ class GrpcRemoteExecutor {
               try {
                 while (replies.hasNext()) {
                   Operation o = replies.next();
+                  operation.set(o);
+                  waitExecution.set(!operation.get().getDone());
                   if (receiver != null) {
                     receiver.onNextOperation(o);
                   }
-                  operation.set(o);
-                  waitExecution.set(!operation.get().getDone());
                   ExecuteResponse r = getOperationResponse(o);
                   if (r != null) {
                     return r;

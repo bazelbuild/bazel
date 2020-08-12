@@ -321,13 +321,19 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 spawnMetrics.setUploadTime(
                     uploadTime.elapsed().minus(networkTime.getDuration().minus(networkTimeStart)));
               }
+              final AtomicBoolean reportedExecuting =
+                  new AtomicBoolean(false);
               ExecuteResponse reply;
               try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
                 reply = remoteExecutor.executeRemotely(request, (operation) -> {
-                  // We should have used operation.metadata to check the execution stage. But some
-                  // server implementations don't return that value. So we assume the action is
-                  // executing if we get any operation from server.
-                  context.report(ProgressStatus.EXECUTING, getName());
+                  if (!reportedExecuting.get()) {
+                    reportedExecuting.set(true);
+
+                    // We should have used operation.metadata to check the execution stage. But some
+                    // server implementations don't return that value. So we assume the action is
+                    // executing if we get any operation from server.
+                    context.report(ProgressStatus.EXECUTING, getName());
+                  }
                 });
               }
 
