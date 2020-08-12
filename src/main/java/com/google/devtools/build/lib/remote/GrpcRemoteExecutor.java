@@ -91,7 +91,7 @@ class GrpcRemoteExecutor {
     return executeRemotely(request, null);
   }
 
-  interface ExecuteOperationNotifier {
+  interface ExecuteOperationUpdateReceiver {
     void onNextOperation(Operation o);
   }
 
@@ -113,7 +113,7 @@ class GrpcRemoteExecutor {
    *   are completed and failed; however, some of these errors may be retriable. These errors should
    *   trigger a retry of the Execute call, resulting in a new Operation.
    * */
-  public ExecuteResponse executeRemotely(ExecuteRequest request, ExecuteOperationNotifier notifier)
+  public ExecuteResponse executeRemotely(ExecuteRequest request, ExecuteOperationUpdateReceiver receiver)
       throws IOException, InterruptedException {
     // Execute has two components: the Execute call and (optionally) the WaitExecution call.
     // This is the simple flow without any errors:
@@ -158,8 +158,8 @@ class GrpcRemoteExecutor {
               try {
                 while (replies.hasNext()) {
                   Operation o = replies.next();
-                  if (notifier != null) {
-                    notifier.onNextOperation(o);
+                  if (receiver != null) {
+                    receiver.onNextOperation(o);
                   }
                   operation.set(o);
                   waitExecution.set(!operation.get().getDone());
