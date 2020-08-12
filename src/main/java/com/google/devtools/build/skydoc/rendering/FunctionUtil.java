@@ -20,6 +20,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkFunction;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionParamInfo;
+import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.FunctionReturnInfo;
 import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.StarlarkFunctionInfo;
 import com.google.devtools.starlark.common.DocstringUtils;
 import com.google.devtools.starlark.common.DocstringUtils.DocstringInfo;
@@ -46,8 +47,10 @@ public final class FunctionUtil {
       throws DocstringParseException {
     String functionDescription = "";
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
+    FunctionReturnInfo retInfo = FunctionReturnInfo.getDefaultInstance();
 
     String doc = fn.getDocumentation();
+
     if (doc != null) {
       List<DocstringParseError> parseErrors = Lists.newArrayList();
       DocstringInfo docstringInfo = DocstringUtils.parseDocstring(doc, parseErrors);
@@ -62,12 +65,15 @@ public final class FunctionUtil {
       for (ParameterDoc paramDoc : docstringInfo.getParameters()) {
         paramNameToDocMap.put(paramDoc.getParameterName(), paramDoc.getDescription());
       }
+      retInfo = returnInfo(docstringInfo);
     }
     List<FunctionParamInfo> paramsInfo = parameterInfos(fn, paramNameToDocMap);
+
     return StarlarkFunctionInfo.newBuilder()
         .setFunctionName(functionName)
         .setDocString(functionDescription)
         .addAllParameter(paramsInfo)
+        .setReturn(retInfo)
         .build();
   }
 
@@ -121,5 +127,11 @@ public final class FunctionUtil {
       infos.add(info);
     }
     return infos.build();
+  }
+
+  private static FunctionReturnInfo returnInfo(DocstringInfo docstringInfo) {
+    return FunctionReturnInfo.newBuilder()
+        .setDocString(docstringInfo.getReturns())
+        .build();
   }
 }

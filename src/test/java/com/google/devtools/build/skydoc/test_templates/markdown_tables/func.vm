@@ -8,6 +8,12 @@ ${util.funcSummary($funcInfo)}
 
 ${funcInfo.docString}
 
+#if (!$funcInfo.getReturn().docString.isEmpty())
+**RETURNS**
+
+${funcInfo.getReturn().docString}
+
+#end
 **PARAMETERS**
 
 #if (!$funcInfo.getParameterList().isEmpty())

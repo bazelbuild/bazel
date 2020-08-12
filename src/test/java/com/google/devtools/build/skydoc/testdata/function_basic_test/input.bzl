@@ -33,5 +33,16 @@ def check_sources(
     ]
     print("Hah. All that documentation but nothing really to see here")
 
+def returns_a_thing(name):
+    """Returns a suffixed name.
+
+    Args:
+        name: A unique name for this rule.
+
+    Returns:
+        A suffixed version of the name.
+    """
+    pass
+
 def undocumented_function(a, b, c):
     pass
