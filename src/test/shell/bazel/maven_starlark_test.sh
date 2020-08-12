@@ -80,7 +80,7 @@ function tear_down() {
   shutdown_server
 }
 
-function test_maven_jar_skylark() {
+function test_maven_jar_starlark() {
   setup_zoo
   version="1.21"
   serve_artifact com.example.carnivore carnivore $version
@@ -102,7 +102,7 @@ EOF
   expect_log "Tra-la!"
 }
 
-function DISABLEDtest_maven_jar_with_classifier_skylark() {
+function DISABLEDtest_maven_jar_with_classifier_starlark() {
   setup_zoo
   version="1.21"
   packaging="jar"
@@ -148,7 +148,7 @@ EOF
 EOF
 }
 
-function test_maven_aar_skylark() {
+function test_maven_aar_starlark() {
   setup_android_sdk_support
   if [[ ! -d "${TEST_SRCDIR}/androidsdk" ]]; then
     fail "This test cannot run without android_sdk_repository set up," \
@@ -184,7 +184,7 @@ EOF
 }
 
 # Same as test_maven_jar, except omit sha1 implying "we don't care".
-function test_maven_jar_no_sha1_skylark() {
+function test_maven_jar_no_sha1_starlark() {
   setup_zoo
   version="1.22"
   serve_artifact com.example.carnivore carnivore $version
@@ -206,7 +206,7 @@ EOF
   expect_log "Tra-la!"
 }
 
-function test_maven_jar_404_skylark() {
+function test_maven_jar_404_starlark() {
   setup_zoo
   version="1.23"
   serve_not_found
@@ -229,7 +229,7 @@ EOF
   expect_log "Failed to fetch Maven dependency"
 }
 
-function test_maven_jar_mismatched_sha1_skylark() {
+function test_maven_jar_mismatched_sha1_starlark() {
   setup_zoo
   version="1.24"
   serve_artifact com.example.carnivore carnivore 1.24
@@ -253,7 +253,7 @@ EOF
   expect_log "has SHA-1 of $sha1, does not match expected SHA-1 ($wrong_sha1)"
 }
 
-function test_unimplemented_server_attr_skylark() {
+function test_unimplemented_server_attr_starlark() {
   setup_zoo
   version="1.25"
   serve_jar

@@ -1314,7 +1314,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         .containsExactly(PathFragment.create("path1"));
 
     scratch.file(
-        "examples/objc_skylark2/BUILD",
+        "examples/objc_starlark2/BUILD",
         "objc_library(",
         "   name = 'direct_dep',",
         "   deps = ['//examples/objc_starlark:my_target']",
@@ -1325,13 +1325,13 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         ")");
 
     ObjcProvider starlarkProviderDirectDepender =
-        getConfiguredTarget("//examples/objc_skylark2:direct_dep")
+        getConfiguredTarget("//examples/objc_starlark2:direct_dep")
             .get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(starlarkProviderDirectDepender.include())
         .containsExactly(PathFragment.create("path2"));
 
     ObjcProvider starlarkProviderIndirectDepender =
-        getConfiguredTarget("//examples/objc_skylark2:indirect_dep")
+        getConfiguredTarget("//examples/objc_starlark2:indirect_dep")
             .get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(starlarkProviderIndirectDepender.include())
         .containsExactly(PathFragment.create("path2"));
@@ -1358,14 +1358,14 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         .containsExactly(PathFragment.create("path1"));
 
     scratch.file(
-        "examples/objc_skylark2/BUILD",
+        "examples/objc_starlark2/BUILD",
         "objc_library(",
         "   name = 'direct_dep',",
         "   deps = ['//examples/objc_starlark:my_target']",
         ")");
 
     ObjcProvider starlarkProviderDirectDepender =
-        getConfiguredTarget("//examples/objc_skylark2:direct_dep")
+        getConfiguredTarget("//examples/objc_starlark2:direct_dep")
             .get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(starlarkProviderDirectDepender.include()).isEmpty();
   }
@@ -1384,14 +1384,14 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         .containsExactly(PathFragment.create("path"));
 
     scratch.file(
-        "examples/objc_skylark2/BUILD",
+        "examples/objc_starlark2/BUILD",
         "objc_library(",
         "   name = 'direct_dep',",
         "   deps = ['//examples/objc_starlark:my_target']",
         ")");
 
     ObjcProvider starlarkProviderDirectDepender =
-        getConfiguredTarget("//examples/objc_skylark2:direct_dep")
+        getConfiguredTarget("//examples/objc_starlark2:direct_dep")
             .get(ObjcProvider.STARLARK_CONSTRUCTOR);
     assertThat(starlarkProviderDirectDepender.getStrictDependencyIncludes()).isEmpty();
   }
