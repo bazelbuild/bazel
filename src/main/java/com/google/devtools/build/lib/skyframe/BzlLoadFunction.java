@@ -411,38 +411,6 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * Returns the ContainingPackageLookupValue for a bzl, or null for a missing Skyframe dep.
-   *
-   * <p>Note that, with the exception of builtins bzls, a bzl is not considered loadable unless its
-   * load label matches its file target label. Before loading the bzl, the caller of this function
-   * should verify that the returned ContainingPackageLookupValue exists and that its package path
-   * matches the label's.
-   */
-  @Nullable
-  static ContainingPackageLookupValue getContainingPackageLookupValue(Environment env, Label label)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
-    PathFragment dir = Label.getContainingDirectory(label);
-    PackageIdentifier dirId =
-        PackageIdentifier.create(label.getPackageIdentifier().getRepository(), dir);
-    ContainingPackageLookupValue containingPackageLookupValue;
-    try {
-      containingPackageLookupValue =
-          (ContainingPackageLookupValue)
-              env.getValueOrThrow(
-                  ContainingPackageLookupValue.key(dirId),
-                  BuildFileNotFoundException.class,
-                  InconsistentFilesystemException.class);
-    } catch (BuildFileNotFoundException e) {
-      throw BzlLoadFailedException.errorReadingFile(
-          label.toPathFragment(), new ErrorReadingStarlarkExtensionException(e));
-    }
-    if (containingPackageLookupValue == null) {
-      return null;
-    }
-    return containingPackageLookupValue;
-  }
-
-  /**
    * An opaque object that holds state for the inlining computation initiated by {@link
    * #computeInline}.
    *
@@ -539,6 +507,7 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
+  /** Entry point for compute logic that's common to both inlining and non-inlining code paths. */
   // It is vital that we don't return any value if any call to env#getValue(s)OrThrow throws an
   // exception. We are allowed to wrap the thrown exception and rethrow it for any calling functions
   // to handle though.
@@ -548,6 +517,113 @@ public class BzlLoadFunction implements SkyFunction {
       throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
     Label label = key.getLabel();
     PathFragment filePath = label.toPathFragment();
+
+    ASTFileLookupValue.Key astKey = validatePackageAndGetASTKey(key, env);
+    if (astKey == null) {
+      return null;
+    }
+    ASTFileLookupValue astLookup;
+    try {
+      astLookup = astManager.getASTFileLookupValue(astKey, env);
+    } catch (ErrorReadingStarlarkExtensionException e) {
+      throw BzlLoadFailedException.errorReadingFile(filePath, e);
+    }
+    if (astLookup == null) {
+      return null;
+    }
+
+    BzlLoadValue result = null;
+    // Release the AST iff the value gets completely evaluated (to either error or non-null result).
+    boolean completed = true;
+    try {
+      result = computeInternalWithAST(key, astLookup, env, inliningState);
+      completed = result != null;
+    } finally {
+      if (completed) { // only false on unexceptional null result
+        astManager.doneWithASTFileLookupValue(astKey);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Returns the AST key for a bzl, or null for a missing Skyframe dep or unspecified exception.
+   *
+   * <p>Except for builtins bzls, a bzl is not considered loadable unless its load label matches its
+   * file target label.
+   */
+  @Nullable
+  private static ASTFileLookupValue.Key validatePackageAndGetASTKey(
+      BzlLoadValue.Key key, Environment env)
+      throws BzlLoadFailedException, InconsistentFilesystemException, InterruptedException {
+    Label label = key.getLabel();
+
+    // Do package lookup.
+    PathFragment dir = Label.getContainingDirectory(label);
+    PackageIdentifier dirId =
+        PackageIdentifier.create(label.getPackageIdentifier().getRepository(), dir);
+    ContainingPackageLookupValue packageLookup;
+    try {
+      packageLookup =
+          (ContainingPackageLookupValue)
+              env.getValueOrThrow(
+                  ContainingPackageLookupValue.key(dirId),
+                  BuildFileNotFoundException.class,
+                  InconsistentFilesystemException.class);
+    } catch (BuildFileNotFoundException e) {
+      throw BzlLoadFailedException.errorReadingFile(
+          label.toPathFragment(), new ErrorReadingStarlarkExtensionException(e));
+    }
+    if (packageLookup == null) {
+      return null;
+    }
+
+    // Resolve to AST key or error.
+    ASTFileLookupValue.Key astKey;
+    boolean packageOk =
+        packageLookup.hasContainingPackage()
+            && packageLookup.getContainingPackageName().equals(label.getPackageIdentifier());
+    if (key.isBuildPrelude() && !packageOk) {
+      // Ignore the prelude, its package doesn't exist.
+      astKey = ASTFileLookupValue.EMPTY_PRELUDE_KEY;
+    } else {
+      if (packageOk) {
+        astKey = key.getASTKey(packageLookup.getContainingPackageRoot());
+      } else {
+        if (!packageLookup.hasContainingPackage()) {
+          throw BzlLoadFailedException.noBuildFile(
+              label, packageLookup.getReasonForNoContainingPackage());
+        } else {
+          throw BzlLoadFailedException.labelCrossesPackageBoundary(label, packageLookup);
+        }
+      }
+    }
+    return astKey;
+  }
+
+  /**
+   * Compute logic for once the AST has been fetched and confirmed to exist (though it may have
+   * Starlark errors).
+   */
+  @Nullable
+  private BzlLoadValue computeInternalWithAST(
+      BzlLoadValue.Key key,
+      ASTFileLookupValue astLookup,
+      Environment env,
+      @Nullable InliningState inliningState)
+      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
+    Label label = key.getLabel();
+    PathFragment filePath = label.toPathFragment();
+
+    if (!astLookup.lookupSuccessful()) {
+      // Starlark code must exist. (A missing prelude file still returns a valid but empty
+      // ASTFileLookupValue.)
+      throw new BzlLoadFailedException(astLookup.getError());
+    }
+    StarlarkFile file = astLookup.getAST();
+    if (!file.ok()) {
+      throw BzlLoadFailedException.starlarkErrors(filePath);
+    }
 
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
@@ -562,87 +638,6 @@ public class BzlLoadFunction implements SkyFunction {
     }
     if (starlarkBuiltinsValue == null) {
       return null;
-    }
-
-    // Determine the package and ast key for this bzl.
-    ContainingPackageLookupValue packageLookup = getContainingPackageLookupValue(env, label);
-    if (packageLookup == null) {
-      return null;
-    }
-    ASTFileLookupValue.Key astKey = null;
-    if (key.isBuildPrelude()) {
-      // Ignore the prelude if its package doesn't exist.
-      if (!packageLookup.hasContainingPackage()
-          || !packageLookup.getContainingPackageName().equals(label.getPackageIdentifier())) {
-        astKey = ASTFileLookupValue.EMPTY_PRELUDE_KEY;
-      }
-    }
-    if (astKey == null) {
-      // Package must exist for all bzls besides the prelude.
-      if (!packageLookup.hasContainingPackage()) {
-        throw BzlLoadFailedException.noBuildFile(
-            label, packageLookup.getReasonForNoContainingPackage());
-      }
-      // Ensure the label doesn't cross package boundaries.
-      if (!packageLookup.getContainingPackageName().equals(label.getPackageIdentifier())) {
-        throw BzlLoadFailedException.labelCrossesPackageBoundary(label, packageLookup);
-      }
-      astKey = key.getASTKey(packageLookup.getContainingPackageRoot());
-    }
-
-    // Load the AST corresponding to this bzl.
-    ASTFileLookupValue astLookupValue;
-    try {
-      astLookupValue = astManager.getASTFileLookupValue(astKey, env);
-    } catch (ErrorReadingStarlarkExtensionException e) {
-      throw BzlLoadFailedException.errorReadingFile(filePath, e);
-    }
-    if (astLookupValue == null) {
-      return null;
-    }
-
-    BzlLoadValue result = null;
-    // Release the AST iff the value gets completely evaluated (to either error or non-null result).
-    boolean completed = true;
-    try {
-      result =
-          computeInternalWithAST(
-              key,
-              filePath,
-              starlarkSemantics,
-              starlarkBuiltinsValue,
-              astLookupValue,
-              env,
-              inliningState);
-      completed = result != null;
-    } finally {
-      if (completed) { // only false on unexceptional null result
-        astManager.doneWithASTFileLookupValue(astKey);
-      }
-    }
-    return result;
-  }
-
-  @Nullable
-  private BzlLoadValue computeInternalWithAST(
-      BzlLoadValue.Key key,
-      PathFragment filePath,
-      StarlarkSemantics starlarkSemantics,
-      StarlarkBuiltinsValue starlarkBuiltinsValue,
-      ASTFileLookupValue astLookupValue,
-      Environment env,
-      @Nullable InliningState inliningState)
-      throws InconsistentFilesystemException, BzlLoadFailedException, InterruptedException {
-    Label label = key.getLabel();
-
-    if (!astLookupValue.lookupSuccessful()) {
-      // Starlark code must exist. (A missing prelude file still returns a valid but empty
-      // ASTFileLookupValue.)
-      throw new BzlLoadFailedException(astLookupValue.getError());
-    }
-    StarlarkFile file = astLookupValue.getAST();
-    if (!file.ok()) {
-      throw BzlLoadFailedException.starlarkErrors(filePath);
     }
 
     // Process load statements in .bzl file (recursive .bzl -> .bzl loads),
@@ -683,7 +678,7 @@ public class BzlLoadFunction implements SkyFunction {
     // Compute a digest of the file itself plus the transitive hashes of the modules it directly
     // loads. Loop iteration order matches the source order of load statements.
     Fingerprint fp = new Fingerprint();
-    fp.addBytes(astLookupValue.getDigest());
+    fp.addBytes(astLookup.getDigest());
     Map<String, Module> loadedModules = Maps.newLinkedHashMapWithExpectedSize(loads.size());
     for (int i = 0; i < loads.size(); i++) {
       String loadString = loads.get(i).first;
