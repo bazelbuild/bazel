@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.ParsingFailedEvent;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider.PackageBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternPreloader;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -101,12 +102,23 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
           continue;
         }
         String errorMessage;
+        TargetParsingException targetParsingException;
         if (error.getException() != null) {
           // This exception could be a TargetParsingException, a NoSuchPackageException, or
-          // potentially a lower-level exception.
-          errorMessage = error.getException().getMessage();
+          // potentially a lower-level exception. If the exception is the former two, then the
+          // DetailedExitCode can be extracted from the exception.
+          Exception exception = error.getException();
+          errorMessage = exception.getMessage();
+          targetParsingException =
+              DetailedException.getDetailedExitCode(exception) != null
+                  ? new TargetParsingException(
+                      errorMessage, exception, DetailedException.getDetailedExitCode(exception))
+                  : new TargetParsingException(
+                      errorMessage, TargetPatterns.Code.CANNOT_PRELOAD_TARGET);
         } else if (!error.getCycleInfo().isEmpty()) {
           errorMessage = "cycles detected during target parsing";
+          targetParsingException =
+              new TargetParsingException(errorMessage, TargetPatterns.Code.CYCLE);
           skyframeExecutor
               .getCyclesReporter()
               .reportCycles(error.getCycleInfo(), key, eventHandler);
@@ -118,7 +130,7 @@ final class SkyframeTargetPatternEvaluator implements TargetPatternPreloader {
           eventHandler.post(PatternExpandingError.skipped(rawPattern, errorMessage));
         } else {
           eventHandler.post(PatternExpandingError.failed(patternLookup.pattern, errorMessage));
-          throw new TargetParsingException(errorMessage);
+          throw targetParsingException;
         }
         resultBuilder.put(patternLookup.pattern, ImmutableSet.of());
       }

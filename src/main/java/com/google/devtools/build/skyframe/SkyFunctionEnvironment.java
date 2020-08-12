@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import static java.util.stream.Collectors.joining;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -248,7 +250,42 @@ class SkyFunctionEnvironment extends AbstractSkyFunctionEnvironment {
         maybeUpdateMaxChildVersion(entry.getValue());
       }
     }
-    return depValuesBuilder.build();
+    try {
+      return depValuesBuilder.build();
+    } catch (IllegalArgumentException e) {
+      // TODO(b/162809183): We're getting an impossible crash. Manually check every key against
+      //  every other key for equality (and hash code collisions, just to be safe), and then print
+      //  out all the data we have for better debugging. Remove this as soon as bug is fixed.
+      List<SkyKey> keys = ImmutableList.copyOf(batchMap.keySet());
+      List<Pair<List<Object>, List<Object>>> duplicateOrNearDuplicateKeys = new ArrayList<>();
+      for (int i = 0; i < keys.size(); i++) {
+        for (int j = 0; j < keys.size(); j++) {
+          if (i == j) {
+            continue;
+          }
+          // If equals() is somehow non-symmetric, we'll catch the other direction later in loop.
+          SkyKey iKey = keys.get(i);
+          SkyKey jKey = keys.get(j);
+          if (iKey.equals(jKey) || (iKey.hashCode() == jKey.hashCode())) {
+            duplicateOrNearDuplicateKeys.add(
+                Pair.of(
+                    ImmutableList.of(iKey, i, iKey.hashCode(), System.identityHashCode(iKey)),
+                    ImmutableList.of(jKey, j, jKey.hashCode(), System.identityHashCode(jKey))));
+          }
+        }
+      }
+      throw new IllegalArgumentException(
+          String.format(
+              "Impossible error with duplicate keys for %s (%s %s %s)",
+              skyKey,
+              duplicateOrNearDuplicateKeys,
+              keys.size(),
+              keys.stream()
+                  .map(
+                      k -> ImmutableList.of(k, k.hashCode(), System.identityHashCode(k)).toString())
+                  .collect(joining("\n"))),
+          e);
+    }
   }
 
   private void checkActive() {

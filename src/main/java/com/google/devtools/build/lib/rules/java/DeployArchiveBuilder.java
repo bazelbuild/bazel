@@ -375,6 +375,7 @@ public class DeployArchiveBuilder {
     if (!usingNativeSinglejar) {
       ruleContext.registerAction(
           new SpawnAction.Builder()
+              .useDefaultShellEnvironment()
               .addTransitiveInputs(inputs.build())
               .addTransitiveInputs(JavaRuntimeInfo.forHost(ruleContext).javaBaseInputsMiddleman())
               .addOutput(outputJar)
@@ -390,6 +391,7 @@ public class DeployArchiveBuilder {
     } else {
       ruleContext.registerAction(
           new SpawnAction.Builder()
+              .useDefaultShellEnvironment()
               .addTransitiveInputs(inputs.build())
               .addOutput(outputJar)
               .setResources(DEPLOY_ACTION_RESOURCE_SET)

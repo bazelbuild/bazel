@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataS
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -236,7 +235,6 @@ public abstract class AndroidStarlarkData
 
     if (definesLocalResources != definesLocalAssets) {
       throw new EvalException(
-          Location.BUILTIN,
           "Must define either both or none of assets and resources. Use the merge_assets and"
               + " merge_resources methods to define them, or assets_from_deps and"
               + " resources_from_deps to inherit without defining them.");
@@ -546,7 +544,6 @@ public abstract class AndroidStarlarkData
     // Can we adjust its structure to take this into account?
     if (!binaryDataInfo.getResourcesInfo().getDirectAndroidResources().isSingleton()) {
       throw new EvalException(
-          Location.BUILTIN,
           "Expected exactly 1 direct android resource container, but found: "
               + binaryDataInfo.getResourcesInfo().getDirectAndroidResources());
     }

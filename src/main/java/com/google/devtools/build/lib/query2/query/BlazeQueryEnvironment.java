@@ -231,7 +231,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try {
       return getNode(getTargetOrThrow(label)).getLabel();
     } catch (NoSuchThingException e) {
-      throw new TargetNotFoundException(e, e.getDetailedExitCode().getFailureDetail());
+      throw new TargetNotFoundException(e, e.getDetailedExitCode());
     }
   }
 

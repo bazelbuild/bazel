@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.packages.PackageLoadingListener;
 import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkSemanticsOptions;
-import com.google.devtools.build.lib.syntax.Module;
 import com.google.devtools.build.lib.syntax.ParserInput;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
 import com.google.devtools.build.lib.syntax.StarlarkSemantics;
@@ -186,7 +185,8 @@ public class PackageFactoryApparatus {
             globber,
             ConstantRuleVisibility.PUBLIC,
             StarlarkSemantics.DEFAULT,
-            /*loadedModules=*/ ImmutableMap.<String, Module>of(),
+            /*preludeModule=*/ null,
+            /*loadedModules=*/ ImmutableMap.of(),
             /*repositoryMapping=*/ ImmutableMap.of());
     Package result;
     try {

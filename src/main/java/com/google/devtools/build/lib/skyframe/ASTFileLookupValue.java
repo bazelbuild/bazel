@@ -20,11 +20,15 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.syntax.StarlarkFile;
-import com.google.devtools.build.skyframe.AbstractSkyKey;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.errorprone.annotations.FormatMethod;
+import java.util.Objects;
+import javax.annotation.Nullable;
 
+// TODO(adonovan): Ensure the result is always resolved and update the docstring.
 /**
  * A value that represents an AST file lookup result. There are two subclasses: one for the case
  * where the file is found, and another for the case where the file is missing (but there are no
@@ -110,7 +114,7 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
 
     @Override
     public byte[] getDigest() {
-      throw new IllegalStateException("attempted to retrieve digest for successful lookup");
+      throw new IllegalStateException("attempted to retrieve digest for unsuccessful lookup");
     }
 
     @Override
@@ -130,23 +134,67 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
     return new ASTLookupWithFile(ast, digest);
   }
 
-  public static Key key(Label label) {
-    return ASTFileLookupValue.Key.create(label);
+  private static final Interner<Key> keyInterner = BlazeInterners.newWeakInterner();
+
+  /** Types of bzl files we may encounter. */
+  enum Kind {
+    /** A regularly loaded .bzl file. */
+    NORMAL,
+    /** The prelude file, whose declarations are implicitly loaded by all BUILD files. */
+    PRELUDE,
+    /**
+     * A virtual empty file that does not correspond to a lookup in the filesystem. This is used for
+     * the default prelude contents, when the real prelude's contents should be ignored (in
+     * particular, when its package is missing).
+     */
+    EMPTY_PRELUDE,
   }
 
-  @AutoCodec.VisibleForSerialization
-  @AutoCodec
-  static class Key extends AbstractSkyKey<Label> {
-    private static final Interner<Key> interner = BlazeInterners.newWeakInterner();
+  /** SkyKey for retrieving a .bzl AST. */
+  static class Key implements SkyKey {
 
-    private Key(Label arg) {
-      super(arg);
+    /** The root in which the .bzl file is to be found. Null for EMPTY_PRELUDE. */
+    @Nullable final Root root;
+
+    /** The label of the .bzl to be retrieved. Null for EMPTY_PRELUDE. */
+    @Nullable final Label label;
+
+    final Kind kind;
+
+    private Key(Root root, Label label, Kind kind) {
+      this.root = root;
+      this.label = label;
+      this.kind = Preconditions.checkNotNull(kind);
+      if (kind != Kind.EMPTY_PRELUDE) {
+        Preconditions.checkNotNull(root);
+        Preconditions.checkNotNull(label);
+      }
     }
 
-    @AutoCodec.VisibleForSerialization
-    @AutoCodec.Instantiator
-    static Key create(Label arg) {
-      return interner.intern(new Key(arg));
+    boolean isPrelude() {
+      return kind == Kind.PRELUDE || kind == Kind.EMPTY_PRELUDE;
+    }
+
+    @Override
+    public int hashCode() {
+      // TODO(bazel-team): Consider optimizing e.g. by omitting root from the hash. Roots are not
+      // interned and in the common case there's only one.
+      return Objects.hash(Key.class, root, label, kind);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (other instanceof Key) {
+        Key that = (Key) other;
+        // Compare roots last since that's the more expensive step.
+        return this.kind == that.kind
+            && Objects.equals(this.label, that.label)
+            && Objects.equals(this.root, that.root);
+      }
+      return false;
     }
 
     @Override
@@ -154,4 +202,17 @@ public abstract class ASTFileLookupValue implements NotComparableSkyValue {
       return SkyFunctions.AST_FILE_LOOKUP;
     }
   }
+
+  /** Constructs a key for loading a regular (non-prelude) .bzl. */
+  public static Key key(Root root, Label label) {
+    return keyInterner.intern(new Key(root, label, Kind.NORMAL));
+  }
+
+  /** Constructs a key for loading the prelude .bzl. */
+  static Key keyForPrelude(Root root, Label label) {
+    return keyInterner.intern(new Key(root, label, Kind.PRELUDE));
+  }
+
+  /** The unique SkyKey of EMPTY_PRELUDE kind. */
+  static final Key EMPTY_PRELUDE_KEY = new Key(/*root=*/ null, /*label=*/ null, Kind.EMPTY_PRELUDE);
 }

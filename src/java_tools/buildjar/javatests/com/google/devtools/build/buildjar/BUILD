@@ -18,3 +18,15 @@ java_test(
         "//third_party:truth",
     ],
 )
+
+java_test(
+    name = "BazelJavaBuilderTest",
+    srcs = ["BazelJavaBuilderTest.java"],
+    deps = [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar",
+        "//src/main/protobuf:worker_protocol_java_proto",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)

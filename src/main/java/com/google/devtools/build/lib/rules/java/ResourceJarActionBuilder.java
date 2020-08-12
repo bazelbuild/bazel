@@ -127,6 +127,7 @@ public class ResourceJarActionBuilder {
     }
     ruleContext.registerAction(
         builder
+            .useDefaultShellEnvironment()
             .addOutput(outputJar)
             .addInputs(messages)
             .addInputs(resources.values())

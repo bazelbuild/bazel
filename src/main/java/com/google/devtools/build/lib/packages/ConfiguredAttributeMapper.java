@@ -57,8 +57,7 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
 
   private ConfiguredAttributeMapper(Rule rule,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions) {
-    super(Preconditions.checkNotNull(rule).getPackage(), rule.getRuleClassObject(), rule.getLabel(),
-        rule.getAttributeContainer());
+    super(Preconditions.checkNotNull(rule));
     this.configConditions = configConditions;
     this.rule = rule;
   }

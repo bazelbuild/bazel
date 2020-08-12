@@ -156,7 +156,7 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
        try {
           maybeConvertGroupVisibility(groupLabel, packageSpecifications);
        } catch (TargetNotFoundException e) {
-          throw new QueryException(e.getMessage(), e, e.getFailureDetail());
+          throw new QueryException(e.getMessage(), e, e.getDetailedExitCode().getFailureDetail());
        }
      }
       packageSpecifications.add(

@@ -120,8 +120,12 @@ public final class StarlarkThread {
     Object result = Starlark.NONE; // the operand of a Starlark return statement
 
     // Current PC location. Initially fn.getLocation(); for Starlark functions,
-    // it is updated at key points when it may be observed: calls, breakpoints.
+    // it is updated at key points when it may be observed: calls, breakpoints, errors.
     private Location loc;
+
+    // Indicates that setErrorLocation has been called already and the error
+    // location (loc) should not be overrwritten.
+    private boolean errorLocationSet;
 
     // The locals of this frame, if fn is a StarlarkFunction, otherwise empty.
     Map<String, Object> locals;
@@ -136,6 +140,20 @@ public final class StarlarkThread {
     // Updates the PC location in this frame.
     void setLocation(Location loc) {
       this.loc = loc;
+    }
+
+    // Sets location only the first time it is called,
+    // to ensure that the location of the innermost expression
+    // is used for errors.
+    // (Once we switch to a bytecode interpreter, we can afford
+    // to update fr.pc before each fallible operation, but until then
+    // we must materialize Locations only after the fact of failure.)
+    // Sets errorLocationSet.
+    void setErrorLocation(Location loc) {
+      if (!errorLocationSet) {
+        errorLocationSet = true;
+        setLocation(loc);
+      }
     }
 
     @Override

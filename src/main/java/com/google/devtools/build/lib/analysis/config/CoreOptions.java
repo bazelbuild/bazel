@@ -387,17 +387,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean experimentalForwardInstrumentedFilesInfoByDefault;
 
   @Option(
-      name = "experimental_ignore_deprecated_instrumentation_spec",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If specified, use a new configuration of InstrumentationSpec which distinguishes "
-              + "between source and dependency attributes for rules which still used a legacy "
-              + "configuration with a single list of coverage-relevant attributes.")
-  public boolean experimentalIgnoreDeprecatedInstrumentationSpec;
-
-  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -775,21 +764,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public TriState useGraphlessQuery;
 
   @Option(
-      name = "experimental_inmemory_unused_inputs_list",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
-      effectTags = {
-        OptionEffectTag.LOADING_AND_ANALYSIS,
-        OptionEffectTag.EXECUTION,
-        OptionEffectTag.AFFECTS_OUTPUTS
-      },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If enabled, the optional 'unused_inputs_list' file will be passed through in memory "
-              + "directly from the remote build nodes instead of being written to disk.")
-  public boolean inmemoryUnusedInputsList;
-
-  @Option(
       name = "include_config_fragments_provider",
       defaultValue = "off",
       converter = IncludeConfigFragmentsEnumConverter.class,
@@ -857,6 +831,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       help = "Whether to enable the use of AggregatingMiddleman in rules.")
   public boolean enableAggregatingMiddleman;
 
+  // TODO(b/132346407): Remove when all usages are gone.
+  @Option(
+      name = "experimental_enable_shorthand_aliases",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help = "When enabled, alternate names can be assigned to Starlark-defined flags.")
+  public boolean enableShorthandAliases;
+
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
     /**
@@ -883,6 +867,36 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     }
   }
 
+  /** Used to specify which sanitizer is enabled in the current APK split. */
+  public enum FatApkSplitSanitizer {
+    NONE(null, ""),
+    HWASAN("hwasan", "-hwasan");
+
+    private FatApkSplitSanitizer(String feature, String androidLibDirSuffix) {
+      this.feature = feature;
+      this.androidLibDirSuffix = androidLibDirSuffix;
+    }
+
+    public final String feature;
+    public final String androidLibDirSuffix;
+  }
+
+  /** Converter for {@link FatApkSplitSanitizer}. */
+  public static class FatApkSplitSanitizerConverter extends EnumConverter<FatApkSplitSanitizer> {
+    public FatApkSplitSanitizerConverter() {
+      super(FatApkSplitSanitizer.class, "fat apk split sanitizer");
+    }
+  }
+
+  @Option(
+      name = "fat_apk_split_sanitizer",
+      defaultValue = "NONE",
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = {OptionMetadataTag.INTERNAL},
+      converter = FatApkSplitSanitizerConverter.class)
+  public FatApkSplitSanitizer fatApkSplitSanitizer;
+
   @Override
   public FragmentOptions getHost() {
     CoreOptions host = (CoreOptions) getDefault();
@@ -900,7 +914,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     host.enforceConstraints = enforceConstraints;
     host.mergeGenfilesDirectory = mergeGenfilesDirectory;
     host.cpu = hostCpu;
-    host.inmemoryUnusedInputsList = inmemoryUnusedInputsList;
     host.includeRequiredConfigFragmentsProvider = includeRequiredConfigFragmentsProvider;
     host.enableAggregatingMiddleman = enableAggregatingMiddleman;
 

@@ -890,7 +890,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         outputsDefaultExecutable,
         isAnalysisTest,
         /* hasAnalysisTestTransition=*/ false,
-        /* hasFunctionTransitionWhitelist=*/ false,
+        /* hasFunctionTransitionAllowlist= */ false,
         /* ignoreLicenses=*/ false,
         implicitOutputsFunction,
         transitionFactory,

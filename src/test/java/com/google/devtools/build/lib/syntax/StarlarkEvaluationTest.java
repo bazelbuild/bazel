@@ -58,6 +58,16 @@ public final class StarlarkEvaluationTest {
     throw new InterruptedException();
   }
 
+  @StarlarkMethod(name = "stackoverflow", documented = false)
+  public int stackoverflow() {
+    return true ? stackoverflow() : 0; // (defeat static recursion checker)
+  }
+
+  @StarlarkMethod(name = "thrownpe", documented = false)
+  public void thrownpe() {
+    throw new NullPointerException("oops");
+  }
+
   // A trivial struct-like class with Starlark fields defined by a map.
   private static class SimpleStruct implements StarlarkValue, ClassObject {
     final ImmutableMap<String, Object> fields;
@@ -1376,8 +1386,8 @@ public final class StarlarkEvaluationTest {
   @Test
   public void testJavaFunctionReturnsIllegalValue() throws Exception {
     ev.update("mock", new Mock());
-    IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> ev.eval("mock.return_bad()"));
+    Starlark.UncheckedEvalException e =
+        assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("mock.return_bad()"));
     assertThat(e)
         .hasMessageThat()
         .contains(
@@ -1388,9 +1398,35 @@ public final class StarlarkEvaluationTest {
   @Test
   public void testJavaFunctionReturnsNullFails() throws Exception {
     ev.update("mock", new Mock());
-    IllegalStateException e =
-        assertThrows(IllegalStateException.class, () -> ev.eval("mock.nullfunc_failing('abc', 1)"));
-    assertThat(e).hasMessageThat().contains("method invocation returned None");
+    RuntimeException e =
+        assertThrows(RuntimeException.class, () -> ev.eval("mock.nullfunc_failing('abc', 1)"));
+    assertThat(e).hasMessageThat().contains("method invocation returned null");
+  }
+
+  @Test
+  public void testJavaFunctionOverflowsStack() throws Exception {
+    ev.update("stackoverflow", new BuiltinCallable(this, "stackoverflow"));
+    Starlark.UncheckedEvalException e =
+        assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("stackoverflow()"));
+    assertThat(e).hasCauseThat().isInstanceOf(StackOverflowError.class);
+    // Wrapper reveals stack.
+    assertThat(e)
+        .hasMessageThat()
+        .contains(" (Starlark stack: [<expr>@:1:14, stackoverflow@<builtin>])");
+  }
+
+  @Test
+  public void testJavaFunctionThrowsNPE() throws Exception {
+    ev.update("thrownpe", new BuiltinCallable(this, "thrownpe"));
+    Starlark.UncheckedEvalException e =
+        assertThrows(Starlark.UncheckedEvalException.class, () -> ev.eval("thrownpe()"));
+    // Wrapper reveals stack.
+    assertThat(e)
+        .hasMessageThat()
+        .contains("oops (Starlark stack: [<expr>@:1:9, thrownpe@<builtin>])");
+    // The underlying exception is preserved as cause.
+    assertThat(e).hasCauseThat().isInstanceOf(NullPointerException.class);
+    assertThat(e).hasCauseThat().hasMessageThat().isEqualTo("oops");
   }
 
   @Test
@@ -1417,8 +1453,7 @@ public final class StarlarkEvaluationTest {
   @Test
   public void testFieldReturnsNonStarlarkValue() throws Exception {
     ev.update("s", new SimpleStruct(ImmutableMap.of("bad", new StringBuilder())));
-    IllegalArgumentException e =
-        assertThrows(IllegalArgumentException.class, () -> ev.eval("s.bad"));
+    RuntimeException e = assertThrows(RuntimeException.class, () -> ev.eval("s.bad"));
     assertThat(e)
         .hasMessageThat()
         .contains("invalid Starlark value: class java.lang.StringBuilder");

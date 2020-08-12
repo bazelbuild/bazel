@@ -644,10 +644,11 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
     } catch (EvalException e) {
       // EvalException can only be thrown by computed Starlark attributes in the current rule.
-      env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
-      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, e.getMessage()));
+      String msgWithStack = e.getMessageWithStack();
+      env.getListener().handle(Event.error(null, msgWithStack));
+      env.getListener().post(new AnalysisRootCauseEvent(configuration, label, msgWithStack));
       throw new DependencyEvaluationException(
-          new ConfiguredValueCreationException(e.print(), label, configuration));
+          new ConfiguredValueCreationException(msgWithStack, label, configuration));
     } catch (InconsistentAspectOrderException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(e);

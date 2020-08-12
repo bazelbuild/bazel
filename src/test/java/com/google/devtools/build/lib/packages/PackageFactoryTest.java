@@ -661,7 +661,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
                     /*includes=*/ ImmutableList.of("W*", "subdir"),
                     /*excludes=*/ ImmutableList.<String>of(),
                     /* excludeDirs= */ true));
-    assertThat(e).hasMessageThat().isEqualTo("ERROR /globs/BUILD:2:77: incorrect glob result");
+    assertThat(e).hasMessageThat().contains("incorrect glob result");
   }
 
   @Test
@@ -960,7 +960,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     Package pkg = packages.createPackage("e", RootedPath.toRootedPath(root, buildFile));
     assertThat(pkg.containsErrors()).isFalse();
     assertThat(pkg.getRule("e")).isNotNull();
-    List<?> globList = (List) pkg.getRule("e").getAttributeContainer().getAttr("data");
+    List<?> globList = (List) pkg.getRule("e").getAttr("data");
     assertThat(globList).containsExactly(Label.parseAbsolute("//e:data.txt", ImmutableMap.of()));
   }
 

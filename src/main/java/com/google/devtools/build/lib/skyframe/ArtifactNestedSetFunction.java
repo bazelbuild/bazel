@@ -123,6 +123,7 @@ final class ArtifactNestedSetFunction implements SkyFunction {
 
     NestedSetBuilder<Pair<SkyKey, Exception>> transitiveExceptionsBuilder =
         NestedSetBuilder.stableOrder();
+    boolean catastrophic = false;
 
     // Throw a SkyFunctionException when a dep evaluation results in an exception.
     // Only non-null values should be committed to
@@ -139,9 +140,14 @@ final class ArtifactNestedSetFunction implements SkyFunction {
           continue;
         }
         artifactSkyKeyToSkyValue.put(entry.getKey(), value);
-      } catch (IOException | ActionExecutionException e) {
+      } catch (IOException e) {
+        // IOException is never catastrophic.
         transitiveExceptionsBuilder.add(Pair.of(entry.getKey(), e));
+      } catch (ActionExecutionException e) {
+        transitiveExceptionsBuilder.add(Pair.of(entry.getKey(), e));
+        catastrophic |= e.isCatastrophe();
       } catch (ArtifactNestedSetEvalException e) {
+        catastrophic |= e.isCatastrophic();
         transitiveExceptionsBuilder.addTransitive(e.getNestedExceptions());
       }
     }
@@ -156,7 +162,8 @@ final class ArtifactNestedSetFunction implements SkyFunction {
                   + firstSkyKeyAndException.getSecond()
                   + ", SkyKey: "
                   + firstSkyKeyAndException.getFirst(),
-              transitiveExceptions),
+              transitiveExceptions,
+              catastrophic),
           skyKey);
     }
 
@@ -233,13 +240,16 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   /** Mainly used for error bubbling when evaluating direct/transitive children. */
   private static final class ArtifactNestedSetFunctionException extends SkyFunctionException {
 
+    private final boolean catastrophic;
+
     ArtifactNestedSetFunctionException(ArtifactNestedSetEvalException e, SkyKey child) {
       super(e, child);
+      this.catastrophic = e.isCatastrophic();
     }
 
     @Override
     public boolean isCatastrophic() {
-      return false;
+      return catastrophic;
     }
   }
 
@@ -247,15 +257,22 @@ final class ArtifactNestedSetFunction implements SkyFunction {
   static final class ArtifactNestedSetEvalException extends Exception {
 
     private final NestedSet<Pair<SkyKey, Exception>> nestedExceptions;
+    private final boolean catastrophic;
 
     ArtifactNestedSetEvalException(
-        String message, NestedSet<Pair<SkyKey, Exception>> nestedExceptions) {
+        String message, NestedSet<Pair<SkyKey, Exception>> nestedExceptions, boolean catastrophic) {
       super(message);
       this.nestedExceptions = nestedExceptions;
+      this.catastrophic = catastrophic;
     }
 
     NestedSet<Pair<SkyKey, Exception>> getNestedExceptions() {
       return nestedExceptions;
+    }
+
+    // Should be true if at least one child exception is catastrophic.
+    boolean isCatastrophic() {
+      return catastrophic;
     }
   }
 }

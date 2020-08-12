@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -834,7 +835,7 @@ public final class CcCommon {
 
     if (cppConfiguration.forcePic()) {
       if (unsupportedFeatures.contains(CppRuleClasses.SUPPORTS_PIC)) {
-        throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
+        throw new EvalException(PIC_CONFIGURATION_ERROR);
       }
       allRequestedFeaturesBuilder.add(CppRuleClasses.SUPPORTS_PIC);
     }
@@ -939,24 +940,20 @@ public final class CcCommon {
           toolchain.getFeatures().getFeatureConfiguration(allRequestedFeaturesBuilder.build());
       for (String feature : unsupportedFeatures) {
         if (featureConfiguration.isEnabled(feature)) {
-          throw new EvalException(
-              /* location= */ null,
-              "The C++ toolchain '"
-                  + toolchain.getCcToolchainLabel()
-                  + "' unconditionally implies feature '"
-                  + feature
-                  + "', which is unsupported by this rule. "
-                  + "This is most likely a misconfiguration in the C++ toolchain.");
+          throw Starlark.errorf(
+              "The C++ toolchain '%s' unconditionally implies feature '%s', which is unsupported"
+                  + " by this rule. This is most likely a misconfiguration in the C++ toolchain.",
+              toolchain.getCcToolchainLabel(), feature);
         }
       }
       if (cppConfiguration.forcePic()
           && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
           && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-        throw new EvalException(/* location= */ null, PIC_CONFIGURATION_ERROR);
+        throw new EvalException(PIC_CONFIGURATION_ERROR);
       }
       return featureConfiguration;
-    } catch (CollidingProvidesException e) {
-      throw new EvalException(/* location= */ null, e.getMessage());
+    } catch (CollidingProvidesException ex) {
+      throw new EvalException(ex);
     }
   }
 

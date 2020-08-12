@@ -797,7 +797,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
         }
       }
     } catch (EvalException e) {
-      throw new CommandLineExpansionException(errorMessage(e.getMessage(), loc, e.getCause()));
+      // TODO(adonovan): consider calling a wrapper function to interpose a fake stack
+      // frame that establishes the args.add_all call at loc. Or manipulating the stack
+      // before printing it.
+      throw new CommandLineExpansionException(
+          errorMessage(e.getMessageWithStack(), loc, e.getCause()));
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new CommandLineExpansionException(errorMessage("Thread was interrupted", loc, null));
@@ -999,7 +1003,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     @Override
     public String getTreeRelativePathString() throws EvalException {
-      throw new EvalException(
+      throw Starlark.errorf(
           "tree_relative_path not allowed for files that are not tree artifact files.");
     }
 

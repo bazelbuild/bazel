@@ -20,7 +20,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -113,6 +112,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.junit.After;
 import org.junit.Before;
@@ -304,6 +304,10 @@ public abstract class BuildIntegrationTestCase {
     AnalysisMock.get().setupMockClient(mockToolsConfig);
   }
 
+  protected FileSystem getFileSystem() {
+    return fileSystem;
+  }
+
   protected BlazeModule getBuildInfoModule() {
     return new BlazeModule() {
       @Override
@@ -346,7 +350,7 @@ public abstract class BuildIntegrationTestCase {
       public ImmutableList<Injected> getPrecomputedValues() {
         return ImmutableList.of(
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.absent()));
+                RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()));
       }
     };
   }

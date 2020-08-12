@@ -69,11 +69,7 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
     } else if (key.getProxied()) {
       worker =
           new WorkerProxy(
-              key,
-              workerId,
-              key.getExecRoot(),
-              logFile,
-              WorkerMultiplexerManager.getInstance(key.hashCode()));
+              key, workerId, key.getExecRoot(), logFile, WorkerMultiplexerManager.getInstance(key));
     } else {
       worker = new Worker(key, workerId, key.getExecRoot(), logFile);
     }

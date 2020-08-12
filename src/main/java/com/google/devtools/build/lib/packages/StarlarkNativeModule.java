@@ -113,7 +113,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       context.pkgBuilder.setIOExceptionAndMessage(e, errorMessage);
       matches = ImmutableList.of();
     } catch (BadGlobException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
 
     ArrayList<String> result = new ArrayList<>(matches.size());
@@ -185,7 +185,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     } catch (LabelSyntaxException e) {
       throw Starlark.errorf("package group has invalid name: %s: %s", name, e.getMessage());
     } catch (Package.NameConflictException e) {
-      throw new EvalException(null, e.getMessage());
+      throw new EvalException(e);
     }
   }
 
@@ -281,7 +281,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     Dict<String, Object> values = Dict.of(mu);
 
     Rule rule = (Rule) target;
-    AttributeContainer cont = rule.getAttributeContainer();
     for (Attribute attr : rule.getAttributes()) {
       if (!Character.isAlphabetic(attr.getName().charAt(0))) {
         continue;
@@ -294,7 +293,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
 
       try {
-        Object val = starlarkifyValue(mu, cont.getAttr(attr.getName()), target.getPackage());
+        Object val = starlarkifyValue(mu, rule.getAttr(attr.getName()), target.getPackage());
         if (val == null) {
           continue;
         }
@@ -424,7 +423,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
   private static class NotRepresentableException extends EvalException {
     NotRepresentableException(String msg) {
-      super(null, msg);
+      super(msg);
     }
   }
 }

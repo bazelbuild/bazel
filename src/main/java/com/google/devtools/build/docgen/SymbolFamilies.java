@@ -45,13 +45,26 @@ import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkNativeModuleApi
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStarlarkRuleFunctionsApi;
 import com.google.devtools.build.skydoc.fakebuildapi.FakeStructApi.FakeStructProviderApi;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidApplicationResourceInfo.FakeAndroidApplicationResourceInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidAssetsInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidBinaryDataInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidCcLinkParamsProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidDeviceBrokerInfo.FakeAndroidDeviceBrokerInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidFeatureFlagSetProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidIdeInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidIdlProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidInstrumentationInfo.FakeAndroidInstrumentationInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidLibraryAarInfo;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidLibraryResourceClassJarProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidManifestInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidNativeLibsInfo.FakeAndroidNativeLibsInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidPreDexJarProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidProguardInfo;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidResourcesInfo.FakeAndroidResourcesInfoProvider;
-import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSdkProvider.FakeProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidSdkProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeAndroidStarlarkCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.android.FakeApkInfo.FakeApkInfoProvider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeDataBindingV2Provider;
+import com.google.devtools.build.skydoc.fakebuildapi.android.FakeProguardMappingProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.apple.FakeAppleCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigGlobalLibrary;
 import com.google.devtools.build.skydoc.fakebuildapi.config.FakeConfigStarlarkCommon;
@@ -66,6 +79,7 @@ import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCcLinkParamsPr
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaInfo.FakeJavaInfoProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.java.FakeJavaProtoCommon;
+import com.google.devtools.build.skydoc.fakebuildapi.java.FakeProguardSpecProvider;
 import com.google.devtools.build.skydoc.fakebuildapi.platform.FakePlatformCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoCommon;
 import com.google.devtools.build.skydoc.fakebuildapi.proto.FakeProtoInfo.FakeProtoInfoProvider;
@@ -188,7 +202,20 @@ public class SymbolFamilies {
             new FakeAndroidResourcesInfoProvider(),
             new FakeAndroidNativeLibsInfoProvider(),
             new FakeAndroidApplicationResourceInfoProvider(),
-            new FakeProvider());
+            new FakeAndroidSdkProvider.FakeProvider(),
+            new FakeAndroidManifestInfo.FakeProvider(),
+            new FakeAndroidAssetsInfo.FakeProvider(),
+            new FakeAndroidLibraryAarInfo.FakeProvider(),
+            new FakeAndroidProguardInfo.FakeProvider(),
+            new FakeAndroidIdlProvider.FakeProvider(),
+            new FakeAndroidIdeInfoProvider.FakeProvider(),
+            new FakeAndroidPreDexJarProvider.FakeProvider(),
+            new FakeAndroidCcLinkParamsProvider.FakeProvider(),
+            new FakeDataBindingV2Provider.FakeProvider(),
+            new FakeAndroidLibraryResourceClassJarProvider.FakeProvider(),
+            new FakeAndroidFeatureFlagSetProvider.FakeProvider(),
+            new FakeProguardMappingProvider.FakeProvider(),
+            new FakeAndroidBinaryDataInfo.FakeProvider());
     AppleBootstrap appleBootstrap = new AppleBootstrap(new FakeAppleCommon());
     ConfigBootstrap configBootstrap =
         new ConfigBootstrap(
@@ -207,7 +234,8 @@ public class SymbolFamilies {
             new FakeJavaCommon(),
             new FakeJavaInfoProvider(),
             new FakeJavaProtoCommon(),
-            new FakeJavaCcLinkParamsProvider.Provider());
+            new FakeJavaCcLinkParamsProvider.Provider(),
+            new FakeProguardSpecProvider.FakeProvider());
     PlatformBootstrap platformBootstrap = new PlatformBootstrap(new FakePlatformCommon());
     ProtoBootstrap protoBootstrap =
         new ProtoBootstrap(

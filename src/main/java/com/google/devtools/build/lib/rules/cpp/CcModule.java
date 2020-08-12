@@ -64,7 +64,6 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.NoneType;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -296,7 +295,7 @@ public abstract class CcModule
       boolean isStaticLinkingMode)
       throws EvalException {
     if (featureConfiguration.getFeatureConfiguration().isEnabled(CppRuleClasses.FDO_INSTRUMENT)) {
-      throw new EvalException("FDO instrumentation not supported");
+      throw Starlark.errorf("FDO instrumentation not supported");
     }
     return LinkBuildVariables.setupVariables(
         isUsingLinkerNotArchiver,
@@ -1318,8 +1317,7 @@ public abstract class CcModule
     // action to its flag_set.action_names
     if (actionName != null) {
       if (!actions.isEmpty()) {
-        throw new EvalException(
-            Location.BUILTIN, String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, actionName));
+        throw new EvalException(String.format(ActionConfig.FLAG_SET_WITH_ACTION_ERROR, actionName));
       }
       actions = ImmutableSet.of(actionName);
     }
@@ -1727,6 +1725,8 @@ public abstract class CcModule
       Sequence<?> frameworkIncludes, // <String> expected
       Sequence<?> defines, // <String> expected
       Sequence<?> localDefines, // <String> expected
+      String includePrefix,
+      String stripIncludePrefix,
       Sequence<?> userCompileFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
       String name,
@@ -1830,6 +1830,12 @@ public abstract class CcModule
     if (disallowPicOutputs) {
       helper.setGeneratePicAction(false);
       helper.setGenerateNoPicAction(true);
+    }
+    if (!Strings.isNullOrEmpty(includePrefix)) {
+      helper.setIncludePrefix(includePrefix);
+    }
+    if (!Strings.isNullOrEmpty(stripIncludePrefix)) {
+      helper.setStripIncludePrefix(stripIncludePrefix);
     }
     try {
       CompilationInfo compilationInfo = helper.compile();

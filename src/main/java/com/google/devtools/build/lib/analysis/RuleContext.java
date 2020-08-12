@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RequiredProviders;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.packages.SymbolGenerator;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -269,6 +268,9 @@ public final class RuleContext extends TargetContext
     Set<String> globallyEnabled = new HashSet<>();
     Set<String> globallyDisabled = new HashSet<>();
     parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
+    if (getConfiguration().getFatApkSplitSanitizer().feature != null) {
+      globallyEnabled.add(getConfiguration().getFatApkSplitSanitizer().feature);
+    }
     Set<String> packageEnabled = new HashSet<>();
     Set<String> packageDisabled = new HashSet<>();
     parseFeatures(getRule().getPackage().getFeatures(), packageEnabled, packageDisabled);
@@ -524,7 +526,7 @@ public final class RuleContext extends TargetContext
               transition.isHostTransition() ? "host_" : "", name),
           transition);
     } catch (IllegalArgumentException ex) { // fishy
-      throw new EvalException(null, ex.getMessage());
+      throw new EvalException(ex.getMessage());
     }
   }
 
@@ -1810,7 +1812,7 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(constraintSemantics);
       AttributeMap attributes =
           ConfiguredAttributeMapper.of(target.getAssociatedRule(), configConditions);
-      validateAttributes(attributes);
+      checkAttributesNonEmpty(attributes);
       ListMultimap<String, ConfiguredTargetAndData> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(target.getAssociatedRule(), configConditions);
@@ -1837,11 +1839,25 @@ public final class RuleContext extends TargetContext
           requiredConfigFragments);
     }
 
-    private void validateAttributes(AttributeMap attributes) {
-      target
-          .getAssociatedRule()
-          .getRuleClassObject()
-          .checkAttributesNonEmpty(reporter, attributes);
+    private void checkAttributesNonEmpty(AttributeMap attributes) {
+      for (String attributeName : attributes.getAttributeNames()) {
+        Attribute attr = attributes.getAttributeDefinition(attributeName);
+        if (!attr.isNonEmpty()) {
+          continue;
+        }
+        Object attributeValue = attributes.get(attributeName, attr.getType());
+
+        // TODO(adonovan): define in terms of Starlark.len?
+        boolean isEmpty = false;
+        if (attributeValue instanceof List<?>) {
+          isEmpty = ((List) attributeValue).isEmpty();
+        } else if (attributeValue instanceof Map<?, ?>) {
+          isEmpty = ((Map) attributeValue).isEmpty();
+        }
+        if (isEmpty) {
+          reporter.attributeError(attr.getName(), "attribute must be non empty");
+        }
+      }
     }
 
     public Builder setVisibility(NestedSet<PackageGroupContents> visibility) {
@@ -2387,7 +2403,7 @@ public final class RuleContext extends TargetContext
     }
 
     private String getGeneratorFunction() {
-      return (String) rule.getAttributeContainer().getAttr("generator_function");
+      return (String) rule.getAttr("generator_function");
     }
 
     @Override

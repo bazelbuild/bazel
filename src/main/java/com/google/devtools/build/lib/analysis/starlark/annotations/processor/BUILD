@@ -13,9 +13,9 @@ filegroup(
 java_plugin(
     name = "annotation_preprocessor",
     srcs = glob(["*.java"]),
-    processor_class = "com.google.devtools.build.lib.analysis.skylark.annotations.processor.StarlarkConfigurationFieldProcessor",
+    processor_class = "com.google.devtools.build.lib.analysis.starlark.annotations.processor.StarlarkConfigurationFieldProcessor",
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:annotations_internal",
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations:annotations_internal",
         "//src/main/java/net/starlark/java/annot",
         "//third_party:guava",
     ],

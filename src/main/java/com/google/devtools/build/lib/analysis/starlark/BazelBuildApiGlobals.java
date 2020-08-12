@@ -38,7 +38,7 @@ public class BazelBuildApiGlobals implements StarlarkBuildApiGlobals {
       return StarlarkLateBoundDefault.forConfigurationField(
           fragmentClass, name, bazelContext.getToolsRepository());
     } catch (StarlarkLateBoundDefault.InvalidConfigurationFieldException exception) {
-      throw new EvalException(null, exception);
+      throw new EvalException(exception);
     }
   }
 }

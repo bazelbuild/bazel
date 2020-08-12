@@ -142,7 +142,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
 
@@ -202,7 +202,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
 
@@ -230,7 +230,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
 
@@ -259,7 +259,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foo");
   }
 
@@ -289,7 +289,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foobar//:bar");
-    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    Object path = target.getTarget().getAssociatedRule().getAttr("path");
     assertThat(path).isEqualTo("foobar");
   }
 

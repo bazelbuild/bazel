@@ -70,7 +70,6 @@ public class BazelPythonSemantics implements PythonSemantics {
       Template.forResource(BazelPythonSemantics.class, "python_stub_template.txt");
   public static final InstrumentationSpec PYTHON_COLLECTION_SPEC =
       new InstrumentationSpec(FileTypeSet.of(BazelPyRuleClasses.PYTHON_SOURCE))
-          .withDeprecatedSourceOrDependencyAttributes("srcs", "deps", "data")
           .withSourceAttributes("srcs")
           .withDependencyAttributes("deps", "data");
 

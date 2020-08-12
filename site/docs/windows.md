@@ -27,6 +27,12 @@ For example, add the following line to your bazelrc file:
 startup --output_user_root=C:/tmp
 ```
 
+### Enable 8.3 Filename Support
+Bazel attempts to create a short name version for long file paths. But to do so the [8.3 filename support](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/fsutil-8dot3name) needs to be enabled for the volume in which the file with the long path resides. You can enable 8.3 name creation in all volumes by running the following command:
+```
+fsutil 8dot3name set 0
+```
+
 ### Enable symlink support
 
 Some features require Bazel to create file symlink on Windows, you can allow Bazel to do that by enabling [Developer Mode](https://docs.microsoft.com/en-us/windows/uwp/get-started/enable-your-device-for-development) on Windows (Only works for Windows 10, version 1703 or newer).

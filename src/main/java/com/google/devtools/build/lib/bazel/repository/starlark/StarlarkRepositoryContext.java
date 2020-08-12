@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionR
 import com.google.devtools.build.lib.starlarkbuildapi.repository.StarlarkRepositoryContextApi;
 import com.google.devtools.build.lib.syntax.Dict;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
@@ -395,7 +394,7 @@ public class StarlarkRepositoryContext
   }
 
   boolean isRemotable() {
-    Object remotable = rule.getAttributeContainer().getAttr("$remotable");
+    Object remotable = rule.getAttr("$remotable");
     if (remotable != null) {
       return (Boolean) remotable;
     }
@@ -480,14 +479,11 @@ public class StarlarkRepositoryContext
       Object arg = arguments.get(i);
       if (isRemotable) {
         if (!(arg instanceof String || arg instanceof Label)) {
-          throw new EvalException(
-              Location.BUILTIN, "Argument " + i + " of execute is neither a label nor a string.");
+          throw Starlark.errorf("Argument %d of execute is neither a label nor a string.", i);
         }
       } else {
         if (!(arg instanceof String || arg instanceof Label || arg instanceof StarlarkPath)) {
-          throw new EvalException(
-              Location.BUILTIN,
-              "Argument " + i + " of execute is neither a path, label, nor string.");
+          throw Starlark.errorf("Argument %d of execute is neither a path, label, nor string.", i);
         }
       }
     }
@@ -995,12 +991,10 @@ public class StarlarkRepositoryContext
 
     for (Object o : urlList) {
       if (!(o instanceof String)) {
-        throw new EvalException(
-            null,
-            String.format(
-                "Expected a string or sequence of strings for 'url' argument, "
-                    + "but got '%s' item in the sequence",
-                Starlark.type(o)));
+        throw Starlark.errorf(
+            "Expected a string or sequence of strings for 'url' argument, but got '%s' item in the"
+                + " sequence",
+            Starlark.type(o));
       }
       result.add((String) o);
     }
@@ -1152,11 +1146,10 @@ public class StarlarkRepositoryContext
         if (authMap.containsKey("type")) {
           if ("basic".equals(authMap.get("type"))) {
             if (!authMap.containsKey("login") || !authMap.containsKey("password")) {
-              throw new EvalException(
-                  null,
-                  "Found request to do basic auth for "
-                      + entry.getKey()
-                      + " without 'login' and 'password' being provided.");
+              throw Starlark.errorf(
+                  "Found request to do basic auth for %s without 'login' and 'password' being"
+                      + " provided.",
+                  entry.getKey());
             }
             String credentials = authMap.get("login") + ":" + authMap.get("password");
             headers.put(
@@ -1168,11 +1161,9 @@ public class StarlarkRepositoryContext
                             .encodeToString(credentials.getBytes(StandardCharsets.UTF_8))));
           } else if ("pattern".equals(authMap.get("type"))) {
             if (!authMap.containsKey("pattern")) {
-              throw new EvalException(
-                  null,
-                  "Found request to do pattern auth for "
-                      + entry.getKey()
-                      + " without a pattern being provided");
+              throw Starlark.errorf(
+                  "Found request to do pattern auth for %s without a pattern being provided",
+                  entry.getKey());
             }
 
             String result = (String) authMap.get("pattern");
@@ -1182,11 +1173,9 @@ public class StarlarkRepositoryContext
 
               if (result.contains(demarcatedComponent)) {
                 if (!authMap.containsKey(component)) {
-                  throw new EvalException(
-                      null,
-                      "Auth pattern contains "
-                          + demarcatedComponent
-                          + " but it was not provided in auth dict.");
+                  throw Starlark.errorf(
+                      "Auth pattern contains %s but it was not provided in auth dict.",
+                      demarcatedComponent);
                 }
               } else {
                 // component isn't in the pattern, ignore it
@@ -1202,7 +1191,7 @@ public class StarlarkRepositoryContext
       } catch (MalformedURLException e) {
         throw new RepositoryFunctionException(e, Transience.PERSISTENT);
       } catch (URISyntaxException e) {
-        throw new EvalException(null, e.getMessage());
+        throw new EvalException(e);
       }
     }
     return headers.build();

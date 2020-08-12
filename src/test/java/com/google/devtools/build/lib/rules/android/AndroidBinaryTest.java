@@ -3766,6 +3766,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "b_proguard.jar",
         false,
         null,
+        /*splitOptimizationPass=*/ false,
         targetConfig.getBinFragment()
             + "/java/com/google/android/hello/proguard/b/legacy_b_combined_library_jars.jar");
   }
@@ -3905,7 +3906,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               proguard_specs = ['proguard-spec.pro'],",
         "               proguard_generate_mapping = 1)");
     checkProguardUse(
-        "//java/com/google/android/hello:b", "b_proguard.jar", true, null, getAndroidJarPath());
+        "//java/com/google/android/hello:b",
+        "b_proguard.jar",
+        true,
+        null,
+        /*splitOptimizationPass=*/ false,
+        getAndroidJarPath());
   }
 
   @Test
@@ -3957,7 +3963,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro'])");
     checkProguardUse(
-        "//java/com/google/android/hello:b", "b_proguard.jar", false, null, getAndroidJarPath());
+        "//java/com/google/android/hello:b",
+        "b_proguard.jar",
+        false,
+        null,
+        /*splitOptimizationPass=*/ false,
+        getAndroidJarPath());
 
     SpawnAction action =
         (SpawnAction)
@@ -3983,7 +3994,12 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "               manifest = 'AndroidManifest.xml',",
         "               proguard_specs = ['proguard-spec.pro'])");
     checkProguardUse(
-        "//java/com/google/android/hello:b", "b_proguard.jar", false, null, getAndroidJarPath());
+        "//java/com/google/android/hello:b",
+        "b_proguard.jar",
+        false,
+        null,
+        /*splitOptimizationPass=*/ false,
+        getAndroidJarPath());
 
     SpawnAction action =
         (SpawnAction)
@@ -4304,6 +4320,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "abin_proguard.jar",
         /*expectMapping=*/ false,
         /*passes=*/ null,
+        /*splitOptimizationPass=*/ false,
         getAndroidJarPath());
   }
 

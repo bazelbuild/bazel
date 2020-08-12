@@ -5510,6 +5510,79 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLocalDefines() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "tools/build_defs/foo", "local_defines=['DEFINE1', 'DEFINE2']");
+    ConfiguredTarget target = getConfiguredTarget("//foo:starlark_lib");
+    assertThat(target).isNotNull();
+    CppCompileAction action =
+        (CppCompileAction) getGeneratingAction(artifactByPath(getFilesToBuild(target), ".o"));
+    assertThat(action.getArguments()).containsAtLeast("-DDEFINE1", "-DDEFINE2");
+  }
+
+  @Test
+  public void testIncludePrefix() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "third_party/tools/build_defs/foo", "include_prefix='prefix'");
+    scratch.file(
+        "bar/BUILD",
+        "load('//third_party/tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.cc'],",
+        "    public_hdrs = ['starlark_lib.h'],",
+        "    private_hdrs = ['private_starlark_lib.h'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//bar:starlark_lib");
+    assertThat(target).isNotNull();
+    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
+        .contains("bin bar/_virtual_includes/starlark_lib/prefix/starlark_lib.h");
+  }
+
+  @Test
+  public void testStripIncludePrefix() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "third_party/tools/build_defs/foo", "strip_include_prefix='v1'");
+    scratch.file(
+        "bar/BUILD",
+        "load('//third_party/tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.cc'],",
+        "    public_hdrs = ['v1/starlark_lib.h'],",
+        "    private_hdrs = ['v1/private_starlark_lib.h'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//bar:starlark_lib");
+    assertThat(target).isNotNull();
+    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
+        .contains("bin bar/_virtual_includes/starlark_lib/starlark_lib.h");
+  }
+
+  @Test
+  public void testStripIncludePrefixAndIncludePrefix() throws Exception {
+    createFilesForTestingCompilation(
+        scratch,
+        "third_party/tools/build_defs/foo",
+        "strip_include_prefix='v1', include_prefix='prefix'");
+    scratch.file(
+        "bar/BUILD",
+        "load('//third_party/tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.cc'],",
+        "    public_hdrs = ['v1/starlark_lib.h'],",
+        "    private_hdrs = ['v1/private_starlark_lib.h'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//bar:starlark_lib");
+    assertThat(target).isNotNull();
+    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
+        .contains("bin bar/_virtual_includes/starlark_lib/prefix/starlark_lib.h");
+  }
+
+  @Test
   public void testHeaders() throws Exception {
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");

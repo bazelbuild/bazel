@@ -14,24 +14,28 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.common.collect.MoreCollectors.toOptional;
+
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.MultimapBuilder;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/*
- * Stores coverage information for a specific source file.
- */
+/** Stores coverage information for a specific source file. */
 class SourceFileCoverage {
 
   private String sourceFileName;
   private final TreeMap<String, Integer> lineNumbers; // function name to line numbers
-  private final TreeMap<String, Integer> functionsExecution; // function name to execution count
-  private final TreeMap<Integer, BranchCoverage> branches; // line number to branch
+  private final TreeMap<String, Long> functionsExecution; // function name to execution count
+  private final ListMultimap<Integer, BranchCoverage> branches; // line number to branches
   private final TreeMap<Integer, LineCoverage> lines; // line number to line execution
 
   SourceFileCoverage(String sourcefile) {
@@ -39,7 +43,7 @@ class SourceFileCoverage {
     this.functionsExecution = new TreeMap<>();
     this.lineNumbers = new TreeMap<>();
     this.lines = new TreeMap<>();
-    this.branches = new TreeMap<>();
+    this.branches = MultimapBuilder.treeKeys().arrayListValues().build();
   }
 
   SourceFileCoverage(SourceFileCoverage other) {
@@ -48,7 +52,7 @@ class SourceFileCoverage {
     this.functionsExecution = new TreeMap<>();
     this.lineNumbers = new TreeMap<>();
     this.lines = new TreeMap<>();
-    this.branches = new TreeMap<>();
+    this.branches = MultimapBuilder.treeKeys().arrayListValues().build();
 
     this.lineNumbers.putAll(other.lineNumbers);
     this.functionsExecution.putAll(other.functionsExecution);
@@ -60,9 +64,7 @@ class SourceFileCoverage {
     this.sourceFileName = newSourcefileName;
   }
 
-  /*
-   * Returns the merged functions found in the two given {@code SourceFileCoverage}s.
-   */
+  /** Returns the merged functions found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static TreeMap<String, Integer> mergeLineNumbers(SourceFileCoverage s1, SourceFileCoverage s2) {
     TreeMap<String, Integer> merged = new TreeMap<>();
@@ -71,45 +73,33 @@ class SourceFileCoverage {
     return merged;
   }
 
-  /*
-   *
-   * Returns the merged execution count found in the two given {@code SourceFileCoverage}s.
-   */
+  /** Returns the merged execution count found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
-  static TreeMap<String, Integer> mergeFunctionsExecution(
+  static TreeMap<String, Long> mergeFunctionsExecution(
       SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(s1.functionsExecution, s2.functionsExecution)
         .map(Map::entrySet)
         .flatMap(Collection::stream)
-        .collect(
-            Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Integer::sum, TreeMap::new));
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, Long::sum, TreeMap::new));
   }
 
-  /*
-   *
-   * Returns the merged branches found in the two given {@code SourceFileCoverage}s.
-   */
+  /** Returns the merged branches found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
-  static TreeMap<Integer, BranchCoverage> mergeBranches(
+  static ListMultimap<Integer, BranchCoverage> mergeBranches(
       SourceFileCoverage s1, SourceFileCoverage s2) {
-    return Stream.of(s1.branches, s2.branches)
-        .map(Map::entrySet)
-        .flatMap(Collection::stream)
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey, Map.Entry::getValue, BranchCoverage::merge, TreeMap::new));
+    ListMultimap<Integer, BranchCoverage> merged =
+        MultimapBuilder.treeKeys().arrayListValues().build();
+    merged.putAll(s1.branches);
+    s2.branches.entries().forEach(e -> addBranchToMap(e.getKey(), e.getValue(), merged));
+    return merged;
   }
 
   static int getNumberOfBranchesHit(SourceFileCoverage sourceFileCoverage) {
     return (int)
-        sourceFileCoverage.branches.entrySet().stream()
-            .filter(branch -> branch.getValue().wasExecuted())
-            .count();
+        sourceFileCoverage.branches.values().stream().filter(BranchCoverage::wasExecuted).count();
   }
 
-  /*
-   * Returns the merged line execution found in the two given {@code SourceFileCoverage}s.
-   */
+  /** Returns the merged line execution found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static TreeMap<Integer, LineCoverage> mergeLines(SourceFileCoverage s1, SourceFileCoverage s2) {
     return Stream.of(s1.lines, s2.lines)
@@ -190,11 +180,11 @@ class SourceFileCoverage {
   }
 
   @VisibleForTesting
-  TreeMap<String, Integer> getFunctionsExecution() {
+  TreeMap<String, Long> getFunctionsExecution() {
     return functionsExecution;
   }
 
-  Set<Entry<String, Integer>> getAllExecutionCount() {
+  Set<Entry<String, Long>> getAllExecutionCount() {
     return functionsExecution.entrySet();
   }
 
@@ -215,23 +205,38 @@ class SourceFileCoverage {
     this.lineNumbers.putAll(lineNumber);
   }
 
-  void addFunctionExecution(String functionName, Integer executionCount) {
+  void addFunctionExecution(String functionName, Long executionCount) {
     this.functionsExecution.put(functionName, executionCount);
   }
 
-  void addAllFunctionsExecution(TreeMap<String, Integer> functionsExecution) {
+  void addAllFunctionsExecution(TreeMap<String, Long> functionsExecution) {
     this.functionsExecution.putAll(functionsExecution);
   }
 
   void addBranch(Integer lineNumber, BranchCoverage branch) {
-    if (this.branches.get(lineNumber) != null) {
-      this.branches.put(lineNumber, BranchCoverage.merge(this.branches.get(lineNumber), branch));
-      return;
-    }
-    this.branches.put(lineNumber, branch);
+    addBranchToMap(lineNumber, branch, branches);
   }
 
-  void addAllBranches(TreeMap<Integer, BranchCoverage> branches) {
+  static void addBranchToMap(
+      Integer lineNumber, BranchCoverage branch, ListMultimap<Integer, BranchCoverage> target) {
+    List<BranchCoverage> lineBranches = target.get(lineNumber);
+    Optional<BranchCoverage> match =
+        lineBranches.stream()
+            .filter(
+                b ->
+                    b.blockNumber().equals(branch.blockNumber())
+                        && b.branchNumber().equals(branch.branchNumber()))
+            .collect(toOptional());
+    if (match.isPresent()) {
+      BranchCoverage b = match.get();
+      lineBranches.remove(b);
+      lineBranches.add(BranchCoverage.merge(b, branch));
+    } else {
+      lineBranches.add(branch);
+    }
+  }
+
+  void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {
     this.branches.putAll(branches);
   }
 

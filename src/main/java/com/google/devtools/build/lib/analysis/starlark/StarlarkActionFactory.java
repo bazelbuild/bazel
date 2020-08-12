@@ -147,18 +147,15 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     }
 
     if (!fragment.startsWith(ruleContext.getPackageDirectory())) {
-      throw new EvalException(
-          String.format(
-              "the output directory '%s' is not under package directory '%s' for target '%s'",
-              fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel()));
+      throw Starlark.errorf(
+          "the output directory '%s' is not under package directory '%s' for target '%s'",
+          fragment, ruleContext.getPackageDirectory(), ruleContext.getLabel());
     }
 
     Artifact result = ruleContext.getTreeArtifact(fragment, newFileRoot());
     if (!result.isTreeArtifact()) {
-      throw new EvalException(
-          null,
-          String.format(
-              "'%s' has already been declared as a regular file, not directory.", filename));
+      throw Starlark.errorf(
+          "'%s' has already been declared as a regular file, not directory.", filename);
     }
     return result;
   }
@@ -455,10 +452,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       List<String> command = Sequence.cast(commandList, String.class, "command");
       builder.setShellCommand(command);
     } else {
-      throw new EvalException(
-          null,
-          "expected string or list of strings for command instead of "
-              + Starlark.type(commandUnchecked));
+      throw Starlark.errorf(
+          "expected string or list of strings for command instead of %s",
+          Starlark.type(commandUnchecked));
     }
     if (argumentList.size() > 0) {
       // When we use a shell command, add an empty argument before other arguments.
@@ -497,10 +493,9 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         ParamFileInfo paramFileInfo = args.getParamFileInfo();
         builder.addCommandLine(args.build(), paramFileInfo);
       } else {
-        throw new EvalException(
-            null,
-            "expected list of strings or ctx.actions.args() for arguments instead of "
-                + Starlark.type(value));
+        throw Starlark.errorf(
+            "expected list of strings or ctx.actions.args() for arguments instead of %s",
+            Starlark.type(value));
       }
     }
     if (!stringArgs.isEmpty()) {
@@ -571,12 +566,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else {
-          throw new EvalException(
-              null,
-              "expected value of type 'File or FilesToRunProvider' for "
-                  + "a member of parameter 'tools' but got "
-                  + Starlark.type(toolUnchecked)
-                  + " instead");
+          throw Starlark.errorf(
+              "expected value of type 'File or FilesToRunProvider' for a member of parameter"
+                  + " 'tools' but got %s instead",
+              Starlark.type(toolUnchecked));
         }
       }
     } else {

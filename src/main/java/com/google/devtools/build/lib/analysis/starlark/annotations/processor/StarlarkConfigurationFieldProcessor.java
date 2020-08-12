@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.analysis.skylark.annotations.processor;
+package com.google.devtools.build.lib.analysis.starlark.annotations.processor;
 
-import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import java.util.Set;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Messager;
@@ -47,7 +47,7 @@ import javax.tools.Diagnostic;
  * <p>These properties can be relied upon at runtime without additional checks.
  */
 @SupportedAnnotationTypes({
-  "com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField"
+  "com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField"
 })
 public final class StarlarkConfigurationFieldProcessor extends AbstractProcessor {
 

@@ -13,7 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.cquery;
 
-import com.google.common.base.Functions;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -57,6 +58,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -193,9 +195,9 @@ public class ConfiguredTargetQueryEnvironment
         .map(BuildConfigurationValue::getConfiguration)
         .sorted(Comparator.comparing(BuildConfiguration::checksum))
         .collect(
-            ImmutableMap.toImmutableMap(
+            toImmutableMap(
                 BuildConfiguration::checksum,
-                Functions.identity(),
+                Function.identity(),
                 ConfiguredTargetQueryEnvironment::mergeEqualBuildConfiguration));
   }
 

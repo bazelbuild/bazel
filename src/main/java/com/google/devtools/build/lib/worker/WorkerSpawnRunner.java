@@ -21,12 +21,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Multimap;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.MetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
@@ -84,35 +84,35 @@ final class WorkerSpawnRunner implements SpawnRunner {
   private final SandboxHelpers helpers;
   private final Path execRoot;
   private final WorkerPool workers;
-  private final Multimap<String, String> extraFlags;
   private final ExtendedEventHandler reporter;
   private final SpawnRunner fallbackRunner;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
   private final ResourceManager resourceManager;
   private final RunfilesTreeUpdater runfilesTreeUpdater;
+  private final WorkerOptions workerOptions;
 
   public WorkerSpawnRunner(
       SandboxHelpers helpers,
       Path execRoot,
       WorkerPool workers,
-      Multimap<String, String> extraFlags,
       ExtendedEventHandler reporter,
       SpawnRunner fallbackRunner,
       LocalEnvProvider localEnvProvider,
       BinTools binTools,
       ResourceManager resourceManager,
-      RunfilesTreeUpdater runfilesTreeUpdater) {
+      RunfilesTreeUpdater runfilesTreeUpdater,
+      WorkerOptions workerOptions) {
     this.helpers = helpers;
     this.execRoot = execRoot;
     this.workers = Preconditions.checkNotNull(workers);
-    this.extraFlags = extraFlags;
     this.reporter = reporter;
     this.fallbackRunner = fallbackRunner;
     this.localEnvProvider = localEnvProvider;
     this.binTools = binTools;
     this.resourceManager = resourceManager;
     this.runfilesTreeUpdater = runfilesTreeUpdater;
+    this.workerOptions = workerOptions;
   }
 
   @Override
@@ -193,6 +193,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
             context.getInputMapping(), spawn, context.getArtifactExpander(), execRoot);
     SandboxOutputs outputs = helpers.getOutputs(spawn);
 
+    WorkerProtocolFormat protocolFormat = Spawns.getWorkerProtocolFormat(spawn);
+    if (!workerOptions.experimentalJsonWorkerProtocol) {
+      if (protocolFormat == WorkerProtocolFormat.JSON) {
+        throw new IOException(
+            "Persistent worker protocol format must be set to proto unless"
+                + " --experimentalJsonWorkerProtocol is used");
+      }
+    }
+
     WorkerKey key =
         new WorkerKey(
             workerArgs,
@@ -202,7 +211,8 @@ final class WorkerSpawnRunner implements SpawnRunner {
             workerFilesCombinedHash,
             workerFiles,
             context.speculating(),
-            Spawns.supportsMultiplexWorkers(spawn));
+            Spawns.supportsMultiplexWorkers(spawn),
+            protocolFormat);
 
     SpawnMetrics.Builder spawnMetrics =
         SpawnMetrics.Builder.forWorkerExec()
@@ -261,11 +271,15 @@ final class WorkerSpawnRunner implements SpawnRunner {
           Code.NO_FLAGFILE);
     }
 
+    ImmutableList.Builder<String> mnemonicFlags = ImmutableList.builder();
+
+    workerOptions.workerExtraFlags.stream()
+        .filter(entry -> entry.getKey().equals(spawn.getMnemonic()))
+        .forEach(entry -> mnemonicFlags.add(entry.getValue()));
+
     return workerArgs
         .add("--persistent_worker")
-        .addAll(
-            MoreObjects.firstNonNull(
-                extraFlags.get(spawn.getMnemonic()), ImmutableList.<String>of()))
+        .addAll(MoreObjects.firstNonNull(mnemonicFlags.build(), ImmutableList.<String>of()))
         .build();
   }
 

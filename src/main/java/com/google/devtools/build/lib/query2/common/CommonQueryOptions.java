@@ -28,7 +28,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
-/** Options shared between blaze query and blaze cquery. */
+/** Options shared between blaze query implementations. */
 public class CommonQueryOptions extends OptionsBase {
 
   @Option(
@@ -108,6 +108,16 @@ public class CommonQueryOptions extends OptionsBase {
               + "all the \"nodep\" attributes in the build language.")
   public boolean includeNoDepDeps;
 
+  @Option(
+      name = "include_aspects",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.QUERY,
+      effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
+      help =
+          "aquery, cquery: whether to include aspect-generated actions in the output. "
+              + "query: no-op (aspects are always followed).")
+  public boolean useAspects;
+
   /** Return the current options as a set of QueryEnvironment settings. */
   public Set<Setting> toSettings() {
     Set<Setting> settings = EnumSet.noneOf(Setting.class);
@@ -119,6 +129,9 @@ public class CommonQueryOptions extends OptionsBase {
     }
     if (!includeNoDepDeps) {
       settings.add(Setting.NO_NODEP_DEPS);
+    }
+    if (useAspects) {
+      settings.add(Setting.INCLUDE_ASPECTS);
     }
     return settings;
   }
