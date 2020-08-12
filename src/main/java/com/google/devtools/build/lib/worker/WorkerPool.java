@@ -17,10 +17,10 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.ThreadSafe;
+import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 
 /**
  * A worker pool that spawns multiple workers and delegates work to them.
@@ -30,15 +30,20 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 final class WorkerPool {
-  private final AtomicInteger highPriorityWorkersInUse = new AtomicInteger(0);
-  private final ImmutableSet<String> highPriorityWorkerMnemonics;
-  /** Map from mnemonics to the max number of workers for that mnemonic. */
-  private final ImmutableMap<String, Integer> config;
   /**
-   * Map of worker pools. The key is the maximum number of workers to have per key. A pool can be
-   * used by several mnemonics that have the same maximum number of workers.
+   * Unless otherwise specified, the max number of workers per WorkerKey. 2 chosen to avoid
+   * overloading small machines while getting at least some parallelism.
    */
-  private final ImmutableMap<Integer, SimpleWorkerPool> pools;
+  private static final int DEFAULT_MAX_WORKERS = 2;
+  /**
+   * How many high-priority workers are currently borrowed. If greater than one, low-priority
+   * workers cannot be borrowed until the high-priority ones are done.
+   */
+  private final AtomicInteger highPriorityWorkersInUse = new AtomicInteger(0);
+  /** Which mnemonics create high-priority workers. */
+  private final ImmutableSet<String> highPriorityWorkerMnemonics;
+  /** Map of worker pools, one per mnemonic. */
+  private final ImmutableMap<String, SimpleWorkerPool> workerPools;
 
   /**
    * @param factory worker factory
@@ -49,12 +54,14 @@ final class WorkerPool {
   public WorkerPool(
       WorkerFactory factory, Map<String, Integer> config, Iterable<String> highPriorityWorkers) {
     highPriorityWorkerMnemonics = ImmutableSet.copyOf(highPriorityWorkers);
-    this.config = ImmutableMap.copyOf(config);
-    ImmutableMap.Builder<Integer, SimpleWorkerPool> poolsBuilder = ImmutableMap.builder();
-    for (Integer max : new HashSet<>(config.values())) {
-      poolsBuilder.put(max, new SimpleWorkerPool(factory, makeConfig(max)));
+    ImmutableMap.Builder<String, SimpleWorkerPool> workerPoolsBuilder = ImmutableMap.builder();
+    config.forEach(
+        (key, value) ->
+            workerPoolsBuilder.put(key, new SimpleWorkerPool(factory, makeConfig(value))));
+    if (!config.containsKey("")) {
+      workerPoolsBuilder.put("", new SimpleWorkerPool(factory, makeConfig(DEFAULT_MAX_WORKERS)));
     }
-    pools = poolsBuilder.build();
+    workerPools = workerPoolsBuilder.build();
   }
 
   private WorkerPoolConfig makeConfig(int max) {
@@ -70,8 +77,7 @@ final class WorkerPool {
     config.setMinIdlePerKey(max);
 
     // Don't limit the total number of worker processes, as otherwise the pool might be full of
-    // e.g. Java workers and could never accommodate another request for a different kind of
-    // worker.
+    // workers for one WorkerKey and can't accommodate a worker for another WorkerKey.
     config.setMaxTotal(-1);
 
     // Wait for a worker to become ready when a thread needs one.
@@ -89,15 +95,12 @@ final class WorkerPool {
   }
 
   private SimpleWorkerPool getPool(WorkerKey key) {
-    Integer max = config.get(key.getMnemonic());
-    if (max == null) {
-      max = config.get("");
-    }
-    return pools.get(max);
+    return workerPools.getOrDefault(key.getMnemonic(), workerPools.get(""));
   }
 
   /**
-   * Gets a worker.
+   * Gets a worker. May block indefinitely if too many high-priority workers are in use and the
+   * requested worker is not high priority.
    *
    * @param key worker key
    * @return a worker
@@ -168,8 +171,6 @@ final class WorkerPool {
   }
 
   public void close() {
-    for (SimpleWorkerPool pool : pools.values()) {
-      pool.close();
-    }
+    workerPools.values().forEach(GenericKeyedObjectPool::close);
   }
 }
