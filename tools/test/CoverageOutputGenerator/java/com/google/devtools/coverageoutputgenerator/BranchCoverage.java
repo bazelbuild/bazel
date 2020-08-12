@@ -14,17 +14,67 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.common.base.Verify.verify;
+import static java.lang.Math.max;
+
 import com.google.auto.value.AutoValue;
 
-/** Stores branch coverage information. */
+/**
+ * Stores branch coverage information.
+ *
+ * <p>Corresponds to either a BRDA or BA (Google only) line in an lcov report.
+ *
+ * <p>BA lines correspond to instances where blockNumber and branchNumber are set to empty Strings
+ * and have the form:
+ *
+ * <pre>BA:[line_number],[taken]</pre>
+ *
+ * In this case, nrOfExecutions() actually refers to the "taken" value where:
+ *
+ * <ul>
+ *   <li>0 = Branch was never evaluated (evaluated() == false)
+ *   <li>1 = Branch was evaluated but never taken
+ *   <li>2 = Branch was taken
+ * </ul>
+ *
+ * BRDA lines set have the form
+ *
+ * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
+ *
+ * where the block and branch numbers are internal identifiers, and taken is either "-" if the
+ * branch condition was never evaluated or a number indicating how often the branch was taken(which
+ * may be 0).
+ */
 @AutoValue
 abstract class BranchCoverage {
 
-  static BranchCoverage create(int lineNumber, long nrOfExecutions) {
+  /**
+   * Create a BranchCoverage object corresponding to a BA line
+   *
+   * <pre>BA:[line_number],[taken]</pre>
+   *
+   * @param lineNumber line number the branch comes from
+   * @param value the taken value, 0, 1, 2
+   * @return corresponding BranchCoverage
+   */
+  static BranchCoverage create(int lineNumber, long value) {
+    verify(0 <= value && value < 3, "Taken value must be one of {0, 1, 2}");
     return new AutoValue_BranchCoverage(
-        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", nrOfExecutions > 0, nrOfExecutions);
+        lineNumber, /*blockNumber=*/ "", /*branchNumber=*/ "", value > 0, value);
   }
 
+  /**
+   * Create a BranchCoverage object corresponding to a BRDA line
+   *
+   * <pre>BRDA:[line_number],[block_number],[branch_number],[taken]</pre>
+   *
+   * @param lineNumber line number the branch comes from
+   * @param blockNumber GCC internal block id
+   * @param branchNumber id for the specific branch at this line
+   * @param evaluated if this branch was evaluated (taken != "-")
+   * @param nrOfExecutions how many times the branch was taken (the value of taken if taken != "-")
+   * @return corresponding BranchCoverage
+   */
   static BranchCoverage createWithBlockAndBranch(
       int lineNumber,
       String blockNumber,
@@ -42,16 +92,29 @@ abstract class BranchCoverage {
    * the same values for {@code first} and {@code second}.
    */
   static BranchCoverage merge(BranchCoverage first, BranchCoverage second) {
-    assert first.lineNumber() == second.lineNumber();
-    assert first.blockNumber().equals(second.blockNumber());
-    assert first.branchNumber().equals(second.branchNumber());
+    verify(first.lineNumber() == second.lineNumber(), "Branch line numbers must match");
+    verify(first.blockNumber().equals(second.blockNumber()), "Branch block numbers must match");
+    verify(first.branchNumber().equals(second.branchNumber()), "Branch branch numbers must match");
+    return first.blockNumber().isEmpty()
+        ? mergeWithNoBlockAndBranch(first, second)
+        : mergeWithBlockAndBranch(first, second);
+  }
 
+  private static BranchCoverage mergeWithBlockAndBranch(
+      BranchCoverage first, BranchCoverage second) {
     return createWithBlockAndBranch(
         first.lineNumber(),
         first.blockNumber(),
         first.branchNumber(),
         first.evaluated() || second.evaluated(),
         first.nrOfExecutions() + second.nrOfExecutions());
+  }
+
+  private static BranchCoverage mergeWithNoBlockAndBranch(
+      BranchCoverage first, BranchCoverage second) {
+    long value = max(first.nrOfExecutions(), second.nrOfExecutions());
+    verify(0 <= value && value < 3, "Taken value must be one of {0, 1, 2}");
+    return create(first.lineNumber(), value);
   }
 
   abstract int lineNumber();
@@ -65,6 +128,9 @@ abstract class BranchCoverage {
   abstract long nrOfExecutions();
 
   boolean wasExecuted() {
-    return nrOfExecutions() > 0;
+    // if there's no block number then this is a BA branch so only taken if the "nrOfExecutions"
+    // value == 2 (since it refers to the BA taken value)
+    // otherwise it really is an execution count, so a count > 0 means the branch was executed
+    return blockNumber().isEmpty() ? nrOfExecutions() == 2 : nrOfExecutions() > 0;
   }
 }

@@ -23,6 +23,7 @@ import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.cr
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createLinesExecution2;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile1;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.createSourceFile2;
+import static org.junit.Assert.assertThrows;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -70,8 +71,29 @@ public class SourceFileCoverageTest {
   }
 
   @Test
-  public void testMerge() {
+  public void testMerge() throws Exception {
     assertMergedSourceFile(
         SourceFileCoverage.merge(sourceFile1, sourceFile2), linesExecution1, linesExecution2);
+  }
+
+  @Test
+  public void testIncompatibleBaBranchMergeThrows() throws Exception {
+    sourceFile1.addBranch(800, BranchCoverage.create(800, 2));
+    sourceFile1.addBranch(800, BranchCoverage.create(800, 1));
+    sourceFile2.addBranch(800, BranchCoverage.create(800, 2));
+    sourceFile2.addBranch(800, BranchCoverage.create(800, 2));
+    sourceFile2.addBranch(800, BranchCoverage.create(800, 1));
+    assertThrows(
+        IncompatibleMergeException.class, () -> SourceFileCoverage.merge(sourceFile1, sourceFile2));
+  }
+
+  @Test
+  public void testIncompatibleBrdaBranchMergeThrows() throws Exception {
+    sourceFile1.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "0", "0", true, 1));
+    sourceFile1.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "0", "1", true, 0));
+    sourceFile2.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "1", "0", true, 3));
+    sourceFile2.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "1", "1", true, 4));
+    assertThrows(
+        IncompatibleMergeException.class, () -> SourceFileCoverage.merge(sourceFile1, sourceFile2));
   }
 }
