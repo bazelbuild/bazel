@@ -230,7 +230,7 @@ public class GrpcCacheClientTest {
             remoteOptions.remoteInstanceName,
             channel.retain(),
             creds,
-            remoteOptions.remoteTimeout,
+            remoteOptions.remoteTimeout.getSeconds(),
             retrier);
     return new GrpcCacheClient(
         channel.retain(), creds, remoteOptions, retrier, DIGEST_UTIL, uploader);

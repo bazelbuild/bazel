@@ -178,7 +178,7 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
         "examples/rule/apple_rules.bzl",
         "def my_rule_impl(ctx):",
         "   dep = ctx.attr.deps[0]",
-        "   objc_provider = dep.objc",
+        "   objc_provider = dep.objc", // this is line 3
         "   return []",
         "my_rule = rule(implementation = my_rule_impl,",
         "   attrs = {",
@@ -204,11 +204,12 @@ public class ObjcStarlarkTest extends ObjcRuleTestCase {
     assertThat(e)
         .hasMessageThat()
         .contains("File \"/workspace/examples/apple_starlark/BUILD\", line 3");
-      assertThat(e).hasMessageThat().contains("my_rule(name = 'my_target')");
-      assertThat(e)
-          .hasMessageThat()
-          .contains("File \"/workspace/examples/rule/apple_rules.bzl\", line 3, in my_rule_impl");
-      assertThat(e).hasMessageThat().contains("dep.objc");
+    assertThat(e).hasMessageThat().contains("my_rule(name = 'my_target')"); // (fake source)
+    assertThat(e)
+        .hasMessageThat()
+        .contains(
+            "File \"/workspace/examples/rule/apple_rules.bzl\", line 3, column 23, in"
+                + " my_rule_impl");
     assertThat(e)
         .hasMessageThat()
         .contains(

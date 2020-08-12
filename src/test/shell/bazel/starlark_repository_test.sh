@@ -1541,12 +1541,15 @@ EOF
       && fail "Expected failure" || :
 
   # Extract the first error message printed
-  ed "${TEST_log}" <<'EOF'
-1
-/^ERROR
-.,/^[^ ]/-1w firsterror.log
-Q
-EOF
+  #
+  # ERROR: An error occurred during the fetch of repository 'this_is_the_root_cause':
+  #    Traceback (most recent call last):
+  # 	File ".../http.bzl", line 111, column 45, in _http_archive_impl
+  # 		download_info = ctx.download_and_extract(
+  # Error in download_and_extract: java.io.IOException: Error downloading \
+  #   [http://does.not.exist.example.com/some/file.tar] to ...file.tar: \
+  #   Unknown host: does.not.exist.example.com
+  awk '/^ERROR/ {on=1} on {print} /^Error/ {exit}' < "${TEST_log}" > firsterror.log
   echo; echo "first error message which should focus on the root cause";
   echo "=========="; cat firsterror.log; echo "=========="
   # We expect it to contain the root cause, and the failure ...
@@ -1573,14 +1576,8 @@ EOF
   bazel build //:it > "${TEST_log}" 2>&1 \
       && fail "Expected failure" || :
 
-  # Extract the first error message printed
-  ed "${TEST_log}" <<'EOF'
-1
-/^ERROR
-.,/^[^ ]/-1w firsterror.log
-Q
-EOF
-  echo; echo "first error message which should focus on the root cause";
+  # Extract the first error message printed (see previous awk command).
+  awk '/^ERROR/ {on=1} on {print} /^Error/ {exit}' < "${TEST_log}" > firsterror.log
   echo "=========="; cat firsterror.log; echo "=========="
   grep -q 'this_is_the_root_cause' firsterror.log \
       || fail "Root-cause repository not mentioned"

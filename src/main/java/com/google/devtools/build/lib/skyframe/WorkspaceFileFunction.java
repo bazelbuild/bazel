@@ -120,19 +120,20 @@ public class WorkspaceFileFunction implements SkyFunction {
             prevValue.getPackage(), prevValue.getLoadedModules(), prevValue.getBindings());
       }
       StarlarkFile ast = workspaceASTValue.getASTs().get(key.getIndex());
-      ImmutableMap<String, Module> loadedModules =
+      PackageFunction.BzlLoadResult bzlLoadResult =
           PackageFunction.fetchLoadsFromBuildFile(
               workspaceFile,
               rootPackage,
               /*repoMapping=*/ ImmutableMap.of(),
               ast,
+              /*preludeLabel=*/ null,
               key.getIndex(),
               env,
               bzlLoadFunctionForInlining);
-      if (loadedModules == null) {
+      if (bzlLoadResult == null) {
         return null;
       }
-      parser.execute(ast, loadedModules, key);
+      parser.execute(ast, bzlLoadResult.loadedModules, key);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     } catch (NameConflictException e) {

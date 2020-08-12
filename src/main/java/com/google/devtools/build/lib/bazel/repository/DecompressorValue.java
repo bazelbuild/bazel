@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -110,12 +110,10 @@ public class DecompressorValue implements SkyValue {
       return TarBz2Function.INSTANCE;
     } else {
       throw new RepositoryFunctionException(
-          new EvalException(
-              null,
-              String.format(
-                  "Expected a file with a .zip, .jar, .war, .tar, .tar.gz, .tgz, .tar.xz, .txz, or "
-                      + ".tar.bz2 suffix (got %s)",
-                  archivePath)),
+          Starlark.errorf(
+              "Expected a file with a .zip, .jar, .war, .tar, .tar.gz, .tgz, .tar.xz, .txz, or "
+                  + ".tar.bz2 suffix (got %s)",
+              archivePath),
           Transience.PERSISTENT);
     }
   }

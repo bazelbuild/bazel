@@ -20,7 +20,7 @@ import javax.annotation.Nullable;
 /** Stores line execution coverage information. */
 @AutoValue
 abstract class LineCoverage {
-  static LineCoverage create(int lineNumber, int executionCount, String checksum) {
+  static LineCoverage create(int lineNumber, long executionCount, String checksum) {
     return new AutoValue_LineCoverage(lineNumber, executionCount, checksum);
   }
 
@@ -34,7 +34,7 @@ abstract class LineCoverage {
 
   abstract int lineNumber();
 
-  abstract int executionCount();
+  abstract long executionCount();
   // The current geninfo implementation uses an MD5 hash as checksumming algorithm.
   @Nullable
   abstract String checksum(); // optional

@@ -617,6 +617,7 @@ message Query {
     INVALID_STARTING_CHARACTER_ERROR = 33 [(metadata) = { exit_code: 2 }];
     PREMATURE_END_OF_INPUT_ERROR = 34 [(metadata) = { exit_code: 2 }];
     SYNTAX_ERROR = 35 [(metadata) = { exit_code: 2 }];
+    OUTPUT_FORMATTER_IO_EXCEPTION = 36 [(metadata) = { exit_code: 36 }];
 
     reserved 7 to 12; // For internal use
   }
@@ -751,6 +752,22 @@ message TargetPatterns {
         [(metadata) = { exit_code: 2 }];
     TARGET_PATTERN_FILE_READ_FAILURE = 2 [(metadata) = { exit_code: 2 }];
     TARGET_PATTERN_PARSE_FAILURE = 3 [(metadata) = { exit_code: 1 }];
+    PACKAGE_NOT_FOUND = 4 [(metadata) = { exit_code: 1 }];
+    TARGET_FORMAT_INVALID = 5 [(metadata) = { exit_code: 1 }];
+    ABSOLUTE_TARGET_PATTERN_INVALID = 6 [(metadata) = { exit_code: 1 }];
+    CANNOT_DETERMINE_TARGET_FROM_FILENAME = 7 [(metadata) = { exit_code: 1 }];
+    LABEL_SYNTAX_ERROR = 8 [(metadata) = { exit_code: 1 }];
+    TARGET_CANNOT_BE_EMPTY_STRING = 9 [(metadata) = { exit_code: 1 }];
+    PACKAGE_PART_CANNOT_END_IN_SLASH = 10 [(metadata) = { exit_code: 1 }];
+    CYCLE = 11 [(metadata) = { exit_code: 1 }];
+    CANNOT_PRELOAD_TARGET = 12 [(metadata) = { exit_code: 1 }];
+    TARGETS_MISSING = 13 [(metadata) = { exit_code: 1 }];
+    RECURSIVE_TARGET_PATTERNS_NOT_ALLOWED = 14 [(metadata) = { exit_code: 1 }];
+    UP_LEVEL_REFERENCES_NOT_ALLOWED = 15 [(metadata) = { exit_code: 1 }];
+    NEGATIVE_TARGET_PATTERN_NOT_ALLOWED = 16 [(metadata) = { exit_code: 1 }];
+    TARGET_MUST_BE_A_FILE = 17 [(metadata) = { exit_code: 1 }];
+    DEPENDENCY_NOT_FOUND = 18 [(metadata) = { exit_code: 1 }];
+    PACKAGE_NAME_INVALID = 19 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -1080,11 +1097,14 @@ message PackageLoading {
         [(metadata) = { exit_code: 1 }];
     TRANSIENT_INCONSISTENT_FILESYSTEM_ERROR = 6 [(metadata) = { exit_code: 1 }];
     INVALID_NAME = 7 [(metadata) = { exit_code: 1 }];
-    PRELUDE_FILE_READ_ERROR = 8 [(metadata) = { exit_code: 1 }];
+    // was: PRELUDE_FILE_READ_ERROR. Replaced by IMPORT_STARLARK_FILE_ERROR
+    // when the prelude was changed to be loaded as a Starlark module.
+    reserved 8;
     EVAL_GLOBS_SYMLINK_ERROR = 9 [(metadata) = { exit_code: 1 }];
     IMPORT_STARLARK_FILE_ERROR = 10 [(metadata) = { exit_code: 1 }];
     PACKAGE_MISSING = 11 [(metadata) = { exit_code: 1 }];
     TARGET_MISSING = 12 [(metadata) = { exit_code: 1 }];
+    NO_SUCH_THING = 13 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;

@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Interrupted.Code;
-import com.google.devtools.build.lib.skyframe.DetailedTargetParsingException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler;
@@ -429,10 +428,10 @@ public class BuildTool {
         reportExceptionError(environmentPendingAbruptExitException);
         result.setCatastrophe();
       }
-    } catch (DetailedTargetParsingException e) {
+    } catch (TargetParsingException e) {
       detailedExitCode = e.getDetailedExitCode();
       reportExceptionError(e);
-    } catch (TargetParsingException | LoadingFailedException | ViewCreationFailedException e) {
+    } catch (LoadingFailedException | ViewCreationFailedException e) {
       detailedExitCode = DetailedExitCode.justExitCode(ExitCode.PARSING_FAILURE);
       reportExceptionError(e);
     } catch (ExitException e) {

@@ -19,16 +19,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.RuleErrorConsumer;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.StringSequenceBuilder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariablesExtension;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
@@ -155,7 +154,7 @@ public enum CompileBuildVariables {
       if (usePic
           && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
           && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-        throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
+        throw new EvalException(CcCommon.PIC_CONFIGURATION_ERROR);
       }
       return setupVariables(
           featureConfiguration,
@@ -223,7 +222,7 @@ public enum CompileBuildVariables {
     if (usePic
         && !featureConfiguration.isEnabled(CppRuleClasses.PIC)
         && !featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC)) {
-      throw new EvalException(Location.BUILTIN, CcCommon.PIC_CONFIGURATION_ERROR);
+      throw new EvalException(CcCommon.PIC_CONFIGURATION_ERROR);
     }
     return setupVariables(
         featureConfiguration,

@@ -48,7 +48,7 @@ public interface CoverageCommonApi<
             doc = "The rule context."),
         @Param(
             name = "source_attributes",
-            doc = "A list of attribute names which contain source files for this rule.",
+            doc = "A list of attribute names which contain source files processed by this rule.",
             positional = false,
             named = true,
             defaultValue = "[]",
@@ -56,8 +56,8 @@ public interface CoverageCommonApi<
         @Param(
             name = "dependency_attributes",
             doc =
-                "A list of attribute names which contain dependencies that might include "
-                    + "instrumented files.",
+                "A list of attribute names which might provide runtime dependencies (either code "
+                    + "dependencies or runfiles).",
             positional = false,
             named = true,
             defaultValue = "[]",

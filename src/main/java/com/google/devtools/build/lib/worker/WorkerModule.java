@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -141,22 +140,20 @@ public class WorkerModule extends BlazeModule {
       SpawnStrategyRegistry.Builder registryBuilder, CommandEnvironment env) {
     Preconditions.checkNotNull(workerPool);
     SandboxOptions sandboxOptions = env.getOptions().getOptions(SandboxOptions.class);
-    ImmutableMultimap<String, String> extraFlags =
-        ImmutableMultimap.copyOf(env.getOptions().getOptions(WorkerOptions.class).workerExtraFlags);
     LocalEnvProvider localEnvProvider = LocalEnvProvider.forCurrentOs(env.getClientEnv());
     WorkerSpawnRunner spawnRunner =
         new WorkerSpawnRunner(
             new SandboxHelpers(sandboxOptions.delayVirtualInputMaterialization),
             env.getExecRoot(),
             workerPool,
-            extraFlags,
             env.getReporter(),
             createFallbackRunner(env, localEnvProvider),
             localEnvProvider,
             env.getBlazeWorkspace().getBinTools(),
             env.getLocalResourceManager(),
             // TODO(buchgr): Replace singleton by a command-scoped RunfilesTreeUpdater
-            RunfilesTreeUpdater.INSTANCE);
+            RunfilesTreeUpdater.INSTANCE,
+            env.getOptions().getOptions(WorkerOptions.class));
     registryBuilder.registerStrategy(
         new WorkerSpawnStrategy(env.getExecRoot(), spawnRunner), "worker");
   }

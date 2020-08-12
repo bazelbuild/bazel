@@ -144,7 +144,7 @@ public class XcodeConfigInfo extends NativeInfo
             DottedVersion.fromString(xcodeVersion),
             Availability.UNKNOWN);
       } catch (DottedVersion.InvalidDottedVersionException e) {
-        throw new EvalException(null, e);
+        throw new EvalException(e);
       }
     }
   }

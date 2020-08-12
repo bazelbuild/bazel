@@ -94,7 +94,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
             getHostConfiguration(),
             aspect != null ? Aspect.forNative(aspect) : null,
             ImmutableMap.of(),
-            /*toolchainContext=*/ null,
+            /* toolchainContexts= */ null,
             /*useToolchainTransition=*/ false,
             /*trimmingTransitionFactory=*/ null);
 

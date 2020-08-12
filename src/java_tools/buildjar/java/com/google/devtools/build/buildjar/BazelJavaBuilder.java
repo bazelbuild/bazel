@@ -26,7 +26,9 @@ import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlu
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.nio.charset.Charset;
@@ -34,58 +36,94 @@ import java.util.Arrays;
 import java.util.List;
 
 /** The JavaBuilder main called by bazel. */
-public abstract class BazelJavaBuilder {
+public class BazelJavaBuilder {
 
   private static final String CMDNAME = "BazelJavaBuilder";
 
   /** The main method of the BazelJavaBuilder. */
   public static void main(String[] args) {
+    BazelJavaBuilder builder = new BazelJavaBuilder();
     if (args.length == 1 && args[0].equals("--persistent_worker")) {
-      System.exit(runPersistentWorker());
+      System.exit(builder.runPersistentWorker(System.in, System.out, System.err));
     } else {
-      // This is a single invocation of JavaBuilder that exits after it processed the request.
-      PrintWriter err =
-          new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()));
-      int exitCode = processRequest(Arrays.asList(args), err);
-      err.flush();
-      System.exit(exitCode);
+      System.exit(builder.runBatch(args, System.err));
     }
   }
 
-  private static int runPersistentWorker() {
+  /** Runs a single invocation of JavaBuilder (a.k.a. batch mode). */
+  private int runBatch(String[] args, PrintStream err) {
+    PrintWriter errorWriter =
+        new PrintWriter(new OutputStreamWriter(err, Charset.defaultCharset()));
+    int exitCode = parseAndProcessRequest(Arrays.asList(args), errorWriter);
+    errorWriter.flush();
+    return exitCode;
+  }
+
+  private int runPersistentWorker(InputStream in, PrintStream out, PrintStream err) {
     while (true) {
       try {
-        WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
+        WorkRequest request = WorkRequest.parseDelimitedFrom(in);
 
         if (request == null) {
           break;
         }
 
-        try (StringWriter sw = new StringWriter();
-            PrintWriter pw = new PrintWriter(sw)) {
-          int exitCode = processRequest(request.getArgumentsList(), pw);
-          WorkResponse.newBuilder()
-              .setOutput(sw.toString())
-              .setExitCode(exitCode)
-              .setRequestId(request.getRequestId())
-              .build()
-              .writeDelimitedTo(System.out);
-          System.out.flush();
-
-          // Hint to the system that now would be a good time to run a gc.  After a compile
-          // completes lots of objects should be available for collection and it should be cheap to
-          // collect them.
-          System.gc();
+        if (request.getRequestId() != 0) {
+          Thread t = createResponseThread(request, out, err);
+          t.start();
+        } else {
+          respondToRequest(request, out);
         }
       } catch (IOException e) {
-        e.printStackTrace();
+        e.printStackTrace(err);
         return 1;
       }
     }
     return 0;
   }
 
-  public static int processRequest(List<String> args, PrintWriter err) {
+  /** Creates a new {@code Thread} to process a multiplex request. */
+  @VisibleForTesting
+  public Thread createResponseThread(WorkRequest request, PrintStream out, PrintStream err) {
+    Thread currentThread = Thread.currentThread();
+    return new Thread(
+        () -> {
+          try {
+            respondToRequest(request, out);
+          } catch (IOException e) {
+            e.printStackTrace(err);
+            // In case of error, shut down the entire worker.
+            currentThread.interrupt();
+          }
+        },
+        "multiplex-request-" + request.getRequestId());
+  }
+
+  /** Responds to {@code request}, writing the {@code WorkResponse} proto to {@code out}. */
+  @VisibleForTesting
+  void respondToRequest(WorkRequest request, PrintStream out) throws IOException {
+    try (StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw)) {
+      int exitCode = parseAndProcessRequest(request.getArgumentsList(), pw);
+      WorkResponse workResponse =
+          WorkResponse.newBuilder()
+              .setOutput(sw.toString())
+              .setExitCode(exitCode)
+              .setRequestId(request.getRequestId())
+              .build();
+      synchronized (this) {
+        workResponse.writeDelimitedTo(out);
+      }
+      out.flush();
+
+      // Hint to the system that now would be a good time to run a gc.  After a compile
+      // completes lots of objects should be available for collection and it should be cheap to
+      // collect them.
+      System.gc();
+    }
+  }
+
+  public int parseAndProcessRequest(List<String> args, PrintWriter err) {
     try {
       JavaLibraryBuildRequest build = parse(args);
       try (SimpleJavaLibraryBuilder builder =
@@ -126,8 +164,6 @@ public abstract class BazelJavaBuilder {
     OptionsParser optionsParser =
         new OptionsParser(args, JavacOptions.createWithWarningsAsErrorsDefault(ImmutableList.of()));
     ImmutableList<BlazeJavaCompilerPlugin> plugins = ImmutableList.of(new ErrorPronePlugin());
-    JavaLibraryBuildRequest build =
-        new JavaLibraryBuildRequest(optionsParser, plugins, new DependencyModule.Builder());
-    return build;
+    return new JavaLibraryBuildRequest(optionsParser, plugins, new DependencyModule.Builder());
   }
 }

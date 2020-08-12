@@ -330,6 +330,7 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       String artifact,
       boolean expectMapping,
       @Nullable Integer passes,
+      boolean splitOptimizationPass,
       String... expectedlibraryJars)
       throws Exception {
     ConfiguredTarget binary = getConfiguredTarget(target);
@@ -373,16 +374,36 @@ public abstract class AndroidBuildViewTestCase extends BuildViewTestCase {
       SpawnAction lastStageAction = proguardAction;
       // Verify Obfuscation config.
       for (int pass = passes; pass > 0; pass--) {
-        Artifact lastStageOutput =
-            ActionsTestUtil.getFirstArtifactEndingWith(
-                lastStageAction.getInputs(), "Proguard_optimization_" + pass + ".jar");
-        assertWithMessage("Proguard_optimization_" + pass + ".jar is not in rule output")
-            .that(lastStageOutput)
-            .isNotNull();
-        lastStageAction = getGeneratingSpawnAction(lastStageOutput);
+        if (splitOptimizationPass) {
+          Artifact lastStageOutput =
+              ActionsTestUtil.getFirstArtifactEndingWith(
+                  lastStageAction.getInputs(), "_optimization_final_" + pass + ".jar");
+          assertWithMessage("optimization_final_" + pass + ".jar is not in rule output")
+              .that(lastStageOutput)
+              .isNotNull();
+          lastStageAction = getGeneratingSpawnAction(lastStageOutput);
+          assertThat(lastStageAction.getArguments()).contains("-runtype OPTIMIZATION_FINAL");
 
-        // Verify Optimization pass config.
-        assertThat(lastStageAction.getArguments()).contains("-runtype OPTIMIZATION");
+          lastStageOutput =
+              ActionsTestUtil.getFirstArtifactEndingWith(
+                  lastStageAction.getInputs(), "_optimization_initial_" + pass + ".jar");
+          assertWithMessage("optimization_initial_" + pass + ".jar is not in rule output")
+              .that(lastStageOutput)
+              .isNotNull();
+          lastStageAction = getGeneratingSpawnAction(lastStageOutput);
+          assertThat(lastStageAction.getArguments()).contains("-runtype OPTIMIZATION_INITIAL");
+        } else {
+          Artifact lastStageOutput =
+              ActionsTestUtil.getFirstArtifactEndingWith(
+                  lastStageAction.getInputs(), "_optimization_" + pass + ".jar");
+          assertWithMessage("Proguard_optimization_" + pass + ".jar is not in rule output")
+              .that(lastStageOutput)
+              .isNotNull();
+          lastStageAction = getGeneratingSpawnAction(lastStageOutput);
+
+          // Verify Optimization pass config.
+          assertThat(lastStageAction.getArguments()).contains("-runtype OPTIMIZATION");
+        }
         checkProguardLibJars(lastStageAction, expectedlibraryJars);
       }
 

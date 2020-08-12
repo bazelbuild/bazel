@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -120,7 +121,9 @@ public class PrepareDepsOfPatternValue implements SkyValue {
             new PrepareDepsOfPatternSkyKeyException(
                 new TargetParsingException(
                     "Negative target patterns of types other than \"targets below directory\""
-                        + " are not permitted."), targetPatternKey.toString()));
+                        + " are not permitted.",
+                    TargetPatterns.Code.NEGATIVE_TARGET_PATTERN_NOT_ALLOWED),
+                targetPatternKey.toString()));
       } else {
         resultValuesBuilder.add(new PrepareDepsOfPatternSkyKeyValue(targetPatternKey));
       }

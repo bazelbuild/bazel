@@ -43,8 +43,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
     for (Rule ruleInstance : fooPkg.getTargets(Rule.class)) {
       assertThat(ruleInstance.getTargetKind()).isEqualTo("sh_library rule");
       @SuppressWarnings("unchecked")
-      ImmutableList<Label> depsList =
-          (ImmutableList<Label>) ruleInstance.getAttributeContainer().getAttr("deps");
+      ImmutableList<Label> depsList = (ImmutableList<Label>) ruleInstance.getAttr("deps");
       allListsBuilder.add(depsList);
     }
     ImmutableList<ImmutableList<Label>> allLists = allListsBuilder.build();
@@ -77,7 +76,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
       assertThat(ruleInstance.getTargetKind()).endsWith("_test rule");
       @SuppressWarnings("unchecked")
       ImmutableList<Label> testRuntimeList =
-          (ImmutableList<Label>) ruleInstance.getAttributeContainer().getAttr("$test_runtime");
+          (ImmutableList<Label>) ruleInstance.getAttr("$test_runtime");
       allListsBuilder.add(testRuntimeList);
     }
     ImmutableList<ImmutableList<Label>> allLists = allListsBuilder.build();
@@ -149,8 +148,7 @@ public class PackageLoadingOptimizationsTest extends PackageLoadingTestCase {
     assertThat(testSuiteRuleInstance.getTargetKind()).isEqualTo("test_suite rule");
     @SuppressWarnings("unchecked")
     Collection<Label> implicitTestsAttributeValue =
-        (Collection<Label>)
-            testSuiteRuleInstance.getAttributeContainer().getAttr("$implicit_tests");
+        (Collection<Label>) testSuiteRuleInstance.getAttr("$implicit_tests");
     // The $implicit_tests attribute's value is ordered by target-name.
     assertThat(implicitTestsAttributeValue)
         .containsExactly(

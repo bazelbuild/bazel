@@ -18,9 +18,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if defined(__linux__)
-#include <sys/prctl.h>
-#endif
 #include <unistd.h>
 
 #include <cstring>
@@ -29,11 +26,6 @@
 #include <vector>
 
 #include "src/main/tools/logging.h"
-
-#if defined(__linux__) && !defined(PR_GET_CHILD_SUBREAPER)
-// https://github.com/torvalds/linux/blob/v5.7/tools/include/uapi/linux/prctl.h#L159
-#define PR_GET_CHILD_SUBREAPER 37
-#endif
 
 struct Options opt;
 
@@ -60,7 +52,6 @@ static void Usage(char *program_name, const char *fmt, ...) {
       "  -s/--stats <file>  if set, write stats in protobuf format to a file\n"
       "  -d/--debug  if set, debug info will be printed\n"
       "  --  command to run inside sandbox, followed by arguments\n");
-  // -W intentionally not documented.
   exit(EXIT_FAILURE);
 }
 
@@ -75,13 +66,12 @@ static void ParseCommandLine(const std::vector<char *> &args) {
       {"stderr", required_argument, 0, 'e'},
       {"stats", required_argument, 0, 's'},
       {"debug", no_argument, 0, 'd'},
-      {"wait_fix", no_argument, 0, 'W'},
       {0, 0, 0, 0}};
   extern char *optarg;
   extern int optind, optopt;
   int c;
 
-  while ((c = getopt_long(args.size(), args.data(), "+:gt:k:o:e:s:dW",
+  while ((c = getopt_long(args.size(), args.data(), "+:gt:k:o:e:s:d",
                           long_options, nullptr)) != -1) {
     switch (c) {
       case 'g':
@@ -123,19 +113,6 @@ static void ParseCommandLine(const std::vector<char *> &args) {
         break;
       case 'd':
         opt.debug = true;
-        break;
-      case 'W':
-#if defined(__linux__)
-        unsigned long result;  // NOLINT(runtime/int) - interface requires long
-        if (prctl(PR_GET_CHILD_SUBREAPER, &result, 0, 0, 0) == -1 &&
-            errno == EINVAL) {
-          fprintf(stderr,
-                  "warning: The \"wait for subprocesses\" feature requires "
-                  "Linux kernel version 3.4 or later.\n");
-          break;
-        }
-#endif
-        opt.wait_fix = true;
         break;
       case '?':
         Usage(args.front(), "Unrecognized argument: -%c (%d)", optopt, optind);

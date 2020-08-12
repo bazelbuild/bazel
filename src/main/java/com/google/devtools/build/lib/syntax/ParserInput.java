@@ -20,7 +20,9 @@ import java.nio.charset.StandardCharsets;
 /**
  * The apparent name and contents of a source file, for consumption by the parser. The file name
  * appears in the location information in the syntax tree, and in error messages, but the Starlark
- * interpreter will not attempt to open the file.
+ * interpreter will not attempt to open the file. However, the default behavior of {@link
+ * EvalException#getMessageWithStack} attempts to read the specified file when formatting a stack
+ * trace.
  *
  * <p>The parser consumes a stream of chars (UTF-16 codes), and the syntax positions reported by
  * {@link Node#getStartOffset} and {@link Location.column} are effectively indices into a char

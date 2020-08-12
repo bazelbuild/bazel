@@ -89,7 +89,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.objectweb.asm.Attribute;
@@ -500,9 +499,8 @@ public class Desugar {
         Iterables.concat(inputFiles.toInputFileStreams(), nestDigest.getCompanionFileProviders())) {
       String inputFilename = inputFileProvider.getBinaryPathName();
       if ("module-info.class".equals(inputFilename)
-          || (inputFilename.endsWith("/module-info.class")
-              && Pattern.matches("META-INF/versions/[0-9]+/module-info.class", inputFilename))) {
-        continue; // Drop module-info.class since it has no meaning on Android
+          || inputFilename.startsWith("META-INF/versions/")) {
+        continue; // drop module-info.class and META-INF/versions/ since d8 will drop them anyway
       }
       if (OutputFileProvider.DESUGAR_DEPS_FILENAME.equals(inputFilename)) {
         // TODO(kmb): rule out that this happens or merge input file with what's in depsCollector

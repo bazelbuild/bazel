@@ -80,6 +80,8 @@ public class BazelCcModule extends CcModule
       Sequence<?> frameworkIncludes, // <String> expected
       Sequence<?> defines, // <String> expected
       Sequence<?> localDefines, // <String> expected
+      String includePrefix,
+      String stripIncludePrefix,
       Sequence<?> userCompileFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
       String name,
@@ -101,6 +103,8 @@ public class BazelCcModule extends CcModule
         frameworkIncludes,
         defines,
         localDefines,
+        includePrefix,
+        stripIncludePrefix,
         userCompileFlags,
         ccCompilationContexts,
         name,

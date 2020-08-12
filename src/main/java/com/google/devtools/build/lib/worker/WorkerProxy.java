@@ -66,7 +66,7 @@ final class WorkerProxy extends Worker {
   @Override
   synchronized void destroy() throws IOException {
     try {
-      WorkerMultiplexerManager.removeInstance(workerKey.hashCode());
+      WorkerMultiplexerManager.removeInstance(workerKey);
     } catch (InterruptedException e) {
       logger.atWarning().withCause(e).log(
           "InterruptedException was caught while destroying multiplexer. "

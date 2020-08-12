@@ -135,14 +135,11 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         IOException ioException = callback.getIoException();
         if (ioException == null || ioException instanceof ClosedByInterruptException) {
           return reportAndCreateInterruptedResult(env);
-        } else {
-          env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-          return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
         }
+        return reportAndCreateIOExceptionResult(env, e.getMessage());
       } catch (IOException e) {
         catastrophe = false;
-        env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-        return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+        return reportAndCreateIOExceptionResult(env, e.getMessage());
       } finally {
         if (!catastrophe) {
           out.flush();
@@ -164,8 +161,7 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
         } catch (ClosedByInterruptException | InterruptedException e) {
           return reportAndCreateInterruptedResult(env);
         } catch (IOException e) {
-          env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
-          return Either.ofLeft(BlazeCommandResult.exitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR));
+          return reportAndCreateIOExceptionResult(env, e.getMessage());
         } finally {
           out.flush();
         }
@@ -208,12 +204,20 @@ public final class QueryCommand extends QueryEnvironmentBasedCommand {
             InterruptedFailureDetails.detailedExitCode(message, Interrupted.Code.QUERY)));
   }
 
+  private static Either<BlazeCommandResult, QueryEvalResult> reportAndCreateIOExceptionResult(
+      CommandEnvironment env, String message) {
+    String prefixedMessage = "I/O error: " + message;
+    env.getReporter().handle(Event.error(prefixedMessage));
+    return Either.ofLeft(
+        BlazeCommandResult.failureDetail(
+            FailureDetail.newBuilder()
+                .setMessage(prefixedMessage)
+                .setQuery(Query.newBuilder().setCode(Code.OUTPUT_FORMATTER_IO_EXCEPTION))
+                .build()));
+  }
+
   private static BlazeCommandResult finalizeBlazeCommandResult(
       ExitCode exitCode, QueryException e) {
-    if (e.getFailureDetail().isPresent()) {
-      return BlazeCommandResult.detailedExitCode(
-          DetailedExitCode.of(exitCode, e.getFailureDetail().get()));
-    }
-    return BlazeCommandResult.exitCode(exitCode);
+    return BlazeCommandResult.detailedExitCode(DetailedExitCode.of(exitCode, e.getFailureDetail()));
   }
 }

@@ -103,7 +103,9 @@ class Starlark {
           System.err.println(error);
         }
       } catch (EvalException ex) {
-        System.err.println(ex.print());
+        // TODO(adonovan): provide a SourceReader. Requires that we buffer the
+        // entire history so that line numbers don't reset in each chunk.
+        System.err.println(ex.getMessageWithStack());
       } catch (InterruptedException ex) {
         System.err.println("Interrupted");
       }
@@ -133,7 +135,7 @@ class Starlark {
       }
       return 1;
     } catch (EvalException ex) {
-      System.err.println(ex.print());
+      System.err.println(ex.getMessageWithStack());
       return 1;
     } catch (Exception e) {
       e.printStackTrace(System.err);

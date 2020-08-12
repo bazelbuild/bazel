@@ -415,7 +415,7 @@ final class ActionMetadataHandler implements MetadataHandler {
   }
 
   @Override
-  public void resetOutputs(Iterable<Artifact> outputs) {
+  public void resetOutputs(Iterable<? extends Artifact> outputs) {
     checkState(
         executionMode.get(), "resetOutputs() should only be called from within a running action.");
     for (Artifact output : outputs) {

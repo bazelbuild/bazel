@@ -285,7 +285,7 @@ final class HttpConnectorMultiplexer {
             tellParentThreadWeAreDone();
             return;
           }
-        } catch (Throwable e) {
+        } catch (Exception e) {
           // Oh no the connector failed for some reason. We won't let that interfere with our plans.
           synchronized (context) {
             context.errors.add(e);

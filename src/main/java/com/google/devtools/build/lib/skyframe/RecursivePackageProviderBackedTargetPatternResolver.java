@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
+import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -118,7 +119,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
           ? ResolvedTargets.of(target)
           : ResolvedTargets.empty();
     } catch (NoSuchThingException e) {
-      throw new TargetParsingException(e.getMessage(), e);
+      throw new TargetParsingException(e.getMessage(), e, e.getDetailedExitCode());
     }
   }
 
@@ -135,7 +136,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     } catch (NoSuchThingException e) {
       String message = TargetPatternResolverUtil.getParsingErrorMessage(
           e.getMessage(), originalPattern);
-      throw new TargetParsingException(message, e);
+      throw new TargetParsingException(message, e, e.getDetailedExitCode());
     }
   }
 
@@ -260,7 +261,9 @@ public class RecursivePackageProviderBackedTargetPatternResolver
 
     if (futures.isEmpty()) {
       return Futures.immediateFailedFuture(
-          new TargetParsingException("no targets found beneath '" + pathFragment + "'"));
+          new TargetParsingException(
+              "no targets found beneath '" + pathFragment + "'",
+              TargetPatterns.Code.TARGETS_MISSING));
     }
 
     return Futures.whenAllSucceed(futures).call(() -> null, directExecutor());

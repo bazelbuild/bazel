@@ -409,6 +409,11 @@ bool UnsetEnv(const wchar_t* name) {
   }
 }
 
+bool AddCurrentDirectoryToPATH() {
+  std::wstring path;
+  return GetEnv(L"PATH", &path) && SetEnv(L"PATH", L".;" + path);
+}
+
 bool GetCwd(Path* result) {
   static constexpr size_t kSmallBuf = MAX_PATH;
   WCHAR value[kSmallBuf];
@@ -1883,9 +1888,10 @@ int TestWrapperMain(int argc, wchar_t** argv) {
   Path test_path, exec_root, srcdir, tmpdir, test_outerr, xml_log;
   UndeclaredOutputs undecl;
   std::wstring args;
-  if (!ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
-      !PrintTestLogStartMarker() || !GetCwd(&exec_root) ||
-      !ExportUserName() || !ExportSrcPath(exec_root, &srcdir) ||
+  if (!AddCurrentDirectoryToPATH() ||
+      !ParseArgs(argc, argv, &argv0, &test_path_arg, &args) ||
+      !PrintTestLogStartMarker() || !GetCwd(&exec_root) || !ExportUserName() ||
+      !ExportSrcPath(exec_root, &srcdir) ||
       !FindTestBinary(argv0, exec_root, test_path_arg, srcdir, &test_path) ||
       !ChdirToRunfiles(exec_root, srcdir) ||
       !ExportTmpPath(exec_root, &tmpdir) || !ExportHome(tmpdir) ||

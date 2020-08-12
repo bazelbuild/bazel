@@ -58,7 +58,6 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec.VisibleForSerialization;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
-import com.google.devtools.build.lib.syntax.Sequence;
 import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.syntax.StarlarkCallable;
 import com.google.devtools.build.lib.syntax.StarlarkThread;
@@ -235,19 +234,19 @@ public class RuleClass {
      * configured target creation in cases where it can no longer continue.
      */
     final class RuleErrorException extends Exception {
-      RuleErrorException() {
+      public RuleErrorException() {
         super();
       }
 
-      RuleErrorException(String message) {
+      public RuleErrorException(String message) {
         super(message);
       }
 
-      RuleErrorException(Throwable cause) {
+      public RuleErrorException(Throwable cause) {
         super(cause);
       }
 
-      RuleErrorException(String message, Throwable cause) {
+      public RuleErrorException(String message, Throwable cause) {
         super(message, cause);
       }
     }
@@ -2324,30 +2323,6 @@ public class RuleClass {
 
     rule.setAttributeValue(configDepsAttribute, ImmutableList.copyOf(configLabels),
         /*explicit=*/false);
-  }
-
-  public void checkAttributesNonEmpty(
-      RuleErrorConsumer ruleErrorConsumer, AttributeMap attributes) {
-    for (String attributeName : attributes.getAttributeNames()) {
-      Attribute attr = attributes.getAttributeDefinition(attributeName);
-      if (!attr.isNonEmpty()) {
-        continue;
-      }
-      Object attributeValue = attributes.get(attributeName, attr.getType());
-
-      boolean isEmpty = false;
-      if (attributeValue instanceof Sequence) {
-        isEmpty = ((Sequence<?>) attributeValue).isEmpty();
-      } else if (attributeValue instanceof List<?>) {
-        isEmpty = ((List<?>) attributeValue).isEmpty();
-      } else if (attributeValue instanceof Map<?, ?>) {
-        isEmpty = ((Map<?, ?>) attributeValue).isEmpty();
-      }
-
-      if (isEmpty) {
-        ruleErrorConsumer.attributeError(attr.getName(), "attribute must be non empty");
-      }
-    }
   }
 
   /**

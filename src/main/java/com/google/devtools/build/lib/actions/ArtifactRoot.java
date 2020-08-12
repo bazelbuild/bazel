@@ -66,16 +66,30 @@ public final class ArtifactRoot implements Comparable<ArtifactRoot>, Serializabl
    * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
    */
   public static ArtifactRoot asDerivedRoot(Path execRoot, String... prefixes) {
-    Path root = execRoot;
+    PathFragment execPath = PathFragment.EMPTY_FRAGMENT;
     for (String prefix : prefixes) {
       // Tests can have empty segments here, be gentle to them.
       if (!prefix.isEmpty()) {
-        root = root.getChild(prefix);
+        execPath = execPath.getChild(prefix);
       }
     }
-    Preconditions.checkArgument(root.startsWith(execRoot));
-    Preconditions.checkArgument(!root.equals(execRoot));
-    PathFragment execPath = root.relativeTo(execRoot);
+    return asDerivedRoot(execRoot, execPath);
+  }
+
+  /**
+   * Constructs an {@link ArtifactRoot} given the execPath, relative to the execRoot.
+   *
+   * <p>Be careful with this method - all derived roots must be within the derived artifacts tree,
+   * defined in ArtifactFactory (see {@link ArtifactFactory#isDerivedArtifact(PathFragment)}).
+   */
+  public static ArtifactRoot asDerivedRoot(Path execRoot, PathFragment execPath) {
+    // Make sure that we are not creating a derived artifact under the execRoot.
+    Preconditions.checkArgument(!execPath.isEmpty(), "empty execPath");
+    Preconditions.checkArgument(
+        !execPath.getSegments().contains(".."),
+        "execPath: %s contains parent directory reference (..)",
+        execPath);
+    Path root = execRoot.getRelative(execPath);
     return INTERNER.intern(new ArtifactRoot(Root.fromPath(root), execPath, RootType.Output));
   }
 

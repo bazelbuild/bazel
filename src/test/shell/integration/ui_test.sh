@@ -441,31 +441,6 @@ function test_stdout_bundled {
         || fail "Error message not bundled"
 }
 
-function test_output_deduplicated {
-    # Verify that we suscessfully deduplicate identical messages from actions
-    bazel clean --expunge
-    bazel version
-    bazel build --curses=yes --color=yes \
-          --experimental_ui_deduplicate \
-          pkg/errorAfterWarning:failing >"${TEST_log}" 2>&1 \
-        && fail "expected failure" || :
-    expect_log_once 'Build Warning'
-    expect_log 'This is the error message'
-    expect_log 'ERROR.*//pkg/errorAfterWarning:failing'
-    expect_log 'deduplicated.*events'
-}
-
-function test_debug_deduplicated {
-    # Verify that we suscessfully deduplicate identical debug statements
-    bazel clean --expunge
-    bazel version
-    bazel build --curses=yes --color=yes \
-          --experimental_ui_deduplicate \
-          pkg/debugMessages/... >"${TEST_log}" 2>&1 || fail "Expected success"
-    expect_log_once 'static debug message'
-    expect_log 'deduplicated.*events'
-}
-
 function test_output_limit {
     # Verify that output limting works
     bazel clean --expunge
@@ -513,7 +488,6 @@ function test_error_message_despite_output_limit {
     bazel version
     bazel build --curses=yes --color=yes \
           --experimental_ui_limit_console_output=10240 \
-          --noexperimental_ui_deduplicate \
           pkg/errorAfterWarning:failing >"${TEST_log}" 2>&1 \
         && fail "expected failure" || :
     expect_log 'This is the error message'

@@ -371,6 +371,64 @@ EOF
   expect_log "Pluto is a planet"
 }
 
+function test_new_git_repository_submodules() {
+  local outer_planets_repo_dir=$TEST_TMPDIR/repos/outer-planets
+
+  # Create a workspace that clones the outer_planets repository.
+  cd $WORKSPACE_DIR
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load('@bazel_tools//tools/build_defs/repo:git.bzl', 'new_git_repository')
+new_git_repository(
+    name = "outer_planets",
+    remote = "$outer_planets_repo_dir",
+    tag = "1-submodule",
+    recursive_init_submodules = 1,
+    build_file = "//:outer_planets.BUILD",
+)
+EOF
+
+  cat > BUILD <<EOF
+exports_files(['outer_planets.BUILD'])
+EOF
+  cat > outer_planets.BUILD <<EOF
+filegroup(
+    name = "neptune",
+    srcs = ["neptune/info"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "pluto",
+    srcs = ["pluto/info"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  mkdir -p planets
+  cat > planets/BUILD <<EOF
+sh_binary(
+    name = "planet-info",
+    srcs = ["planet_info.sh"],
+    data = [
+        "@outer_planets//:neptune",
+        "@outer_planets//:pluto",
+    ],
+)
+EOF
+
+  cat > planets/planet_info.sh <<EOF
+#!/bin/sh
+cat ../outer_planets/neptune/info
+cat ../outer_planets/pluto/info
+EOF
+  chmod +x planets/planet_info.sh
+
+  bazel run //planets:planet-info >& $TEST_log \
+    || echo "Expected build/run to succeed"
+  expect_log "Neptune is a planet"
+  expect_log "Pluto is a planet"
+}
+
 function test_git_repository_not_refetched_on_server_restart() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 

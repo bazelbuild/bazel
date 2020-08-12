@@ -370,7 +370,7 @@ public class TreeArtifactValue implements HasDigest, SkyValue {
         fingerprint.addPath(childData.getKey().getParentRelativePath());
         childData.getValue().addTo(fingerprint);
 
-        // Tolerate a mix of local and remote children(b/152496153#comment80).
+        // Tolerate a mix of local and remote children (b/152496153#comment80).
         entirelyRemote &= childData.getValue().isRemote();
       }
 

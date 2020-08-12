@@ -21,8 +21,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.packages.AttributeContainer;
 import com.google.devtools.build.lib.packages.RepositoryFetchException;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.util.BazelMockCcSupport;
 import com.google.devtools.build.lib.packages.util.ResourceLoader;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -191,13 +191,12 @@ public class AndroidNdkRepositoryTest extends BuildViewTestCase {
 
     ConfiguredTargetAndData cpufeatures = getConfiguredTargetAndData("@androidndk//:cpufeatures");
     assertThat(cpufeatures).isNotNull();
-    AttributeContainer attributes =
-        cpufeatures.getTarget().getAssociatedRule().getAttributeContainer();
-    assertThat(attributes.isAttributeValueExplicitlySpecified("srcs")).isTrue();
-    assertThat(attributes.getAttr("srcs").toString())
+    Rule rule = cpufeatures.getTarget().getAssociatedRule();
+    assertThat(rule.isAttributeValueExplicitlySpecified("srcs")).isTrue();
+    assertThat(rule.getAttr("srcs").toString())
         .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.c]");
-    assertThat(attributes.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
-    assertThat(attributes.getAttr("hdrs").toString())
+    assertThat(rule.isAttributeValueExplicitlySpecified("hdrs")).isTrue();
+    assertThat(rule.getAttr("hdrs").toString())
         .isEqualTo("[@androidndk//:ndk/sources/android/cpufeatures/cpu-features.h]");
   }
 

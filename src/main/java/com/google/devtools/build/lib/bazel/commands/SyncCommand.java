@@ -246,7 +246,7 @@ public final class SyncCommand implements BlazeCommand {
 
   private static ResolvedEvent resolveBind(Rule rule) {
     String name = rule.getName();
-    Label actual = (Label) rule.getAttributeContainer().getAttr("actual");
+    Label actual = (Label) rule.getAttr("actual");
     String nativeCommand =
         "bind(name = "
             + Printer.getPrinter().repr(name)

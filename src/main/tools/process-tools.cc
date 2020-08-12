@@ -187,12 +187,12 @@ void SetTimeout(double timeout_secs) {
   }
 }
 
-int WaitChild(pid_t pid, bool wait_fix) {
+int WaitChild(pid_t pid, bool child_subreaper_enabled) {
   int err, status;
 
-  if (wait_fix) {
-    // Discard any zombies that we may get when Linux's child subreaper feature
-    // is enabled.
+  if (child_subreaper_enabled) {
+    // Discard any zombies that we may get when the child subreaper feature is
+    // enabled.
     do {
       err = wait(&status);
     } while (err != pid || (err == -1 && errno == EINTR));
@@ -209,12 +209,13 @@ int WaitChild(pid_t pid, bool wait_fix) {
   return status;
 }
 
-int WaitChildWithRusage(pid_t pid, struct rusage *rusage, bool wait_fix) {
+int WaitChildWithRusage(pid_t pid, struct rusage *rusage,
+                        bool child_subreaper_enabled) {
   int err, status;
 
-  if (wait_fix) {
-    // Discard any zombies that we may get when Linux's child subreaper feature
-    // is enabled.
+  if (child_subreaper_enabled) {
+    // Discard any zombies that we may get when the child subreaper feature is
+    // enabled.
     do {
       err = wait3(&status, 0, rusage);
     } while (err != pid || (err == -1 && errno == EINTR));

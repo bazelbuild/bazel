@@ -50,7 +50,7 @@ class MethodLibrary {
     try {
       return findExtreme(args, EvalUtils.STARLARK_COMPARATOR.reverse());
     } catch (ComparisonException e) {
-      throw new EvalException(null, e);
+      throw new EvalException(e);
     }
   }
 
@@ -67,7 +67,7 @@ class MethodLibrary {
     try {
       return findExtreme(args, EvalUtils.STARLARK_COMPARATOR);
     } catch (ComparisonException e) {
-      throw new EvalException(null, e);
+      throw new EvalException(e);
     }
   }
 
@@ -80,7 +80,7 @@ class MethodLibrary {
       Iterable<?> items = (args.size() == 1) ? Starlark.toIterable(args.get(0)) : args;
       return maxOrdering.max(items);
     } catch (NoSuchElementException ex) {
-      throw new EvalException(null, "expected at least one item", ex);
+      throw new EvalException("expected at least one item", ex);
     }
   }
 
@@ -449,10 +449,8 @@ class MethodLibrary {
       String parseable = isNegative ? "-" + digits : digits;
       return Integer.parseInt(parseable, base);
     } catch (NumberFormatException | ArithmeticException e) {
-      throw new EvalException(
-          null,
-          Starlark.format("invalid literal for int() with base %d: %r", base, stringForErrors),
-          e);
+      throw Starlark.errorf(
+          "invalid literal for int() with base %d: %s", base, Starlark.repr(stringForErrors));
     }
   }
 

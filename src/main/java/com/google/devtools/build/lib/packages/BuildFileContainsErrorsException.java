@@ -27,15 +27,17 @@ public class BuildFileContainsErrorsException extends NoSuchPackageException {
   public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier) {
     super(
         packageIdentifier,
-        "Package '" + packageIdentifier.getPackageFragment().getPathString() + "' contains errors");
+        String.format(
+            "Package '%s' contains errors",
+            packageIdentifier.getPackageFragment().getPathString()));
   }
 
   public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message) {
     super(packageIdentifier, message);
   }
 
-  public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message,
-      IOException cause) {
+  public BuildFileContainsErrorsException(
+      PackageIdentifier packageIdentifier, String message, IOException cause) {
     super(packageIdentifier, message, cause);
   }
 
@@ -54,6 +56,6 @@ public class BuildFileContainsErrorsException extends NoSuchPackageException {
 
   @Override
   public String getMessage() {
-    return String.format("%s '%s': %s", "error loading package", getPackageId(), getRawMessage());
+    return String.format("error loading package '%s': %s", getPackageId(), getRawMessage());
   }
 }

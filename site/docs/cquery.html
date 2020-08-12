@@ -315,6 +315,26 @@ cc_library(
   targets also in non-target configurations.
 </p>
 
+<h4><code>--include_aspects</code> (boolean, default=False)</h4>
+
+<p>
+  <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">Aspects</a> can add
+  additional dependencies to a build. By default, <code>cquery</code> doesn't follow aspects because
+  they make the queryable graph bigger, which uses more memory. But following them produces more
+  accurate results.
+</p>
+
+<p>
+  If you're not worried about the memory impact of large queries, enable this flag by default in
+  your bazelrc.
+</p>
+
+<p>
+  If you query with aspects disabled, you can experience a problem where target X fails while
+  building target Y but <code>cquery somepath(Y, X)</code> and <code>cquery deps(Y) | grep 'X'
+  </code> return no results because the dependency occurs through an aspect.
+</p>
+
 <h2 id='output-formats'>Output formats</h2>
 
 <p> By default, cquery outputs results in a dependency-ordered list of label and configuration pairs.
@@ -334,7 +354,7 @@ There are other options for exposing the results as well. </p>
 </p>
 
 <p>
-  For example, a target might impose a transition to the host transition on all
+  For example, a target might impose a transition to the host configuration on all
   dependencies in its <code>tools</code> attribute. These are known as attribute
   transitions. Rules can also impose transitions on their own configurations,
   known as rule class transitions. This output format outputs information about
@@ -460,22 +480,8 @@ $ bazel cquery 'somepath(//foo, //bar)' --universe_scope=//foo
 
   <li>
     <strong>No support
-      for <a href="https://docs.bazel.build/versions/master/skylark/aspects.html">aspects</a>.</strong>
-    Aspects can add additional dependencies which <code>cquery</code> will not see.
-    This can manifest as seeing a failure on target X while building target Y but a <code>cquery
-    somepath(Y, X)</code> and <code>cquery deps(Y) | grep 'X'</code> will return no results because
-    somewhere in the path between Y and X there's an aspect dependency.
-      </li>
-
-  <li>
-    <strong>No support
     for <a href="query.html#output-graph"><code>--output=graph</code></a>
       or <a href="query.html#output-xml"><code>--output=xml</code></a>.</strong>
-  </li>
-
-  <li>
-    <strong>No support for recursive target patterns (<code>
-        "/..."</code>).</strong>
   </li>
 
   <li>

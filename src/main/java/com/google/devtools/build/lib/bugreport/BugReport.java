@@ -136,6 +136,10 @@ public abstract class BugReport {
     if (sendBugReport) {
       BugReport.sendBugReport(throwable, Arrays.asList(args));
     }
+    logThrowableToConsole(throwable);
+  }
+
+  private static void logThrowableToConsole(Throwable throwable) {
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable, /* oomMessage = */ null);
     System.err.println("ERROR: " + getProductName() + " crash in async thread:");
     throwable.printStackTrace();
@@ -198,6 +202,8 @@ public abstract class BugReport {
         // Don't try to send a bug report during a crash in a test, it will throw itself.
         if (!TestType.isInTest() || !sendBugReport) {
           logCrash(throwable, sendBugReport, args);
+        } else {
+          logThrowableToConsole(throwable);
         }
         try {
           if (runtime != null) {

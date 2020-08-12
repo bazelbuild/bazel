@@ -94,7 +94,7 @@ public class PlatformInfo extends NativeInfo
       try {
         return builder.build();
       } catch (DuplicateConstraintException | ExecPropertiesException e) {
-        throw new EvalException(null, e);
+        throw new EvalException(e);
       }
     }
   }

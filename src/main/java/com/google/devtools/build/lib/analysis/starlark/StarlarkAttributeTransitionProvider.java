@@ -123,7 +123,8 @@ public class StarlarkAttributeTransitionProvider
       } catch (EvalException e) {
         eventHandler.handle(
             Event.error(
-                starlarkDefinedConfigTransition.getLocationForErrorReporting(), e.getMessage()));
+                starlarkDefinedConfigTransition.getLocationForErrorReporting(),
+                e.getMessageWithStack()));
         return ImmutableMap.of("error", buildOptions.clone());
       }
     }

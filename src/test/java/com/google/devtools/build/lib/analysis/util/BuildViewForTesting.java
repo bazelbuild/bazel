@@ -265,7 +265,7 @@ public class BuildViewForTesting {
         configuration,
         ImmutableSet.copyOf(
             getDirectPrerequisiteDependenciesForTesting(
-                    eventHandler, ct, configurations, /* toolchainContext= */ null)
+                    eventHandler, ct, configurations, /* toolchainContexts= */ null)
                 .values()));
   }
 
@@ -599,7 +599,7 @@ public class BuildViewForTesting {
           InconsistentAspectOrderException, StarlarkTransition.TransitionException {
     Collection<ConfiguredTargetAndData> configuredTargets =
         getPrerequisiteMapForTesting(
-                eventHandler, dependentTarget, configurations, /*toolchainContext=*/ null)
+                eventHandler, dependentTarget, configurations, /* toolchainContexts= */ null)
             .values();
     for (ConfiguredTargetAndData ct : configuredTargets) {
       if (ct.getTarget().getLabel().equals(desiredTarget)) {

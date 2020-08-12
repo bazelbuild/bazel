@@ -91,6 +91,10 @@ _common_attrs = {
         default = False,
         doc = "Whether to clone submodules in the repository.",
     ),
+    "recursive_init_submodules": attr.bool(
+        default = False,
+        doc = "Whether to clone submodules recursively in the repository.",
+    ),
     "verbose": attr.bool(default = False),
     "strip_prefix": attr.string(
         default = "",

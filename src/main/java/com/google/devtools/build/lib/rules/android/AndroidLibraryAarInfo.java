@@ -23,9 +23,11 @@ import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.packages.NativeProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidLibraryAarInfoApi;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.Sequence;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -37,8 +39,7 @@ import javax.annotation.Nullable;
 public class AndroidLibraryAarInfo extends NativeInfo
     implements AndroidLibraryAarInfoApi<Artifact> {
 
-  public static final NativeProvider<AndroidLibraryAarInfo> PROVIDER =
-      new NativeProvider<AndroidLibraryAarInfo>(AndroidLibraryAarInfo.class, NAME) {};
+  public static final Provider PROVIDER = new Provider();
 
   @Nullable private final Aar aar;
   private final NestedSet<Aar> transitiveAars;
@@ -139,8 +140,7 @@ public class AndroidLibraryAarInfo extends NativeInfo
         Artifact libraryClassJar,
         ImmutableList<Artifact> localProguardSpecs)
         throws InterruptedException {
-      Artifact aarOut =
-          dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
+      Artifact aarOut = dataContext.createOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
       new AarGeneratorBuilder()
           .withPrimaryResources(primaryResources)
@@ -187,6 +187,28 @@ public class AndroidLibraryAarInfo extends NativeInfo
       artifactBuilder.add(getAar()).add(getManifest());
 
       return AndroidLibraryAarInfo.create(this, aarBuilder.build(), artifactBuilder.build());
+    }
+  }
+
+  /** Provider class for {@link AndroidLibraryAarInfo} objects. */
+  public static class Provider extends BuiltinProvider<AndroidLibraryAarInfo>
+      implements AndroidLibraryAarInfoApi.Provider<Artifact> {
+
+    public Provider() {
+      super(NAME, AndroidLibraryAarInfo.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public AndroidLibraryAarInfoApi<Artifact> create(
+        Artifact aarArtifact,
+        Artifact manifest,
+        Sequence<? extends AndroidLibraryAarInfoApi<Artifact>> infosFromDeps,
+        Boolean definesLocalResources)
+        throws EvalException {
+
+      Aar aar = Aar.create(aarArtifact, manifest);
+      return aar.toProvider((Iterable<AndroidLibraryAarInfo>) infosFromDeps, definesLocalResources);
     }
   }
 }

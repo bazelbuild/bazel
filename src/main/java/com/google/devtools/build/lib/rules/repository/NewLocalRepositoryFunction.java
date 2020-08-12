@@ -160,7 +160,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
 
   private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {
     String name = rule.getName();
-    Object pathObj = rule.getAttributeContainer().getAttr("path");
+    Object pathObj = rule.getAttr("path");
     ImmutableMap.Builder<String, Object> origAttr =
         ImmutableMap.<String, Object>builder().put("name", name).put("path", pathObj);
 
@@ -171,7 +171,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
             .append(", path = ")
             .append(Printer.getPrinter().repr(pathObj));
 
-    Object buildFileObj = rule.getAttributeContainer().getAttr("build_file");
+    Object buildFileObj = rule.getAttr("build_file");
     if ((buildFileObj instanceof String) && ((String) buildFileObj).length() > 0) {
       // Build fiels might refer to an embedded file (as they to for "local_jdk"),
       // so we have to describe the argument in a portable way.
@@ -188,7 +188,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       }
       repr.append(", build_file = ").append(buildFileArg);
     } else {
-      Object buildFileContentObj = rule.getAttributeContainer().getAttr("build_file_content");
+      Object buildFileContentObj = rule.getAttr("build_file_content");
       if (buildFileContentObj != null) {
         origAttr.put("build_file_content", buildFileContentObj);
         repr.append(", build_file_content = ")
