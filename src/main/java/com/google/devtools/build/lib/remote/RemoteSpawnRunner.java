@@ -207,7 +207,6 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCacheableRemotely;
     boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCacheableRemotely;
 
-    context.report(ProgressStatus.EXECUTING, getName());
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
     final MerkleTree merkleTree =
@@ -324,7 +323,12 @@ public class RemoteSpawnRunner implements SpawnRunner {
               }
               ExecuteResponse reply;
               try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-                reply = remoteExecutor.executeRemotely(request);
+                reply = remoteExecutor.executeRemotely(request, (operation) -> {
+                  // We should have used operation.metadata to check the execution stage. But some
+                  // server implementations don't return that value. So we assume the action is
+                  // executing if we get any operation from server.
+                  context.report(ProgressStatus.EXECUTING, getName());
+                });
               }
 
               FileOutErr outErr = context.getFileOutErr();
