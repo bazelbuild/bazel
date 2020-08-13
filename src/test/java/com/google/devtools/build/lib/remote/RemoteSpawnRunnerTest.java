@@ -21,6 +21,8 @@ import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -30,9 +32,11 @@ import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutedActionMetadata;
+import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
@@ -69,6 +73,7 @@ import com.google.devtools.build.lib.exec.AbstractSpawnStrategy;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.exec.RemoteLocalFallbackRegistry;
 import com.google.devtools.build.lib.exec.SpawnRunner;
+import com.google.devtools.build.lib.exec.SpawnRunner.ProgressStatus;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.GrpcRemoteExecutor.ExecuteOperationUpdateReceiver;
@@ -88,6 +93,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.longrunning.Operation;
+import com.google.protobuf.Any;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
@@ -106,6 +113,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -1008,6 +1016,129 @@ public class RemoteSpawnRunnerTest {
     assertThat(spawnMetrics.executionWallTime()).isEqualTo(Duration.ofSeconds(1));
     // ProcessOutputs time is unspecified, assume substituted
     assertThat(spawnMetrics.processOutputsTime()).isEqualTo(Duration.ofSeconds(1));
+  }
+
+  @Test
+  public void shouldReportExecutingStatusWithoutMetadata() throws Exception {
+    RemoteSpawnRunner runner = newSpawnRunner();
+    ExecuteResponse succeeded = ExecuteResponse.newBuilder()
+        .setResult(ActionResult.newBuilder().setExitCode(0).build())
+        .build();
+
+    when(executor.executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class)))
+        .thenAnswer(invocationOnMock -> {
+          ExecuteOperationUpdateReceiver receiver = invocationOnMock.getArgument(1);
+          receiver.onNextOperation(Operation.newBuilder().build());
+          return succeeded;
+        });
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
+    when(policy.getTimeout()).thenReturn(Duration.ZERO);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+
+    verify(executor).executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class));
+    InOrder reportOrder = inOrder(policy);
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+  }
+
+  @Test
+  public void shouldReportExecutingStatusAfterGotExecutingStageFromMetadata() throws Exception {
+    RemoteSpawnRunner runner = newSpawnRunner();
+    ExecuteResponse succeeded = ExecuteResponse.newBuilder()
+        .setResult(ActionResult.newBuilder().setExitCode(0).build())
+        .build();
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
+    when(policy.getTimeout()).thenReturn(Duration.ZERO);
+
+    when(executor.executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class)))
+        .thenAnswer(invocationOnMock -> {
+          ExecuteOperationUpdateReceiver receiver = invocationOnMock.getArgument(1);
+          Operation queued = Operation.newBuilder()
+              .setMetadata(Any.pack(ExecuteOperationMetadata.newBuilder()
+                  .setStage(Value.QUEUED)
+                  .build()))
+              .build();
+          receiver.onNextOperation(queued);
+          verify(policy, never()).report(eq(ProgressStatus.EXECUTING), any(String.class));
+
+          Operation executing = Operation.newBuilder()
+              .setMetadata(Any.pack(ExecuteOperationMetadata.newBuilder()
+                  .setStage(Value.EXECUTING)
+                  .build()))
+              .build();
+          receiver.onNextOperation(executing);
+
+          return succeeded;
+        });
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+
+    verify(executor).executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class));
+    InOrder reportOrder = inOrder(policy);
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+  }
+
+  @Test
+  public void shouldReportExecutingStatusIfNoExecutingStatusFromMetadata() throws Exception {
+    RemoteSpawnRunner runner = newSpawnRunner();
+    ExecuteResponse succeeded = ExecuteResponse.newBuilder()
+        .setResult(ActionResult.newBuilder().setExitCode(0).build())
+        .build();
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
+    when(policy.getTimeout()).thenReturn(Duration.ZERO);
+
+    when(executor.executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class)))
+        .thenAnswer(invocationOnMock -> {
+          ExecuteOperationUpdateReceiver receiver = invocationOnMock.getArgument(1);
+          Operation completed = Operation.newBuilder()
+              .setMetadata(Any.pack(ExecuteOperationMetadata.newBuilder()
+                  .setStage(Value.COMPLETED)
+                  .build()))
+              .build();
+          receiver.onNextOperation(completed);
+          return succeeded;
+        });
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+
+    verify(executor).executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class));
+    InOrder reportOrder = inOrder(policy);
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+  }
+
+  @Test
+  public void shouldReportExecutingStatusEvenNoOperationFromServer() throws Exception {
+    RemoteSpawnRunner runner = newSpawnRunner();
+    ExecuteResponse succeeded = ExecuteResponse.newBuilder()
+        .setResult(ActionResult.newBuilder().setExitCode(0).build())
+        .build();
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
+    when(policy.getTimeout()).thenReturn(Duration.ZERO);
+
+    when(executor.executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class)))
+        .thenReturn(succeeded);
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+
+    verify(executor).executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class));
+    InOrder reportOrder = inOrder(policy);
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
   }
 
   private static Spawn newSimpleSpawn(Artifact... outputs) {
