@@ -1025,16 +1025,17 @@ public class RemoteSpawnRunnerTest {
         .setResult(ActionResult.newBuilder().setExitCode(0).build())
         .build();
 
-    when(executor.executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class)))
-        .thenAnswer(invocationOnMock -> {
-          ExecuteOperationUpdateReceiver receiver = invocationOnMock.getArgument(1);
-          receiver.onNextOperation(Operation.newBuilder().build());
-          return succeeded;
-        });
-
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
     when(policy.getTimeout()).thenReturn(Duration.ZERO);
+
+    when(executor.executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class)))
+        .thenAnswer(invocationOnMock -> {
+          ExecuteOperationUpdateReceiver receiver = invocationOnMock.getArgument(1);
+          verify(policy, never()).report(eq(ProgressStatus.EXECUTING), any(String.class));
+          receiver.onNextOperation(Operation.newBuilder().build());
+          return succeeded;
+        });
 
     SpawnResult res = runner.exec(spawn, policy);
     assertThat(res.status()).isEqualTo(Status.SUCCESS);
