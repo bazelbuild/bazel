@@ -50,7 +50,7 @@ import javax.annotation.Nullable;
 public class WorkspaceGlobals implements WorkspaceGlobalsApi {
 
   // Must start with a letter and can contain letters, numbers, underscores and hyphens.
-  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}[\\w-]*$");
+  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}[\\w-\\.]*$");
 
   private final boolean allowOverride;
   private final RuleFactory ruleFactory;
