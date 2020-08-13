@@ -479,21 +479,4 @@ public class BaseRuleClasses {
           .build();
     }
   }
-
-  /** Rule class for rules in error. */
-  public static final class ErrorRule implements RuleDefinition {
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
-      return builder.publicByDefault().build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$error_rule")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.BaseRule.class)
-          .build();
-    }
-  }
 }
