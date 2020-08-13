@@ -127,14 +127,13 @@ load(":lib.bzl", "tree_art_rule")
 tree_art_rule(name = "x")
 EOF
 
-  bazel build package:x --experimental_action_args \
-      || fail "Unexpected build failure"
+  bazel build package:x || fail "Unexpected build failure"
 
   cat "${PRODUCT_NAME}-bin/package/digest" | grep "a.txt.*b.txt.*c.txt" \
       || fail "rule digest does not contain tree artifact args"
 
   bazel build package:x --aspects=//package:lib.bzl%actions_test_aspect \
-      --output_groups=out --experimental_action_args
+      --output_groups=out
 
   cat "${PRODUCT_NAME}-bin/package/aspect_out" | grep "a.txt.*b.txt.*c.txt" \
       || fail "aspect Args do not contain tree artifact args"
@@ -218,14 +217,13 @@ load(":lib.bzl", "tree_art_rule")
 tree_art_rule(name = "x")
 EOF
 
-  bazel build package:x --experimental_action_args \
-      || fail "Unexpected build failure"
+  bazel build package:x || fail "Unexpected build failure"
 
   cat "${PRODUCT_NAME}-bin/package/digest" | grep "a.txt.*b.txt.*c.txt" \
       || fail "rule digest does not contain tree artifact args"
 
   bazel build package:x --aspects=//package:lib.bzl%actions_test_aspect \
-      --output_groups=out --experimental_action_args
+      --output_groups=out
 
   cat "${PRODUCT_NAME}-bin/package/raw_args_out" | grep ".params" \
       || fail "aspect Args does not contain a params file"
