@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -255,6 +256,13 @@ public final class RemoteModule extends BlazeModule {
     ReferenceCountedChannel execChannel = null;
     ReferenceCountedChannel cacheChannel = null;
     ReferenceCountedChannel downloaderChannel = null;
+
+    int poolSize = 1;
+    BuildRequestOptions buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions != null) {
+      // TODO(chiwang): Should we use a more intelligent way to calculate poolSize?
+      poolSize = (int) Math.ceil((double) buildRequestOptions.jobs / 50.0);
+    }
     if (enableRemoteExecution) {
       ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
       interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
@@ -264,7 +272,8 @@ public final class RemoteModule extends BlazeModule {
       interceptors.add(new NetworkTime.Interceptor());
       try {
         execChannel =
-            RemoteCacheClientFactory.createGrpcChannel(
+            RemoteCacheClientFactory.createGrpcChannelPool(
+                poolSize,
                 remoteOptions.remoteExecutor,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
@@ -290,7 +299,8 @@ public final class RemoteModule extends BlazeModule {
       interceptors.add(new NetworkTime.Interceptor());
       try {
         cacheChannel =
-            RemoteCacheClientFactory.createGrpcChannel(
+            RemoteCacheClientFactory.createGrpcChannelPool(
+                poolSize,
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
@@ -313,7 +323,8 @@ public final class RemoteModule extends BlazeModule {
         }
         try {
           downloaderChannel =
-              RemoteCacheClientFactory.createGrpcChannel(
+              RemoteCacheClientFactory.createGrpcChannelPool(
+                  poolSize,
                   remoteOptions.remoteDownloader,
                   remoteOptions.remoteProxy,
                   authAndTlsOptions,

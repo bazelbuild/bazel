@@ -29,9 +29,11 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import io.grpc.ClientInterceptor;
+import io.grpc.ManagedChannel;
 import io.netty.channel.unix.DomainSocketAddress;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -64,6 +66,20 @@ public final class RemoteCacheClientFactory {
       throws IOException {
     return new ReferenceCountedChannel(
         GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors));
+  }
+
+  public static ReferenceCountedChannel createGrpcChannelPool(
+      int poolSize,
+      String target,
+      String proxyUri,
+      AuthAndTLSOptions authOptions,
+      @Nullable List<ClientInterceptor> interceptors)
+      throws IOException {
+    List<ManagedChannel> channels = new ArrayList<>();
+    for (int i = 0; i < poolSize; i++) {
+      channels.add(GoogleAuthUtils.newChannel(target, proxyUri, authOptions, interceptors));
+    }
+    return new ReferenceCountedChannelPool(ImmutableList.copyOf(channels));
   }
 
   public static RemoteCacheClient create(

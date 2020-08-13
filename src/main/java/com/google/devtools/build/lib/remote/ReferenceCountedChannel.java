@@ -31,20 +31,25 @@ import java.util.concurrent.TimeUnit;
 public class ReferenceCountedChannel extends ManagedChannel implements ReferenceCounted {
 
   private final ManagedChannel channel;
-  private final AbstractReferenceCounted referenceCounted = new AbstractReferenceCounted() {
-    @Override
-    protected void deallocate() {
-      channel.shutdown();
-    }
-
-    @Override
-    public ReferenceCounted touch(Object o) {
-      return this;
-    }
-  };
+  private final AbstractReferenceCounted referenceCounted;
 
   public ReferenceCountedChannel(ManagedChannel channel) {
+    this(channel, new AbstractReferenceCounted() {
+      @Override
+      protected void deallocate() {
+        channel.shutdown();
+      }
+
+      @Override
+      public ReferenceCounted touch(Object o) {
+        return this;
+      }
+    });
+  }
+
+  protected ReferenceCountedChannel(ManagedChannel channel, AbstractReferenceCounted referenceCounted) {
     this.channel = channel;
+    this.referenceCounted = referenceCounted;
   }
 
   @Override
