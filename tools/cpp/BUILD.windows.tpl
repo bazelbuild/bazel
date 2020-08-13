@@ -49,11 +49,13 @@ cc_toolchain_suite(
     toolchains = {
         "armeabi-v7a|compiler": ":cc-compiler-armeabi-v7a",
         "x64_windows|msvc-cl": ":cc-compiler-x64_windows",
+        "x64_x86_windows|msvc-cl": ":cc-compiler-x64_x86_windows",
         "x64_windows|msys-gcc": ":cc-compiler-x64_windows_msys",
         "x64_windows|mingw-gcc": ":cc-compiler-x64_windows_mingw",
         "x64_windows|clang-cl": ":cc-compiler-x64_windows-clang-cl",
         "x64_windows_msys": ":cc-compiler-x64_windows_msys",
         "x64_windows": ":cc-compiler-x64_windows",
+        "x64_x86_windows": ":cc-compiler-x64_x86_windows",
         "armeabi-v7a": ":cc-compiler-armeabi-v7a",
     },
 )
@@ -85,8 +87,8 @@ cc_toolchain_config(
     cxx_builtin_include_directories = [%{cxx_builtin_include_directories}],
     tool_paths = {%{tool_paths}},
     tool_bin_path = "%{tool_bin_path}",
-    dbg_mode_debug_flag = "%{dbg_mode_debug_flag}",
-    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag}",
+    dbg_mode_debug_flag = "%{dbg_mode_debug_flag_x64}",
+    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_x64}",
 )
 
 toolchain(
@@ -131,8 +133,8 @@ cc_toolchain_config(
     tool_bin_path = "%{mingw_tool_bin_path}",
     cxx_builtin_include_directories = [%{mingw_cxx_builtin_include_directories}],
     tool_paths = {%{mingw_tool_paths}},
-    dbg_mode_debug_flag = "%{dbg_mode_debug_flag}",
-    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag}",
+    dbg_mode_debug_flag = "%{dbg_mode_debug_flag_x64}",
+    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_x64}",
 )
 
 toolchain(
@@ -176,29 +178,29 @@ cc_toolchain_config(
     abi_libc_version = "local",
     toolchain_identifier = "msvc_x64",
     msvc_env_tmp = "%{msvc_env_tmp}",
-    msvc_env_path = "%{msvc_env_path}",
+    msvc_env_path = "%{msvc_env_path_x64}",
     msvc_env_include = "%{msvc_env_include}",
-    msvc_env_lib = "%{msvc_env_lib}",
-    msvc_cl_path = "%{msvc_cl_path}",
-    msvc_ml_path = "%{msvc_ml_path}",
-    msvc_link_path = "%{msvc_link_path}",
-    msvc_lib_path = "%{msvc_lib_path}",
+    msvc_env_lib = "%{msvc_env_lib_x64}",
+    msvc_cl_path = "%{msvc_cl_path_x64}",
+    msvc_ml_path = "%{msvc_ml_path_x64}",
+    msvc_link_path = "%{msvc_link_path_x64}",
+    msvc_lib_path = "%{msvc_lib_path_x64}",
     cxx_builtin_include_directories = [%{msvc_cxx_builtin_include_directories}],
     tool_paths = {
-        "ar": "%{msvc_lib_path}",
-        "ml": "%{msvc_ml_path}",
-        "cpp": "%{msvc_cl_path}",
-        "gcc": "%{msvc_cl_path}",
+        "ar": "%{msvc_lib_path_x64}",
+        "ml": "%{msvc_ml_path_x64}",
+        "cpp": "%{msvc_cl_path_x64}",
+        "gcc": "%{msvc_cl_path_x64}",
         "gcov": "wrapper/bin/msvc_nop.bat",
-        "ld": "%{msvc_link_path}",
+        "ld": "%{msvc_link_path_x64}",
         "nm": "wrapper/bin/msvc_nop.bat",
         "objcopy": "wrapper/bin/msvc_nop.bat",
         "objdump": "wrapper/bin/msvc_nop.bat",
         "strip": "wrapper/bin/msvc_nop.bat",
     },
     default_link_flags = ["/MACHINE:X64"],
-    dbg_mode_debug_flag = "%{dbg_mode_debug_flag}",
-    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag}",
+    dbg_mode_debug_flag = "%{dbg_mode_debug_flag_x64}",
+    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_x64}",
 )
 
 toolchain(
@@ -212,6 +214,71 @@ toolchain(
         "@platforms//os:windows",
     ],
     toolchain = ":cc-compiler-x64_windows",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+cc_toolchain(
+    name = "cc-compiler-x64_x86_windows",
+    toolchain_identifier = "msvc_x64_x86",
+    toolchain_config = ":msvc_x64_x86",
+    all_files = ":empty",
+    ar_files = ":empty",
+    as_files = ":msvc_compiler_files",
+    compiler_files = ":msvc_compiler_files",
+    dwp_files = ":empty",
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    strip_files = ":empty",
+    supports_param_files = 1,
+)
+
+cc_toolchain_config(
+    name = "msvc_x64_x86",
+    cpu = "x64_windows",
+    compiler = "msvc-cl",
+    host_system_name = "local",
+    target_system_name = "local",
+    target_libc = "msvcrt",
+    abi_version = "local",
+    abi_libc_version = "local",
+    toolchain_identifier = "msvc_x64_x86",
+    msvc_env_tmp = "%{msvc_env_tmp}",
+    msvc_env_path = "%{msvc_env_path_x86}",
+    msvc_env_include = "%{msvc_env_include}",
+    msvc_env_lib = "%{msvc_env_lib_x86}",
+    msvc_cl_path = "%{msvc_cl_path_x86}",
+    msvc_ml_path = "%{msvc_ml_path_x86}",
+    msvc_link_path = "%{msvc_link_path_x86}",
+    msvc_lib_path = "%{msvc_lib_path_x86}",
+    cxx_builtin_include_directories = [%{msvc_cxx_builtin_include_directories}],
+    tool_paths = {
+        "ar": "%{msvc_lib_path_x86}",
+        "ml": "%{msvc_ml_path_x86}",
+        "cpp": "%{msvc_cl_path_x86}",
+        "gcc": "%{msvc_cl_path_x86}",
+        "gcov": "wrapper/bin/msvc_nop.bat",
+        "ld": "%{msvc_link_path_x86}",
+        "nm": "wrapper/bin/msvc_nop.bat",
+        "objcopy": "wrapper/bin/msvc_nop.bat",
+        "objdump": "wrapper/bin/msvc_nop.bat",
+        "strip": "wrapper/bin/msvc_nop.bat",
+    },
+    default_link_flags = ["/MACHINE:X86"],
+    dbg_mode_debug_flag = "%{dbg_mode_debug_flag_x86}",
+    fastbuild_mode_debug_flag = "%{fastbuild_mode_debug_flag_x86}",
+)
+
+toolchain(
+    name = "cc-toolchain-x64_x86_windows",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_32",
+        "@platforms//os:windows",
+    ],
+    toolchain = ":cc-compiler-x64_x86_windows",
     toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
 )
 
