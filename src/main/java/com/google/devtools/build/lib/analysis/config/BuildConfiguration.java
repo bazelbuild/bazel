@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineLimits;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.analysis.actions.Compression;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
@@ -710,14 +709,6 @@ public class BuildConfiguration implements BuildConfigurationApi {
 
   public List<Label> getActionListeners() {
     return options.actionListeners;
-  }
-
-  /**
-   * Returns whether FileWriteAction may transparently compress its contents in the analysis phase
-   * to save memory. Semantics are not affected.
-   */
-  public Compression transparentCompression() {
-    return Compression.fromBoolean(options.transparentCompression);
   }
 
   /**
