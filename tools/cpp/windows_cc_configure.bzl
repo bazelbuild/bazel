@@ -298,7 +298,7 @@ def _is_support_winsdk_selection(repository_ctx, vc_path):
             return True
     return False
 
-def setup_vc_env_vars(repository_ctx, vc_path, target_arch, envvars = [], allow_empty = False, escape = True):
+def setup_vc_env_vars(repository_ctx, vc_path, target_arch = "x64", envvars = [], allow_empty = False, escape = True):
     """Get environment variables set by VCVARSALL.BAT script. Doesn't %-escape the result!
 
     Args:
@@ -406,7 +406,7 @@ def _get_winsdk_full_version(repository_ctx):
     """Return the value of BAZEL_WINSDK_FULL_VERSION if defined, otherwise an empty string."""
     return _get_env_var(repository_ctx, "BAZEL_WINSDK_FULL_VERSION", default = "")
 
-def _find_msvc_tools(repository_ctx, vc_path, target_arch):
+def _find_msvc_tools(repository_ctx, vc_path, target_arch = "x64"):
     """Find the exact paths of the build tools in MSVC for the given target. Doesn't %-escape the result."""
     build_tools_paths = {}
     tools = _get_target_tools(target_arch)
@@ -414,7 +414,7 @@ def _find_msvc_tools(repository_ctx, vc_path, target_arch):
         build_tools_paths[tool_name] = find_msvc_tool(repository_ctx, vc_path, tools[tool_name], target_arch)
     return build_tools_paths
     
-def find_msvc_tool(repository_ctx, vc_path, tool, target_arch):
+def find_msvc_tool(repository_ctx, vc_path, tool, target_arch = "x64"):
     """Find the exact path of a specific build tool in MSVC. Doesn't %-escape the result."""
     tool_path = None
     if _is_vs_2017_or_2019(vc_path) or _is_msbuildtools(vc_path):
@@ -431,7 +431,7 @@ def find_msvc_tool(repository_ctx, vc_path, tool, target_arch):
 
     return tool_path.replace("\\", "/")
 
-def _find_missing_vc_tools(repository_ctx, vc_path, target_arch):
+def _find_missing_vc_tools(repository_ctx, vc_path, target_arch = "x64"):
     """Check if any required tool for the given target architecture is missing under given VC path."""
     missing_tools = []
     if not _find_vcvars_bat_script(repository_ctx, vc_path):
@@ -549,7 +549,7 @@ def _get_msys_mingw_vars(repository_ctx):
     }
     return msys_mingw_vars
 
-def _get_msvc_vars(repository_ctx, paths, target_arch):
+def _get_msvc_vars(repository_ctx, paths, target_arch = "x64"):
     """Get the variables we need to populate the MSVC toolchains."""
     msvc_vars = dict()
     vc_path = find_vc_path(repository_ctx)
