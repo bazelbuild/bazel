@@ -37,7 +37,9 @@ public class ToggledKwargsParam implements StarlarkValue {
       },
       extraPositionals = @Param(name = "args"),
       extraKeywords =
-          @Param(name = "kwargs", enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_ACTION_ARGS),
+          @Param(
+              name = "kwargs",
+              enableOnlyWithFlag = FlagIdentifier.EXPERIMENTAL_GOOGLE_LEGACY_API),
       useStarlarkThread = true)
   public String toggledKwargsMethod(
       String one, Integer two, Sequence<?> args, Dict<?, ?> kwargs, StarlarkThread thread) {
