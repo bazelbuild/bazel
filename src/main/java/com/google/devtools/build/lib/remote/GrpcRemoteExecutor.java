@@ -92,7 +92,7 @@ class GrpcRemoteExecutor {
   }
 
   interface ExecuteOperationUpdateReceiver {
-    void onNextOperation(Operation o);
+    void onNextOperation(Operation o) throws IOException;
   }
 
   /* Execute has two components: the Execute call and (optionally) the WaitExecution call.

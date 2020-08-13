@@ -28,9 +28,11 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Command;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutedActionMetadata;
+import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
 import build.bazel.remote.execution.v2.Platform;
 import com.google.common.annotations.VisibleForTesting;
@@ -64,6 +66,7 @@ import com.google.devtools.build.lib.exec.SpawnRunner;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.GrpcRemoteExecutor.ExecuteOperationUpdateReceiver;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -79,6 +82,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.longrunning.Operation;
 import com.google.protobuf.Any;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.Message;
@@ -199,6 +203,42 @@ public class RemoteSpawnRunner implements SpawnRunner {
     return "remote";
   }
 
+  class ExecutingStatusReporter implements ExecuteOperationUpdateReceiver {
+    private boolean reportedExecuting = false;
+    private SpawnExecutionContext context;
+
+    ExecutingStatusReporter(SpawnExecutionContext context) {
+      this.context = context;
+    }
+
+    @Override
+    public void onNextOperation(Operation o) throws IOException {
+      if (!reportedExecuting) {
+        if (o.hasMetadata()) {
+          ExecuteOperationMetadata metadata = o.getMetadata().unpack(ExecuteOperationMetadata.class);
+          if (metadata.getStage() == Value.EXECUTING) {
+            reportExecuting();
+          }
+        } else {
+          // If the server didn't return metadata, we can't know the accurate execution status, so
+          // assuming that the action is accepted by the server and will be executed ASAP.
+          reportExecuting();
+        }
+      }
+    }
+
+    public void reportExecuting() {
+      context.report(ProgressStatus.EXECUTING, getName());
+      reportedExecuting = true;
+    }
+
+    public void reportExecutingIfNot() {
+      if (!reportedExecuting) {
+        reportExecuting();
+      }
+    }
+  }
+
   @Override
   public SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
@@ -207,6 +247,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     boolean uploadLocalResults = remoteOptions.remoteUploadLocalResults && spawnCacheableRemotely;
     boolean acceptCachedResult = remoteOptions.remoteAcceptCached && spawnCacheableRemotely;
 
+    context.report(ProgressStatus.SCHEDULING, getName());
     RemoteOutputsMode remoteOutputsMode = remoteOptions.remoteOutputsMode;
     SortedMap<PathFragment, ActionInput> inputMap = context.getInputMapping();
     final MerkleTree merkleTree =
@@ -321,21 +362,15 @@ public class RemoteSpawnRunner implements SpawnRunner {
                 spawnMetrics.setUploadTime(
                     uploadTime.elapsed().minus(networkTime.getDuration().minus(networkTimeStart)));
               }
-              final AtomicBoolean reportedExecuting =
-                  new AtomicBoolean(false);
+
+              ExecutingStatusReporter reporter = new ExecutingStatusReporter(context);
               ExecuteResponse reply;
               try (SilentCloseable c = prof.profile(REMOTE_EXECUTION, "execute remotely")) {
-                reply = remoteExecutor.executeRemotely(request, (operation) -> {
-                  if (!reportedExecuting.get()) {
-                    reportedExecuting.set(true);
-
-                    // We should have used operation.metadata to check the execution stage. But some
-                    // server implementations don't return that value. So we assume the action is
-                    // executing if we get any operation from server.
-                    context.report(ProgressStatus.EXECUTING, getName());
-                  }
-                });
+                reply = remoteExecutor.executeRemotely(request, reporter);
               }
+              // In case of replies from server contains metadata, but none of them has EXECUTING status.
+              // It's already late at this stage, but we should at least report once.
+              reporter.reportExecutingIfNot();
 
               FileOutErr outErr = context.getFileOutErr();
               String message = reply.getMessage();
