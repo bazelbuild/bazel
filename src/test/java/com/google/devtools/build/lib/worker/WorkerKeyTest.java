@@ -52,8 +52,8 @@ public class WorkerKeyTest {
     assertThat(workerKey.getProxied()).isEqualTo(true);
     assertThat(WorkerKey.makeWorkerTypeName(false)).isEqualTo("worker");
     assertThat(WorkerKey.makeWorkerTypeName(true)).isEqualTo("multiplex-worker");
-    // Hash code contains args, env, execRoot, and mnemonic.
-    assertThat(workerKey.hashCode()).isEqualTo(322455166);
+    // Hash code contains args, env, execRoot, proxied, and mnemonic.
+    assertThat(workerKey.hashCode()).isEqualTo(1434805936);
     assertThat(workerKey.getProtocolFormat()).isEqualTo(WorkerProtocolFormat.PROTO);
   }
 }

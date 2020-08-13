@@ -23,18 +23,21 @@ import javax.annotation.concurrent.ThreadSafe;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 
 /**
- * A worker pool that spawns multiple workers and delegates work to them.
+ * A worker pool that spawns multiple workers and delegates work to them. Allows separate
+ * configuration for singleplex and multiplex workers. While the configuration is per mnemonic, the
+ * actual pools need to be per WorkerKey, as different WorkerKeys may imply different process
+ * startup options.
  *
  * <p>This is useful when the worker cannot handle multiple parallel requests on its own and we need
- * to pre-fork a couple of them instead.
+ * to pre-fork a couple of them instead. Multiplex workers <em>can</em> handle multiple parallel
+ * requests, but do so through WorkerProxy instances.
  */
 @ThreadSafe
 final class WorkerPool {
-  /**
-   * Unless otherwise specified, the max number of workers per WorkerKey. 2 chosen to avoid
-   * overloading small machines while getting at least some parallelism.
-   */
-  private static final int DEFAULT_MAX_WORKERS = 2;
+  /** Unless otherwise specified, the max number of workers per WorkerKey. */
+  private static final int DEFAULT_MAX_WORKERS = 4;
+  /** Unless otherwise specified, the max number of multiplex workers per WorkerKey. */
+  private static final int DEFAULT_MAX_MULTIPLEX_WORKERS = 8;
   /**
    * How many high-priority workers are currently borrowed. If greater than one, low-priority
    * workers cannot be borrowed until the high-priority ones are done.
@@ -42,29 +45,41 @@ final class WorkerPool {
   private final AtomicInteger highPriorityWorkersInUse = new AtomicInteger(0);
   /** Which mnemonics create high-priority workers. */
   private final ImmutableSet<String> highPriorityWorkerMnemonics;
-  /** Map of worker pools, one per mnemonic. */
+  /** Map of singleplex worker pools, one per mnemonic. */
   private final ImmutableMap<String, SimpleWorkerPool> workerPools;
+  /** Map of multiplex worker pools, one per mnemonic. */
+  private final ImmutableMap<String, SimpleWorkerPool> multiplexPools;
 
   /**
    * @param factory worker factory
-   * @param config pool configuration; max number of workers per worker mnemonic; the empty string
-   *     key specifies the default maximum
+   * @param config pool configuration; max number of workers per WorkerKey for each mnemonic; the
+   *     empty string key specifies the default maximum
+   * @param multiplexConfig like {@code config}, but for multiplex workers
    * @param highPriorityWorkers mnemonics of high priority workers
    */
   public WorkerPool(
-      WorkerFactory factory, Map<String, Integer> config, Iterable<String> highPriorityWorkers) {
+      WorkerFactory factory,
+      Map<String, Integer> config,
+      Map<String, Integer> multiplexConfig,
+      Iterable<String> highPriorityWorkers) {
     highPriorityWorkerMnemonics = ImmutableSet.copyOf(highPriorityWorkers);
+    workerPools = createWorkerPools(factory, config, DEFAULT_MAX_WORKERS);
+    multiplexPools = createWorkerPools(factory, multiplexConfig, DEFAULT_MAX_MULTIPLEX_WORKERS);
+  }
+
+  private static ImmutableMap<String, SimpleWorkerPool> createWorkerPools(
+      WorkerFactory factory, Map<String, Integer> config, int defaultMaxWorkers) {
     ImmutableMap.Builder<String, SimpleWorkerPool> workerPoolsBuilder = ImmutableMap.builder();
     config.forEach(
         (key, value) ->
             workerPoolsBuilder.put(key, new SimpleWorkerPool(factory, makeConfig(value))));
     if (!config.containsKey("")) {
-      workerPoolsBuilder.put("", new SimpleWorkerPool(factory, makeConfig(DEFAULT_MAX_WORKERS)));
+      workerPoolsBuilder.put("", new SimpleWorkerPool(factory, makeConfig(defaultMaxWorkers)));
     }
-    workerPools = workerPoolsBuilder.build();
+    return workerPoolsBuilder.build();
   }
 
-  private WorkerPoolConfig makeConfig(int max) {
+  private static WorkerPoolConfig makeConfig(int max) {
     WorkerPoolConfig config = new WorkerPoolConfig();
 
     // It's better to re-use a worker as often as possible and keep it hot, in order to profit
@@ -95,7 +110,11 @@ final class WorkerPool {
   }
 
   private SimpleWorkerPool getPool(WorkerKey key) {
-    return workerPools.getOrDefault(key.getMnemonic(), workerPools.get(""));
+    if (key.getProxied()) {
+      return multiplexPools.getOrDefault(key.getMnemonic(), multiplexPools.get(""));
+    } else {
+      return workerPools.getOrDefault(key.getMnemonic(), workerPools.get(""));
+    }
   }
 
   /**
@@ -172,5 +191,6 @@ final class WorkerPool {
 
   public void close() {
     workerPools.values().forEach(GenericKeyedObjectPool::close);
+    multiplexPools.values().forEach(GenericKeyedObjectPool::close);
   }
 }
