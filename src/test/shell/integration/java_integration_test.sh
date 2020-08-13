@@ -880,7 +880,7 @@ EOF
 
   bazel build "${package}:x" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args
+      --output_groups=out
 
   cat "${PRODUCT_NAME}-bin/${package}/aspect_out" | grep "0.params .*1.params" \
       || fail "aspect Args do not contain both params files"
