@@ -80,11 +80,12 @@ import javax.annotation.Nullable;
  * transitive digest information. If loading is unsuccessful, throws a {@link
  * BzlLoadFunctionException} that encapsulates the cause of the failure.
  *
- * <p>This Skyframe function supports a special "inlining" mode in which all (indirectly) recursive
- * calls to {@code BzlLoadFunction} are made in the same thread rather than through Skyframe. The
- * inlining mode's entry point is {@link #computeInline}; see that method for more details. Note
- * that it may only be called on an instance of this Skyfunction created by {@link
- * #createForInlining}.
+ * <p>This Skyframe function supports a special bzl "inlining" mode in which all (indirectly)
+ * recursive calls to {@code BzlLoadFunction} are made in the same thread rather than through
+ * Skyframe. This inlining mode's entry point is {@link #computeInline}; see that method for more
+ * details. Note that it may only be called on an instance of this Skyfunction created by {@link
+ * #createForInlining}. Bzl inlining is not to be confused with the separate inlining of {@code
+ * ASTFileLookupFunction}
  */
 public class BzlLoadFunction implements SkyFunction {
 
@@ -215,9 +216,8 @@ public class BzlLoadFunction implements SkyFunction {
    *       need inline Starlark computation, consult with the Core subteam and check out
    *       cl/305127325 for an example of correcting a misuse.
    *   <li>If this method is used with --keep_going and if Skyframe evaluation will never be
-   *       interrupted, then this function ensures that the evaluation graph is deterministic, even
-   *       though the error reporting is non-deterministic. In particular, dependencies are always
-   *       run to completion or error, but if errors exist it is unspecified which one is returned.
+   *       interrupted, then this function ensures that the evaluation graph and any error reported
+   *       are deterministic.
    * </ul>
    *
    * <p>Under bzl inlining, there is some calling context that wants to obtain a set of {@link
@@ -384,7 +384,7 @@ public class BzlLoadFunction implements SkyFunction {
   }
 
   /**
-   * An opaque object that holds state for the inlining computation initiated by {@link
+   * An opaque object that holds state for the bzl inlining computation initiated by {@link
    * #computeInline}.
    *
    * <p>An original caller of {@code computeInline} (e.g., {@link PackageFunction}) should obtain
@@ -480,7 +480,9 @@ public class BzlLoadFunction implements SkyFunction {
     }
   }
 
-  /** Entry point for compute logic that's common to both inlining and non-inlining code paths. */
+  /**
+   * Entry point for compute logic that's common to both (bzl) inlining and non-inlining code paths.
+   */
   // It is vital that we don't return any value if any call to env#getValue(s)OrThrow throws an
   // exception. We are allowed to wrap the thrown exception and rethrow it for any calling functions
   // to handle though.
@@ -631,8 +633,8 @@ public class BzlLoadFunction implements SkyFunction {
     // TODO(bazel-team): In case of a failed load(), we should report the location of the load()
     // statement in the requesting file, e.g. using
     // file.getLoadStatements().get(...).getStartLocation(). We should also probably catch and
-    // rethrow InconsistentFilesystemException with location info in the non-inlining code path so
-    // the error message is the same in both code paths.
+    // rethrow InconsistentFilesystemException with location info in the non-bzl-inlining code path
+    // so the error message is the same in both code paths.
     List<BzlLoadValue> bzlLoads =
         inliningState == null
             ? computeBzlLoadsWithSkyframe(env, loadKeys, file)
@@ -821,11 +823,17 @@ public class BzlLoadFunction implements SkyFunction {
 
     List<BzlLoadValue> bzlLoads = Lists.newArrayListWithExpectedSize(keys.size());
     // For the sake of ensuring the graph structure is deterministic, we need to request all of our
-    // deps, even if some of them yield errors. The first exception that is non-deterministically
-    // seen gets deferred, to be raised after the loop. All other exceptions are swallowed.
+    // deps, even if some of them yield errors. The first exception that is seen gets deferred, to
+    // be raised after the loop. All other exceptions are swallowed.
     //
-    // This approach assumes --keep_going, so that any incomplete deps finish on their own. It also
-    // assumes InterruptedException does not occur, since we don't catch and defer it below.
+    // To see how immediately returning the first error leads to non-determinism, consider the case
+    // of two dependencies A and B, where A is in error and appears in a load statement above B.
+    // If A has completed at the time we request it, and if we were to immediately propagate that
+    // error, we never request B. On the other hand, if A is missing (null return), we do request B
+    // in the meantime for the sake of parallelism.
+    //
+    // This approach assumes --keep_going; determinism is not guaranteed otherwise. It also assumes
+    // InterruptedException does not occur, since we don't catch and defer it.
     Exception deferredException = null;
     boolean valuesMissing = false;
     // NOTE: Iterating over loads in the order listed in the file.
