@@ -298,16 +298,16 @@ def _is_support_winsdk_selection(repository_ctx, vc_path):
             return True
     return False
 
-def setup_vc_env_vars(repository_ctx, vc_path, target_arch = "x64", envvars = [], allow_empty = False, escape = True):
+def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False, escape = True, target_arch = "x64"):
     """Get environment variables set by VCVARSALL.BAT script. Doesn't %-escape the result!
 
     Args:
         repository_ctx: the repository_ctx object
         vc_path: Visual C++ root directory
-        target_arch: the target architecture
         envvars: list of envvars to retrieve; default is ["PATH", "INCLUDE", "LIB", "WINDOWSSDKDIR"]
         allow_empty: allow unset envvars; if False then report errors for those
-        escape: if True, escape "\" as "\\" and "%" as "%%" in the envvar values
+        escape: if True, escape "\" as "\\" and "%" as "%%" in the envvar values,
+        target_arch: the target architecture
 
     Returns:
         dictionary of the envvars
@@ -594,7 +594,7 @@ def _get_msvc_vars(repository_ctx, paths, target_arch = "x64"):
         }
         return msvc_vars
 
-    env = setup_vc_env_vars(repository_ctx, vc_path, target_arch)
+    env = setup_vc_env_vars(repository_ctx, vc_path, target_arch = target_arch)
     escaped_tmp_dir = escape_string(_get_temp_env(repository_ctx).replace("\\", "\\\\"))
     escaped_include_paths = escape_string(env["INCLUDE"])
     
