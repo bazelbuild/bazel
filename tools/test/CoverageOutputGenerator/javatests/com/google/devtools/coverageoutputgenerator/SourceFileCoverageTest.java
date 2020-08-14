@@ -14,6 +14,7 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedFunctionsExecution;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedLineNumbers;
 import static com.google.devtools.coverageoutputgenerator.LcovMergerTestUtils.assertMergedLines;
@@ -95,5 +96,43 @@ public class SourceFileCoverageTest {
     sourceFile2.addBranch(800, BranchCoverage.createWithBlockAndBranch(800, "1", "1", true, 4));
     assertThrows(
         IncompatibleMergeException.class, () -> SourceFileCoverage.merge(sourceFile1, sourceFile2));
+  }
+
+  @Test
+  public void testDifferentLinesReportedAreMergeable() throws Exception {
+    sourceFile1 = new SourceFileCoverage("source");
+    sourceFile2 = new SourceFileCoverage("source");
+    sourceFile1.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "0", "0", true, 1));
+    sourceFile1.addBranch(1, BranchCoverage.createWithBlockAndBranch(1, "0", "1", true, 1));
+    sourceFile1.addLine(1, LineCoverage.create(1, 2, ""));
+    sourceFile1.addLine(2, LineCoverage.create(2, 1, ""));
+    sourceFile1.addLine(3, LineCoverage.create(3, 1, ""));
+
+    sourceFile2.addBranch(30, BranchCoverage.createWithBlockAndBranch(30, "0", "0", true, 3));
+    sourceFile2.addBranch(30, BranchCoverage.createWithBlockAndBranch(30, "0", "1", true, 0));
+    sourceFile2.addBranch(30, BranchCoverage.createWithBlockAndBranch(30, "0", "2", true, 1));
+    sourceFile2.addLine(30, LineCoverage.create(30, 4, ""));
+    sourceFile2.addLine(31, LineCoverage.create(31, 3, ""));
+    sourceFile2.addLine(32, LineCoverage.create(32, 0, ""));
+    sourceFile2.addLine(33, LineCoverage.create(33, 1, ""));
+
+    SourceFileCoverage merged = SourceFileCoverage.merge(sourceFile1, sourceFile2);
+    assertThat(merged.getAllBranches())
+        .containsExactly(
+            BranchCoverage.createWithBlockAndBranch(1, "0", "0", true, 1),
+            BranchCoverage.createWithBlockAndBranch(1, "0", "1", true, 1),
+            BranchCoverage.createWithBlockAndBranch(30, "0", "0", true, 3),
+            BranchCoverage.createWithBlockAndBranch(30, "0", "1", true, 0),
+            BranchCoverage.createWithBlockAndBranch(30, "0", "2", true, 1));
+
+    assertThat(merged.getAllLineExecution())
+        .containsExactly(
+            LineCoverage.create(1, 2, ""),
+            LineCoverage.create(2, 1, ""),
+            LineCoverage.create(3, 1, ""),
+            LineCoverage.create(30, 4, ""),
+            LineCoverage.create(31, 3, ""),
+            LineCoverage.create(32, 0, ""),
+            LineCoverage.create(33, 1, ""));
   }
 }
