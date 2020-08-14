@@ -30,10 +30,11 @@ import java.util.List;
 
 /**
  * A "config" query expression for cquery. The first argument is the expression to be evaluated. The
- * second argument is either "host", "target", or "null" to specify which configuration the
- * user is seeking to query in. If some but not all results of expr can be found in the specified
- * config, then the subset that can be is returned. If no results of expr can be found in the
- * specified config, then an error is thrown.
+ * second argument is either "host", "target", "null", or an arbitrary configuration's hash (the
+ * same hash cquery annotates label outputs with) to specify which configuration the user is seeking
+ * to query in. If some but not all results of expr can be found in the specified config, the subset
+ * that can be is returned. If no results of expr can be found in the specified config, an error is
+ * thrown.
  *
  * <pre> expr ::= CONFIG '(' expr ',' word ')'</pre>
  */
