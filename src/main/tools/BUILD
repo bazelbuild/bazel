@@ -58,6 +58,12 @@ cc_binary(
         "//src/conditions:windows": ["build-runfiles-windows.cc"],
         "//conditions:default": ["build-runfiles.cc"],
     }),
+    linkopts = select({
+        "//src/conditions:windows": [
+            "-DEFAULTLIB:advapi32.lib",  # RegGetValueW
+        ],
+        "//conditions:default": [],
+    }),
     deps = ["//src/main/cpp/util:filesystem"] + select({
         "//src/conditions:windows": ["//src/main/native/windows:lib-file"],
         "//conditions:default": [],
