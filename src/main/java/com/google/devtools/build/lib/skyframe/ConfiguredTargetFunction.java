@@ -932,12 +932,12 @@ public final class ConfiguredTargetFunction implements SkyFunction {
       aliasPackageValues = env.getValues(aliasPackagesToFetch);
       depsToProcess = aliasDepsToRedo;
     }
-    if (missedValues) {
-      return null;
-    } else if (failWithMessage != null) {
+    if (failWithMessage != null) {
       throw new DependencyEvaluationException(
           new ConfiguredValueCreationException(
               failWithMessage, ctgValue.getConfiguration(), transitiveRootCauses.build()));
+    } else if (missedValues) {
+        return null;
     } else {
       return result;
     }
