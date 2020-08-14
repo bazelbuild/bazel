@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BazelModuleContext;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
@@ -89,16 +88,11 @@ import javax.annotation.Nullable;
  */
 public class BzlLoadFunction implements SkyFunction {
 
-  // We need the RuleClassProvider to 1) create the BazelStarlarkContext for Starlark evaluation,
-  // and 2) to pass it to ASTFileLookupFunction's inlining code path.
-  // TODO(#11437): The second use can probably go away by refactoring ASTFileLookupFunction to
-  // instead accept the set of predeclared bindings. Simplify the code path and then this comment.
-  // Accessed by StarlarkBuiltinsFunction.
-  final RuleClassProvider ruleClassProvider;
-
-  // Used for StarlarkBuiltinsFunction's inlining code path.
-  // Accessed by StarlarkBuiltinsFunction.
-  final PackageFactory packageFactory;
+  // Used for: 1) obtaining a RuleClassProvider to create the BazelStarlarkContext for Starlark
+  // evaluation; 2) providing predeclared environments to other Skyfunctions
+  // (StarlarkBuiltinsFunction, ASTFileLookupFunction) when they are inlined and called via a static
+  // computeInline() entry point.
+  private final PackageFactory packageFactory;
 
   // Used for BUILD .bzls if injection is disabled.
   // TODO(#11437): Remove once injection is on unconditionally.
@@ -120,31 +114,25 @@ public class BzlLoadFunction implements SkyFunction {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private BzlLoadFunction(
-      RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       ASTManager astManager,
       @Nullable CachedBzlLoadDataManager cachedBzlLoadDataManager) {
-    this.ruleClassProvider = ruleClassProvider;
     this.packageFactory = packageFactory;
     this.uninjectedStarlarkBuiltins =
-        StarlarkBuiltinsFunction.createStarlarkBuiltinsValueWithoutInjection(
-            ruleClassProvider, packageFactory);
+        StarlarkBuiltinsFunction.createStarlarkBuiltinsValueWithoutInjection(packageFactory);
     this.predeclaredForWorkspaceBzl =
-        StarlarkBuiltinsFunction.createPredeclaredForWorkspaceBzl(
-            ruleClassProvider, packageFactory);
+        StarlarkBuiltinsFunction.createPredeclaredForWorkspaceBzl(packageFactory);
     this.predeclaredForBuiltinsBzl =
-        StarlarkBuiltinsFunction.createPredeclaredForBuiltinsBzl(ruleClassProvider);
+        StarlarkBuiltinsFunction.createPredeclaredForBuiltinsBzl(packageFactory);
     this.astManager = astManager;
     this.cachedBzlLoadDataManager = cachedBzlLoadDataManager;
   }
 
   public static BzlLoadFunction create(
-      RuleClassProvider ruleClassProvider,
       PackageFactory packageFactory,
       DigestHashFunction digestHashFunction,
       Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache) {
     return new BzlLoadFunction(
-        ruleClassProvider,
         packageFactory,
         // When we are not inlining BzlLoadValue nodes, there is no need to have separate
         // ASTFileLookupValue nodes for bzl files. Instead we inline ASTFileLookupFunction for a
@@ -170,16 +158,13 @@ public class BzlLoadFunction implements SkyFunction {
         // (b) The memory overhead of the extra Skyframe node and edge per bzl file is pure
         // waste.
         new InliningAndCachingASTManager(
-            ruleClassProvider, digestHashFunction, astFileLookupValueCache),
+            packageFactory, digestHashFunction, astFileLookupValueCache),
         /*cachedBzlLoadDataManager=*/ null);
   }
 
   public static BzlLoadFunction createForInlining(
-      RuleClassProvider ruleClassProvider,
-      PackageFactory packageFactory,
-      int bzlLoadValueCacheSize) {
+      PackageFactory packageFactory, int bzlLoadValueCacheSize) {
     return new BzlLoadFunction(
-        ruleClassProvider,
         packageFactory,
         // When we are inlining BzlLoadValue nodes, then we want to have explicit ASTFileLookupValue
         // nodes, since now (1) in the comment above doesn't hold. This way we read and parse each
@@ -899,7 +884,11 @@ public class BzlLoadFunction implements SkyFunction {
           } else {
             starlarkBuiltinsValue =
                 StarlarkBuiltinsFunction.computeInline(
-                    StarlarkBuiltinsValue.key(), env, inliningState, /*bzlLoadFunction=*/ this);
+                    StarlarkBuiltinsValue.key(),
+                    env,
+                    inliningState,
+                    packageFactory,
+                    /*bzlLoadFunction=*/ this);
           }
         }
       } catch (BuiltinsFailedException e) {
@@ -933,7 +922,9 @@ public class BzlLoadFunction implements SkyFunction {
       thread.setLoader(loadedModules::get);
       StoredEventHandler starlarkEventHandler = new StoredEventHandler();
       thread.setPrintHandler(Event.makeDebugPrintHandler(starlarkEventHandler));
-      ruleClassProvider.setStarlarkThreadContext(thread, label, repositoryMapping);
+      packageFactory
+          .getRuleClassProvider()
+          .setStarlarkThreadContext(thread, label, repositoryMapping);
       execAndExport(file, label, starlarkEventHandler, module, thread);
 
       Event.replayEventsOn(skyframeEventHandler, starlarkEventHandler.getEvents());
@@ -1099,7 +1090,7 @@ public class BzlLoadFunction implements SkyFunction {
    * explicitly by calling {@link #doneWithASTFileLookupValue}.
    */
   private static class InliningAndCachingASTManager implements ASTManager {
-    private final RuleClassProvider ruleClassProvider;
+    private final PackageFactory packageFactory;
     private final DigestHashFunction digestHashFunction;
     // We keep a cache of ASTFileLookupValues that have been computed but whose corresponding
     // BzlLoadValue has not yet completed. This avoids repeating the ASTFileLookupValue work in case
@@ -1107,10 +1098,10 @@ public class BzlLoadFunction implements SkyFunction {
     private final Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache;
 
     private InliningAndCachingASTManager(
-        RuleClassProvider ruleClassProvider,
+        PackageFactory packageFactory,
         DigestHashFunction digestHashFunction,
         Cache<ASTFileLookupValue.Key, ASTFileLookupValue> astFileLookupValueCache) {
-      this.ruleClassProvider = ruleClassProvider;
+      this.packageFactory = packageFactory;
       this.digestHashFunction = digestHashFunction;
       this.astFileLookupValueCache = astFileLookupValueCache;
     }
@@ -1122,8 +1113,7 @@ public class BzlLoadFunction implements SkyFunction {
             ErrorReadingStarlarkExtensionException {
       ASTFileLookupValue value = astFileLookupValueCache.getIfPresent(key);
       if (value == null) {
-        value =
-            ASTFileLookupFunction.computeInline(key, env, ruleClassProvider, digestHashFunction);
+        value = ASTFileLookupFunction.computeInline(key, env, packageFactory, digestHashFunction);
         if (value != null) {
           astFileLookupValueCache.put(key, value);
         }
