@@ -260,8 +260,17 @@ public final class RemoteModule extends BlazeModule {
     int poolSize = 1;
     BuildRequestOptions buildRequestOptions = env.getOptions().getOptions(BuildRequestOptions.class);
     if (buildRequestOptions != null) {
+      // The following calculation is based on the suggestion from comment
+      // https://github.com/bazelbuild/bazel/issues/11801#issuecomment-672973245
+      //
+      // The number of concurrent requests for one connection to a gRPC server is limited by
+      // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
+      // each connection should be fairly well. The number of connections opened by one channel is
+      // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
+      // number of required channel is calculated as: ceil(jobs / 100).
+      //
       // TODO(chiwang): Should we use a more intelligent way to calculate poolSize?
-      poolSize = (int) Math.ceil((double) buildRequestOptions.jobs / 50.0);
+      poolSize = (int) Math.ceil((double) buildRequestOptions.jobs / 100.0);
     }
     if (enableRemoteExecution) {
       ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
