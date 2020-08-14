@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.LocalFilesArtifactUploader;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -255,6 +256,21 @@ public final class RemoteModule extends BlazeModule {
     ReferenceCountedChannel execChannel = null;
     ReferenceCountedChannel cacheChannel = null;
     ReferenceCountedChannel downloaderChannel = null;
+
+    int poolSize = 1;
+    BuildRequestOptions buildRequestOptions =
+        env.getOptions().getOptions(BuildRequestOptions.class);
+    if (buildRequestOptions != null) {
+      // The following calculation is based on the suggestion from comment
+      // https://github.com/bazelbuild/bazel/issues/11801#issuecomment-672973245
+      //
+      // The number of concurrent requests for one connection to a gRPC server is limited by
+      // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
+      // each connection should be fairly well. The number of connections opened by one channel is
+      // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
+      // number of required channels is calculated as: ceil(jobs / 100).
+      poolSize = (int) Math.ceil((double) buildRequestOptions.jobs / 100.0);
+    }
     if (enableRemoteExecution) {
       ImmutableList.Builder<ClientInterceptor> interceptors = ImmutableList.builder();
       interceptors.add(TracingMetadataUtils.newExecHeadersInterceptor(remoteOptions));
@@ -264,7 +280,8 @@ public final class RemoteModule extends BlazeModule {
       interceptors.add(new NetworkTime.Interceptor());
       try {
         execChannel =
-            RemoteCacheClientFactory.createGrpcChannel(
+            RemoteCacheClientFactory.createGrpcChannelPool(
+                poolSize,
                 remoteOptions.remoteExecutor,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
@@ -290,7 +307,8 @@ public final class RemoteModule extends BlazeModule {
       interceptors.add(new NetworkTime.Interceptor());
       try {
         cacheChannel =
-            RemoteCacheClientFactory.createGrpcChannel(
+            RemoteCacheClientFactory.createGrpcChannelPool(
+                poolSize,
                 remoteOptions.remoteCache,
                 remoteOptions.remoteProxy,
                 authAndTlsOptions,
@@ -313,7 +331,8 @@ public final class RemoteModule extends BlazeModule {
         }
         try {
           downloaderChannel =
-              RemoteCacheClientFactory.createGrpcChannel(
+              RemoteCacheClientFactory.createGrpcChannelPool(
+                  poolSize,
                   remoteOptions.remoteDownloader,
                   remoteOptions.remoteProxy,
                   authAndTlsOptions,
