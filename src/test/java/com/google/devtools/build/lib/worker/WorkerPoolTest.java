@@ -216,7 +216,7 @@ public class WorkerPoolTest {
             });
     t.start();
     boolean waited = false;
-    for (int tries = 0; tries < 10; tries++) {
+    for (int tries = 0; tries < 1000; tries++) {
       if (t.getState() == State.WAITING) {
         waited = true;
         break;
@@ -226,7 +226,7 @@ public class WorkerPoolTest {
     assertWithMessage("Expected low-priority worker to wait").that(waited).isTrue();
     workerPool.returnObject(workerKey1, worker1);
     boolean continued = false;
-    for (int tries = 0; tries < 10; tries++) {
+    for (int tries = 0; tries < 1000; tries++) {
       if (t.getState() != State.WAITING) {
         continued = true;
         break;
