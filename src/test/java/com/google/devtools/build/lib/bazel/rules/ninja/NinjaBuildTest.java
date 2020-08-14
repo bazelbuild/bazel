@@ -181,7 +181,7 @@ public class NinjaBuildTest extends BuildViewTestCase {
     NinjaAction ninjaAction = (NinjaAction) Iterables.getOnlyElement(actions);
 
     // The build description is expanded with the file level variable.
-    assertThat(ninjaAction.getProgressMessage()).isEqualTo("foo bar baz qux");
+    assertThat(ninjaAction.getProgressMessage()).isEqualTo("foo bar baz qux ");
   }
 
   @Test
