@@ -160,9 +160,22 @@ class GrpcRemoteExecutor {
                   Operation o = replies.next();
                   operation.set(o);
                   waitExecution.set(!operation.get().getDone());
+
+                  // Update execution progress to the caller.
+                  //
+                  // After called `execute` above, the action is actually waiting for available
+                  // gRPC connection to be sent. Once we get a reply from server, we know the
+                  // connection is up and indicate caller the fact by forwarding the `operation`.
+                  //
+                  // The accurate execution status of the action relies on server implementation:
+                  //   1. Server can reply the accurate status in `operation.metadata.stage`;
+                  //   2. Server may send a reply without metadata. In this case, we assume the
+                  //      action is accepted by server and will be executed ASAP;
+                  //   3. Server may execute the action silently and send a reply once it is done.
                   if (receiver != null) {
                     receiver.onNextOperation(o);
                   }
+
                   ExecuteResponse r = getOperationResponse(o);
                   if (r != null) {
                     return r;
