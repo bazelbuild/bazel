@@ -854,7 +854,24 @@ class BazelWindowsCppTest(test_base.TestBase):
     ])
     exit_code, _, stderr = self.RunBazel(['build', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
-
+    
+  def testBuild32BitCppBinaryWithMsvcCL(self):
+    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile('BUILD', [
+        'cc_binary(',
+        '  name = "main",',
+        '  srcs = ["main.cc"],',
+        ')',
+    ])
+    self.ScratchFile('main.cc', [
+        'int main() {',
+        '  return 0;',
+        '}',
+    ])
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--cpu=x64_x86_windows', '//:main'
+    ])
+    self.AssertExitCode(exit_code, 0, stderr)
 
 if __name__ == '__main__':
   unittest.main()

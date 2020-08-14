@@ -444,7 +444,7 @@ def _find_missing_vc_tools(repository_ctx, vc_path, target_arch = "x64"):
     return missing_tools
     
 def _get_target_tools(target):
-    """Return list of required tools names and their filenames for a certain target."""
+    """Return a list of required tools names and their filenames for a certain target."""
     if target == "x86":
         return {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml.exe"}        
     elif target == "x64":
