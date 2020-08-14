@@ -35,43 +35,63 @@ Relevant terms in https://docs.bazel.build/versions/master/glossary.html:
 
 TODO(gregce): link to proper documentation for full details.
 """
+from typing import Callable
 from typing import Tuple
 
+# Do not edit this line. Copybara replaces it with PY2 migration helper.
 from absl import app
 from absl import flags
+from dataclasses import dataclass
 
 import tools.ctexplain.analyses.summary as summary
 import tools.ctexplain.bazel_api as bazel_api
 import tools.ctexplain.lib as lib
+from tools.ctexplain.types import ConfiguredTarget
 import tools.ctexplain.util as util
 
 FLAGS = flags.FLAGS
 
-# Available analyses. Key is which --analysis value triggers the analysis, value
-# (implementation(cts: Tuple[ConfiguredTarget, ...]), descriptive help text).
-analyses = {
-    "summary": (
+
+@dataclass(frozen=True)
+class Analysis():
+  """Supported analysis type."""
+  # The value in --analysis=<value> that triggers this analysis.
+  key: str
+  # The function that invokes this analysis.
+  exec: Callable[[Tuple[ConfiguredTarget, ...]], None]
+  # User-friendly analysis description.
+  description: str
+
+available_analyses = [
+    Analysis(
+        "summary",
         lambda x: summary.report(summary.analyze(x)),
         "summarizes build graph size and how trimming could help"
     ),
-    "culprits": (
+    Analysis(
+        "culprits",
         lambda x: print("this analysis not yet implemented"),
         "shows which flags unnecessarily fork configured targets. These\n"
         + "are conceptually mergeable."
     ),
-    "forked_targets": (
+    Analysis(
+        "forked_targets",
         lambda x: print("this analysis not yet implemented"),
         "ranks targets by how many configured targets they\n"
         + "create. These may be legitimate forks (because they behave "
         + "differently with\n different flags) or identical clones that are "
         + "conceptually mergeable."
     ),
-    "cloned_targets": (
+    Analysis(
+        "cloned_targets",
         lambda x: print("this analysis not yet implemented"),
         "ranks targets by how many behavior-identical configured\n targets "
         + "they produce. These are conceptually mergeable."
     )
-}
+]
+
+# Available analyses, keyed by --analysis=<value> triggers.
+analyses = {analysis.key: analysis for analysis in available_analyses}
 
 
 # Command-line flag registration:
@@ -79,10 +99,8 @@ analyses = {
 
 def _render_analysis_help_text() -> str:
   """Pretty-prints help text for available analyses."""
-  helptext = ""
-  for name in analyses:
-    helptext += f'- "{name}": {analyses[name][1]}\n'
-  return helptext
+  return "\n".join(f'- "{name}": {analysis.description}'
+                   for name, analysis in analyses.items())
 
 flags.DEFINE_list("analysis", ["summary"], f"""
 Analyses to run. May be any comma-separated combination of
@@ -134,7 +152,7 @@ def main(argv):
   with util.ProgressStep(f"Collecting configured targets for {build_desc}"):
     cts = lib.analyze_build(bazel_api.BazelApi(), labels, build_flags)
   for analysis in FLAGS.analysis:
-    analyses[analysis][0](cts)
+    analyses[analysis].exec(cts)
 
 
 if __name__ == "__main__":

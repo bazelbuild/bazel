@@ -29,7 +29,7 @@ def analyze_build(bazel: bazel_api.BazelApi, labels: Tuple[str, ...],
     build_flags: The build flags to use.
 
   Returns:
-    Set of configured targets representing the build.
+    Configured targets representing the build.
 
   Raises:
     RuntimeError: On any invocation errors.

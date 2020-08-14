@@ -37,15 +37,8 @@ class _Summary():
   repeated_targets: int
 
 
-def analyze(cts: Tuple[ConfiguredTarget, ...]):
-  """Runs the analysis.
-
-  Args:
-    cts: A build's configured targets
-
-  Returns:
-    Analysis result as a _Summary.
-  """
+def analyze(cts: Tuple[ConfiguredTarget, ...]) -> _Summary:
+  """Runs the analysis on a build's configured targets."""
   configurations = set()
   targets = set()
   label_count = {}
@@ -60,7 +53,7 @@ def analyze(cts: Tuple[ConfiguredTarget, ...]):
                   repeated_targets)
 
 
-def report(result: _Summary):
+def report(result: _Summary) -> None:
   """Reports analysis results to the user.
 
   We intentionally make this its own function to make it easy to support other
