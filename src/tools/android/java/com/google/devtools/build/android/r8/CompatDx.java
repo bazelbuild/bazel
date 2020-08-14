@@ -27,8 +27,6 @@ import com.android.tools.r8.DexIndexedConsumer;
 import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.ProgramConsumer;
 import com.android.tools.r8.Version;
-import com.android.tools.r8.errors.CompilationError;
-import com.android.tools.r8.errors.Unimplemented;
 import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
@@ -523,11 +521,11 @@ public class CompatDx {
     }
 
     if (dexArgs.verboseDump) {
-      throw new Unimplemented("verbose dump file not yet supported");
+      throw new CompatDxUnimplemented("verbose dump file not yet supported");
     }
 
     if (dexArgs.methodToDump != null) {
-      throw new Unimplemented("method-dump not yet supported");
+      throw new CompatDxUnimplemented("method-dump not yet supported");
     }
 
     if (dexArgs.output != null) {
@@ -557,7 +555,7 @@ public class CompatDx {
     }
 
     if (dexArgs.incremental) {
-      throw new Unimplemented("incremental merge not supported yet");
+      throw new CompatDxUnimplemented("incremental merge not supported yet");
     }
 
     if (dexArgs.forceJumbo && dexArgs.verbose) {
@@ -573,11 +571,11 @@ public class CompatDx {
     }
 
     if (dexArgs.optimizeList != null) {
-      throw new Unimplemented("no support for optimize-method list");
+      throw new CompatDxUnimplemented("no support for optimize-method list");
     }
 
     if (dexArgs.noOptimizeList != null) {
-      throw new Unimplemented("no support for dont-optimize-method list");
+      throw new CompatDxUnimplemented("no support for dont-optimize-method list");
     }
 
     if (dexArgs.statistics && dexArgs.verbose) {
@@ -647,7 +645,7 @@ public class CompatDx {
         setMinimalMainDex.invoke(builder, dexArgs.minimalMainDex);
         D8.run(builder.build());
       } catch (ReflectiveOperationException e) {
-        // Go through the support support code accessing the internals for the compilation.
+        // Go through the support code accessing the internals for the compilation.
         CompatDxSupport.run(builder.build(), dexArgs.minimalMainDex);
       }
     } finally {
@@ -696,7 +694,7 @@ public class CompatDx {
     public void accept(
         int fileIndex, ByteDataView data, Set<String> descriptors, DiagnosticsHandler handler) {
       if (fileIndex > 0) {
-        throw new CompilationError(
+        throw new CompatDxCompilationError(
             "Compilation result could not fit into a single dex file. "
                 + "Reduce the input-program size or run with --multi-dex enabled");
       }
@@ -870,7 +868,7 @@ public class CompatDx {
 
   private static void processPath(Path path, List<Path> files) throws IOException {
     if (!Files.exists(path)) {
-      throw new CompilationError("File does not exist: " + path);
+      throw new CompatDxCompilationError("File does not exist: " + path);
     }
     if (Files.isDirectory(path)) {
       processDirectory(path, files);
@@ -881,7 +879,7 @@ public class CompatDx {
       return;
     }
     if (FileUtils.isApkFile(path)) {
-      throw new Unimplemented("apk files not yet supported: " + path);
+      throw new CompatDxUnimplemented("apk files not yet supported: " + path);
     }
   }
 
