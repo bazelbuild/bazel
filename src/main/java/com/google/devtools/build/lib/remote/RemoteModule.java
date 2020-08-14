@@ -267,9 +267,7 @@ public final class RemoteModule extends BlazeModule {
       // MAX_CONCURRENT_STREAMS which is normally being 100+. We assume 50 concurrent requests for
       // each connection should be fairly well. The number of connections opened by one channel is
       // based on the resolved IPs of that server. We assume servers normally have 2 IPs. So the
-      // number of required channel is calculated as: ceil(jobs / 100).
-      //
-      // TODO(chiwang): Should we use a more intelligent way to calculate poolSize?
+      // number of required channels is calculated as: ceil(jobs / 100).
       poolSize = (int) Math.ceil((double) buildRequestOptions.jobs / 100.0);
     }
     if (enableRemoteExecution) {

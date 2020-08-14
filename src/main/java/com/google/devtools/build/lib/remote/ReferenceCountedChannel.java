@@ -75,8 +75,8 @@ public class ReferenceCountedChannel extends ManagedChannel implements Reference
   }
 
   @Override
-  public boolean awaitTermination(long l, TimeUnit timeUnit) throws InterruptedException {
-    return channel.awaitTermination(l, timeUnit);
+  public boolean awaitTermination(long timeout, TimeUnit timeUnit) throws InterruptedException {
+    return channel.awaitTermination(timeout, timeUnit);
   }
 
   @Override

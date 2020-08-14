@@ -70,11 +70,12 @@ public class ReferenceCountedChannelPool extends ReferenceCountedChannel {
         return false;
       }
     }
-    return true;  }
+    return true;
+  }
 
   @Override
-  public boolean awaitTermination(long l, TimeUnit timeUnit) throws InterruptedException {
-    long endTimeNanos = System.nanoTime() + timeUnit.toNanos(l);
+  public boolean awaitTermination(long timeout, TimeUnit timeUnit) throws InterruptedException {
+    long endTimeNanos = System.nanoTime() + timeUnit.toNanos(timeout);
     for (ManagedChannel channel : channels) {
       long awaitTimeNanos = endTimeNanos - System.nanoTime();
       if (awaitTimeNanos <= 0) {
