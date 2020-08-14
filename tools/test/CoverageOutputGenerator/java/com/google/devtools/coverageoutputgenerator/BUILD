@@ -122,6 +122,7 @@ java_library(
         ":Constants",
         ":LineCoverage",
         ":SourceFileCoverage",
+        "//third_party:guava",
     ],
 )
 
