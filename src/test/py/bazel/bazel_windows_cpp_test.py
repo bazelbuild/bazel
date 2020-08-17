@@ -872,6 +872,7 @@ class BazelWindowsCppTest(test_base.TestBase):
         'build', '-s', '--cpu=x64_x86_windows', '//:main'
     ])
     self.AssertExitCode(exit_code, 0, stderr)
+    self.assertIn('x86/cl.exe', ''.join(stderr))
 
 if __name__ == '__main__':
   unittest.main()

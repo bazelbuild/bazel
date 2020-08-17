@@ -301,6 +301,18 @@ def _is_support_winsdk_selection(repository_ctx, vc_path):
     return False
     
 def _get_vc_env_vars(repository_ctx, vc_path, msvc_vars_x64, target_arch):
+    """Derive the environment variables set of a given target architecture from the environment variables of the x64 target.
+       This is done to avoid running VCVARSALL.BAT script for every target architecture.
+       
+    Args:
+        repository_ctx: the repository_ctx object
+        vc_path: Visual C++ root directory
+        msvc_vars_x64: values of MSVC toolchain including the environment variables for x64 target architecture
+        target_arch: the target architecture to get its environment variables
+    
+    Returns:
+        dictionary of envvars
+    """
     env = {}
     if _is_vs_2017_or_2019(vc_path):
         lib = msvc_vars_x64["%{msvc_env_lib_x64}"]
@@ -455,11 +467,15 @@ def _find_missing_vc_tools(repository_ctx, vc_path, target_arch = "x64"):
     
 def _get_target_tools(target):
     """Return a list of required tools names and their filenames for a certain target."""
-    if target == "x86":
-        return {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml.exe"}        
-    elif target == "x64":
-        return {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml64.exe"}        
-
+    tools = {
+        "x64": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml64.exe"},
+        "x86": {"CL": "cl.exe", "LINK": "link.exe", "LIB": "lib.exe", "ML": "ml.exe"},
+    }
+    if tools.get(target) == None:
+        auto_configure_fail("Target architecture %s is not recognized" % target)
+    
+    return tools.get(target)
+    
 def _is_support_debug_fastlink(repository_ctx, linker):
     """Run linker alone to see if it supports /DEBUG:FASTLINK."""
     if _use_clang_cl(repository_ctx):
