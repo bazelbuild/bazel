@@ -25,6 +25,8 @@ load(
     "write_builtin_include_directory_paths",
 )
 
+_targets_archs = {"x64": "amd64", "x86": "amd64_x86"}
+
 def _lookup_env_var(env, name, default = None):
     """Lookup environment variable case-insensitve.
 
@@ -297,8 +299,23 @@ def _is_support_winsdk_selection(repository_ctx, vc_path):
         if vc_common_ide.get_child(tool).exists:
             return True
     return False
+    
+def _get_vc_env_vars(repository_ctx, vc_path, msvc_vars_x64, target_arch):
+    env = {}
+    if _is_vs_2017_or_2019(vc_path):
+        lib = msvc_vars_x64["%{msvc_env_lib_x64}"]
+        full_version = _get_vc_full_version(repository_ctx, vc_path)
+        tools_path = "%s\\Tools\\MSVC\\%s\\bin\\HostX64\\%s" % (vc_path, full_version, target_arch)
+    else:
+        lib = msvc_vars_x64["%{msvc_env_lib_x64}"].replace("\\\\amd64", "")
+        tools_path = vc_path + "\\bin\\" + _targets_archs[target_arch]
 
-def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False, escape = True, target_arch = "x64"):
+    env["INCLUDE"] = msvc_vars_x64["%{msvc_env_include}"]
+    env["LIB"] = lib.replace("x64", target_arch)
+    env["PATH"] = escape_string(tools_path.replace("\\", "\\\\")) + ";" + msvc_vars_x64["%{msvc_env_path_x64}"]
+    return env
+     
+def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False, escape = True):
     """Get environment variables set by VCVARSALL.BAT script. Doesn't %-escape the result!
 
     Args:
@@ -307,7 +324,6 @@ def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False
         envvars: list of envvars to retrieve; default is ["PATH", "INCLUDE", "LIB", "WINDOWSSDKDIR"]
         allow_empty: allow unset envvars; if False then report errors for those
         escape: if True, escape "\" as "\\" and "%" as "%%" in the envvar values,
-        target_arch: the target architecture
 
     Returns:
         dictionary of the envvars
@@ -337,14 +353,8 @@ def setup_vc_env_vars(repository_ctx, vc_path, envvars = [], allow_empty = False
         # version supports -vcvars_ver or not.
         if _is_support_vcvars_ver(_get_latest_subversion(repository_ctx, vc_path)):
             vcvars_ver = "-vcvars_ver=" + full_version
-    
-    # Get the VCVARSALL.BAT [arch] value based on the target architecture
-    if target_arch == "x64":
-        arch = "amd64"
-    elif target_arch == "x86":
-        arch = "amd64_x86"
-        
-    cmd = "\"%s\" %s %s %s" % (vcvars_script, arch, winsdk_version, vcvars_ver)
+      
+    cmd = "\"%s\" amd64 %s %s" % (vcvars_script, winsdk_version, vcvars_ver)
     print_envvars = ",".join(["{k}=%{k}%".format(k = k) for k in envvars])
     repository_ctx.file(
         "get_env.bat",
@@ -424,7 +434,7 @@ def find_msvc_tool(repository_ctx, vc_path, tool, target_arch = "x64"):
     else:
         # For VS 2015 and older version, the tools are under:
         # C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin\amd64
-        tool_path = vc_path + "\\bin\\amd64\\" + tool
+        tool_path = vc_path + "\\bin\\" + _targets_archs[target_arch] + "\\" + tool
 
     if not tool_path or not repository_ctx.path(tool_path).exists:
         return None
@@ -549,7 +559,7 @@ def _get_msys_mingw_vars(repository_ctx):
     }
     return msys_mingw_vars
 
-def _get_msvc_vars(repository_ctx, paths, target_arch = "x64"):
+def _get_msvc_vars(repository_ctx, paths, target_arch = "x64", msvc_vars_x64 = None):
     """Get the variables we need to populate the MSVC toolchains."""
     msvc_vars = dict()
     vc_path = find_vc_path(repository_ctx)
@@ -594,7 +604,10 @@ def _get_msvc_vars(repository_ctx, paths, target_arch = "x64"):
         }
         return msvc_vars
 
-    env = setup_vc_env_vars(repository_ctx, vc_path, target_arch = target_arch)
+    if msvc_vars_x64:
+        env = _get_vc_env_vars(repository_ctx, vc_path, msvc_vars_x64, target_arch)
+    else:
+        env = setup_vc_env_vars(repository_ctx, vc_path)
     escaped_tmp_dir = escape_string(_get_temp_env(repository_ctx).replace("\\", "\\\\"))
     escaped_include_paths = escape_string(env["INCLUDE"])
     
@@ -750,7 +763,7 @@ def configure_windows_toolchain(repository_ctx):
     template_vars.update(msvc_vars_x64)
     template_vars.update(_get_clang_cl_vars(repository_ctx, paths, msvc_vars_x64))
     template_vars.update(_get_msys_mingw_vars(repository_ctx))
-    template_vars.update(_get_msvc_vars(repository_ctx, paths, "x86"))
+    template_vars.update(_get_msvc_vars(repository_ctx, paths, "x86", msvc_vars_x64))
     
     repository_ctx.template(
         "BUILD",
