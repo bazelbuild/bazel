@@ -1148,6 +1148,43 @@ public class RemoteSpawnRunnerTest {
   }
 
   @Test
+  public void shouldIgnoreInvalidMetadata() throws Exception {
+    RemoteSpawnRunner runner = newSpawnRunner();
+    ExecuteResponse succeeded =
+        ExecuteResponse.newBuilder()
+            .setResult(ActionResult.newBuilder().setExitCode(0).build())
+            .build();
+
+    Spawn spawn = newSimpleSpawn();
+    SpawnExecutionContext policy = mock(SpawnExecutionContext.class);
+    when(policy.getTimeout()).thenReturn(Duration.ZERO);
+
+    when(executor.executeRemotely(
+        any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class)))
+        .thenAnswer(
+            invocationOnMock -> {
+              ExecuteOperationUpdateReceiver receiver = invocationOnMock.getArgument(1);
+              Operation operation =
+                  Operation.newBuilder()
+                      .setMetadata(
+                          // Anything that is not ExecutionOperationMetadata
+                          Any.pack(Operation.getDefaultInstance()))
+                      .build();
+              receiver.onNextOperation(operation);
+              return succeeded;
+            });
+
+    SpawnResult res = runner.exec(spawn, policy);
+    assertThat(res.status()).isEqualTo(Status.SUCCESS);
+
+    verify(executor)
+        .executeRemotely(any(ExecuteRequest.class), any(ExecuteOperationUpdateReceiver.class));
+    InOrder reportOrder = inOrder(policy);
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.SCHEDULING), any(String.class));
+    reportOrder.verify(policy, times(1)).report(eq(ProgressStatus.EXECUTING), any(String.class));
+  }
+
+  @Test
   public void shouldReportExecutingStatusIfNoExecutingStatusFromMetadata() throws Exception {
     RemoteSpawnRunner runner = newSpawnRunner();
     ExecuteResponse succeeded =

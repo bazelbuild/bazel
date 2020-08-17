@@ -214,7 +214,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
     @Override
     public void onNextOperation(Operation o) throws IOException {
       if (!reportedExecuting) {
-        if (o.hasMetadata()) {
+        if (o.getMetadata().is(ExecuteOperationMetadata.class)) {
           ExecuteOperationMetadata metadata =
               o.getMetadata().unpack(ExecuteOperationMetadata.class);
           if (metadata.getStage() == Value.EXECUTING) {
