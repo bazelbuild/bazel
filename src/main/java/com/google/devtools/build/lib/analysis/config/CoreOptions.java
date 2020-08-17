@@ -819,13 +819,27 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   // TODO(b/132346407): Remove when all usages are gone.
   @Option(
-      name = "experimental_enable_shorthand_aliases",
+      name = "experimental_enable_flag_alias",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.INPUT_STRICTNESS,
       effectTags = {OptionEffectTag.CHANGES_INPUTS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "When enabled, alternate names can be assigned to Starlark-defined flags.")
-  public boolean enableShorthandAliases;
+  public boolean enableFlagAlias;
+
+  // TODO(b/132346407): Update docs when the feature is fully implemented
+  @Option(
+      name = "flag_alias",
+      converter = Converters.AssignmentConverter.class,
+      defaultValue = "null",
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.GENERIC_INPUTS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS},
+      help =
+          "Sets a shorthand name for a Starlark flag. It takes a single key-value pair in the form"
+              + " \"<key>=<value>\" as an argument. This is an experimental feature and will be"
+              + " ignored unless --experimental_enable_flag_alias is set to true.")
+  public List<Map.Entry<String, String>> commandLineFlagAliases;
 
   /** Ways configured targets may provide the {@link Fragment}s they require. */
   public enum IncludeConfigFragmentsEnum {
