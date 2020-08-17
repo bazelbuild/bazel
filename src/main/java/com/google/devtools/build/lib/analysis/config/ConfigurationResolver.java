@@ -419,8 +419,7 @@ public final class ConfigurationResolver {
     if (doesStarlarkTransition) {
       fromOptions =
           addDefaultStarlarkOptions(
-              fromOptions,
-              StarlarkTransition.getDefaultInputValues(buildSettingPackages, transition));
+              fromOptions, StarlarkTransition.getDefaultValues(buildSettingPackages, transition));
     }
 
     // TODO(bazel-team): Add safety-check that this never mutates fromOptions.
