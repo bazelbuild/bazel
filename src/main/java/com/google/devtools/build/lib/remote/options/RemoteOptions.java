@@ -483,6 +483,17 @@ public final class RemoteOptions extends OptionsBase {
               + "that loads objects from the CAS on demand.")
   public String remoteDownloadSymlinkTemplate;
 
+  @Option(
+          name = "experimental_remote_deduplicate_uploads",
+          defaultValue = "false",
+          category = "remote",
+          documentationCategory = OptionDocumentationCategory.REMOTE,
+          effectTags = {OptionEffectTag.EXECUTION},
+          help =
+              "If set to true, Bazel deduplicates calls to the remote service to find missing "
+                  + "files and also deduplicates uploads.")
+  public boolean experimentalRemoteDeduplicateUploads;
+
   // The below options are not configurable by users, only tests.
   // This is part of the effort to reduce the overall number of flags.
 
