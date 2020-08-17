@@ -489,10 +489,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
     map.put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction());
     map.put(
         SkyFunctions.AST_FILE_LOOKUP,
-        new ASTFileLookupFunction(ruleClassProvider, DigestHashFunction.getDefaultUnchecked()));
-    map.put(
-        SkyFunctions.STARLARK_BUILTINS,
-        new StarlarkBuiltinsFunction(ruleClassProvider, pkgFactory));
+        new ASTFileLookupFunction(pkgFactory, DigestHashFunction.getDefaultUnchecked()));
+    map.put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory));
     map.put(SkyFunctions.BZL_LOAD, newBzlLoadFunction(ruleClassProvider, pkgFactory));
     map.put(SkyFunctions.GLOB, newGlobFunction());
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
@@ -652,10 +650,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
   protected SkyFunction newBzlLoadFunction(
       RuleClassProvider ruleClassProvider, PackageFactory pkgFactory) {
     return BzlLoadFunction.create(
-        ruleClassProvider,
-        this.pkgFactory,
-        DigestHashFunction.getDefaultUnchecked(),
-        astFileLookupValueCache);
+        this.pkgFactory, DigestHashFunction.getDefaultUnchecked(), astFileLookupValueCache);
   }
 
   protected PerBuildSyscallCache newPerBuildSyscallCache(int concurrencyLevel) {
@@ -1423,9 +1418,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory, Configur
       // We need to take additional steps to keep the corresponding data structures in sync.
       // (Some of the additional steps are carried out by ConfiguredTargetValueInvalidationListener,
       // and some by BuildView#buildHasIncompatiblePackageRoots and #updateSkyframe.)
-      artifactFactory
-          .setSourceArtifactRoots(
-              createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator));
+      artifactFactory.setSourceArtifactRoots(
+          createSourceArtifactRootMapOnNewPkgLocator(oldLocator, pkgLocator));
     }
   }
 

@@ -14,16 +14,14 @@
 
 package com.google.devtools.coverageoutputgenerator;
 
-import static com.google.common.collect.MoreCollectors.toOptional;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Sets;
 import java.util.Collection;
-import java.util.List;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
@@ -86,11 +84,42 @@ class SourceFileCoverage {
   /** Returns the merged branches found in the two given {@code SourceFileCoverage}s. */
   @VisibleForTesting
   static ListMultimap<Integer, BranchCoverage> mergeBranches(
-      SourceFileCoverage s1, SourceFileCoverage s2) {
+      SourceFileCoverage s1, SourceFileCoverage s2) throws IncompatibleMergeException {
+
     ListMultimap<Integer, BranchCoverage> merged =
         MultimapBuilder.treeKeys().arrayListValues().build();
-    merged.putAll(s1.branches);
-    s2.branches.entries().forEach(e -> addBranchToMap(e.getKey(), e.getValue(), merged));
+
+    for (int line : Sets.union(s1.branches.keySet(), s2.branches.keySet())) {
+      Collection<BranchCoverage> s1Branches = s1.branches.get(line);
+      Collection<BranchCoverage> s2Branches = s2.branches.get(line);
+
+      if (s1Branches.isEmpty()) {
+        merged.putAll(line, s2Branches);
+      } else if (s2Branches.isEmpty()) {
+        merged.putAll(line, s1Branches);
+      } else if (s1Branches.size() != s2Branches.size()) {
+        throw new IncompatibleMergeException(
+            String.format(
+                "Different number of branches found at line %d for %s", line, s1.sourceFileName));
+      } else {
+        Iterator<BranchCoverage> it1 = s1Branches.iterator();
+        Iterator<BranchCoverage> it2 = s2Branches.iterator();
+        while (it1.hasNext() && it2.hasNext()) {
+          BranchCoverage b1 = it1.next();
+          BranchCoverage b2 = it2.next();
+          if (b1.lineNumber() != b2.lineNumber()
+              || !b1.blockNumber().equals(b2.blockNumber())
+              || !b1.branchNumber().equals(b2.branchNumber())) {
+            throw new IncompatibleMergeException(
+                String.format(
+                    "Branches for %s do not align for source lines %d and %d",
+                    s1.sourceFileName, b1.lineNumber(), b2.lineNumber()));
+          }
+          BranchCoverage branch = BranchCoverage.merge(b1, b2);
+          merged.put(line, branch);
+        }
+      }
+    }
     return merged;
   }
 
@@ -126,7 +155,8 @@ class SourceFileCoverage {
    *
    * @return a new {@link SourceFileCoverage} that contains the merged coverage.
    */
-  static SourceFileCoverage merge(SourceFileCoverage source1, SourceFileCoverage source2) {
+  static SourceFileCoverage merge(SourceFileCoverage source1, SourceFileCoverage source2)
+      throws IncompatibleMergeException {
     assert source1.sourceFileName.equals(source2.sourceFileName);
     SourceFileCoverage merged = new SourceFileCoverage(source2.sourceFileName);
 
@@ -214,26 +244,7 @@ class SourceFileCoverage {
   }
 
   void addBranch(Integer lineNumber, BranchCoverage branch) {
-    addBranchToMap(lineNumber, branch, branches);
-  }
-
-  static void addBranchToMap(
-      Integer lineNumber, BranchCoverage branch, ListMultimap<Integer, BranchCoverage> target) {
-    List<BranchCoverage> lineBranches = target.get(lineNumber);
-    Optional<BranchCoverage> match =
-        lineBranches.stream()
-            .filter(
-                b ->
-                    b.blockNumber().equals(branch.blockNumber())
-                        && b.branchNumber().equals(branch.branchNumber()))
-            .collect(toOptional());
-    if (match.isPresent()) {
-      BranchCoverage b = match.get();
-      lineBranches.remove(b);
-      lineBranches.add(BranchCoverage.merge(b, branch));
-    } else {
-      lineBranches.add(branch);
-    }
+    branches.put(lineNumber, branch);
   }
 
   void addAllBranches(ListMultimap<Integer, BranchCoverage> branches) {

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtoco
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Objects;
 import java.util.SortedMap;
 
 /**
@@ -150,8 +151,13 @@ final class WorkerKey {
     }
 
     WorkerKey workerKey = (WorkerKey) o;
-
+    if (this.hash != workerKey.hash) {
+      return false;
+    }
     if (!args.equals(workerKey.args)) {
+      return false;
+    }
+    if (!proxied == workerKey.proxied) {
       return false;
     }
     if (!env.equals(workerKey.env)) {
@@ -171,11 +177,7 @@ final class WorkerKey {
   }
 
   private int calculateHashCode() {
-    int result = args.hashCode();
-    result = 31 * result + env.hashCode();
-    result = 31 * result + execRoot.hashCode();
-    result = 31 * result + mnemonic.hashCode();
-    return result;
+    return Objects.hash(args, env, execRoot, mnemonic, proxied);
   }
 
   @Override

@@ -87,7 +87,7 @@ public class StarlarkInterfaceUtilsTest {
   }
 
   /**
-   * A mock class that implements two unrelated module interfaces. This is invalid as the skylark
+   * A mock class that implements two unrelated module interfaces. This is invalid as the Starlark
    * type of such an object is ambiguous.
    */
   public static class ImplementsTwoUnrelatedInterfaceModules

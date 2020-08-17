@@ -7,7 +7,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:srcs",
         "//src/main/java/com/google/devtools/build/lib/analysis/stringtemplate:srcs",
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations:srcs",
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations:srcs",
     ],
     visibility = ["//src:__subpackages__"],
 )
@@ -2122,7 +2122,7 @@ java_library(
     name = "starlark/starlark_late_bound_default",
     srcs = ["starlark/StarlarkLateBoundDefault.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis/skylark/annotations",
+        "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",

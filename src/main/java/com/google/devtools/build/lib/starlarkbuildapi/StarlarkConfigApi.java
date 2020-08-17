@@ -31,10 +31,8 @@ import net.starlark.java.annot.StarlarkMethod;
     name = "config",
     category = StarlarkDocumentationCategory.BUILTIN,
     doc =
-        "Note: This API is experimental and may change at any time."
-            + ""
-            + "<p>This is a top-level module for creating build setting descriptors which describe "
-            + "what kind of build setting (if any) a rule is. "
+        "This is a top-level module for creating configuration transitions and build "
+            + "setting descriptors which describe what kind of build setting (if any) a rule is. "
             + ""
             + "<p>ex: the following rule is marked as a build setting by setting the "
             + "<code>build_setting</code> parameter of the <code>rule()</code> function. "

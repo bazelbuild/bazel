@@ -173,6 +173,31 @@ public interface BazelCcModuleApi<
             defaultValue = "[]",
             type = Sequence.class),
         @Param(
+            name = "include_prefix",
+            doc =
+                "The prefix to add to the paths of the headers of this rule. When set, the "
+                    + "headers in the hdrs attribute of this rule are accessible at is the "
+                    + "value of this attribute prepended to their repository-relative path. "
+                    + "The prefix in the strip_include_prefix attribute is removed before this "
+                    + "prefix is added.",
+            positional = false,
+            named = true,
+            defaultValue = "''",
+            type = String.class),
+        @Param(
+            name = "strip_include_prefix",
+            doc =
+                "The prefix to strip from the paths of the headers of this rule. When set, the"
+                    + " headers in the hdrs attribute of this rule are accessible at their path"
+                    + " with this prefix cut off. If it's a relative path, it's taken as a"
+                    + " package-relative one. If it's an absolute one, it's understood as a"
+                    + " repository-relative path. The prefix in the include_prefix attribute is"
+                    + " added after this prefix is stripped.",
+            positional = false,
+            named = true,
+            defaultValue = "''",
+            type = String.class),
+        @Param(
             name = "user_compile_flags",
             doc = "Additional list of compilation options.",
             positional = false,
@@ -229,6 +254,8 @@ public interface BazelCcModuleApi<
       Sequence<?> frameworkIncludes, // <String> expected
       Sequence<?> defines, // <String> expected
       Sequence<?> localDefines, // <String> expected
+      String includePrefix,
+      String stripIncludePrefix,
       Sequence<?> userCompileFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CompilationContextT> expected
       String name,

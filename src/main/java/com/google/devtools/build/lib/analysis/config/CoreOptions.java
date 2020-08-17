@@ -387,17 +387,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean experimentalForwardInstrumentedFilesInfoByDefault;
 
   @Option(
-      name = "experimental_ignore_deprecated_instrumentation_spec",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If specified, use a new configuration of InstrumentationSpec which distinguishes "
-              + "between source and dependency attributes for rules which still used a legacy "
-              + "configuration with a single list of coverage-relevant attributes.")
-  public boolean experimentalIgnoreDeprecatedInstrumentationSpec;
-
-  @Option(
       name = "build_runfile_manifests",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
@@ -525,20 +514,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Use action_listener to attach an extra_action to existing build actions.")
   public List<Label> actionListeners;
-
-  // TODO(bazel-team): Either remove this flag once transparent compression is shown to not
-  // noticeably affect running time, or keep this flag and move it into a new configuration
-  // fragment.
-  @Option(
-      name = "experimental_transparent_compression",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Enables gzip compression for the contents of FileWriteActions, which reduces "
-              + "memory usage in the analysis phase at the expense of additional time overhead.")
-  public boolean transparentCompression;
 
   @Option(
       name = "is host configuration",

@@ -179,7 +179,7 @@ public abstract class AspectValueKey implements ActionLookupKey {
     }
 
     /** Returns the key for the base configured target for this aspect. */
-    ConfiguredTargetKey getBaseConfiguredTargetKey() {
+    public ConfiguredTargetKey getBaseConfiguredTargetKey() {
       return baseConfiguredTargetKey;
     }
 

@@ -265,7 +265,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     Event event = ev.getEventCollector().iterator().next();
     assertThat(event.getKind()).isEqualTo(EventKind.ERROR);
     assertThat(event.getMessage())
-        .matches("Attribute r\\.x{150}'s name is too long \\(150 > 128\\)");
+        .matches(":2:9: Attribute r\\.x{150}'s name is too long \\(150 > 128\\)");
   }
 
   @Test

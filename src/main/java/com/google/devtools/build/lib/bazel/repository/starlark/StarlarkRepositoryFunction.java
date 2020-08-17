@@ -274,17 +274,17 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
 
   @SuppressWarnings("unchecked")
   private static Iterable<String> getEnviron(Rule rule) {
-    return (Iterable<String>) rule.getAttributeContainer().getAttr("$environ");
+    return (Iterable<String>) rule.getAttr("$environ");
   }
 
   @Override
   protected boolean isLocal(Rule rule) {
-    return (Boolean) rule.getAttributeContainer().getAttr("$local");
+    return (Boolean) rule.getAttr("$local");
   }
 
   @Override
   protected boolean isConfigure(Rule rule) {
-    return (Boolean) rule.getAttributeContainer().getAttr("$configure");
+    return (Boolean) rule.getAttr("$configure");
   }
 
   /**
@@ -294,8 +294,7 @@ public class StarlarkRepositoryFunction extends RepositoryFunction {
    * method can also be used as a universal check.
    */
   public static boolean isConfigureRule(Rule rule) {
-    return rule.getRuleClassObject().isStarlark()
-        && ((Boolean) rule.getAttributeContainer().getAttr("$configure"));
+    return rule.getRuleClassObject().isStarlark() && ((Boolean) rule.getAttr("$configure"));
   }
 
   @Override

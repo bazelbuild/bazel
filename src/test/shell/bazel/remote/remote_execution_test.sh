@@ -854,13 +854,13 @@ function test_treeartifact_in_runfiles() {
 load(":output_directory.bzl", "gen_output_dir", "gen_output_dir_test")
 
 gen_output_dir(
-    name = "skylark_output_dir",
+    name = "starlark_output_dir",
     outdir = "dir",
 )
 
 gen_output_dir_test(
-    name = "skylark_output_dir_test",
-    dir = ":skylark_output_dir",
+    name = "starlark_output_dir_test",
+    dir = ":starlark_output_dir",
 )
 EOF
      cat > a/output_directory.bzl <<'EOF'
@@ -908,14 +908,14 @@ EOF
      # a test into the sandboxing module.
      bazel test \
            --spawn_strategy=sandboxed \
-           //a:skylark_output_dir_test \
-           || fail "Failed to run //a:skylark_output_dir_test with sandboxing"
+           //a:starlark_output_dir_test \
+           || fail "Failed to run //a:starlark_output_dir_test with sandboxing"
 
      bazel test \
            --spawn_strategy=remote \
            --remote_executor=grpc://localhost:${worker_port} \
-           //a:skylark_output_dir_test \
-           || fail "Failed to run //a:skylark_output_dir_test with remote execution"
+           //a:starlark_output_dir_test \
+           || fail "Failed to run //a:starlark_output_dir_test with remote execution"
 }
 
 function test_downloads_minimal() {
@@ -1541,6 +1541,12 @@ EOF
   assert_contains "test_case succeeded" "$TESTXML"
 }
 
+# Regression test that Bazel does not crash if remote execution is disabled,
+# but --remote_download_toplevel is enabled.
+function test_download_toplevel_no_remote_execution() {
+  bazel build --remote_download_toplevel \
+      || fail "Failed to run bazel build --remote_download_toplevel"
+}
 
 function test_tag_no_remote_cache() {
   mkdir -p a

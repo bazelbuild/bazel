@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * An instance of a build rule in the build language. A rule has a name, a package to which it
@@ -281,11 +282,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns this rule's raw attribute info, suitable for being fed into an
-   * {@link AttributeMap} for user-level attribute access. Don't use this method
-   * for direct attribute access.
+   * Returns this rule's raw attribute info, suitable for being fed into an {@link AttributeMap} for
+   * user-level attribute access. Don't use this method for direct attribute access.
    */
-  public AttributeContainer getAttributeContainer() {
+  AttributeContainer getAttributeContainer() {
     return attributes;
   }
 
@@ -320,6 +320,69 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    */
   public boolean isAttrDefined(String attrName, Type<?> type) {
     return ruleClass.hasAttr(attrName, type);
+  }
+
+  @Nullable
+  public Object getAttr(String attrName) {
+    return attributes.getAttr(attrName);
+  }
+
+  /**
+   * Returns the value of the given attribute if it has the right type.
+   *
+   * @throws IllegalArgumentException if the attribute does not have the excepted type.
+   */
+  @Nullable
+  public <T> Object getAttr(String attrName, Type<T> type) {
+    Integer index = ruleClass.getAttributeIndex(attrName);
+    if (index == null) {
+      throw new IllegalArgumentException(
+          "No such attribute " + attrName + " in " + ruleClass + " rule " + getLabel());
+    }
+    Attribute attr = ruleClass.getAttribute(index);
+    if (attr.getType() != type) {
+      throw new IllegalArgumentException(
+          "Attribute "
+              + attrName
+              + " is of type "
+              + attr.getType()
+              + " and not of type "
+              + type
+              + " in "
+              + ruleClass
+              + " rule "
+              + getLabel());
+    }
+    return attributes.getAttributeValue(index);
+  }
+
+  /**
+   * Returns a {@link BuildType.SelectorList} for the given attribute if the attribute is
+   * configurable for this rule, null otherwise.
+   */
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public <T> BuildType.SelectorList<T> getSelectorList(String attributeName, Type<T> type) {
+    Integer index = ruleClass.getAttributeIndex(attributeName);
+    if (index == null) {
+      return null;
+    }
+    Object attrValue = attributes.getAttributeValue(index);
+    if (!(attrValue instanceof BuildType.SelectorList)) {
+      return null;
+    }
+    if (((BuildType.SelectorList<?>) attrValue).getOriginalType() != type) {
+      throw new IllegalArgumentException(
+          "Attribute "
+              + attributeName
+              + " is not of type "
+              + type
+              + " in "
+              + ruleClass
+              + " rule "
+              + getLabel());
+    }
+    return (BuildType.SelectorList<T>) attrValue;
   }
 
   /**
@@ -599,10 +662,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   public RuleVisibility getVisibility() {
     if (visibility != null) {
       return visibility;
-    }
-
-    if (getRuleClassObject().isPublicByDefault()) {
-      return ConstantRuleVisibility.PUBLIC;
     }
 
     return pkg.getDefaultVisibility();

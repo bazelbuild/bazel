@@ -308,7 +308,7 @@ message Rule {
   repeated string default_setting = 7;
 
   // The rule's class's public by default value.
-  optional bool public_by_default = 9;
+  optional bool DEPRECATED_public_by_default = 9;
 
   optional bool DEPRECATED_is_skylark = 10;
 

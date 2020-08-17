@@ -64,7 +64,7 @@ public class NoSuchPackageException extends NoSuchThingException {
 
   @Override
   public String getMessage() {
-    return String.format("%s '%s': %s", "no such package", packageId, getRawMessage());
+    return String.format("no such package '%s': %s", packageId, getRawMessage());
   }
 
   @Override

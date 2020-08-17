@@ -657,7 +657,6 @@ public class RuleClass {
     private final boolean starlark;
     private boolean starlarkTestable = false;
     private boolean documented;
-    private boolean publicByDefault = false;
     private boolean binaryOutput = true;
     private boolean workspaceOnly = false;
     private boolean isExecutableStarlark = false;
@@ -875,7 +874,6 @@ public class RuleClass {
           starlark,
           starlarkTestable,
           documented,
-          publicByDefault,
           binaryOutput,
           workspaceOnly,
           isExecutableStarlark,
@@ -1045,11 +1043,6 @@ public class RuleClass {
 
     public Builder setUndocumented() {
       documented = false;
-      return this;
-    }
-
-    public Builder publicByDefault() {
-      publicByDefault = true;
       return this;
     }
 
@@ -1557,7 +1550,6 @@ public class RuleClass {
   private final boolean isStarlark;
   private final boolean starlarkTestable;
   private final boolean documented;
-  private final boolean publicByDefault;
   private final boolean binaryOutput;
   private final boolean workspaceOnly;
   private final boolean isExecutableStarlark;
@@ -1695,7 +1687,6 @@ public class RuleClass {
       boolean isStarlark,
       boolean starlarkTestable,
       boolean documented,
-      boolean publicByDefault,
       boolean binaryOutput,
       boolean workspaceOnly,
       boolean isExecutableStarlark,
@@ -1734,7 +1725,6 @@ public class RuleClass {
     this.targetKind = name + Rule.targetKindSuffix();
     this.starlarkTestable = starlarkTestable;
     this.documented = documented;
-    this.publicByDefault = publicByDefault;
     this.binaryOutput = binaryOutput;
     this.implicitOutputsFunction = implicitOutputsFunction;
     this.transitionFactory = transitionFactory;
@@ -2548,10 +2538,6 @@ public class RuleClass {
 
   public boolean isDocumented() {
     return documented;
-  }
-
-  public boolean isPublicByDefault() {
-    return publicByDefault;
   }
 
   /**

@@ -64,17 +64,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
   // <== Add new options here in alphabetic order ==>
 
   @Option(
-      name = "experimental_action_args",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "If set to true, Action objects support an `args` field: "
-              + "a frozen Args object which contains all action arguments.")
-  public boolean experimentalActionArgs;
-
-  @Option(
       name = "experimental_build_setting_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -631,7 +620,6 @@ public class StarlarkSemanticsOptions extends OptionsBase implements Serializabl
     StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             // <== Add new options here in alphabetic order ==>
-            .experimentalActionArgs(experimentalActionArgs)
             .experimentalAllowTagsPropagation(experimentalAllowTagsPropagation)
             .experimentalBuiltinsBzlPath(experimentalBuiltinsBzlPath)
             .experimentalCcStarlarkApiEnabledPackages(experimentalCcStarlarkApiEnabledPackages)

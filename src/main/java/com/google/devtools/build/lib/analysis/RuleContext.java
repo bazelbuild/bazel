@@ -2403,7 +2403,7 @@ public final class RuleContext extends TargetContext
     }
 
     private String getGeneratorFunction() {
-      return (String) rule.getAttributeContainer().getAttr("generator_function");
+      return (String) rule.getAttr("generator_function");
     }
 
     @Override

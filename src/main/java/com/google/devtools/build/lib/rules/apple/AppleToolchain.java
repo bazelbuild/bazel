@@ -117,6 +117,7 @@ public class AppleToolchain implements AppleToolchainApi<AppleConfiguration> {
       case WATCHOS_SIMULATOR:
       case TVOS_DEVICE:
       case TVOS_SIMULATOR:
+      case CATALYST:
         relativePath = SYSTEM_FRAMEWORK_PATH;
         break;
       default:

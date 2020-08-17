@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -356,7 +357,7 @@ public final class PackageFactory {
           String name = kwarg.getKey();
           PackageArgument<?> pkgarg = packageArguments.get(name);
           if (pkgarg == null) {
-            throw new EvalException("unexpected keyword argument: " + name);
+            throw Starlark.errorf("unexpected keyword argument: %s", name);
           }
           pkgarg.convertAndProcess(pkgBuilder, loc, kwarg.getValue());
         }
@@ -454,6 +455,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       RootedPath buildFile,
       StarlarkFile file,
+      @Nullable Module preludeModule,
       ImmutableMap<String, Module> loadedModules,
       RuleVisibility defaultVisibility,
       StarlarkSemantics starlarkSemantics,
@@ -470,6 +472,7 @@ public final class PackageFactory {
           globber,
           defaultVisibility,
           starlarkSemantics,
+          preludeModule,
           loadedModules,
           repositoryMapping);
     } catch (InterruptedException e) {
@@ -562,7 +565,8 @@ public final class PackageFactory {
             packageId,
             buildFile,
             file,
-            /*loadedModules=*/ ImmutableMap.<String, Module>of(),
+            /*preludeModule=*/ null,
+            /*loadedModules=*/ ImmutableMap.of(),
             /*defaultVisibility=*/ ConstantRuleVisibility.PUBLIC,
             semantics,
             globber);
@@ -740,6 +744,7 @@ public final class PackageFactory {
       Globber globber,
       RuleVisibility defaultVisibility,
       StarlarkSemantics semantics,
+      @Nullable Module preludeModule,
       ImmutableMap<String, Module> loadedModules,
       ImmutableMap<RepositoryName, RepositoryName> repositoryMapping)
       throws InterruptedException {
@@ -772,6 +777,7 @@ public final class PackageFactory {
         packageId,
         file,
         semantics,
+        preludeModule,
         loadedModules,
         new PackageContext(pkgBuilder, globber, eventHandler))) {
       pkgBuilder.setContainsErrors();
@@ -805,6 +811,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       StarlarkFile file,
       StarlarkSemantics semantics,
+      @Nullable Module preludeModule,
       ImmutableMap<String, Module> loadedModules,
       PackageContext pkgContext)
       throws InterruptedException {
@@ -825,9 +832,16 @@ public final class PackageFactory {
     }
 
     // Construct environment.
+    // TODO(bazel-team): Have populateEnvironment accept a Map rather than an ImmutableMap.Builder,
+    // so we're not forced to create both a builder and map here.
     ImmutableMap.Builder<String, Object> predeclared = ImmutableMap.builder();
     populateEnvironment(predeclared);
-    Module module = Module.withPredeclared(semantics, predeclared.build());
+    HashMap<String, Object> predeclaredWithPrelude = new HashMap<>();
+    predeclaredWithPrelude.putAll(predeclared.build());
+    if (preludeModule != null) {
+      predeclaredWithPrelude.putAll(preludeModule.getGlobals());
+    }
+    Module module = Module.withPredeclared(semantics, predeclaredWithPrelude);
 
     // Validate.
     Resolver.resolveFile(file, module);

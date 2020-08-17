@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.android.tools.r8;
 
-import com.android.tools.r8.utils.AndroidApp;
-import com.android.tools.r8.utils.InternalOptions;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
@@ -25,30 +23,74 @@ import java.lang.reflect.Method;
 public class CompatDxSupport {
   public static void run(D8Command command, boolean minimalMainDex)
       throws CompilationFailedException {
-    AndroidApp app = command.getInputApp();
-    InternalOptions options = command.getInternalOptions();
-    // DX allows --multi-dex without specifying a main dex list for legacy devices.
-    // That is broken, but for CompatDX we do the same to not break existing builds
-    // that are trying to transition.
     try {
-      // Use reflection for:
-      //   <code>options.enableMainDexListCheck = false;</code>
-      // as bazel might link to an old r8.jar which does not have this field.
-      Field enableMainDexListCheck = options.getClass().getField("enableMainDexListCheck");
-      try {
-        enableMainDexListCheck.setBoolean(options, false);
-      } catch (IllegalAccessException e) {
-        throw new AssertionError(e);
-      }
-    } catch (NoSuchFieldException e) {
-      // Ignore if bazel is linking to an old r8.jar.
+      // bazel can point to both an full r8.jar and to the shrunken r8.jar (r8lib.jar), as the
+      // r8.jar is currently referenced from the Android SDK build-tools, where different versions
+      // have either full or shrunken jar. From build-tools version 30.0.1 the shrunken jar is
+      // shipped. If the full jar is used some additional internal APIs are used for additional
+      // configuration of "check main dex" and "minimal main dex" flags which are not
+      // supported in the public D8 API.
+      Class<?> androidAppClass = Class.forName("com.android.tools.r8.utils.AndroidApp");
+      Class<?> internalOptionsClass = Class.forName("com.android.tools.r8.utils.InternalOptions");
+      runOnFullJar(command, minimalMainDex, androidAppClass, internalOptionsClass);
+    } catch (ClassNotFoundException e) {
+      D8.run(command);
+    }
+  }
+
+  public static void runOnFullJar(
+      D8Command command,
+      boolean minimalMainDex,
+      Class<?> androidAppClass,
+      Class<?> internalOptionsClass) {
+    Method getInputAppMethod;
+    Method getInternalOptionsMethod;
+    Method runForTestingMethod;
+    try {
+      getInputAppMethod = BaseCommand.class.getDeclaredMethod("getInputApp");
+      getInternalOptionsMethod = D8Command.class.getDeclaredMethod("getInternalOptions");
+      runForTestingMethod =
+          D8.class.getDeclaredMethod("runForTesting", androidAppClass, internalOptionsClass);
+    } catch (NoSuchMethodException e) {
+      throw new AssertionError("Unsupported r8.jar", e);
     }
 
-    // DX has a minimal main dex flag. In compat mode only do minimal main dex
-    // if the flag is actually set.
-    options.minimalMainDex = minimalMainDex;
+    try {
+      // Use reflection for:
+      //   <code>AndroidApp app = command.getInputApp();</code>
+      //   <code>InternalOptions options = command.getInternalOptions();</code>
+      // as bazel might link to a shrunken r8.jar which does not have these APIs.
+      Object app = getInputAppMethod.invoke(command);
+      Object options = getInternalOptionsMethod.invoke(command);
+      // DX allows --multi-dex without specifying a main dex list for legacy devices.
+      // That is broken, but for CompatDX we do the same to not break existing builds
+      // that are trying to transition.
+      try {
+        Field enableMainDexListCheckField = internalOptionsClass.getField("enableMainDexListCheck");
+        // DX has a minimal main dex flag. In compat mode only do minimal main dex
+        // if the flag is actually set.
+        Field minimalMainDexField = internalOptionsClass.getField("minimalMainDex");
+        try {
+          // Use reflection for:
+          //   <code>options.enableMainDexListCheck = false;</code>
+          // as bazel might link to an old r8.jar which does not have this field.
+          enableMainDexListCheckField.setBoolean(options, false);
+          // Use reflection for:
+          //   <code>options.minimalMainDex = minimalMainDex;</code>
+          // as bazel might link to an old r8.jar which does not have this field.
+          minimalMainDexField.setBoolean(options, minimalMainDex);
+        } catch (IllegalAccessException e) {
+          throw new AssertionError("Unsupported r8.jar", e);
+        }
+      } catch (NoSuchFieldException e) {
+        // Ignore if bazel is linking to an old r8.jar.
+      }
 
-    D8.runForTesting(app, options);
+      runForTestingMethod.invoke(null, app, options);
+    } catch (ReflectiveOperationException e) {
+      // This is an unsupported r8.jar.
+      throw new AssertionError("Unsupported r8.jar", e);
+    }
   }
 
   public static void enableDesugarBackportStatics(D8Command.Builder builder) {
@@ -61,7 +103,7 @@ public class CompatDxSupport {
       try {
         enableDesugarBackportStatics.invoke(builder);
       } catch (ReflectiveOperationException e) {
-        throw new AssertionError(e);
+        throw new AssertionError("Unsupported r8.jar", e);
       }
     } catch (NoSuchMethodException e) {
       // Ignore if bazel is linking to an old r8.jar.

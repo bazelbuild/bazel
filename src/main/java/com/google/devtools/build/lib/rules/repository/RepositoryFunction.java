@@ -41,7 +41,7 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -135,7 +135,7 @@ public abstract class RepositoryFunction {
    */
   protected static class RepositoryMissingDependencyException extends EvalException {
     RepositoryMissingDependencyException() {
-      super(Location.BUILTIN, "Internal exception");
+      super("Internal exception");
     }
   }
 
@@ -186,7 +186,7 @@ public abstract class RepositoryFunction {
   @SuppressWarnings("unchecked")
   private static Iterable<String> getEnviron(Rule rule) {
     if (rule.isAttrDefined("$environ", Type.STRING_LIST)) {
-      return (Iterable<String>) rule.getAttributeContainer().getAttr("$environ");
+      return (Iterable<String>) rule.getAttr("$environ");
     }
     return ImmutableList.of();
   }
@@ -290,7 +290,7 @@ public abstract class RepositoryFunction {
       if (pkgLookupValue == PackageLookupValue.NO_BUILD_FILE_VALUE) {
         message = PackageLookupFunction.explainNoBuildFileValue(label.getPackageIdentifier(), env);
       }
-      throw new EvalException("Unable to load package for " + label + ": " + message);
+      throw Starlark.errorf("Unable to load package for %s: %s", label, message);
     }
 
     // And now for the file

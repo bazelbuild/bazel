@@ -96,7 +96,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
 
   private static ResolvedEvent resolve(Rule rule, BlazeDirectories directories) {
     String name = rule.getName();
-    Object pathObj = rule.getAttributeContainer().getAttr("path");
+    Object pathObj = rule.getAttr("path");
     String path;
     if (pathObj instanceof String) {
       path = (String) pathObj;

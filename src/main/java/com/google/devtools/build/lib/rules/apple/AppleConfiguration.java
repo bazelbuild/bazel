@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.analysis.skylark.annotations.StarlarkConfigurationField;
+import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
@@ -73,6 +73,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   private final ImmutableList<String> watchosCpus;
   private final ImmutableList<String> tvosCpus;
   private final ImmutableList<String> macosCpus;
+  private final ImmutableList<String> catalystCpus;
   private final EnumMap<ApplePlatform.PlatformType, AppleBitcodeMode> platformBitcodeModes;
   private final Label xcodeConfigLabel;
   private final AppleCommandLineOptions options;
@@ -98,6 +99,10 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     this.macosCpus = (options.macosCpus == null || options.macosCpus.isEmpty())
         ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_MACOS_CPU)
         : ImmutableList.copyOf(options.macosCpus);
+    this.catalystCpus =
+        (options.catalystCpus == null || options.catalystCpus.isEmpty())
+            ? ImmutableList.of(AppleCommandLineOptions.DEFAULT_CATALYST_CPU)
+            : ImmutableList.copyOf(options.catalystCpus);
     this.platformBitcodeModes = collectBitcodeModes(options.appleBitcodeMode);
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(options.xcodeVersionConfig, "xcodeConfigLabel");
@@ -196,6 +201,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         return tvosCpus.get(0);
       case MACOS:
         return macosCpus.get(0);
+      case CATALYST:
+        return catalystCpus.get(0);
       default:
         throw new IllegalArgumentException("Unhandled platform type " + applePlatformType);
     }
@@ -241,6 +248,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         return tvosCpus;
       case MACOS:
         return macosCpus;
+      case CATALYST:
+        return catalystCpus;
       default:
         throw new IllegalArgumentException("Unhandled platform type " + platformType);
     }
@@ -297,6 +306,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
         return ApplePlatform.TVOS_SIMULATOR;
       case MACOS:
         return ApplePlatform.MACOS;
+      case CATALYST:
+        return ApplePlatform.CATALYST;
       default:
         throw new IllegalArgumentException("Unsupported platform type " + platformType);
     }
@@ -504,6 +515,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     APPLEBIN_TVOS("applebin_tvos"),
     /** Distinguisher for {@code apple_binary} rule with "macos" platform_type. */
     APPLEBIN_MACOS("applebin_macos"),
+    /** Distinguisher for {@code apple_binary} rule with "catalyst" platform_type. */
+    APPLEBIN_CATALYST("applebin_catalyst"),
 
     /**
      * Distinguisher for the apple crosstool configuration.  We use "apl" for output directory

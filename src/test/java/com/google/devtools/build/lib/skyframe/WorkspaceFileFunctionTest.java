@@ -75,7 +75,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   private static Label getLabelMapping(Package pkg, String name) throws NoSuchTargetException {
-    return (Label) ((Rule) pkg.getTarget(name)).getAttributeContainer().getAttr("actual");
+    return (Label) ((Rule) pkg.getTarget(name)).getAttr("actual");
   }
 
   private RootedPath createWorkspaceFile(String... contents) throws IOException {

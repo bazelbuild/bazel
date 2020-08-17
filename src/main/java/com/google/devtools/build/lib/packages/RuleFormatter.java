@@ -37,7 +37,6 @@ public class RuleFormatter {
     Build.Rule.Builder builder = Build.Rule.newBuilder();
     builder.setName(rule.getLabel().getName());
     builder.setRuleClass(rule.getRuleClass());
-    builder.setPublicByDefault(rule.getRuleClassObject().isPublicByDefault());
 
     RawAttributeMapper rawAttributeMapper = RawAttributeMapper.of(rule);
     boolean isStarlark = rule.getRuleClassObject().isStarlark();

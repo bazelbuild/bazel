@@ -30,6 +30,6 @@ bootstrap_java_library(
     ],
     tags = ["manual"],
     deps = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:skylark-deps",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:starlark-deps",
     ],
 )

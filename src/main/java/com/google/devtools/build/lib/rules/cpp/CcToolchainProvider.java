@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcToolchainProviderApi;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Location;
+import com.google.devtools.build.lib.syntax.Starlark;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
 
@@ -555,9 +556,9 @@ public final class CcToolchainProvider extends ToolchainInfo
       throws EvalException {
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (staticRuntimeLinkInputs == null) {
-        throw new EvalException(
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide static_runtime_lib attribute.");
+        throw Starlark.errorf(
+            "Toolchain supports embedded runtimes, but didn't provide static_runtime_lib"
+                + " attribute.");
       }
       return staticRuntimeLinkInputs;
     } else {
@@ -588,8 +589,8 @@ public final class CcToolchainProvider extends ToolchainInfo
     if (shouldStaticallyLinkCppRuntimes(featureConfiguration)) {
       if (dynamicRuntimeLinkInputs == null) {
         throw new EvalException(
-            "Toolchain supports embedded runtimes, but didn't "
-                + "provide dynamic_runtime_lib attribute.");
+            "Toolchain supports embedded runtimes, but didn't provide dynamic_runtime_lib"
+                + " attribute.");
       }
       return dynamicRuntimeLinkInputs;
     } else {

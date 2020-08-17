@@ -207,7 +207,6 @@ public class SourceFileReader {
                     getLineCnt(),
                     javaSourceFilePath,
                     flags,
-                    ruleClassProvider,
                     familySummary));
             sb = new StringBuilder();
             inBlazeRuleDocs = false;

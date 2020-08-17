@@ -212,7 +212,7 @@ EOF
   assert_not_contains "echo unused" output
 }
 
-function test_aquery_skylark_env() {
+function test_aquery_starlark_env() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/rule.bzl" <<'EOF'
