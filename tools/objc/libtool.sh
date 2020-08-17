@@ -122,4 +122,4 @@ while [[ $# -gt 0 ]]; do
    esac
 done
 
-"${WRAPPER}" libtool "$@" "${ARGS[@]}"
+"${WRAPPER}" libtool "${ARGS[@]}"

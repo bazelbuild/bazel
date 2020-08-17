@@ -25,7 +25,6 @@ cc_binary(
     srcs = [
         "libtool_check_unique.cc",
     ],
-    copts = ["-std=c++17"],
 )
 
 sh_binary(
