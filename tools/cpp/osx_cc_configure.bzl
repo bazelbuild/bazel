@@ -54,6 +54,7 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
     paths = resolve_labels(repository_ctx, [
         "@bazel_tools//tools/cpp:osx_cc_wrapper.sh.tpl",
         "@bazel_tools//tools/objc:libtool.sh",
+        "@bazel_tools//tools/objc:libtool_check_unique.cc",
         "@bazel_tools//tools/objc:make_hashed_objlist.py",
         "@bazel_tools//tools/objc:xcrunwrapper.sh",
         "@bazel_tools//tools/osx/crosstool:BUILD.tpl",
