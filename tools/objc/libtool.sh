@@ -43,8 +43,6 @@ if $(/usr/bin/dirname "$0")/libtool_check_unique "$@"; then
   exit
 fi
 
-echo "Duplicate .o basenames detected, taking slow path"
-
 TEMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/libtool.XXXXXXXX")"
 trap "rm -rf \"${TEMPDIR}\"" EXIT
 
