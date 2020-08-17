@@ -1,16 +1,22 @@
 #include <iostream>
 #include <regex>
 #include <fstream>
-#include <filesystem>
 #include <unordered_set>
 
-namespace fs = std::filesystem;
 using namespace std;
 
 static unordered_set<string> sBasenames;
 
+string getBasename(string path) {
+    auto idx = path.find_last_of("/");
+    if (idx == string::npos) {
+        return path;
+    }
+    return path.substr(idx + 1);
+}
+
 // Returns 0 if there are no duplicate basenames in the object files (both via -filelist as well as shell args),
-// 1 otherwise. If there are no duplicates, we can use /usr/bin/libtool directly with no symlinking
+// 1 otherwise
 int main(int argc, const char * argv[]) {
     regex no_arg_flags = regex("-static|-s|-a|-c|-L|-T|-no_warning_for_no_symbols");
     regex single_arg_flags = regex("-arch_only|-syslibroot|-o");
@@ -20,7 +26,7 @@ int main(int argc, const char * argv[]) {
         if (arg == "-filelist") {
             ifstream list(argv[i + 1]);
             for (string line; getline(list, line); ) {
-                string basename = fs::path(line).filename();
+                string basename = getBasename(line);
                 auto pair = sBasenames.insert(basename);
                 if (!pair.second) {
                     return 1;
@@ -39,7 +45,7 @@ int main(int argc, const char * argv[]) {
         } else if (regex_match(arg, regex(".*\\.a$"))) {
             // Archive inputs can remain untouched, as they come from other targets.
         } else {
-            string basename = fs::path(arg).filename();
+            string basename = getBasename(arg);
             auto pair = sBasenames.insert(basename);
             if (!pair.second) {
                 return 1;
