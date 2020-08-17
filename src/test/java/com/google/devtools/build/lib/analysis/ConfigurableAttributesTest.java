@@ -498,13 +498,20 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   @Test
   public void configKeyNonexistentTarget_otherPackage() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors.
+    scratch.file(
+        "conditions/BUILD",
+        "config_setting(",
+        "    name = 'a',",
+        "    values = {'test_arg': 'a'})");
     scratch.file("bar/BUILD");
     scratch.file(
         "foo/BUILD",
         "genrule(",
         "    name = 'g',",
         "    outs = ['g.out'],",
-        "    cmd = select({'//bar:fake': ''})",
+        // With an invalid target and a real target, validate skyframe error handling.
+        // See http://b/162021059 for details.
+        "    cmd = select({'//bar:fake': '', '//conditions:a': ''})",
         ")");
     assertThat(getConfiguredTarget("//foo:g")).isNull();
     assertContainsEvent(
