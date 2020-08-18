@@ -46,10 +46,7 @@ public final class InstrumentationFilterSupport {
    * 4) Replace all "javatests" directories in packages with "java". Similarly, replace "test/java/"
    *    with "main/java". Also, strip trailing "/internal", "/public", and "/tests" from packages.
    *    (See getInstrumentedPrefix.)
-   * 5) If two packages reside in the same directory, use filter based on the parent directory name
-        instead. Doing so significantly simplifies instrumentation filter in majority of real-life
-        scenarios (in particular when dealing with my/package/... wildcards).
-   * 6) Set --instrumentation_filter default value to instrument everything in those packages.
+   * 5) Set --instrumentation_filter default value to instrument everything in those packages.
    */
   @VisibleForTesting
   public static String computeInstrumentationFilter(
@@ -123,25 +120,6 @@ public final class InstrumentationFilterSupport {
   private static void optimizeFilterSet(SortedSet<String> packageFilters) {
     Iterator<String> iterator = packageFilters.iterator();
     if (iterator.hasNext()) {
-      // Find common parent filters to reduce number of filter expressions. In practice this
-      // still produces nicely constrained instrumentation filter while making final
-      // filter value much more user-friendly - especially in case of /my/package/... wildcards.
-      Set<String> parentFilters = Sets.newTreeSet();
-      String filterString = iterator.next();
-      PathFragment parent = PathFragment.create(filterString).getParentDirectory();
-      String parentPath = (parent == null) ? "" : parent.getPathString();
-      while (iterator.hasNext()) {
-        String current = iterator.next();
-        if (!current.startsWith(filterString) && current.startsWith(parentPath)) {
-          parentFilters.add(parentPath);
-        } else {
-          filterString = current;
-          parent = PathFragment.create(filterString).getParentDirectory();
-          parentPath = (parent == null) ? "" : parent.getPathString();
-        }
-      }
-      packageFilters.addAll(parentFilters);
-
       // Optimize away nested filters.
       iterator = packageFilters.iterator();
       String prev = iterator.next();
