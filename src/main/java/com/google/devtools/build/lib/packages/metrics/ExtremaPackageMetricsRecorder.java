@@ -129,11 +129,11 @@ class ExtremaPackageMetricsRecorder implements PackageMetricsRecorder {
         c -> Durations.toMillis(c.getPackageMetricsInternal().getLoadDuration()));
     logIfNonEmpty(
         "Largest packages (num targets)",
-        packagesWithMostComputationSteps.getExtremeElements(),
+        largestPackages.getExtremeElements(),
         c -> c.getPackageMetricsInternal().getNumTargets());
     logIfNonEmpty(
         "Packages with most computation steps",
-        largestPackages.getExtremeElements(),
+        packagesWithMostComputationSteps.getExtremeElements(),
         c -> c.getPackageMetricsInternal().getComputationSteps());
     logIfNonEmpty(
         "Packages with most transitive loads (num bzl files)",
