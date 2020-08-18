@@ -109,6 +109,34 @@ def configure_osx_toolchain(repository_ctx, overriden_tools):
             paths["@bazel_tools//tools/osx/crosstool:cc_toolchain_config.bzl"],
             "cc_toolchain_config.bzl",
         )
+        libtool_check_unique_src_path = str(repository_ctx.path(
+            paths["@bazel_tools//tools/objc:libtool_check_unique.cc"],
+        ))
+        xcrun_result = repository_ctx.execute([
+            "env",
+            "-i",
+            "xcrun",
+            "--sdk",
+            "macosx",
+            "clang",
+            "-mmacosx-version-min=10.9",
+            "-std=c++11",
+            "-lc++",
+            "-o",
+            "libtool_check_unique",
+            libtool_check_unique_src_path,
+        ], 30)
+        if (xcrun_result.return_code != 0):
+            error_msg = (
+                "return code {code}, stderr: {err}, stdout: {out}"
+            ).format(
+                code = xcrun_result.return_code,
+                err = xcrun_result.stderr,
+                out = xcrun_result.stdout,
+            )
+            fail("libtool_check_unique failed to generate. Please file an issue at " +
+                 "https://github.com/bazelbuild/bazel/issues with the following:\n" +
+                 error_msg)
         wrapped_clang_src_path = str(repository_ctx.path(
             paths["@bazel_tools//tools/osx/crosstool:wrapped_clang.cc"],
         ))

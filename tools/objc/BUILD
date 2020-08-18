@@ -20,13 +20,6 @@ sh_binary(
     ],
 )
 
-cc_binary(
-    name = "libtool_check_unique",
-    srcs = [
-        "libtool_check_unique.cc",
-    ],
-)
-
 sh_binary(
     name = "xcrunwrapper",
     srcs = [":xcrunwrapper.sh"],
