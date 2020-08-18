@@ -286,7 +286,7 @@ class DataBindingV2Context implements DataBindingContext {
         .addExecPath("-classInfoOut", classInfoFile)
         .addExecPath("-sourceOut", srcOutFile)
         .add("-zipSourceOutput", "true")
-        .add("-useAndroidX", "false");
+        .add("-useAndroidX", "true");
 
     List<Artifact> dependencyClassInfo = getDirectClassInfo(ruleContext);
     for (Artifact artifact : dependencyClassInfo) {

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitionMode;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -29,6 +30,7 @@ import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidResources;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.util.List;
@@ -159,9 +161,25 @@ public final class DataBinding {
     // chain (meaning each depender processes them again as if they were its own), this problem
     // wouldn't happen.
     try {
-      String contents =
-          ResourceFileLoader.loadResource(
-              DataBinding.class, "databinding_annotation_template.txt");
+      String templateString =
+          ResourceFileLoader.loadResource(DataBinding.class, "databinding_annotation_template.txt");
+      boolean useAndroidX = true;
+      String bindingBuildInfoQualifiedName;
+      String buildIdAttribute;
+      if (useAndroidX) {
+        bindingBuildInfoQualifiedName = "androidx.databinding.BindingBuildInfo";
+        buildIdAttribute = ""; // AndroidX's version of the annotation does not have a buildId property.
+      } else {
+        bindingBuildInfoQualifiedName = "android.databinding.BindingBuildInfo";
+        buildIdAttribute = "buildId=\"not_used_here\"";
+      }
+      Substitution importSubstitution =
+          Substitution.of(
+              "%databinding_binding_build_info_qualified_name%", bindingBuildInfoQualifiedName);
+      Substitution buildIdSubstitution =
+          Substitution.of(
+              "%possible_build_id_attribute%", buildIdAttribute);
+      String contents = getExpandedTemplateUnsafe(templateString, ImmutableList.of(importSubstitution, buildIdSubstitution));
       Artifact annotationFile = getDataBindingArtifact(ruleContext, "DataBindingInfo.java");
       ruleContext.registerAction(
           FileWriteAction.create(ruleContext, annotationFile, contents, false));
@@ -170,6 +188,16 @@ public final class DataBinding {
       ruleContext.ruleError("Cannot load annotation processor template: " + e.getMessage());
       return ImmutableList.of();
     }
+  }
+
+  // TODO: should this use LocalTemplateExpansionStrategy with Template, instead?
+  private static String getExpandedTemplateUnsafe(
+      String templateString, ImmutableList<Substitution> substitutions) {
+    for (Substitution entry : substitutions) {
+      templateString =
+          StringUtilities.replaceAllLiteral(templateString, entry.getKey(), entry.getValue());
+    }
+    return templateString;
   }
 
   /** Returns the data binding resource processing output from deps under the given attribute. */

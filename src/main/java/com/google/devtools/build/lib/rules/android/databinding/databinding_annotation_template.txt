@@ -1,6 +1,6 @@
 package android.databinding.layouts;
 
-import android.databinding.BindingBuildInfo;
+import %databinding_binding_build_info_qualified_name%;
 
 /**
  * Template for the file that feeds data binding's annotation processor. The
@@ -8,7 +8,7 @@ import android.databinding.BindingBuildInfo;
  * data binding declarations (from layoutInfoDir) to app code.
  */
 @BindingBuildInfo(
-    buildId="not_used_here" // Adds incrementality, which Bazel already supports
+    %possible_build_id_attribute% // Potentially adds incrementality (depending on whether AndroidX is used), which Bazel already supports
 )
 public class DataBindingInfo {
   /* This only exists for annotation processing. */

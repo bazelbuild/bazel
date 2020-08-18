@@ -425,6 +425,7 @@ public class AndroidResourceProcessor {
     options.setResInput(inputResourcesDir.toFile());
     options.setResOutput(processedResourceDir.toFile());
     options.setLayoutInfoOutput(dataBindingInfoOut.toFile());
+    options.setUseAndroidX(true);
     // Whether or not to aggregate data-bound .xml files into a single .zip.
     options.setZipLayoutInfo(shouldZipDataBindingInfo);
 
