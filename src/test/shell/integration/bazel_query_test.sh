@@ -272,7 +272,7 @@ function test_minrank_le_depth_bound() {
   done
 }
 
-function test_skylark_dep_in_sky_query() {
+function test_starlark_dep_in_sky_query() {
   rm -rf foo
   rm -rf bar
   mkdir -p foo bar || fail "Couldn't make directories"
@@ -286,7 +286,7 @@ function test_skylark_dep_in_sky_query() {
   expect_not_log "fakerule\.bzl"
 }
 
-function test_skylark_regular_file_not_included_in_rbuildfiles() {
+function test_starlark_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -299,7 +299,7 @@ function test_skylark_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_symlink_source_not_included_in_rbuildfiles() {
+function test_starlark_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
@@ -313,7 +313,7 @@ function test_skylark_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_symlink_target_not_included_in_rbuildfiles() {
+function test_starlark_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -327,7 +327,7 @@ function test_skylark_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_glob_regular_file_not_included_in_rbuildfiles() {
+function test_starlark_glob_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -340,7 +340,7 @@ function test_skylark_glob_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_glob_symlink_source_not_included_in_rbuildfiles() {
+function test_starlark_glob_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
@@ -354,7 +354,7 @@ function test_skylark_glob_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_glob_symlink_target_not_included_in_rbuildfiles() {
+function test_starlark_glob_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo || fail "Couldn't make directories"
   echo "baz" > "foo/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -368,7 +368,7 @@ function test_skylark_glob_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
 }
 
-function test_skylark_recursive_glob_regular_file_not_included_in_rbuildfiles() {
+function test_starlark_recursive_glob_regular_file_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -381,7 +381,7 @@ function test_skylark_recursive_glob_regular_file_not_included_in_rbuildfiles() 
   rm -rf foo
 }
 
-function test_skylark_recursive_glob_symlink_source_not_included_in_rbuildfiles() {
+function test_starlark_recursive_glob_symlink_source_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "moo" > "foo/moo" || fail "Couldn't create moo"
@@ -395,7 +395,7 @@ function test_skylark_recursive_glob_symlink_source_not_included_in_rbuildfiles(
   rm -rf foo
 }
 
-function test_skylark_recursive_glob_symlink_target_not_included_in_rbuildfiles() {
+function test_starlark_recursive_glob_symlink_target_not_included_in_rbuildfiles() {
   rm -rf foo
   mkdir -p foo/bar || fail "Couldn't make directories"
   echo "baz" > "foo/bar/baz.bzl" || fail "Couldn't create baz.bzl"
@@ -409,7 +409,7 @@ function test_skylark_recursive_glob_symlink_target_not_included_in_rbuildfiles(
   rm -rf foo
 }
 
-function test_skylark_subdir_dep_in_sky_query() {
+function test_starlark_subdir_dep_in_sky_query() {
   rm -rf foo
   mkdir -p foo bar/baz || fail "Couldn't make directories"
   echo 'load("//bar:baz/fakerule.bzl", "const")' > foo/BUILD || fail "Couldn't write"

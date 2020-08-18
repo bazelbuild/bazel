@@ -246,7 +246,6 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               // withdrawn).
               @ParamType(type = StarlarkFunction.class)
             },
-            callbackEnabled = true,
             noneable = true,
             defaultValue = "None",
             named = true,
@@ -448,7 +447,6 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               @ParamType(type = Sequence.class, generic1 = Label.class),
               @ParamType(type = StarlarkFunction.class)
             },
-            callbackEnabled = true,
             defaultValue = "[]",
             named = true,
             positional = false,
@@ -553,7 +551,6 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               @ParamType(type = Dict.class),
               @ParamType(type = StarlarkFunction.class)
             },
-            callbackEnabled = true,
             defaultValue = "{}",
             named = true,
             positional = false,

@@ -247,10 +247,6 @@ public class ActionExecutionFunction implements SkyFunction {
             ValueOrException3<
                 IOException, ActionExecutionException, ArtifactNestedSetEvalException>>
         inputDeps = getInputDeps(env, allInputs, state);
-    // If there's a missing value.
-    if (inputDeps == null) {
-      return null;
-    }
 
     try {
       if (previousExecution == null && !state.hasArtifactData()) {

@@ -10,7 +10,7 @@ java_test(
     srcs = ["TestHello.java"],
     deps = [
         ":junit4",
-        "//examples/java-skylark/src/main/java/com/example/myproject:hello-lib",
+        "//examples/java-starlark/src/main/java/com/example/myproject:hello-lib",
     ],
 )
 
@@ -23,5 +23,5 @@ java_test(
 filegroup(
     name = "srcs",
     srcs = glob(["**/*.java"]) + ["BUILD"],
-    visibility = ["//examples/java-skylark:__pkg__"],
+    visibility = ["//examples/java-starlark:__pkg__"],
 )

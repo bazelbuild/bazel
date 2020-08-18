@@ -486,18 +486,12 @@ public abstract class AbstractPackageLoader implements PackageLoader {
                 /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT))
         .put(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, new ContainingPackageLookupFunction())
         .put(
-            SkyFunctions.AST_FILE_LOOKUP,
-            new ASTFileLookupFunction(ruleClassProvider, digestHashFunction))
-        .put(
-            SkyFunctions.STARLARK_BUILTINS,
-            new StarlarkBuiltinsFunction(ruleClassProvider, pkgFactory))
+            SkyFunctions.AST_FILE_LOOKUP, new ASTFileLookupFunction(pkgFactory, digestHashFunction))
+        .put(SkyFunctions.STARLARK_BUILTINS, new StarlarkBuiltinsFunction(pkgFactory))
         .put(
             SkyFunctions.BZL_LOAD,
             BzlLoadFunction.create(
-                ruleClassProvider,
-                pkgFactory,
-                digestHashFunction,
-                CacheBuilder.newBuilder().build()))
+                pkgFactory, digestHashFunction, CacheBuilder.newBuilder().build()))
         .put(SkyFunctions.WORKSPACE_NAME, new WorkspaceNameFunction())
         .put(SkyFunctions.WORKSPACE_AST, new WorkspaceASTFunction(ruleClassProvider))
         .put(

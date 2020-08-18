@@ -664,10 +664,6 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       return visibility;
     }
 
-    if (getRuleClassObject().isPublicByDefault()) {
-      return ConstantRuleVisibility.PUBLIC;
-    }
-
     return pkg.getDefaultVisibility();
   }
 

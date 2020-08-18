@@ -26,6 +26,7 @@ java_library(
         exclude = [
             "ExecutionStatusException.java",
             "ReferenceCountedChannel.java",
+            "ReferenceCountedChannelPool.java",
             "RemoteRetrier.java",
             "RemoteRetrierUtils.java",
             "Retrier.java",
@@ -40,6 +41,7 @@ java_library(
         ":ExecutionStatusException",
         ":ReferenceCountedChannel",
         ":Retrier",
+        "//src/main/java/com/google/devtools/build/lib:build-request-options",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -121,8 +123,12 @@ java_library(
 
 java_library(
     name = "ReferenceCountedChannel",
-    srcs = ["ReferenceCountedChannel.java"],
+    srcs = [
+        "ReferenceCountedChannel.java",
+        "ReferenceCountedChannelPool.java",
+    ],
     deps = [
+        "//third_party:guava",
         "//third_party:netty",
         "//third_party/grpc:grpc-jar",
     ],

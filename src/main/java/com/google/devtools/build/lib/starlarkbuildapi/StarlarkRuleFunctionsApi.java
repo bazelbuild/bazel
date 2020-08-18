@@ -151,7 +151,6 @@ public interface StarlarkRuleFunctionsApi<FileApiT extends FileApi> {
               @ParamType(type = StarlarkFunction.class) // a function defined in Starlark
             },
             named = true,
-            callbackEnabled = true,
             noneable = true,
             defaultValue = "None",
             valueWhenDisabled = "None",

@@ -439,7 +439,7 @@ toolchain(
 EOF
 }
 
-function setup_skylark_javatest_support() {
+function setup_starlark_javatest_support() {
   setup_javatest_common
   grep -q "name = \"junit4-jars\"" third_party/BUILD \
     || cat <<EOF >>third_party/BUILD

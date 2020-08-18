@@ -18,8 +18,6 @@ import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_AC
 
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.util.LazyString;
 import java.util.Random;
 import org.junit.Test;
@@ -152,29 +150,5 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
     assertThat(contents.forced).isEqualTo(0);
     assertThat(action.getFileContents()).isEqualTo(backingContents);
     assertThat(contents.forced).isEqualTo(1);
-  }
-
-  @Test
-  public void testTransparentCompressionFlagOn() throws Exception {
-    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
-    String contents = generateLongRandomString();
-    useConfiguration("--experimental_transparent_compression=true");
-    ConfiguredTarget target = scratchConfiguredTarget("a", "a", "filegroup(name='a', srcs=[])");
-    RuleContext context = getRuleContext(target);
-    FileWriteAction action =
-        FileWriteAction.create(context, outputArtifact, contents, /*makeExecutable=*/ false);
-    assertThat(action.usesCompression()).isTrue();
-  }
-
-  @Test
-  public void testTransparentCompressionFlagOff() throws Exception {
-    Artifact outputArtifact = getBinArtifactWithNoOwner("destination.txt");
-    String contents = generateLongRandomString();
-    useConfiguration("--experimental_transparent_compression=false");
-    ConfiguredTarget target = scratchConfiguredTarget("a", "a", "filegroup(name='a', srcs=[])");
-    RuleContext context = getRuleContext(target);
-    FileWriteAction action =
-        FileWriteAction.create(context, outputArtifact, contents, /*makeExecutable=*/ false);
-    assertThat(action.usesCompression()).isFalse();
   }
 }

@@ -140,6 +140,11 @@ public class AppleCrosstoolTransition implements PatchTransition {
           return AppleCommandLineOptions.DEFAULT_MACOS_CPU;
         }
         return appleOptions.macosCpus.get(0);
+      case CATALYST:
+        if (appleOptions.catalystCpus.isEmpty()) {
+          return AppleCommandLineOptions.DEFAULT_CATALYST_CPU;
+        }
+        return appleOptions.catalystCpus.get(0);
       default:
         throw new IllegalArgumentException(
             "Unhandled platform type " + appleOptions.applePlatformType);

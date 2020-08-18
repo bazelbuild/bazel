@@ -210,4 +210,4 @@ EOF
   expect_log "Attribute foo is configurable and cannot be used in outputs"
 }
 
-run_suite "skylark outputs tests"
+run_suite "starlark outputs tests"

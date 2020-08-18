@@ -49,8 +49,8 @@ class Constants {
   static final String GCOV_LINE_MARKER = "lcount:";
   static final String GCOV_BRANCH_MARKER = "branch:";
   static final String GCOV_BRANCH_NOTEXEC = "notexec";
-  static final String GCOV_BRANCH_NOTTAKEN = "taken";
-  static final String GCOV_BRANCH_TAKEN = "nottaken";
+  static final String GCOV_BRANCH_NOTTAKEN = "nottaken";
+  static final String GCOV_BRANCH_TAKEN = "taken";
   // Please keep in sync with the extensions in CppFileTypes.
   static final ImmutableList<String> CC_EXTENSIONS =
       ImmutableList.of(

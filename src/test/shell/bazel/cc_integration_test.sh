@@ -703,7 +703,7 @@ EOF
 
   bazel build "${package}:x" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args
+      --output_groups=out
 
   cat "bazel-bin/${package}/aspect_out" | grep "\(ar\|libtool\)" \
       || fail "args didn't contain the tool path"
@@ -741,7 +741,7 @@ EOF
 
   bazel build "${package}:x" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args
+      --output_groups=out
 
   cat "bazel-bin/${package}/aspect_out" | \
       grep "\(gcc\|clang\|clanc-cl.exe\|cl.exe\)" \
@@ -898,14 +898,14 @@ EOF
   # Test that actions are reconstructible under default configuration
   bazel build "${package}:a" \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args || \
+      --output_groups=out || \
       fail "bazel build should've passed"
 
-   # Test that compile actions are reconstructible when using param files
-   bazel build "${package}:a" \
+  # Test that compile actions are reconstructible when using param files
+  bazel build "${package}:a" \
       --features=compiler_param_file \
       --aspects="//${package}:lib.bzl%actions_test_aspect" \
-      --output_groups=out --experimental_action_args || \
+      --output_groups=out || \
       fail "bazel build should've passed with --features=compiler_param_file"
 }
 

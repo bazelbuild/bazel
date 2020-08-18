@@ -94,7 +94,7 @@ class ActionTempTest(test_base.TestBase):
     self.assertEqual(len(outputs), 2)
     self._AssertOutputFileContents(outputs['genrule'], input_file_contents,
                                    expected_tmpdir_regex)
-    self._AssertOutputFileContents(outputs['skylark'], input_file_contents,
+    self._AssertOutputFileContents(outputs['starlark'], input_file_contents,
                                    expected_tmpdir_regex)
 
   def _UpdateInputFile(self, content):
@@ -189,7 +189,7 @@ class ActionTempTest(test_base.TestBase):
         ')',
         '',
         'foorule(',
-        '    name = "skylark",',
+        '    name = "starlark",',
         '    src = "input.txt",',
         '    tool = "%s",' % toolname,
         ')',
@@ -224,16 +224,16 @@ class ActionTempTest(test_base.TestBase):
         '--verbose_failures',
         '--spawn_strategy=%s' % strategy,
         '//foo:genrule',
-        '//foo:skylark',
+        '//foo:starlark',
     ], env_remove, env_add)
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertTrue(
         os.path.exists(os.path.join(bazel_genfiles, 'foo/genrule.txt')))
-    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'foo/skylark.txt')))
+    self.assertTrue(os.path.exists(os.path.join(bazel_bin, 'foo/starlark.txt')))
 
     return {
         'genrule': _ReadFile(os.path.join(bazel_genfiles, 'foo/genrule.txt')),
-        'skylark': _ReadFile(os.path.join(bazel_bin, 'foo/skylark.txt'))
+        'starlark': _ReadFile(os.path.join(bazel_bin, 'foo/starlark.txt'))
     }
 
   def _AssertOutputFileContents(self, lines, input_file_line,

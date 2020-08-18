@@ -14,12 +14,8 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
-import com.google.devtools.build.lib.vfs.Root;
-import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -47,37 +43,6 @@ public class RepositoryLoaderFunction implements SkyFunction {
     if (!repository.repositoryExists()) {
       return RepositoryValue.notFound(nameFromRule);
     }
-    RootedPath workspaceFilePath;
-    try {
-      workspaceFilePath =
-          WorkspaceFileHelper.getWorkspaceRootedFile(Root.fromPath(repository.getPath()), env);
-      if (workspaceFilePath == null) {
-        return null;
-      }
-    } catch (IOException e) {
-      throw new RepositoryLoaderFunctionException(
-          new IOException(
-              "Could not determine workspace file (\"WORKSPACE.bazel\" or \"WORKSPACE\"): "
-                  + e.getMessage()),
-          Transience.PERSISTENT);
-    }
-    SkyKey workspaceKey = WorkspaceFileValue.key(workspaceFilePath);
-    WorkspaceFileValue workspacePackage = (WorkspaceFileValue) env.getValue(workspaceKey);
-    if (workspacePackage == null) {
-      return null;
-    }
-
-    try {
-      String workspaceNameStr = workspacePackage.getPackage().getWorkspaceName();
-      if (workspaceNameStr.isEmpty()) {
-        RepositoryName.create("");
-      } else {
-        RepositoryName.create("@" + workspaceNameStr);
-      }
-    } catch (LabelSyntaxException e) {
-      throw new IllegalStateException(e);
-    }
-
     return RepositoryValue.success(nameFromRule, repository);
   }
 

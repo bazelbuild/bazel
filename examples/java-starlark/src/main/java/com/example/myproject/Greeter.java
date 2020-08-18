@@ -30,7 +30,7 @@ public class Greeter {
     String greeting = "Hello";
     try {
       String greetFile = getRunfiles()
-          + "/io_bazel/examples/java-skylark/src/main/resources/greeting.txt";
+          + "/io_bazel/examples/java-starlark/src/main/resources/greeting.txt";
       greeting = convertStreamToString(new FileInputStream(greetFile));
     } catch (FileNotFoundException e) {
       // use default.
